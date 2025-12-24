@@ -89,7 +89,8 @@ class FeishuChatProvider(ChatProvider):
     def _load_config(self) -> Dict[str, Any]:
         """加载飞书配置
         
-        从Django settings中读取飞书相关配置。
+        优先从 Admin 后台的 SystemConfig 读取配置，
+        如果没有则回退到 Django settings。
         
         Returns:
             Dict[str, Any]: 飞书配置字典
@@ -98,15 +99,45 @@ class FeishuChatProvider(ChatProvider):
             ConfigurationException: 当配置格式错误时
         """
         try:
-            config = getattr(settings, 'FEISHU', {})
+            config = {}
             
-            # 确保配置是字典类型
-            if not isinstance(config, dict):
-                raise ConfigurationException(
-                    message="FEISHU配置必须是字典类型",
-                    platform="feishu",
-                    missing_config="FEISHU"
-                )
+            # 优先从 Admin 后台的 SystemConfig 读取配置
+            try:
+                from apps.core.models import SystemConfig
+                
+                # 获取飞书分类下的所有配置
+                db_configs = SystemConfig.get_category_configs('feishu')
+                
+                if db_configs:
+                    # 映射数据库配置键到内部配置键
+                    key_mapping = {
+                        'FEISHU_APP_ID': 'APP_ID',
+                        'FEISHU_APP_SECRET': 'APP_SECRET',
+                        'FEISHU_WEBHOOK_URL': 'WEBHOOK_URL',
+                        'FEISHU_TIMEOUT': 'TIMEOUT',
+                        'FEISHU_DEFAULT_OWNER_ID': 'DEFAULT_OWNER_ID',
+                    }
+                    
+                    for db_key, internal_key in key_mapping.items():
+                        if db_key in db_configs and db_configs[db_key]:
+                            config[internal_key] = db_configs[db_key]
+                    
+                    logger.debug(f"从 SystemConfig 加载飞书配置: {list(config.keys())}")
+                    
+            except Exception as e:
+                logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {str(e)}")
+            
+            # 如果 SystemConfig 没有配置，回退到 Django settings
+            if not config.get('APP_ID') or not config.get('APP_SECRET'):
+                settings_config = getattr(settings, 'FEISHU', {})
+                
+                if isinstance(settings_config, dict):
+                    # 合并 settings 配置（不覆盖已有的 SystemConfig 配置）
+                    for key, value in settings_config.items():
+                        if key not in config and value is not None and value != "":
+                            config[key] = value
+                    
+                    logger.debug(f"从 settings 补充飞书配置: {list(config.keys())}")
             
             # 设置默认值
             config.setdefault('TIMEOUT', 30)
@@ -117,7 +148,7 @@ class FeishuChatProvider(ChatProvider):
                 if value is not None and value != "":
                     filtered_config[key] = value
             
-            logger.debug(f"已加载飞书配置: {list(filtered_config.keys())}")
+            logger.debug(f"最终飞书配置: {list(filtered_config.keys())}")
             return filtered_config
             
         except Exception as e:
