@@ -27,22 +27,6 @@
 
 ### Docker 部署 (推荐)
 
-```bash
-# 1. 克隆项目
-git clone https://github.com/your-repo/fachuang-cms.git
-cd fachuang-cms
-
-# 2. 配置环境变量
-cp docker/.env.docker.example .env
-# 编辑 .env 设置 DJANGO_SECRET_KEY
-
-# 3. 启动服务
-docker-compose up -d
-
-# 4. 访问系统
-# http://localhost:8002/admin
-```
-
 详细部署说明请参考 [Docker 快速部署指南](DOCKER_QUICKSTART.md)
 
 ### 本地开发
