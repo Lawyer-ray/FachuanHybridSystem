@@ -62,9 +62,13 @@ backend/apiSystem/htmlcov/
 
 # macOS
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 ._*
+
+# IDE specific (Trae)
+.trae/
 
 # Logs
 logs/
