@@ -671,7 +671,7 @@ python manage.py optimize_token_performance --warm-cache court_zxfw
 
 ## 📝 更新日志
 
-### v2.0.0 (2024-01)
+### v2.0.0 (2025-01)
 - ✨ 完成架构重构，采用三层架构
 - ✨ 实现依赖注入和接口解耦
 - ✨ 添加 Property-Based Testing
@@ -679,7 +679,7 @@ python manage.py optimize_token_performance --warm-cache court_zxfw
 - 🐛 修复 N+1 查询问题
 - 📚 完善文档和代码规范
 
-### v1.0.0 (2023-12)
+### v1.0.0 (2025-12)
 - 🎉 初始版本发布
 - ✨ 实现案件、合同、客户管理
 - ✨ 实现自动化爬虫功能

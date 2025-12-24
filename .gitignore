@@ -89,6 +89,9 @@ backend/apiSystem/htmlcov/
 # Personal project - exclude tests
 backend/tests/
 
+# Internal documentation (not for open source)
+backend/docs/
+
 # Jupyter
 .ipynb_checkpoints/
 
