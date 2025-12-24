@@ -142,6 +142,13 @@ class FeishuChatProvider(ChatProvider):
             # 设置默认值
             config.setdefault('TIMEOUT', 30)
             
+            # 确保 TIMEOUT 是整数类型（从数据库加载的可能是字符串）
+            if 'TIMEOUT' in config:
+                try:
+                    config['TIMEOUT'] = int(config['TIMEOUT'])
+                except (ValueError, TypeError):
+                    config['TIMEOUT'] = 30
+            
             # 过滤掉空值配置
             filtered_config = {}
             for key, value in config.items():
