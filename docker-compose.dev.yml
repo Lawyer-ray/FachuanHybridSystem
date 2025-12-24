@@ -1,0 +1,158 @@
+# ============================================================
+# 法穿案件管理系统 - Docker Compose 开发环境配置
+# ============================================================
+# 使用说明：
+# 运行: docker-compose -f docker-compose.dev.yml up
+# 
+# 特性：
+# - 代码热重载（挂载本地代码目录）
+# - DEBUG 模式启用
+# - 暴露调试端口
+# - 使用 runserver 命令
+# ============================================================
+# Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+
+services:
+  # ============================================================
+  # Backend 服务 - Django 开发服务器
+  # ============================================================
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: fachuang-backend-dev
+    restart: unless-stopped
+    ports:
+      # Django 开发服务器
+      - "8002:8000"
+      # Python 调试端口（可选）
+      - "5678:5678"
+    volumes:
+      # 挂载代码目录实现热重载
+      - ./backend:/app
+      # 数据持久化（开发环境也需要）
+      - dev_db_data:/app/data
+      - dev_media_data:/app/media
+    environment:
+      # Django 开发配置
+      - DJANGO_SECRET_KEY=dev-secret-key-not-for-production-use-only
+      - DJANGO_DEBUG=True
+      - DJANGO_ALLOWED_HOSTS=*
+      # 数据库配置
+      - DATABASE_PATH=/app/data/db.sqlite3
+      # Redis 配置
+      - REDIS_URL=redis://redis:6379/0
+      # 版本信息
+      - APP_VERSION=dev
+      # 开发环境可选配置
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+    depends_on:
+      - redis
+    # 使用 Django 开发服务器（支持热重载）
+    command: >
+      sh -c "
+        cd /app/apiSystem &&
+        python manage.py migrate --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    # Playwright 浏览器需要更多共享内存
+    shm_size: '2gb'
+    # 开发环境日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - fachuang-dev-network
+    # 开发环境使用 stdin_open 和 tty 支持交互式调试
+    stdin_open: true
+    tty: true
+
+  # ============================================================
+  # Redis 服务 - 缓存和任务队列
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: fachuang-redis-dev
+    restart: unless-stopped
+    ports:
+      # 开发环境暴露 Redis 端口便于调试
+      - "6379:6379"
+    volumes:
+      - dev_redis_data:/data
+    command: redis-server --appendonly yes
+    # 开发环境日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - fachuang-dev-network
+
+  # ============================================================
+  # Q-Cluster 服务 - 后台任务（开发环境可选）
+  # ============================================================
+  qcluster:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: fachuang-qcluster-dev
+    restart: unless-stopped
+    profiles:
+      - with-qcluster  # 使用 --profile with-qcluster 启动
+    volumes:
+      # 挂载代码目录
+      - ./backend:/app
+      # 共享数据卷
+      - dev_db_data:/app/data
+      - dev_media_data:/app/media
+    environment:
+      - DJANGO_SECRET_KEY=dev-secret-key-not-for-production-use-only
+      - DJANGO_DEBUG=True
+      - DJANGO_ALLOWED_HOSTS=*
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - REDIS_URL=redis://redis:6379/0
+      - APP_VERSION=dev
+    depends_on:
+      - backend
+      - redis
+    command: ["python", "apiSystem/manage.py", "qcluster"]
+    shm_size: '2gb'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - fachuang-dev-network
+
+# ============================================================
+# 数据卷定义（开发环境）
+# ============================================================
+volumes:
+  # 开发环境数据库
+  dev_db_data:
+    name: fachuang-dev-db
+    driver: local
+  
+  # 开发环境媒体文件
+  dev_media_data:
+    name: fachuang-dev-media
+    driver: local
+  
+  # 开发环境 Redis 数据
+  dev_redis_data:
+    name: fachuang-dev-redis
+    driver: local
+
+# ============================================================
+# 网络定义（开发环境）
+# ============================================================
+networks:
+  fachuang-dev-network:
+    name: fachuang-dev-network
+    driver: bridge

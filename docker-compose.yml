@@ -1,0 +1,201 @@
+# ============================================================
+# 法穿案件管理系统 - Docker Compose 生产环境配置
+# ============================================================
+# 使用说明：
+# 1. 复制 docker/.env.docker.example 为 .env
+# 2. 修改 .env 中的配置（特别是 DJANGO_SECRET_KEY）
+# 3. 运行: docker-compose up -d
+# ============================================================
+# Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 3.1-3.6, 8.2-8.4, 11.5
+
+services:
+  # ============================================================
+  # Backend 服务 - Django 应用
+  # ============================================================
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: fachuang-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8002}:8000"
+    volumes:
+      # 数据持久化卷
+      - db_data:/app/data          # SQLite 数据库
+      - media_data:/app/media      # 上传的媒体文件
+      - log_data:/app/logs         # 日志文件
+      - static_data:/app/staticfiles  # 静态文件
+    environment:
+      # Django 核心配置
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?请设置 DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # 数据库配置
+      - DATABASE_PATH=/app/data/db.sqlite3
+      # Redis 配置
+      - REDIS_URL=redis://redis:6379/0
+      # 版本信息
+      - APP_VERSION=${APP_VERSION:-1.0.0}
+      # 可选配置（从 .env 读取）
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Playwright 浏览器需要更多共享内存
+    shm_size: '2gb'
+    # 资源限制（Requirements: 6.5）
+    deploy:
+      resources:
+        limits:
+          cpus: '${BACKEND_CPU_LIMIT:-2.0}'
+          memory: ${BACKEND_MEMORY_LIMIT:-2G}
+        reservations:
+          cpus: '${BACKEND_CPU_RESERVATION:-0.5}'
+          memory: ${BACKEND_MEMORY_RESERVATION:-512M}
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - fachuang-network
+
+  # ============================================================
+  # Redis 服务 - 缓存和任务队列
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: fachuang-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '${REDIS_CPU_LIMIT:-0.5}'
+          memory: ${REDIS_MEMORY_LIMIT:-512M}
+        reservations:
+          cpus: '${REDIS_CPU_RESERVATION:-0.1}'
+          memory: ${REDIS_MEMORY_RESERVATION:-128M}
+    networks:
+      - fachuang-network
+    # 不暴露端口到主机（安全考虑）
+    # 如需调试，取消下面的注释
+    # ports:
+    #   - "6379:6379"
+
+  # ============================================================
+  # Q-Cluster 服务 - Django-Q 后台任务处理
+  # ============================================================
+  qcluster:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: fachuang-qcluster
+    restart: unless-stopped
+    volumes:
+      # 共享数据卷（与 backend 相同）
+      - db_data:/app/data
+      - media_data:/app/media
+      - log_data:/app/logs
+    environment:
+      # 与 backend 相同的环境变量
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?请设置 DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - REDIS_URL=redis://redis:6379/0
+      - APP_VERSION=${APP_VERSION:-1.0.0}
+      # 可选配置
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 覆盖默认命令，运行 qcluster
+    command: ["python", "apiSystem/manage.py", "qcluster"]
+    # Playwright 浏览器需要更多共享内存
+    shm_size: '2gb'
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '${QCLUSTER_CPU_LIMIT:-1.0}'
+          memory: ${QCLUSTER_MEMORY_LIMIT:-1G}
+        reservations:
+          cpus: '${QCLUSTER_CPU_RESERVATION:-0.25}'
+          memory: ${QCLUSTER_MEMORY_RESERVATION:-256M}
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - fachuang-network
+
+# ============================================================
+# 数据卷定义
+# ============================================================
+volumes:
+  # SQLite 数据库存储
+  db_data:
+    name: fachuang-db
+    driver: local
+  
+  # 媒体文件存储（上传的文档等）
+  media_data:
+    name: fachuang-media
+    driver: local
+  
+  # 日志文件存储
+  log_data:
+    name: fachuang-logs
+    driver: local
+  
+  # 静态文件存储
+  static_data:
+    name: fachuang-static
+    driver: local
+  
+  # Redis 数据持久化
+  redis_data:
+    name: fachuang-redis
+    driver: local
+
+# ============================================================
+# 网络定义
+# ============================================================
+networks:
+  fachuang-network:
+    name: fachuang-network
+    driver: bridge
