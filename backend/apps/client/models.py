@@ -118,7 +118,7 @@ class ClientIdentityDoc(models.Model):
         verbose_name = "当事人证件文件"
         verbose_name_plural = "当事人证件文件"
         db_table = "cases_clientidentitydoc"
-        managed = False
+        managed = True
 
 
 class PropertyClue(models.Model):

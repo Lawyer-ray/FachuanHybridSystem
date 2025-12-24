@@ -43,8 +43,16 @@ notepad .env
 **必须修改的配置**：
 
 ```bash
-# 生成安全密钥（在终端运行）
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+# 生成安全密钥（选择以下任一方式）
+
+# 方式1: 使用 openssl（推荐，macOS/Linux 自带）
+openssl rand -base64 50
+
+# 方式2: 使用 /dev/urandom（Linux/macOS）
+head -c 50 /dev/urandom | base64
+
+# 方式3: 在线生成
+# 访问 https://djecrety.ir/ 或任意密码生成器
 
 # 将生成的密钥填入 .env 文件的 DJANGO_SECRET_KEY
 DJANGO_SECRET_KEY=你生成的密钥

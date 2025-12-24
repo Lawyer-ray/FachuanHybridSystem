@@ -12,37 +12,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="ClientIdentityDoc",
-            fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                (
-                    "doc_type",
-                    models.CharField(
-                        choices=[
-                            ("id_card", "身份证"),
-                            ("passport", "护照"),
-                            ("hk_macao_permit", "港澳通行证"),
-                            ("residence_permit", "居住证"),
-                            ("household_register", "户口本"),
-                            ("business_license", "营业执照"),
-                            ("legal_rep_certificate", "法定代表人身份证明书"),
-                            ("legal_rep_id_card", "法定代表人身份证"),
-                        ],
-                        max_length=32,
-                        verbose_name="证件类型",
-                    ),
-                ),
-                ("file_path", models.CharField(max_length=512, verbose_name="文件路径")),
-                ("uploaded_at", models.DateTimeField(auto_now_add=True, verbose_name="上传时间")),
-            ],
-            options={
-                "verbose_name": "当事人证件文件",
-                "verbose_name_plural": "当事人证件文件",
-                "db_table": "cases_clientidentitydoc",
-                "managed": False,
-            },
-        ),
-        migrations.CreateModel(
             name="Client",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
@@ -135,6 +104,46 @@ class Migration(migrations.Migration):
                 "verbose_name": "财产线索附件",
                 "verbose_name_plural": "财产线索附件",
                 "db_table": "cases_propertyclueattachment",
+                "managed": True,
+            },
+        ),
+        migrations.CreateModel(
+            name="ClientIdentityDoc",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "doc_type",
+                    models.CharField(
+                        choices=[
+                            ("id_card", "身份证"),
+                            ("passport", "护照"),
+                            ("hk_macao_permit", "港澳通行证"),
+                            ("residence_permit", "居住证"),
+                            ("household_register", "户口本"),
+                            ("business_license", "营业执照"),
+                            ("legal_rep_certificate", "法定代表人身份证明书"),
+                            ("legal_rep_id_card", "法定代表人身份证"),
+                        ],
+                        max_length=32,
+                        verbose_name="证件类型",
+                    ),
+                ),
+                ("file_path", models.CharField(max_length=512, verbose_name="文件路径")),
+                ("uploaded_at", models.DateTimeField(auto_now_add=True, verbose_name="上传时间")),
+                (
+                    "client",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="identity_docs",
+                        to="client.client",
+                        verbose_name="当事人",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "当事人证件文件",
+                "verbose_name_plural": "当事人证件文件",
+                "db_table": "cases_clientidentitydoc",
                 "managed": True,
             },
         ),

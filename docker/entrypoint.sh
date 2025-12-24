@@ -151,7 +151,7 @@ validate_environment() {
         if [ -z "$DJANGO_SECRET_KEY" ]; then
             log_error "生产环境必须设置 DJANGO_SECRET_KEY"
             log_error "请在 .env 文件中配置安全的密钥"
-            log_error "生成命令: python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
+            log_error "生成命令: openssl rand -base64 50"
             exit 1
         fi
         
@@ -159,7 +159,7 @@ validate_environment() {
             if [ "$DJANGO_SECRET_KEY" = "$unsafe_key" ]; then
                 log_error "生产环境不能使用默认的不安全密钥: $unsafe_key"
                 log_error "请生成一个新的安全密钥"
-                log_error "生成命令: python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
+                log_error "生成命令: openssl rand -base64 50"
                 exit 1
             fi
         done
