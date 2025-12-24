@@ -1,0 +1,77 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools %}
+{# 隐藏默认的 object-tools，使用自定义按钮区域 #}
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* 强制 Bootstrap 5 按钮样式 */
+    .btn-bs {
+        display: inline-block !important;
+        font-weight: 400 !important;
+        line-height: 1.5 !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        vertical-align: middle !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        border: 1px solid transparent !important;
+        padding: 0.375rem 0.75rem !important;
+        font-size: 0.875rem !important;
+        border-radius: 0.375rem !important;
+        transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out !important;
+    }
+    .btn-bs.btn-success { background-color: #198754 !important; border-color: #198754 !important; color: #fff !important; }
+    .btn-bs.btn-success:hover { background-color: #157347 !important; border-color: #146c43 !important; }
+    .btn-bs.btn-primary { background-color: #0d6efd !important; border-color: #0d6efd !important; color: #fff !important; }
+    .btn-bs.btn-primary:hover { background-color: #0b5ed7 !important; border-color: #0a58ca !important; }
+    .btn-bs.btn-info { background-color: #0dcaf0 !important; border-color: #0dcaf0 !important; color: #000 !important; }
+    .btn-bs.btn-info:hover { background-color: #31d2f2 !important; border-color: #25cff2 !important; }
+    .btn-bs.btn-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; color: #fff !important; }
+    .btn-bs.btn-danger:hover { background-color: #bb2d3b !important; border-color: #b02a37 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 配置说明卡片 -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <h6 class="card-title mb-2">📋 配置管理说明</h6>
+        <ul class="mb-0 small">
+            <li><strong>初始化默认配置</strong>：创建系统所需的所有配置项（不会覆盖已有配置）</li>
+            <li><strong>从环境变量同步</strong>：将 .env 文件中的配置同步到数据库（会覆盖已有值）</li>
+            <li><strong>清除缓存</strong>：修改配置后如果未生效，可以手动清除缓存</li>
+            <li><strong>敏感信息</strong>：标记为敏感的配置项在列表中会脱敏显示</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 操作按钮区域 -->
+<div class="d-flex justify-content-end flex-wrap gap-2 mb-3">
+    {% if has_add_permission %}
+    <a href="{% url 'admin:core_systemconfig_add' %}" class="btn-bs btn-success">
+        ＋ 增加配置
+    </a>
+    {% endif %}
+    {% if show_init_button %}
+    <a href="{% url 'admin:core_systemconfig_init_defaults' %}" class="btn-bs btn-primary">
+        初始化默认配置
+    </a>
+    {% endif %}
+    {% if show_sync_button %}
+    <a href="{% url 'admin:core_systemconfig_sync_env' %}" class="btn-bs btn-info">
+        从环境变量同步
+    </a>
+    {% endif %}
+    {% if show_clear_cache_button %}
+    <a href="{% url 'admin:core_systemconfig_clear_cache' %}" class="btn-bs btn-danger">
+        清除缓存
+    </a>
+    {% endif %}
+</div>
+
+{{ block.super }}
+{% endblock %}

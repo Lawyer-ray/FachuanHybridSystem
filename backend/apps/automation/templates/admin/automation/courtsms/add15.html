@@ -1,0 +1,210 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    :root {
+        --neu-bg: #e0e5ec;
+        --neu-light: #ffffff;
+        --neu-dark: #a3b1c6;
+        --neu-text: #4a5568;
+        --neu-text-light: #718096;
+        --neu-primary: #6366f1;
+        --neu-success: #10b981;
+        --neu-error: #ef4444;
+    }
+    body { background: var(--neu-bg); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .neu-wrapper { max-width: 650px; margin: 50px auto; padding: 0 24px; }
+    .neu-header { text-align: center; margin-bottom: 40px; }
+    .neu-icon {
+        width: 80px; height: 80px; margin: 0 auto 20px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2rem;
+        background: var(--neu-bg);
+        box-shadow: 8px 8px 16px var(--neu-dark), -8px -8px 16px var(--neu-light);
+    }
+    .neu-title {
+        font-family: 'Inter', sans-serif; font-size: 1.75rem; font-weight: 600;
+        color: var(--neu-text);
+    }
+    .neu-subtitle {
+        font-family: 'Inter', sans-serif; font-size: 0.9rem;
+        color: var(--neu-text-light); margin-top: 8px;
+    }
+    .neu-card {
+        background: var(--neu-bg);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 8px 8px 16px var(--neu-dark), -8px -8px 16px var(--neu-light);
+    }
+    .neu-label {
+        font-family: 'Inter', sans-serif; font-size: 0.8rem; font-weight: 500;
+        color: var(--neu-text-light);
+        text-transform: uppercase; letter-spacing: 0.1em;
+        margin-bottom: 12px;
+    }
+    .neu-textarea-wrap {
+        background: var(--neu-bg);
+        border-radius: 16px;
+        padding: 4px;
+        box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+    }
+    .neu-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Inter', sans-serif; font-size: 1rem; line-height: 1.6;
+        color: var(--neu-text);
+        background: transparent;
+        border: none; border-radius: 12px;
+        resize: vertical; box-sizing: border-box;
+    }
+    .neu-textarea:focus { outline: none; }
+    .neu-textarea::placeholder { color: var(--neu-text-light); }
+    .neu-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Inter', sans-serif; font-size: 0.8rem; color: var(--neu-text-light);
+    }
+    .neu-actions { display: flex; gap: 16px; margin-top: 28px; }
+    .neu-btn {
+        flex: 1; padding: 14px 24px;
+        font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 500;
+        border-radius: 12px; cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none; text-align: center;
+        border: none;
+    }
+    .neu-btn-primary {
+        background: var(--neu-bg); color: var(--neu-primary);
+        box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
+    }
+    .neu-btn-primary:hover {
+        box-shadow: 2px 2px 4px var(--neu-dark), -2px -2px 4px var(--neu-light);
+    }
+    .neu-btn-primary:active {
+        box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+    }
+    .neu-btn-secondary {
+        background: var(--neu-bg); color: var(--neu-text-light);
+        box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
+    }
+    .neu-btn-secondary:hover { color: var(--neu-text); }
+    .neu-steps {
+        display: flex; justify-content: space-between;
+        margin-top: 32px; padding-top: 24px;
+    }
+    .neu-step { text-align: center; flex: 1; }
+    .neu-step-icon {
+        width: 44px; height: 44px; margin: 0 auto 8px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem;
+        background: var(--neu-bg);
+        box-shadow: 3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light);
+    }
+    .neu-step-text { font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--neu-text-light); }
+    .neu-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border-radius: 12px;
+        font-family: 'Inter', sans-serif; font-size: 0.9rem;
+        display: flex; align-items: center; gap: 12px;
+        background: var(--neu-bg);
+    }
+    .neu-alert-success { box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light); color: var(--neu-success); }
+    .neu-alert-error { box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light); color: var(--neu-error); }
+    .neu-history { margin-top: 40px; }
+    .neu-history-title {
+        font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 500;
+        color: var(--neu-text); margin-bottom: 16px;
+    }
+    .neu-history-list { display: flex; flex-direction: column; gap: 12px; }
+    .neu-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: var(--neu-bg);
+        border-radius: 16px;
+        text-decoration: none;
+        box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
+        transition: all 0.2s ease;
+    }
+    .neu-history-item:hover {
+        box-shadow: 2px 2px 4px var(--neu-dark), -2px -2px 4px var(--neu-light);
+    }
+    .neu-status {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.9rem;
+        background: var(--neu-bg);
+        box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+    }
+    .neu-status.completed { color: var(--neu-success); }
+    .neu-status.pending { color: var(--neu-primary); }
+    .neu-status.failed { color: var(--neu-error); }
+    .neu-info { flex: 1; min-width: 0; }
+    .neu-text { font-family: 'Inter', sans-serif; font-size: 0.9rem; color: var(--neu-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .neu-meta-info { font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--neu-text-light); margin-top: 4px; }
+    @media (max-width: 640px) {
+        .neu-actions { flex-direction: column; }
+        .neu-steps { flex-wrap: wrap; gap: 16px; }
+        .neu-step { flex: none; width: 45%; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="neu-wrapper">
+    {% if messages %}{% for message in messages %}<div class="neu-alert neu-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}✓{% else %}!{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="neu-header">
+        <div class="neu-icon">📱</div>
+        <h1 class="neu-title">添加短信</h1>
+        <p class="neu-subtitle">法院短信自动处理系统</p>
+    </div>
+    <div class="neu-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="neu-label">短信内容</div>
+            <div class="neu-textarea-wrap">
+                <textarea name="content" class="neu-textarea" id="smsContent" placeholder="粘贴短信内容..." required></textarea>
+            </div>
+            <div class="neu-meta"><span id="charCount">0 字符</span><span>自动处理</span></div>
+            <div class="neu-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="neu-btn neu-btn-secondary">返回</a>
+                <button type="submit" class="neu-btn neu-btn-primary" id="submitBtn">提交</button>
+            </div>
+            <div class="neu-steps">
+                <div class="neu-step"><div class="neu-step-icon">🔍</div><div class="neu-step-text">解析</div></div>
+                <div class="neu-step"><div class="neu-step-icon">🎯</div><div class="neu-step-text">匹配</div></div>
+                <div class="neu-step"><div class="neu-step-icon">📥</div><div class="neu-step-text">下载</div></div>
+                <div class="neu-step"><div class="neu-step-icon">📤</div><div class="neu-step-text">通知</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="neu-history">
+        <div class="neu-history-title">最近记录</div>
+        <div class="neu-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="neu-history-item">
+                <div class="neu-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}○{% endif %}</div>
+                <div class="neu-info">
+                    <div class="neu-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="neu-meta-info">#{{ sms.id }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' 字符'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '提交中...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

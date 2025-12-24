@@ -6,7 +6,7 @@ This is a local-first, hybrid application:
 - **Client**: macOS Swift (Native Container) handling system operations (Future scope).
 
 # Monorepo Structure
-- `/backend`: Django, Django Ninja, Python 3.14.
+- `/backend`: Django, Django Ninja, Python 3.11.
 - `/frontend`: Vue 3, Vite, TypeScript, Element Plus.
 - `/macos_client`: SwiftUI (Future scope).
 

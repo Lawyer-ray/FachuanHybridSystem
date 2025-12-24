@@ -1,0 +1,61 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Text&display=swap');
+    :root { --dark: #0d0d0d; --purple: #2d1b4e; --gold: #8b7355; --blood: #4a0000; --stone: #2a2a2a; }
+    body { background: var(--dark); min-height: 100vh; color: #ccc; }
+    body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cpath d='M0 50 Q25 25 50 50 T100 50' fill='none' stroke='%23222' stroke-width='0.5'/%3E%3C/svg%3E");
+        opacity: 0.3; pointer-events: none; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .gothic-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .goth-header { text-align: center; margin-bottom: 35px; }
+    .goth-icon { font-size: 3rem; margin-bottom: 15px; }
+    .goth-title { font-family: 'Cinzel Decorative', cursive; font-size: 2.2rem; color: var(--gold); text-shadow: 0 0 20px rgba(139,115,85,0.5); }
+    .goth-subtitle { font-family: 'Crimson Text', serif; font-size: 1rem; color: #666; font-style: italic; margin-top: 8px; }
+    .goth-card { background: var(--stone); border: 2px solid var(--gold); padding: 30px; position: relative; }
+    .goth-card::before { content: '☽'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--dark); padding: 0 15px; color: var(--gold); font-size: 1.2rem; }
+    .goth-label { font-family: 'Cinzel Decorative', cursive; font-size: 0.95rem; color: var(--gold); margin-bottom: 12px; }
+    .goth-textarea { width: 100%; min-height: 170px; padding: 18px; font-family: 'Crimson Text', serif; font-size: 1rem; line-height: 1.7; color: #ddd; background: var(--dark); border: 1px solid var(--purple); resize: vertical; box-sizing: border-box; }
+    .goth-textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 15px rgba(139,115,85,0.3); }
+    .goth-textarea::placeholder { color: #555; font-style: italic; }
+    .goth-actions { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
+    .goth-btn { padding: 12px 30px; font-family: 'Cinzel Decorative', cursive; font-size: 0.9rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 1px solid var(--gold); }
+    .goth-btn-primary { background: var(--purple); color: var(--gold); }
+    .goth-btn-primary:hover { background: var(--blood); box-shadow: 0 0 20px rgba(74,0,0,0.5); }
+    .goth-btn-secondary { background: transparent; color: #888; border-color: #444; }
+    .goth-btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+    .goth-alert { padding: 15px; margin-bottom: 20px; border: 1px solid var(--gold); font-family: 'Crimson Text', serif; text-align: center; }
+    .goth-alert-success { background: rgba(45,27,78,0.5); }
+    .goth-alert-error { background: rgba(74,0,0,0.5); }
+    .goth-history { margin-top: 35px; }
+    .goth-history-title { font-family: 'Cinzel Decorative', cursive; font-size: 1rem; color: var(--gold); text-align: center; margin-bottom: 15px; }
+    .goth-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border-bottom: 1px solid #333; text-decoration: none; transition: all 0.3s; }
+    .goth-history-item:hover { background: rgba(45,27,78,0.3); }
+    .goth-status { font-size: 1.2rem; color: var(--gold); }
+    .goth-info { flex: 1; }
+    .goth-text { font-family: 'Crimson Text', serif; font-size: 0.9rem; color: #aaa; }
+    .goth-meta { font-size: 0.75rem; color: #555; margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="gothic-wrapper">
+    {% if messages %}{% for message in messages %}<div class="goth-alert goth-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="goth-header"><div class="goth-icon">🦇</div><h1 class="goth-title">Gothic SMS</h1><p class="goth-subtitle">— Darkness Awaits —</p></div>
+    <div class="goth-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="goth-label">⚰ Inscribe Your Message</div>
+        <textarea name="content" class="goth-textarea" id="smsContent" placeholder="Write in the shadows..." required></textarea>
+        <div class="goth-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="goth-btn goth-btn-secondary">← Retreat</a>
+        <button type="submit" class="goth-btn goth-btn-primary" id="submitBtn">Summon →</button></div></form></div>
+    {% if recent_sms %}<div class="goth-history"><div class="goth-history-title">🕯 Ancient Records</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="goth-history-item">
+    <div class="goth-status">{% if sms.status == 'completed' %}✝{% elif sms.status == 'failed' %}☠{% else %}◯{% endif %}</div>
+    <div class="goth-info"><div class="goth-text">{{ sms.content|truncatechars:40 }}</div>
+    <div class="goth-meta">#{{ sms.id }} · {{ sms.created_at|date:"Y.m.d" }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='Summoning...';b.disabled=true;});</script>
+{% endblock %}

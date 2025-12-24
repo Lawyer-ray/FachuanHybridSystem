@@ -1,0 +1,243 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600&display=swap');
+    :root {
+        --ocean-deep: #0c2461;
+        --ocean-mid: #1e3799;
+        --ocean-light: #4a69bd;
+        --ocean-surface: #6a89cc;
+        --foam: #dfe6e9;
+        --sand: #ffeaa7;
+        --coral: #ff7675;
+        --seaweed: #00b894;
+    }
+    body {
+        background: linear-gradient(180deg, var(--ocean-surface) 0%, var(--ocean-mid) 50%, var(--ocean-deep) 100%);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    /* 气泡动画 */
+    .bubble {
+        position: fixed;
+        background: rgba(255,255,255,0.3);
+        border-radius: 50%;
+        animation: rise linear infinite;
+        z-index: 0;
+    }
+    @keyframes rise {
+        0% { transform: translateY(0) scale(1); opacity: 0.6; }
+        100% { transform: translateY(-100vh) scale(1.2); opacity: 0; }
+    }
+    .b1 { width: 20px; height: 20px; left: 10%; bottom: -20px; animation-duration: 8s; }
+    .b2 { width: 15px; height: 15px; left: 25%; bottom: -15px; animation-duration: 10s; animation-delay: 2s; }
+    .b3 { width: 25px; height: 25px; left: 45%; bottom: -25px; animation-duration: 12s; animation-delay: 1s; }
+    .b4 { width: 12px; height: 12px; left: 60%; bottom: -12px; animation-duration: 9s; animation-delay: 3s; }
+    .b5 { width: 18px; height: 18px; left: 80%; bottom: -18px; animation-duration: 11s; animation-delay: 4s; }
+    .b6 { width: 22px; height: 22px; left: 90%; bottom: -22px; animation-duration: 7s; animation-delay: 2s; }
+    /* 波浪 */
+    .wave {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 100px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%230c2461' fill-opacity='0.3' d='M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E") repeat-x;
+        animation: wave 10s linear infinite;
+        z-index: 0;
+    }
+    @keyframes wave { 0% { background-position-x: 0; } 100% { background-position-x: 1440px; } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .ocean-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .ocean-header { text-align: center; margin-bottom: 32px; }
+    .ocean-icon { font-size: 4rem; margin-bottom: 16px; animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .ocean-title {
+        font-family: 'Quicksand', sans-serif; font-size: 2.2rem; font-weight: 600;
+        color: var(--foam);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .ocean-subtitle {
+        font-family: 'Quicksand', sans-serif; font-size: 1rem;
+        color: rgba(255,255,255,0.8);
+        margin-top: 8px;
+    }
+    .ocean-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 10px 40px rgba(12,36,97,0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    .ocean-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, var(--ocean-light), var(--seaweed), var(--ocean-surface));
+    }
+    .ocean-label {
+        font-family: 'Quicksand', sans-serif; font-size: 0.9rem; font-weight: 600;
+        color: var(--ocean-mid);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .ocean-label::before { content: '🐚'; }
+    .ocean-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Quicksand', sans-serif; font-size: 1rem; line-height: 1.7;
+        color: var(--ocean-deep);
+        background: rgba(106,137,204,0.1);
+        border: 2px solid var(--ocean-surface);
+        border-radius: 12px;
+        resize: vertical; box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    .ocean-textarea:focus { outline: none; border-color: var(--ocean-mid); background: rgba(106,137,204,0.15); }
+    .ocean-textarea::placeholder { color: var(--ocean-surface); }
+    .ocean-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Quicksand', sans-serif; font-size: 0.85rem; color: var(--ocean-light);
+    }
+    .ocean-actions { display: flex; gap: 16px; margin-top: 24px; }
+    .ocean-btn {
+        flex: 1; padding: 14px 24px;
+        font-family: 'Quicksand', sans-serif; font-size: 1rem; font-weight: 600;
+        border-radius: 30px; cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none; text-align: center;
+        border: none;
+    }
+    .ocean-btn-primary {
+        background: linear-gradient(135deg, var(--ocean-mid) 0%, var(--ocean-deep) 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(30,55,153,0.4);
+    }
+    .ocean-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(30,55,153,0.5); }
+    .ocean-btn-secondary {
+        background: white;
+        color: var(--ocean-mid);
+        border: 2px solid var(--ocean-surface);
+    }
+    .ocean-btn-secondary:hover { background: var(--ocean-surface); color: white; }
+    .ocean-process {
+        display: flex; justify-content: space-around;
+        margin-top: 28px; padding-top: 24px;
+        border-top: 2px dashed var(--ocean-surface);
+    }
+    .process-fish { text-align: center; }
+    .process-icon {
+        width: 50px; height: 50px; margin: 0 auto 8px;
+        background: linear-gradient(135deg, var(--ocean-surface) 0%, var(--ocean-light) 100%);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+    }
+    .process-text { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: var(--ocean-mid); }
+    .ocean-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border-radius: 12px;
+        font-family: 'Quicksand', sans-serif;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .ocean-alert-success { background: rgba(0,184,148,0.15); color: var(--seaweed); }
+    .ocean-alert-error { background: rgba(255,118,117,0.15); color: var(--coral); }
+    .ocean-history { margin-top: 32px; }
+    .ocean-history-title {
+        font-family: 'Quicksand', sans-serif; font-size: 1.1rem; font-weight: 600;
+        color: var(--foam);
+        margin-bottom: 16px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .ocean-history-title::before { content: '🐠'; }
+    .ocean-history-list { display: flex; flex-direction: column; gap: 10px; }
+    .ocean-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 16px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .ocean-history-item:hover { transform: translateX(5px); background: white; }
+    .ocean-status {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+    }
+    .ocean-status.completed { background: rgba(0,184,148,0.2); color: var(--seaweed); }
+    .ocean-status.pending { background: rgba(106,137,204,0.2); color: var(--ocean-mid); }
+    .ocean-status.failed { background: rgba(255,118,117,0.2); color: var(--coral); }
+    .ocean-info { flex: 1; min-width: 0; }
+    .ocean-text { font-family: 'Quicksand', sans-serif; font-size: 0.9rem; color: var(--ocean-deep); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ocean-meta-info { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: var(--ocean-light); margin-top: 4px; }
+    @media (max-width: 640px) {
+        .ocean-title { font-size: 1.6rem; }
+        .ocean-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="bubble b1"></div>
+<div class="bubble b2"></div>
+<div class="bubble b3"></div>
+<div class="bubble b4"></div>
+<div class="bubble b5"></div>
+<div class="bubble b6"></div>
+<div class="wave"></div>
+<div class="ocean-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ocean-alert ocean-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}🐬{% else %}🦀{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="ocean-header">
+        <div class="ocean-icon">🐋</div>
+        <h1 class="ocean-title">Ocean SMS</h1>
+        <p class="ocean-subtitle">Deep Sea Message Processing</p>
+    </div>
+    <div class="ocean-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="ocean-label">Message in a Bottle</div>
+            <textarea name="content" class="ocean-textarea" id="smsContent" placeholder="Paste your message here..." required></textarea>
+            <div class="ocean-meta"><span id="charCount">0 chars</span><span>🌊 Auto Flow</span></div>
+            <div class="ocean-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="ocean-btn ocean-btn-secondary">← Surface</a>
+                <button type="submit" class="ocean-btn ocean-btn-primary" id="submitBtn">🐚 Dive In</button>
+            </div>
+            <div class="ocean-process">
+                <div class="process-fish"><div class="process-icon">🔍</div><div class="process-text">Scan</div></div>
+                <div class="process-fish"><div class="process-icon">🎯</div><div class="process-text">Target</div></div>
+                <div class="process-fish"><div class="process-icon">📥</div><div class="process-text">Catch</div></div>
+                <div class="process-fish"><div class="process-icon">📤</div><div class="process-text">Release</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="ocean-history">
+        <div class="ocean-history-title">Recent Catches</div>
+        <div class="ocean-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ocean-history-item">
+                <div class="ocean-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}🐬{% elif sms.status == 'failed' %}🦀{% else %}🐟{% endif %}</div>
+                <div class="ocean-info">
+                    <div class="ocean-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="ocean-meta-info">#{{ sms.id }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' chars'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.innerHTML = '🌊 Diving...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

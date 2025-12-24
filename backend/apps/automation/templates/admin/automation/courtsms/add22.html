@@ -1,0 +1,200 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poiret+One&family=Playfair+Display:wght@400;700&display=swap');
+    :root {
+        --gold: #d4af37;
+        --gold-light: #f4e4bc;
+        --black: #1a1a1a;
+        --cream: #faf8f0;
+        --burgundy: #722f37;
+    }
+    body {
+        background: var(--cream);
+        background-image: 
+            repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(212,175,55,0.03) 50px, rgba(212,175,55,0.03) 51px),
+            repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(212,175,55,0.03) 50px, rgba(212,175,55,0.03) 51px);
+        min-height: 100vh;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .deco-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .deco-header { text-align: center; margin-bottom: 40px; position: relative; }
+    .deco-ornament {
+        width: 200px; height: 60px; margin: 0 auto 20px;
+        background: linear-gradient(90deg, transparent 0%, var(--gold) 20%, var(--gold) 80%, transparent 100%);
+        clip-path: polygon(0% 50%, 10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .deco-ornament::before {
+        content: '◆';
+        color: var(--cream);
+        font-size: 1.5rem;
+    }
+    .deco-title {
+        font-family: 'Poiret One', cursive;
+        font-size: 2.5rem;
+        color: var(--black);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+    }
+    .deco-subtitle {
+        font-family: 'Playfair Display', serif;
+        font-size: 0.9rem;
+        color: var(--burgundy);
+        margin-top: 8px;
+        letter-spacing: 0.2em;
+    }
+    .deco-card {
+        background: white;
+        border: 3px solid var(--gold);
+        position: relative;
+        padding: 40px;
+    }
+    .deco-card::before, .deco-card::after {
+        content: '';
+        position: absolute;
+        width: 30px; height: 30px;
+        border: 3px solid var(--gold);
+    }
+    .deco-card::before { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .deco-card::after { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+    .deco-label {
+        font-family: 'Poiret One', cursive;
+        font-size: 1.1rem;
+        color: var(--black);
+        letter-spacing: 0.2em;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+    }
+    .deco-textarea {
+        width: 100%; min-height: 180px; padding: 20px;
+        font-family: 'Playfair Display', serif;
+        font-size: 1rem; line-height: 1.8;
+        color: var(--black);
+        background: var(--cream);
+        border: 2px solid var(--gold);
+        resize: vertical; box-sizing: border-box;
+    }
+    .deco-textarea:focus { outline: none; border-color: var(--burgundy); }
+    .deco-textarea::placeholder { color: #999; font-style: italic; }
+    .deco-actions {
+        display: flex; gap: 20px; margin-top: 30px;
+        justify-content: center;
+    }
+    .deco-btn {
+        padding: 14px 40px;
+        font-family: 'Poiret One', cursive;
+        font-size: 1rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        border: 2px solid var(--gold);
+    }
+    .deco-btn-primary {
+        background: var(--gold);
+        color: var(--black);
+    }
+    .deco-btn-primary:hover { background: var(--burgundy); border-color: var(--burgundy); color: white; }
+    .deco-btn-secondary {
+        background: transparent;
+        color: var(--black);
+    }
+    .deco-btn-secondary:hover { background: var(--gold-light); }
+    .deco-divider {
+        display: flex; align-items: center; gap: 20px;
+        margin: 30px 0;
+        color: var(--gold);
+    }
+    .deco-divider::before, .deco-divider::after {
+        content: '';
+        flex: 1;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+    .deco-alert {
+        padding: 16px 24px; margin-bottom: 24px;
+        border: 2px solid var(--gold);
+        font-family: 'Playfair Display', serif;
+        text-align: center;
+    }
+    .deco-alert-success { background: rgba(212,175,55,0.1); color: var(--black); }
+    .deco-alert-error { background: rgba(114,47,55,0.1); color: var(--burgundy); border-color: var(--burgundy); }
+    .deco-history { margin-top: 40px; }
+    .deco-history-title {
+        font-family: 'Poiret One', cursive;
+        font-size: 1.2rem;
+        letter-spacing: 0.2em;
+        text-align: center;
+        color: var(--black);
+        margin-bottom: 20px;
+    }
+    .deco-history-item {
+        display: flex; align-items: center; gap: 20px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--gold-light);
+        text-decoration: none;
+        transition: background 0.3s;
+    }
+    .deco-history-item:hover { background: var(--gold-light); }
+    .deco-status {
+        width: 12px; height: 12px;
+        transform: rotate(45deg);
+    }
+    .deco-status.completed { background: var(--gold); }
+    .deco-status.pending { background: var(--cream); border: 2px solid var(--gold); }
+    .deco-status.failed { background: var(--burgundy); }
+    .deco-info { flex: 1; }
+    .deco-text { font-family: 'Playfair Display', serif; font-size: 0.9rem; color: var(--black); }
+    .deco-meta { font-family: 'Poiret One', cursive; font-size: 0.8rem; color: #666; margin-top: 4px; letter-spacing: 0.1em; }
+    @media (max-width: 640px) { .deco-title { font-size: 1.8rem; } .deco-actions { flex-direction: column; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="deco-wrapper">
+    {% if messages %}{% for message in messages %}<div class="deco-alert deco-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="deco-header">
+        <div class="deco-ornament"></div>
+        <h1 class="deco-title">Court SMS</h1>
+        <p class="deco-subtitle">— Automated Processing System —</p>
+    </div>
+    <div class="deco-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="deco-label">Message Content</div>
+            <textarea name="content" class="deco-textarea" id="smsContent" placeholder="Paste your court SMS here..." required></textarea>
+            <div class="deco-divider">◆</div>
+            <div class="deco-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="deco-btn deco-btn-secondary">← Return</a>
+                <button type="submit" class="deco-btn deco-btn-primary" id="submitBtn">Submit →</button>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="deco-history">
+        <div class="deco-history-title">— Recent Records —</div>
+        {% for sms in recent_sms %}
+        <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="deco-history-item">
+            <div class="deco-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+            <div class="deco-info">
+                <div class="deco-text">{{ sms.content|truncatechars:50 }}</div>
+                <div class="deco-meta">#{{ sms.id }} · {{ sms.created_at|date:"Y.m.d H:i" }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<script>
+document.getElementById('smsForm').addEventListener('submit', function(e) {
+    var ta = document.getElementById('smsContent'), btn = document.getElementById('submitBtn');
+    if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; }
+    btn.innerHTML = 'Processing...'; btn.disabled = true;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    :root { --plum: #c41e3a; --orchid: #9370db; --bamboo: #228b22; --chrysanthemum: #daa520; --paper: #faf9f5; --ink: #1a1a1a; }
+    body { background: var(--paper); min-height: 100vh; overflow-x: hidden; }
+    /* 花瓣飘落 */
+    .petal-fall { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .petal { position: absolute; font-size: 16px; opacity: 0.25; animation: fallPetal linear infinite; }
+    .petal:nth-child(1) { left: 8%; animation-duration: 12s; animation-delay: 0s; }
+    .petal:nth-child(2) { left: 22%; animation-duration: 15s; animation-delay: -2s; }
+    .petal:nth-child(3) { left: 38%; animation-duration: 18s; animation-delay: -5s; }
+    .petal:nth-child(4) { left: 55%; animation-duration: 14s; animation-delay: -3s; }
+    .petal:nth-child(5) { left: 72%; animation-duration: 16s; animation-delay: -7s; }
+    .petal:nth-child(6) { left: 88%; animation-duration: 20s; animation-delay: -10s; }
+    @keyframes fallPetal { 0% { top: -5%; transform: rotate(0deg) translateX(0); } 100% { top: 105%; transform: rotate(720deg) translateX(80px); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .sj-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .sj-header { text-align: center; margin-bottom: 35px; }
+    .sj-flowers { font-size: 2rem; margin-bottom: 15px; display: flex; justify-content: center; gap: 20px; }
+    .sj-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.3rem; color: var(--ink); letter-spacing: 0.2em; }
+    .sj-subtitle { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: #666; margin-top: 8px; }
+    .sj-card { background: white; border: 2px solid var(--plum); border-radius: 8px; padding: 35px; position: relative; }
+    .sj-card::before { content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border: 1px dashed var(--orchid); border-radius: 4px; pointer-events: none; }
+    .sj-label { font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; color: var(--plum); margin-bottom: 15px; }
+    .sj-textarea { width: 100%; min-height: 170px; padding: 20px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; line-height: 2; color: var(--ink); background: var(--paper); border: 1px solid #ddd; border-radius: 4px; resize: vertical; box-sizing: border-box; }
+    .sj-textarea:focus { outline: none; border-color: var(--orchid); }
+    .sj-textarea::placeholder { color: #bbb; }
+    .sj-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .sj-btn { padding: 12px 35px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border-radius: 4px; border: 2px solid var(--plum); }
+    .sj-btn-primary { background: var(--plum); color: white; }
+    .sj-btn-primary:hover { background: var(--orchid); border-color: var(--orchid); }
+    .sj-btn-secondary { background: white; color: var(--plum); }
+    .sj-btn-secondary:hover { background: #fef5f5; }
+    .sj-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'ZCOOL XiaoWei', serif; border-radius: 4px; }
+    .sj-alert-success { background: rgba(34,139,34,0.1); color: var(--bamboo); border: 1px solid var(--bamboo); }
+    .sj-alert-error { background: rgba(196,30,58,0.1); color: var(--plum); border: 1px solid var(--plum); }
+    .sj-history { margin-top: 35px; }
+    .sj-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--ink); margin-bottom: 15px; }
+    .sj-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: white; border: 1px solid #eee; border-radius: 4px; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .sj-history-item:hover { border-color: var(--orchid); }
+    .sj-icon { font-family: 'Ma Shan Zheng', cursive; font-size: 1.1rem; color: var(--plum); }
+    .sj-info { flex: 1; }
+    .sj-text { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--ink); }
+    .sj-meta { font-size: 0.8rem; color: #999; margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="petal-fall"><span class="petal">🌸</span><span class="petal">🌺</span><span class="petal">🌼</span><span class="petal">🌸</span><span class="petal">🌺</span><span class="petal">🌼</span></div>
+<div class="sj-wrapper">
+    {% if messages %}{% for message in messages %}<div class="sj-alert sj-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="sj-header"><div class="sj-flowers"><span>🌸</span><span>🌺</span><span>🎋</span><span>🌼</span></div><h1 class="sj-title">四君子函笺</h1><p class="sj-subtitle">梅兰竹菊 · 法院来函</p></div>
+    <div class="sj-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="sj-label">❀ 函中雅言</div>
+        <textarea name="content" class="sj-textarea" id="smsContent" placeholder="请将法院来函录于此..." required></textarea>
+        <div class="sj-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="sj-btn sj-btn-secondary">归园</a>
+        <button type="submit" class="sj-btn sj-btn-primary" id="submitBtn">呈函</button></div></form></div>
+    {% if recent_sms %}<div class="sj-history"><div class="sj-history-title">❀ 往来函牍</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="sj-history-item">
+    <span class="sj-icon">{% cycle '梅' '兰' '竹' '菊' %}</span>
+    <div class="sj-info"><div class="sj-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="sj-meta">第{{ sms.id }}函</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='呈函中...';b.disabled=true;});</script>
+{% endblock %}

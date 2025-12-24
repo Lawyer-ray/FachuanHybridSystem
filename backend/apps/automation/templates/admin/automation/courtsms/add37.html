@@ -1,0 +1,71 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600&display=swap');
+    :root { --sand: #d4a574; --terracotta: #c9784a; --turquoise: #40a4a4; --gold: #c9a227; --cream: #f5e6c8; }
+    body { background: linear-gradient(180deg, var(--sand) 0%, var(--cream) 100%); min-height: 100vh; overflow-x: hidden; }
+    /* 飞天飘带 */
+    .dunhuang-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .ribbon { position: absolute; width: 200px; height: 8px; background: linear-gradient(90deg, transparent, var(--terracotta), var(--turquoise), transparent); border-radius: 4px; opacity: 0.15; }
+    .ribbon1 { top: 15%; left: -10%; transform: rotate(15deg); animation: flowRibbon 20s ease-in-out infinite; }
+    .ribbon2 { top: 35%; right: -8%; transform: rotate(-10deg); animation: flowRibbon 25s ease-in-out infinite reverse; animation-delay: -5s; }
+    .ribbon3 { bottom: 25%; left: 5%; transform: rotate(8deg); animation: flowRibbon 22s ease-in-out infinite; animation-delay: -10s; }
+    .lotus { position: fixed; font-size: 40px; opacity: 0.08; animation: gentleFloat 8s ease-in-out infinite; }
+    .lotus1 { top: 20%; right: 15%; animation-delay: 0s; }
+    .lotus2 { bottom: 30%; left: 10%; animation-delay: -4s; }
+    @keyframes flowRibbon { 0%, 100% { transform: translateX(0) rotate(15deg) scaleX(1); } 50% { transform: translateX(50px) rotate(20deg) scaleX(1.2); } }
+    @keyframes gentleFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-15px) rotate(5deg); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .dh-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .dh-header { text-align: center; margin-bottom: 35px; }
+    .dh-buddha { font-size: 3.5rem; margin-bottom: 15px; }
+    .dh-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--terracotta); letter-spacing: 0.2em; }
+    .dh-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--gold); margin-top: 8px; }
+    .dh-card { background: linear-gradient(180deg, var(--cream) 0%, #e8d5b5 100%); border: 3px solid var(--terracotta); border-radius: 8px; padding: 35px; position: relative; }
+    .dh-card::before { content: '☸'; position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: var(--cream); padding: 0 15px; color: var(--turquoise); font-size: 1.5rem; }
+    .dh-label { font-family: 'Noto Serif SC', serif; font-size: 1rem; color: var(--terracotta); margin-bottom: 15px; }
+    .dh-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 2; color: #4a3728; background: rgba(255,255,255,0.6); border: 2px solid var(--sand); border-radius: 4px; resize: vertical; box-sizing: border-box; }
+    .dh-textarea:focus { outline: none; border-color: var(--turquoise); }
+    .dh-textarea::placeholder { color: var(--sand); }
+    .dh-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .dh-btn { padding: 12px 35px; font-family: 'Noto Serif SC', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 2px solid var(--terracotta); border-radius: 4px; }
+    .dh-btn-primary { background: var(--terracotta); color: var(--cream); }
+    .dh-btn-primary:hover { background: var(--turquoise); border-color: var(--turquoise); }
+    .dh-btn-secondary { background: transparent; color: var(--terracotta); }
+    .dh-btn-secondary:hover { background: rgba(201,120,74,0.1); }
+    .dh-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'Noto Serif SC', serif; border-radius: 4px; }
+    .dh-alert-success { background: rgba(64,164,164,0.15); color: var(--turquoise); border: 1px solid var(--turquoise); }
+    .dh-alert-error { background: rgba(201,120,74,0.15); color: var(--terracotta); border: 1px solid var(--terracotta); }
+    .dh-history { margin-top: 35px; }
+    .dh-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--terracotta); margin-bottom: 15px; }
+    .dh-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: rgba(255,255,255,0.5); border-radius: 4px; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .dh-history-item:hover { background: rgba(255,255,255,0.8); }
+    .dh-lotus { font-size: 1.2rem; color: var(--turquoise); }
+    .dh-info { flex: 1; }
+    .dh-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: #4a3728; }
+    .dh-meta { font-size: 0.8rem; color: var(--sand); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="dunhuang-bg"><div class="ribbon ribbon1"></div><div class="ribbon ribbon2"></div><div class="ribbon ribbon3"></div></div>
+<div class="lotus lotus1">🪷</div><div class="lotus lotus2">🪷</div>
+<div class="dh-wrapper">
+    {% if messages %}{% for message in messages %}<div class="dh-alert dh-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="dh-header"><div class="dh-buddha">🙏</div><h1 class="dh-title">敦煌函笺</h1><p class="dh-subtitle">丝路遗韵 · 法院来函</p></div>
+    <div class="dh-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="dh-label">❋ 经文录入</div>
+        <textarea name="content" class="dh-textarea" id="smsContent" placeholder="请将法院来函录于此卷..." required></textarea>
+        <div class="dh-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="dh-btn dh-btn-secondary">归藏</a>
+        <button type="submit" class="dh-btn dh-btn-primary" id="submitBtn">供奉</button></div></form></div>
+    {% if recent_sms %}<div class="dh-history"><div class="dh-history-title">❋ 藏经阁</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="dh-history-item">
+    <span class="dh-lotus">☸</span>
+    <div class="dh-info"><div class="dh-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="dh-meta">第{{ sms.id }}卷</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='供奉中...';b.disabled=true;});</script>
+{% endblock %}

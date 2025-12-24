@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    :root { --garden: #2d5a27; --stone: #708090; --water: #4682b4; --wood: #8b4513; --paper: #f5f5dc; }
+    body { background: var(--paper); min-height: 100vh; overflow-x: hidden; }
+    /* 园林水波 */
+    .garden-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .ripple { position: absolute; width: 100px; height: 100px; border: 1px solid rgba(70,130,180,0.1); border-radius: 50%; animation: expandRipple 4s ease-out infinite; }
+    .ripple1 { bottom: 15%; left: 20%; animation-delay: 0s; }
+    .ripple2 { bottom: 18%; left: 22%; animation-delay: -1s; }
+    .ripple3 { bottom: 12%; right: 25%; animation-delay: -2s; }
+    .ripple4 { bottom: 15%; right: 27%; animation-delay: -3s; }
+    .koi { position: fixed; font-size: 24px; opacity: 0.15; animation: swimKoi 20s ease-in-out infinite; }
+    .koi1 { bottom: 10%; }
+    .leaf-float { position: fixed; font-size: 20px; opacity: 0.2; animation: floatOnWater 8s ease-in-out infinite; }
+    .leaf-float1 { bottom: 18%; left: 35%; animation-delay: 0s; }
+    .leaf-float2 { bottom: 14%; right: 40%; animation-delay: -4s; }
+    @keyframes expandRipple { 0% { transform: scale(0.5); opacity: 0.15; } 100% { transform: scale(3); opacity: 0; } }
+    @keyframes swimKoi { 0% { left: -5%; transform: scaleX(1); } 49% { transform: scaleX(1); } 50% { left: 105%; transform: scaleX(-1); } 99% { transform: scaleX(-1); } 100% { left: -5%; transform: scaleX(1); } }
+    @keyframes floatOnWater { 0%, 100% { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(15px) rotate(10deg); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .yl-wrapper { max-width: 680px; margin: 40px auto; padding: 0 24px; }
+    .yl-header { text-align: center; margin-bottom: 35px; }
+    .yl-icon { font-size: 3.5rem; margin-bottom: 15px; }
+    .yl-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.3rem; color: var(--garden); letter-spacing: 0.2em; }
+    .yl-subtitle { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--stone); margin-top: 8px; }
+    .yl-card { background: white; border: 2px solid var(--garden); border-radius: 8px; padding: 35px; box-shadow: 0 5px 20px rgba(45,90,39,0.1); }
+    .yl-label { font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; color: var(--garden); margin-bottom: 15px; }
+    .yl-textarea { width: 100%; min-height: 170px; padding: 20px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; line-height: 2; color: #333; background: var(--paper); border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; }
+    .yl-textarea:focus { outline: none; border-color: var(--garden); }
+    .yl-textarea::placeholder { color: var(--stone); }
+    .yl-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .yl-btn { padding: 12px 35px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border-radius: 4px; border: 2px solid var(--garden); }
+    .yl-btn-primary { background: var(--garden); color: white; }
+    .yl-btn-primary:hover { background: #3d7a37; }
+    .yl-btn-secondary { background: white; color: var(--garden); }
+    .yl-btn-secondary:hover { background: #f0f5f0; }
+    .yl-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'ZCOOL XiaoWei', serif; border-radius: 4px; }
+    .yl-alert-success { background: rgba(45,90,39,0.1); color: var(--garden); border: 1px solid var(--garden); }
+    .yl-alert-error { background: rgba(139,69,19,0.1); color: var(--wood); border: 1px solid var(--wood); }
+    .yl-history { margin-top: 35px; }
+    .yl-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--garden); margin-bottom: 15px; }
+    .yl-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .yl-history-item:hover { border-color: var(--garden); background: #f8faf8; }
+    .yl-leaf { font-size: 1.2rem; }
+    .yl-info { flex: 1; }
+    .yl-text { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: #333; }
+    .yl-meta { font-size: 0.8rem; color: var(--stone); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="garden-bg"><div class="ripple ripple1"></div><div class="ripple ripple2"></div><div class="ripple ripple3"></div><div class="ripple ripple4"></div></div>
+<div class="koi koi1">🐟</div>
+<div class="leaf-float leaf-float1">🍂</div><div class="leaf-float leaf-float2">🍂</div>
+<div class="yl-wrapper">
+    {% if messages %}{% for message in messages %}<div class="yl-alert yl-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="yl-header"><div class="yl-icon">🏯</div><h1 class="yl-title">园林函笺</h1><p class="yl-subtitle">曲径通幽 · 法院来函</p></div>
+    <div class="yl-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="yl-label">◎ 函中雅事</div>
+        <textarea name="content" class="yl-textarea" id="smsContent" placeholder="步入园中，请将来函录于此..." required></textarea>
+        <div class="yl-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="yl-btn yl-btn-secondary">出园</a>
+        <button type="submit" class="yl-btn yl-btn-primary" id="submitBtn">呈函</button></div></form></div>
+    {% if recent_sms %}<div class="yl-history"><div class="yl-history-title">◎ 园中记事</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="yl-history-item">
+    <span class="yl-leaf">🍂</span>
+    <div class="yl-info"><div class="yl-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="yl-meta">第{{ sms.id }}函</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='呈函中...';b.disabled=true;});</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600&display=swap');
+    :root { --wood: #5d3a1a; --wood-light: #8b5a2b; --paper: #f5e6d3; --ink: #1a1a1a; --red: #8b0000; }
+    body { background: linear-gradient(135deg, #3d2314 0%, #5d3a1a 50%, #4a2c17 100%); min-height: 100vh; overflow-x: hidden; }
+    /* 烛光摇曳 */
+    .candle-glow { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .candle { position: absolute; width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,200,100,0.08) 0%, transparent 70%); border-radius: 50%; }
+    .candle1 { top: 10%; left: 5%; animation: flicker 3s ease-in-out infinite; }
+    .candle2 { bottom: 15%; right: 8%; animation: flicker 4s ease-in-out infinite; animation-delay: -1s; }
+    .dust { position: absolute; width: 3px; height: 3px; background: rgba(255,220,150,0.3); border-radius: 50%; animation: floatDust 10s ease-in-out infinite; }
+    .dust1 { top: 20%; left: 30%; animation-delay: 0s; }
+    .dust2 { top: 50%; left: 60%; animation-delay: -3s; }
+    .dust3 { top: 70%; left: 20%; animation-delay: -6s; }
+    .dust4 { top: 35%; left: 80%; animation-delay: -2s; }
+    @keyframes flicker { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+    @keyframes floatDust { 0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; } 50% { transform: translateY(-30px) translateX(20px); opacity: 0.6; } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .sf-wrapper { max-width: 680px; margin: 40px auto; padding: 0 24px; }
+    .sf-header { text-align: center; margin-bottom: 30px; }
+    .sf-icon { font-size: 3rem; margin-bottom: 15px; }
+    .sf-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--paper); letter-spacing: 0.2em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .sf-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: #d4a574; margin-top: 8px; }
+    .sf-card { background: var(--paper); border: 3px solid var(--wood); padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 0 50px rgba(139,69,19,0.1); }
+    .sf-label { font-family: 'Noto Serif SC', serif; font-size: 1rem; color: var(--wood); margin-bottom: 15px; }
+    .sf-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 2; color: var(--ink); background: rgba(255,255,255,0.8); border: 1px solid var(--wood-light); resize: vertical; box-sizing: border-box; }
+    .sf-textarea:focus { outline: none; border-color: var(--red); }
+    .sf-textarea::placeholder { color: #a08060; }
+    .sf-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .sf-btn { padding: 12px 35px; font-family: 'Noto Serif SC', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 2px solid var(--wood); }
+    .sf-btn-primary { background: var(--wood); color: var(--paper); }
+    .sf-btn-primary:hover { background: var(--red); border-color: var(--red); }
+    .sf-btn-secondary { background: transparent; color: var(--wood); }
+    .sf-btn-secondary:hover { background: rgba(139,69,19,0.1); }
+    .sf-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'Noto Serif SC', serif; border-left: 4px solid; }
+    .sf-alert-success { background: rgba(93,58,26,0.1); border-color: var(--wood); color: var(--wood); }
+    .sf-alert-error { background: rgba(139,0,0,0.1); border-color: var(--red); color: var(--red); }
+    .sf-history { margin-top: 35px; }
+    .sf-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--paper); margin-bottom: 15px; }
+    .sf-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: rgba(245,230,211,0.9); border-left: 3px solid var(--wood); margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .sf-history-item:hover { background: var(--paper); }
+    .sf-mark { font-family: 'Ma Shan Zheng', cursive; font-size: 1rem; color: var(--red); }
+    .sf-info { flex: 1; }
+    .sf-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--ink); }
+    .sf-meta { font-size: 0.8rem; color: var(--wood-light); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="candle-glow"><div class="candle candle1"></div><div class="candle candle2"></div><div class="dust dust1"></div><div class="dust dust2"></div><div class="dust dust3"></div><div class="dust dust4"></div></div>
+<div class="sf-wrapper">
+    {% if messages %}{% for message in messages %}<div class="sf-alert sf-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="sf-header"><div class="sf-icon">📚</div><h1 class="sf-title">书房函笺</h1><p class="sf-subtitle">红木书案 · 法院来函</p></div>
+    <div class="sf-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="sf-label">✎ 录入函文</div>
+        <textarea name="content" class="sf-textarea" id="smsContent" placeholder="请于此处录入法院来函..." required></textarea>
+        <div class="sf-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="sf-btn sf-btn-secondary">掩卷</a>
+        <button type="submit" class="sf-btn sf-btn-primary" id="submitBtn">呈阅</button></div></form></div>
+    {% if recent_sms %}<div class="sf-history"><div class="sf-history-title">✎ 案头函牍</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="sf-history-item">
+    <span class="sf-mark">卷{{ forloop.counter }}</span>
+    <div class="sf-info"><div class="sf-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="sf-meta">编号{{ sms.id }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='呈阅中...';b.disabled=true;});</script>
+{% endblock %}

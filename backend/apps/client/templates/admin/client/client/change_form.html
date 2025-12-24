@@ -1,0 +1,328 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        .text-parser-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .text-parser-section h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .parser-tabs {
+            display: flex;
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 15px;
+        }
+        .parser-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .parser-tab.active {
+            color: #007cba;
+            border-bottom-color: #007cba;
+            font-weight: bold;
+        }
+        .parser-tab:hover {
+            color: #005a87;
+        }
+        .parser-content {
+            display: none;
+        }
+        .parser-content.active {
+            display: block;
+        }
+        .text-parser-textarea {
+            width: 100%;
+            height: 120px;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        .text-parser-controls {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .parse-btn {
+            background-color: #007cba;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .parse-btn:hover {
+            background-color: #005a87;
+        }
+        .parse-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block form_top %}
+    {% if not original %}
+    <div class="text-parser-section">
+        <h3>🚀 快速填充当事人信息</h3>
+        
+        <div class="parser-tabs">
+            <button type="button" class="parser-tab active" data-tab="text">粘贴文本解析</button>
+            <button type="button" class="parser-tab" data-tab="json">粘贴JSON</button>
+        </div>
+        
+        <!-- 文本解析 -->
+        <div id="text-parser-content" class="parser-content active">
+            <textarea id="text-parser-input" class="text-parser-textarea" placeholder="支持格式：
+答辩人（被申请人）：广东XX有限公司
+统一社会信用代码：91XXXXW2N
+地址：广东省XXX
+法定代表人：伍XXX
+电话：0XXX53
+
+原告：广东XXX公司
+被告：徐X，男，汉族，1977年9月10日出生"></textarea>
+            <div class="text-parser-controls">
+                <button type="button" id="parse-single-btn" class="parse-btn">解析并填充</button>
+                <label style="font-size: 12px; color: #6c757d;">
+                    <input type="checkbox" id="auto-parse-checkbox"> 粘贴时自动解析
+                </label>
+            </div>
+        </div>
+        
+        <!-- JSON解析 -->
+        <div id="json-parser-content" class="parser-content">
+            <textarea id="json-parser-input" class="text-parser-textarea" placeholder='粘贴JSON格式数据，例如：
+{
+    "name": "广东XX有限公司",
+    "client_type": "legal",
+    "id_number": "91XXXXW2N",
+    "address": "广东省XXX",
+    "phone": "0XXX53",
+    "legal_representative": "伍XXX"
+}'></textarea>
+            <div class="text-parser-controls">
+                <button type="button" id="parse-json-btn" class="parse-btn">解析JSON并填充</button>
+            </div>
+        </div>
+        
+        <div id="parse-results"></div>
+    </div>
+    {% endif %}
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ========== 客户类型切换逻辑 ==========
+        const clientTypeField = document.getElementById('id_client_type');
+        const legalRepRow = document.querySelector('.form-row.field-legal_representative');
+        const idNumberLabel = document.querySelector('label[for="id_id_number"]');
+        
+        function updateFormByClientType(clearFields) {
+            const clientType = clientTypeField ? clientTypeField.value : 'legal';
+            const isNatural = clientType === 'natural';
+            
+            // 显示/隐藏法定代表人字段
+            if (legalRepRow) {
+                legalRepRow.style.display = isNatural ? 'none' : '';
+            }
+            
+            // 更新证件号码标签
+            if (idNumberLabel) {
+                idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
+            }
+            
+            // 切换时清空所有字段
+            if (clearFields) {
+                ['name', 'phone', 'address', 'id_number', 'legal_representative'].forEach(function(fieldName) {
+                    const field = document.getElementById('id_' + fieldName);
+                    if (field) field.value = '';
+                });
+            }
+        }
+        
+        if (clientTypeField) {
+            // 初始化时更新表单（不清空字段）
+            updateFormByClientType(false);
+            
+            // 监听客户类型变化
+            clientTypeField.addEventListener('change', function() {
+                updateFormByClientType(true);
+            });
+        }
+        
+        // ========== Tab切换 ==========
+        const tabs = document.querySelectorAll('.parser-tab');
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                tabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                document.querySelectorAll('.parser-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(this.dataset.tab + '-parser-content').classList.add('active');
+            });
+        });
+        
+        // ========== 文本/JSON解析 ==========
+        const textInput = document.getElementById('text-parser-input');
+        const jsonInput = document.getElementById('json-parser-input');
+        const parseSingleBtn = document.getElementById('parse-single-btn');
+        const parseJsonBtn = document.getElementById('parse-json-btn');
+        const autoParseCheckbox = document.getElementById('auto-parse-checkbox');
+        const resultsDiv = document.getElementById('parse-results');
+        
+        if (!textInput) return;
+        
+        // 文本解析按钮
+        parseSingleBtn.addEventListener('click', function() { parseText(); });
+        
+        // JSON解析按钮
+        parseJsonBtn.addEventListener('click', function() { parseJson(); });
+        
+        // 粘贴自动解析
+        textInput.addEventListener('paste', function() {
+            if (autoParseCheckbox.checked) {
+                setTimeout(function() { parseText(); }, 100);
+            }
+        });
+        
+        function parseText() {
+            const text = textInput.value.trim();
+            if (!text) {
+                showMessage('请输入要解析的文本内容', 'error');
+                return;
+            }
+            
+            setButtonsDisabled(true);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch('/api/v1/client/clients/parse-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ text: text, parse_multiple: false })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.client) {
+                    fillFormWithData(data.client);
+                    showMessage('文本解析成功，表单已自动填充！', 'success');
+                    textInput.value = '';
+                } else {
+                    showMessage('解析失败: ' + (data.error || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('解析请求失败:', error);
+                showMessage('解析请求失败，请检查网络连接', 'error');
+            })
+            .finally(() => { setButtonsDisabled(false); });
+        }
+        
+        function parseJson() {
+            const jsonText = jsonInput.value.trim();
+            if (!jsonText) {
+                showMessage('请输入JSON内容', 'error');
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(jsonText);
+                fillFormWithData(data);
+                showMessage('JSON解析成功，表单已自动填充！', 'success');
+                jsonInput.value = '';
+            } catch (e) {
+                showMessage('JSON格式错误: ' + e.message, 'error');
+            }
+        }
+        
+        function setButtonsDisabled(disabled) {
+            parseSingleBtn.disabled = disabled;
+            parseJsonBtn.disabled = disabled;
+            parseSingleBtn.textContent = disabled ? '解析中...' : '解析并填充';
+        }
+        
+        function fillFormWithData(data) {
+            // 先设置客户类型，再更新表单显示（不清空字段）
+            if (data.client_type) {
+                setFieldValue('client_type', data.client_type);
+                updateFormByClientType(false);
+            }
+            if (data.name) setFieldValue('name', data.name);
+            if (data.phone) setFieldValue('phone', data.phone);
+            if (data.address) setFieldValue('address', data.address);
+            if (data.id_number) setFieldValue('id_number', data.id_number);
+            if (data.legal_representative) setFieldValue('legal_representative', data.legal_representative);
+            if (data.is_our_client !== undefined) setFieldValue('is_our_client', data.is_our_client);
+            highlightFilledFields();
+        }
+        
+        function setFieldValue(fieldName, value) {
+            const field = document.getElementById('id_' + fieldName);
+            if (field && value !== undefined && value !== null) {
+                if (field.type === 'checkbox') {
+                    field.checked = !!value;
+                } else {
+                    field.value = value;
+                }
+                field.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        function highlightFilledFields() {
+            ['name', 'phone', 'address', 'id_number', 'legal_representative'].forEach(function(fieldName) {
+                const field = document.getElementById('id_' + fieldName);
+                if (field && field.value) {
+                    field.style.backgroundColor = '#e8f5e8';
+                    field.style.borderColor = '#4caf50';
+                    setTimeout(function() {
+                        field.style.backgroundColor = '';
+                        field.style.borderColor = '';
+                    }, 3000);
+                }
+            });
+        }
+        
+        function showMessage(message, type) {
+            resultsDiv.innerHTML = '<div class="' + type + '-message">' + message + '</div>';
+            setTimeout(function() {
+                if (resultsDiv.innerHTML.includes(message)) resultsDiv.innerHTML = '';
+            }, 3000);
+        }
+    });
+    </script>
+{% endblock %}

@@ -1,0 +1,315 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    :root {
+        --ink-black: #1a1a1a;
+        --ink-gray: #4a4a4a;
+        --paper: #f5f0e6;
+        --seal-red: #c41e3a;
+        --bamboo: #5d7a5d;
+    }
+    body {
+        background: var(--paper);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        pointer-events: none;
+    }
+    /* 水墨晕染动画 - 更明显 */
+    .ink-mist { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .ink-drop { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(26,26,26,0.12) 0%, rgba(26,26,26,0.05) 40%, transparent 70%); animation: inkSpread ease-in-out infinite; }
+    .ink-drop.drop1 { width: 400px; height: 400px; top: 5%; left: 0%; animation-duration: 15s; }
+    .ink-drop.drop2 { width: 350px; height: 350px; top: 50%; right: 5%; left: auto; animation-duration: 18s; animation-delay: -5s; }
+    .ink-drop.drop3 { width: 300px; height: 300px; bottom: 10%; top: auto; left: 25%; animation-duration: 20s; animation-delay: -10s; }
+    @keyframes inkSpread { 0%, 100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.4); opacity: 1; } }
+    /* 飞鸟远影 - 更明显 */
+    .flying-bird { position: fixed; font-size: 24px; color: rgba(26,26,26,0.25); animation: flyAcross linear infinite; pointer-events: none; z-index: 1; }
+    .flying-bird.bird1 { top: 12%; animation-duration: 25s; }
+    .flying-bird.bird2 { top: 22%; animation-duration: 30s; animation-delay: -10s; font-size: 18px; }
+    @keyframes flyAcross { 0% { left: -5%; } 100% { left: 105%; } }
+    /* 山水远景 */
+    .mountain-bg { position: fixed; bottom: 0; left: 0; right: 0; height: 200px; pointer-events: none; z-index: 0; opacity: 0.08; background: linear-gradient(135deg, transparent 40%, rgba(26,26,26,0.3) 45%, transparent 50%), linear-gradient(160deg, transparent 50%, rgba(26,26,26,0.2) 55%, transparent 60%), linear-gradient(180deg, transparent 70%, rgba(26,26,26,0.15) 100%); }
+    /* 浮动云雾 */
+    .cloud-mist { position: fixed; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .cloud-mist::before, .cloud-mist::after { content: ''; position: absolute; width: 600px; height: 150px; background: radial-gradient(ellipse, rgba(26,26,26,0.06) 0%, transparent 70%); animation: floatCloud 30s ease-in-out infinite; }
+    .cloud-mist::before { top: 20%; left: -10%; }
+    .cloud-mist::after { top: 60%; right: -10%; animation-delay: -15s; animation-direction: reverse; }
+    @keyframes floatCloud { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(100px); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .ink-wrapper { max-width: 700px; margin: 40px auto; padding: 0 20px; position: relative; }
+    .ink-header { text-align: center; margin-bottom: 40px; position: relative; }
+    .ink-seal {
+        width: 80px; height: 80px; margin: 0 auto 20px;
+        background: var(--seal-red);
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        transform: rotate(-5deg);
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+        position: relative;
+    }
+    .ink-seal::before {
+        content: '法';
+        font-family: 'Ma Shan Zheng', cursive;
+        font-size: 2.5rem;
+        color: var(--paper);
+    }
+    .ink-title {
+        font-family: 'Ma Shan Zheng', cursive;
+        font-size: 3rem;
+        color: var(--ink-black);
+        letter-spacing: 0.3em;
+        position: relative;
+        display: inline-block;
+    }
+    .ink-title::after {
+        content: '';
+        position: absolute;
+        bottom: -5px; left: 50%;
+        transform: translateX(-50%);
+        width: 60%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, var(--ink-black), transparent);
+    }
+    .ink-subtitle {
+        font-family: 'ZCOOL XiaoWei', serif;
+        font-size: 1rem;
+        color: var(--ink-gray);
+        margin-top: 16px;
+        letter-spacing: 0.5em;
+    }
+    .ink-card {
+        background: linear-gradient(180deg, #fffef9 0%, #f5f0e6 100%);
+        border: 1px solid #d4c5a9;
+        padding: 40px;
+        position: relative;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .ink-card::before, .ink-card::after {
+        content: '';
+        position: absolute;
+        width: 60px; height: 60px;
+        border: 2px solid var(--ink-gray);
+        opacity: 0.3;
+    }
+    .ink-card::before { top: 15px; left: 15px; border-right: none; border-bottom: none; }
+    .ink-card::after { bottom: 15px; right: 15px; border-left: none; border-top: none; }
+    .ink-label {
+        font-family: 'ZCOOL XiaoWei', serif;
+        font-size: 1rem;
+        color: var(--ink-black);
+        margin-bottom: 16px;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .ink-label::before { content: '◇'; color: var(--seal-red); }
+    .ink-textarea {
+        width: 100%; min-height: 200px; padding: 24px;
+        font-family: 'ZCOOL XiaoWei', serif;
+        font-size: 1.1rem; line-height: 2.2;
+        color: var(--ink-black);
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--ink-gray);
+        resize: vertical; box-sizing: border-box;
+        background-image: repeating-linear-gradient(transparent, transparent 35px, rgba(0,0,0,0.05) 35px, rgba(0,0,0,0.05) 36px);
+        background-size: 100% 36px;
+    }
+    .ink-textarea:focus { outline: none; border-bottom-color: var(--seal-red); }
+    .ink-textarea::placeholder { color: #aaa; }
+    .ink-meta {
+        display: flex; justify-content: space-between; margin-top: 16px;
+        font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--ink-gray);
+    }
+    .ink-actions { display: flex; gap: 20px; margin-top: 32px; justify-content: center; }
+    .ink-btn {
+        padding: 14px 40px;
+        font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem;
+        border: 1px solid; cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none; text-align: center;
+        position: relative;
+    }
+    .ink-btn-primary {
+        background: var(--ink-black); border-color: var(--ink-black); color: var(--paper);
+    }
+    .ink-btn-primary:hover { background: var(--seal-red); border-color: var(--seal-red); }
+    .ink-btn-secondary {
+        background: transparent; border-color: var(--ink-gray); color: var(--ink-gray);
+    }
+    .ink-btn-secondary:hover { border-color: var(--ink-black); color: var(--ink-black); }
+    .ink-process {
+        display: flex; justify-content: space-around;
+        margin-top: 36px; padding-top: 28px;
+        border-top: 1px dashed var(--ink-gray);
+    }
+    .process-step { text-align: center; }
+    .process-char {
+        font-family: 'Ma Shan Zheng', cursive;
+        font-size: 1.8rem; color: var(--ink-black);
+        margin-bottom: 8px;
+    }
+    .process-label { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.8rem; color: var(--ink-gray); }
+    .ink-alert {
+        padding: 16px 24px; margin-bottom: 24px;
+        border-left: 4px solid;
+        font-family: 'ZCOOL XiaoWei', serif;
+    }
+    .ink-alert-success { background: rgba(93,122,93,0.1); border-color: var(--bamboo); color: var(--bamboo); }
+    .ink-alert-error { background: rgba(196,30,58,0.1); border-color: var(--seal-red); color: var(--seal-red); }
+    .ink-history { margin-top: 40px; }
+    .ink-history-title {
+        font-family: 'Ma Shan Zheng', cursive;
+        font-size: 1.5rem; color: var(--ink-black);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--ink-black);
+        display: inline-block;
+    }
+    .ink-history-list { display: flex; flex-direction: column; gap: 12px; }
+    .ink-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 16px 20px;
+        background: rgba(255,255,255,0.5);
+        border: 1px solid #d4c5a9;
+        text-decoration: none; transition: all 0.3s ease;
+    }
+    .ink-history-item:hover { background: rgba(255,255,255,0.9); border-color: var(--ink-black); }
+    .ink-status {
+        width: 24px; height: 24px;
+        font-family: 'Ma Shan Zheng', cursive; font-size: 1rem;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .ink-status.completed { color: var(--bamboo); }
+    .ink-status.pending { color: var(--ink-gray); }
+    .ink-status.failed { color: var(--seal-red); }
+    .ink-info { flex: 1; min-width: 0; }
+    .ink-text { font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; color: var(--ink-black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ink-meta-info { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.8rem; color: var(--ink-gray); margin-top: 4px; }
+    /* 自定义毛笔光标 */
+    body, body * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M8 28 L12 8 L14 6 L16 8 L12 28 Z' fill='%23654321'/%3E%3Cpath d='M11 8 L12 4 L14 4 L15 8 Z' fill='%231a1a1a'/%3E%3Cellipse cx='12' cy='28' rx='2' ry='1' fill='%231a1a1a' opacity='0.6'/%3E%3C/svg%3E") 12 28, auto; }
+    .ink-btn, a, button, input, textarea, select { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M8 28 L12 8 L14 6 L16 8 L12 28 Z' fill='%23c41e3a'/%3E%3Cpath d='M11 8 L12 4 L14 4 L15 8 Z' fill='%231a1a1a'/%3E%3Cellipse cx='12' cy='28' rx='3' ry='1.5' fill='%23c41e3a' opacity='0.8'/%3E%3C/svg%3E") 12 28, pointer; }
+    /* 鼠标水墨轨迹 */
+    .ink-trail { position: fixed; pointer-events: none; z-index: 9999; }
+    .ink-particle { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(26,26,26,0.4) 0%, rgba(26,26,26,0.1) 50%, transparent 70%); transform: translate(-50%, -50%); animation: inkFade 1.5s ease-out forwards; }
+    @keyframes inkFade { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
+    /* 点击涟漪效果 */
+    .ink-ripple { position: fixed; pointer-events: none; z-index: 9998; border-radius: 50%; border: 2px solid rgba(26,26,26,0.3); animation: rippleExpand 0.8s ease-out forwards; }
+    @keyframes rippleExpand { 0% { width: 0; height: 0; opacity: 1; transform: translate(-50%, -50%); } 100% { width: 100px; height: 100px; opacity: 0; transform: translate(-50%, -50%); } }
+    @media (max-width: 640px) {
+        .ink-title { font-size: 2rem; }
+        .ink-actions { flex-direction: column; }
+        .ink-btn { width: 100%; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="ink-mist"><div class="ink-drop drop1"></div><div class="ink-drop drop2"></div><div class="ink-drop drop3"></div></div>
+<div class="cloud-mist"></div>
+<div class="mountain-bg"></div>
+<span class="flying-bird bird1">🕊</span><span class="flying-bird bird2">🕊</span>
+<div class="ink-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ink-alert ink-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="ink-header">
+        <div class="ink-seal"></div>
+        <h1 class="ink-title">法院来函</h1>
+        <p class="ink-subtitle">短信处理系统</p>
+    </div>
+    <div class="ink-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="ink-label">短信内容</div>
+            <textarea name="content" class="ink-textarea" id="smsContent" placeholder="请将法院短信内容粘贴于此..." required></textarea>
+            <div class="ink-meta"><span id="charCount">字数：零</span><span>自动处理</span></div>
+            <div class="ink-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="ink-btn ink-btn-secondary">返回</a>
+                <button type="submit" class="ink-btn ink-btn-primary" id="submitBtn">提交</button>
+            </div>
+            <div class="ink-process">
+                <div class="process-step"><div class="process-char">解</div><div class="process-label">解析</div></div>
+                <div class="process-step"><div class="process-char">配</div><div class="process-label">匹配</div></div>
+                <div class="process-step"><div class="process-char">取</div><div class="process-label">下载</div></div>
+                <div class="process-step"><div class="process-char">达</div><div class="process-label">通知</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="ink-history">
+        <div class="ink-history-title">近期记录</div>
+        <div class="ink-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ink-history-item">
+                <span class="ink-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}成{% elif sms.status == 'failed' %}败{% else %}待{% endif %}</span>
+                <div class="ink-info">
+                    <div class="ink-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="ink-meta-info">编号 {{ sms.id }} · {{ sms.created_at|date:"Y年m月d日" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    const cn = ['零','一','二','三','四','五','六','七','八','九'];
+    function toCN(n) { if (n < 10) return cn[n]; if (n < 100) return (n >= 10 ? cn[Math.floor(n/10)] + '十' : '') + (n%10 ? cn[n%10] : ''); return n; }
+    ta.addEventListener('input', function() { cc.textContent = '字数：' + toCN(this.value.length); });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '处理中...'; b.disabled = true; });
+    ta.focus();
+
+    // 水墨轨迹效果
+    const trail = document.createElement('div');
+    trail.className = 'ink-trail';
+    document.body.appendChild(trail);
+    
+    let lastX = 0, lastY = 0, lastTime = 0;
+    const throttle = 50; // 控制生成频率
+    
+    document.addEventListener('mousemove', function(e) {
+        const now = Date.now();
+        if (now - lastTime < throttle) return;
+        
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist > 20) { // 移动足够距离才生成墨点
+            const particle = document.createElement('div');
+            particle.className = 'ink-particle';
+            const size = Math.min(20, 8 + dist * 0.1); // 速度越快墨点越大
+            particle.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;width:${size}px;height:${size}px;`;
+            trail.appendChild(particle);
+            
+            // 清理旧粒子
+            setTimeout(() => particle.remove(), 1500);
+            if (trail.children.length > 30) trail.firstChild.remove();
+            
+            lastX = e.clientX;
+            lastY = e.clientY;
+            lastTime = now;
+        }
+    });
+    
+    // 点击涟漪效果
+    document.addEventListener('click', function(e) {
+        const ripple = document.createElement('div');
+        ripple.className = 'ink-ripple';
+        ripple.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;`;
+        document.body.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 800);
+    });
+});
+</script>
+{% endblock %}

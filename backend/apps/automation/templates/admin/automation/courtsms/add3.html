@@ -1,0 +1,480 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.5);
+        --accent: #0ea5e9;
+        --accent-dark: #0284c7;
+        --text-dark: #0f172a;
+        --text-muted: #64748b;
+        --success: #22c55e;
+        --error: #ef4444;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 25%, #fdf4ff 50%, #fef3c7 75%, #fee2e2 100%);
+        background-attachment: fixed;
+        min-height: 100vh;
+    }
+    
+    #container { background: transparent; }
+    #content { padding: 0; }
+    
+    .add3-wrapper {
+        max-width: 720px;
+        margin: 60px auto;
+        padding: 0 24px;
+    }
+    
+    /* 玻璃卡片 */
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    
+    /* 头部 */
+    .header {
+        text-align: center;
+        margin-bottom: 36px;
+    }
+    
+    .header-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: linear-gradient(135deg, var(--accent), #8b5cf6);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 100px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 16px;
+    }
+    
+    .header h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        margin: 0 0 8px 0;
+        letter-spacing: -0.02em;
+    }
+    
+    .header p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin: 0;
+    }
+    
+    /* 表单 */
+    .form-field {
+        margin-bottom: 24px;
+    }
+    
+    .field-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 8px;
+    }
+    
+    .textarea-wrapper {
+        position: relative;
+    }
+    
+    .sms-input {
+        width: 100%;
+        min-height: 200px;
+        padding: 20px;
+        font-size: 1rem;
+        line-height: 1.75;
+        color: var(--text-dark);
+        background: #ffffff;
+        border: 2px solid #cbd5e1;
+        border-radius: 16px;
+        resize: vertical;
+        transition: all 0.3s ease;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    
+    .sms-input:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+    }
+    
+    .sms-input::placeholder {
+        color: var(--text-muted);
+    }
+    
+    .input-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        padding: 0 4px;
+    }
+    
+    .char-count {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    
+    .input-hint {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    /* 按钮 */
+    .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 32px;
+    }
+    
+    .btn {
+        flex: 1;
+        padding: 16px 24px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        text-align: center;
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+        color: white;
+        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+    }
+    
+    .btn-submit:active {
+        transform: translateY(0);
+    }
+    
+    .btn-submit:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-back {
+        background: rgba(255, 255, 255, 0.5);
+        color: var(--text-muted);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-back:hover {
+        background: rgba(255, 255, 255, 0.8);
+        color: var(--text-dark);
+    }
+    
+    /* 加载状态 */
+    .btn-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: none;
+    }
+    
+    .btn-submit.loading .spinner { display: block; }
+    .btn-submit.loading .btn-label { display: none; }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* 消息 */
+    .alert {
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .alert-success {
+        background: rgba(34, 197, 94, 0.15);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #15803d;
+    }
+    
+    .alert-error {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #dc2626;
+    }
+    
+    /* 功能卡片 */
+    .features {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    
+    .feature {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 10px;
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+    
+    .feature-icon {
+        font-size: 1.2rem;
+    }
+    
+    /* 最近记录 */
+    .recent {
+        margin-top: 40px;
+    }
+    
+    .recent-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+    
+    .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .recent-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .recent-item:hover {
+        background: rgba(255, 255, 255, 0.85);
+        transform: translateX(4px);
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    
+    .status-dot.completed { background: var(--success); }
+    .status-dot.pending { background: #f59e0b; }
+    .status-dot.failed { background: var(--error); }
+    
+    .recent-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .recent-text {
+        color: var(--text-dark);
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .recent-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+    
+    .recent-meta span {
+        color: var(--accent);
+        font-weight: 600;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 640px) {
+        .add3-wrapper { margin: 30px auto; }
+        .glass-card { padding: 24px; border-radius: 20px; }
+        .header h1 { font-size: 1.5rem; }
+        .actions { flex-direction: column; }
+        .features { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="add3-wrapper">
+    <!-- 消息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {% if message.tags == 'success' %}✓{% else %}⚠{% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- 主卡片 -->
+    <div class="glass-card">
+        <div class="header">
+            <div class="header-badge">
+                <span>📱</span>
+                <span>法院短信处理</span>
+            </div>
+            <h1>添加新短信</h1>
+            <p>粘贴短信内容，系统自动解析处理</p>
+        </div>
+        
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            
+            <div class="form-field">
+                <label class="field-label">短信内容</label>
+                <div class="textarea-wrapper">
+                    <textarea 
+                        name="content" 
+                        class="sms-input" 
+                        id="smsContent"
+                        placeholder="在此粘贴法院短信内容..."
+                        required
+                    ></textarea>
+                </div>
+                <div class="input-footer">
+                    <span class="char-count" id="charCount">0 字</span>
+                    <span class="input-hint">
+                        <span>⌘V</span> 粘贴
+                    </span>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="btn btn-back">
+                    返回列表
+                </a>
+                <button type="submit" class="btn btn-submit" id="submitBtn">
+                    <span class="btn-content">
+                        <span class="spinner"></span>
+                        <span class="btn-label">提交处理</span>
+                    </span>
+                </button>
+            </div>
+        </form>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">🔗</span>
+                <span>自动提取下载链接</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔍</span>
+                <span>智能识别案号</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">👤</span>
+                <span>匹配当事人信息</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📤</span>
+                <span>推送飞书通知</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近记录 -->
+    {% if recent_sms %}
+    <div class="recent">
+        <div class="recent-header">
+            <span>🕐</span>
+            <span>最近添加</span>
+        </div>
+        <div class="recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="recent-item">
+                <div class="status-dot {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="recent-info">
+                    <div class="recent-text">{{ sms.content|truncatechars:50 }}</div>
+                    <div class="recent-meta">
+                        <span>#{{ sms.id }}</span> · {{ sms.get_status_display }} · {{ sms.created_at|date:"m-d H:i" }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCount = document.getElementById('charCount');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    textarea.addEventListener('input', function() {
+        charCount.textContent = this.value.length + ' 字';
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

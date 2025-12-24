@@ -1,0 +1,188 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap');
+    :root {
+        --nord-bg: #fafafa;
+        --nord-card: #ffffff;
+        --nord-text: #2d3436;
+        --nord-text-light: #636e72;
+        --nord-border: #dfe6e9;
+        --nord-accent: #74b9ff;
+        --nord-success: #00b894;
+        --nord-error: #d63031;
+        --nord-muted: #b2bec3;
+    }
+    body { background: var(--nord-bg); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .nord-wrapper { max-width: 560px; margin: 60px auto; padding: 0 24px; }
+    .nord-header { margin-bottom: 48px; }
+    .nord-title {
+        font-family: 'DM Sans', sans-serif; font-size: 1.5rem; font-weight: 500;
+        color: var(--nord-text);
+        letter-spacing: -0.02em;
+    }
+    .nord-subtitle {
+        font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+        color: var(--nord-text-light);
+        margin-top: 4px;
+    }
+    .nord-card {
+        background: var(--nord-card);
+        border: 1px solid var(--nord-border);
+        border-radius: 8px;
+        padding: 32px;
+    }
+    .nord-label {
+        font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500;
+        color: var(--nord-text-light);
+        margin-bottom: 8px;
+    }
+    .nord-textarea {
+        width: 100%; min-height: 180px; padding: 16px;
+        font-family: 'DM Sans', sans-serif; font-size: 0.95rem; line-height: 1.7;
+        color: var(--nord-text);
+        background: var(--nord-bg);
+        border: 1px solid var(--nord-border);
+        border-radius: 6px;
+        resize: vertical; box-sizing: border-box;
+        transition: border-color 0.2s ease;
+    }
+    .nord-textarea:focus { outline: none; border-color: var(--nord-accent); }
+    .nord-textarea::placeholder { color: var(--nord-muted); }
+    .nord-meta {
+        display: flex; justify-content: flex-end; margin-top: 8px;
+        font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--nord-muted);
+    }
+    .nord-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+    .nord-btn {
+        padding: 10px 20px;
+        font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500;
+        border-radius: 6px; cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none; text-align: center;
+        border: 1px solid;
+    }
+    .nord-btn-primary {
+        background: var(--nord-text); border-color: var(--nord-text); color: white;
+    }
+    .nord-btn-primary:hover { background: #1a1a1a; }
+    .nord-btn-secondary {
+        background: transparent; border-color: var(--nord-border); color: var(--nord-text-light);
+    }
+    .nord-btn-secondary:hover { border-color: var(--nord-text-light); }
+    .nord-divider {
+        height: 1px;
+        background: var(--nord-border);
+        margin: 28px 0;
+    }
+    .nord-steps { display: flex; gap: 24px; }
+    .nord-step {
+        flex: 1;
+        text-align: center;
+        padding: 16px 8px;
+        border-radius: 6px;
+        background: var(--nord-bg);
+    }
+    .nord-step-num {
+        font-family: 'DM Sans', sans-serif; font-size: 0.7rem;
+        color: var(--nord-muted);
+        margin-bottom: 8px;
+    }
+    .nord-step-icon { font-size: 1.2rem; margin-bottom: 4px; }
+    .nord-step-text { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--nord-text-light); }
+    .nord-alert {
+        padding: 12px 16px; margin-bottom: 24px;
+        border-radius: 6px;
+        font-family: 'DM Sans', sans-serif; font-size: 0.875rem;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .nord-alert-success { background: rgba(0,184,148,0.1); color: var(--nord-success); }
+    .nord-alert-error { background: rgba(214,48,49,0.1); color: var(--nord-error); }
+    .nord-history { margin-top: 48px; }
+    .nord-history-title {
+        font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500;
+        color: var(--nord-text-light);
+        margin-bottom: 16px;
+    }
+    .nord-history-list { display: flex; flex-direction: column; gap: 1px; background: var(--nord-border); border-radius: 8px; overflow: hidden; }
+    .nord-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 16px;
+        background: var(--nord-card);
+        text-decoration: none;
+        transition: background 0.2s ease;
+    }
+    .nord-history-item:hover { background: var(--nord-bg); }
+    .nord-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+    }
+    .nord-dot.completed { background: var(--nord-success); }
+    .nord-dot.pending { background: var(--nord-accent); }
+    .nord-dot.failed { background: var(--nord-error); }
+    .nord-info { flex: 1; min-width: 0; }
+    .nord-text { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--nord-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nord-meta-info { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--nord-muted); margin-top: 2px; }
+    @media (max-width: 640px) {
+        .nord-steps { flex-wrap: wrap; }
+        .nord-step { flex: none; width: calc(50% - 12px); }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="nord-wrapper">
+    {% if messages %}{% for message in messages %}<div class="nord-alert nord-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}✓{% else %}!{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="nord-header">
+        <h1 class="nord-title">添加短信</h1>
+        <p class="nord-subtitle">法院短信自动处理</p>
+    </div>
+    <div class="nord-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="nord-label">短信内容</div>
+            <textarea name="content" class="nord-textarea" id="smsContent" placeholder="粘贴短信内容..." required></textarea>
+            <div class="nord-meta"><span id="charCount">0</span></div>
+            <div class="nord-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="nord-btn nord-btn-secondary">取消</a>
+                <button type="submit" class="nord-btn nord-btn-primary" id="submitBtn">提交</button>
+            </div>
+            <div class="nord-divider"></div>
+            <div class="nord-steps">
+                <div class="nord-step"><div class="nord-step-num">01</div><div class="nord-step-icon">🔍</div><div class="nord-step-text">解析</div></div>
+                <div class="nord-step"><div class="nord-step-num">02</div><div class="nord-step-icon">🎯</div><div class="nord-step-text">匹配</div></div>
+                <div class="nord-step"><div class="nord-step-num">03</div><div class="nord-step-icon">📥</div><div class="nord-step-text">下载</div></div>
+                <div class="nord-step"><div class="nord-step-num">04</div><div class="nord-step-icon">📤</div><div class="nord-step-text">通知</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="nord-history">
+        <div class="nord-history-title">最近记录</div>
+        <div class="nord-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="nord-history-item">
+                <div class="nord-dot {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="nord-info">
+                    <div class="nord-text">{{ sms.content|truncatechars:45 }}</div>
+                    <div class="nord-meta-info">#{{ sms.id }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '提交中...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

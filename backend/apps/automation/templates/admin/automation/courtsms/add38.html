@@ -1,0 +1,72 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    :root { --tea: #5d4e37; --tea-light: #8b7355; --bamboo: #6b8e23; --steam: #f5f5f5; --paper: #faf8f0; }
+    body { background: var(--paper); min-height: 100vh; overflow-x: hidden; }
+    /* 茶烟袅袅 */
+    .tea-steam { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .steam { position: absolute; width: 60px; height: 100px; background: linear-gradient(180deg, rgba(93,78,55,0.08) 0%, transparent 100%); border-radius: 50% 50% 0 0; animation: riseSteam 6s ease-out infinite; }
+    .steam1 { bottom: 30%; left: 20%; animation-delay: 0s; }
+    .steam2 { bottom: 35%; left: 22%; animation-delay: -2s; }
+    .steam3 { bottom: 25%; right: 25%; animation-delay: -1s; }
+    .steam4 { bottom: 30%; right: 23%; animation-delay: -3s; }
+    .tea-leaf { position: fixed; font-size: 18px; opacity: 0.12; animation: floatLeaf 15s ease-in-out infinite; }
+    .tea-leaf1 { top: 15%; left: 8%; animation-delay: 0s; }
+    .tea-leaf2 { top: 40%; right: 10%; animation-delay: -5s; }
+    .tea-leaf3 { bottom: 20%; left: 15%; animation-delay: -10s; }
+    @keyframes riseSteam { 0% { transform: translateY(0) scaleX(1); opacity: 0.08; } 50% { transform: translateY(-50px) scaleX(1.5); opacity: 0.12; } 100% { transform: translateY(-100px) scaleX(2); opacity: 0; } }
+    @keyframes floatLeaf { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(15deg); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .cz-wrapper { max-width: 650px; margin: 50px auto; padding: 0 24px; }
+    .cz-header { text-align: center; margin-bottom: 40px; }
+    .cz-cup { font-size: 3.5rem; margin-bottom: 15px; }
+    .cz-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.3rem; color: var(--tea); letter-spacing: 0.3em; }
+    .cz-subtitle { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--tea-light); margin-top: 10px; }
+    .cz-card { background: rgba(255,255,255,0.9); border: 1px solid var(--tea-light); border-radius: 4px; padding: 35px; box-shadow: 0 5px 20px rgba(93,78,55,0.1); }
+    .cz-label { font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; color: var(--tea); margin-bottom: 15px; }
+    .cz-textarea { width: 100%; min-height: 170px; padding: 20px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; line-height: 2; color: var(--tea); background: var(--paper); border: none; border-radius: 4px; resize: vertical; box-sizing: border-box; }
+    .cz-textarea:focus { outline: 2px solid var(--bamboo); }
+    .cz-textarea::placeholder { color: var(--tea-light); }
+    .cz-actions { display: flex; gap: 20px; margin-top: 28px; justify-content: center; }
+    .cz-btn { padding: 12px 35px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 1px solid var(--tea); border-radius: 4px; }
+    .cz-btn-primary { background: var(--tea); color: var(--steam); }
+    .cz-btn-primary:hover { background: var(--bamboo); border-color: var(--bamboo); }
+    .cz-btn-secondary { background: transparent; color: var(--tea); }
+    .cz-btn-secondary:hover { background: rgba(93,78,55,0.05); }
+    .cz-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'ZCOOL XiaoWei', serif; border-radius: 4px; }
+    .cz-alert-success { background: rgba(107,142,35,0.1); color: var(--bamboo); border: 1px solid var(--bamboo); }
+    .cz-alert-error { background: rgba(93,78,55,0.1); color: var(--tea); border: 1px solid var(--tea); }
+    .cz-history { margin-top: 35px; }
+    .cz-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--tea); margin-bottom: 15px; }
+    .cz-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: rgba(255,255,255,0.7); border-radius: 4px; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .cz-history-item:hover { background: white; }
+    .cz-leaf { font-size: 1.2rem; }
+    .cz-info { flex: 1; }
+    .cz-text { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--tea); }
+    .cz-meta { font-size: 0.8rem; color: var(--tea-light); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="tea-steam"><div class="steam steam1"></div><div class="steam steam2"></div><div class="steam steam3"></div><div class="steam steam4"></div></div>
+<div class="tea-leaf tea-leaf1">🍃</div><div class="tea-leaf tea-leaf2">🍃</div><div class="tea-leaf tea-leaf3">🍃</div>
+<div class="cz-wrapper">
+    {% if messages %}{% for message in messages %}<div class="cz-alert cz-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="cz-header"><div class="cz-cup">🍵</div><h1 class="cz-title">茶禅函笺</h1><p class="cz-subtitle">一期一会 · 法院来函</p></div>
+    <div class="cz-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="cz-label">○ 函中真意</div>
+        <textarea name="content" class="cz-textarea" id="smsContent" placeholder="静心录入法院来函..." required></textarea>
+        <div class="cz-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="cz-btn cz-btn-secondary">归隐</a>
+        <button type="submit" class="cz-btn cz-btn-primary" id="submitBtn">奉茶</button></div></form></div>
+    {% if recent_sms %}<div class="cz-history"><div class="cz-history-title">○ 茶话记录</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="cz-history-item">
+    <span class="cz-leaf">🍃</span>
+    <div class="cz-info"><div class="cz-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="cz-meta">第{{ sms.id }}盏</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='奉茶中...';b.disabled=true;});</script>
+{% endblock %}

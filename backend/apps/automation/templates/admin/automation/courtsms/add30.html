@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500&display=swap');
+    :root { --paper: #f5f0e6; --fold: #e8e0d0; --shadow: rgba(0,0,0,0.1); --accent: #c9463d; }
+    body { background: linear-gradient(135deg, #e0d5c5 0%, #f5f0e6 100%); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .origami-wrapper { max-width: 600px; margin: 50px auto; padding: 0 24px; }
+    .origami-header { text-align: center; margin-bottom: 30px; }
+    .origami-crane { font-size: 4rem; filter: drop-shadow(2px 2px 4px var(--shadow)); }
+    .origami-title { font-family: 'Noto Sans SC', sans-serif; font-size: 1.8rem; font-weight: 300; color: #333; letter-spacing: 0.3em; }
+    .ori-subtitle { font-family: 'Noto Sans SC', sans-serif; font-size: 0.85rem; color: #888; margin-top: 8px; }
+    .ori-card { background: var(--paper); padding: 30px; position: relative; box-shadow: 5px 5px 15px var(--shadow); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%); }
+    .ori-card::after { content: ''; position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; background: linear-gradient(135deg, var(--fold) 50%, transparent 50%); }
+    .ori-label { font-family: 'Noto Sans SC', sans-serif; font-size: 0.9rem; font-weight: 500; color: var(--accent); margin-bottom: 12px; }
+    .ori-textarea { width: 100%; min-height: 150px; padding: 18px; font-family: 'Noto Sans SC', sans-serif; font-size: 1rem; line-height: 1.7; color: #333; background: white; border: 1px solid var(--fold); resize: vertical; box-sizing: border-box; }
+    .ori-textarea:focus { outline: none; border-color: var(--accent); }
+    .ori-textarea::placeholder { color: #bbb; }
+    .ori-actions { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
+    .ori-btn { padding: 12px 30px; font-family: 'Noto Sans SC', sans-serif; font-size: 0.9rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: none; }
+    .ori-btn-primary { background: var(--accent); color: white; }
+    .ori-btn-primary:hover { background: #a03530; transform: translateY(-2px); }
+    .ori-btn-secondary { background: var(--fold); color: #666; }
+    .ori-btn-secondary:hover { background: #d8d0c0; }
+    .ori-alert { padding: 15px; margin-bottom: 20px; font-family: 'Noto Sans SC', sans-serif; text-align: center; }
+    .ori-alert-success { background: rgba(201,70,61,0.1); color: var(--accent); border: 1px solid var(--accent); }
+    .ori-alert-error { background: rgba(201,70,61,0.2); color: #8b0000; }
+    .ori-history { margin-top: 35px; }
+    .ori-history-title { font-family: 'Noto Sans SC', sans-serif; font-size: 1rem; font-weight: 500; color: var(--accent); text-align: center; margin-bottom: 15px; }
+    .ori-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: white; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; box-shadow: 2px 2px 8px var(--shadow); }
+    .ori-history-item:hover { transform: translateX(5px); }
+    .ori-fold { width: 30px; height: 30px; background: var(--paper); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--accent); }
+    .ori-info { flex: 1; }
+    .ori-text { font-family: 'Noto Sans SC', sans-serif; font-size: 0.9rem; color: #333; }
+    .ori-meta { font-size: 0.75rem; color: #999; margin-top: 3px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="origami-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ori-alert ori-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="origami-header"><div class="origami-crane">🦢</div><h1 class="origami-title">折纸信笺</h1><p class="ori-subtitle">— 法院短信处理 —</p></div>
+    <div class="ori-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="ori-label">✦ 短信内容</div>
+        <textarea name="content" class="ori-textarea" id="smsContent" placeholder="请在此粘贴短信..." required></textarea>
+        <div class="ori-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="ori-btn ori-btn-secondary">← 返回</a>
+        <button type="submit" class="ori-btn ori-btn-primary" id="submitBtn">提交 →</button></div></form></div>
+    {% if recent_sms %}<div class="ori-history"><div class="ori-history-title">✦ 近期记录</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ori-history-item">
+    <div class="ori-fold">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}○{% endif %}</div>
+    <div class="ori-info"><div class="ori-text">{{ sms.content|truncatechars:40 }}</div>
+    <div class="ori-meta">#{{ sms.id }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='处理中...';b.disabled=true;});</script>
+{% endblock %}

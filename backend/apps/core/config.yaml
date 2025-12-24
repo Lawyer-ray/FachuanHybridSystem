@@ -1,0 +1,526 @@
+# ============================================================
+# 统一配置管理系统 - 中央配置文件模板
+# ============================================================
+# 
+# 本文件是系统的中央配置文件模板，包含所有配置项的默认值和详细说明。
+# 
+# 使用说明：
+# 1. 复制此文件为 config.yaml 并根据实际环境修改配置值
+# 2. 敏感配置项（如密钥、密码）建议通过环境变量设置
+# 3. 环境变量会自动覆盖此文件中的对应配置项
+# 4. 支持变量替换语法：${VAR_NAME:default_value}
+#
+# 配置验证：
+# - 系统启动时会自动验证所有配置项的类型和取值范围
+# - 必需配置项缺失时会阻止系统启动
+# - 生产环境会强制要求敏感配置从环境变量加载
+#
+# ============================================================
+
+# 环境标识
+# 支持：development, testing, staging, production
+# 环境变量：DJANGO_ENV
+environment: development
+
+# ============================================================
+# Django 核心配置
+# ============================================================
+
+django:
+  # Django 密钥，用于加密和签名
+  # 生产环境必须通过环境变量 SECRET_KEY 设置
+  # 最小长度：50 字符
+  secret_key: ${SECRET_KEY:dev-secret-key-for-testing-please-change-in-production}
+  
+  # 调试模式开关
+  # 生产环境必须为 false
+  # 环境变量：DEBUG
+  debug: ${DEBUG:false}
+  
+  # 允许的主机列表
+  # 生产环境必须配置实际的域名或 IP
+  allowed_hosts:
+    - localhost
+    - 127.0.0.1
+    - ${DJANGO_ALLOWED_HOSTS}
+
+# ============================================================
+# 数据库配置
+# ============================================================
+
+database:
+  # 数据库引擎
+  # 支持：django.db.backends.mysql, django.db.backends.postgresql, django.db.backends.sqlite3
+  engine: django.db.backends.mysql
+  
+  # 数据库名称（必需）
+  # 环境变量：DB_NAME
+  name: ${DB_NAME}
+  
+  # 数据库用户名（必需）
+  # 环境变量：DB_USER
+  user: ${DB_USER}
+  
+  # 数据库密码（必需，敏感）
+  # 环境变量：DB_PASSWORD
+  password: ${DB_PASSWORD}
+  
+  # 数据库主机地址
+  # 环境变量：DB_HOST
+  host: ${DB_HOST:localhost}
+  
+  # 数据库端口
+  # 取值范围：1-65535
+  # 环境变量：DB_PORT
+  port: ${DB_PORT:3306}
+
+# ============================================================
+# CORS 配置
+# ============================================================
+
+cors:
+  # CORS 允许的来源列表
+  # 生产环境必须配置实际的前端域名
+  allowed_origins: []
+  
+  # CSRF 信任的来源列表
+  # 生产环境必须配置实际的域名
+  trusted_origins: []
+
+# ============================================================
+# 第三方服务配置
+# ============================================================
+
+services:
+  # Moonshot AI 配置
+  moonshot:
+    # API 基础 URL
+    # 环境变量：MOONSHOT_BASE_URL
+    base_url: ${MOONSHOT_BASE_URL:https://api.moonshot.cn/v1}
+    
+    # API 密钥（必需，敏感）
+    # 环境变量：MOONSHOT_API_KEY
+    api_key: ${MOONSHOT_API_KEY}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+  
+  # Ollama 配置
+  ollama:
+    # 模型名称
+    # 环境变量：OLLAMA_MODEL
+    model: ${OLLAMA_MODEL:qwen2.5:7b}
+    
+    # API 基础 URL
+    # 环境变量：OLLAMA_BASE_URL
+    base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-600
+    timeout: 60
+  
+  # 爬虫配置
+  scraper:
+    # 加密密钥（必需，敏感）
+    # 环境变量：SCRAPER_ENCRYPTION_KEY
+    encryption_key: ${SCRAPER_ENCRYPTION_KEY}
+  
+  # 保险询价服务配置
+  insurance:
+    # 保险公司列表 API URL
+    list_url: https://baoquan.court.gov.cn/wsbq/ssbq/api/commoncodepz
+    
+    # 保险费率查询 API URL
+    premium_query_url: https://baoquan.court.gov.cn/wsbq/commonapi/api/policy/premium
+    
+    # 默认超时时间（秒）
+    # 取值范围：1-300
+    default_timeout: 30
+    
+    # 最大连接数
+    # 取值范围：1-100
+    max_connections: 10
+
+# ============================================================
+# 群聊平台配置
+# ============================================================
+
+chat_platforms:
+  # 飞书配置
+  feishu:
+    # 应用 ID（必需，敏感）
+    # 环境变量：FEISHU_APP_ID
+    app_id: ${FEISHU_APP_ID}
+    
+    # 应用密钥（必需，敏感）
+    # 环境变量：FEISHU_APP_SECRET
+    app_secret: ${FEISHU_APP_SECRET}
+    
+    # Webhook URL（可选）
+    # 环境变量：FEISHU_WEBHOOK_URL
+    webhook_url: ${FEISHU_WEBHOOK_URL}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+    
+    # 默认群主 ID
+    # 环境变量：FEISHU_DEFAULT_OWNER_ID
+    default_owner_id: ${FEISHU_DEFAULT_OWNER_ID}
+  
+  # 钉钉配置
+  dingtalk:
+    # 应用 Key
+    # 环境变量：DINGTALK_APP_KEY
+    app_key: ${DINGTALK_APP_KEY}
+    
+    # 应用密钥（敏感）
+    # 环境变量：DINGTALK_APP_SECRET
+    app_secret: ${DINGTALK_APP_SECRET}
+    
+    # 应用 Agent ID
+    # 环境变量：DINGTALK_AGENT_ID
+    agent_id: ${DINGTALK_AGENT_ID}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+  
+  # 企业微信配置
+  wechat_work:
+    # Corp ID
+    # 环境变量：WECHAT_WORK_CORP_ID
+    corp_id: ${WECHAT_WORK_CORP_ID}
+    
+    # 应用 Agent ID
+    # 环境变量：WECHAT_WORK_AGENT_ID
+    agent_id: ${WECHAT_WORK_AGENT_ID}
+    
+    # 应用密钥（敏感）
+    # 环境变量：WECHAT_WORK_SECRET
+    secret: ${WECHAT_WORK_SECRET}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+  
+  # Telegram 配置
+  telegram:
+    # Bot Token（敏感）
+    # 环境变量：TELEGRAM_BOT_TOKEN
+    bot_token: ${TELEGRAM_BOT_TOKEN}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+  
+  # Slack 配置
+  slack:
+    # Bot Token（敏感）
+    # 环境变量：SLACK_BOT_TOKEN
+    bot_token: ${SLACK_BOT_TOKEN}
+    
+    # 签名密钥（敏感）
+    # 环境变量：SLACK_SIGNING_SECRET
+    signing_secret: ${SLACK_SIGNING_SECRET}
+    
+    # API 超时时间（秒）
+    # 取值范围：1-300
+    timeout: 30
+
+# ============================================================
+# 业务功能配置
+# ============================================================
+
+features:
+  # 案件聊天配置
+  case_chat:
+    # 默认聊天平台
+    # 支持：feishu, dingtalk, wechat_work, telegram, slack
+    default_platform: feishu
+    
+    # 推送时自动创建聊天群
+    auto_create_on_push: true
+    
+    # 案件聊天默认群主 ID
+    # 环境变量：CASE_CHAT_DEFAULT_OWNER_ID
+    default_owner_id: ${CASE_CHAT_DEFAULT_OWNER_ID}
+  
+  # 法院短信处理配置
+  court_sms:
+    # 最大重试次数
+    # 取值范围：0-10
+    max_retries: 3
+    
+    # 重试延迟（秒）
+    # 取值范围：1-3600
+    retry_delay: 60
+    
+    # 是否启用自动恢复
+    auto_recovery: true
+  
+  # 文档处理配置
+  document_processing:
+    # 默认文本提取限制（字符数）
+    # 取值范围：100-100000
+    default_text_limit: 5000
+    
+    # 最大文本提取限制（字符数）
+    # 取值范围：1000-1000000
+    max_text_limit: 50000
+    
+    # 默认预览页数
+    # 最小值：1
+    default_preview_page: 1
+    
+    # 最大预览页数
+    # 取值范围：1-100
+    max_preview_pages: 10
+
+# ============================================================
+# 性能配置
+# ============================================================
+
+performance:
+  # 限流配置
+  rate_limit:
+    # 默认请求限制（每窗口期）
+    # 取值范围：1-10000
+    # 环境变量：RATE_LIMIT_DEFAULT_REQUESTS
+    default_requests: ${RATE_LIMIT_DEFAULT_REQUESTS:100}
+    
+    # 默认限流窗口期（秒）
+    # 取值范围：1-3600
+    # 环境变量：RATE_LIMIT_DEFAULT_WINDOW
+    default_window: ${RATE_LIMIT_DEFAULT_WINDOW:60}
+    
+    # 认证用户请求限制（每窗口期）
+    # 取值范围：1-100000
+    # 环境变量：RATE_LIMIT_AUTH_REQUESTS
+    auth_requests: ${RATE_LIMIT_AUTH_REQUESTS:1000}
+    
+    # 认证用户限流窗口期（秒）
+    # 取值范围：1-3600
+    # 环境变量：RATE_LIMIT_AUTH_WINDOW
+    auth_window: ${RATE_LIMIT_AUTH_WINDOW:60}
+  
+  # 缓存配置
+  cache:
+    # Redis 连接 URL
+    # 环境变量：REDIS_URL
+    redis_url: ${REDIS_URL:redis://localhost:6379/0}
+    
+    # Redis 主机地址
+    # 环境变量：REDIS_HOST
+    redis_host: ${REDIS_HOST:127.0.0.1}
+    
+    # Redis 端口
+    # 取值范围：1-65535
+    # 环境变量：REDIS_PORT
+    redis_port: ${REDIS_PORT:6379}
+    
+    # Redis 数据库编号
+    # 取值范围：0-15
+    # 环境变量：REDIS_DB
+    redis_db: ${REDIS_DB:0}
+    
+    # Redis 密码（敏感）
+    # 环境变量：REDIS_PASSWORD
+    redis_password: ${REDIS_PASSWORD}
+    
+    # 默认缓存超时时间（秒）
+    # 取值范围：1-86400
+    default_timeout: 300
+    
+    # 最大连接数
+    # 取值范围：1-1000
+    max_connections: 50
+    
+    # Socket 超时时间（秒）
+    # 取值范围：1-60
+    socket_timeout: 5
+    
+    # 缓存键前缀
+    key_prefix: lawfirm
+    
+    # 短期缓存超时时间（秒）
+    # 取值范围：1-3600
+    timeout_short: 60
+    
+    # 中期缓存超时时间（秒）
+    # 取值范围：1-3600
+    timeout_medium: 300
+    
+    # 长期缓存超时时间（秒）
+    # 取值范围：1-86400
+    timeout_long: 3600
+    
+    # 日缓存超时时间（秒）
+    # 取值范围：1-604800
+    timeout_day: 86400
+  
+  # Q_CLUSTER 配置
+  q_cluster:
+    # 工作进程数
+    # 取值范围：1-32
+    workers: 4
+    
+    # 任务超时时间（秒）
+    # 取值范围：1-3600
+    timeout: 60
+    
+    # 重试间隔（秒）
+    # 取值范围：1-3600
+    retry: 60
+    
+    # 队列限制
+    # 取值范围：1-1000
+    queue_limit: 50
+    
+    # 批量处理数量
+    # 取值范围：1-100
+    bulk: 10
+    
+    # 最大尝试次数
+    # 取值范围：1-10
+    max_attempts: 1
+
+# ============================================================
+# 日志配置
+# ============================================================
+
+logging:
+  # 日志文件最大大小（字节）
+  # 取值范围：1MB-100MB
+  file_max_size: 10485760  # 10MB
+  
+  # API 日志文件备份数量
+  # 取值范围：1-50
+  api_backup_count: 5
+  
+  # 错误日志文件备份数量
+  # 取值范围：1-50
+  error_backup_count: 10
+  
+  # SQL 日志文件备份数量
+  # 取值范围：1-20
+  sql_backup_count: 3
+  
+  # 控制台日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  console_level: INFO
+  
+  # 文件日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file_level: INFO
+  
+  # 错误日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  error_level: ERROR
+  
+  # Django 日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  django_level: INFO
+  
+  # Django 请求日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  request_level: WARNING
+  
+  # 应用日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  apps_level: INFO
+  
+  # 根日志级别
+  # 支持：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  root_level: WARNING
+
+# ============================================================
+# 分页配置
+# ============================================================
+
+pagination:
+  # 默认分页大小
+  # 取值范围：1-1000
+  default_page_size: 20
+  
+  # 最大分页大小
+  # 取值范围：1-10000
+  max_page_size: 100
+
+# ============================================================
+# 验证规则配置
+# ============================================================
+
+validation:
+  # 最大金额限制
+  # 最小值：0.01
+  max_amount: 10000000.0  # 1000万
+  
+  # 字符串最大长度限制
+  # 取值范围：1-100000
+  max_string_length: 1000
+  
+  # 文件上传最大大小（字节）
+  # 取值范围：1KB-1GB
+  max_file_size: 52428800  # 50MB
+  
+  # 姓名/名称字段最大长度
+  # 取值范围：1-1000
+  name_max_length: 255
+  
+  # 电话号码字段最大长度
+  # 取值范围：1-50
+  phone_max_length: 20
+  
+  # 地址字段最大长度
+  # 取值范围：1-1000
+  address_max_length: 255
+  
+  # 身份证号/统一社会信用代码最大长度
+  # 取值范围：1-100
+  id_number_max_length: 64
+  
+  # 金额字段最大位数
+  # 取值范围：1-30
+  decimal_max_digits: 15
+  
+  # 金额字段小数位数
+  # 取值范围：0-10
+  decimal_places: 2
+  
+  # 文本提取默认限制（字符数）
+  # 取值范围：100-100000
+  text_extraction_limit: 5000
+  
+  # 文本提取最大限制（字符数）
+  # 取值范围：1000-1000000
+  max_text_extraction_limit: 50000
+  
+  # 调试截图收集数量限制
+  # 取值范围：1-20
+  screenshot_limit: 5
+
+# ============================================================
+# Steering 配置
+# ============================================================
+
+steering:
+  # 条件加载配置
+  conditional_loading:
+    # 是否启用条件加载
+    enabled: true
+    
+    # 条件加载缓存 TTL（秒）
+    # 取值范围：60-86400
+    cache_ttl: 3600
+  
+  # 性能监控配置
+  performance:
+    # 加载性能阈值（毫秒）
+    # 取值范围：1-10000
+    load_threshold_ms: 100
+    
+    # 性能警告阈值（毫秒）
+    # 取值范围：1-10000
+    warn_threshold_ms: 500

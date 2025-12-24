@@ -1,0 +1,58 @@
+/**
+ * CaseParty Inline 动态过滤样式
+ * 
+ * Requirements: 1.1, 1.2, 1.3, 3.4
+ */
+
+/* 合同当事人选择框样式 */
+.contract-party-client-select {
+    min-width: 200px;
+}
+
+/* 加载状态样式 */
+.contract-party-client-select:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* 加载提示样式 */
+.contract-party-loading {
+    display: inline-block;
+    margin-left: 8px;
+    color: #666;
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* 来源标识样式 */
+.contract-party-source-tag {
+    font-size: 11px;
+    color: #888;
+    margin-left: 4px;
+}
+
+/* Inline 组容器样式 */
+.contract-party-inline {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+/* 过滤状态指示器 */
+.contract-party-filter-active {
+    border-left: 3px solid #417690;
+}
+
+/* 错误状态样式 */
+.contract-party-error {
+    border-color: #ba2121;
+}
+
+/* 选项中的来源标签 */
+option[data-source="contract"]::after {
+    content: " [合同]";
+}
+
+option[data-source="supplementary"]::after {
+    content: " [补充协议]";
+}

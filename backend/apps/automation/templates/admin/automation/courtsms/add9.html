@@ -1,0 +1,197 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --ios-bg: #f2f2f7;
+        --ios-card: #ffffff;
+        --ios-blue: #007aff;
+        --ios-green: #34c759;
+        --ios-red: #ff3b30;
+        --ios-orange: #ff9500;
+        --ios-gray: #8e8e93;
+        --ios-gray2: #aeaeb2;
+        --ios-gray6: #f2f2f7;
+        --ios-label: #000000;
+        --ios-secondary: #3c3c43;
+    }
+    body { background: var(--ios-bg); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .ios-wrapper { max-width: 500px; margin: 0 auto; padding: 20px; }
+    .ios-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0;
+        margin-bottom: 20px;
+    }
+    .ios-nav-back { color: var(--ios-blue); font-size: 1rem; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+    .ios-nav-title { font-size: 1.1rem; font-weight: 600; color: var(--ios-label); }
+    .ios-nav-action { color: var(--ios-blue); font-size: 1rem; font-weight: 600; background: none; border: none; cursor: pointer; }
+    .ios-nav-action:disabled { color: var(--ios-gray2); }
+    .ios-section { margin-bottom: 24px; }
+    .ios-section-header {
+        font-size: 0.8rem;
+        font-weight: 400;
+        color: var(--ios-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        padding: 0 16px;
+        margin-bottom: 8px;
+    }
+    .ios-card {
+        background: var(--ios-card);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .ios-textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 16px;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: var(--ios-label);
+        background: transparent;
+        border: none;
+        resize: none;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    .ios-textarea:focus { outline: none; }
+    .ios-textarea::placeholder { color: var(--ios-gray2); }
+    .ios-divider { height: 0.5px; background: rgba(60,60,67,0.12); margin: 0 16px; }
+    .ios-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        font-size: 0.95rem;
+    }
+    .ios-row-label { color: var(--ios-label); }
+    .ios-row-value { color: var(--ios-gray); }
+    .ios-list-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+    .ios-list-item:active { background: rgba(0,0,0,0.05); }
+    .ios-list-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: white;
+    }
+    .ios-list-icon.blue { background: var(--ios-blue); }
+    .ios-list-icon.green { background: var(--ios-green); }
+    .ios-list-icon.orange { background: var(--ios-orange); }
+    .ios-list-icon.red { background: var(--ios-red); }
+    .ios-list-content { flex: 1; min-width: 0; }
+    .ios-list-title { color: var(--ios-label); font-size: 0.95rem; }
+    .ios-list-subtitle { color: var(--ios-gray); font-size: 0.8rem; margin-top: 2px; }
+    .ios-list-chevron { color: var(--ios-gray2); font-size: 0.8rem; }
+    .ios-status-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .ios-status-dot.completed { background: var(--ios-green); }
+    .ios-status-dot.pending { background: var(--ios-orange); }
+    .ios-status-dot.failed { background: var(--ios-red); }
+    .ios-alert {
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .ios-alert-success { background: rgba(52,199,89,0.15); color: #1d7a34; }
+    .ios-alert-error { background: rgba(255,59,48,0.15); color: #c41e10; }
+    .ios-features {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        padding: 16px;
+    }
+    .ios-feature {
+        text-align: center;
+        padding: 12px 8px;
+        background: var(--ios-gray6);
+        border-radius: 10px;
+    }
+    .ios-feature-icon { font-size: 1.5rem; margin-bottom: 4px; }
+    .ios-feature-text { font-size: 0.7rem; color: var(--ios-gray); }
+    @media (max-width: 500px) {
+        .ios-wrapper { padding: 16px; }
+        .ios-features { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="ios-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ios-alert ios-alert-{{ message.tags }}">{% if message.tags == 'success' %}✓{% else %}!{% endif %} {{ message }}</div>{% endfor %}{% endif %}
+    <form method="post" id="smsForm">
+        {% csrf_token %}
+        <nav class="ios-nav">
+            <a href="{% url 'admin:automation_courtsms_changelist' %}" class="ios-nav-back">‹ 返回</a>
+            <span class="ios-nav-title">新建短信</span>
+            <button type="submit" class="ios-nav-action" id="submitBtn">发送</button>
+        </nav>
+        <div class="ios-section">
+            <div class="ios-section-header">短信内容</div>
+            <div class="ios-card">
+                <textarea name="content" class="ios-textarea" id="smsContent" placeholder="粘贴法院短信内容..." required></textarea>
+                <div class="ios-divider"></div>
+                <div class="ios-row">
+                    <span class="ios-row-label">字数</span>
+                    <span class="ios-row-value" id="charCount">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="ios-section">
+            <div class="ios-section-header">自动处理流程</div>
+            <div class="ios-card">
+                <div class="ios-features">
+                    <div class="ios-feature"><div class="ios-feature-icon">🔗</div><div class="ios-feature-text">提取链接</div></div>
+                    <div class="ios-feature"><div class="ios-feature-icon">🔍</div><div class="ios-feature-text">匹配案件</div></div>
+                    <div class="ios-feature"><div class="ios-feature-icon">📥</div><div class="ios-feature-text">下载文书</div></div>
+                    <div class="ios-feature"><div class="ios-feature-icon">📤</div><div class="ios-feature-text">发送通知</div></div>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% if recent_sms %}
+    <div class="ios-section">
+        <div class="ios-section-header">最近记录</div>
+        <div class="ios-card">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ios-list-item">
+                <div class="ios-status-dot {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="ios-list-content">
+                    <div class="ios-list-title">{{ sms.content|truncatechars:35 }}</div>
+                    <div class="ios-list-subtitle">#{{ sms.id }} · {{ sms.get_status_display }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+                <span class="ios-list-chevron">›</span>
+            </a>
+            {% if not forloop.last %}<div class="ios-divider" style="margin-left: 54px;"></div>{% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '发送中...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

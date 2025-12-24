@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600&display=swap');
+    :root { --blue: #1e4d8c; --blue-light: #4a7ab8; --white: #f8fbff; --gold: #c9a227; }
+    body { background: var(--white); min-height: 100vh; overflow-x: hidden; }
+    /* 青花瓷纹飘动 */
+    .porcelain-pattern { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .porcelain-pattern::before { content: '❀'; position: absolute; font-size: 120px; color: rgba(30,77,140,0.04); top: 10%; left: -5%; animation: floatPattern 25s ease-in-out infinite; }
+    .porcelain-pattern::after { content: '✿'; position: absolute; font-size: 100px; color: rgba(30,77,140,0.03); bottom: 15%; right: -3%; animation: floatPattern 30s ease-in-out infinite reverse; }
+    .cloud1, .cloud2, .cloud3 { position: fixed; font-size: 80px; color: rgba(30,77,140,0.025); pointer-events: none; }
+    .cloud1 { top: 30%; left: 10%; animation: driftCloud 40s linear infinite; }
+    .cloud2 { top: 60%; right: 15%; animation: driftCloud 35s linear infinite reverse; animation-delay: -10s; }
+    .cloud3 { bottom: 25%; left: 40%; animation: driftCloud 45s linear infinite; animation-delay: -20s; }
+    @keyframes floatPattern { 0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.04; } 50% { transform: translateY(-30px) rotate(10deg); opacity: 0.06; } }
+    @keyframes driftCloud { 0% { transform: translateX(-100px); } 100% { transform: translateX(100px); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .qh-wrapper { max-width: 680px; margin: 40px auto; padding: 0 24px; }
+    .qh-header { text-align: center; margin-bottom: 35px; }
+    .qh-vase { font-size: 3.5rem; margin-bottom: 15px; }
+    .qh-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--blue); letter-spacing: 0.2em; }
+    .qh-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--blue-light); margin-top: 8px; }
+    .qh-card { background: white; border: 3px solid var(--blue); border-radius: 8px; padding: 35px; position: relative; }
+    .qh-card::before { content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border: 1px solid var(--blue-light); border-radius: 4px; pointer-events: none; }
+    .qh-label { font-family: 'Noto Serif SC', serif; font-size: 1rem; color: var(--blue); margin-bottom: 15px; }
+    .qh-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 1.9; color: var(--blue); background: var(--white); border: 2px solid var(--blue-light); border-radius: 4px; resize: vertical; box-sizing: border-box; }
+    .qh-textarea:focus { outline: none; border-color: var(--blue); }
+    .qh-textarea::placeholder { color: #a0c4e8; }
+    .qh-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .qh-btn { padding: 12px 35px; font-family: 'Noto Serif SC', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border-radius: 4px; border: 2px solid var(--blue); }
+    .qh-btn-primary { background: var(--blue); color: white; }
+    .qh-btn-primary:hover { background: var(--blue-light); }
+    .qh-btn-secondary { background: white; color: var(--blue); }
+    .qh-btn-secondary:hover { background: #e8f4ff; }
+    .qh-alert { padding: 15px 20px; margin-bottom: 20px; border-radius: 4px; font-family: 'Noto Serif SC', serif; border-left: 4px solid; }
+    .qh-alert-success { background: #e8f4ff; border-color: var(--blue); color: var(--blue); }
+    .qh-alert-error { background: #fff0f0; border-color: #c41e3a; color: #c41e3a; }
+    .qh-history { margin-top: 35px; }
+    .qh-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--blue); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--blue-light); }
+    .qh-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border: 1px solid var(--blue-light); border-radius: 4px; margin-bottom: 10px; text-decoration: none; transition: all 0.3s; }
+    .qh-history-item:hover { background: #e8f4ff; border-color: var(--blue); }
+    .qh-status { font-size: 1.1rem; color: var(--blue); }
+    .qh-info { flex: 1; }
+    .qh-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--blue); }
+    .qh-meta { font-size: 0.8rem; color: var(--blue-light); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="porcelain-pattern"></div>
+<div class="cloud1">☁</div><div class="cloud2">☁</div><div class="cloud3">☁</div>
+<div class="qh-wrapper">
+    {% if messages %}{% for message in messages %}<div class="qh-alert qh-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="qh-header"><div class="qh-vase">🏺</div><h1 class="qh-title">青花函笺</h1><p class="qh-subtitle">法院短信处理系统</p></div>
+    <div class="qh-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="qh-label">◈ 短信内容</div>
+        <textarea name="content" class="qh-textarea" id="smsContent" placeholder="请将法院短信粘贴于此..." required></textarea>
+        <div class="qh-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="qh-btn qh-btn-secondary">← 返回</a>
+        <button type="submit" class="qh-btn qh-btn-primary" id="submitBtn">提交 →</button></div></form></div>
+    {% if recent_sms %}<div class="qh-history"><div class="qh-history-title">◈ 近期记录</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="qh-history-item">
+    <span class="qh-status">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}○{% endif %}</span>
+    <div class="qh-info"><div class="qh-text">{{ sms.content|truncatechars:40 }}</div>
+    <div class="qh-meta">#{{ sms.id }} · {{ sms.created_at|date:"Y年m月d日" }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='处理中...';b.disabled=true;});</script>
+{% endblock %}

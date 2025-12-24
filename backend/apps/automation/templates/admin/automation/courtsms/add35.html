@@ -1,0 +1,72 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    :root { --mountain: #4a5568; --water: #63b3ed; --mist: #e2e8f0; --ink: #2d3748; --paper: #faf9f7; }
+    body { background: linear-gradient(180deg, var(--mist) 0%, var(--paper) 50%, #e8f4f8 100%); min-height: 100vh; position: relative; }
+    body::after { content: ''; position: fixed; bottom: 0; left: 0; right: 0; height: 200px;
+        background: linear-gradient(180deg, transparent 0%, rgba(99,179,237,0.1) 100%); pointer-events: none; }
+    /* 山水云雾 */
+    .mist-layer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .mist { position: absolute; width: 300px; height: 80px; background: radial-gradient(ellipse, rgba(255,255,255,0.3) 0%, transparent 70%); border-radius: 50%; }
+    .mist1 { top: 20%; left: -10%; animation: driftMist 30s ease-in-out infinite; }
+    .mist2 { top: 40%; right: -15%; animation: driftMist 35s ease-in-out infinite reverse; animation-delay: -10s; }
+    .mist3 { bottom: 30%; left: 20%; animation: driftMist 40s ease-in-out infinite; animation-delay: -20s; }
+    .bird { position: fixed; font-size: 20px; opacity: 0.15; animation: flyBird 25s linear infinite; }
+    .bird1 { top: 15%; animation-delay: 0s; }
+    .bird2 { top: 25%; animation-delay: -8s; }
+    @keyframes driftMist { 0%, 100% { transform: translateX(0) scale(1); opacity: 0.2; } 50% { transform: translateX(100px) scale(1.2); opacity: 0.35; } }
+    @keyframes flyBird { 0% { left: -5%; } 100% { left: 105%; } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .ss-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .ss-header { text-align: center; margin-bottom: 35px; }
+    .ss-mountain { font-size: 3.5rem; margin-bottom: 15px; opacity: 0.8; }
+    .ss-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--ink); letter-spacing: 0.3em; }
+    .ss-subtitle { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.95rem; color: var(--mountain); margin-top: 10px; font-style: italic; }
+    .ss-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(5px); border: 1px solid var(--mist); border-radius: 4px; padding: 35px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .ss-label { font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; color: var(--mountain); margin-bottom: 15px; }
+    .ss-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; line-height: 2; color: var(--ink); background: transparent; border: none; border-bottom: 1px solid var(--mountain); resize: vertical; box-sizing: border-box; }
+    .ss-textarea:focus { outline: none; border-bottom-color: var(--water); }
+    .ss-textarea::placeholder { color: #a0aec0; }
+    .ss-actions { display: flex; gap: 20px; margin-top: 28px; justify-content: center; }
+    .ss-btn { padding: 12px 35px; font-family: 'ZCOOL XiaoWei', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 1px solid var(--mountain); border-radius: 2px; }
+    .ss-btn-primary { background: var(--mountain); color: white; }
+    .ss-btn-primary:hover { background: var(--ink); }
+    .ss-btn-secondary { background: transparent; color: var(--mountain); }
+    .ss-btn-secondary:hover { background: var(--mist); }
+    .ss-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'ZCOOL XiaoWei', serif; border-left: 3px solid; background: rgba(255,255,255,0.8); }
+    .ss-alert-success { border-color: var(--water); color: var(--mountain); }
+    .ss-alert-error { border-color: #c41e3a; color: #c41e3a; }
+    .ss-history { margin-top: 35px; }
+    .ss-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--mountain); margin-bottom: 15px; }
+    .ss-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: rgba(255,255,255,0.6); border-radius: 4px; margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .ss-history-item:hover { background: rgba(255,255,255,0.9); }
+    .ss-wave { font-size: 1.2rem; color: var(--water); }
+    .ss-info { flex: 1; }
+    .ss-text { font-family: 'ZCOOL XiaoWei', serif; font-size: 0.9rem; color: var(--ink); }
+    .ss-meta { font-size: 0.8rem; color: var(--mountain); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mist-layer"><div class="mist mist1"></div><div class="mist mist2"></div><div class="mist mist3"></div></div>
+<div class="bird bird1">🕊</div><div class="bird bird2">🕊</div>
+<div class="ss-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ss-alert ss-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="ss-header"><div class="ss-mountain">🏔️</div><h1 class="ss-title">山水函笺</h1><p class="ss-subtitle">云深不知处 · 法院来函</p></div>
+    <div class="ss-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="ss-label">〔 函中之言 〕</div>
+        <textarea name="content" class="ss-textarea" id="smsContent" placeholder="山高水长，请将来函录于此..." required></textarea>
+        <div class="ss-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="ss-btn ss-btn-secondary">归去</a>
+        <button type="submit" class="ss-btn ss-btn-primary" id="submitBtn">传书</button></div></form></div>
+    {% if recent_sms %}<div class="ss-history"><div class="ss-history-title">〔 往来书信 〕</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ss-history-item">
+    <span class="ss-wave">～</span>
+    <div class="ss-info"><div class="ss-text">{{ sms.content|truncatechars:40 }}</div>
+    <div class="ss-meta">第{{ sms.id }}函</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='传书中...';b.disabled=true;});</script>
+{% endblock %}

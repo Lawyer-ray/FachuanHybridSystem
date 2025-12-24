@@ -1,0 +1,74 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@600;700&display=swap');
+    :root { --stone: #4a4a4a; --red: #c41e3a; --gold: #b8860b; --paper: #f5f0e6; --ink: #1a1a1a; }
+    body { background: var(--paper); min-height: 100vh; overflow-x: hidden; }
+    /* 金石印痕 */
+    .seal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .seal-mark { position: absolute; font-family: 'Ma Shan Zheng', cursive; font-size: 80px; color: rgba(196,30,58,0.03); animation: fadeInOut 10s ease-in-out infinite; }
+    .seal-mark1 { top: 10%; left: 5%; content: '印'; animation-delay: 0s; }
+    .seal-mark2 { top: 30%; right: 8%; animation-delay: -3s; }
+    .seal-mark3 { bottom: 25%; left: 12%; animation-delay: -6s; }
+    .seal-mark4 { bottom: 40%; right: 15%; animation-delay: -2s; }
+    .chisel-dust { position: absolute; width: 4px; height: 4px; background: rgba(74,74,74,0.15); border-radius: 50%; animation: chiselFall 8s ease-out infinite; }
+    .chisel-dust1 { top: 20%; left: 40%; animation-delay: 0s; }
+    .chisel-dust2 { top: 15%; left: 55%; animation-delay: -2s; }
+    .chisel-dust3 { top: 25%; left: 65%; animation-delay: -4s; }
+    @keyframes fadeInOut { 0%, 100% { opacity: 0.02; transform: scale(1); } 50% { opacity: 0.05; transform: scale(1.05); } }
+    @keyframes chiselFall { 0% { transform: translateY(0); opacity: 0.2; } 100% { transform: translateY(100px); opacity: 0; } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .js-wrapper { max-width: 680px; margin: 40px auto; padding: 0 24px; }
+    .js-header { text-align: center; margin-bottom: 35px; }
+    .js-seal { width: 70px; height: 70px; margin: 0 auto 15px; background: var(--red); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--paper); transform: rotate(-3deg); box-shadow: 3px 3px 8px rgba(0,0,0,0.2); }
+    .js-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--ink); letter-spacing: 0.2em; }
+    .js-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--stone); margin-top: 8px; }
+    .js-card { background: white; border: 3px solid var(--stone); padding: 35px; position: relative; }
+    .js-card::before, .js-card::after { content: ''; position: absolute; width: 40px; height: 40px; border: 3px solid var(--red); }
+    .js-card::before { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .js-card::after { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+    .js-label { font-family: 'Noto Serif SC', serif; font-size: 1rem; font-weight: 600; color: var(--stone); margin-bottom: 15px; }
+    .js-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 2; color: var(--ink); background: var(--paper); border: 2px solid var(--stone); resize: vertical; box-sizing: border-box; }
+    .js-textarea:focus { outline: none; border-color: var(--red); }
+    .js-textarea::placeholder { color: #999; }
+    .js-actions { display: flex; gap: 20px; margin-top: 28px; justify-content: center; }
+    .js-btn { padding: 14px 40px; font-family: 'Noto Serif SC', serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 2px solid var(--stone); }
+    .js-btn-primary { background: var(--stone); color: var(--paper); }
+    .js-btn-primary:hover { background: var(--red); border-color: var(--red); }
+    .js-btn-secondary { background: transparent; color: var(--stone); }
+    .js-btn-secondary:hover { background: rgba(74,74,74,0.05); }
+    .js-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'Noto Serif SC', serif; border-left: 4px solid; }
+    .js-alert-success { background: rgba(184,134,11,0.1); border-color: var(--gold); color: var(--gold); }
+    .js-alert-error { background: rgba(196,30,58,0.1); border-color: var(--red); color: var(--red); }
+    .js-history { margin-top: 35px; }
+    .js-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.4rem; color: var(--ink); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--stone); }
+    .js-history-item { display: flex; align-items: center; gap: 15px; padding: 14px 18px; border: 1px solid #ddd; margin-bottom: 10px; text-decoration: none; transition: all 0.3s; }
+    .js-history-item:hover { border-color: var(--stone); background: rgba(245,240,230,0.5); }
+    .js-mark { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--red); }
+    .js-info { flex: 1; }
+    .js-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--ink); }
+    .js-meta { font-size: 0.8rem; color: var(--stone); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="seal-bg"><div class="seal-mark seal-mark1">印</div><div class="seal-mark seal-mark2">章</div><div class="seal-mark seal-mark3">刻</div><div class="seal-mark seal-mark4">石</div><div class="chisel-dust chisel-dust1"></div><div class="chisel-dust chisel-dust2"></div><div class="chisel-dust chisel-dust3"></div></div>
+<div class="js-wrapper">
+    {% if messages %}{% for message in messages %}<div class="js-alert js-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="js-header"><div class="js-seal">印</div><h1 class="js-title">金石函笺</h1><p class="js-subtitle">铁画银钩 · 法院来函</p></div>
+    <div class="js-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="js-label">【 刻录函文 】</div>
+        <textarea name="content" class="js-textarea" id="smsContent" placeholder="请将法院来函刻录于此..." required></textarea>
+        <div class="js-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="js-btn js-btn-secondary">收刀</a>
+        <button type="submit" class="js-btn js-btn-primary" id="submitBtn">镌刻</button></div></form></div>
+    {% if recent_sms %}<div class="js-history"><div class="js-history-title">【 金石录 】</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="js-history-item">
+    <span class="js-mark">〔{{ forloop.counter }}〕</span>
+    <div class="js-info"><div class="js-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="js-meta">第{{ sms.id }}石</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='镌刻中...';b.disabled=true;});</script>
+{% endblock %}

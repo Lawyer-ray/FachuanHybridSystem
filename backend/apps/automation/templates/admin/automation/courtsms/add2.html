@@ -1,0 +1,529 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --primary-light: #818cf8;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg-page: #f8fafc;
+        --bg-card: #ffffff;
+        --bg-input: #f1f5f9;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border: #e2e8f0;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    body {
+        background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #fdf2f8 100%);
+        min-height: 100vh;
+    }
+    
+    #container {
+        background: transparent;
+    }
+    
+    #content {
+        padding: 0;
+    }
+    
+    .add2-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    
+    .hero-section {
+        text-align: center;
+        margin-bottom: 32px;
+        animation: fadeInDown 0.5s ease-out;
+    }
+    
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .hero-icon {
+        font-size: 56px;
+        margin-bottom: 12px;
+        display: inline-block;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+    
+    .hero-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 1rem;
+    }
+    
+    .main-card {
+        background: var(--bg-card);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+        animation: fadeInUp 0.5s ease-out 0.1s both;
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 10px;
+    }
+    
+    .form-label-icon {
+        font-size: 1.1rem;
+    }
+    
+    .sms-textarea {
+        width: 100%;
+        min-height: 180px;
+        padding: 16px;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--text-primary);
+        background: var(--bg-input);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        resize: vertical;
+        transition: all 0.2s ease;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        box-sizing: border-box;
+    }
+    
+    .sms-textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    
+    .sms-textarea::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+    
+    .char-counter {
+        text-align: right;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-top: 6px;
+    }
+    
+    .char-counter.warning {
+        color: var(--warning);
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+    
+    .btn {
+        flex: 1;
+        padding: 14px 24px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-primary:active {
+        transform: translateY(0);
+    }
+    
+    .btn-secondary {
+        background: var(--bg-input);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+        background: var(--border);
+        color: var(--text-primary);
+    }
+    
+    .tips-section {
+        margin-top: 32px;
+        animation: fadeInUp 0.5s ease-out 0.2s both;
+    }
+    
+    .tips-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .tips-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+    }
+    
+    .tip-card {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow);
+    }
+    
+    .tip-card:hover {
+        border-color: var(--primary-light);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .tip-icon {
+        font-size: 1.3rem;
+        margin-bottom: 6px;
+    }
+    
+    .tip-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+    
+    .recent-section {
+        margin-top: 32px;
+        animation: fadeInUp 0.5s ease-out 0.3s both;
+    }
+    
+    .recent-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .recent-item {
+        background: var(--bg-card);
+        border-radius: 10px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow);
+    }
+    
+    .recent-item:hover {
+        border-color: var(--primary-light);
+        transform: translateX(4px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .recent-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    
+    .recent-status.completed { background: var(--success); }
+    .recent-status.pending { background: var(--warning); }
+    .recent-status.failed { background: var(--danger); }
+    
+    .recent-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .recent-preview {
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .recent-meta {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin-top: 3px;
+    }
+    
+    .recent-id {
+        color: var(--primary);
+        font-weight: 600;
+    }
+    
+    /* 消息提示 */
+    .messages {
+        margin-bottom: 20px;
+        padding: 0;
+    }
+    
+    .messages li {
+        padding: 14px 18px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        font-weight: 500;
+        list-style: none;
+    }
+    
+    .messages .success {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #047857;
+    }
+    
+    .messages .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+    }
+    
+    /* 加载动画 */
+    .loading {
+        display: none;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .loading.active {
+        display: flex;
+    }
+    
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* 响应式 */
+    @media (max-width: 640px) {
+        .add2-container {
+            margin: 20px auto;
+        }
+        
+        .main-card {
+            padding: 20px;
+            border-radius: 16px;
+        }
+        
+        .hero-title {
+            font-size: 1.5rem;
+        }
+        
+        .btn-group {
+            flex-direction: column;
+        }
+        
+        .tips-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="add2-container">
+    <!-- Hero -->
+    <div class="hero-section">
+        <div class="hero-icon">📱</div>
+        <h1 class="hero-title">添加法院短信</h1>
+        <p class="hero-subtitle">粘贴短信内容，系统将自动解析并处理</p>
+    </div>
+    
+    <!-- 消息 -->
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    <!-- 表单 -->
+    <div class="main-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <span class="form-label-icon">💬</span>
+                    短信内容
+                </label>
+                <textarea 
+                    name="content" 
+                    class="sms-textarea" 
+                    id="smsContent"
+                    placeholder="请粘贴完整的法院短信内容..."
+                    required
+                ></textarea>
+                <div class="char-counter" id="charCounter">已输入 0 字</div>
+            </div>
+            
+            <div class="btn-group">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="btn btn-secondary">
+                    ← 返回列表
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span class="btn-text">🚀 提交处理</span>
+                    <span class="loading" id="loadingIndicator">
+                        <span class="spinner"></span>
+                        处理中...
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 提示 -->
+    <div class="tips-section">
+        <h3 class="tips-title">💡 使用提示</h3>
+        <div class="tips-grid">
+            <div class="tip-card">
+                <div class="tip-icon">📋</div>
+                <div class="tip-text">直接粘贴手机收到的法院短信</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">🔗</div>
+                <div class="tip-text">自动提取链接并下载文书</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">🔍</div>
+                <div class="tip-text">自动识别案号和当事人</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">📤</div>
+                <div class="tip-text">完成后推送到飞书群</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近记录 -->
+    {% if recent_sms %}
+    <div class="recent-section">
+        <h3 class="recent-title">🕐 最近添加</h3>
+        <div class="recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="recent-item">
+                <div class="recent-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="recent-content">
+                    <div class="recent-preview">{{ sms.content|truncatechars:60 }}</div>
+                    <div class="recent-meta">
+                        <span class="recent-id">#{{ sms.id }}</span> · 
+                        {{ sms.get_status_display }} · 
+                        {{ sms.created_at|date:"m-d H:i" }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCounter = document.getElementById('charCounter');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    textarea.addEventListener('input', function() {
+        const len = this.value.length;
+        charCounter.textContent = '已输入 ' + len + ' 字';
+        charCounter.classList.toggle('warning', len > 1000);
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        btnText.style.display = 'none';
+        loadingIndicator.classList.add('active');
+        submitBtn.disabled = true;
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

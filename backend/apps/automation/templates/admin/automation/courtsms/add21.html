@@ -1,0 +1,234 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600&display=swap');
+    :root {
+        --forest-dark: #1e3a2f;
+        --forest-mid: #2d5a45;
+        --forest-light: #4a7c59;
+        --leaf: #7cb342;
+        --moss: #8bc34a;
+        --bark: #5d4037;
+        --cream: #f5f5dc;
+        --sunlight: #fff9c4;
+    }
+    body {
+        background: linear-gradient(180deg, var(--sunlight) 0%, #c8e6c9 30%, var(--forest-light) 100%);
+        min-height: 100vh;
+        position: relative;
+    }
+    /* 树叶装饰 */
+    .leaf {
+        position: fixed;
+        font-size: 1.5rem;
+        opacity: 0.6;
+        animation: sway 4s ease-in-out infinite;
+        z-index: 0;
+    }
+    @keyframes sway {
+        0%, 100% { transform: rotate(-5deg) translateY(0); }
+        50% { transform: rotate(5deg) translateY(-10px); }
+    }
+    .leaf1 { top: 10%; left: 5%; animation-delay: 0s; }
+    .leaf2 { top: 20%; right: 8%; animation-delay: 1s; font-size: 2rem; }
+    .leaf3 { top: 40%; left: 3%; animation-delay: 2s; }
+    .leaf4 { bottom: 30%; right: 5%; animation-delay: 0.5s; font-size: 1.8rem; }
+    .leaf5 { bottom: 15%; left: 8%; animation-delay: 1.5s; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .forest-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .forest-header { text-align: center; margin-bottom: 32px; }
+    .forest-icon { font-size: 4rem; margin-bottom: 16px; }
+    .forest-title {
+        font-family: 'Quicksand', sans-serif; font-size: 2rem; font-weight: 600;
+        color: var(--forest-dark);
+    }
+    .forest-subtitle {
+        font-family: 'Quicksand', sans-serif; font-size: 1rem;
+        color: var(--forest-mid);
+        margin-top: 8px;
+    }
+    .forest-card {
+        background: var(--cream);
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 10px 40px rgba(30,58,47,0.2);
+        position: relative;
+        border: 2px solid var(--forest-light);
+    }
+    .forest-card::before {
+        content: '🌿';
+        position: absolute;
+        top: -15px; left: 20px;
+        font-size: 1.5rem;
+    }
+    .forest-card::after {
+        content: '🍃';
+        position: absolute;
+        top: -12px; right: 25px;
+        font-size: 1.3rem;
+    }
+    .forest-label {
+        font-family: 'Quicksand', sans-serif; font-size: 0.95rem; font-weight: 600;
+        color: var(--forest-dark);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .forest-label::before { content: '🌱'; }
+    .forest-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Quicksand', sans-serif; font-size: 1rem; line-height: 1.7;
+        color: var(--forest-dark);
+        background: rgba(255,255,255,0.8);
+        border: 2px solid var(--moss);
+        border-radius: 12px;
+        resize: vertical; box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    .forest-textarea:focus { outline: none; border-color: var(--leaf); background: white; }
+    .forest-textarea::placeholder { color: var(--forest-light); }
+    .forest-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Quicksand', sans-serif; font-size: 0.85rem; color: var(--forest-mid);
+    }
+    .forest-actions { display: flex; gap: 16px; margin-top: 24px; }
+    .forest-btn {
+        flex: 1; padding: 14px 24px;
+        font-family: 'Quicksand', sans-serif; font-size: 1rem; font-weight: 600;
+        border-radius: 30px; cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none; text-align: center;
+        border: none;
+    }
+    .forest-btn-primary {
+        background: linear-gradient(135deg, var(--forest-mid) 0%, var(--forest-dark) 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(45,90,69,0.4);
+    }
+    .forest-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45,90,69,0.5); }
+    .forest-btn-secondary {
+        background: white;
+        color: var(--forest-mid);
+        border: 2px solid var(--forest-light);
+    }
+    .forest-btn-secondary:hover { background: var(--forest-light); color: white; }
+    .forest-process {
+        display: flex; justify-content: space-around;
+        margin-top: 28px; padding-top: 24px;
+        border-top: 2px dashed var(--moss);
+    }
+    .process-tree { text-align: center; }
+    .process-icon {
+        width: 50px; height: 50px; margin: 0 auto 8px;
+        background: linear-gradient(135deg, var(--moss) 0%, var(--leaf) 100%);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+    }
+    .process-text { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: var(--forest-mid); }
+    .forest-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border-radius: 12px;
+        font-family: 'Quicksand', sans-serif;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .forest-alert-success { background: rgba(124,179,66,0.2); color: var(--forest-dark); border: 1px solid var(--leaf); }
+    .forest-alert-error { background: rgba(93,64,55,0.1); color: var(--bark); border: 1px solid var(--bark); }
+    .forest-history { margin-top: 32px; }
+    .forest-history-title {
+        font-family: 'Quicksand', sans-serif; font-size: 1.1rem; font-weight: 600;
+        color: var(--forest-dark);
+        margin-bottom: 16px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .forest-history-title::before { content: '🌲'; }
+    .forest-history-list { display: flex; flex-direction: column; gap: 10px; }
+    .forest-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 12px;
+        border: 1px solid var(--moss);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .forest-history-item:hover { transform: translateX(5px); background: white; border-color: var(--leaf); }
+    .forest-status {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+    }
+    .forest-status.completed { background: rgba(124,179,66,0.2); }
+    .forest-status.pending { background: rgba(139,195,74,0.2); }
+    .forest-status.failed { background: rgba(93,64,55,0.2); }
+    .forest-info { flex: 1; min-width: 0; }
+    .forest-text { font-family: 'Quicksand', sans-serif; font-size: 0.9rem; color: var(--forest-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .forest-meta-info { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: var(--forest-mid); margin-top: 4px; }
+    @media (max-width: 640px) {
+        .forest-title { font-size: 1.6rem; }
+        .forest-actions { flex-direction: column; }
+        .leaf { display: none; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="leaf leaf1">🍃</div>
+<div class="leaf leaf2">🌿</div>
+<div class="leaf leaf3">🍂</div>
+<div class="leaf leaf4">🌱</div>
+<div class="leaf leaf5">🍀</div>
+<div class="forest-wrapper">
+    {% if messages %}{% for message in messages %}<div class="forest-alert forest-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}🌳{% else %}🍂{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="forest-header">
+        <div class="forest-icon">🌲</div>
+        <h1 class="forest-title">森林信笺</h1>
+        <p class="forest-subtitle">法院短信自动处理系统</p>
+    </div>
+    <div class="forest-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="forest-label">短信内容</div>
+            <textarea name="content" class="forest-textarea" id="smsContent" placeholder="在此粘贴短信内容..." required></textarea>
+            <div class="forest-meta"><span id="charCount">0 字符</span><span>🌿 自动处理</span></div>
+            <div class="forest-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="forest-btn forest-btn-secondary">← 返回</a>
+                <button type="submit" class="forest-btn forest-btn-primary" id="submitBtn">🌱 提交</button>
+            </div>
+            <div class="forest-process">
+                <div class="process-tree"><div class="process-icon">🔍</div><div class="process-text">解析</div></div>
+                <div class="process-tree"><div class="process-icon">🎯</div><div class="process-text">匹配</div></div>
+                <div class="process-tree"><div class="process-icon">📥</div><div class="process-text">下载</div></div>
+                <div class="process-tree"><div class="process-icon">📤</div><div class="process-text">通知</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="forest-history">
+        <div class="forest-history-title">近期记录</div>
+        <div class="forest-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="forest-history-item">
+                <div class="forest-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}🌳{% elif sms.status == 'failed' %}🍂{% else %}🌱{% endif %}</div>
+                <div class="forest-info">
+                    <div class="forest-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="forest-meta-info">#{{ sms.id }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' 字符'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.innerHTML = '🌿 处理中...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

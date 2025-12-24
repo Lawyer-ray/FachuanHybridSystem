@@ -1,0 +1,64 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+    :root { --red: #e53935; --blue: #1e88e5; --yellow: #fdd835; --black: #212121; --white: #fafafa; }
+    body { background: var(--white); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .bauhaus-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .bh-header { margin-bottom: 30px; display: flex; align-items: flex-start; gap: 30px; }
+    .bh-shapes { display: flex; flex-direction: column; gap: 10px; }
+    .bh-circle { width: 40px; height: 40px; background: var(--red); border-radius: 50%; }
+    .bh-triangle { width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 35px solid var(--yellow); }
+    .bh-square { width: 40px; height: 40px; background: var(--blue); }
+    .bh-title { font-family: 'DM Sans', sans-serif; font-size: 3rem; font-weight: 700; color: var(--black); line-height: 1; }
+    .bh-subtitle { font-size: 0.8rem; color: #666; letter-spacing: 0.3em; margin-top: 10px; }
+    .bh-card { background: var(--white); border: 4px solid var(--black); padding: 30px; }
+    .bh-label { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; color: var(--black); margin-bottom: 12px; letter-spacing: 0.1em; }
+    .bh-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'DM Sans', sans-serif; font-size: 1rem; line-height: 1.6; color: var(--black); background: var(--white); border: 3px solid var(--black); resize: vertical; box-sizing: border-box; }
+    .bh-textarea:focus { outline: none; border-color: var(--blue); }
+    .bh-textarea::placeholder { color: #999; }
+    .bh-actions { display: flex; gap: 15px; margin-top: 25px; }
+    .bh-btn { padding: 14px 30px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 3px solid var(--black); }
+    .bh-btn-primary { background: var(--red); color: var(--white); }
+    .bh-btn-primary:hover { background: var(--black); }
+    .bh-btn-secondary { background: var(--white); color: var(--black); }
+    .bh-btn-secondary:hover { background: var(--yellow); }
+    .bh-alert { padding: 15px; margin-bottom: 20px; border: 3px solid var(--black); font-family: 'DM Sans', sans-serif; }
+    .bh-alert-success { background: var(--yellow); }
+    .bh-alert-error { background: var(--red); color: var(--white); }
+    .bh-history { margin-top: 35px; }
+    .bh-history-title { font-family: 'DM Sans', sans-serif; font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 3px solid var(--black); }
+    .bh-history-item { display: flex; align-items: center; gap: 15px; padding: 12px; border: 2px solid var(--black); margin-bottom: 8px; text-decoration: none; color: var(--black); transition: all 0.2s; }
+    .bh-history-item:hover { background: var(--blue); color: var(--white); }
+    .bh-dot { width: 16px; height: 16px; border-radius: 50%; }
+    .bh-dot.c { background: var(--blue); }
+    .bh-dot.f { background: var(--red); }
+    .bh-dot.p { background: var(--yellow); }
+    .bh-info { flex: 1; }
+    .bh-text { font-size: 0.9rem; }
+    .bh-meta { font-size: 0.75rem; color: #666; margin-top: 3px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="bauhaus-wrapper">
+    {% if messages %}{% for message in messages %}<div class="bh-alert bh-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="bh-header"><div class="bh-shapes"><div class="bh-circle"></div><div class="bh-triangle"></div><div class="bh-square"></div></div>
+        <h1 class="bh-title">BAUHAUS<br>SMS</h1><p class="bh-subtitle">FORM FOLLOWS FUNCTION</p></div>
+    <div class="bh-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="bh-label">INPUT</div>
+        <textarea name="content" class="bh-textarea" id="smsContent" placeholder="MESSAGE..." required></textarea>
+        <div class="bh-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="bh-btn bh-btn-secondary">BACK</a>
+        <button type="submit" class="bh-btn bh-btn-primary" id="submitBtn">SUBMIT</button></div></form></div>
+    {% if recent_sms %}<div class="bh-history"><div class="bh-history-title">ARCHIVE</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="bh-history-item">
+    <div class="bh-dot {% if sms.status == 'completed' %}c{% elif sms.status == 'failed' %}f{% else %}p{% endif %}"></div>
+    <div class="bh-info"><div class="bh-text">{{ sms.content|truncatechars:45 }}</div>
+    <div class="bh-meta">#{{ sms.id }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='...';b.disabled=true;});</script>
+{% endblock %}

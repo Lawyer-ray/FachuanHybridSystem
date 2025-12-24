@@ -1,0 +1,257 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@700&display=swap');
+    :root {
+        --pop-yellow: #ffeb3b;
+        --pop-red: #f44336;
+        --pop-blue: #2196f3;
+        --pop-white: #ffffff;
+        --pop-black: #000000;
+    }
+    body {
+        background: var(--pop-yellow);
+        min-height: 100vh;
+        position: relative;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            radial-gradient(circle, transparent 20%, var(--pop-yellow) 20%, var(--pop-yellow) 80%, transparent 80%, transparent),
+            radial-gradient(circle, transparent 20%, var(--pop-yellow) 20%, var(--pop-yellow) 80%, transparent 80%, transparent) 25px 25px;
+        background-size: 50px 50px;
+        background-color: var(--pop-yellow);
+        opacity: 0.3;
+        pointer-events: none;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .pop-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .pop-header { text-align: center; margin-bottom: 32px; }
+    .pop-burst {
+        display: inline-block;
+        background: var(--pop-red);
+        color: var(--pop-white);
+        padding: 20px 40px;
+        font-family: 'Bangers', cursive;
+        font-size: 3rem;
+        letter-spacing: 0.1em;
+        transform: rotate(-3deg);
+        border: 4px solid var(--pop-black);
+        box-shadow: 6px 6px 0 var(--pop-black);
+        position: relative;
+    }
+    .pop-burst::before, .pop-burst::after {
+        content: '';
+        position: absolute;
+        background: var(--pop-yellow);
+        border: 3px solid var(--pop-black);
+    }
+    .pop-burst::before { width: 30px; height: 30px; top: -15px; right: -15px; border-radius: 50%; }
+    .pop-burst::after { width: 20px; height: 20px; bottom: -10px; left: -10px; }
+    .pop-subtitle {
+        font-family: 'Comic Neue', cursive; font-size: 1.2rem;
+        color: var(--pop-black);
+        margin-top: 16px;
+        background: var(--pop-white);
+        display: inline-block;
+        padding: 4px 20px;
+        border: 3px solid var(--pop-black);
+        transform: rotate(2deg);
+    }
+    .pop-card {
+        background: var(--pop-white);
+        border: 5px solid var(--pop-black);
+        padding: 32px;
+        position: relative;
+        box-shadow: 10px 10px 0 var(--pop-black);
+    }
+    .pop-card::before {
+        content: 'POW!';
+        position: absolute;
+        top: -20px; right: 20px;
+        font-family: 'Bangers', cursive;
+        font-size: 1.5rem;
+        color: var(--pop-white);
+        background: var(--pop-blue);
+        padding: 8px 16px;
+        border: 3px solid var(--pop-black);
+        transform: rotate(10deg);
+    }
+    .pop-label {
+        font-family: 'Bangers', cursive; font-size: 1.3rem;
+        color: var(--pop-black);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .pop-label::before {
+        content: '★';
+        color: var(--pop-red);
+        font-size: 1.5rem;
+    }
+    .pop-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Comic Neue', cursive; font-size: 1.1rem; line-height: 1.6;
+        color: var(--pop-black);
+        background: var(--pop-white);
+        border: 4px solid var(--pop-black);
+        resize: vertical; box-sizing: border-box;
+    }
+    .pop-textarea:focus { outline: none; border-color: var(--pop-blue); }
+    .pop-textarea::placeholder { color: #999; }
+    .pop-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Comic Neue', cursive; font-size: 1rem; color: var(--pop-black);
+    }
+    .pop-actions { display: flex; gap: 16px; margin-top: 28px; }
+    .pop-btn {
+        flex: 1; padding: 16px 24px;
+        font-family: 'Bangers', cursive; font-size: 1.3rem;
+        letter-spacing: 0.05em;
+        border: 4px solid var(--pop-black);
+        cursor: pointer;
+        transition: all 0.1s ease;
+        text-decoration: none; text-align: center;
+        text-transform: uppercase;
+    }
+    .pop-btn:hover { transform: translate(-3px, -3px); }
+    .pop-btn:active { transform: translate(0, 0); box-shadow: none; }
+    .pop-btn-primary {
+        background: var(--pop-red); color: var(--pop-white);
+        box-shadow: 5px 5px 0 var(--pop-black);
+    }
+    .pop-btn-secondary {
+        background: var(--pop-white); color: var(--pop-black);
+        box-shadow: 5px 5px 0 var(--pop-black);
+    }
+    .pop-process {
+        display: flex; justify-content: space-around;
+        margin-top: 32px; padding-top: 24px;
+        border-top: 4px dashed var(--pop-black);
+    }
+    .process-bubble {
+        text-align: center;
+        background: var(--pop-white);
+        border: 3px solid var(--pop-black);
+        border-radius: 50%;
+        width: 70px; height: 70px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        position: relative;
+    }
+    .process-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -10px; left: 50%;
+        transform: translateX(-50%);
+        width: 0; height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid var(--pop-black);
+    }
+    .process-icon { font-size: 1.5rem; }
+    .process-text { font-family: 'Comic Neue', cursive; font-size: 0.6rem; color: var(--pop-black); margin-top: 2px; }
+    .pop-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border: 4px solid var(--pop-black);
+        font-family: 'Comic Neue', cursive; font-size: 1rem;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .pop-alert-success { background: #c8e6c9; }
+    .pop-alert-error { background: #ffcdd2; }
+    .pop-history { margin-top: 40px; }
+    .pop-history-title {
+        font-family: 'Bangers', cursive; font-size: 1.5rem;
+        color: var(--pop-black);
+        margin-bottom: 16px;
+        display: inline-block;
+        background: var(--pop-blue);
+        color: var(--pop-white);
+        padding: 8px 20px;
+        border: 3px solid var(--pop-black);
+        transform: rotate(-2deg);
+    }
+    .pop-history-list { display: flex; flex-direction: column; gap: 12px; }
+    .pop-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: var(--pop-white);
+        border: 4px solid var(--pop-black);
+        text-decoration: none;
+        transition: all 0.1s ease;
+        box-shadow: 4px 4px 0 var(--pop-black);
+    }
+    .pop-history-item:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--pop-black); }
+    .pop-status {
+        font-family: 'Bangers', cursive; font-size: 1rem;
+        padding: 4px 12px;
+        border: 2px solid var(--pop-black);
+    }
+    .pop-status.completed { background: #c8e6c9; }
+    .pop-status.pending { background: var(--pop-yellow); }
+    .pop-status.failed { background: #ffcdd2; }
+    .pop-info { flex: 1; min-width: 0; }
+    .pop-text { font-family: 'Comic Neue', cursive; font-size: 1rem; color: var(--pop-black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pop-meta-info { font-family: 'Comic Neue', cursive; font-size: 0.85rem; color: #666; margin-top: 4px; }
+    @media (max-width: 640px) {
+        .pop-burst { font-size: 2rem; padding: 15px 25px; }
+        .pop-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="pop-wrapper">
+    {% if messages %}{% for message in messages %}<div class="pop-alert pop-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="pop-header">
+        <div class="pop-burst">SMS!</div>
+        <p class="pop-subtitle">Court Message System</p>
+    </div>
+    <div class="pop-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="pop-label">Message Content</div>
+            <textarea name="content" class="pop-textarea" id="smsContent" placeholder="Paste your SMS here..." required></textarea>
+            <div class="pop-meta"><span id="charCount">0 chars</span><span>AUTO!</span></div>
+            <div class="pop-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="pop-btn pop-btn-secondary">← Back</a>
+                <button type="submit" class="pop-btn pop-btn-primary" id="submitBtn">BANG!</button>
+            </div>
+            <div class="pop-process">
+                <div class="process-bubble"><div class="process-icon">🔍</div><div class="process-text">Parse</div></div>
+                <div class="process-bubble"><div class="process-icon">🎯</div><div class="process-text">Match</div></div>
+                <div class="process-bubble"><div class="process-icon">📥</div><div class="process-text">Get</div></div>
+                <div class="process-bubble"><div class="process-icon">💥</div><div class="process-text">Send</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="pop-history">
+        <div class="pop-history-title">Recent!</div>
+        <div class="pop-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="pop-history-item">
+                <span class="pop-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}OK!{% elif sms.status == 'failed' %}X{% else %}...{% endif %}</span>
+                <div class="pop-info">
+                    <div class="pop-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="pop-meta-info">#{{ sms.id }} | {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' chars'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = 'POW!'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

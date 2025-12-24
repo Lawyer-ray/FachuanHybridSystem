@@ -1,0 +1,223 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">自动化工具</a>
+    &rsaquo; <a href="{% url 'admin:automation_courtsms_changelist' %}">法院短信</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="content-main">
+    <h1>📱 {{ title }}</h1>
+    <p class="subtitle">粘贴法院发送的短信全文，系统将自动处理下载、匹配案件、重命名文书并推送到飞书</p>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="module aligned">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <div>
+                    <label for="id_content" class="required">📝 短信内容:</label>
+                    <textarea 
+                        name="content" 
+                        id="id_content" 
+                        rows="12" 
+                        cols="80" 
+                        required
+                        placeholder="请粘贴完整的法院短信内容，例如：
+
+【佛山市禅城区人民法院】法穿你好，请查收（2025）粤0604执保9654号案件相关司法文书，下载链接：https://zxfw.court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=xxx&sdbh=xxx&sdsin=xxx 【中国审判流程信息公开网】"
+                        style="width: 100%; font-family: monospace; font-size: 14px; line-height: 1.4;"
+                    ></textarea>
+                    <p class="help">请粘贴完整的短信内容，包括法院名称、案号、下载链接等信息</p>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div>
+                    <label for="id_received_at">📅 收到时间（可选）:</label>
+                    <input 
+                        type="datetime-local" 
+                        name="received_at" 
+                        id="id_received_at"
+                        style="width: 300px;"
+                    />
+                    <p class="help">留空则使用当前时间</p>
+                </div>
+            </div>
+            
+            <div class="submit-row">
+                <input type="submit" value="🚀 提交处理" class="default" />
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="button cancel-link">取消</a>
+            </div>
+        </form>
+    </div>
+    
+    {% if recent_sms %}
+    <div class="module">
+        <h2>📋 最近提交的短信</h2>
+        <div class="results">
+            <table id="result_list">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">状态</th>
+                        <th scope="col">类型</th>
+                        <th scope="col">关联案件</th>
+                        <th scope="col">短信内容</th>
+                        <th scope="col">提交时间</th>
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sms in recent_sms %}
+                    <tr class="{% cycle 'row1' 'row2' %}">
+                        <td>{{ sms.id }}</td>
+                        <td>
+                            {% if sms.status == 'completed' %}
+                                <span style="color: green; font-weight: bold;">✓ {{ sms.get_status_display }}</span>
+                            {% elif sms.status == 'failed' or sms.status == 'download_failed' %}
+                                <span style="color: red; font-weight: bold;">✗ {{ sms.get_status_display }}</span>
+                            {% elif sms.status == 'pending_manual' %}
+                                <span style="color: orange; font-weight: bold;">⚠ {{ sms.get_status_display }}</span>
+                            {% else %}
+                                <span style="color: blue;">⏳ {{ sms.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sms.sms_type == 'document_delivery' %}
+                                📄 {{ sms.get_sms_type_display }}
+                            {% elif sms.sms_type == 'info_notification' %}
+                                📢 {{ sms.get_sms_type_display }}
+                            {% elif sms.sms_type == 'filing_notification' %}
+                                📋 {{ sms.get_sms_type_display }}
+                            {% else %}
+                                ❓ 未分类
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sms.case %}
+                                <a href="{% url 'admin:cases_case_change' sms.case.id %}" target="_blank">
+                                    {{ sms.case.name|truncatechars:30 }}
+                                </a>
+                            {% elif sms.status == 'pending_manual' %}
+                                <a href="{% url 'admin:automation_courtsms_assign_case' sms.id %}" 
+                                   style="color: orange; font-weight: bold;">
+                                    🔗 需要指定案件
+                                </a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ sms.content|truncatechars:100 }}
+                            </div>
+                        </td>
+                        <td>{{ sms.created_at|date:"m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" 
+                               class="button" target="_blank">查看详情</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.alert {
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.alert-success {
+    color: #3c763d;
+    background-color: #dff0d8;
+    border-color: #d6e9c6;
+}
+
+.alert-error {
+    color: #a94442;
+    background-color: #f2dede;
+    border-color: #ebccd1;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.4;
+}
+
+.form-row {
+    margin-bottom: 20px;
+}
+
+.form-row label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-row .help {
+    color: #666;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.submit-row {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.cancel-link {
+    margin-left: 10px;
+}
+
+#result_list {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#result_list th,
+#result_list td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+}
+
+#result_list th {
+    background-color: #f8f8f8;
+    font-weight: bold;
+}
+
+.row1 {
+    background-color: #f9f9f9;
+}
+
+.row2 {
+    background-color: #fff;
+}
+</style>
+{% endblock %}

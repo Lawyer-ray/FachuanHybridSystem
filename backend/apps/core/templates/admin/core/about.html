@@ -1,0 +1,519 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}关于法穿{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* 基础样式重置 */
+    .about-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* 头部区域 - 酷炫渐变背景 */
+    .about-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 60px 40px;
+        text-align: center;
+        color: white;
+        margin-bottom: 40px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+    }
+
+    .about-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        animation: pulse 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .about-hero h1 {
+        font-size: 3.5em;
+        margin: 0 0 20px 0;
+        position: relative;
+        z-index: 1;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        letter-spacing: 8px;
+    }
+
+    .about-hero .tagline {
+        font-size: 1.4em;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+        font-weight: 300;
+    }
+
+    .about-hero .version {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 8px 20px;
+        border-radius: 30px;
+        margin-top: 20px;
+        font-size: 0.9em;
+        position: relative;
+        z-index: 1;
+        backdrop-filter: blur(10px);
+    }
+
+    /* Logo 动画 */
+    .logo-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+        display: inline-block;
+        animation: float 3s ease-in-out infinite;
+        position: relative;
+        z-index: 1;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    /* 功能卡片区域 */
+    .features-section {
+        margin-bottom: 40px;
+    }
+
+    .section-title {
+        font-size: 1.8em;
+        color: #333;
+        margin-bottom: 30px;
+        text-align: center;
+        position: relative;
+    }
+
+    .section-title::after {
+        content: '';
+        display: block;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        margin: 15px auto 0;
+        border-radius: 2px;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 25px;
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f0f0f0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    }
+
+    .feature-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .feature-icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+        display: inline-block;
+    }
+
+    .feature-card h3 {
+        font-size: 1.3em;
+        color: #333;
+        margin: 0 0 12px 0;
+    }
+
+    .feature-card p {
+        color: #666;
+        line-height: 1.7;
+        margin: 0;
+        font-size: 0.95em;
+    }
+
+    /* 使用说明区域 */
+    .guide-section {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 40px;
+    }
+
+    .guide-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .guide-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+
+    .guide-step:hover {
+        transform: translateX(10px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .step-number {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.4em;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .step-content h4 {
+        margin: 0 0 8px 0;
+        color: #333;
+        font-size: 1.1em;
+    }
+
+    .step-content p {
+        margin: 0;
+        color: #666;
+        line-height: 1.6;
+    }
+
+    /* 作者介绍区域 */
+    .author-section {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+
+    .author-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .qrcode-container {
+        padding: 20px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .qrcode-container:hover {
+        transform: scale(1.02);
+    }
+
+    .qrcode-container img {
+        width: 200px;
+        height: 200px;
+        display: block;
+    }
+
+    .author-info {
+        color: #666;
+        font-size: 1.1em;
+        line-height: 1.8;
+    }
+
+    .author-info .highlight {
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    /* 技术栈展示 */
+    .tech-stack {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .tech-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 0.9em;
+        font-weight: 500;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .tech-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* 统计数据 */
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+        margin: 40px 0;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 25px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+    }
+
+    .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        color: #666;
+        margin-top: 8px;
+        font-size: 0.95em;
+    }
+
+    /* 页脚 */
+    .about-footer {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+        font-size: 0.9em;
+    }
+
+    .about-footer a {
+        color: #667eea;
+        text-decoration: none;
+    }
+
+    .about-footer a:hover {
+        text-decoration: underline;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .about-hero h1 {
+            font-size: 2.5em;
+            letter-spacing: 4px;
+        }
+        
+        .about-hero {
+            padding: 40px 20px;
+        }
+        
+        .guide-step {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .step-number {
+            margin: 0 auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-container">
+    <!-- 头部区域 -->
+    <div class="about-hero">
+        <!-- <div class="logo-icon">⚖️</div> -->
+        <h1>法 穿</h1>
+        <p class="tagline">智能法律案件管理系统</p>
+        <span class="version">Version 1.0</span>
+    </div>
+
+    <!-- 统计数据 -->
+    <div class="stats-section">
+        <div class="stat-item">
+            <div class="stat-number">5+</div>
+            <div class="stat-label">核心模块</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">20+</div>
+            <div class="stat-label">功能特性</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">∞</div>
+            <div class="stat-label">案件容量</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">24/7</div>
+            <div class="stat-label">自动化运行</div>
+        </div>
+    </div>
+
+    <!-- 功能特性 -->
+    <div class="features-section">
+        <h2 class="section-title">核心功能</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h3>案件管理</h3>
+                <p>全面的案件信息管理，支持案件创建、编辑、归档，以及案件当事人、案号、司法信息等完整记录。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3>合同管理</h3>
+                <p>律师委托合同全生命周期管理，包括合同创建、付款记录、提醒设置、补充协议等功能。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>客户管理</h3>
+                <p>客户信息集中管理，支持个人和企业客户，包含身份证件、财产线索等关联信息。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏢</div>
+                <h3>组织架构</h3>
+                <p>律所、团队、律师的层级管理，支持账号凭证管理和权限控制。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>自动化处理</h3>
+                <p>法院短信自动解析、文书自动下载、案件自动匹配，大幅提升工作效率。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>飞书集成</h3>
+                <p>与飞书深度集成，支持案件群聊自动创建、消息通知、文件同步等功能。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📄</div>
+                <h3>文书处理</h3>
+                <p>法院文书自动识别、智能命名、分类存储，支持批量处理和历史追溯。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔐</div>
+                <h3>安全可靠</h3>
+                <p>完善的权限控制、操作日志、数据加密，确保敏感信息安全。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用说明 -->
+    <div class="guide-section">
+        <h2 class="section-title">快速上手</h2>
+        <div class="guide-steps">
+            <div class="guide-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>创建客户</h4>
+                    <p>在「客户管理」模块中添加客户信息，包括基本信息、联系方式、身份证件等。支持个人客户和企业客户两种类型。</p>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>签订合同</h4>
+                    <p>在「合同管理」模块中创建委托合同，关联客户和案件，设置收费方式、付款计划和提醒规则。</p>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>录入案件</h4>
+                    <p>在「案件管理」模块中创建案件，填写案件基本信息、当事人信息、案号等。系统会自动创建飞书群聊用于团队协作。</p>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>自动化处理</h4>
+                    <p>配置法院短信转发后，系统会自动解析短信内容、匹配案件、下载文书，并通过飞书群聊通知相关人员。</p>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h4>日常管理</h4>
+                    <p>通过系统跟踪案件进展、管理文书资料、记录工作日志，实现案件全流程数字化管理。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 技术栈 -->
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 class="section-title">技术栈</h2>
+        <div class="tech-stack">
+            <span class="tech-badge">🐍 Python 3.11</span>
+            <span class="tech-badge">🎯 Django 5.2</span>
+            <span class="tech-badge">⚡ Django Ninja</span>
+            <span class="tech-badge">🎭 Playwright</span>
+            <span class="tech-badge">🗄️ PostgreSQL</span>
+            <span class="tech-badge">📦 Redis</span>
+            
+        </div>
+    </div>
+
+    <!-- 作者介绍 -->
+    <div class="author-section">
+        <h2 class="section-title">关注公众号</h2>
+        <div class="author-content">
+            <div class="qrcode-container">
+                <img src="{% static 'core/images/法穿公众号.jpg' %}" alt="法穿公众号二维码">
+            </div>
+            <div class="author-info">
+                <p>扫码关注 <span class="highlight">「法穿」</span> 公众号</p>
+                <p>获取更多法律科技资讯和系统更新动态</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div class="about-footer">
+        <p>© 2026 法穿案件管理系统 | 让法律工作更高效</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,505 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Special+Elite&family=IM+Fell+English:ital@0;1&display=swap');
+    
+    :root {
+        --paper: #f4f1ea;
+        --paper-dark: #e8e4d9;
+        --ink: #1a1a1a;
+        --ink-faded: #4a4a4a;
+        --red: #8b0000;
+        --sepia: #704214;
+    }
+    
+    body {
+        background: var(--paper);
+        min-height: 100vh;
+        /* 纸张纹理 */
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0,0,0,0.01) 2px,
+                rgba(0,0,0,0.01) 4px
+            );
+    }
+    
+    #container { background: transparent; }
+    #content { padding: 0; }
+    
+    .gazette-wrapper {
+        max-width: 750px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    
+    /* 报纸头部 */
+    .gazette-header {
+        text-align: center;
+        border-bottom: 3px double var(--ink);
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .gazette-date {
+        font-family: 'IM Fell English', serif;
+        font-size: 0.8rem;
+        color: var(--ink-faded);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+    }
+    
+    .gazette-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: var(--ink);
+        margin: 8px 0;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    
+    .gazette-subtitle {
+        font-family: 'IM Fell English', serif;
+        font-style: italic;
+        font-size: 0.9rem;
+        color: var(--ink-faded);
+    }
+    
+    .gazette-rule {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0;
+    }
+    
+    .gazette-rule::before,
+    .gazette-rule::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--ink);
+    }
+    
+    .gazette-rule span {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.2rem;
+    }
+    
+    /* 主内容区 */
+    .gazette-main {
+        display: grid;
+        grid-template-columns: 1fr 200px;
+        gap: 24px;
+        border-top: 1px solid var(--ink);
+        padding-top: 20px;
+    }
+    
+    /* 左侧表单 */
+    .gazette-form {
+        border-right: 1px solid var(--ink);
+        padding-right: 24px;
+    }
+    
+    .form-headline {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 4px;
+        line-height: 1.2;
+    }
+    
+    .form-byline {
+        font-family: 'IM Fell English', serif;
+        font-style: italic;
+        font-size: 0.85rem;
+        color: var(--ink-faded);
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--paper-dark);
+    }
+    
+    .typewriter-input {
+        width: 100%;
+        min-height: 200px;
+        padding: 20px;
+        font-family: 'Special Elite', monospace;
+        font-size: 0.95rem;
+        line-height: 1.9;
+        color: var(--ink);
+        background: var(--paper-dark);
+        border: none;
+        border-top: 2px solid var(--ink);
+        border-bottom: 2px solid var(--ink);
+        resize: vertical;
+        box-sizing: border-box;
+    }
+    
+    .typewriter-input:focus {
+        outline: none;
+        background: #fff;
+    }
+    
+    .typewriter-input::placeholder {
+        color: var(--ink-faded);
+        font-style: italic;
+    }
+    
+    .form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 12px;
+        font-family: 'Special Elite', monospace;
+        font-size: 0.75rem;
+        color: var(--ink-faded);
+    }
+    
+    .gazette-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    
+    .gazette-btn {
+        flex: 1;
+        padding: 12px 20px;
+        font-family: 'Playfair Display', serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border: 2px solid var(--ink);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        text-align: center;
+    }
+    
+    .gazette-btn-primary {
+        background: var(--ink);
+        color: var(--paper);
+    }
+    
+    .gazette-btn-primary:hover {
+        background: var(--red);
+        border-color: var(--red);
+    }
+    
+    .gazette-btn-secondary {
+        background: transparent;
+        color: var(--ink);
+    }
+    
+    .gazette-btn-secondary:hover {
+        background: var(--paper-dark);
+    }
+    
+    /* 右侧边栏 */
+    .gazette-sidebar {
+        font-family: 'IM Fell English', serif;
+    }
+    
+    .sidebar-section {
+        margin-bottom: 24px;
+    }
+    
+    .sidebar-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        border-bottom: 2px solid var(--ink);
+        padding-bottom: 6px;
+        margin-bottom: 12px;
+    }
+    
+    .process-list {
+        font-size: 0.8rem;
+        color: var(--ink-faded);
+        line-height: 1.8;
+    }
+    
+    .process-item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    
+    .process-num {
+        font-family: 'Playfair Display', serif;
+        font-weight: 700;
+        color: var(--ink);
+    }
+    
+    /* 消息 */
+    .gazette-alert {
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        font-family: 'Special Elite', monospace;
+        font-size: 0.85rem;
+        border-left: 4px solid;
+    }
+    
+    .gazette-alert-success {
+        background: rgba(0, 100, 0, 0.08);
+        border-color: darkgreen;
+        color: darkgreen;
+    }
+    
+    .gazette-alert-error {
+        background: rgba(139, 0, 0, 0.08);
+        border-color: var(--red);
+        color: var(--red);
+    }
+    
+    /* 最近记录 */
+    .gazette-recent {
+        margin-top: 32px;
+        border-top: 3px double var(--ink);
+        padding-top: 20px;
+    }
+    
+    .recent-headline {
+        font-family: 'Playfair Display', serif;
+        font-size: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 16px;
+        text-align: center;
+    }
+    
+    .recent-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    
+    .recent-card {
+        padding: 12px;
+        border: 1px solid var(--ink);
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .recent-card:hover {
+        background: var(--paper-dark);
+        transform: translateY(-2px);
+    }
+    
+    .recent-card-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 6px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .recent-card-meta {
+        font-family: 'IM Fell English', serif;
+        font-size: 0.7rem;
+        color: var(--ink-faded);
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .recent-card-status {
+        font-weight: 600;
+    }
+    
+    .recent-card-status.completed { color: darkgreen; }
+    .recent-card-status.pending { color: var(--sepia); }
+    .recent-card-status.failed { color: var(--red); }
+    
+    /* 页脚 */
+    .gazette-footer {
+        text-align: center;
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px solid var(--ink);
+        font-family: 'IM Fell English', serif;
+        font-size: 0.75rem;
+        color: var(--ink-faded);
+        font-style: italic;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 700px) {
+        .gazette-main {
+            grid-template-columns: 1fr;
+        }
+        .gazette-form {
+            border-right: none;
+            padding-right: 0;
+            border-bottom: 1px solid var(--ink);
+            padding-bottom: 20px;
+        }
+        .gazette-title { font-size: 1.8rem; }
+        .gazette-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gazette-wrapper">
+    <!-- 消息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="gazette-alert gazette-alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- 报纸头部 -->
+    <header class="gazette-header">
+        <div class="gazette-date">{% now "l, F j, Y" %}</div>
+        <h1 class="gazette-title">The Court SMS Gazette</h1>
+        <p class="gazette-subtitle">"All the Messages That's Fit to Process"</p>
+    </header>
+    
+    <div class="gazette-rule"><span>❧</span></div>
+    
+    <!-- 主内容 -->
+    <div class="gazette-main">
+        <!-- 左侧表单 -->
+        <div class="gazette-form">
+            <h2 class="form-headline">Submit New Court Message for Processing</h2>
+            <p class="form-byline">Paste the complete SMS content below for automatic parsing and delivery</p>
+            
+            <form method="post" id="smsForm">
+                {% csrf_token %}
+                
+                <textarea 
+                    name="content" 
+                    class="typewriter-input" 
+                    id="smsContent"
+                    placeholder="Type or paste court SMS here..."
+                    required
+                ></textarea>
+                
+                <div class="form-footer">
+                    <span id="charCount">0 characters</span>
+                    <span>Auto-process enabled</span>
+                </div>
+                
+                <div class="gazette-actions">
+                    <a href="{% url 'admin:automation_courtsms_changelist' %}" class="gazette-btn gazette-btn-secondary">
+                        ← Back to List
+                    </a>
+                    <button type="submit" class="gazette-btn gazette-btn-primary" id="submitBtn">
+                        Submit Message
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 右侧边栏 -->
+        <aside class="gazette-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">How It Works</h3>
+                <div class="process-list">
+                    <div class="process-item">
+                        <span class="process-num">I.</span>
+                        <span>Parse SMS content</span>
+                    </div>
+                    <div class="process-item">
+                        <span class="process-num">II.</span>
+                        <span>Extract download links</span>
+                    </div>
+                    <div class="process-item">
+                        <span class="process-num">III.</span>
+                        <span>Match to case records</span>
+                    </div>
+                    <div class="process-item">
+                        <span class="process-num">IV.</span>
+                        <span>Download documents</span>
+                    </div>
+                    <div class="process-item">
+                        <span class="process-num">V.</span>
+                        <span>Send notifications</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Quick Stats</h3>
+                <div class="process-list">
+                    <div class="process-item">
+                        <span>Today's Messages:</span>
+                        <span class="process-num">—</span>
+                    </div>
+                    <div class="process-item">
+                        <span>Success Rate:</span>
+                        <span class="process-num">—</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- 最近记录 -->
+    {% if recent_sms %}
+    <section class="gazette-recent">
+        <h3 class="recent-headline">— Latest Dispatches —</h3>
+        <div class="recent-grid">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="recent-card">
+                <div class="recent-card-title">{{ sms.content|truncatechars:60 }}</div>
+                <div class="recent-card-meta">
+                    <span>#{{ sms.id }} · {{ sms.created_at|date:"M j" }}</span>
+                    <span class="recent-card-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">
+                        {{ sms.get_status_display }}
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+    <footer class="gazette-footer">
+        "The truth is rarely pure and never simple." — Oscar Wilde
+    </footer>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCount = document.getElementById('charCount');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    textarea.addEventListener('input', function() {
+        charCount.textContent = this.value.length + ' characters';
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        submitBtn.textContent = 'Processing...';
+        submitBtn.disabled = true;
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&family=Quicksand:wght@400;500&display=swap');
+    :root {
+        --xmas-red: #c41e3a;
+        --xmas-green: #165b33;
+        --xmas-gold: #ffd700;
+        --xmas-white: #fffafa;
+        --xmas-dark: #1a1a2e;
+    }
+    body {
+        background: linear-gradient(180deg, var(--xmas-dark) 0%, #2d1f3d 100%);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    /* 雪花动画 */
+    .snowflake {
+        position: fixed;
+        color: white;
+        font-size: 1rem;
+        top: -20px;
+        animation: fall linear infinite;
+        opacity: 0.8;
+        z-index: 0;
+    }
+    @keyframes fall {
+        0% { transform: translateY(0) rotate(0deg); }
+        100% { transform: translateY(100vh) rotate(360deg); }
+    }
+    .sf1 { left: 5%; animation-duration: 8s; animation-delay: 0s; }
+    .sf2 { left: 15%; animation-duration: 12s; animation-delay: 2s; font-size: 0.8rem; }
+    .sf3 { left: 25%; animation-duration: 10s; animation-delay: 4s; }
+    .sf4 { left: 40%; animation-duration: 14s; animation-delay: 1s; font-size: 1.2rem; }
+    .sf5 { left: 55%; animation-duration: 9s; animation-delay: 3s; }
+    .sf6 { left: 70%; animation-duration: 11s; animation-delay: 5s; font-size: 0.7rem; }
+    .sf7 { left: 85%; animation-duration: 13s; animation-delay: 2s; }
+    .sf8 { left: 95%; animation-duration: 10s; animation-delay: 4s; font-size: 0.9rem; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .xmas-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .xmas-header { text-align: center; margin-bottom: 32px; }
+    .xmas-tree { font-size: 4rem; margin-bottom: 16px; animation: glow 2s ease-in-out infinite; }
+    @keyframes glow {
+        0%, 100% { text-shadow: 0 0 20px var(--xmas-gold), 0 0 40px var(--xmas-green); }
+        50% { text-shadow: 0 0 30px var(--xmas-gold), 0 0 60px var(--xmas-red); }
+    }
+    .xmas-title {
+        font-family: 'Mountains of Christmas', cursive; font-size: 2.5rem; font-weight: 700;
+        color: var(--xmas-white);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .xmas-subtitle {
+        font-family: 'Quicksand', sans-serif; font-size: 1rem;
+        color: var(--xmas-gold);
+        margin-top: 8px;
+        letter-spacing: 0.2em;
+    }
+    .xmas-lights {
+        display: flex; justify-content: center; gap: 20px; margin: 20px 0;
+    }
+    .light {
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        animation: blink 1s ease-in-out infinite;
+    }
+    .light:nth-child(1) { background: var(--xmas-red); animation-delay: 0s; }
+    .light:nth-child(2) { background: var(--xmas-green); animation-delay: 0.2s; }
+    .light:nth-child(3) { background: var(--xmas-gold); animation-delay: 0.4s; }
+    .light:nth-child(4) { background: #00bcd4; animation-delay: 0.6s; }
+    .light:nth-child(5) { background: var(--xmas-red); animation-delay: 0.8s; }
+    @keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 10px currentColor; } 50% { opacity: 0.3; box-shadow: none; } }
+    .xmas-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        padding: 32px;
+        position: relative;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .xmas-card::before {
+        content: '🎀';
+        position: absolute;
+        top: -15px; left: 50%;
+        transform: translateX(-50%);
+        font-size: 2rem;
+    }
+    .xmas-label {
+        font-family: 'Mountains of Christmas', cursive; font-size: 1.3rem;
+        color: var(--xmas-green);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .xmas-label::before { content: '🎄'; }
+    .xmas-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Quicksand', sans-serif; font-size: 1rem; line-height: 1.7;
+        color: var(--xmas-dark);
+        background: #f8f8f8;
+        border: 2px solid var(--xmas-green);
+        border-radius: 8px;
+        resize: vertical; box-sizing: border-box;
+    }
+    .xmas-textarea:focus { outline: none; border-color: var(--xmas-red); }
+    .xmas-textarea::placeholder { color: #999; }
+    .xmas-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Quicksand', sans-serif; font-size: 0.85rem; color: var(--xmas-green);
+    }
+    .xmas-actions { display: flex; gap: 16px; margin-top: 24px; }
+    .xmas-btn {
+        flex: 1; padding: 14px 24px;
+        font-family: 'Mountains of Christmas', cursive; font-size: 1.2rem;
+        border-radius: 30px; cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none; text-align: center;
+        border: none;
+    }
+    .xmas-btn-primary {
+        background: linear-gradient(135deg, var(--xmas-red) 0%, #a01830 100%);
+        color: var(--xmas-white);
+        box-shadow: 0 4px 15px rgba(196,30,58,0.4);
+    }
+    .xmas-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(196,30,58,0.5); }
+    .xmas-btn-secondary {
+        background: var(--xmas-white);
+        color: var(--xmas-green);
+        border: 2px solid var(--xmas-green);
+    }
+    .xmas-btn-secondary:hover { background: var(--xmas-green); color: var(--xmas-white); }
+    .xmas-process {
+        display: flex; justify-content: space-around;
+        margin-top: 28px; padding-top: 24px;
+        border-top: 2px dashed var(--xmas-green);
+    }
+    .process-gift { text-align: center; }
+    .process-icon {
+        width: 50px; height: 50px; margin: 0 auto 8px;
+        background: linear-gradient(135deg, var(--xmas-red) 50%, #a01830 50%);
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        position: relative;
+    }
+    .process-icon::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 8px; height: 100%;
+        background: var(--xmas-gold);
+    }
+    .process-icon::after {
+        content: '';
+        position: absolute;
+        top: 50%; left: 0;
+        transform: translateY(-50%);
+        width: 100%; height: 8px;
+        background: var(--xmas-gold);
+    }
+    .process-text { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: var(--xmas-green); }
+    .xmas-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border-radius: 8px;
+        font-family: 'Quicksand', sans-serif;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .xmas-alert-success { background: rgba(22,91,51,0.1); color: var(--xmas-green); border: 1px solid var(--xmas-green); }
+    .xmas-alert-error { background: rgba(196,30,58,0.1); color: var(--xmas-red); border: 1px solid var(--xmas-red); }
+    .xmas-history { margin-top: 32px; }
+    .xmas-history-title {
+        font-family: 'Mountains of Christmas', cursive; font-size: 1.5rem;
+        color: var(--xmas-gold);
+        margin-bottom: 16px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .xmas-history-title::before { content: '🎁'; }
+    .xmas-history-list { display: flex; flex-direction: column; gap: 10px; }
+    .xmas-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 12px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .xmas-history-item:hover { transform: translateX(5px); background: rgba(255,255,255,1); }
+    .xmas-status {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+    }
+    .xmas-status.completed { background: var(--xmas-green); color: white; }
+    .xmas-status.pending { background: var(--xmas-gold); color: var(--xmas-dark); }
+    .xmas-status.failed { background: var(--xmas-red); color: white; }
+    .xmas-info { flex: 1; min-width: 0; }
+    .xmas-text { font-family: 'Quicksand', sans-serif; font-size: 0.9rem; color: var(--xmas-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .xmas-meta-info { font-family: 'Quicksand', sans-serif; font-size: 0.75rem; color: #666; margin-top: 4px; }
+    @media (max-width: 640px) {
+        .xmas-title { font-size: 1.8rem; }
+        .xmas-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="snowflake sf1">❄</div>
+<div class="snowflake sf2">❅</div>
+<div class="snowflake sf3">❆</div>
+<div class="snowflake sf4">❄</div>
+<div class="snowflake sf5">❅</div>
+<div class="snowflake sf6">❆</div>
+<div class="snowflake sf7">❄</div>
+<div class="snowflake sf8">❅</div>
+<div class="xmas-wrapper">
+    {% if messages %}{% for message in messages %}<div class="xmas-alert xmas-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}🎄{% else %}⚠{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="xmas-header">
+        <div class="xmas-tree">🎄</div>
+        <h1 class="xmas-title">Holiday SMS</h1>
+        <p class="xmas-subtitle">✨ Court Message System ✨</p>
+        <div class="xmas-lights"><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div></div>
+    </div>
+    <div class="xmas-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="xmas-label">Message Content</div>
+            <textarea name="content" class="xmas-textarea" id="smsContent" placeholder="Paste your SMS here..." required></textarea>
+            <div class="xmas-meta"><span id="charCount">0 characters</span><span>🎅 Auto Process</span></div>
+            <div class="xmas-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="xmas-btn xmas-btn-secondary">← Back</a>
+                <button type="submit" class="xmas-btn xmas-btn-primary" id="submitBtn">🎁 Submit</button>
+            </div>
+            <div class="xmas-process">
+                <div class="process-gift"><div class="process-icon"><span style="position:relative;z-index:1;">🔍</span></div><div class="process-text">Parse</div></div>
+                <div class="process-gift"><div class="process-icon"><span style="position:relative;z-index:1;">🎯</span></div><div class="process-text">Match</div></div>
+                <div class="process-gift"><div class="process-icon"><span style="position:relative;z-index:1;">📥</span></div><div class="process-text">Download</div></div>
+                <div class="process-gift"><div class="process-icon"><span style="position:relative;z-index:1;">🔔</span></div><div class="process-text">Notify</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="xmas-history">
+        <div class="xmas-history-title">Recent Gifts</div>
+        <div class="xmas-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="xmas-history-item">
+                <div class="xmas-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}○{% endif %}</div>
+                <div class="xmas-info">
+                    <div class="xmas-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="xmas-meta-info">#{{ sms.id }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' characters'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.innerHTML = '🎄 Sending...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

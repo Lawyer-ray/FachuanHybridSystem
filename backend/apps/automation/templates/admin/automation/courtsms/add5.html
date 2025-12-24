@@ -1,0 +1,487 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&display=swap');
+    
+    :root {
+        --paper: #faf8f5;
+        --ink: #2c2c2c;
+        --ink-light: #6b6b6b;
+        --accent: #c41e3a;
+        --gold: #b8860b;
+        --bamboo: #5d7c4a;
+        --stone: #8b8680;
+    }
+    
+    body {
+        background: var(--paper);
+        min-height: 100vh;
+        font-family: 'Noto Serif SC', 'Songti SC', serif;
+    }
+    
+    #container { background: transparent; }
+    #content { padding: 0; }
+    
+    .zen-wrapper {
+        max-width: 680px;
+        margin: 60px auto;
+        padding: 0 24px;
+    }
+    
+    /* 装饰线 */
+    .zen-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        margin: 32px 0;
+    }
+    
+    .zen-divider::before,
+    .zen-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--stone), transparent);
+    }
+    
+    .zen-divider span {
+        color: var(--accent);
+        font-size: 1.2rem;
+    }
+    
+    /* 头部 */
+    .zen-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    
+    .zen-seal {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 20px;
+        background: var(--accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+        box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+        transform: rotate(-3deg);
+    }
+    
+    .zen-title {
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--ink);
+        margin: 0;
+        letter-spacing: 0.3em;
+    }
+    
+    .zen-subtitle {
+        color: var(--ink-light);
+        font-size: 0.9rem;
+        margin-top: 8px;
+        letter-spacing: 0.1em;
+    }
+    
+    /* 主卡片 */
+    .zen-card {
+        background: white;
+        border: 1px solid #e8e4df;
+        padding: 40px;
+        position: relative;
+    }
+    
+    /* 角落装饰 */
+    .zen-card::before {
+        content: '〔';
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        font-size: 1.5rem;
+        color: var(--stone);
+        opacity: 0.4;
+    }
+    
+    .zen-card::after {
+        content: '〕';
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
+        font-size: 1.5rem;
+        color: var(--stone);
+        opacity: 0.4;
+    }
+    
+    /* 表单 */
+    .zen-field {
+        margin-bottom: 24px;
+    }
+    
+    .zen-label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--ink-light);
+        margin-bottom: 12px;
+        letter-spacing: 0.15em;
+    }
+    
+    .zen-textarea {
+        width: 100%;
+        min-height: 220px;
+        padding: 24px;
+        font-size: 1rem;
+        line-height: 2;
+        color: var(--ink);
+        background: var(--paper);
+        border: 1px solid #ddd8d0;
+        resize: vertical;
+        font-family: inherit;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    
+    .zen-textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+    
+    .zen-textarea::placeholder {
+        color: var(--stone);
+        font-style: italic;
+    }
+    
+    .zen-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        color: var(--stone);
+    }
+    
+    /* 按钮 */
+    .zen-actions {
+        display: flex;
+        gap: 16px;
+        margin-top: 32px;
+    }
+    
+    .zen-btn {
+        flex: 1;
+        padding: 16px 24px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        letter-spacing: 0.1em;
+    }
+    
+    .zen-btn-primary {
+        background: var(--ink);
+        color: white;
+    }
+    
+    .zen-btn-primary:hover {
+        background: var(--accent);
+    }
+    
+    .zen-btn-secondary {
+        background: transparent;
+        color: var(--ink-light);
+        border: 1px solid #ddd8d0;
+    }
+    
+    .zen-btn-secondary:hover {
+        border-color: var(--ink);
+        color: var(--ink);
+    }
+    
+    /* 流程说明 */
+    .zen-flow {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #e8e4df;
+    }
+    
+    .zen-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        color: var(--ink-light);
+    }
+    
+    .zen-step::after {
+        content: '→';
+        color: var(--stone);
+        margin-left: 8px;
+    }
+    
+    .zen-step:last-child::after {
+        display: none;
+    }
+    
+    .step-icon {
+        width: 28px;
+        height: 28px;
+        background: var(--paper);
+        border: 1px solid #ddd8d0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+    
+    /* 消息 */
+    .zen-alert {
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        font-size: 0.9rem;
+        border-left: 3px solid;
+    }
+    
+    .zen-alert-success {
+        background: #f6faf6;
+        border-color: var(--bamboo);
+        color: var(--bamboo);
+    }
+    
+    .zen-alert-error {
+        background: #fdf6f6;
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+    
+    /* 最近记录 */
+    .zen-recent {
+        margin-top: 48px;
+    }
+    
+    .zen-recent-title {
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--ink-light);
+        letter-spacing: 0.2em;
+        margin-bottom: 20px;
+    }
+    
+    .zen-recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        background: #e8e4df;
+        border: 1px solid #e8e4df;
+    }
+    
+    .zen-recent-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        background: white;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .zen-recent-item:hover {
+        background: var(--paper);
+    }
+    
+    .recent-mark {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+    
+    .recent-mark.completed { background: var(--bamboo); }
+    .recent-mark.pending { background: var(--gold); }
+    .recent-mark.failed { background: var(--accent); }
+    
+    .recent-body {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .recent-text {
+        color: var(--ink);
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .recent-info {
+        font-size: 0.75rem;
+        color: var(--stone);
+        margin-top: 4px;
+    }
+    
+    .recent-info .id {
+        color: var(--accent);
+    }
+    
+    /* 底部诗句 */
+    .zen-footer {
+        text-align: center;
+        margin-top: 48px;
+        color: var(--stone);
+        font-size: 0.8rem;
+        font-style: italic;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 640px) {
+        .zen-wrapper { margin: 30px auto; }
+        .zen-card { padding: 24px; }
+        .zen-actions { flex-direction: column; }
+        .zen-flow { flex-wrap: wrap; }
+        .zen-title { font-size: 1.5rem; letter-spacing: 0.15em; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="zen-wrapper">
+    <!-- 消息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="zen-alert zen-alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- 头部 -->
+    <div class="zen-header">
+        <div class="zen-seal">信</div>
+        <h1 class="zen-title">法院短信</h1>
+        <p class="zen-subtitle">Court SMS Processing</p>
+    </div>
+    
+    <div class="zen-divider"><span>◆</span></div>
+    
+    <!-- 主卡片 -->
+    <div class="zen-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            
+            <div class="zen-field">
+                <label class="zen-label">短 信 内 容</label>
+                <textarea 
+                    name="content" 
+                    class="zen-textarea" 
+                    id="smsContent"
+                    placeholder="请于此处粘贴法院短信..."
+                    required
+                ></textarea>
+                <div class="zen-meta">
+                    <span id="charCount">〇 字</span>
+                    <span>自动处理</span>
+                </div>
+            </div>
+            
+            <div class="zen-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="zen-btn zen-btn-secondary">
+                    返 回
+                </a>
+                <button type="submit" class="zen-btn zen-btn-primary" id="submitBtn">
+                    提 交
+                </button>
+            </div>
+        </form>
+        
+        <div class="zen-flow">
+            <div class="zen-step">
+                <span class="step-icon">📝</span>
+                <span>解析</span>
+            </div>
+            <div class="zen-step">
+                <span class="step-icon">🔍</span>
+                <span>匹配</span>
+            </div>
+            <div class="zen-step">
+                <span class="step-icon">📄</span>
+                <span>下载</span>
+            </div>
+            <div class="zen-step">
+                <span class="step-icon">📤</span>
+                <span>通知</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近记录 -->
+    {% if recent_sms %}
+    <div class="zen-recent">
+        <div class="zen-recent-title">— 近 期 记 录 —</div>
+        <div class="zen-recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="zen-recent-item">
+                <div class="recent-mark {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="recent-body">
+                    <div class="recent-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="recent-info">
+                        <span class="id">#{{ sms.id }}</span> · {{ sms.get_status_display }} · {{ sms.created_at|date:"n月j日 H:i" }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="zen-footer">
+        「 静以修身，俭以养德 」
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCount = document.getElementById('charCount');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // 中文数字
+    const cnNums = ['〇','一','二','三','四','五','六','七','八','九'];
+    function toCnNum(n) {
+        if (n < 10) return cnNums[n];
+        if (n < 100) return (n >= 10 ? cnNums[Math.floor(n/10)] + '十' : '') + (n%10 ? cnNums[n%10] : '');
+        return n;
+    }
+    
+    textarea.addEventListener('input', function() {
+        const len = this.value.length;
+        charCount.textContent = (len < 100 ? toCnNum(len) : len) + ' 字';
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        submitBtn.textContent = '处理中...';
+        submitBtn.disabled = true;
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

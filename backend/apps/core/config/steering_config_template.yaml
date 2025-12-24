@@ -1,0 +1,214 @@
+# Steering 系统集成配置模板
+# 本文件定义了 Steering 规范系统与统一配置管理系统集成的所有配置项
+
+steering:
+  # 条件加载配置
+  conditional_loading:
+    enabled: true
+    rules:
+      # 核心规范 - 总是加载
+      - pattern: "core/*.md"
+        condition: "always"
+        priority: 100
+        cache_ttl: 7200  # 2小时
+        performance_threshold_ms: 50.0
+        dependencies: []
+      
+      # API 层规范 - 匹配 API 文件时加载
+      - pattern: "layers/api-layer.md"
+        condition: "fileMatch"
+        priority: 80
+        cache_ttl: 3600
+        performance_threshold_ms: 100.0
+        dependencies: ["core/architecture.md", "core/interfaces.md"]
+      
+      # Service 层规范 - 匹配 Service 文件时加载
+      - pattern: "layers/service-layer.md"
+        condition: "fileMatch"
+        priority: 80
+        cache_ttl: 3600
+        performance_threshold_ms: 100.0
+        dependencies: ["core/architecture.md", "core/exceptions.md"]
+      
+      # Admin 层规范 - 匹配 Admin 文件时加载
+      - pattern: "layers/admin-layer.md"
+        condition: "fileMatch"
+        priority: 80
+        cache_ttl: 3600
+        performance_threshold_ms: 100.0
+        dependencies: ["core/architecture.md"]
+      
+      # Model 层规范 - 匹配 Model 文件时加载
+      - pattern: "layers/model-layer.md"
+        condition: "fileMatch"
+        priority: 80
+        cache_ttl: 3600
+        performance_threshold_ms: 100.0
+        dependencies: ["core/architecture.md"]
+      
+      # 模块规范 - 根据模块路径匹配
+      - pattern: "modules/*.md"
+        condition: "fileMatch"
+        priority: 60
+        cache_ttl: 3600
+        performance_threshold_ms: 150.0
+        dependencies: []
+
+  # 缓存策略配置
+  cache:
+    enabled: true
+    strategy: "smart"  # lru, ttl, smart, layered, adaptive
+    ttl_seconds: 3600
+    max_entries: 1000
+    memory_limit_mb: 100
+    auto_cleanup: true
+    cleanup_interval: 300  # 清理间隔（秒）
+    
+    # LRU 策略配置
+    lru:
+      max_entries: 1000
+    
+    # TTL 策略配置
+    ttl:
+      ttl_seconds: 3600
+    
+    # 智能缓存策略配置
+    smart:
+      ttl_seconds: 3600
+      check_file_mtime: true
+      max_file_size_mb: 1  # 超过此大小的文件不缓存
+    
+    # 分层缓存策略配置
+    layered:
+      hot_cache_size: 100
+      warm_cache_size: 500
+      cold_cache_ttl: 7200
+    
+    # 自适应缓存策略配置
+    adaptive:
+      hit_rate_window: 100
+      strategy_switch_threshold: 0.7
+
+  # 性能监控配置
+  performance:
+    enabled: true
+    max_history_size: 1000
+    
+    # 性能阈值配置
+    thresholds:
+      load_time_warning_ms: 500.0
+      load_time_error_ms: 2000.0
+      load_time_critical_ms: 5000.0
+      
+      memory_usage_warning_mb: 100.0
+      memory_usage_error_mb: 500.0
+      memory_usage_critical_mb: 1000.0
+      
+      cache_hit_rate_warning: 0.7
+      cache_hit_rate_error: 0.5
+      
+      concurrent_loads_warning: 10
+      concurrent_loads_error: 20
+    
+    # 监控功能开关
+    enable_monitoring: true
+    enable_profiling: false
+    max_concurrent_loads: 4
+    
+    # 告警配置
+    alerts:
+      enabled: true
+      log_level: "warning"  # info, warning, error, critical
+      export_reports: true
+      report_interval: 3600  # 报告生成间隔（秒）
+
+  # 依赖管理配置
+  dependencies:
+    auto_resolve: true
+    max_depth: 10
+    circular_detection: true
+    load_order_strategy: "dependency"  # priority, dependency, alphabetical, topological
+    
+    # 依赖解析配置
+    resolution:
+      include_optional: false
+      resolve_conflicts: true
+      prefer_newer_versions: true
+    
+    # 验证配置
+    validation:
+      strict_mode: false
+      allow_missing_optional: true
+      warn_on_conflicts: true
+
+  # 文件匹配模式配置
+  file_patterns:
+    api_layer:
+      - "**/api/**/*.py"
+      - "**/apis/**/*.py"
+    
+    service_layer:
+      - "**/services/**/*.py"
+      - "**/service/**/*.py"
+    
+    admin_layer:
+      - "**/admin/**/*.py"
+      - "**/admins/**/*.py"
+    
+    model_layer:
+      - "**/models.py"
+      - "**/model/**/*.py"
+    
+    modules:
+      client:
+        - "**/client/**/*.py"
+        - "**/clients/**/*.py"
+      
+      cases:
+        - "**/cases/**/*.py"
+        - "**/case/**/*.py"
+      
+      contracts:
+        - "**/contracts/**/*.py"
+        - "**/contract/**/*.py"
+      
+      organization:
+        - "**/organization/**/*.py"
+        - "**/org/**/*.py"
+      
+      automation:
+        - "**/automation/**/*.py"
+        - "**/auto/**/*.py"
+      
+      sms:
+        - "**/sms/**/*.py"
+
+  # 集成配置
+  integration:
+    # 启用的功能
+    features:
+      conditional_loading: true
+      caching: true
+      performance_monitoring: true
+      dependency_management: true
+    
+    # 日志配置
+    logging:
+      level: "info"
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      file: "logs/steering_integration.log"
+      max_size_mb: 10
+      backup_count: 5
+    
+    # 导出配置
+    export:
+      enabled: true
+      formats: ["json", "yaml"]
+      include_metadata: true
+      compress: false
+    
+    # 健康检查配置
+    health_check:
+      enabled: true
+      interval: 300  # 健康检查间隔（秒）
+      timeout: 30    # 健康检查超时（秒）

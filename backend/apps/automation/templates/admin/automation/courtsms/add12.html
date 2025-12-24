@@ -1,0 +1,250 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@300;400&display=swap');
+    :root {
+        --space-dark: #0a0a1a;
+        --space-blue: #1a1a3a;
+        --neon-blue: #00d4ff;
+        --neon-purple: #b347d9;
+        --star-white: #ffffff;
+        --holo-green: #00ff88;
+    }
+    body {
+        background: var(--space-dark);
+        min-height: 100vh;
+        overflow-x: hidden;
+        position: relative;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            radial-gradient(2px 2px at 20px 30px, var(--star-white), transparent),
+            radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+            radial-gradient(1px 1px at 90px 40px, var(--star-white), transparent),
+            radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.6), transparent),
+            radial-gradient(1px 1px at 160px 120px, var(--star-white), transparent);
+        background-repeat: repeat;
+        background-size: 200px 200px;
+        animation: twinkle 4s ease-in-out infinite;
+        pointer-events: none;
+    }
+    @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .space-wrapper { max-width: 700px; margin: 40px auto; padding: 0 20px; position: relative; z-index: 1; }
+    .space-header { text-align: center; margin-bottom: 30px; }
+    .space-logo {
+        width: 100px; height: 100px; margin: 0 auto 20px;
+        border: 2px solid var(--neon-blue);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(circle, var(--space-blue) 0%, var(--space-dark) 100%);
+        box-shadow: 0 0 30px var(--neon-blue), inset 0 0 30px rgba(0,212,255,0.1);
+        animation: pulse-ring 2s ease-in-out infinite;
+    }
+    @keyframes pulse-ring {
+        0%, 100% { box-shadow: 0 0 30px var(--neon-blue), inset 0 0 30px rgba(0,212,255,0.1); }
+        50% { box-shadow: 0 0 50px var(--neon-blue), 0 0 80px var(--neon-purple), inset 0 0 30px rgba(0,212,255,0.2); }
+    }
+    .space-logo::before { content: '🛸'; font-size: 2.5rem; }
+    .space-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem; font-weight: 700;
+        background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple), var(--neon-blue));
+        background-size: 200% auto;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        animation: gradient-shift 3s linear infinite;
+        text-transform: uppercase; letter-spacing: 0.3em;
+    }
+    @keyframes gradient-shift { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+    .space-subtitle {
+        font-family: 'Exo 2', sans-serif; font-weight: 300;
+        font-size: 0.9rem; color: var(--neon-blue);
+        letter-spacing: 0.5em; margin-top: 8px; opacity: 0.8;
+    }
+    .space-card {
+        background: linear-gradient(135deg, rgba(26,26,58,0.9) 0%, rgba(10,10,26,0.95) 100%);
+        border: 1px solid var(--neon-blue);
+        border-radius: 16px; padding: 32px;
+        position: relative; overflow: hidden;
+        box-shadow: 0 0 40px rgba(0,212,255,0.1), inset 0 0 60px rgba(0,212,255,0.05);
+    }
+    .space-card::before {
+        content: '';
+        position: absolute; top: 0; left: -100%;
+        width: 100%; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+        animation: scan-line 3s linear infinite;
+    }
+    @keyframes scan-line { 0% { left: -100%; } 100% { left: 100%; } }
+    .space-label {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.75rem; color: var(--neon-blue);
+        text-transform: uppercase; letter-spacing: 0.2em;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .space-label::before { content: '◆'; animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    .space-textarea {
+        width: 100%; min-height: 160px; padding: 20px;
+        font-family: 'Exo 2', sans-serif; font-size: 1rem; line-height: 1.8;
+        color: var(--star-white);
+        background: rgba(0,0,0,0.5);
+        border: 1px solid rgba(0,212,255,0.3); border-radius: 8px;
+        resize: vertical; box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    .space-textarea:focus {
+        outline: none;
+        border-color: var(--neon-blue);
+        box-shadow: 0 0 20px rgba(0,212,255,0.3), inset 0 0 20px rgba(0,212,255,0.05);
+    }
+    .space-textarea::placeholder { color: rgba(0,212,255,0.4); }
+    .space-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: var(--neon-purple);
+    }
+    .space-actions { display: flex; gap: 16px; margin-top: 24px; }
+    .space-btn {
+        flex: 1; padding: 16px 24px;
+        font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.15em;
+        border: 1px solid; border-radius: 8px;
+        cursor: pointer; transition: all 0.3s ease;
+        text-decoration: none; text-align: center;
+        position: relative; overflow: hidden;
+    }
+    .space-btn::after {
+        content: '';
+        position: absolute; top: 50%; left: 50%;
+        width: 0; height: 0;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+    .space-btn:hover::after { width: 300px; height: 300px; }
+    .space-btn-primary {
+        background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+        border-color: var(--neon-blue); color: var(--space-dark);
+        box-shadow: 0 0 20px rgba(0,212,255,0.4);
+    }
+    .space-btn-primary:hover { box-shadow: 0 0 40px rgba(0,212,255,0.6), 0 0 60px rgba(179,71,217,0.4); transform: translateY(-2px); }
+    .space-btn-secondary {
+        background: transparent;
+        border-color: var(--neon-purple); color: var(--neon-purple);
+    }
+    .space-btn-secondary:hover { background: rgba(179,71,217,0.1); transform: translateY(-2px); }
+    .space-process {
+        display: flex; justify-content: space-around;
+        margin-top: 28px; padding-top: 24px;
+        border-top: 1px solid rgba(0,212,255,0.2);
+    }
+    .process-node { text-align: center; position: relative; }
+    .process-icon {
+        width: 50px; height: 50px; margin: 0 auto 8px;
+        border: 1px solid var(--neon-blue); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        background: rgba(0,212,255,0.1);
+    }
+    .process-text { font-family: 'Exo 2', sans-serif; font-size: 0.7rem; color: var(--neon-blue); }
+    .space-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border: 1px solid; border-radius: 8px;
+        font-family: 'Exo 2', sans-serif;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .space-alert-success { background: rgba(0,255,136,0.1); border-color: var(--holo-green); color: var(--holo-green); }
+    .space-alert-error { background: rgba(255,71,87,0.1); border-color: #ff4757; color: #ff6b7a; }
+    .space-history { margin-top: 32px; }
+    .space-history-title {
+        font-family: 'Orbitron', sans-serif; font-size: 0.8rem;
+        color: var(--neon-purple); text-transform: uppercase;
+        letter-spacing: 0.2em; margin-bottom: 16px;
+    }
+    .space-history-list { display: flex; flex-direction: column; gap: 10px; }
+    .space-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: rgba(26,26,58,0.6);
+        border: 1px solid rgba(0,212,255,0.2); border-radius: 8px;
+        text-decoration: none; transition: all 0.3s ease;
+    }
+    .space-history-item:hover { border-color: var(--neon-blue); background: rgba(26,26,58,0.9); transform: translateX(5px); }
+    .space-status {
+        padding: 4px 12px;
+        font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+        text-transform: uppercase; border-radius: 20px;
+    }
+    .space-status.completed { background: rgba(0,255,136,0.2); color: var(--holo-green); }
+    .space-status.pending { background: rgba(0,212,255,0.2); color: var(--neon-blue); }
+    .space-status.failed { background: rgba(255,71,87,0.2); color: #ff6b7a; }
+    .space-info { flex: 1; min-width: 0; }
+    .space-text { font-family: 'Exo 2', sans-serif; font-size: 0.9rem; color: var(--star-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .space-meta-info { font-family: 'Orbitron', sans-serif; font-size: 0.6rem; color: var(--neon-blue); margin-top: 4px; opacity: 0.7; }
+    @media (max-width: 640px) {
+        .space-title { font-size: 1.3rem; letter-spacing: 0.15em; }
+        .space-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="space-wrapper">
+    {% if messages %}{% for message in messages %}<div class="space-alert space-alert-{{ message.tags }}"><span>{% if message.tags == 'success' %}✓{% else %}⚠{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="space-header">
+        <div class="space-logo"></div>
+        <h1 class="space-title">Space Command</h1>
+        <p class="space-subtitle">Transmission Center</p>
+    </div>
+    <div class="space-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="space-label">Incoming Signal</div>
+            <textarea name="content" class="space-textarea" id="smsContent" placeholder="Paste transmission data here..." required></textarea>
+            <div class="space-meta"><span id="charCount">BYTES: 0</span><span>STATUS: READY</span></div>
+            <div class="space-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="space-btn space-btn-secondary">← Abort</a>
+                <button type="submit" class="space-btn space-btn-primary" id="submitBtn">🚀 Launch</button>
+            </div>
+            <div class="space-process">
+                <div class="process-node"><div class="process-icon">📡</div><div class="process-text">Receive</div></div>
+                <div class="process-node"><div class="process-icon">🔍</div><div class="process-text">Analyze</div></div>
+                <div class="process-node"><div class="process-icon">⚡</div><div class="process-text">Process</div></div>
+                <div class="process-node"><div class="process-icon">✨</div><div class="process-text">Complete</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="space-history">
+        <div class="space-history-title">◆ Transmission Log</div>
+        <div class="space-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="space-history-item">
+                <span class="space-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}OK{% elif sms.status == 'failed' %}ERR{% else %}...{% endif %}</span>
+                <div class="space-info">
+                    <div class="space-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="space-meta-info">ID: {{ sms.id }} | {{ sms.created_at|date:"Y.m.d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = 'BYTES: ' + this.value.length; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.innerHTML = '🚀 Launching...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

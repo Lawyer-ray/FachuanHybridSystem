@@ -1,0 +1,596 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: #12121a;
+        --bg-input: #1a1a24;
+        --border: #2a2a3a;
+        --cyan: #00f5ff;
+        --cyan-dim: rgba(0, 245, 255, 0.1);
+        --purple: #a855f7;
+        --green: #22c55e;
+        --red: #ef4444;
+        --text: #e2e8f0;
+        --text-dim: #64748b;
+    }
+    
+    body {
+        background: var(--bg-dark);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    
+    /* 网格背景 */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: 
+            linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+        background-size: 50px 50px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    /* 扫描线效果 */
+    body::after {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+        animation: scan 4s linear infinite;
+        pointer-events: none;
+        z-index: 1000;
+    }
+    
+    @keyframes scan {
+        0% { top: 0; opacity: 1; }
+        100% { top: 100vh; opacity: 0; }
+    }
+    
+    #container { background: transparent; }
+    #content { padding: 0; position: relative; z-index: 1; }
+    
+    .terminal-wrapper {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    
+    /* 终端头部 */
+    .terminal-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding: 16px 20px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+    }
+    
+    .terminal-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--cyan), var(--purple));
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    }
+    
+    .terminal-title h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+        font-family: 'SF Mono', 'Consolas', monospace;
+    }
+    
+    .terminal-title p {
+        font-size: 0.8rem;
+        color: var(--cyan);
+        margin: 4px 0 0 0;
+        font-family: monospace;
+    }
+    
+    .status-indicator {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        color: var(--green);
+        font-family: monospace;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--green);
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+        box-shadow: 0 0 10px var(--green);
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    /* 主卡片 */
+    .terminal-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 
+            0 0 40px rgba(0, 245, 255, 0.05),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    
+    .card-header {
+        padding: 12px 20px;
+        background: var(--bg-input);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .window-dots {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .window-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+    
+    .card-title {
+        margin-left: 12px;
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        font-family: monospace;
+    }
+    
+    .card-body {
+        padding: 24px;
+    }
+    
+    /* 输入区域 */
+    .input-section {
+        margin-bottom: 20px;
+    }
+    
+    .input-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        color: var(--cyan);
+        margin-bottom: 10px;
+        font-family: monospace;
+    }
+    
+    .input-label::before {
+        content: '>';
+        color: var(--purple);
+    }
+    
+    .cyber-textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 20px;
+        font-size: 0.95rem;
+        line-height: 1.8;
+        color: var(--text);
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        resize: vertical;
+        font-family: 'SF Mono', 'Consolas', monospace;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    
+    .cyber-textarea:focus {
+        outline: none;
+        border-color: var(--cyan);
+        box-shadow: 
+            0 0 0 3px rgba(0, 245, 255, 0.1),
+            0 0 20px rgba(0, 245, 255, 0.1);
+    }
+    
+    .cyber-textarea::placeholder {
+        color: var(--text-dim);
+    }
+    
+    .input-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        font-family: monospace;
+        color: var(--text-dim);
+    }
+    
+    /* 按钮 */
+    .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+    
+    .cyber-btn {
+        flex: 1;
+        padding: 14px 24px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: monospace;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .cyber-btn-primary {
+        background: linear-gradient(135deg, var(--cyan), #0891b2);
+        color: var(--bg-dark);
+        box-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .cyber-btn-primary::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .cyber-btn-primary:hover::before {
+        left: 100%;
+    }
+    
+    .cyber-btn-primary:hover {
+        box-shadow: 0 0 30px rgba(0, 245, 255, 0.6);
+        transform: translateY(-2px);
+    }
+    
+    .cyber-btn-secondary {
+        background: transparent;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+    }
+    
+    .cyber-btn-secondary:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+    }
+    
+    /* 加载动画 */
+    .loading-bar {
+        display: none;
+        height: 2px;
+        background: linear-gradient(90deg, var(--cyan), var(--purple), var(--cyan));
+        background-size: 200% 100%;
+        animation: loading 1s linear infinite;
+        margin-top: 12px;
+        border-radius: 1px;
+    }
+    
+    .loading-bar.active { display: block; }
+    
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* 功能模块 */
+    .modules {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+    
+    .module {
+        padding: 14px 12px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .module:hover {
+        border-color: var(--cyan);
+        box-shadow: 0 0 15px rgba(0, 245, 255, 0.1);
+    }
+    
+    .module-icon {
+        font-size: 1.5rem;
+        margin-bottom: 6px;
+    }
+    
+    .module-name {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        font-family: monospace;
+    }
+    
+    /* 消息 */
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .alert-success {
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: var(--green);
+    }
+    
+    .alert-error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: var(--red);
+    }
+    
+    /* 最近记录 */
+    .recent-section {
+        margin-top: 24px;
+    }
+    
+    .recent-header {
+        font-size: 0.8rem;
+        color: var(--cyan);
+        margin-bottom: 12px;
+        font-family: monospace;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .recent-header::before {
+        content: '//';
+        color: var(--text-dim);
+    }
+    
+    .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .recent-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        font-family: monospace;
+    }
+    
+    .recent-item:hover {
+        border-color: var(--cyan);
+        background: var(--bg-input);
+    }
+    
+    .recent-status {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+    
+    .recent-status.completed { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .recent-status.pending { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    .recent-status.failed { background: var(--red); box-shadow: 0 0 8px var(--red); }
+    
+    .recent-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .recent-text {
+        color: var(--text);
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .recent-meta {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        margin-top: 2px;
+    }
+    
+    .recent-meta .id { color: var(--purple); }
+    
+    /* 响应式 */
+    @media (max-width: 640px) {
+        .terminal-wrapper { margin: 20px auto; }
+        .modules { grid-template-columns: repeat(2, 1fr); }
+        .actions { flex-direction: column; }
+        .terminal-header { flex-wrap: wrap; }
+        .status-indicator { width: 100%; margin-left: 0; margin-top: 12px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="terminal-wrapper">
+    <!-- 消息 -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            [{{ message.tags|upper }}] {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- 终端头部 -->
+    <div class="terminal-header">
+        <div class="terminal-icon">📡</div>
+        <div class="terminal-title">
+            <h1>COURT SMS TERMINAL</h1>
+            <p>v2.0.0 // 法院短信处理系统</p>
+        </div>
+        <div class="status-indicator">
+            <span class="status-dot"></span>
+            SYSTEM ONLINE
+        </div>
+    </div>
+    
+    <!-- 主卡片 -->
+    <div class="terminal-card">
+        <div class="card-header">
+            <div class="window-dots">
+                <span class="window-dot red"></span>
+                <span class="window-dot yellow"></span>
+                <span class="window-dot green"></span>
+            </div>
+            <span class="card-title">sms_input.terminal</span>
+        </div>
+        
+        <div class="card-body">
+            <form method="post" id="smsForm">
+                {% csrf_token %}
+                
+                <div class="input-section">
+                    <label class="input-label">INPUT_SMS_CONTENT</label>
+                    <textarea 
+                        name="content" 
+                        class="cyber-textarea" 
+                        id="smsContent"
+                        placeholder="// 在此粘贴法院短信内容..."
+                        required
+                    ></textarea>
+                    <div class="input-meta">
+                        <span id="charCount">CHARS: 0</span>
+                        <span>ENCODING: UTF-8</span>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <a href="{% url 'admin:automation_courtsms_changelist' %}" class="cyber-btn cyber-btn-secondary">
+                        ← BACK
+                    </a>
+                    <button type="submit" class="cyber-btn cyber-btn-primary" id="submitBtn">
+                        <span class="btn-text">⚡ EXECUTE</span>
+                    </button>
+                </div>
+                
+                <div class="loading-bar" id="loadingBar"></div>
+            </form>
+            
+            <div class="modules">
+                <div class="module">
+                    <div class="module-icon">🔗</div>
+                    <div class="module-name">LINK_EXTRACT</div>
+                </div>
+                <div class="module">
+                    <div class="module-icon">🔍</div>
+                    <div class="module-name">CASE_MATCH</div>
+                </div>
+                <div class="module">
+                    <div class="module-icon">📄</div>
+                    <div class="module-name">DOC_RENAME</div>
+                </div>
+                <div class="module">
+                    <div class="module-icon">📤</div>
+                    <div class="module-name">FEISHU_PUSH</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近记录 -->
+    {% if recent_sms %}
+    <div class="recent-section">
+        <div class="recent-header">RECENT_RECORDS</div>
+        <div class="recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="recent-item">
+                <div class="recent-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="recent-content">
+                    <div class="recent-text">{{ sms.content|truncatechars:45 }}</div>
+                    <div class="recent-meta">
+                        <span class="id">#{{ sms.id }}</span> | {{ sms.get_status_display }} | {{ sms.created_at|date:"Y-m-d H:i" }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCount = document.getElementById('charCount');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingBar = document.getElementById('loadingBar');
+    
+    textarea.addEventListener('input', function() {
+        charCount.textContent = 'CHARS: ' + this.value.length;
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        submitBtn.querySelector('.btn-text').textContent = '⏳ PROCESSING...';
+        submitBtn.disabled = true;
+        loadingBar.classList.add('active');
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

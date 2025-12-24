@@ -1,0 +1,225 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --neon-pink: #ff2d95;
+        --neon-blue: #00d4ff;
+        --neon-purple: #b347ff;
+        --neon-yellow: #fff200;
+        --dark: #0d0d0d;
+        --darker: #050505;
+    }
+    body {
+        background: var(--darker);
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            radial-gradient(ellipse at 20% 80%, rgba(255,45,149,0.15) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 20%, rgba(0,212,255,0.15) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 50%, rgba(179,71,255,0.1) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; position: relative; z-index: 1; }
+    .neon-wrapper { max-width: 700px; margin: 50px auto; padding: 0 20px; }
+    .neon-title {
+        text-align: center;
+        font-size: 3rem;
+        font-weight: 900;
+        margin-bottom: 40px;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: #fff;
+        text-shadow: 
+            0 0 10px var(--neon-pink),
+            0 0 20px var(--neon-pink),
+            0 0 40px var(--neon-pink),
+            0 0 80px var(--neon-pink);
+        animation: flicker 3s infinite;
+    }
+    @keyframes flicker {
+        0%, 100% { opacity: 1; }
+        92% { opacity: 1; }
+        93% { opacity: 0.8; }
+        94% { opacity: 1; }
+        96% { opacity: 0.9; }
+        97% { opacity: 1; }
+    }
+    .neon-card {
+        background: rgba(13,13,13,0.9);
+        border: 2px solid var(--neon-blue);
+        border-radius: 4px;
+        padding: 32px;
+        box-shadow: 
+            0 0 10px var(--neon-blue),
+            inset 0 0 20px rgba(0,212,255,0.05);
+    }
+    .neon-label {
+        color: var(--neon-yellow);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 12px;
+        text-shadow: 0 0 10px var(--neon-yellow);
+    }
+    .neon-textarea {
+        width: 100%;
+        min-height: 180px;
+        padding: 20px;
+        font-size: 1rem;
+        line-height: 1.8;
+        color: #fff;
+        background: var(--darker);
+        border: 1px solid var(--neon-purple);
+        border-radius: 4px;
+        resize: vertical;
+        font-family: 'Courier New', monospace;
+        box-sizing: border-box;
+    }
+    .neon-textarea:focus {
+        outline: none;
+        border-color: var(--neon-pink);
+        box-shadow: 0 0 15px var(--neon-pink);
+    }
+    .neon-textarea::placeholder { color: #444; }
+    .neon-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        color: var(--neon-blue);
+        font-family: monospace;
+    }
+    .neon-actions { display: flex; gap: 16px; margin-top: 28px; }
+    .neon-btn {
+        flex: 1;
+        padding: 14px 24px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        border: 2px solid;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        background: transparent;
+    }
+    .neon-btn-primary {
+        color: var(--neon-pink);
+        border-color: var(--neon-pink);
+        text-shadow: 0 0 10px var(--neon-pink);
+        box-shadow: 0 0 10px var(--neon-pink), inset 0 0 10px rgba(255,45,149,0.1);
+    }
+    .neon-btn-primary:hover {
+        background: var(--neon-pink);
+        color: #000;
+        text-shadow: none;
+        box-shadow: 0 0 30px var(--neon-pink);
+    }
+    .neon-btn-secondary {
+        color: var(--neon-blue);
+        border-color: var(--neon-blue);
+    }
+    .neon-btn-secondary:hover {
+        background: rgba(0,212,255,0.1);
+        box-shadow: 0 0 15px var(--neon-blue);
+    }
+    .neon-features {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(0,212,255,0.3);
+    }
+    .neon-feature {
+        text-align: center;
+        padding: 12px 8px;
+        border: 1px solid rgba(179,71,255,0.3);
+        border-radius: 4px;
+    }
+    .neon-feature-icon { font-size: 1.5rem; margin-bottom: 4px; }
+    .neon-feature-text { font-size: 0.65rem; color: var(--neon-purple); text-transform: uppercase; letter-spacing: 0.1em; }
+    .alert { padding: 12px 16px; margin-bottom: 16px; border-left: 3px solid; font-size: 0.85rem; }
+    .alert-success { background: rgba(0,255,0,0.1); border-color: #0f0; color: #0f0; }
+    .alert-error { background: rgba(255,0,0,0.1); border-color: #f00; color: #f00; }
+    .neon-recent { margin-top: 40px; }
+    .neon-recent-title { color: var(--neon-blue); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 16px; text-shadow: 0 0 10px var(--neon-blue); }
+    .neon-recent-list { display: flex; flex-direction: column; gap: 8px; }
+    .neon-recent-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+        background: rgba(13,13,13,0.8); border: 1px solid rgba(179,71,255,0.3);
+        text-decoration: none; transition: all 0.2s ease;
+    }
+    .neon-recent-item:hover { border-color: var(--neon-pink); box-shadow: 0 0 10px rgba(255,45,149,0.3); }
+    .recent-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .recent-dot.completed { background: #0f0; box-shadow: 0 0 8px #0f0; }
+    .recent-dot.pending { background: var(--neon-yellow); box-shadow: 0 0 8px var(--neon-yellow); }
+    .recent-dot.failed { background: #f00; box-shadow: 0 0 8px #f00; }
+    .recent-info { flex: 1; min-width: 0; }
+    .recent-text { color: #fff; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recent-meta { font-size: 0.7rem; color: #666; margin-top: 2px; }
+    @media (max-width: 640px) {
+        .neon-title { font-size: 2rem; }
+        .neon-actions { flex-direction: column; }
+        .neon-features { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="neon-wrapper">
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <h1 class="neon-title">NEON SMS</h1>
+    <div class="neon-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="neon-label">// INPUT MESSAGE</div>
+            <textarea name="content" class="neon-textarea" id="smsContent" placeholder="PASTE COURT SMS HERE..." required></textarea>
+            <div class="neon-meta"><span id="charCount">0 CHARS</span><span>AUTO-PROCESS: ON</span></div>
+            <div class="neon-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="neon-btn neon-btn-secondary">← BACK</a>
+                <button type="submit" class="neon-btn neon-btn-primary" id="submitBtn">⚡ EXECUTE</button>
+            </div>
+        </form>
+        <div class="neon-features">
+            <div class="neon-feature"><div class="neon-feature-icon">🔗</div><div class="neon-feature-text">Extract</div></div>
+            <div class="neon-feature"><div class="neon-feature-icon">🎯</div><div class="neon-feature-text">Match</div></div>
+            <div class="neon-feature"><div class="neon-feature-icon">📥</div><div class="neon-feature-text">Download</div></div>
+            <div class="neon-feature"><div class="neon-feature-icon">📡</div><div class="neon-feature-text">Notify</div></div>
+        </div>
+    </div>
+    {% if recent_sms %}
+    <div class="neon-recent">
+        <div class="neon-recent-title">// RECENT LOGS</div>
+        <div class="neon-recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="neon-recent-item">
+                <div class="recent-dot {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></div>
+                <div class="recent-info">
+                    <div class="recent-text">{{ sms.content|truncatechars:45 }}</div>
+                    <div class="recent-meta">#{{ sms.id }} | {{ sms.get_status_display }} | {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' CHARS'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '⏳ PROCESSING...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

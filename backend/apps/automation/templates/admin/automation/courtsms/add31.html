@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Patrick+Hand&display=swap');
+    body { background: #2d5016; min-height: 100vh; }
+    body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23234012' width='100' height='100'/%3E%3Cg fill='%232d5016'%3E%3Ccircle cx='25' cy='25' r='2'/%3E%3Ccircle cx='75' cy='75' r='2'/%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.5; pointer-events: none; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .chalk-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .chalk-header { text-align: center; margin-bottom: 30px; }
+    .chalk-title { font-family: 'Caveat', cursive; font-size: 3rem; color: #fff;
+        text-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
+    .ch-subtitle { font-family: 'Patrick Hand', cursive; font-size: 1rem; color: rgba(255,255,255,0.7); margin-top: 8px; }
+    .ch-card { background: rgba(35,64,18,0.9); border: 4px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 30px; position: relative; }
+    .ch-label { font-family: 'Caveat', cursive; font-size: 1.3rem; color: #fff; margin-bottom: 12px; }
+    .ch-textarea { width: 100%; min-height: 160px; padding: 18px; font-family: 'Patrick Hand', cursive; font-size: 1.1rem; line-height: 1.7; color: #fff; background: rgba(0,0,0,0.3); border: 2px dashed rgba(255,255,255,0.4); border-radius: 5px; resize: vertical; box-sizing: border-box; }
+    .ch-textarea:focus { outline: none; border-color: rgba(255,255,255,0.7); }
+    .ch-textarea::placeholder { color: rgba(255,255,255,0.5); }
+    .ch-actions { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
+    .ch-btn { padding: 12px 30px; font-family: 'Caveat', cursive; font-size: 1.2rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border-radius: 5px; border: 2px solid rgba(255,255,255,0.5); }
+    .ch-btn-primary { background: rgba(255,255,255,0.2); color: #fff; }
+    .ch-btn-primary:hover { background: rgba(255,255,255,0.3); }
+    .ch-btn-secondary { background: transparent; color: rgba(255,255,255,0.7); }
+    .ch-btn-secondary:hover { color: #fff; border-color: rgba(255,255,255,0.7); }
+    .ch-alert { padding: 15px; margin-bottom: 20px; border-radius: 5px; font-family: 'Patrick Hand', cursive; text-align: center; }
+    .ch-alert-success { background: rgba(144,238,144,0.3); color: #90ee90; border: 1px dashed #90ee90; }
+    .ch-alert-error { background: rgba(255,99,71,0.3); color: #ff6347; border: 1px dashed #ff6347; }
+    .ch-history { margin-top: 35px; }
+    .ch-history-title { font-family: 'Caveat', cursive; font-size: 1.5rem; color: #fff; text-align: center; margin-bottom: 15px; }
+    .ch-history-item { display: flex; align-items: center; gap: 12px; padding: 10px 15px; border-bottom: 1px dashed rgba(255,255,255,0.3); text-decoration: none; transition: all 0.3s; }
+    .ch-history-item:hover { background: rgba(255,255,255,0.1); }
+    .ch-bullet { font-family: 'Caveat', cursive; font-size: 1.2rem; color: #90ee90; }
+    .ch-text { font-family: 'Patrick Hand', cursive; font-size: 1rem; color: rgba(255,255,255,0.9); flex: 1; }
+    .ch-id { font-family: 'Patrick Hand', cursive; font-size: 0.85rem; color: rgba(255,255,255,0.5); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="chalk-wrapper">
+    {% if messages %}{% for message in messages %}<div class="ch-alert ch-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="chalk-header"><h1 class="chalk-title">📝 黑板短信</h1><p class="ch-subtitle">~ 法院短信处理系统 ~</p></div>
+    <div class="ch-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="ch-label">✎ 短信内容：</div>
+        <textarea name="content" class="ch-textarea" id="smsContent" placeholder="在这里写下短信内容..." required></textarea>
+        <div class="ch-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="ch-btn ch-btn-secondary">← 返回</a>
+        <button type="submit" class="ch-btn ch-btn-primary" id="submitBtn">提交 ✓</button></div></form></div>
+    {% if recent_sms %}<div class="ch-history"><div class="ch-history-title">✎ 最近记录</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="ch-history-item">
+    <span class="ch-bullet">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}○{% endif %}</span>
+    <span class="ch-text">{{ sms.content|truncatechars:40 }}</span>
+    <span class="ch-id">#{{ sms.id }}</span></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='处理中...';b.disabled=true;});</script>
+{% endblock %}

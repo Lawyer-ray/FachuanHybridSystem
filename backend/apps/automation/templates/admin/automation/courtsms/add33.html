@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600&display=swap');
+    :root { --bamboo: #8b7355; --bamboo-dark: #5d4e37; --rope: #a0522d; --paper: #f5e6c8; }
+    body { background: linear-gradient(180deg, #e8dcc8 0%, #d4c4a8 100%); min-height: 100vh; overflow-x: hidden; }
+    /* 竹叶飘落 */
+    .bamboo-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .bamboo-leaf { position: absolute; font-size: 24px; opacity: 0.15; animation: fallLeaf linear infinite; }
+    .bamboo-leaf:nth-child(1) { left: 10%; animation-duration: 15s; animation-delay: 0s; }
+    .bamboo-leaf:nth-child(2) { left: 25%; animation-duration: 18s; animation-delay: -3s; }
+    .bamboo-leaf:nth-child(3) { left: 45%; animation-duration: 20s; animation-delay: -7s; }
+    .bamboo-leaf:nth-child(4) { left: 65%; animation-duration: 16s; animation-delay: -5s; }
+    .bamboo-leaf:nth-child(5) { left: 85%; animation-duration: 22s; animation-delay: -10s; }
+    @keyframes fallLeaf { 0% { top: -10%; transform: rotate(0deg) translateX(0); } 100% { top: 110%; transform: rotate(360deg) translateX(50px); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .zj-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .zj-header { text-align: center; margin-bottom: 30px; }
+    .zj-icon { font-size: 3rem; margin-bottom: 15px; }
+    .zj-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.5rem; color: var(--bamboo-dark); letter-spacing: 0.2em; }
+    .zj-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--bamboo); margin-top: 8px; }
+    .zj-card { background: var(--paper); border-left: 8px solid var(--bamboo); border-right: 8px solid var(--bamboo); padding: 30px 25px; position: relative; box-shadow: 4px 4px 10px rgba(0,0,0,0.15); }
+    .zj-card::before, .zj-card::after { content: ''; position: absolute; left: 0; right: 0; height: 15px; background: repeating-linear-gradient(90deg, var(--rope) 0px, var(--rope) 3px, transparent 3px, transparent 8px); }
+    .zj-card::before { top: 0; }
+    .zj-card::after { bottom: 0; }
+    .zj-label { font-family: 'Noto Serif SC', serif; font-size: 1rem; color: var(--bamboo-dark); margin-bottom: 15px; margin-top: 10px; }
+    .zj-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 2; color: var(--bamboo-dark); background: rgba(255,255,255,0.5); border: none; border-bottom: 2px solid var(--bamboo); resize: vertical; box-sizing: border-box; writing-mode: horizontal-tb; }
+    .zj-textarea:focus { outline: none; background: rgba(255,255,255,0.8); }
+    .zj-textarea::placeholder { color: var(--bamboo); }
+    .zj-actions { display: flex; gap: 20px; margin-top: 25px; justify-content: center; }
+    .zj-btn { padding: 12px 35px; font-family: 'Noto Serif SC', serif; font-size: 1rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 2px solid var(--bamboo); }
+    .zj-btn-primary { background: var(--bamboo-dark); color: var(--paper); }
+    .zj-btn-primary:hover { background: var(--bamboo); }
+    .zj-btn-secondary { background: transparent; color: var(--bamboo-dark); }
+    .zj-btn-secondary:hover { background: rgba(139,115,85,0.1); }
+    .zj-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'Noto Serif SC', serif; border-left: 4px solid; }
+    .zj-alert-success { background: rgba(93,78,55,0.1); border-color: var(--bamboo-dark); color: var(--bamboo-dark); }
+    .zj-alert-error { background: rgba(160,82,45,0.1); border-color: var(--rope); color: var(--rope); }
+    .zj-history { margin-top: 35px; }
+    .zj-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.3rem; color: var(--bamboo-dark); margin-bottom: 15px; }
+    .zj-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: rgba(255,255,255,0.5); border-left: 4px solid var(--bamboo); margin-bottom: 8px; text-decoration: none; transition: all 0.3s; }
+    .zj-history-item:hover { background: rgba(255,255,255,0.8); }
+    .zj-num { font-family: 'Ma Shan Zheng', cursive; font-size: 1.2rem; color: var(--bamboo-dark); width: 25px; }
+    .zj-info { flex: 1; }
+    .zj-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--bamboo-dark); }
+    .zj-meta { font-size: 0.8rem; color: var(--bamboo); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="bamboo-bg"><span class="bamboo-leaf">🎋</span><span class="bamboo-leaf">🍃</span><span class="bamboo-leaf">🎋</span><span class="bamboo-leaf">🍃</span><span class="bamboo-leaf">🎋</span></div>
+<div class="zj-wrapper">
+    {% if messages %}{% for message in messages %}<div class="zj-alert zj-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="zj-header"><div class="zj-icon">📜</div><h1 class="zj-title">竹简函牍</h1><p class="zj-subtitle">— 法院短信处理 —</p></div>
+    <div class="zj-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="zj-label">▸ 书于简上</div>
+        <textarea name="content" class="zj-textarea" id="smsContent" placeholder="请将法院短信书于此简..." required></textarea>
+        <div class="zj-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="zj-btn zj-btn-secondary">返回</a>
+        <button type="submit" class="zj-btn zj-btn-primary" id="submitBtn">呈递</button></div></form></div>
+    {% if recent_sms %}<div class="zj-history"><div class="zj-history-title">▸ 往来函牍</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="zj-history-item">
+    <span class="zj-num">{{ forloop.counter }}</span>
+    <div class="zj-info"><div class="zj-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="zj-meta">第{{ sms.id }}简</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='呈递中...';b.disabled=true;});</script>
+{% endblock %}

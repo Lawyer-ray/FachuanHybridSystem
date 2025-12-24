@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@600;700&display=swap');
+    :root { --imperial-red: #8b0000; --gold: #daa520; --gold-light: #ffd700; --cream: #fffef5; --black: #1a1a1a; }
+    body { background: linear-gradient(180deg, var(--cream) 0%, #f5e6d3 100%); min-height: 100vh; overflow-x: hidden; }
+    /* 祥云飘动 */
+    .imperial-clouds { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .yun { position: absolute; font-size: 60px; opacity: 0.08; color: var(--gold); }
+    .yun1 { top: 8%; left: 5%; animation: floatYun 20s ease-in-out infinite; }
+    .yun2 { top: 25%; right: 8%; animation: floatYun 25s ease-in-out infinite reverse; animation-delay: -5s; }
+    .yun3 { bottom: 20%; left: 15%; animation: floatYun 22s ease-in-out infinite; animation-delay: -10s; }
+    .yun4 { bottom: 35%; right: 12%; animation: floatYun 28s ease-in-out infinite reverse; animation-delay: -15s; }
+    .dragon-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 300px; opacity: 0.02; color: var(--gold); pointer-events: none; animation: breathe 8s ease-in-out infinite; }
+    @keyframes floatYun { 0%, 100% { transform: translateX(0) translateY(0); } 25% { transform: translateX(20px) translateY(-10px); } 75% { transform: translateX(-20px) translateY(10px); } }
+    @keyframes breathe { 0%, 100% { opacity: 0.02; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.035; transform: translate(-50%, -50%) scale(1.02); } }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .yy-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .yy-header { text-align: center; margin-bottom: 35px; }
+    .yy-dragon { font-size: 3.5rem; margin-bottom: 15px; }
+    .yy-title { font-family: 'Ma Shan Zheng', cursive; font-size: 2.8rem; color: var(--imperial-red); letter-spacing: 0.3em; text-shadow: 2px 2px 0 var(--gold); }
+    .yy-subtitle { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--gold); margin-top: 10px; letter-spacing: 0.2em; }
+    .yy-card { background: linear-gradient(180deg, #fffef8 0%, #f5e6d3 100%); border: 4px double var(--gold); padding: 35px; position: relative; }
+    .yy-card::before { content: ''; position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 1px solid var(--gold); pointer-events: none; }
+    .yy-label { font-family: 'Noto Serif SC', serif; font-size: 1.1rem; font-weight: 600; color: var(--imperial-red); margin-bottom: 15px; }
+    .yy-textarea { width: 100%; min-height: 180px; padding: 20px; font-family: 'Noto Serif SC', serif; font-size: 1rem; line-height: 2; color: var(--black); background: rgba(255,255,255,0.6); border: 2px solid var(--gold); resize: vertical; box-sizing: border-box; }
+    .yy-textarea:focus { outline: none; border-color: var(--imperial-red); }
+    .yy-textarea::placeholder { color: #c9a227; }
+    .yy-actions { display: flex; gap: 20px; margin-top: 28px; justify-content: center; }
+    .yy-btn { padding: 14px 40px; font-family: 'Noto Serif SC', serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; text-decoration: none; border: 2px solid var(--gold); }
+    .yy-btn-primary { background: var(--imperial-red); color: var(--gold-light); }
+    .yy-btn-primary:hover { background: #a00; }
+    .yy-btn-secondary { background: transparent; color: var(--imperial-red); }
+    .yy-btn-secondary:hover { background: rgba(218,165,32,0.1); }
+    .yy-alert { padding: 15px 20px; margin-bottom: 20px; font-family: 'Noto Serif SC', serif; border: 2px solid var(--gold); }
+    .yy-alert-success { background: rgba(218,165,32,0.15); color: var(--imperial-red); }
+    .yy-alert-error { background: rgba(139,0,0,0.1); color: var(--imperial-red); }
+    .yy-history { margin-top: 35px; }
+    .yy-history-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.4rem; color: var(--imperial-red); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--gold); }
+    .yy-history-item { display: flex; align-items: center; gap: 15px; padding: 14px 18px; border: 1px solid var(--gold); margin-bottom: 10px; text-decoration: none; transition: all 0.3s; background: rgba(255,255,255,0.5); }
+    .yy-history-item:hover { background: rgba(218,165,32,0.1); border-color: var(--imperial-red); }
+    .yy-seal { font-family: 'Ma Shan Zheng', cursive; font-size: 1.1rem; color: var(--imperial-red); background: rgba(218,165,32,0.2); padding: 4px 8px; }
+    .yy-info { flex: 1; }
+    .yy-text { font-family: 'Noto Serif SC', serif; font-size: 0.9rem; color: var(--black); }
+    .yy-meta { font-size: 0.8rem; color: var(--gold); margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="imperial-clouds"><span class="yun yun1">☁</span><span class="yun yun2">☁</span><span class="yun yun3">☁</span><span class="yun yun4">☁</span></div>
+<div class="dragon-watermark">龍</div>
+<div class="yy-wrapper">
+    {% if messages %}{% for message in messages %}<div class="yy-alert yy-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="yy-header"><div class="yy-dragon">🐉</div><h1 class="yy-title">御用函笺</h1><p class="yy-subtitle">奉旨处理 · 法院短信</p></div>
+    <div class="yy-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="yy-label">⚜ 奏折内容</div>
+        <textarea name="content" class="yy-textarea" id="smsContent" placeholder="臣恭录法院来函于此..." required></textarea>
+        <div class="yy-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="yy-btn yy-btn-secondary">退朝</a>
+        <button type="submit" class="yy-btn yy-btn-primary" id="submitBtn">呈奏</button></div></form></div>
+    {% if recent_sms %}<div class="yy-history"><div class="yy-history-title">⚜ 往来奏章</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="yy-history-item">
+    <span class="yy-seal">{% if sms.status == 'completed' %}准{% elif sms.status == 'failed' %}驳{% else %}阅{% endif %}</span>
+    <div class="yy-info"><div class="yy-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="yy-meta">第{{ sms.id }}折 · {{ sms.created_at|date:"Y年m月d日" }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='呈奏中...';b.disabled=true;});</script>
+{% endblock %}

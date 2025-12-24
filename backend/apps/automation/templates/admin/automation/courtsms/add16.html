@@ -1,0 +1,272 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Space+Mono&display=swap');
+    :root {
+        --mem-pink: #ff6b9d;
+        --mem-yellow: #ffd93d;
+        --mem-blue: #6bcbff;
+        --mem-green: #6bff8e;
+        --mem-purple: #c56bff;
+        --mem-black: #1a1a2e;
+        --mem-white: #ffffff;
+    }
+    body {
+        background: var(--mem-white);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            radial-gradient(circle at 10% 20%, var(--mem-pink) 0%, transparent 20%),
+            radial-gradient(circle at 90% 80%, var(--mem-blue) 0%, transparent 25%),
+            radial-gradient(circle at 50% 50%, var(--mem-yellow) 0%, transparent 30%);
+        opacity: 0.15;
+        pointer-events: none;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .mem-wrapper { max-width: 700px; margin: 40px auto; padding: 0 24px; position: relative; }
+    /* 装饰图形 */
+    .mem-shape {
+        position: fixed;
+        z-index: 0;
+        opacity: 0.8;
+    }
+    .shape-1 { top: 10%; left: 5%; width: 60px; height: 60px; background: var(--mem-yellow); border-radius: 50%; }
+    .shape-2 { top: 30%; right: 8%; width: 0; height: 0; border-left: 40px solid transparent; border-right: 40px solid transparent; border-bottom: 70px solid var(--mem-pink); }
+    .shape-3 { bottom: 20%; left: 8%; width: 50px; height: 50px; background: var(--mem-blue); }
+    .shape-4 { bottom: 40%; right: 5%; width: 40px; height: 40px; background: var(--mem-green); border-radius: 50%; }
+    .mem-header { text-align: center; margin-bottom: 32px; position: relative; z-index: 1; }
+    .mem-title {
+        font-family: 'Poppins', sans-serif; font-size: 3rem; font-weight: 700;
+        color: var(--mem-black);
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+    .mem-title::before {
+        content: 'SMS';
+        position: absolute;
+        top: -8px; left: -8px;
+        color: var(--mem-pink);
+        z-index: -1;
+    }
+    .mem-title::after {
+        content: 'SMS';
+        position: absolute;
+        top: 8px; left: 8px;
+        color: var(--mem-blue);
+        z-index: -1;
+    }
+    .mem-subtitle {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.9rem; color: var(--mem-black);
+        margin-top: 8px;
+        background: var(--mem-yellow);
+        display: inline-block;
+        padding: 4px 16px;
+        transform: rotate(-2deg);
+    }
+    .mem-card {
+        background: var(--mem-white);
+        border: 4px solid var(--mem-black);
+        padding: 32px;
+        position: relative;
+        z-index: 1;
+        box-shadow: 8px 8px 0 var(--mem-black);
+    }
+    .mem-card::before {
+        content: '';
+        position: absolute;
+        top: -12px; right: -12px;
+        width: 40px; height: 40px;
+        background: var(--mem-pink);
+        border: 3px solid var(--mem-black);
+        border-radius: 50%;
+    }
+    .mem-card::after {
+        content: '';
+        position: absolute;
+        bottom: -15px; left: 30px;
+        width: 0; height: 0;
+        border-left: 20px solid transparent;
+        border-right: 20px solid transparent;
+        border-top: 30px solid var(--mem-yellow);
+    }
+    .mem-label {
+        font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 600;
+        color: var(--mem-black);
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .mem-label::before {
+        content: '';
+        width: 20px; height: 20px;
+        background: var(--mem-green);
+        border: 2px solid var(--mem-black);
+    }
+    .mem-textarea {
+        width: 100%; min-height: 160px; padding: 16px;
+        font-family: 'Space Mono', monospace; font-size: 0.95rem; line-height: 1.6;
+        color: var(--mem-black);
+        background: repeating-linear-gradient(0deg, transparent, transparent 27px, var(--mem-blue) 27px, var(--mem-blue) 28px);
+        border: 3px solid var(--mem-black);
+        resize: vertical; box-sizing: border-box;
+    }
+    .mem-textarea:focus { outline: none; border-color: var(--mem-pink); }
+    .mem-textarea::placeholder { color: #999; }
+    .mem-meta {
+        display: flex; justify-content: space-between; margin-top: 12px;
+        font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--mem-black);
+    }
+    .mem-actions { display: flex; gap: 16px; margin-top: 28px; }
+    .mem-btn {
+        flex: 1; padding: 14px 24px;
+        font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 600;
+        text-transform: uppercase;
+        border: 3px solid var(--mem-black);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none; text-align: center;
+        position: relative;
+    }
+    .mem-btn:hover { transform: translate(-4px, -4px); }
+    .mem-btn:active { transform: translate(0, 0); }
+    .mem-btn-primary {
+        background: var(--mem-pink); color: var(--mem-black);
+        box-shadow: 4px 4px 0 var(--mem-black);
+    }
+    .mem-btn-primary:hover { box-shadow: 8px 8px 0 var(--mem-black); }
+    .mem-btn-secondary {
+        background: var(--mem-white); color: var(--mem-black);
+        box-shadow: 4px 4px 0 var(--mem-black);
+    }
+    .mem-process {
+        display: flex; justify-content: space-around;
+        margin-top: 32px; padding-top: 24px;
+        border-top: 3px dashed var(--mem-black);
+    }
+    .process-item { text-align: center; }
+    .process-shape {
+        width: 50px; height: 50px; margin: 0 auto 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        border: 2px solid var(--mem-black);
+    }
+    .process-shape:nth-child(1) { background: var(--mem-yellow); border-radius: 50%; }
+    .process-shape:nth-child(2) { background: var(--mem-blue); }
+    .process-shape:nth-child(3) { background: var(--mem-green); border-radius: 50%; }
+    .process-shape:nth-child(4) { background: var(--mem-purple); }
+    .process-text { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--mem-black); }
+    .mem-alert {
+        padding: 14px 20px; margin-bottom: 20px;
+        border: 3px solid var(--mem-black);
+        font-family: 'Space Mono', monospace;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .mem-alert-success { background: var(--mem-green); }
+    .mem-alert-error { background: var(--mem-pink); }
+    .mem-history { margin-top: 40px; position: relative; z-index: 1; }
+    .mem-history-title {
+        font-family: 'Poppins', sans-serif; font-size: 1.2rem; font-weight: 600;
+        color: var(--mem-black); text-transform: uppercase;
+        margin-bottom: 16px;
+        background: var(--mem-blue);
+        display: inline-block;
+        padding: 4px 16px;
+        border: 2px solid var(--mem-black);
+    }
+    .mem-history-list { display: flex; flex-direction: column; gap: 12px; }
+    .mem-history-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 18px;
+        background: var(--mem-white);
+        border: 3px solid var(--mem-black);
+        text-decoration: none;
+        transition: all 0.15s ease;
+        box-shadow: 4px 4px 0 var(--mem-black);
+    }
+    .mem-history-item:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--mem-black); }
+    .mem-status {
+        width: 36px; height: 36px;
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'Poppins', sans-serif; font-size: 0.8rem; font-weight: 600;
+        border: 2px solid var(--mem-black);
+    }
+    .mem-status.completed { background: var(--mem-green); border-radius: 50%; }
+    .mem-status.pending { background: var(--mem-yellow); }
+    .mem-status.failed { background: var(--mem-pink); border-radius: 50%; }
+    .mem-info { flex: 1; min-width: 0; }
+    .mem-text { font-family: 'Space Mono', monospace; font-size: 0.9rem; color: var(--mem-black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mem-meta-info { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: #666; margin-top: 4px; }
+    @media (max-width: 640px) {
+        .mem-title { font-size: 2rem; }
+        .mem-actions { flex-direction: column; }
+        .mem-shape { display: none; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mem-shape shape-1"></div>
+<div class="mem-shape shape-2"></div>
+<div class="mem-shape shape-3"></div>
+<div class="mem-shape shape-4"></div>
+<div class="mem-wrapper">
+    {% if messages %}{% for message in messages %}<div class="mem-alert mem-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="mem-header">
+        <h1 class="mem-title">SMS</h1>
+        <p class="mem-subtitle">Court Message System</p>
+    </div>
+    <div class="mem-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="mem-label">Message Content</div>
+            <textarea name="content" class="mem-textarea" id="smsContent" placeholder="Paste SMS here..." required></textarea>
+            <div class="mem-meta"><span id="charCount">0 chars</span><span>AUTO MODE</span></div>
+            <div class="mem-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="mem-btn mem-btn-secondary">← Back</a>
+                <button type="submit" class="mem-btn mem-btn-primary" id="submitBtn">Submit!</button>
+            </div>
+            <div class="mem-process">
+                <div class="process-item"><div class="process-shape" style="background:var(--mem-yellow);border-radius:50%;">🔍</div><div class="process-text">Parse</div></div>
+                <div class="process-item"><div class="process-shape" style="background:var(--mem-blue);">🎯</div><div class="process-text">Match</div></div>
+                <div class="process-item"><div class="process-shape" style="background:var(--mem-green);border-radius:50%;">📥</div><div class="process-text">Download</div></div>
+                <div class="process-item"><div class="process-shape" style="background:var(--mem-purple);">📤</div><div class="process-text">Notify</div></div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="mem-history">
+        <div class="mem-history-title">Recent</div>
+        <div class="mem-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="mem-history-item">
+                <div class="mem-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}OK{% elif sms.status == 'failed' %}X{% else %}...{% endif %}</div>
+                <div class="mem-info">
+                    <div class="mem-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="mem-meta-info">#{{ sms.id }} | {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' chars'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = 'Sending...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

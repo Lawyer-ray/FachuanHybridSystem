@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+    :root { --pink: #ffb6c1; --mint: #98fb98; --lavender: #e6e6fa; --peach: #ffdab9; --sky: #87ceeb; --cream: #fffaf0; }
+    body { background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 50%, var(--sky) 100%); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .kawaii-wrapper { max-width: 600px; margin: 40px auto; padding: 0 24px; }
+    .kawaii-header { text-align: center; margin-bottom: 30px; }
+    .kawaii-icon { font-size: 4rem; animation: bounce 1s ease infinite; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .kw-title { font-family: 'Nunito', sans-serif; font-size: 2rem; font-weight: 700; color: #ff69b4; text-shadow: 2px 2px 0 white; }
+    .kw-subtitle { font-family: 'Nunito', sans-serif; font-size: 0.9rem; color: #666; margin-top: 5px; }
+    .kw-card { background: white; border-radius: 30px; padding: 30px; box-shadow: 0 10px 30px rgba(255,182,193,0.4); border: 3px dashed var(--pink); }
+    .kw-label { font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 600; color: #ff69b4; margin-bottom: 12px; }
+    .kw-textarea { width: 100%; min-height: 150px; padding: 18px; font-family: 'Nunito', sans-serif; font-size: 1rem; line-height: 1.6; color: #333; background: var(--cream); border: 2px solid var(--pink); border-radius: 20px; resize: vertical; box-sizing: border-box; }
+    .kw-textarea:focus { outline: none; border-color: #ff69b4; }
+    .kw-textarea::placeholder { color: #ffb6c1; }
+    .kw-actions { display: flex; gap: 15px; margin-top: 20px; justify-content: center; }
+    .kw-btn { padding: 12px 30px; font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; text-decoration: none; border-radius: 25px; border: none; }
+    .kw-btn-primary { background: linear-gradient(135deg, #ff69b4, #ff1493); color: white; box-shadow: 0 4px 15px rgba(255,105,180,0.4); }
+    .kw-btn-primary:hover { transform: scale(1.05); }
+    .kw-btn-secondary { background: white; color: #ff69b4; border: 2px solid var(--pink); }
+    .kw-btn-secondary:hover { background: var(--pink); }
+    .kw-alert { padding: 15px; margin-bottom: 20px; border-radius: 15px; font-family: 'Nunito', sans-serif; text-align: center; }
+    .kw-alert-success { background: rgba(152,251,152,0.5); color: #228b22; }
+    .kw-alert-error { background: rgba(255,182,193,0.5); color: #dc143c; }
+    .kw-history { margin-top: 30px; }
+    .kw-history-title { font-family: 'Nunito', sans-serif; font-size: 1.1rem; font-weight: 600; color: #ff69b4; text-align: center; margin-bottom: 15px; }
+    .kw-history-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: white; border-radius: 15px; margin-bottom: 10px; text-decoration: none; transition: all 0.3s; border: 2px solid transparent; }
+    .kw-history-item:hover { border-color: var(--pink); transform: translateX(5px); }
+    .kw-status { font-size: 1.2rem; }
+    .kw-info { flex: 1; }
+    .kw-text { font-family: 'Nunito', sans-serif; font-size: 0.9rem; color: #333; }
+    .kw-meta { font-size: 0.75rem; color: #999; margin-top: 3px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="kawaii-wrapper">
+    {% if messages %}{% for message in messages %}<div class="kw-alert kw-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="kawaii-header"><div class="kawaii-icon">🌸</div><h1 class="kw-title">✿ 可爱短信 ✿</h1><p class="kw-subtitle">( ◕‿◕) ♡ 自动处理系统</p></div>
+    <div class="kw-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="kw-label">♪ 短信内容 ♪</div>
+        <textarea name="content" class="kw-textarea" id="smsContent" placeholder="在这里粘贴短信哦~ (◕ᴗ◕✿)" required></textarea>
+        <div class="kw-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="kw-btn kw-btn-secondary">← 返回</a>
+        <button type="submit" class="kw-btn kw-btn-primary" id="submitBtn">提交 ♡</button></div></form></div>
+    {% if recent_sms %}<div class="kw-history"><div class="kw-history-title">✧ 最近记录 ✧</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="kw-history-item">
+    <div class="kw-status">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}✗{% else %}◐{% endif %}</div>
+    <div class="kw-info"><div class="kw-text">{{ sms.content|truncatechars:35 }}</div>
+    <div class="kw-meta">#{{ sms.id }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='处理中~ ♪';b.disabled=true;});</script>
+{% endblock %}

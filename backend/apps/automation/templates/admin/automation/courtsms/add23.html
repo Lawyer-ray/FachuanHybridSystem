@@ -1,0 +1,168 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+    body {
+        background: #f5f5f5;
+        min-height: 100vh;
+        font-family: 'Space Mono', monospace;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .brutal-wrapper { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .brutal-header { margin-bottom: 30px; }
+    .brutal-title {
+        font-size: 4rem; font-weight: 700;
+        color: #000;
+        text-transform: uppercase;
+        line-height: 0.9;
+        border-bottom: 8px solid #000;
+        padding-bottom: 10px;
+        display: inline-block;
+    }
+    .brutal-subtitle {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+    }
+    .brutal-card {
+        background: #fff;
+        border: 4px solid #000;
+        padding: 30px;
+        position: relative;
+        box-shadow: 8px 8px 0 #000;
+    }
+    .brutal-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 10px;
+        color: #000;
+    }
+    .brutal-textarea {
+        width: 100%; min-height: 200px; padding: 20px;
+        font-family: 'Space Mono', monospace;
+        font-size: 1rem; line-height: 1.6;
+        color: #000;
+        background: #f5f5f5;
+        border: 3px solid #000;
+        resize: vertical; box-sizing: border-box;
+    }
+    .brutal-textarea:focus { outline: none; background: #fff; }
+    .brutal-textarea::placeholder { color: #999; }
+    .brutal-counter {
+        font-size: 0.75rem;
+        text-align: right;
+        margin-top: 8px;
+        color: #666;
+        text-transform: uppercase;
+    }
+    .brutal-actions {
+        display: flex; gap: 15px; margin-top: 25px;
+    }
+    .brutal-btn {
+        padding: 15px 30px;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.9rem; font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        transition: all 0.1s;
+        text-decoration: none;
+        border: 3px solid #000;
+    }
+    .brutal-btn-primary {
+        background: #000; color: #fff;
+    }
+    .brutal-btn-primary:hover { background: #333; transform: translate(-2px, -2px); box-shadow: 4px 4px 0 #000; }
+    .brutal-btn-secondary {
+        background: #fff; color: #000;
+    }
+    .brutal-btn-secondary:hover { background: #f5f5f5; transform: translate(-2px, -2px); box-shadow: 4px 4px 0 #000; }
+    .brutal-alert {
+        padding: 15px 20px; margin-bottom: 20px;
+        border: 3px solid #000;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+    .brutal-alert-success { background: #90EE90; }
+    .brutal-alert-error { background: #FFB6C1; }
+    .brutal-history { margin-top: 40px; }
+    .brutal-history-title {
+        font-size: 1.5rem; font-weight: 700;
+        text-transform: uppercase;
+        border-bottom: 4px solid #000;
+        padding-bottom: 8px;
+        margin-bottom: 20px;
+    }
+    .brutal-history-item {
+        display: block;
+        padding: 15px;
+        border: 2px solid #000;
+        margin-bottom: 10px;
+        text-decoration: none;
+        color: #000;
+        transition: all 0.1s;
+    }
+    .brutal-history-item:hover { background: #000; color: #fff; transform: translate(-3px, -3px); box-shadow: 5px 5px 0 #666; }
+    .brutal-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .brutal-item-id { font-weight: 700; font-size: 0.8rem; }
+    .brutal-item-status {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+        text-transform: uppercase;
+        border: 2px solid currentColor;
+    }
+    .brutal-item-text { font-size: 0.85rem; line-height: 1.4; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="brutal-wrapper">
+    {% if messages %}{% for message in messages %}<div class="brutal-alert brutal-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="brutal-header">
+        <h1 class="brutal-title">SMS<br>INPUT</h1>
+        <p class="brutal-subtitle">Court Message Processing System</p>
+    </div>
+    <div class="brutal-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="brutal-label">Message_Content:</div>
+            <textarea name="content" class="brutal-textarea" id="smsContent" placeholder="PASTE_SMS_HERE..." required></textarea>
+            <div class="brutal-counter"><span id="charCount">0</span> CHARS</div>
+            <div class="brutal-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="brutal-btn brutal-btn-secondary">[BACK]</a>
+                <button type="submit" class="brutal-btn brutal-btn-primary" id="submitBtn">[SUBMIT]</button>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="brutal-history">
+        <div class="brutal-history-title">Recent_Log</div>
+        {% for sms in recent_sms %}
+        <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="brutal-history-item">
+            <div class="brutal-item-header">
+                <span class="brutal-item-id">ID_{{ sms.id }}</span>
+                <span class="brutal-item-status">{{ sms.status|upper }}</span>
+            </div>
+            <div class="brutal-item-text">{{ sms.content|truncatechars:60 }}</div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<script>
+var ta = document.getElementById('smsContent'), cc = document.getElementById('charCount');
+ta.addEventListener('input', function() { cc.textContent = this.value.length; });
+document.getElementById('smsForm').addEventListener('submit', function(e) {
+    var btn = document.getElementById('submitBtn');
+    if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; }
+    btn.innerHTML = '[PROCESSING...]'; btn.disabled = true;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+[flake8]
+# Maximum line length
+max-line-length = 120
+
+# Directories to exclude from checking
+exclude =
+    migrations,
+    __pycache__,
+    .pytest_cache,
+    .hypothesis,
+    venv311,
+    .git,
+    __init__.py
+
+# Error codes to ignore
+ignore =
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+    # E203: whitespace before ':' (conflicts with black)
+    E203
+
+# Per-file ignores
+per-file-ignores =
+    # Allow unused imports in __init__.py files
+    __init__.py:F401,
+    # Allow unused imports in admin.py files (Django admin registration)
+    admin.py:F401,
+    # Allow unused imports in admin files
+    */admin/*.py:F401
+
+# Maximum complexity
+max-complexity = 10
+
+# Show source code for each error
+show-source = True
+
+# Show pep8 error code
+show-pep8 = True
+
+# Count errors
+count = True
+
+# Print total number of errors
+statistics = True

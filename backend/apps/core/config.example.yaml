@@ -1,0 +1,537 @@
+# ============================================================
+# 统一配置管理系统 - 配置示例文件
+# ============================================================
+# 
+# 本文件提供不同环境下的配置示例，帮助您快速配置系统。
+# 
+# 使用说明：
+# 1. 根据您的环境选择对应的配置示例
+# 2. 复制相关配置到 config.yaml 文件中
+# 3. 修改配置值以匹配您的实际环境
+# 4. 敏感配置项请通过环境变量设置
+#
+# 环境说明：
+# - development: 开发环境，启用调试功能，使用本地服务
+# - testing: 测试环境，用于自动化测试
+# - staging: 预发布环境，模拟生产环境配置
+# - production: 生产环境，高安全性和性能要求
+#
+# ============================================================
+
+# ============================================================
+# 开发环境配置示例 (Development)
+# ============================================================
+
+development:
+  environment: development
+  
+  django:
+    secret_key: ${SECRET_KEY:dev-secret-key-for-testing-only}
+    debug: true
+    allowed_hosts:
+      - localhost
+      - 127.0.0.1
+      - "*.ngrok.io"  # 用于本地开发调试
+  
+  database:
+    engine: django.db.backends.mysql
+    name: ${DB_NAME:lawfirm_dev}
+    user: ${DB_USER:root}
+    password: ${DB_PASSWORD:password}
+    host: ${DB_HOST:localhost}
+    port: ${DB_PORT:3306}
+  
+  services:
+    moonshot:
+      base_url: https://api.moonshot.cn/v1
+      api_key: ${MOONSHOT_API_KEY:your-dev-api-key}
+      timeout: 30
+    
+    ollama:
+      model: qwen2.5:7b
+      base_url: http://localhost:11434
+      timeout: 60
+  
+  chat_platforms:
+    feishu:
+      app_id: ${FEISHU_APP_ID:cli_dev_app_id}
+      app_secret: ${FEISHU_APP_SECRET:dev_app_secret}
+      timeout: 30
+      default_owner_id: ${FEISHU_DEFAULT_OWNER_ID:ou_dev_owner_id}
+  
+  performance:
+    cache:
+      redis_url: redis://localhost:6379/0
+      redis_host: 127.0.0.1
+      redis_port: 6379
+      redis_db: 0
+      default_timeout: 300
+  
+  logging:
+    console_level: DEBUG
+    file_level: DEBUG
+    django_level: DEBUG
+    apps_level: DEBUG
+
+# ============================================================
+# 测试环境配置示例 (Testing)
+# ============================================================
+
+testing:
+  environment: testing
+  
+  django:
+    secret_key: ${SECRET_KEY:test-secret-key-for-testing-only}
+    debug: false
+    allowed_hosts:
+      - localhost
+      - 127.0.0.1
+      - testserver
+  
+  database:
+    engine: django.db.backends.sqlite3
+    name: ":memory:"  # 内存数据库，测试后自动清理
+  
+  services:
+    moonshot:
+      base_url: https://api.moonshot.cn/v1
+      api_key: ${MOONSHOT_API_KEY:test-api-key}
+      timeout: 10  # 测试环境使用较短超时
+    
+    ollama:
+      model: qwen2.5:7b
+      base_url: http://localhost:11434
+      timeout: 30
+  
+  chat_platforms:
+    feishu:
+      app_id: ${FEISHU_APP_ID:cli_test_app_id}
+      app_secret: ${FEISHU_APP_SECRET:test_app_secret}
+      timeout: 10
+      default_owner_id: ${FEISHU_DEFAULT_OWNER_ID:ou_test_owner_id}
+  
+  performance:
+    cache:
+      redis_url: redis://localhost:6379/1  # 使用不同的数据库
+      default_timeout: 60  # 测试环境使用较短缓存时间
+    
+    rate_limit:
+      default_requests: 1000  # 测试环境放宽限制
+      auth_requests: 10000
+  
+  logging:
+    console_level: WARNING
+    file_level: INFO
+    django_level: WARNING
+    apps_level: INFO
+
+# ============================================================
+# 预发布环境配置示例 (Staging)
+# ============================================================
+
+staging:
+  environment: staging
+  
+  django:
+    secret_key: ${SECRET_KEY}  # 必须通过环境变量设置
+    debug: false
+    allowed_hosts:
+      - staging.lawfirm.com
+      - staging-api.lawfirm.com
+  
+  database:
+    engine: django.db.backends.mysql
+    name: ${DB_NAME:lawfirm_staging}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+    host: ${DB_HOST:staging-db.internal}
+    port: ${DB_PORT:3306}
+  
+  cors:
+    allowed_origins:
+      - https://staging.lawfirm.com
+      - https://staging-admin.lawfirm.com
+    trusted_origins:
+      - https://staging.lawfirm.com
+      - https://staging-admin.lawfirm.com
+  
+  services:
+    moonshot:
+      base_url: https://api.moonshot.cn/v1
+      api_key: ${MOONSHOT_API_KEY}
+      timeout: 30
+    
+    ollama:
+      model: qwen2.5:7b
+      base_url: http://ollama.internal:11434
+      timeout: 60
+  
+  chat_platforms:
+    feishu:
+      app_id: ${FEISHU_APP_ID}
+      app_secret: ${FEISHU_APP_SECRET}
+      timeout: 30
+      default_owner_id: ${FEISHU_DEFAULT_OWNER_ID}
+    
+    dingtalk:
+      app_key: ${DINGTALK_APP_KEY}
+      app_secret: ${DINGTALK_APP_SECRET}
+      agent_id: ${DINGTALK_AGENT_ID}
+      timeout: 30
+  
+  performance:
+    cache:
+      redis_url: ${REDIS_URL:redis://redis.internal:6379/0}
+      redis_host: redis.internal
+      redis_port: 6379
+      redis_db: 0
+      redis_password: ${REDIS_PASSWORD}
+      default_timeout: 600
+      max_connections: 100
+    
+    rate_limit:
+      default_requests: 200
+      default_window: 60
+      auth_requests: 2000
+      auth_window: 60
+    
+    q_cluster:
+      workers: 8
+      timeout: 120
+      queue_limit: 100
+  
+  logging:
+    console_level: INFO
+    file_level: INFO
+    error_level: ERROR
+    django_level: INFO
+    apps_level: INFO
+    root_level: WARNING
+
+# ============================================================
+# 生产环境配置示例 (Production)
+# ============================================================
+
+production:
+  environment: production
+  
+  django:
+    secret_key: ${SECRET_KEY}  # 必须通过环境变量设置
+    debug: false  # 生产环境必须为 false
+    allowed_hosts:
+      - lawfirm.com
+      - www.lawfirm.com
+      - api.lawfirm.com
+  
+  database:
+    engine: django.db.backends.mysql
+    name: ${DB_NAME}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+    host: ${DB_HOST}
+    port: ${DB_PORT:3306}
+  
+  cors:
+    allowed_origins:
+      - https://lawfirm.com
+      - https://www.lawfirm.com
+      - https://admin.lawfirm.com
+    trusted_origins:
+      - https://lawfirm.com
+      - https://www.lawfirm.com
+      - https://admin.lawfirm.com
+  
+  services:
+    moonshot:
+      base_url: https://api.moonshot.cn/v1
+      api_key: ${MOONSHOT_API_KEY}  # 必须通过环境变量设置
+      timeout: 60  # 生产环境使用较长超时
+    
+    ollama:
+      model: ${OLLAMA_MODEL:qwen2.5:7b}
+      base_url: ${OLLAMA_BASE_URL}
+      timeout: 120
+    
+    scraper:
+      encryption_key: ${SCRAPER_ENCRYPTION_KEY}  # 必须通过环境变量设置
+    
+    insurance:
+      list_url: https://baoquan.court.gov.cn/wsbq/ssbq/api/commoncodepz
+      premium_query_url: https://baoquan.court.gov.cn/wsbq/commonapi/api/policy/premium
+      default_timeout: 60
+      max_connections: 20
+  
+  chat_platforms:
+    feishu:
+      app_id: ${FEISHU_APP_ID}  # 必须通过环境变量设置
+      app_secret: ${FEISHU_APP_SECRET}  # 必须通过环境变量设置
+      webhook_url: ${FEISHU_WEBHOOK_URL}
+      timeout: 60
+      default_owner_id: ${FEISHU_DEFAULT_OWNER_ID}
+    
+    dingtalk:
+      app_key: ${DINGTALK_APP_KEY}
+      app_secret: ${DINGTALK_APP_SECRET}
+      agent_id: ${DINGTALK_AGENT_ID}
+      timeout: 60
+    
+    wechat_work:
+      corp_id: ${WECHAT_WORK_CORP_ID}
+      agent_id: ${WECHAT_WORK_AGENT_ID}
+      secret: ${WECHAT_WORK_SECRET}
+      timeout: 60
+  
+  features:
+    case_chat:
+      default_platform: feishu
+      auto_create_on_push: true
+      default_owner_id: ${CASE_CHAT_DEFAULT_OWNER_ID}
+    
+    court_sms:
+      max_retries: 5  # 生产环境增加重试次数
+      retry_delay: 120  # 生产环境增加重试延迟
+      auto_recovery: true
+    
+    document_processing:
+      default_text_limit: 10000  # 生产环境提高限制
+      max_text_limit: 100000
+      default_preview_page: 1
+      max_preview_pages: 20
+  
+  performance:
+    cache:
+      redis_url: ${REDIS_URL}
+      redis_host: ${REDIS_HOST}
+      redis_port: ${REDIS_PORT:6379}
+      redis_db: ${REDIS_DB:0}
+      redis_password: ${REDIS_PASSWORD}  # 生产环境必须设置密码
+      default_timeout: 1800  # 30分钟
+      max_connections: 200
+      socket_timeout: 10
+      key_prefix: lawfirm_prod
+      timeout_short: 300
+      timeout_medium: 1800
+      timeout_long: 7200
+      timeout_day: 86400
+    
+    rate_limit:
+      default_requests: ${RATE_LIMIT_DEFAULT_REQUESTS:100}
+      default_window: ${RATE_LIMIT_DEFAULT_WINDOW:60}
+      auth_requests: ${RATE_LIMIT_AUTH_REQUESTS:1000}
+      auth_window: ${RATE_LIMIT_AUTH_WINDOW:60}
+    
+    q_cluster:
+      workers: 16  # 生产环境增加工作进程
+      timeout: 300  # 5分钟超时
+      retry: 300
+      queue_limit: 200
+      bulk: 20
+      max_attempts: 3
+  
+  logging:
+    file_max_size: 52428800  # 50MB
+    api_backup_count: 10
+    error_backup_count: 20
+    sql_backup_count: 5
+    console_level: WARNING  # 生产环境减少控制台输出
+    file_level: INFO
+    error_level: ERROR
+    django_level: WARNING
+    request_level: ERROR  # 只记录请求错误
+    apps_level: INFO
+    root_level: WARNING
+  
+  pagination:
+    default_page_size: 50  # 生产环境增加分页大小
+    max_page_size: 200
+  
+  validation:
+    max_amount: 100000000.0  # 1亿，生产环境提高限制
+    max_string_length: 2000
+    max_file_size: 104857600  # 100MB
+    text_extraction_limit: 10000
+    max_text_extraction_limit: 100000
+    screenshot_limit: 10
+  
+  steering:
+    conditional_loading:
+      enabled: true
+      cache_ttl: 7200  # 2小时缓存
+    
+    performance:
+      load_threshold_ms: 50  # 生产环境更严格的性能要求
+      warn_threshold_ms: 200
+
+# ============================================================
+# 高可用生产环境配置示例 (High Availability Production)
+# ============================================================
+
+production_ha:
+  environment: production
+  
+  # 继承生产环境配置，并添加高可用特性
+  
+  database:
+    engine: django.db.backends.mysql
+    name: ${DB_NAME}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+    host: ${DB_HOST}  # 主数据库
+    port: ${DB_PORT:3306}
+    # 读写分离配置（需要额外的数据库路由配置）
+    read_replicas:
+      - host: ${DB_READ_HOST_1}
+        port: ${DB_READ_PORT_1:3306}
+      - host: ${DB_READ_HOST_2}
+        port: ${DB_READ_PORT_2:3306}
+  
+  performance:
+    cache:
+      # Redis 集群配置
+      redis_url: ${REDIS_CLUSTER_URL}
+      redis_nodes:
+        - host: ${REDIS_NODE_1_HOST}
+          port: ${REDIS_NODE_1_PORT:6379}
+        - host: ${REDIS_NODE_2_HOST}
+          port: ${REDIS_NODE_2_PORT:6379}
+        - host: ${REDIS_NODE_3_HOST}
+          port: ${REDIS_NODE_3_PORT:6379}
+      redis_password: ${REDIS_PASSWORD}
+      max_connections: 500
+      default_timeout: 3600
+    
+    rate_limit:
+      # 高并发环境的限流配置
+      default_requests: 500
+      default_window: 60
+      auth_requests: 5000
+      auth_window: 60
+    
+    q_cluster:
+      workers: 32  # 高可用环境增加工作进程
+      timeout: 600  # 10分钟超时
+      retry: 600
+      queue_limit: 500
+      bulk: 50
+      max_attempts: 5
+  
+  logging:
+    # 高可用环境的日志配置
+    file_max_size: 104857600  # 100MB
+    api_backup_count: 20
+    error_backup_count: 30
+    sql_backup_count: 10
+    # 可以配置日志发送到外部日志系统
+    # external_logging:
+    #   enabled: true
+    #   endpoint: ${LOG_ENDPOINT}
+    #   api_key: ${LOG_API_KEY}
+
+# ============================================================
+# 微服务环境配置示例 (Microservices)
+# ============================================================
+
+microservices:
+  environment: production
+  
+  # 微服务环境的特殊配置
+  
+  services:
+    # 服务发现配置
+    discovery:
+      enabled: true
+      consul_host: ${CONSUL_HOST:consul.internal}
+      consul_port: ${CONSUL_PORT:8500}
+    
+    # 外部服务配置
+    moonshot:
+      base_url: ${MOONSHOT_SERVICE_URL:http://ai-service.internal/moonshot}
+      api_key: ${MOONSHOT_API_KEY}
+      timeout: 30
+    
+    ollama:
+      base_url: ${OLLAMA_SERVICE_URL:http://ai-service.internal/ollama}
+      timeout: 60
+    
+    # 消息队列配置
+    message_queue:
+      broker_url: ${CELERY_BROKER_URL:redis://redis.internal:6379/0}
+      result_backend: ${CELERY_RESULT_BACKEND:redis://redis.internal:6379/0}
+  
+  performance:
+    # 分布式缓存配置
+    cache:
+      redis_url: ${REDIS_URL}
+      redis_sentinel:
+        enabled: true
+        service_name: ${REDIS_SENTINEL_SERVICE:mymaster}
+        sentinels:
+          - host: ${REDIS_SENTINEL_1_HOST}
+            port: ${REDIS_SENTINEL_1_PORT:26379}
+          - host: ${REDIS_SENTINEL_2_HOST}
+            port: ${REDIS_SENTINEL_2_PORT:26379}
+          - host: ${REDIS_SENTINEL_3_HOST}
+            port: ${REDIS_SENTINEL_3_PORT:26379}
+    
+    # 分布式限流配置
+    rate_limit:
+      distributed: true
+      redis_key_prefix: rate_limit
+      default_requests: 1000
+      auth_requests: 10000
+  
+  # 监控和追踪配置
+  monitoring:
+    enabled: true
+    metrics_endpoint: ${METRICS_ENDPOINT:/metrics}
+    health_endpoint: ${HEALTH_ENDPOINT:/health}
+    tracing:
+      enabled: true
+      jaeger_endpoint: ${JAEGER_ENDPOINT:http://jaeger.internal:14268/api/traces}
+
+# ============================================================
+# 容器化环境配置示例 (Docker/Kubernetes)
+# ============================================================
+
+containerized:
+  environment: production
+  
+  django:
+    secret_key: ${SECRET_KEY}
+    debug: false
+    allowed_hosts:
+      - ${ALLOWED_HOST_1}
+      - ${ALLOWED_HOST_2}
+      - ${ALLOWED_HOST_3}
+  
+  database:
+    engine: django.db.backends.postgresql  # 容器环境推荐 PostgreSQL
+    name: ${POSTGRES_DB}
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    host: ${POSTGRES_HOST:postgres}
+    port: ${POSTGRES_PORT:5432}
+  
+  performance:
+    cache:
+      redis_url: redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}/${REDIS_DB:0}
+      redis_password: ${REDIS_PASSWORD}
+  
+  # 容器健康检查配置
+  health_check:
+    enabled: true
+    database_check: true
+    cache_check: true
+    external_services_check: false  # 避免外部依赖影响健康检查
+  
+  # 容器资源限制配置
+  resources:
+    memory_limit: ${MEMORY_LIMIT:2Gi}
+    cpu_limit: ${CPU_LIMIT:1000m}
+    
+  # Kubernetes 特定配置
+  kubernetes:
+    namespace: ${K8S_NAMESPACE:lawfirm}
+    service_account: ${K8S_SERVICE_ACCOUNT:lawfirm-api}
+    config_map: ${K8S_CONFIG_MAP:lawfirm-config}
+    secrets: ${K8S_SECRETS:lawfirm-secrets}

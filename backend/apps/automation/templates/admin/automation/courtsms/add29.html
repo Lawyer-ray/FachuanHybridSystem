@@ -1,0 +1,61 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    body { background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); min-height: 100vh; }
+    body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,0,128,0.03) 2px, rgba(255,0,128,0.03) 4px);
+        pointer-events: none; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .synth-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; position: relative; z-index: 1; }
+    .synth-header { text-align: center; margin-bottom: 35px; }
+    .synth-title { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 700;
+        background: linear-gradient(180deg, #ff6ec4 0%, #7873f5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sw-sun { width: 80px; height: 40px; margin: 0 auto 20px; background: linear-gradient(180deg, #ff6ec4 0%, #ffd93d 100%); border-radius: 80px 80px 0 0; position: relative; }
+    .sw-sun::after { content: ''; position: absolute; bottom: 0; left: -10px; right: -10px; height: 20px; background: repeating-linear-gradient(0deg, transparent, transparent 3px, #0f0c29 3px, #0f0c29 6px); }
+    .sw-subtitle { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: #7873f5; letter-spacing: 0.3em; margin-top: 10px; }
+    .sw-card { background: rgba(48,43,99,0.8); border: 2px solid #7873f5; padding: 30px; position: relative; }
+    .sw-label { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: #ff6ec4; margin-bottom: 12px; letter-spacing: 0.1em; }
+    .sw-textarea { width: 100%; min-height: 160px; padding: 18px; font-family: 'Orbitron', sans-serif; font-size: 0.95rem; line-height: 1.6; color: #fff; background: rgba(15,12,41,0.9); border: 1px solid #7873f5; resize: vertical; box-sizing: border-box; }
+    .sw-textarea:focus { outline: none; border-color: #ff6ec4; box-shadow: 0 0 20px rgba(255,110,196,0.3); }
+    .sw-textarea::placeholder { color: #7873f5; }
+    .sw-actions { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
+    .sw-btn { padding: 12px 30px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; cursor: pointer; transition: all 0.3s; text-decoration: none; border: none; }
+    .sw-btn-primary { background: linear-gradient(90deg, #ff6ec4, #7873f5); color: white; }
+    .sw-btn-primary:hover { box-shadow: 0 0 25px rgba(255,110,196,0.5); transform: translateY(-2px); }
+    .sw-btn-secondary { background: transparent; color: #7873f5; border: 1px solid #7873f5; }
+    .sw-btn-secondary:hover { background: rgba(120,115,245,0.2); }
+    .sw-alert { padding: 15px; margin-bottom: 20px; border: 1px solid #7873f5; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; text-align: center; }
+    .sw-alert-success { background: rgba(120,115,245,0.3); color: #fff; }
+    .sw-alert-error { background: rgba(255,110,196,0.3); color: #fff; }
+    .sw-history { margin-top: 35px; }
+    .sw-history-title { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; color: #ff6ec4; text-align: center; margin-bottom: 15px; letter-spacing: 0.2em; }
+    .sw-history-item { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border-bottom: 1px solid rgba(120,115,245,0.3); text-decoration: none; transition: all 0.3s; }
+    .sw-history-item:hover { background: rgba(120,115,245,0.2); }
+    .sw-status { font-size: 1rem; color: #ff6ec4; }
+    .sw-info { flex: 1; }
+    .sw-text { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: #ddd; }
+    .sw-meta { font-size: 0.7rem; color: #7873f5; margin-top: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="synth-wrapper">
+    {% if messages %}{% for message in messages %}<div class="sw-alert sw-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="synth-header"><div class="sw-sun"></div><h1 class="synth-title">SYNTHWAVE SMS</h1><p class="sw-subtitle">▸ RETRO FUTURE ◂</p></div>
+    <div class="sw-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="sw-label">MESSAGE INPUT</div>
+        <textarea name="content" class="sw-textarea" id="smsContent" placeholder="Enter transmission..." required></textarea>
+        <div class="sw-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="sw-btn sw-btn-secondary">◀ BACK</a>
+        <button type="submit" class="sw-btn sw-btn-primary" id="submitBtn">TRANSMIT ▶</button></div></form></div>
+    {% if recent_sms %}<div class="sw-history"><div class="sw-history-title">◈ ARCHIVE ◈</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="sw-history-item">
+    <div class="sw-status">{% if sms.status == 'completed' %}●{% elif sms.status == 'failed' %}○{% else %}◐{% endif %}</div>
+    <div class="sw-info"><div class="sw-text">{{ sms.content|truncatechars:40 }}</div>
+    <div class="sw-meta">#{{ sms.id }}</div></div></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='TRANSMITTING...';b.disabled=true;});</script>
+{% endblock %}

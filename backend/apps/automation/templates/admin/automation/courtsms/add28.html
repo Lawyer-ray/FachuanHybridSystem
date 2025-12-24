@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+    body { background: #1a1a1a; min-height: 100vh;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        background-blend-mode: overlay; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .grunge-wrapper { max-width: 650px; margin: 40px auto; padding: 0 24px; }
+    .grunge-header { text-align: center; margin-bottom: 30px; }
+    .grunge-title { font-family: 'Special Elite', cursive; font-size: 2.5rem; color: #f5f5dc;
+        text-shadow: 3px 3px 0 #8b0000, -1px -1px 0 #333; transform: rotate(-2deg); }
+    .gr-subtitle { font-family: 'Special Elite', cursive; font-size: 0.9rem; color: #666; margin-top: 10px; }
+    .gr-card { background: #2a2a2a; border: 3px solid #444; padding: 25px; position: relative; }
+    .gr-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.05; pointer-events: none; }
+    .gr-label { font-family: 'Special Elite', cursive; font-size: 1rem; color: #8b0000; margin-bottom: 12px; }
+    .gr-textarea { width: 100%; min-height: 160px; padding: 18px; font-family: 'Special Elite', cursive; font-size: 1rem; line-height: 1.6; color: #f5f5dc; background: #1a1a1a; border: 2px solid #444; resize: vertical; box-sizing: border-box; }
+    .gr-textarea:focus { outline: none; border-color: #8b0000; }
+    .gr-textarea::placeholder { color: #555; }
+    .gr-actions { display: flex; gap: 15px; margin-top: 20px; }
+    .gr-btn { padding: 12px 25px; font-family: 'Special Elite', cursive; font-size: 1rem; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid #444; }
+    .gr-btn-primary { background: #8b0000; color: #f5f5dc; }
+    .gr-btn-primary:hover { background: #a00; transform: skewX(-2deg); }
+    .gr-btn-secondary { background: transparent; color: #888; }
+    .gr-btn-secondary:hover { border-color: #666; color: #f5f5dc; }
+    .gr-alert { padding: 12px; margin-bottom: 20px; border: 2px solid #444; font-family: 'Special Elite', cursive; }
+    .gr-alert-success { background: rgba(0,100,0,0.3); color: #90ee90; }
+    .gr-alert-error { background: rgba(139,0,0,0.3); color: #ff6b6b; }
+    .gr-history { margin-top: 30px; }
+    .gr-history-title { font-family: 'Special Elite', cursive; font-size: 1rem; color: #666; margin-bottom: 15px; }
+    .gr-history-item { display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #333; text-decoration: none; transition: all 0.2s; }
+    .gr-history-item:hover { background: rgba(139,0,0,0.2); }
+    .gr-id { font-family: 'Special Elite', cursive; font-size: 0.8rem; color: #8b0000; }
+    .gr-text { font-family: 'Special Elite', cursive; font-size: 0.9rem; color: #999; flex: 1; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="grunge-wrapper">
+    {% if messages %}{% for message in messages %}<div class="gr-alert gr-alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="grunge-header"><h1 class="grunge-title">GRUNGE SMS</h1><p class="gr-subtitle">// DISTORTED PROCESSING //</p></div>
+    <div class="gr-card"><form method="post" id="smsForm">{% csrf_token %}
+        <div class="gr-label">[ MESSAGE ]</div>
+        <textarea name="content" class="gr-textarea" id="smsContent" placeholder="type here..." required></textarea>
+        <div class="gr-actions"><a href="{% url 'admin:automation_courtsms_changelist' %}" class="gr-btn gr-btn-secondary">BACK</a>
+        <button type="submit" class="gr-btn gr-btn-primary" id="submitBtn">SEND IT</button></div></form></div>
+    {% if recent_sms %}<div class="gr-history"><div class="gr-history-title">// RECENT //</div>
+    {% for sms in recent_sms %}<a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="gr-history-item">
+    <span class="gr-id">#{{ sms.id }}</span><span class="gr-text">{{ sms.content|truncatechars:40 }}</span></a>{% endfor %}</div>{% endif %}
+</div>
+<script>document.getElementById('smsForm').addEventListener('submit',function(e){var t=document.getElementById('smsContent'),b=document.getElementById('submitBtn');if(!t.value.trim()){e.preventDefault();t.focus();return;}b.innerHTML='...';b.disabled=true;});</script>
+{% endblock %}

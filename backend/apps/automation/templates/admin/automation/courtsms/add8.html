@@ -1,0 +1,251 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Patrick+Hand&display=swap');
+    :root {
+        --sketch-bg: #fffef5;
+        --sketch-line: #333;
+        --sketch-blue: #4a90d9;
+        --sketch-red: #e74c3c;
+        --sketch-green: #27ae60;
+        --sketch-yellow: #f1c40f;
+    }
+    body {
+        background: var(--sketch-bg);
+        background-image: 
+            linear-gradient(90deg, transparent 79px, #abced4 79px, #abced4 81px, transparent 81px),
+            linear-gradient(#eee .1em, transparent .1em);
+        background-size: 100% 1.5em;
+        min-height: 100vh;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .sketch-wrapper { max-width: 700px; margin: 40px auto; padding: 0 20px 0 100px; }
+    .sketch-header { text-align: center; margin-bottom: 30px; position: relative; }
+    .sketch-title {
+        font-family: 'Caveat', cursive;
+        font-size: 3rem;
+        font-weight: 700;
+        color: var(--sketch-line);
+        transform: rotate(-2deg);
+        display: inline-block;
+    }
+    .sketch-underline {
+        height: 4px;
+        background: var(--sketch-yellow);
+        margin: -10px auto 0;
+        width: 200px;
+        transform: rotate(1deg);
+        border-radius: 2px;
+    }
+    .sketch-subtitle {
+        font-family: 'Patrick Hand', cursive;
+        font-size: 1.1rem;
+        color: var(--sketch-blue);
+        margin-top: 8px;
+    }
+    .sketch-card {
+        background: white;
+        border: 3px solid var(--sketch-line);
+        border-radius: 3px;
+        padding: 30px;
+        position: relative;
+        box-shadow: 4px 4px 0 var(--sketch-line);
+        transform: rotate(0.5deg);
+    }
+    .sketch-card::before {
+        content: '📌';
+        position: absolute;
+        top: -15px;
+        left: 20px;
+        font-size: 1.5rem;
+    }
+    .sketch-label {
+        font-family: 'Caveat', cursive;
+        font-size: 1.3rem;
+        color: var(--sketch-line);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .sketch-label::before { content: '✏️'; }
+    .sketch-textarea {
+        width: 100%;
+        min-height: 180px;
+        padding: 16px;
+        font-family: 'Patrick Hand', cursive;
+        font-size: 1.1rem;
+        line-height: 1.5em;
+        color: var(--sketch-line);
+        background: transparent;
+        border: 2px dashed var(--sketch-blue);
+        border-radius: 8px;
+        resize: vertical;
+        box-sizing: border-box;
+    }
+    .sketch-textarea:focus {
+        outline: none;
+        border-style: solid;
+        border-color: var(--sketch-red);
+    }
+    .sketch-textarea::placeholder { color: #aaa; }
+    .sketch-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-family: 'Patrick Hand', cursive;
+        font-size: 0.9rem;
+        color: #888;
+    }
+    .sketch-actions { display: flex; gap: 16px; margin-top: 24px; }
+    .sketch-btn {
+        flex: 1;
+        padding: 12px 20px;
+        font-family: 'Caveat', cursive;
+        font-size: 1.3rem;
+        font-weight: 700;
+        border: 3px solid var(--sketch-line);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        text-align: center;
+        box-shadow: 3px 3px 0 var(--sketch-line);
+    }
+    .sketch-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--sketch-line); }
+    .sketch-btn-primary { background: var(--sketch-yellow); color: var(--sketch-line); }
+    .sketch-btn-primary:hover { background: #f39c12; }
+    .sketch-btn-secondary { background: white; color: var(--sketch-line); }
+    .sketch-btn-secondary:hover { background: #f5f5f5; }
+    .sketch-steps {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 2px dashed #ddd;
+    }
+    .sketch-step { text-align: center; }
+    .sketch-step-icon {
+        width: 50px;
+        height: 50px;
+        border: 2px solid var(--sketch-line);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 8px;
+        background: white;
+    }
+    .sketch-step-text { font-family: 'Patrick Hand', cursive; font-size: 0.9rem; color: var(--sketch-line); }
+    .sketch-arrow { font-size: 1.5rem; color: var(--sketch-blue); align-self: center; }
+    .alert {
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        border: 2px solid;
+        border-radius: 8px;
+        font-family: 'Patrick Hand', cursive;
+        font-size: 1rem;
+    }
+    .alert-success { background: #d4edda; border-color: var(--sketch-green); color: var(--sketch-green); }
+    .alert-error { background: #f8d7da; border-color: var(--sketch-red); color: var(--sketch-red); }
+    .sketch-recent { margin-top: 40px; transform: rotate(-0.5deg); }
+    .sketch-recent-title {
+        font-family: 'Caveat', cursive;
+        font-size: 1.5rem;
+        color: var(--sketch-line);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .sketch-recent-title::before { content: '📋'; }
+    .sketch-recent-list { display: flex; flex-direction: column; gap: 10px; }
+    .sketch-recent-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: white;
+        border: 2px solid var(--sketch-line);
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: 2px 2px 0 var(--sketch-line);
+    }
+    .sketch-recent-item:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--sketch-line); }
+    .recent-check { font-size: 1.2rem; }
+    .recent-check.completed::before { content: '✅'; }
+    .recent-check.pending::before { content: '⏳'; }
+    .recent-check.failed::before { content: '❌'; }
+    .recent-body { flex: 1; min-width: 0; }
+    .recent-text { font-family: 'Patrick Hand', cursive; color: var(--sketch-line); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recent-meta { font-family: 'Patrick Hand', cursive; font-size: 0.8rem; color: #888; margin-top: 2px; }
+    @media (max-width: 640px) {
+        .sketch-wrapper { padding-left: 20px; }
+        .sketch-title { font-size: 2rem; }
+        .sketch-actions { flex-direction: column; }
+        .sketch-steps { flex-wrap: wrap; gap: 16px; }
+        .sketch-arrow { display: none; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="sketch-wrapper">
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="sketch-header">
+        <h1 class="sketch-title">法院短信</h1>
+        <div class="sketch-underline"></div>
+        <p class="sketch-subtitle">粘贴短信，自动处理 ✨</p>
+    </div>
+    <div class="sketch-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <label class="sketch-label">短信内容</label>
+            <textarea name="content" class="sketch-textarea" id="smsContent" placeholder="在这里粘贴短信内容..." required></textarea>
+            <div class="sketch-meta"><span id="charCount">0 字</span><span>自动处理 ✓</span></div>
+            <div class="sketch-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="sketch-btn sketch-btn-secondary">← 返回</a>
+                <button type="submit" class="sketch-btn sketch-btn-primary" id="submitBtn">提交! 🚀</button>
+            </div>
+        </form>
+        <div class="sketch-steps">
+            <div class="sketch-step"><div class="sketch-step-icon">📝</div><div class="sketch-step-text">解析</div></div>
+            <span class="sketch-arrow">→</span>
+            <div class="sketch-step"><div class="sketch-step-icon">🔍</div><div class="sketch-step-text">匹配</div></div>
+            <span class="sketch-arrow">→</span>
+            <div class="sketch-step"><div class="sketch-step-icon">📥</div><div class="sketch-step-text">下载</div></div>
+            <span class="sketch-arrow">→</span>
+            <div class="sketch-step"><div class="sketch-step-icon">📤</div><div class="sketch-step-text">通知</div></div>
+        </div>
+    </div>
+    {% if recent_sms %}
+    <div class="sketch-recent">
+        <div class="sketch-recent-title">最近记录</div>
+        <div class="sketch-recent-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="sketch-recent-item">
+                <span class="recent-check {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}"></span>
+                <div class="recent-body">
+                    <div class="recent-text">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="recent-meta">#{{ sms.id }} · {{ sms.get_status_display }} · {{ sms.created_at|date:"m-d H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' 字'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '处理中... ⏳'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

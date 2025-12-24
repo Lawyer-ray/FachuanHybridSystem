@@ -1,0 +1,514 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
+    :root {
+        --brass: #b5a642;
+        --copper: #b87333;
+        --bronze: #cd7f32;
+        --dark-wood: #3d2914;
+        --leather: #8b4513;
+        --cream: #f5e6c8;
+        --rust: #8b3a3a;
+        --steel: #71797e;
+        --gold: #d4af37;
+    }
+    body {
+        background: linear-gradient(135deg, #2c1810 0%, #1a0f0a 50%, #2c1810 100%);
+        min-height: 100vh;
+        position: relative;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: 
+            repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(181,166,66,0.03) 100px, rgba(181,166,66,0.03) 101px),
+            repeating-linear-gradient(0deg, transparent, transparent 100px, rgba(181,166,66,0.03) 100px, rgba(181,166,66,0.03) 101px);
+        pointer-events: none;
+    }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .steam-wrapper { max-width: 750px; margin: 40px auto; padding: 0 20px; position: relative; }
+    
+    /* 齿轮装饰 */
+    .gear {
+        position: fixed;
+        border: 4px solid var(--brass);
+        border-radius: 50%;
+        opacity: 0.15;
+        animation: rotate 20s linear infinite;
+    }
+    .gear::before {
+        content: '';
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 30%;
+        height: 30%;
+        background: var(--brass);
+        border-radius: 50%;
+    }
+    .gear-1 { width: 200px; height: 200px; top: 5%; left: -50px; animation-duration: 30s; }
+    .gear-2 { width: 150px; height: 150px; bottom: 10%; right: -30px; animation-duration: 25s; animation-direction: reverse; }
+    .gear-3 { width: 100px; height: 100px; top: 40%; left: 5%; animation-duration: 15s; }
+    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    
+    /* 标题区 */
+    .steam-header {
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+    }
+    .steam-emblem {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 16px;
+        border: 3px solid var(--brass);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle, var(--dark-wood) 0%, #1a0f0a 100%);
+        box-shadow: 0 0 20px rgba(181,166,66,0.3), inset 0 0 20px rgba(0,0,0,0.5);
+        position: relative;
+    }
+    .steam-emblem::before {
+        content: '⚙';
+        font-size: 2.5rem;
+        color: var(--brass);
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+        0%, 100% { text-shadow: 0 0 10px var(--brass); }
+        50% { text-shadow: 0 0 25px var(--gold), 0 0 40px var(--brass); }
+    }
+    .steam-title {
+        font-family: 'Cinzel', serif;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--brass);
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 30px rgba(181,166,66,0.3);
+        margin-bottom: 8px;
+    }
+    .steam-subtitle {
+        font-family: 'IM Fell English', serif;
+        font-style: italic;
+        font-size: 1rem;
+        color: var(--copper);
+        letter-spacing: 0.2em;
+    }
+    .steam-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin: 20px 0;
+        color: var(--brass);
+        opacity: 0.6;
+    }
+    .steam-divider::before, .steam-divider::after {
+        content: '';
+        flex: 1;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--brass), transparent);
+    }
+    
+    /* 主卡片 */
+    .steam-card {
+        background: linear-gradient(145deg, rgba(61,41,20,0.95) 0%, rgba(26,15,10,0.98) 100%);
+        border: 3px solid var(--brass);
+        border-radius: 8px;
+        padding: 32px;
+        position: relative;
+        box-shadow: 
+            0 10px 40px rgba(0,0,0,0.5),
+            inset 0 1px 0 rgba(181,166,66,0.2),
+            inset 0 -1px 0 rgba(0,0,0,0.3);
+    }
+    .steam-card::before {
+        content: '';
+        position: absolute;
+        top: 8px; left: 8px; right: 8px; bottom: 8px;
+        border: 1px solid rgba(181,166,66,0.2);
+        border-radius: 4px;
+        pointer-events: none;
+    }
+    /* 角落装饰 */
+    .corner-decor {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border: 2px solid var(--brass);
+    }
+    .corner-decor.tl { top: -3px; left: -3px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+    .corner-decor.tr { top: -3px; right: -3px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+    .corner-decor.bl { bottom: -3px; left: -3px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+    .corner-decor.br { bottom: -3px; right: -3px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+    
+    /* 表单标签 */
+    .steam-label {
+        font-family: 'Cinzel', serif;
+        font-size: 0.85rem;
+        color: var(--brass);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .steam-label::before { content: '◈'; color: var(--copper); }
+    
+    /* 文本框 */
+    .steam-textarea {
+        width: 100%;
+        min-height: 180px;
+        padding: 20px;
+        font-family: 'IM Fell English', serif;
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: var(--cream);
+        background: linear-gradient(180deg, rgba(26,15,10,0.9) 0%, rgba(44,24,16,0.9) 100%);
+        border: 2px solid var(--copper);
+        border-radius: 4px;
+        resize: vertical;
+        box-sizing: border-box;
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        transition: all 0.3s ease;
+    }
+    .steam-textarea:focus {
+        outline: none;
+        border-color: var(--brass);
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(181,166,66,0.2);
+    }
+    .steam-textarea::placeholder { color: rgba(245,230,200,0.3); font-style: italic; }
+    
+    /* 计数器 */
+    .steam-counter {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        font-family: 'IM Fell English', serif;
+        font-size: 0.85rem;
+        color: var(--copper);
+    }
+    .steam-gauge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .gauge-bar {
+        width: 100px;
+        height: 8px;
+        background: rgba(0,0,0,0.5);
+        border: 1px solid var(--brass);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .gauge-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--copper), var(--brass), var(--gold));
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    
+    /* 按钮 */
+    .steam-actions { display: flex; gap: 16px; margin-top: 28px; }
+    .steam-btn {
+        flex: 1;
+        padding: 16px 24px;
+        font-family: 'Cinzel', serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        border: 2px solid;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .steam-btn::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        transition: left 0.5s ease;
+    }
+    .steam-btn:hover::before { left: 100%; }
+    .steam-btn-primary {
+        background: linear-gradient(180deg, var(--brass) 0%, var(--copper) 100%);
+        border-color: var(--gold);
+        color: var(--dark-wood);
+        box-shadow: 0 4px 15px rgba(181,166,66,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    .steam-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(181,166,66,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    .steam-btn-secondary {
+        background: transparent;
+        border-color: var(--brass);
+        color: var(--brass);
+    }
+    .steam-btn-secondary:hover {
+        background: rgba(181,166,66,0.1);
+        transform: translateY(-2px);
+    }
+    
+    /* 流程指示器 */
+    .steam-process {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 28px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(181,166,66,0.3);
+    }
+    .process-step {
+        text-align: center;
+        flex: 1;
+        position: relative;
+    }
+    .process-step:not(:last-child)::after {
+        content: '→';
+        position: absolute;
+        right: -5px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--brass);
+        opacity: 0.5;
+    }
+    .process-icon {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 8px;
+        border: 2px solid var(--copper);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        background: rgba(0,0,0,0.3);
+    }
+    .process-text {
+        font-family: 'IM Fell English', serif;
+        font-size: 0.75rem;
+        color: var(--copper);
+    }
+    
+    /* 提示框 */
+    .steam-alert {
+        padding: 14px 20px;
+        margin-bottom: 20px;
+        border: 2px solid;
+        border-radius: 4px;
+        font-family: 'IM Fell English', serif;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .steam-alert-success {
+        background: rgba(181,166,66,0.1);
+        border-color: var(--brass);
+        color: var(--brass);
+    }
+    .steam-alert-error {
+        background: rgba(139,58,58,0.2);
+        border-color: var(--rust);
+        color: #e8a0a0;
+    }
+    
+    /* 历史记录 */
+    .steam-history { margin-top: 36px; }
+    .steam-history-title {
+        font-family: 'Cinzel', serif;
+        font-size: 1rem;
+        color: var(--brass);
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .steam-history-title::before { content: '📜'; }
+    .steam-history-list { display: flex; flex-direction: column; gap: 10px; }
+    .steam-history-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 18px;
+        background: rgba(61,41,20,0.6);
+        border: 1px solid rgba(181,166,66,0.3);
+        border-radius: 4px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .steam-history-item:hover {
+        background: rgba(61,41,20,0.9);
+        border-color: var(--brass);
+        transform: translateX(5px);
+    }
+    .steam-status {
+        padding: 4px 10px;
+        font-family: 'Cinzel', serif;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        border: 1px solid;
+        border-radius: 3px;
+    }
+    .steam-status.completed { background: rgba(181,166,66,0.2); border-color: var(--brass); color: var(--brass); }
+    .steam-status.pending { background: rgba(184,115,51,0.2); border-color: var(--copper); color: var(--copper); }
+    .steam-status.failed { background: rgba(139,58,58,0.2); border-color: var(--rust); color: #e8a0a0; }
+    .steam-info { flex: 1; min-width: 0; }
+    .steam-text {
+        font-family: 'IM Fell English', serif;
+        font-size: 0.95rem;
+        color: var(--cream);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .steam-meta {
+        font-family: 'IM Fell English', serif;
+        font-size: 0.8rem;
+        color: var(--copper);
+        margin-top: 4px;
+    }
+    
+    @media (max-width: 640px) {
+        .steam-title { font-size: 1.4rem; letter-spacing: 0.15em; }
+        .steam-actions { flex-direction: column; }
+        .steam-process { flex-wrap: wrap; gap: 16px; }
+        .process-step::after { display: none; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="gear gear-1"></div>
+<div class="gear gear-2"></div>
+<div class="gear gear-3"></div>
+
+<div class="steam-wrapper">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="steam-alert steam-alert-{{ message.tags }}">
+            <span>{% if message.tags == 'success' %}✓{% else %}⚠{% endif %}</span>
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="steam-header">
+        <div class="steam-emblem"></div>
+        <h1 class="steam-title">Steamwork Telegraph</h1>
+        <p class="steam-subtitle">~ Automated Message Processing Engine ~</p>
+        <div class="steam-divider">⚙</div>
+    </div>
+    
+    <div class="steam-card">
+        <div class="corner-decor tl"></div>
+        <div class="corner-decor tr"></div>
+        <div class="corner-decor bl"></div>
+        <div class="corner-decor br"></div>
+        
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="steam-label">Incoming Transmission</div>
+            <textarea name="content" class="steam-textarea" id="smsContent" 
+                placeholder="Paste the court message here for processing..." required></textarea>
+            
+            <div class="steam-counter">
+                <span id="charCount">Characters: 0</span>
+                <div class="steam-gauge">
+                    <span>Pressure:</span>
+                    <div class="gauge-bar"><div class="gauge-fill" id="gaugeFill"></div></div>
+                </div>
+            </div>
+            
+            <div class="steam-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="steam-btn steam-btn-secondary">← Return</a>
+                <button type="submit" class="steam-btn steam-btn-primary" id="submitBtn">⚙ Engage Engine</button>
+            </div>
+            
+            <div class="steam-process">
+                <div class="process-step">
+                    <div class="process-icon">🔍</div>
+                    <div class="process-text">Parse</div>
+                </div>
+                <div class="process-step">
+                    <div class="process-icon">🎯</div>
+                    <div class="process-text">Match</div>
+                </div>
+                <div class="process-step">
+                    <div class="process-icon">📥</div>
+                    <div class="process-text">Retrieve</div>
+                </div>
+                <div class="process-step">
+                    <div class="process-icon">📡</div>
+                    <div class="process-text">Dispatch</div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    {% if recent_sms %}
+    <div class="steam-history">
+        <div class="steam-history-title">Transmission Archives</div>
+        <div class="steam-history-list">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="steam-history-item">
+                <span class="steam-status {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">
+                    {% if sms.status == 'completed' %}Complete{% elif sms.status == 'failed' %}Failed{% else %}Processing{% endif %}
+                </span>
+                <div class="steam-info">
+                    <div class="steam-text">{{ sms.content|truncatechars:45 }}</div>
+                    <div class="steam-meta">Record #{{ sms.id }} · {{ sms.created_at|date:"M d, Y H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('smsContent');
+    const charCount = document.getElementById('charCount');
+    const gaugeFill = document.getElementById('gaugeFill');
+    const form = document.getElementById('smsForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    textarea.addEventListener('input', function() {
+        const len = this.value.length;
+        charCount.textContent = 'Characters: ' + len;
+        // 压力表动画 (最大500字符时满)
+        const pressure = Math.min(len / 500 * 100, 100);
+        gaugeFill.style.width = pressure + '%';
+    });
+    
+    form.addEventListener('submit', function(e) {
+        if (!textarea.value.trim()) {
+            e.preventDefault();
+            textarea.focus();
+            return;
+        }
+        submitBtn.innerHTML = '⚙ Processing...';
+        submitBtn.disabled = true;
+    });
+    
+    textarea.focus();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrahead %}
+{{ block.super }}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
+    :root {
+        --md-primary: #6750a4;
+        --md-on-primary: #ffffff;
+        --md-primary-container: #eaddff;
+        --md-on-primary-container: #21005d;
+        --md-surface: #fffbfe;
+        --md-surface-variant: #e7e0ec;
+        --md-on-surface: #1c1b1f;
+        --md-on-surface-variant: #49454f;
+        --md-outline: #79747e;
+        --md-error: #b3261e;
+        --md-tertiary: #7d5260;
+    }
+    body { background: var(--md-surface); min-height: 100vh; }
+    #container { background: transparent; }
+    #content { padding: 0; }
+    .md-wrapper { max-width: 600px; margin: 40px auto; padding: 0 24px; }
+    .md-header { margin-bottom: 24px; }
+    .md-title {
+        font-family: 'Roboto', sans-serif; font-size: 1.75rem; font-weight: 400;
+        color: var(--md-on-surface); margin-bottom: 8px;
+    }
+    .md-subtitle { font-family: 'Roboto', sans-serif; font-size: 0.875rem; color: var(--md-on-surface-variant); }
+    .md-card {
+        background: var(--md-surface);
+        border-radius: 28px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    }
+    .md-field { margin-bottom: 24px; position: relative; }
+    .md-label {
+        font-family: 'Roboto', sans-serif; font-size: 0.75rem; font-weight: 500;
+        color: var(--md-primary);
+        position: absolute; top: -8px; left: 12px;
+        background: var(--md-surface); padding: 0 4px;
+    }
+    .md-textarea {
+        width: 100%; min-height: 180px; padding: 16px;
+        font-family: 'Roboto', sans-serif; font-size: 1rem; line-height: 1.5;
+        color: var(--md-on-surface);
+        background: transparent;
+        border: 1px solid var(--md-outline); border-radius: 4px;
+        resize: vertical; box-sizing: border-box;
+        transition: all 0.2s ease;
+    }
+    .md-textarea:focus { outline: none; border-color: var(--md-primary); border-width: 2px; }
+    .md-textarea::placeholder { color: var(--md-on-surface-variant); }
+    .md-helper {
+        display: flex; justify-content: space-between; margin-top: 4px; padding: 0 16px;
+        font-family: 'Roboto', sans-serif; font-size: 0.75rem; color: var(--md-on-surface-variant);
+    }
+    .md-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+    .md-btn {
+        padding: 10px 24px;
+        font-family: 'Roboto', sans-serif; font-size: 0.875rem; font-weight: 500;
+        border-radius: 100px; cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none; text-align: center;
+        border: none;
+    }
+    .md-btn-filled {
+        background: var(--md-primary); color: var(--md-on-primary);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .md-btn-filled:hover { box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 8px rgba(103,80,164,0.3); }
+    .md-btn-outlined {
+        background: transparent; color: var(--md-primary);
+        border: 1px solid var(--md-outline);
+    }
+    .md-btn-outlined:hover { background: rgba(103,80,164,0.08); }
+    .md-chips {
+        display: flex; flex-wrap: wrap; gap: 8px;
+        margin-top: 24px; padding-top: 24px;
+        border-top: 1px solid var(--md-surface-variant);
+    }
+    .md-chip {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 16px;
+        background: var(--md-surface-variant);
+        border-radius: 8px;
+        font-family: 'Roboto', sans-serif; font-size: 0.875rem;
+        color: var(--md-on-surface-variant);
+    }
+    .md-chip-icon { font-size: 1.1rem; }
+    .md-snackbar {
+        padding: 14px 16px; margin-bottom: 16px;
+        border-radius: 4px;
+        font-family: 'Roboto', sans-serif; font-size: 0.875rem;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .md-snackbar-success { background: #c8e6c9; color: #2e7d32; }
+    .md-snackbar-error { background: #ffcdd2; color: var(--md-error); }
+    .md-list { margin-top: 32px; }
+    .md-list-header {
+        font-family: 'Roboto', sans-serif; font-size: 0.875rem; font-weight: 500;
+        color: var(--md-on-surface-variant);
+        padding: 0 16px; margin-bottom: 8px;
+    }
+    .md-list-items { background: var(--md-surface); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .md-list-item {
+        display: flex; align-items: center; gap: 16px;
+        padding: 12px 16px;
+        text-decoration: none;
+        transition: background 0.2s ease;
+        border-bottom: 1px solid var(--md-surface-variant);
+    }
+    .md-list-item:last-child { border-bottom: none; }
+    .md-list-item:hover { background: rgba(103,80,164,0.08); }
+    .md-avatar {
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'Roboto', sans-serif; font-size: 0.875rem; font-weight: 500;
+    }
+    .md-avatar.completed { background: #c8e6c9; color: #2e7d32; }
+    .md-avatar.pending { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+    .md-avatar.failed { background: #ffcdd2; color: var(--md-error); }
+    .md-item-content { flex: 1; min-width: 0; }
+    .md-item-title { font-family: 'Roboto', sans-serif; font-size: 1rem; color: var(--md-on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .md-item-subtitle { font-family: 'Roboto', sans-serif; font-size: 0.875rem; color: var(--md-on-surface-variant); margin-top: 2px; }
+    @media (max-width: 640px) {
+        .md-actions { flex-direction: column; }
+        .md-btn { width: 100%; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="md-wrapper">
+    {% if messages %}{% for message in messages %}<div class="md-snackbar md-snackbar-{{ message.tags }}"><span>{% if message.tags == 'success' %}✓{% else %}!{% endif %}</span>{{ message }}</div>{% endfor %}{% endif %}
+    <div class="md-header">
+        <h1 class="md-title">新建短信</h1>
+        <p class="md-subtitle">添加法院短信进行自动处理</p>
+    </div>
+    <div class="md-card">
+        <form method="post" id="smsForm">
+            {% csrf_token %}
+            <div class="md-field">
+                <label class="md-label">短信内容</label>
+                <textarea name="content" class="md-textarea" id="smsContent" placeholder="粘贴短信内容..." required></textarea>
+                <div class="md-helper"><span>支持自动解析链接和案号</span><span id="charCount">0 字符</span></div>
+            </div>
+            <div class="md-actions">
+                <a href="{% url 'admin:automation_courtsms_changelist' %}" class="md-btn md-btn-outlined">取消</a>
+                <button type="submit" class="md-btn md-btn-filled" id="submitBtn">提交</button>
+            </div>
+            <div class="md-chips">
+                <div class="md-chip"><span class="md-chip-icon">🔗</span>链接提取</div>
+                <div class="md-chip"><span class="md-chip-icon">🎯</span>案件匹配</div>
+                <div class="md-chip"><span class="md-chip-icon">📥</span>文书下载</div>
+                <div class="md-chip"><span class="md-chip-icon">📤</span>消息推送</div>
+            </div>
+        </form>
+    </div>
+    {% if recent_sms %}
+    <div class="md-list">
+        <div class="md-list-header">最近记录</div>
+        <div class="md-list-items">
+            {% for sms in recent_sms %}
+            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="md-list-item">
+                <div class="md-avatar {% if sms.status == 'completed' %}completed{% elif sms.status == 'failed' %}failed{% else %}pending{% endif %}">{% if sms.status == 'completed' %}✓{% elif sms.status == 'failed' %}!{% else %}...{% endif %}</div>
+                <div class="md-item-content">
+                    <div class="md-item-title">{{ sms.content|truncatechars:40 }}</div>
+                    <div class="md-item-subtitle">#{{ sms.id }} · {{ sms.created_at|date:"m月d日 H:i" }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('smsContent'), cc = document.getElementById('charCount'), f = document.getElementById('smsForm'), b = document.getElementById('submitBtn');
+    ta.addEventListener('input', function() { cc.textContent = this.value.length + ' 字符'; });
+    f.addEventListener('submit', function(e) { if (!ta.value.trim()) { e.preventDefault(); ta.focus(); return; } b.textContent = '提交中...'; b.disabled = true; });
+    ta.focus();
+});
+</script>
+{% endblock %}

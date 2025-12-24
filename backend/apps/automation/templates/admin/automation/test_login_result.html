@@ -1,0 +1,137 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">首页</a>
+    &rsaquo; <a href="{% url 'admin:organization_accountcredential_changelist' %}">账号密码</a>
+    &rsaquo; 测试登录
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 20px auto;">
+    <h1>{{ title }}</h1>
+    
+    <!-- 凭证信息 -->
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="margin-top: 0;">凭证信息</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px; font-weight: bold; width: 150px;">网站名称:</td>
+                <td style="padding: 8px;">{{ credential.site_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; font-weight: bold;">URL:</td>
+                <td style="padding: 8px;">
+                    <a href="{{ credential.url }}" target="_blank">{{ credential.url }}</a>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; font-weight: bold;">账号:</td>
+                <td style="padding: 8px;">{{ credential.account }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; font-weight: bold;">律师:</td>
+                <td style="padding: 8px;">{{ credential.lawyer.real_name }} ({{ credential.lawyer.username }})</td>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- 测试结果 -->
+    <div style="background: {% if result.success %}#d4edda{% else %}#f8d7da{% endif %}; 
+                padding: 20px; border-radius: 8px; margin-bottom: 20px; 
+                border: 2px solid {% if result.success %}#28a745{% else %}#dc3545{% endif %};">
+        <h2 style="margin-top: 0; color: {% if result.success %}#155724{% else %}#721c24{% endif %};">
+            {% if result.success %}
+                ✅ 登录成功
+            {% else %}
+                ❌ 登录失败
+            {% endif %}
+        </h2>
+        <p style="font-size: 16px; margin: 10px 0;">
+            <strong>消息:</strong> {{ result.message }}
+        </p>
+    </div>
+    
+    <!-- 执行日志 -->
+    <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+        <h2 style="margin-top: 0;">执行日志</h2>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; 
+                    font-size: 13px; max-height: 300px; overflow-y: auto;">
+            {% for log in result.logs %}
+                <div style="margin: 5px 0;">{{ log }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- 错误详情 -->
+    {% if result.error %}
+    <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;">
+        <h2 style="margin-top: 0; color: #856404;">错误详情</h2>
+        <pre style="background: #fff; padding: 15px; border-radius: 4px; overflow-x: auto; 
+                    font-size: 12px; border: 1px solid #ddd;">{{ result.error }}</pre>
+    </div>
+    {% endif %}
+    
+    <!-- 截图 -->
+    {% if result.screenshots %}
+    <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+        <h2 style="margin-top: 0;">调试截图</h2>
+        <p style="color: #666; margin-bottom: 15px;">最新的 5 张截图（按时间倒序）</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+            {% for screenshot in result.screenshots %}
+                <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
+                    <a href="{{ screenshot }}" target="_blank">
+                        <img src="{{ screenshot }}" 
+                             style="width: 100%; height: auto; display: block; cursor: pointer;"
+                             alt="截图">
+                    </a>
+                    <div style="padding: 8px; background: #f8f9fa; font-size: 12px; color: #666;">
+                        点击查看大图
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 操作按钮 -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <a href="{% url 'admin:organization_accountcredential_changelist' %}" 
+           class="button" 
+           style="padding: 10px 20px; background: #417690; color: white; text-decoration: none; 
+                  border-radius: 4px; display: inline-block; margin-right: 10px;">
+            ← 返回列表
+        </a>
+        
+        <a href="{% url 'admin:organization_accountcredential_change' credential.id %}" 
+           class="button" 
+           style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; 
+                  border-radius: 4px; display: inline-block; margin-right: 10px;">
+            编辑凭证
+        </a>
+        
+        <a href="{% url 'admin:automation_testtool_test_login' credential.id %}" 
+           class="button" 
+           style="padding: 10px 20px; background: #28a745; color: white; text-decoration: none; 
+                  border-radius: 4px; display: inline-block;">
+            🔄 重新测试
+        </a>
+    </div>
+    
+    <!-- 提示信息 -->
+    <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 4px; border-left: 4px solid #2196F3;">
+        <h3 style="margin-top: 0; color: #1976D2;">💡 提示</h3>
+        <ul style="margin: 10px 0; padding-left: 20px; color: #555;">
+            <li>测试过程中会打开浏览器窗口，请不要关闭</li>
+            <li>浏览器会自动执行登录操作，完成后会停留 10 秒供观察</li>
+            <li>所有截图和调试信息保存在 <code>media/automation/screenshots/</code></li>
+            <li>验证码图片保存在 <code>media/automation/debug/</code></li>
+            <li>如果验证码识别失败，会自动重试最多 5 次</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

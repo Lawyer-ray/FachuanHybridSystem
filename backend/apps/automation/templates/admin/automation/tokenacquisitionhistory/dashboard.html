@@ -1,0 +1,412 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-container {
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        
+        .stat-card.success { border-left-color: #28a745; }
+        .stat-card.warning { border-left-color: #ffc107; }
+        .stat-card.danger { border-left-color: #dc3545; }
+        .stat-card.info { border-left-color: #17a2b8; }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table-container th,
+        .table-container td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .table-container th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s ease;
+        }
+        
+        .time-range-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .time-tab {
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .time-tab.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .action-buttons {
+            margin-bottom: 20px;
+        }
+        
+        .action-buttons .button {
+            margin-right: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+        &rsaquo; <a href="{% url 'admin:automation_tokenacquisitionhistory_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+        &rsaquo; {{ title }}
+    </div>
+
+    <h1>{{ title }}</h1>
+    
+    <!-- 快速操作按钮 -->
+    <div class="action-buttons">
+        <a href="{% url 'admin:automation_tokenacquisitionhistory_changelist' %}" class="button default">
+            📋 查看详细记录
+        </a>
+        <a href="{% url 'admin:organization_accountcredential_changelist' %}" class="button">
+            🔑 管理账号凭证
+        </a>
+        <a href="{% url 'admin:automation_courttoken_changelist' %}" class="button">
+            🎫 查看Token状态
+        </a>
+    </div>
+
+    <!-- 核心统计卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_records }}</div>
+            <div class="stat-label">📊 总获取次数</div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-number">{{ success_records }}</div>
+            <div class="stat-label">✅ 成功次数</div>
+        </div>
+        
+        <div class="stat-card {% if success_rate >= 80 %}success{% elif success_rate >= 50 %}warning{% else %}danger{% endif %}">
+            <div class="stat-number">{{ success_rate|floatformat:1 }}%</div>
+            <div class="stat-label">📈 总体成功率</div>
+        </div>
+        
+        <div class="stat-card info">
+            <div class="stat-number">{{ performance_stats.avg_duration|floatformat:1 }}s</div>
+            <div class="stat-label">⏱️ 平均耗时</div>
+        </div>
+    </div>
+
+    <!-- 时间范围统计 -->
+    <div class="table-container">
+        <h2>🕐 时间范围统计</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>时间范围</th>
+                    <th>获取次数</th>
+                    <th>成功次数</th>
+                    <th>成功率</th>
+                    <th>进度条</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for period, stats in time_stats.items %}
+                <tr>
+                    <td>
+                        {% if period == '1h' %}最近1小时
+                        {% elif period == '24h' %}最近24小时
+                        {% elif period == '7d' %}最近7天
+                        {% elif period == '30d' %}最近30天
+                        {% endif %}
+                    </td>
+                    <td>{{ stats.total }}</td>
+                    <td>{{ stats.success }}</td>
+                    <td>
+                        <span style="color: {% if stats.rate >= 80 %}#28a745{% elif stats.rate >= 50 %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
+                            {{ stats.rate|floatformat:1 }}%
+                        </span>
+                    </td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ stats.rate }}%;"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 趋势图表 -->
+    <div class="chart-container">
+        <h2>📈 最近7天趋势</h2>
+        <canvas id="trendChart" width="400" height="200"></canvas>
+    </div>
+
+    <!-- 状态分布 -->
+    <div class="table-container">
+        <h2>📊 状态分布</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>状态</th>
+                    <th>数量</th>
+                    <th>占比</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in status_stats %}
+                <tr>
+                    <td>
+                        {% if stat.status == 'success' %}✅ 成功
+                        {% elif stat.status == 'failed' %}❌ 失败
+                        {% elif stat.status == 'timeout' %}⏰ 超时
+                        {% elif stat.status == 'network_error' %}🌐 网络错误
+                        {% elif stat.status == 'captcha_error' %}🔤 验证码错误
+                        {% elif stat.status == 'credential_error' %}🔑 凭证错误
+                        {% else %}{{ stat.status }}
+                        {% endif %}
+                    </td>
+                    <td>{{ stat.count }}</td>
+                    <td>
+                        {% widthratio stat.count total_records 100 as percentage %}
+                        {{ percentage|floatformat:1 }}%
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 网站统计 -->
+    <div class="table-container">
+        <h2>🌐 网站统计</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>网站</th>
+                    <th>总次数</th>
+                    <th>成功次数</th>
+                    <th>成功率</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in site_stats %}
+                <tr>
+                    <td>{{ stat.site_name }}</td>
+                    <td>{{ stat.total }}</td>
+                    <td>{{ stat.success }}</td>
+                    <td>
+                        {% widthratio stat.success stat.total 100 as site_rate %}
+                        <span style="color: {% if site_rate >= 80 %}#28a745{% elif site_rate >= 50 %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
+                            {{ site_rate|floatformat:1 }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 账号统计 -->
+    <div class="table-container">
+        <h2>👤 账号统计（Top 10）</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>账号</th>
+                    <th>总次数</th>
+                    <th>成功次数</th>
+                    <th>成功率</th>
+                    <th>平均耗时</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in account_stats %}
+                <tr>
+                    <td>{{ stat.account }}</td>
+                    <td>{{ stat.total }}</td>
+                    <td>{{ stat.success }}</td>
+                    <td>
+                        {% widthratio stat.success stat.total 100 as acc_rate %}
+                        <span style="color: {% if acc_rate >= 80 %}#28a745{% elif acc_rate >= 50 %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
+                            {{ acc_rate|floatformat:1 }}%
+                        </span>
+                    </td>
+                    <td>
+                        {% if stat.avg_duration %}
+                            <span style="color: {% if stat.avg_duration < 10 %}#28a745{% elif stat.avg_duration < 30 %}#ffc107{% else %}#dc3545{% endif %};">
+                                {{ stat.avg_duration|floatformat:1 }}s
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 性能指标 -->
+    {% if performance_stats.avg_duration %}
+    <div class="table-container">
+        <h2>⚡ 性能指标</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>指标</th>
+                    <th>数值</th>
+                    <th>评级</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>平均耗时</td>
+                    <td>{{ performance_stats.avg_duration|floatformat:2 }}秒</td>
+                    <td>
+                        {% if performance_stats.avg_duration < 10 %}
+                            <span style="color: #28a745; font-weight: bold;">🚀 优秀</span>
+                        {% elif performance_stats.avg_duration < 30 %}
+                            <span style="color: #ffc107; font-weight: bold;">⚡ 良好</span>
+                        {% else %}
+                            <span style="color: #dc3545; font-weight: bold;">🐌 需优化</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>最快耗时</td>
+                    <td>{{ performance_stats.min_duration|floatformat:2 }}秒</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>最慢耗时</td>
+                    <td>{{ performance_stats.max_duration|floatformat:2 }}秒</td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 趋势图表
+const trendData = {{ trend_data|safe }};
+const ctx = document.getElementById('trendChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: trendData.map(d => d.date),
+        datasets: [{
+            label: '获取次数',
+            data: trendData.map(d => d.total),
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            tension: 0.4
+        }, {
+            label: '成功次数',
+            data: trendData.map(d => d.success),
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: '最近7天Token获取趋势'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// 自动刷新功能
+setInterval(() => {
+    // 每5分钟自动刷新页面
+    location.reload();
+}, 5 * 60 * 1000);
+</script>
+{% endblock %}
