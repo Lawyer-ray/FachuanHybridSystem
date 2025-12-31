@@ -297,6 +297,7 @@ class CaseDTO:
     is_archived: bool = False
     start_date: Optional[str] = None
     effective_date: Optional[str] = None
+    case_number: Optional[str] = None  # 案号
 
     @classmethod
     def from_model(cls, case) -> "CaseDTO":
@@ -2303,6 +2304,68 @@ class ICourtSMSService(Protocol):
         ...
 
 
+class ICourtDocumentRecognitionService(Protocol):
+    """
+    法院文书智能识别服务接口
+    
+    定义法院文书识别的核心方法，支持传票、执行裁定书等文书的
+    类型识别、关键信息提取和案件绑定。
+    
+    Requirements: 7.1, 7.2, 7.3
+    """
+    
+    def recognize_document(
+        self,
+        file_path: str,
+        user: Optional[Any] = None
+    ) -> Any:
+        """
+        识别文书并绑定案件
+        
+        完整的识别流程：
+        1. 从文件提取文本（PDF直接提取或OCR）
+        2. 使用 AI 分类文书类型
+        3. 提取关键信息（案号、开庭时间等）
+        4. 匹配案件并创建日志
+        
+        Args:
+            file_path: 文书文件路径（支持 PDF、JPG、PNG）
+            user: 当前用户（可选，用于日志记录）
+            
+        Returns:
+            RecognitionResponse 对象，包含识别结果和绑定结果
+            
+        Raises:
+            ValidationException: 文件格式不支持
+            ServiceUnavailableError: AI 服务不可用
+            TimeoutError: 识别超时
+        """
+        ...
+    
+    def recognize_document_from_text(
+        self,
+        text: str
+    ) -> Any:
+        """
+        从已提取的文本识别文书
+        
+        供其他服务调用（如短信下载服务），跳过文本提取步骤，
+        直接进行文书分类和信息提取。
+        
+        Args:
+            text: 已提取的文书文本内容
+            
+        Returns:
+            RecognitionResult 对象，包含文书类型、案号、关键时间等
+            
+        Raises:
+            ValidationException: 文本内容为空
+            ServiceUnavailableError: AI 服务不可用
+            TimeoutError: 识别超时
+        """
+        ...
+
+
 # ============================================================
 # 服务定位器
 # 提供跨模块服务的统一获取入口
@@ -2736,6 +2799,24 @@ class ServiceLocator:
             from apps.cases.services.case_number_service_adapter import CaseNumberServiceAdapter
             service = CaseNumberServiceAdapter()
             cls.register("case_number_service", service)
+        return service
+
+    @classmethod
+    def get_court_document_recognition_service(cls) -> ICourtDocumentRecognitionService:
+        """
+        获取法院文书智能识别服务
+
+        Returns:
+            ICourtDocumentRecognitionService 实例
+        """
+        service = cls.get("court_document_recognition_service")
+        if service is None:
+            # 延迟导入，避免循环依赖
+            from apps.automation.services.court_document_recognition.adapter import (
+                CourtDocumentRecognitionServiceAdapter
+            )
+            service = CourtDocumentRecognitionServiceAdapter()
+            cls.register("court_document_recognition_service", service)
         return service
 
 

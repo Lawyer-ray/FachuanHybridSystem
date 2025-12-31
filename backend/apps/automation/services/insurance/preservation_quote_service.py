@@ -764,12 +764,13 @@ class PreservationQuoteService:
             # 根据错误类型提供不同的用户提示
             if "NoAvailableAccountError" in str(type(e)):
                 error_msg = (
-                    "❌ 无可用账号进行自动登录\n\n"
-                    "请按以下步骤操作：\n"
-                    "1. 访问 Django Admin: /admin/organization/accountcredential/\n"
-                    "2. 添加或检查法院一张网账号配置\n"
-                    "3. 确保账号状态为启用\n"
-                    "4. 重新执行询价任务\n"
+                    "❌ 没有找到法院一张网的账号凭证\n\n"
+                    "请在 Admin 后台添加账号：\n"
+                    "1. 访问 /admin/organization/accountcredential/\n"
+                    "2. 点击「添加账号密码」\n"
+                    "3. URL 填写：https://zxfw.court.gov.cn\n"
+                    "4. 填写账号和密码\n"
+                    "5. 保存后重新执行询价"
                 )
             elif "LoginFailedError" in str(type(e)):
                 error_msg = (

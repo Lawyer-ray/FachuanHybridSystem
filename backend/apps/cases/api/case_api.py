@@ -37,6 +37,36 @@ def _get_case_service() -> CaseService:
     )
 
 
+@router.get("/cases/search", response=List[CaseOut])
+def search_cases(
+    request,
+    q: str,
+    limit: Optional[int] = 10,
+):
+    """
+    搜索案件
+    
+    Args:
+        q: 搜索关键词（案号、案件名称、当事人姓名）
+        limit: 返回结果数量限制
+    """
+    service = _get_case_service()
+    
+    # 提取用户和权限信息
+    user = getattr(request, "user", None)
+    org_access = getattr(request, "org_access", None)
+    perm_open_access = getattr(request, "perm_open_access", False)
+    
+    # 调用搜索服务
+    return service.search_cases(
+        query=q,
+        limit=limit,
+        user=user,
+        org_access=org_access,
+        perm_open_access=perm_open_access,
+    )
+
+
 @router.get("/cases", response=List[CaseOut])
 def list_cases(
     request,

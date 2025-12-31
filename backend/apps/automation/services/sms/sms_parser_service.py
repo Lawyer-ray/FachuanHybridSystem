@@ -33,10 +33,17 @@ class SMSParseResult:
 class SMSParserService:
     """短信解析服务"""
     
-    # 下载链接正则（必须包含 qdbh、sdbh、sdsin 参数）
+    # 下载链接正则（必须包含 qdbh、sdbh、sdsin 参数）- zxfw.court.gov.cn
     DOWNLOAD_LINK_PATTERN = re.compile(
         r'https://zxfw\.court\.gov\.cn/zxfw/#/pagesAjkj/app/wssd/index\?'
         r'[^\s]*?(?=.*qdbh=[^\s&]+)(?=.*sdbh=[^\s&]+)(?=.*sdsin=[^\s&]+)[^\s]*',
+        re.IGNORECASE
+    )
+    
+    # 广东电子送达链接正则 - sd.gdems.com
+    # 格式: https://sd.gdems.com/v3/dzsd/xxxxx
+    GDEMS_LINK_PATTERN = re.compile(
+        r'https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+',
         re.IGNORECASE
     )
     
@@ -135,19 +142,30 @@ class SMSParserService:
         """
         提取有效下载链接
         
+        支持两种链接格式：
+        1. zxfw.court.gov.cn - 法院执行平台
+        2. sd.gdems.com - 广东电子送达
+        
         Args:
             content: 短信内容
             
         Returns:
             List[str]: 有效下载链接列表
         """
-        matches = self.DOWNLOAD_LINK_PATTERN.findall(content)
-        
-        # 去重并验证
         valid_links = []
-        for link in set(matches):
+        
+        # 1. 提取 zxfw.court.gov.cn 链接
+        zxfw_matches = self.DOWNLOAD_LINK_PATTERN.findall(content)
+        for link in set(zxfw_matches):
             if self._is_valid_download_link(link):
                 valid_links.append(link)
+        
+        # 2. 提取 sd.gdems.com 链接
+        gdems_matches = self.GDEMS_LINK_PATTERN.findall(content)
+        for link in set(gdems_matches):
+            if link not in valid_links:  # 避免重复
+                valid_links.append(link)
+                logger.info(f"提取到广东电子送达链接: {link}")
         
         if valid_links:
             logger.info(f"提取到 {len(valid_links)} 个有效下载链接")
@@ -158,7 +176,10 @@ class SMSParserService:
     
     def _is_valid_download_link(self, link: str) -> bool:
         """
-        验证下载链接是否有效（包含必要参数）
+        验证下载链接是否有效
+        
+        对于 zxfw.court.gov.cn 链接，需要包含必要参数
+        对于 sd.gdems.com 链接，只需要格式正确即可
         
         Args:
             link: 链接地址
@@ -166,7 +187,15 @@ class SMSParserService:
         Returns:
             bool: 是否有效
         """
-        return all(param in link for param in ['qdbh=', 'sdbh=', 'sdsin='])
+        # zxfw.court.gov.cn 链接需要包含必要参数
+        if "zxfw.court.gov.cn" in link:
+            return all(param in link for param in ['qdbh=', 'sdbh=', 'sdsin='])
+        
+        # sd.gdems.com 链接只需要格式正确
+        if "sd.gdems.com" in link:
+            return True
+        
+        return False
     
     def extract_case_numbers(self, content: str) -> List[str]:
         """

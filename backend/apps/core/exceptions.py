@@ -244,6 +244,66 @@ class ExternalServiceError(BusinessException):
         )
 
 
+class ServiceUnavailableError(ExternalServiceError):
+    """
+    服务不可用异常
+
+    使用场景：
+    - AI 服务（如 Ollama）不可用
+    - 依赖服务暂时不可用
+    - 服务维护中
+
+    HTTP 状态码：503
+    """
+
+    def __init__(
+        self,
+        message: str = "服务暂时不可用",
+        code: Optional[str] = None,
+        errors: Optional[Dict[str, Any]] = None,
+        service_name: Optional[str] = None
+    ):
+        if service_name:
+            errors = errors or {}
+            errors["service"] = service_name
+        super().__init__(
+            message=message,
+            code=code or "SERVICE_UNAVAILABLE",
+            errors=errors
+        )
+        self.service_name = service_name
+
+
+class RecognitionTimeoutError(ExternalServiceError):
+    """
+    识别超时异常
+
+    使用场景：
+    - AI 识别超时
+    - OCR 处理超时
+    - 文档处理超时
+
+    HTTP 状态码：504
+    """
+
+    def __init__(
+        self,
+        message: str = "识别超时",
+        code: Optional[str] = None,
+        errors: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[float] = None
+    ):
+        if timeout_seconds is not None:
+            errors = errors or {}
+            errors["timeout_seconds"] = timeout_seconds
+        super().__init__(
+            message=message,
+            code=code or "RECOGNITION_TIMEOUT",
+            errors=errors
+        )
+        self.timeout_seconds = timeout_seconds
+
+
 class TokenError(BusinessException):
     """
     Token 错误
@@ -1049,6 +1109,133 @@ class AutomationExceptions:
             code="EMPTY_ACCOUNT_LIST",
             errors={}
         )
+    
+    # ==================== 文书识别相关异常 ====================
+    
+    @staticmethod
+    def unsupported_file_format(
+        file_ext: str,
+        supported_formats: Optional[List[str]] = None
+    ) -> ValidationException:
+        """不支持的文件格式异常"""
+        if supported_formats is None:
+            supported_formats = ['.pdf', '.jpg', '.jpeg', '.png']
+        return ValidationException(
+            message="不支持的文件格式",
+            code="UNSUPPORTED_FILE_FORMAT",
+            errors={
+                "file": f"不支持 {file_ext} 格式，请上传 PDF 或图片（jpg, jpeg, png）",
+                "supported_formats": supported_formats
+            }
+        )
+    
+    @staticmethod
+    def file_not_found(file_path: str) -> ValidationException:
+        """文件不存在异常"""
+        return ValidationException(
+            message="文件不存在",
+            code="FILE_NOT_FOUND",
+            errors={"file": f"文件 {file_path} 不存在"}
+        )
+    
+    @staticmethod
+    def text_extraction_failed(
+        error_message: str,
+        file_path: Optional[str] = None
+    ) -> ValidationException:
+        """文本提取失败异常"""
+        errors = {"error_message": error_message}
+        if file_path:
+            errors["file_path"] = file_path
+        return ValidationException(
+            message="文本提取失败",
+            code="TEXT_EXTRACTION_FAILED",
+            errors=errors
+        )
+    
+    @staticmethod
+    def ai_service_unavailable(
+        service_name: str = "Ollama",
+        error_message: Optional[str] = None
+    ) -> "ServiceUnavailableError":
+        """AI 服务不可用异常"""
+        errors = {"service": f"{service_name} 服务暂时不可用，请稍后重试"}
+        if error_message:
+            errors["error_message"] = error_message
+        return ServiceUnavailableError(
+            message="AI 服务暂时不可用",
+            code="AI_SERVICE_UNAVAILABLE",
+            errors=errors,
+            service_name=service_name
+        )
+    
+    @staticmethod
+    def recognition_timeout(
+        timeout_seconds: float,
+        operation: Optional[str] = None
+    ) -> "RecognitionTimeoutError":
+        """识别超时异常"""
+        errors = {"timeout": f"识别超时（{timeout_seconds}秒），请重试"}
+        if operation:
+            errors["operation"] = operation
+        return RecognitionTimeoutError(
+            message="识别超时，请重试",
+            code="RECOGNITION_TIMEOUT",
+            errors=errors,
+            timeout_seconds=timeout_seconds
+        )
+    
+    @staticmethod
+    def document_classification_failed(
+        error_message: str
+    ) -> BusinessException:
+        """文书分类失败异常"""
+        return BusinessException(
+            message="文书分类失败",
+            code="DOCUMENT_CLASSIFICATION_FAILED",
+            errors={"error_message": error_message}
+        )
+    
+    @staticmethod
+    def info_extraction_failed(
+        error_message: str,
+        document_type: Optional[str] = None
+    ) -> BusinessException:
+        """信息提取失败异常"""
+        errors = {"error_message": error_message}
+        if document_type:
+            errors["document_type"] = document_type
+        return BusinessException(
+            message="信息提取失败",
+            code="INFO_EXTRACTION_FAILED",
+            errors=errors
+        )
+    
+    @staticmethod
+    def case_binding_failed(
+        case_number: str,
+        error_message: str
+    ) -> BusinessException:
+        """案件绑定失败异常"""
+        return BusinessException(
+            message="案件绑定失败",
+            code="CASE_BINDING_FAILED",
+            errors={
+                "case_number": case_number,
+                "error_message": error_message
+            }
+        )
+    
+    @staticmethod
+    def case_not_found_for_binding(
+        case_number: str
+    ) -> NotFoundError:
+        """案件未找到（绑定时）异常"""
+        return NotFoundError(
+            message=f"未找到案号 {case_number} 对应的案件",
+            code="CASE_NOT_FOUND",
+            errors={"case_number": case_number}
+        )
 
 
 def register_exception_handlers(api: NinjaAPI) -> None:
@@ -1160,7 +1347,45 @@ def register_exception_handlers(api: NinjaAPI) -> None:
             status=429
         )
 
-    # 7. 外部服务错误 - 502
+    # 7. 服务不可用 - 503
+    @api.exception_handler(ServiceUnavailableError)
+    def handle_service_unavailable_error(request, exc: ServiceUnavailableError):
+        """处理服务不可用错误"""
+        logger.error(
+            f"服务不可用: {exc.message}",
+            extra={
+                "code": exc.code,
+                "errors": exc.errors,
+                "path": request.path,
+                "service_name": getattr(exc, 'service_name', None)
+            }
+        )
+        return api.create_response(
+            request,
+            exc.to_dict(),
+            status=503
+        )
+
+    # 8. 识别超时 - 504
+    @api.exception_handler(RecognitionTimeoutError)
+    def handle_recognition_timeout_error(request, exc: RecognitionTimeoutError):
+        """处理识别超时错误"""
+        logger.error(
+            f"识别超时: {exc.message}",
+            extra={
+                "code": exc.code,
+                "errors": exc.errors,
+                "path": request.path,
+                "timeout_seconds": getattr(exc, 'timeout_seconds', None)
+            }
+        )
+        return api.create_response(
+            request,
+            exc.to_dict(),
+            status=504
+        )
+
+    # 9. 外部服务错误 - 502
     @api.exception_handler(ExternalServiceError)
     def handle_external_service_error(request, exc: ExternalServiceError):
         """处理外部服务错误"""
@@ -1178,7 +1403,7 @@ def register_exception_handlers(api: NinjaAPI) -> None:
             status=502
         )
 
-    # 8. 通用业务异常 - 400
+    # 10. 通用业务异常 - 400
     @api.exception_handler(BusinessException)
     def handle_business_exception(request, exc: BusinessException):
         """处理通用业务异常"""
@@ -1255,7 +1480,7 @@ def register_exception_handlers(api: NinjaAPI) -> None:
             status=exc.status_code
         )
 
-    # 9. 未预期的异常 - 500
+    # 11. 未预期的异常 - 500
     @api.exception_handler(Exception)
     def handle_unexpected_exception(request, exc: Exception):
         """处理未预期的异常"""

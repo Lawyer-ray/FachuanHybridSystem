@@ -2,59 +2,126 @@ import re
 from typing import Dict, List, Optional
 
 
+# 关键字列表，用于智能分割无换行文本
+_FIELD_KEYWORDS = [
+    '法定代表人', '法人代表', '负责人',
+    '统一社会信用代码', '社会信用代码', '信用代码',
+    '身份证号码', '身份证号', '身份证', '证件号码',
+    '地址', '住址', '住所地', '住所',
+    '联系电话', '电话', '联系方式', '手机',
+]
+
+
 def parse_client_text(text: str) -> Dict:
     """
-    解析当事人文本信息
-    
-    支持格式：
-    1. 答辩人（被申请人）：广东XX有限公司
-    2. 原告：广东XXX公司
-    3. 被告：徐X，男，汉族，1977年9月10日出生
-    
-    Args:
-        text: 待解析的文本
-        
-    Returns:
-        解析后的客户数据字典
+    解析当事人文本信息，支持有换行和无换行格式
     """
     if not text or not text.strip():
         return _empty_result()
     
-    # 清理文本
-    text = text.strip()
+    # 预处理：在关键字前插入换行，方便后续解析
+    text = _normalize_text(text.strip())
     
-    # 尝试解析多个当事人
+    # 尝试解析
     parties = _extract_parties(text)
     
     if not parties:
-        return _empty_result()
+        # 如果角色标签匹配失败，尝试直接提取字段
+        return _parse_fields_directly(text)
     
-    # 返回第一个当事人的信息（如果有多个，用户可以选择）
     return parties[0]
 
 
 def parse_multiple_clients_text(text: str) -> List[Dict]:
-    """
-    解析包含多个当事人的文本
-    
-    Args:
-        text: 待解析的文本
-        
-    Returns:
-        解析后的客户数据列表
-    """
+    """解析包含多个当事人的文本"""
     if not text or not text.strip():
         return []
     
-    return _extract_parties(text.strip())
+    text = _normalize_text(text.strip())
+    return _extract_parties(text)
+
+
+def _normalize_text(text: str) -> str:
+    """预处理文本：在关键字前插入换行"""
+    for keyword in _FIELD_KEYWORDS:
+        # 在关键字前插入换行（如果前面不是换行或开头）
+        text = re.sub(rf'(?<!\n)({keyword}\s*[:：])', r'\n\1', text)
+    return text
+
+
+def _parse_fields_directly(text: str) -> Dict:
+    """直接从文本提取字段（无角色标签时使用）"""
+    result = _empty_result()
+    
+    # 提取统一社会信用代码
+    credit_code = _extract_credit_code(text)
+    if credit_code:
+        result["id_number"] = credit_code
+        result["client_type"] = "legal"
+    
+    # 提取身份证号
+    if not result["id_number"]:
+        id_number = _extract_id_number(text)
+        if id_number:
+            result["id_number"] = id_number
+            result["client_type"] = "natural"
+    
+    # 提取法定代表人
+    legal_rep = _extract_legal_representative(text)
+    if legal_rep:
+        result["legal_representative"] = legal_rep
+        result["client_type"] = "legal"
+    
+    # 提取地址
+    address = _extract_address(text)
+    if address:
+        result["address"] = address
+    
+    # 提取电话
+    phone = _extract_phone(text)
+    if phone:
+        result["phone"] = phone
+    
+    # 提取名称（从角色标签后提取，或从开头提取到第一个关键字）
+    name = _extract_name_smart(text)
+    if name:
+        result["name"] = name
+        if not result["id_number"] and not result["legal_representative"]:
+            result["client_type"] = _determine_client_type(name, text)
+    
+    return result
+
+
+def _extract_name_smart(text: str) -> Optional[str]:
+    """智能提取名称"""
+    # 先尝试从角色标签提取
+    name = _extract_name(text)
+    if name:
+        return name
+    
+    # 如果没有角色标签，从开头提取到第一个关键字
+    # 匹配：甲方（原告）：XXX 或 甲方：XXX 格式
+    role_pattern = r'^[甲乙丙丁]方\s*(?:（[^）]*）)?\s*[:：]\s*(.+?)(?=法定代表人|统一社会信用代码|地址|电话|$)'
+    match = re.search(role_pattern, text, re.DOTALL)
+    if match:
+        name = match.group(1).strip()
+        # 清理名称中的换行
+        name = re.sub(r'\s+', '', name)
+        if name:
+            return name
+    
+    return None
 
 
 def _extract_parties(text: str) -> List[Dict]:
     """提取所有当事人信息"""
     parties = []
     
-    # 定义角色标签模式
+    # 定义角色标签模式（支持 甲方（原告）、乙方（被告）等格式）
     role_patterns = [
+        r"甲方\s*（[^）]*）\s*[:：]",
+        r"乙方\s*（[^）]*）\s*[:：]",
+        r"丙方\s*（[^）]*）\s*[:：]",
         r"答辩人\s*（[^）]*）\s*[:：]",
         r"被答辩人\s*（[^）]*）\s*[:：]",
         r"申请人\s*（[^）]*）\s*[:：]",
@@ -68,6 +135,8 @@ def _extract_parties(text: str) -> List[Dict]:
         r"被申请人\s*[:：]",
         r"答辩人\s*[:：]",
         r"被答辩人\s*[:：]",
+        r"甲方\s*[:：]",
+        r"乙方\s*[:：]",
     ]
     
     # 找到所有角色标签的位置
@@ -155,21 +224,26 @@ def _parse_single_party(text: str) -> Dict:
 
 def _extract_name(text: str) -> Optional[str]:
     """提取名称"""
-    # 定义角色标签模式
+    # 定义角色标签模式（支持 甲方（原告）、乙方（被告）等格式）
     role_patterns = [
-        r'答辩人\s*（[^）]*）\s*[:：]\s*([^\n]+)',
-        r'被答辩人\s*（[^）]*）\s*[:：]\s*([^\n]+)',
-        r'申请人\s*（[^）]*）\s*[:：]\s*([^\n]+)',
-        r'被申请人\s*（[^）]*）\s*[:：]\s*([^\n]+)',
-        r'原告\s*[:：]\s*([^\n]+)',
-        r'被告\s*[:：]\s*([^\n]+)',
-        r'上诉人\s*[:：]\s*([^\n]+)',
-        r'被上诉人\s*[:：]\s*([^\n]+)',
-        r'第三人\s*[:：]\s*([^\n]+)',
-        r'申请人\s*[:：]\s*([^\n]+)',
-        r'被申请人\s*[:：]\s*([^\n]+)',
-        r'答辩人\s*[:：]\s*([^\n]+)',
-        r'被答辩人\s*[:：]\s*([^\n]+)',
+        r'甲方\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'乙方\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'丙方\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'答辩人\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'被答辩人\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'申请人\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'被申请人\s*（[^）]*）\s*[:：]\s*([^\n法统地住电]+)',
+        r'原告\s*[:：]\s*([^\n法统地住电]+)',
+        r'被告\s*[:：]\s*([^\n法统地住电]+)',
+        r'上诉人\s*[:：]\s*([^\n法统地住电]+)',
+        r'被上诉人\s*[:：]\s*([^\n法统地住电]+)',
+        r'第三人\s*[:：]\s*([^\n法统地住电]+)',
+        r'申请人\s*[:：]\s*([^\n法统地住电]+)',
+        r'被申请人\s*[:：]\s*([^\n法统地住电]+)',
+        r'答辩人\s*[:：]\s*([^\n法统地住电]+)',
+        r'被答辩人\s*[:：]\s*([^\n法统地住电]+)',
+        r'甲方\s*[:：]\s*([^\n法统地住电]+)',
+        r'乙方\s*[:：]\s*([^\n法统地住电]+)',
     ]
     
     for pattern in role_patterns:

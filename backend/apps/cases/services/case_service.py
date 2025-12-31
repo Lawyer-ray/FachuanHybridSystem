@@ -208,6 +208,82 @@ class CaseService:
 
         return qs
 
+    def search_cases(
+        self,
+        query: str,
+        limit: int = 10,
+        user: Optional[Any] = None,
+        org_access: Optional[Dict] = None,
+        perm_open_access: bool = False,
+    ) -> List[Case]:
+        """
+        综合搜索案件
+        
+        搜索范围：
+        1. 案号（模糊匹配）
+        2. 案件名称（模糊匹配）
+        3. 当事人姓名（模糊匹配）
+        
+        Args:
+            query: 搜索关键词
+            limit: 返回结果数量限制
+            user: 当前用户
+            org_access: 组织访问权限
+            perm_open_access: 是否开放访问
+            
+        Returns:
+            匹配的案件列表
+        """
+        if not query or not query.strip():
+            return []
+            
+        query = query.strip()
+        
+        # 获取基础查询集
+        qs = self.get_case_queryset()
+        
+        # 构建搜索条件
+        search_conditions = Q()
+        
+        # 1. 按案号搜索
+        normalized_query = normalize_case_number(query)
+        if normalized_query:
+            search_term = normalized_query.rstrip("号")
+            case_ids_by_number = CaseNumber.objects.filter(
+                number__icontains=search_term
+            ).values_list("case_id", flat=True)
+            search_conditions |= Q(id__in=case_ids_by_number)
+        
+        # 2. 按案件名称搜索
+        search_conditions |= Q(name__icontains=query)
+        
+        # 3. 按当事人姓名搜索
+        search_conditions |= Q(parties__client__name__icontains=query)
+        
+        # 应用搜索条件
+        qs = qs.filter(search_conditions).distinct()
+        
+        # 权限控制
+        if not perm_open_access:
+            if user and getattr(user, "is_authenticated", False):
+                if getattr(user, "is_admin", False):
+                    # 管理员可以访问所有案件
+                    pass
+                elif org_access:
+                    lawyers = org_access.get("lawyers", set())
+                    extra_cases = org_access.get("extra_cases", set())
+                    qs = qs.filter(
+                        Q(assignments__lawyer_id__in=list(lawyers)) |
+                        Q(id__in=list(extra_cases))
+                    ).distinct()
+                else:
+                    return []
+            else:
+                return []
+        
+        # 限制结果数量
+        return list(qs[:limit])
+
     def list_cases(
         self,
         case_type: Optional[str] = None,
@@ -668,6 +744,11 @@ class CaseServiceAdapter:
         Returns:
             CaseDTO 实例
         """
+        # 获取案号（取第一个案号）
+        case_number = None
+        if hasattr(case, 'case_numbers') and case.case_numbers.exists():
+            case_number = case.case_numbers.first().number
+        
         return CaseDTO(
             id=case.id,
             name=case.name,
@@ -680,6 +761,7 @@ class CaseServiceAdapter:
             is_archived=case.is_archived if hasattr(case, 'is_archived') else False,
             start_date=str(case.start_date) if hasattr(case, 'start_date') and case.start_date else None,
             effective_date=str(case.effective_date) if hasattr(case, 'effective_date') and case.effective_date else None,
+            case_number=case_number,
         )
 
     def get_case(self, case_id: int) -> Optional[CaseDTO]:
@@ -1103,7 +1185,7 @@ class CaseServiceAdapter:
         Args:
             case_id: 案件 ID
             content: 日志内容
-            user_id: 用户 ID（可选）
+            user_id: 用户 ID（可选，为空时使用系统默认用户）
             
         Returns:
             创建的日志 ID
@@ -1116,10 +1198,24 @@ class CaseServiceAdapter:
         except Case.DoesNotExist:
             raise NotFoundError(f"案件 {case_id} 不存在")
         
+        # 如果没有 user_id，使用系统默认用户（第一个律师）
+        actor_id = user_id
+        if not actor_id:
+            from apps.organization.models import Lawyer
+            default_lawyer = Lawyer.objects.first()
+            if default_lawyer:
+                actor_id = default_lawyer.id
+            else:
+                raise NotFoundError(
+                    message="系统中没有律师用户，无法创建日志",
+                    code="NO_DEFAULT_ACTOR",
+                    errors={"actor": "请先创建律师用户"}
+                )
+        
         case_log = CaseLog.objects.create(
             case=case,
             content=content,
-            actor_id=user_id
+            actor_id=actor_id
         )
         
         logger.info(
@@ -1128,7 +1224,7 @@ class CaseServiceAdapter:
                 "action": "create_case_log_internal",
                 "case_id": case_id,
                 "log_id": case_log.id,
-                "user_id": user_id
+                "user_id": actor_id
             }
         )
         

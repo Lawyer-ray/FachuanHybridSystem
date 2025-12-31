@@ -259,10 +259,11 @@ class TokenServiceAdapter(ITokenService):
         Returns:
             Token 字符串，不存在或已过期时返回 None
         """
+        from asgiref.sync import sync_to_async
         # TODO: 这里需要根据实际业务逻辑获取账号
         # 暂时使用 "default" 作为默认账号
         account = "default"
-        return self.service.get_token(site_name, account)
+        return await sync_to_async(self.service.get_token)(site_name, account)
     
     async def save_token(self, site_name: str, token: str, expires_in: int) -> None:
         """
@@ -273,10 +274,11 @@ class TokenServiceAdapter(ITokenService):
             token: Token 字符串
             expires_in: 过期时间（秒）
         """
+        from asgiref.sync import sync_to_async
         # TODO: 这里需要根据实际业务逻辑获取账号
         # 暂时使用 "default" 作为默认账号
         account = "default"
-        self.service.save_token(site_name, account, token, expires_in)
+        await sync_to_async(self.service.save_token)(site_name, account, token, expires_in)
     
     async def delete_token(self, site_name: str) -> None:
         """
@@ -285,10 +287,11 @@ class TokenServiceAdapter(ITokenService):
         Args:
             site_name: 站点名称
         """
+        from asgiref.sync import sync_to_async
         # TODO: 这里需要根据实际业务逻辑获取账号
         # 暂时使用 "default" 作为默认账号
         account = "default"
-        self.service.delete_token(site_name, account)
+        await sync_to_async(self.service.delete_token)(site_name, account)
     
     # 内部方法版本，供其他模块调用
     async def get_token_internal(self, site_name: str, account: str = "default") -> Optional[str]:
@@ -302,7 +305,8 @@ class TokenServiceAdapter(ITokenService):
         Returns:
             Token 字符串，不存在或已过期时返回 None
         """
-        return self.service.get_token(site_name, account)
+        from asgiref.sync import sync_to_async
+        return await sync_to_async(self.service.get_token)(site_name, account)
     
     async def save_token_internal(self, site_name: str, account: str, token: str, expires_in: int) -> None:
         """
@@ -314,7 +318,14 @@ class TokenServiceAdapter(ITokenService):
             token: Token 字符串
             expires_in: 过期时间（秒）
         """
-        self.service.save_token(site_name, account, token, expires_in)
+        from asgiref.sync import sync_to_async
+        logger.info(f"🔄 save_token_internal 开始: site={site_name}, account={account}, expires_in={expires_in}")
+        try:
+            await sync_to_async(self.service.save_token, thread_sensitive=True)(site_name, account, token, expires_in)
+            logger.info(f"✅ save_token_internal 完成: site={site_name}, account={account}")
+        except Exception as e:
+            logger.error(f"❌ save_token_internal 失败: {e}", exc_info=True)
+            raise
     
     async def delete_token_internal(self, site_name: str, account: str = "default") -> None:
         """
@@ -324,4 +335,5 @@ class TokenServiceAdapter(ITokenService):
             site_name: 站点名称
             account: 账号名称
         """
-        self.service.delete_token(site_name, account)
+        from asgiref.sync import sync_to_async
+        await sync_to_async(self.service.delete_token)(site_name, account)

@@ -136,6 +136,26 @@
             font-size: 14px;
         }
         
+        .first-user-hint {
+            color: #4ade80;
+            font-size: 13px;
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: rgba(74, 222, 128, 0.15);
+            border-radius: 8px;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+        
+        .approval-hint {
+            color: #fbbf24;
+            font-size: 13px;
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: rgba(251, 191, 36, 0.15);
+            border-radius: 8px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        
         /* 表单样式 */
         .form-group {
             margin-bottom: 20px;
@@ -309,6 +329,11 @@
                 </div>
                 <h1 class="title">创建账号</h1>
                 <p class="subtitle">加入法穿案件管理系统</p>
+                {% if is_first_user %}
+                <p class="first-user-hint">🎉 您将成为第一个用户，自动获得管理员权限</p>
+                {% else %}
+                <p class="approval-hint">⏳ 注册后需等待管理员开通权限</p>
+                {% endif %}
             </div>
             
             <!-- 表单 -->

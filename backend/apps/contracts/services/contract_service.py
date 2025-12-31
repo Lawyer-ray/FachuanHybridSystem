@@ -895,6 +895,7 @@ class ContractService:
             - id: Client ID
             - name: Client 名称
             - source: 来源 ("contract" 或 "supplementary")
+            - role: 当事人角色 ("PRINCIPAL", "BENEFICIARY", "OPPOSING")
 
         Raises:
             NotFoundError: 合同不存在
@@ -914,6 +915,7 @@ class ContractService:
                     "id": client.id,
                     "name": client.name,
                     "source": "contract",
+                    "role": party.role,
                 }
 
         # 聚合补充协议当事人 (Requirements 2.3)
@@ -925,6 +927,7 @@ class ContractService:
                         "id": client.id,
                         "name": client.name,
                         "source": "supplementary",
+                        "role": sa_party.role,
                     }
 
         # 返回去重后的列表 (Requirements 2.4)

@@ -17,35 +17,6 @@
             font-size: 14px;
             font-weight: bold;
         }
-        .parser-tabs {
-            display: flex;
-            border-bottom: 2px solid #dee2e6;
-            margin-bottom: 15px;
-        }
-        .parser-tab {
-            padding: 8px 16px;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 13px;
-            color: #6c757d;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-        }
-        .parser-tab.active {
-            color: #007cba;
-            border-bottom-color: #007cba;
-            font-weight: bold;
-        }
-        .parser-tab:hover {
-            color: #005a87;
-        }
-        .parser-content {
-            display: none;
-        }
-        .parser-content.active {
-            display: block;
-        }
         .text-parser-textarea {
             width: 100%;
             height: 120px;
@@ -78,6 +49,27 @@
             background-color: #6c757d;
             cursor: not-allowed;
         }
+        .format-hint {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 8px;
+        }
+        .format-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .format-badge.json {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .format-badge.text {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
         .success-message {
             background: #d4edda;
             color: #155724;
@@ -100,47 +92,25 @@
 {% block form_top %}
     {% if not original %}
     <div class="text-parser-section">
-        <h3>🚀 快速填充当事人信息</h3>
+        <h3>🚀 快速填充当事人信息 <span id="format-indicator" class="format-badge" style="display:none;"></span></h3>
         
-        <div class="parser-tabs">
-            <button type="button" class="parser-tab active" data-tab="text">粘贴文本解析</button>
-            <button type="button" class="parser-tab" data-tab="json">粘贴JSON</button>
-        </div>
-        
-        <!-- 文本解析 -->
-        <div id="text-parser-content" class="parser-content active">
-            <textarea id="text-parser-input" class="text-parser-textarea" placeholder="支持格式：
-答辩人（被申请人）：广东XX有限公司
-统一社会信用代码：91XXXXW2N
+        <textarea id="smart-parser-input" class="text-parser-textarea" placeholder="支持粘贴文本或JSON，自动识别格式：
+
+文本格式：
+原告：广东XXX公司
+被告：徐X，男，汉族，1977年9月10日出生
 地址：广东省XXX
-法定代表人：伍XXX
 电话：0XXX53
 
-原告：广东XXX公司
-被告：徐X，男，汉族，1977年9月10日出生"></textarea>
-            <div class="text-parser-controls">
-                <button type="button" id="parse-single-btn" class="parse-btn">解析并填充</button>
-                <label style="font-size: 12px; color: #6c757d;">
-                    <input type="checkbox" id="auto-parse-checkbox"> 粘贴时自动解析
-                </label>
-            </div>
+JSON格式：
+{&quot;name&quot;: &quot;广东XX有限公司&quot;, &quot;client_type&quot;: &quot;legal&quot;, ...}"></textarea>
+        <div class="text-parser-controls">
+            <button type="button" id="parse-btn" class="parse-btn">解析并填充</button>
+            <label style="font-size: 12px; color: #6c757d;">
+                <input type="checkbox" id="auto-parse-checkbox"> 粘贴时自动解析
+            </label>
         </div>
-        
-        <!-- JSON解析 -->
-        <div id="json-parser-content" class="parser-content">
-            <textarea id="json-parser-input" class="text-parser-textarea" placeholder='粘贴JSON格式数据，例如：
-{
-    "name": "广东XX有限公司",
-    "client_type": "legal",
-    "id_number": "91XXXXW2N",
-    "address": "广东省XXX",
-    "phone": "0XXX53",
-    "legal_representative": "伍XXX"
-}'></textarea>
-            <div class="text-parser-controls">
-                <button type="button" id="parse-json-btn" class="parse-btn">解析JSON并填充</button>
-            </div>
-        </div>
+        <div class="format-hint">💡 自动识别 JSON 或文本格式，直接粘贴即可</div>
         
         <div id="parse-results"></div>
     </div>
@@ -157,17 +127,12 @@
             const clientType = clientTypeField ? clientTypeField.value : 'legal';
             const isNatural = clientType === 'natural';
             
-            // 显示/隐藏法定代表人字段
             if (legalRepRow) {
                 legalRepRow.style.display = isNatural ? 'none' : '';
             }
-            
-            // 更新证件号码标签
             if (idNumberLabel) {
                 idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
             }
-            
-            // 切换时清空所有字段
             if (clearFields) {
                 ['name', 'phone', 'address', 'id_number', 'legal_representative'].forEach(function(fieldName) {
                     const field = document.getElementById('id_' + fieldName);
@@ -177,58 +142,94 @@
         }
         
         if (clientTypeField) {
-            // 初始化时更新表单（不清空字段）
             updateFormByClientType(false);
-            
-            // 监听客户类型变化
             clientTypeField.addEventListener('change', function() {
                 updateFormByClientType(true);
             });
         }
         
-        // ========== Tab切换 ==========
-        const tabs = document.querySelectorAll('.parser-tab');
-        tabs.forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                tabs.forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                
-                document.querySelectorAll('.parser-content').forEach(c => c.classList.remove('active'));
-                document.getElementById(this.dataset.tab + '-parser-content').classList.add('active');
-            });
-        });
-        
-        // ========== 文本/JSON解析 ==========
-        const textInput = document.getElementById('text-parser-input');
-        const jsonInput = document.getElementById('json-parser-input');
-        const parseSingleBtn = document.getElementById('parse-single-btn');
-        const parseJsonBtn = document.getElementById('parse-json-btn');
+        // ========== 智能解析 ==========
+        const smartInput = document.getElementById('smart-parser-input');
+        const parseBtn = document.getElementById('parse-btn');
         const autoParseCheckbox = document.getElementById('auto-parse-checkbox');
         const resultsDiv = document.getElementById('parse-results');
+        const formatIndicator = document.getElementById('format-indicator');
         
-        if (!textInput) return;
+        if (!smartInput) return;
         
-        // 文本解析按钮
-        parseSingleBtn.addEventListener('click', function() { parseText(); });
-        
-        // JSON解析按钮
-        parseJsonBtn.addEventListener('click', function() { parseJson(); });
-        
-        // 粘贴自动解析
-        textInput.addEventListener('paste', function() {
-            if (autoParseCheckbox.checked) {
-                setTimeout(function() { parseText(); }, 100);
+        // 检测输入格式
+        function detectFormat(text) {
+            const trimmed = text.trim();
+            if (!trimmed) return null;
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+                (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                try {
+                    JSON.parse(trimmed);
+                    return 'json';
+                } catch (e) {
+                    return 'text';
+                }
             }
+            return 'text';
+        }
+        
+        // 更新格式指示器
+        function updateFormatIndicator() {
+            const format = detectFormat(smartInput.value);
+            if (format === 'json') {
+                formatIndicator.textContent = 'JSON';
+                formatIndicator.className = 'format-badge json';
+                formatIndicator.style.display = 'inline-block';
+            } else if (format === 'text') {
+                formatIndicator.textContent = '文本';
+                formatIndicator.className = 'format-badge text';
+                formatIndicator.style.display = 'inline-block';
+            } else {
+                formatIndicator.style.display = 'none';
+            }
+        }
+        
+        smartInput.addEventListener('input', updateFormatIndicator);
+        parseBtn.addEventListener('click', smartParse);
+        
+        smartInput.addEventListener('paste', function() {
+            setTimeout(function() {
+                updateFormatIndicator();
+                if (autoParseCheckbox.checked) {
+                    smartParse();
+                }
+            }, 100);
         });
         
-        function parseText() {
-            const text = textInput.value.trim();
+        function smartParse() {
+            const text = smartInput.value.trim();
             if (!text) {
-                showMessage('请输入要解析的文本内容', 'error');
+                showMessage('请输入要解析的内容', 'error');
                 return;
             }
             
-            setButtonsDisabled(true);
+            const format = detectFormat(text);
+            if (format === 'json') {
+                parseJson(text);
+            } else {
+                parseText(text);
+            }
+        }
+        
+        function parseJson(jsonText) {
+            try {
+                const data = JSON.parse(jsonText);
+                fillFormWithData(data);
+                showMessage('JSON 解析成功，表单已自动填充！', 'success');
+                smartInput.value = '';
+                updateFormatIndicator();
+            } catch (e) {
+                showMessage('JSON 格式错误: ' + e.message, 'error');
+            }
+        }
+        
+        function parseText(text) {
+            setButtonDisabled(true);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             
             fetch('/api/v1/client/clients/parse-text', {
@@ -241,7 +242,8 @@
                 if (data.success && data.client) {
                     fillFormWithData(data.client);
                     showMessage('文本解析成功，表单已自动填充！', 'success');
-                    textInput.value = '';
+                    smartInput.value = '';
+                    updateFormatIndicator();
                 } else {
                     showMessage('解析失败: ' + (data.error || '未知错误'), 'error');
                 }
@@ -250,34 +252,15 @@
                 console.error('解析请求失败:', error);
                 showMessage('解析请求失败，请检查网络连接', 'error');
             })
-            .finally(() => { setButtonsDisabled(false); });
+            .finally(() => { setButtonDisabled(false); });
         }
         
-        function parseJson() {
-            const jsonText = jsonInput.value.trim();
-            if (!jsonText) {
-                showMessage('请输入JSON内容', 'error');
-                return;
-            }
-            
-            try {
-                const data = JSON.parse(jsonText);
-                fillFormWithData(data);
-                showMessage('JSON解析成功，表单已自动填充！', 'success');
-                jsonInput.value = '';
-            } catch (e) {
-                showMessage('JSON格式错误: ' + e.message, 'error');
-            }
-        }
-        
-        function setButtonsDisabled(disabled) {
-            parseSingleBtn.disabled = disabled;
-            parseJsonBtn.disabled = disabled;
-            parseSingleBtn.textContent = disabled ? '解析中...' : '解析并填充';
+        function setButtonDisabled(disabled) {
+            parseBtn.disabled = disabled;
+            parseBtn.textContent = disabled ? '解析中...' : '解析并填充';
         }
         
         function fillFormWithData(data) {
-            // 先设置客户类型，再更新表单显示（不清空字段）
             if (data.client_type) {
                 setFieldValue('client_type', data.client_type);
                 updateFormByClientType(false);

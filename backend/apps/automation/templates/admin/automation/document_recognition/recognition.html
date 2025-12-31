@@ -1,0 +1,493 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}法院文书智能识别{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+/* 容器和介绍 */
+.recognition-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+.recognition-intro { color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.6; 
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%); padding: 16px 20px; 
+    border-radius: 10px; border-left: 4px solid #417690; }
+
+/* 拖拽上传区域 */
+.upload-zone {
+    border: 3px dashed #b8d4e3; border-radius: 16px; padding: 60px 20px;
+    text-align: center; cursor: pointer; transition: all 0.3s;
+    background: linear-gradient(135deg, #f8fbfd 0%, #eef5f9 100%);
+}
+.upload-zone:hover, .upload-zone.dragging { border-color: #417690; background: #e3f2fd; transform: scale(1.01); }
+.upload-zone svg { width: 72px; height: 72px; color: #417690; margin-bottom: 20px; opacity: 0.8; }
+.upload-zone h3 { margin: 0 0 10px; color: #2c3e50; font-size: 20px; font-weight: 600; }
+.upload-zone p { margin: 0 0 20px; color: #7f8c8d; font-size: 14px; }
+.upload-btn {
+    display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    color: white; border-radius: 10px; cursor: pointer; transition: all 0.3s; font-weight: 500;
+    box-shadow: 0 4px 15px rgba(65, 118, 144, 0.3);
+}
+.upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(65, 118, 144, 0.4); }
+.upload-btn input { display: none; }
+
+/* 加载状态 */
+.loading-state { text-align: center; padding: 80px 20px; }
+.spinner { width: 56px; height: 56px; border: 5px solid #e9ecef; border-top-color: #417690;
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-state p { color: #555; font-size: 16px; }
+
+/* 结果卡片 */
+.result-card { 
+    background: #fff; border: none; border-radius: 16px; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;
+}
+.result-header { 
+    font-size: 18px; font-weight: 600; color: white; padding: 18px 24px;
+    background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    display: flex; align-items: center; gap: 10px;
+}
+.result-body { padding: 24px; }
+.result-row { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f0f3f5; }
+.result-row:last-child { border-bottom: none; }
+.result-label { width: 100px; font-weight: 600; color: #5a6c7d; font-size: 14px; flex-shrink: 0; }
+.result-value { flex: 1; color: #2c3e50; font-size: 14px; }
+.result-edit-btn { 
+    width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 6px;
+    background: #fff; cursor: pointer; margin-left: 10px; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.result-edit-btn:hover { border-color: #417690; background: #f0f7ff; }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* 标签样式 */
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 16px; font-size: 13px; font-weight: 500; }
+.tag-blue { background: #e3f2fd; color: #1565c0; }
+.tag-purple { background: #f3e5f5; color: #7b1fa2; }
+.tag-gray { background: #f5f5f5; color: #616161; }
+.tag-green { background: #e8f5e9; color: #2e7d32; }
+.tag-yellow { background: #fff8e1; color: #f57f17; }
+.tag-red { background: #ffebee; color: #c62828; }
+
+/* 编辑区域 */
+.edit-actions { display: flex; gap: 10px; margin-top: 10px; padding: 12px; background: #f8fafc; 
+    border-radius: 8px; border: 1px solid #e8eef3; align-items: center; }
+.edit-input { flex: 1; padding: 8px 12px; border: 1px solid #417690; border-radius: 6px; font-size: 14px; }
+.edit-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.15); }
+.btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; border: none; 
+    font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+.btn-primary { background: #417690; color: white; }
+.btn-primary:hover { background: #2c5f7c; }
+.btn-secondary { background: #fff; border: 1px solid #417690; color: #417690; }
+.btn-secondary:hover { background: #f0f7ff; }
+.btn-success { background: #43a047; color: white; }
+.btn-success:hover { background: #2e7d32; }
+
+/* 置信度 */
+.confidence-bar { display: flex; align-items: center; gap: 10px; }
+.confidence-track { width: 80px; height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden; }
+.confidence-fill { height: 100%; border-radius: 3px; }
+.confidence-high { background: #43a047; }
+.confidence-medium { background: #ff9800; }
+.confidence-low { background: #e53935; }
+
+/* 案件选择区域 */
+.case-selector { margin: 20px 0 0; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e0e8ef; }
+.case-selector h4 { margin: 0 0 12px; color: #2c3e50; font-size: 15px; font-weight: 600; }
+.search-box { position: relative; display: flex; align-items: center; gap: 8px; }
+.search-input { 
+    flex: 1; padding: 10px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
+    font-size: 14px; box-sizing: border-box; background: white; height: 40px;
+}
+.search-input:focus { border-color: #417690; outline: none; }
+.dropdown-btn { 
+    width: 40px; height: 40px; border: 1px solid #d0dbe5; background: #f0f4f8; 
+    cursor: pointer; color: #5a6c7d; border-radius: 8px; transition: all 0.2s;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.dropdown-btn:hover { background: #417690; color: white; border-color: #417690; }
+.dropdown-btn.active { background: #417690; color: white; border-color: #417690; }
+
+/* 下拉列表 - 向上展开避免遮挡按钮 */
+.dropdown-list { 
+    position: absolute; left: 0; right: 48px; bottom: 100%; z-index: 1000; margin-bottom: 4px; background: white;
+    border: 1px solid #417690; border-radius: 8px; max-height: 200px; overflow-y: auto; 
+    display: none; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+}
+.dropdown-list.show { display: block; }
+.dropdown-item { padding: 10px 12px; border-bottom: 1px solid #f0f3f5; cursor: pointer; }
+.dropdown-item:hover { background: #f0f7ff; }
+.dropdown-item:last-child { border-bottom: none; }
+.dropdown-item .case-number { font-weight: 600; color: #2c3e50; font-size: 13px; }
+.dropdown-item .case-name { font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+.dropdown-item .case-stage { font-size: 11px; color: #95a5a6; margin-top: 2px; }
+.dropdown-empty { padding: 20px; text-align: center; color: #95a5a6; font-size: 13px; }
+.dropdown-loading { padding: 16px; text-align: center; color: #7f8c8d; font-size: 13px; }
+
+/* 选中案件 */
+.selected-case { 
+    margin-top: 12px; padding: 12px; background: white; border: 1px solid #417690; border-radius: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.selected-case-info .case-number { font-weight: 600; color: #2c3e50; font-size: 14px; }
+.selected-case-info .case-name { font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+
+/* 操作按钮 */
+.action-buttons { display: flex; gap: 10px; padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e8eef3; }
+.action-buttons .btn { padding: 10px 20px; text-decoration: none; }
+
+/* 错误状态 */
+.error-state { background: #fff5f5; border: 1px solid #ffcdd2; border-radius: 12px; padding: 40px 20px; text-align: center; }
+.error-state .icon { font-size: 48px; margin-bottom: 16px; }
+.error-state h3 { color: #c62828; margin: 0 0 10px; font-size: 18px; }
+.error-state p { color: #e53935; margin: 0 0 20px; font-size: 14px; }
+
+.hidden { display: none !important; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">首页</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">自动化工具</a>
+    &rsaquo; 文书识别
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="recognition-container">
+    <p class="recognition-intro">
+        将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，并绑定到对应案件。
+    </p>
+    
+    <!-- 上传区域 -->
+    <div id="uploadZone" class="upload-zone">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+        <h3>将法院文书拖入此处进行识别</h3>
+        <p>支持 PDF、JPG、PNG 格式</p>
+        <label class="upload-btn">选择文件<input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png"></label>
+    </div>
+    
+    <!-- 加载状态 -->
+    <div id="loadingState" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p id="loadingText">正在上传文件...</p>
+    </div>
+    
+    <!-- 识别结果 -->
+    <div id="resultCard" class="result-card hidden">
+        <div class="result-header">识别结果</div>
+        <div class="result-body">
+            <div class="result-row">
+                <span class="result-label">文书类型</span>
+                <span class="result-value"><span id="docTypeTag" class="tag tag-blue">传票</span></span>
+            </div>
+            
+            <div class="result-row">
+                <span class="result-label">案号</span>
+                <span class="result-value" id="caseNumberDisplay">未识别</span>
+                <button class="result-edit-btn" onclick="toggleEdit('caseNumber')">✏</button>
+            </div>
+            <div id="caseNumberEdit" class="edit-actions hidden">
+                <input type="text" id="caseNumberInput" class="edit-input" placeholder="输入案号">
+                <button class="btn btn-success" onclick="saveEdit('caseNumber')">保存</button>
+                <button class="btn btn-secondary" onclick="cancelEdit('caseNumber')">取消</button>
+            </div>
+            
+            <div class="result-row">
+                <span class="result-label">关键时间</span>
+                <span class="result-value" id="keyTimeDisplay">未识别</span>
+                <button class="result-edit-btn" onclick="toggleEdit('keyTime')">✏</button>
+            </div>
+            <div id="keyTimeEdit" class="edit-actions hidden">
+                <input type="datetime-local" id="keyTimeInput" class="edit-input">
+                <button class="btn btn-success" onclick="saveEdit('keyTime')">保存</button>
+                <button class="btn btn-secondary" onclick="cancelEdit('keyTime')">取消</button>
+            </div>
+            
+            <div class="result-row">
+                <span class="result-label">识别置信度</span>
+                <span class="result-value">
+                    <div class="confidence-bar">
+                        <span id="confidenceText" class="tag tag-green">85%</span>
+                        <div class="confidence-track">
+                            <div id="confidenceFill" class="confidence-fill confidence-high" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </span>
+            </div>
+            
+            <div class="result-row">
+                <span class="result-label">提取方式</span>
+                <span class="result-value" id="extractionMethod">正则表达式</span>
+            </div>
+            
+            <div class="result-row">
+                <span class="result-label">绑定状态</span>
+                <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">待绑定</span></span>
+            </div>
+            
+            <!-- 案件选择 -->
+            <div id="caseSelector" class="case-selector hidden">
+                <h4>选择要绑定的案件</h4>
+                <div class="search-box">
+                    <input type="text" id="caseSearchInput" class="search-input" placeholder="输入案号或案件名称搜索，或点击右侧按钮查看全部">
+                    <button class="dropdown-btn" id="dropdownBtn" onclick="toggleDropdown()">▼</button>
+                    <div id="caseDropdown" class="dropdown-list"></div>
+                </div>
+                <div id="selectedCase" class="selected-case hidden">
+                    <div class="selected-case-info">
+                        <div class="case-number" id="selectedCaseNumber"></div>
+                        <div class="case-name" id="selectedCaseName"></div>
+                    </div>
+                    <button class="btn btn-primary" id="bindBtn" onclick="bindCase()">确认绑定</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="resetPage()">识别新文书</button>
+            <a id="taskDetailLink" href="#" class="btn btn-secondary hidden">查看任务详情</a>
+        </div>
+    </div>
+    
+    <!-- 错误状态 -->
+    <div id="errorState" class="error-state hidden">
+        <div class="icon">✕</div>
+        <h3>识别失败</h3>
+        <p id="errorMessage">未知错误</p>
+        <button class="btn btn-primary" onclick="resetPage()">重新上传</button>
+    </div>
+</div>
+
+<script>
+var state = 'idle', result = null, taskId = null, selectedCaseData = null, allCasesLoaded = false;
+var uploadZone = document.getElementById('uploadZone');
+var loadingState = document.getElementById('loadingState');
+var resultCard = document.getElementById('resultCard');
+var errorState = document.getElementById('errorState');
+var fileInput = document.getElementById('fileInput');
+
+// 拖拽上传
+uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragging'); });
+uploadZone.addEventListener('dragleave', function(e) { if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('dragging'); });
+uploadZone.addEventListener('drop', function(e) { e.preventDefault(); uploadZone.classList.remove('dragging'); if (e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', function(e) { if (e.target.files.length > 0) uploadFile(e.target.files[0]); });
+
+function uploadFile(file) {
+    showState('loading');
+    document.getElementById('loadingText').textContent = '正在上传文件...';
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/v1/automation/court-document/recognize', {
+        method: 'POST', body: formData, headers: { 'X-CSRFToken': getCsrfToken() }
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '识别失败'); return d; }); })
+    .then(function(d) { document.getElementById('loadingText').textContent = '正在识别文书...'; pollTaskStatus(d.task_id); })
+    .catch(function(e) { showError(e.message); });
+}
+
+function pollTaskStatus(id) {
+    taskId = id;
+    var attempts = 0, maxAttempts = 60;
+    function poll() {
+        attempts++;
+        fetch('/api/v1/automation/court-document/task/' + id)
+        .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '获取状态失败'); return d; }); })
+        .then(function(d) {
+            if (d.status === 'success' || d.status === 'failed') {
+                if (d.status === 'success') { result = d; showResult(); }
+                else showError(d.error_message || '识别失败');
+            } else if (attempts >= maxAttempts) { showError('识别超时'); }
+            else {
+                var texts = { 'pending': '任务排队中...', 'processing': '正在识别...', 'extracting': '正在提取信息...', 'binding': '正在绑定...' };
+                document.getElementById('loadingText').textContent = texts[d.status] || '正在处理...';
+                setTimeout(poll, 3000);
+            }
+        }).catch(function(e) { if (attempts >= maxAttempts) showError(e.message); else setTimeout(poll, 3000); });
+    }
+    poll();
+}
+
+function showResult() {
+    showState('result');
+    var rec = result.recognition || {};
+    // 文书类型
+    var types = { 'summons': '传票', 'execution_ruling': '执行裁定书', 'unknown': '未知' };
+    var classes = { 'summons': 'tag-blue', 'execution_ruling': 'tag-purple', 'unknown': 'tag-gray' };
+    var tag = document.getElementById('docTypeTag');
+    tag.textContent = types[rec.document_type] || '未知';
+    tag.className = 'tag ' + (classes[rec.document_type] || 'tag-gray');
+    // 案号
+    document.getElementById('caseNumberDisplay').textContent = rec.case_number || '未识别';
+    document.getElementById('caseNumberInput').value = rec.case_number || '';
+    // 时间
+    if (rec.key_time) {
+        document.getElementById('keyTimeDisplay').textContent = new Date(rec.key_time).toLocaleString('zh-CN');
+        document.getElementById('keyTimeInput').value = isoToLocal(rec.key_time);
+    } else document.getElementById('keyTimeDisplay').textContent = '未识别';
+    // 置信度
+    var conf = rec.confidence || 0, pct = Math.round(conf * 100);
+    var ct = document.getElementById('confidenceText'), cf = document.getElementById('confidenceFill');
+    ct.textContent = pct + '%'; cf.style.width = pct + '%';
+    ct.className = 'tag ' + (conf >= 0.8 ? 'tag-green' : conf >= 0.5 ? 'tag-yellow' : 'tag-red');
+    cf.className = 'confidence-fill ' + (conf >= 0.8 ? 'confidence-high' : conf >= 0.5 ? 'confidence-medium' : 'confidence-low');
+    // 提取方式
+    var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
+    document.getElementById('extractionMethod').textContent = methods[rec.extraction_method] || '未知';
+    // 绑定状态
+    updateBindingStatus();
+    // 案件选择器
+    if (!result.binding || !result.binding.success) {
+        document.getElementById('caseSelector').classList.remove('hidden');
+        if (rec.case_number) { document.getElementById('caseSearchInput').value = rec.case_number; searchCases(); }
+    }
+    // 任务链接
+    if (result.task_id) {
+        var link = document.getElementById('taskDetailLink');
+        link.href = '/admin/automation/documentrecognitiontask/' + result.task_id + '/change/';
+        link.classList.remove('hidden');
+    }
+}
+
+function updateBindingStatus() {
+    var el = document.getElementById('bindingStatus');
+    if (result.binding && result.binding.success) {
+        el.innerHTML = '<span class="tag tag-green">已绑定</span>';
+        document.getElementById('caseSelector').classList.add('hidden');
+    } else if (result.binding && result.binding.error) {
+        el.innerHTML = '<span class="tag tag-red">' + result.binding.error + '</span>';
+    } else el.innerHTML = '<span class="tag tag-yellow">待绑定</span>';
+}
+
+function toggleEdit(f) { document.getElementById(f + 'Edit').classList.toggle('hidden'); }
+function cancelEdit(f) { toggleEdit(f); }
+
+function saveEdit(f) {
+    if (!taskId) return;
+    var payload = {};
+    if (f === 'caseNumber') payload.case_number = document.getElementById('caseNumberInput').value;
+    else if (f === 'keyTime') { var v = document.getElementById('keyTimeInput').value; if (v) payload.key_time = new Date(v).toISOString(); }
+    fetch('/api/v1/automation/court-document/task/' + taskId + '/update-info', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }, body: JSON.stringify(payload)
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '保存失败'); return d; }); })
+    .then(function() {
+        if (f === 'caseNumber') { result.recognition.case_number = payload.case_number; document.getElementById('caseNumberDisplay').textContent = payload.case_number || '未识别'; }
+        else if (f === 'keyTime' && payload.key_time) { result.recognition.key_time = payload.key_time; document.getElementById('keyTimeDisplay').textContent = new Date(payload.key_time).toLocaleString('zh-CN'); }
+        toggleEdit(f);
+    }).catch(function(e) { alert('保存失败: ' + e.message); });
+}
+
+// 案件搜索
+var searchTimeout = null;
+document.getElementById('caseSearchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    allCasesLoaded = false;
+    searchTimeout = setTimeout(searchCases, 300);
+});
+document.getElementById('caseSearchInput').addEventListener('focus', function() {
+    var dropdown = document.getElementById('caseDropdown');
+    if (dropdown.innerHTML) dropdown.classList.add('show');
+});
+
+function toggleDropdown() {
+    var dropdown = document.getElementById('caseDropdown');
+    var btn = document.getElementById('dropdownBtn');
+    if (dropdown.classList.contains('show') && allCasesLoaded) {
+        dropdown.classList.remove('show');
+        btn.classList.remove('active');
+    } else {
+        btn.classList.add('active');
+        loadAllCases();
+    }
+}
+
+function loadAllCases() {
+    var dropdown = document.getElementById('caseDropdown');
+    dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>';
+    dropdown.classList.add('show');
+    fetch('/api/v1/cases/cases?limit=50')
+    .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
+    .then(function(cases) {
+        allCasesLoaded = true;
+        renderCaseList(cases);
+    }).catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
+}
+
+function searchCases() {
+    var q = document.getElementById('caseSearchInput').value;
+    var dropdown = document.getElementById('caseDropdown');
+    if (!q || q.length < 2) { dropdown.innerHTML = '<div class="dropdown-empty">请输入至少2个字符搜索</div>'; dropdown.classList.add('show'); return; }
+    dropdown.innerHTML = '<div class="dropdown-loading">搜索中...</div>';
+    dropdown.classList.add('show');
+    fetch('/api/v1/cases/cases/search?q=' + encodeURIComponent(q) + '&limit=10')
+    .then(function(r) { if (!r.ok) throw new Error('搜索失败'); return r.json(); })
+    .then(function(cases) { renderCaseList(cases); })
+    .catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">搜索失败: ' + e.message + '</div>'; });
+}
+
+function renderCaseList(cases) {
+    var dropdown = document.getElementById('caseDropdown');
+    if (!cases || cases.length === 0) { dropdown.innerHTML = '<div class="dropdown-empty">未找到案件</div>'; return; }
+    dropdown.innerHTML = cases.map(function(c) {
+        // 从 case_numbers 数组获取案号，或使用 case_number 字段
+        var num = c.case_number;
+        if (!num && c.case_numbers && c.case_numbers.length > 0) {
+            num = c.case_numbers[0].number;
+        }
+        num = num || '案件' + c.id;
+        var stage = c.current_stage ? '<div class="case-stage">阶段: ' + c.current_stage + '</div>' : '';
+        // 简化数据，只保留必要字段
+        var simpleCase = { id: c.id, name: c.name, case_number: num, current_stage: c.current_stage };
+        return '<div class="dropdown-item" onclick=\'selectCase(' + JSON.stringify(simpleCase).replace(/'/g, "\\'") + ')\'>' +
+            '<div class="case-number">' + num + '</div>' +
+            '<div class="case-name">' + (c.name || '无名称') + '</div>' + stage + '</div>';
+    }).join('');
+}
+
+function selectCase(c) {
+    selectedCaseData = c;
+    document.getElementById('caseSearchInput').value = c.case_number || c.name;
+    document.getElementById('caseDropdown').classList.remove('show');
+    document.getElementById('dropdownBtn').classList.remove('active');
+    document.getElementById('selectedCaseNumber').textContent = c.case_number || '案件' + c.id;
+    document.getElementById('selectedCaseName').textContent = c.name || '无名称';
+    document.getElementById('selectedCase').classList.remove('hidden');
+}
+
+function bindCase() {
+    if (!selectedCaseData || !taskId) return;
+    var btn = document.getElementById('bindBtn');
+    btn.disabled = true; btn.textContent = '绑定中...';
+    fetch('/api/v1/automation/court-document/task/' + taskId + '/bind', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ case_id: selectedCaseData.id })
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '绑定失败'); return d; }); })
+    .then(function() { result.binding = { success: true }; updateBindingStatus(); })
+    .catch(function(e) { result.binding = { error: e.message }; updateBindingStatus(); })
+    .finally(function() { btn.disabled = false; btn.textContent = '确认绑定'; });
+}
+
+function showState(s) {
+    state = s;
+    uploadZone.classList.toggle('hidden', s !== 'idle');
+    loadingState.classList.toggle('hidden', s !== 'loading');
+    resultCard.classList.toggle('hidden', s !== 'result');
+    errorState.classList.toggle('hidden', s !== 'error');
+}
+function showError(m) { document.getElementById('errorMessage').textContent = m; showState('error'); }
+function resetPage() {
+    result = null; taskId = null; selectedCaseData = null; allCasesLoaded = false;
+    document.getElementById('caseSearchInput').value = '';
+    document.getElementById('selectedCase').classList.add('hidden');
+    document.getElementById('caseDropdown').innerHTML = '';
+    showState('idle');
+}
+function getCsrfToken() { var c = document.cookie.split(';').find(function(x) { return x.trim().startsWith('csrftoken='); }); return c ? c.split('=')[1] : ''; }
+function isoToLocal(s) { if (!s) return ''; var d = new Date(s); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+document.addEventListener('click', function(e) { if (!e.target.closest('.search-box')) { document.getElementById('caseDropdown').classList.remove('show'); document.getElementById('dropdownBtn').classList.remove('active'); } });
+</script>
+{% endblock %}

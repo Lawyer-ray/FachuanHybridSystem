@@ -1350,23 +1350,34 @@ class CourtDocumentScraper(BaseScraper):
         # 准备下载目录
         download_dir = self._prepare_download_dir()
         
-        # 点击下载按钮 - 使用 XPath
+        # 点击下载按钮 - 多种方式尝试
         download_xpath = "/html/body/div/div[1]/div[1]/label/a/img"
         
         try:
             download_button = None
             
-            # 方式1: 使用提供的 XPath
+            # 方式1: 使用 downloadPackClass 类名（最可靠）
             try:
-                download_button = self.page.locator(f"xpath={download_xpath}")
+                download_button = self.page.locator("a.downloadPackClass")
                 if download_button.count() > 0 and download_button.first.is_visible():
-                    logger.info(f"通过 XPath 找到下载按钮: {download_xpath}")
+                    logger.info("通过 a.downloadPackClass 找到下载按钮")
                 else:
                     download_button = None
             except:
                 pass
             
-            # 方式2: 查找 label 下的 a 标签（包含 img）
+            # 方式2: 使用提供的 XPath
+            if not download_button:
+                try:
+                    download_button = self.page.locator(f"xpath={download_xpath}")
+                    if download_button.count() > 0 and download_button.first.is_visible():
+                        logger.info(f"通过 XPath 找到下载按钮: {download_xpath}")
+                    else:
+                        download_button = None
+                except:
+                    pass
+            
+            # 方式3: 查找 label 下的 a 标签（包含 img）
             if not download_button:
                 try:
                     download_button = self.page.locator("label a:has(img)")
@@ -1377,7 +1388,18 @@ class CourtDocumentScraper(BaseScraper):
                 except:
                     pass
             
-            # 方式3: 查找任何包含"下载"的元素
+            # 方式4: 查找包含"送达材料"文本的链接
+            if not download_button:
+                try:
+                    download_button = self.page.locator("a:has-text('送达材料')")
+                    if download_button.count() > 0 and download_button.first.is_visible():
+                        logger.info("通过文本'送达材料'找到下载按钮")
+                    else:
+                        download_button = None
+                except:
+                    pass
+            
+            # 方式5: 查找任何包含"下载"的元素
             if not download_button:
                 try:
                     download_button = self.page.locator("a:has-text('下载'), button:has-text('下载'), [title*='下载']")

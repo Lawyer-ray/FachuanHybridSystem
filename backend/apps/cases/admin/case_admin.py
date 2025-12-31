@@ -30,6 +30,12 @@ def _get_case_chat_service():
     return CaseChatService()
 
 
+def _get_case_admin_service():
+    """工厂函数获取案件 Admin 服务"""
+    from ..services.case_admin_service import CaseAdminService
+    return CaseAdminService()
+
+
 class CaseAdminForm(forms.ModelForm):
     current_stage = forms.ChoiceField(
         choices=[("", "---------")] + list(CaseStage.choices),
@@ -178,6 +184,7 @@ class CaseAdmin(BaseModelAdmin):
     list_display = ("id", "name", "status", "start_date", "effective_date", "is_archived")
     list_filter = ("status", "is_archived")
     search_fields = ("name",)
+    change_form_template = "admin/cases/case/change_form.html"
     
     actions = ['create_feishu_chat_for_selected_cases']
 
@@ -185,6 +192,21 @@ class CaseAdmin(BaseModelAdmin):
         js = ("cases/admin_case_form.js",)
 
     inlines = [CasePartyInline, CaseAssignmentInline, SupervisingAuthorityInline, CaseNumberInline, CaseLogInline, CaseChatInline]
+
+    def response_change(self, request, obj):
+        """处理保存并复制按钮"""
+        if "_save_and_duplicate" in request.POST:
+            try:
+                service = _get_case_admin_service()
+                new_case = service.duplicate_case(obj.pk)
+                messages.success(request, f"已复制案件，正在编辑新案件: {new_case.name}")
+                return HttpResponseRedirect(
+                    reverse("admin:cases_case_change", args=[new_case.pk])
+                )
+            except Exception as e:
+                messages.error(request, f"复制失败: {str(e)}")
+                return HttpResponseRedirect(request.path)
+        return super().response_change(request, obj)
 
     def create_feishu_chat_for_selected_cases(self, request, queryset):
         """为选中的案件创建飞书群聊"""

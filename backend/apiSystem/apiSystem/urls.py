@@ -7,7 +7,7 @@ URL configuration for apiSystem project.
 """
 from django.contrib import admin
 from django.urls import path
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -33,6 +33,11 @@ def api_redirect(request):
     return HttpResponseRedirect(new_path)
 
 
+def favicon_view(request):
+    """返回空的favicon响应，避免404错误"""
+    return HttpResponse(status=204)  # No Content
+
+
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),  # 注册页面
     path("admin/", admin.site.urls),
@@ -42,6 +47,9 @@ urlpatterns = [
     
     # /api/ 重定向到 /api/v1/
     path("api/", api_redirect),
+    
+    # favicon 处理
+    path("favicon.ico", favicon_view, name="favicon"),
     
     # 根路径重定向到 API 文档
     path("", api_root_redirect),

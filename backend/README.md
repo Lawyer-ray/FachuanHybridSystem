@@ -565,8 +565,7 @@ python manage.py optimize_token_performance --warm-cache court_zxfw
 
 3. **依赖安装失败**
    ```bash
-   backend/venv311/bin/pip install --upgrade pip
-   backend/venv311/bin/pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
 
 4. **Playwright 浏览器未安装**

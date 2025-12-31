@@ -136,9 +136,9 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-    # 'unfold',  # django-unfold 主题，必须在 admin 之前
-    # 'unfold.contrib.filters',  # 增强过滤器
-    # 'unfold.contrib.forms',  # 增强表单
+    # 'unfold',  # django-unfold 主题（已禁用，与自定义模板冲突）
+    # 'unfold.contrib.filters',
+    # 'unfold.contrib.forms',
     'apps.organization',  # 必须在 admin 之前，以覆盖登录模板
     'django.contrib.admin',
     'django.contrib.auth',
@@ -612,25 +612,23 @@ else:
         """空实现：配置管理器不可用时"""
         pass
 # ============================================================
-# Django Admin 界面配置
+# Django Admin 界面配置 (django-unfold)
 # ============================================================
+
 # 自定义 Django Admin 界面标题和头部信息
 ADMIN_SITE_HEADER = "法穿案件管理系统"
 ADMIN_SITE_TITLE = "免费开源，尽情使用"
 ADMIN_INDEX_TITLE = "欢迎来到法穿案件管理系统"
 
-# django-unfold 配置（已注释）
-# from django.templatetags.static import static
-# from django.urls import reverse_lazy
-# 
+# django-unfold 配置
 # UNFOLD = {
 #     "SITE_TITLE": "法穿案件管理系统",
 #     "SITE_HEADER": "法穿案件管理系统",
 #     "SITE_SUBHEADER": "免费开源，尽情使用",
-#     # "SITE_LOGO": lambda request: static("logo.svg"),  # 可选：自定义 logo
 #     "SITE_SYMBOL": "gavel",  # Material Symbols 图标
 #     "SHOW_HISTORY": True,
 #     "SHOW_VIEW_ON_SITE": True,
+#     "ENVIRONMENT": "apps.core.admin.environment_callback",
 #     "COLORS": {
 #         "primary": {
 #             "50": "250 245 255",
@@ -649,51 +647,6 @@ ADMIN_INDEX_TITLE = "欢迎来到法穿案件管理系统"
 #     "SIDEBAR": {
 #         "show_search": True,
 #         "show_all_applications": True,
-#         "navigation": [
-#             {
-#                 "title": "案件管理",
-#                 "separator": True,
-#                 "items": [
-#                     {"title": "案件", "icon": "folder", "link": reverse_lazy("admin:cases_case_changelist")},
-#                     {"title": "案号", "icon": "tag", "link": reverse_lazy("admin:cases_casenumber_changelist")},
-#                     {"title": "当事人", "icon": "people", "link": reverse_lazy("admin:cases_caseparty_changelist")},
-#                     {"title": "案件日志", "icon": "history", "link": reverse_lazy("admin:cases_caselog_changelist")},
-#                 ],
-#             },
-#             {
-#                 "title": "客户管理",
-#                 "separator": True,
-#                 "items": [
-#                     {"title": "客户", "icon": "person", "link": reverse_lazy("admin:client_client_changelist")},
-#                     {"title": "财产线索", "icon": "attach_money", "link": reverse_lazy("admin:client_propertyclue_changelist")},
-#                 ],
-#             },
-#             {
-#                 "title": "合同管理",
-#                 "separator": True,
-#                 "items": [
-#                     {"title": "合同", "icon": "description", "link": reverse_lazy("admin:contracts_contract_changelist")},
-#                     {"title": "收款记录", "icon": "payments", "link": reverse_lazy("admin:contracts_contractpayment_changelist")},
-#                 ],
-#             },
-#             {
-#                 "title": "组织架构",
-#                 "separator": True,
-#                 "items": [
-#                     {"title": "律师", "icon": "badge", "link": reverse_lazy("admin:organization_lawyer_changelist")},
-#                     {"title": "律所", "icon": "business", "link": reverse_lazy("admin:organization_lawfirm_changelist")},
-#                     {"title": "团队", "icon": "groups", "link": reverse_lazy("admin:organization_team_changelist")},
-#                 ],
-#             },
-#             {
-#                 "title": "自动化",
-#                 "separator": True,
-#                 "items": [
-#                     {"title": "法院短信", "icon": "sms", "link": reverse_lazy("admin:automation_courtsms_changelist")},
-#                     {"title": "法院文书", "icon": "article", "link": reverse_lazy("admin:automation_courtdocument_changelist")},
-#                     {"title": "Token管理", "icon": "key", "link": reverse_lazy("admin:automation_courttoken_changelist")},
-#                 ],
-#             },
-#         ],
+#         # 使用自动生成的导航，不手动指定 navigation
 #     },
 # }

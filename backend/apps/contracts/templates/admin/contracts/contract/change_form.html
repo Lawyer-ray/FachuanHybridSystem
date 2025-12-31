@@ -1,0 +1,72 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+<script>
+(function() {
+    var submitRow = document.querySelector('.submit-row');
+    if (!submitRow) return;
+    
+    // 允许创建案件的合同类型
+    var allowedTypes = ['civil', 'criminal', 'administrative', 'labor', 'intl'];
+    
+    {% if original %}
+    // 保存并复制按钮（仅编辑时显示）
+    var duplicateBtn = document.createElement('input');
+    duplicateBtn.type = 'submit';
+    duplicateBtn.value = '保存并复制';
+    duplicateBtn.name = '_save_and_duplicate';
+    duplicateBtn.className = '';
+    {% endif %}
+    
+    // 保存并创建案件按钮（新建和编辑都显示）
+    var createCaseBtn = document.createElement('input');
+    createCaseBtn.type = 'submit';
+    createCaseBtn.value = '保存并创建案件';
+    createCaseBtn.name = '_save_and_create_case';
+    createCaseBtn.className = '';
+    
+    // 检查当前合同类型是否允许创建案件
+    function updateCreateCaseButton() {
+        var caseTypeSelect = document.getElementById('id_case_type');
+        if (caseTypeSelect) {
+            var currentType = caseTypeSelect.value;
+            createCaseBtn.disabled = allowedTypes.indexOf(currentType) === -1;
+            if (createCaseBtn.disabled) {
+                createCaseBtn.title = '仅民商事、刑事、行政、劳动仲裁、商事仲裁类型的合同可创建案件';
+                createCaseBtn.style.opacity = '0.5';
+                createCaseBtn.style.cursor = 'not-allowed';
+            } else {
+                createCaseBtn.title = '';
+                createCaseBtn.style.opacity = '1';
+                createCaseBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+    
+    // 初始化按钮状态
+    updateCreateCaseButton();
+    
+    // 监听合同类型变化
+    var caseTypeSelect = document.getElementById('id_case_type');
+    if (caseTypeSelect) {
+        caseTypeSelect.addEventListener('change', updateCreateCaseButton);
+    }
+    
+    // 插入按钮
+    var deleteBox = submitRow.querySelector('.deletelink-box');
+    if (deleteBox) {
+        submitRow.insertBefore(createCaseBtn, deleteBox);
+        {% if original %}
+        submitRow.insertBefore(duplicateBtn, deleteBox);
+        {% endif %}
+    } else {
+        {% if original %}
+        submitRow.appendChild(duplicateBtn);
+        {% endif %}
+        submitRow.appendChild(createCaseBtn);
+    }
+})();
+</script>
+{% endblock %}

@@ -49,13 +49,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# 安装 uv
+RUN pip install --no-cache-dir uv
+
 # 复制依赖文件并安装
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 # 安装开发依赖
-RUN pip install --no-cache-dir \
+RUN uv pip install --system --no-cache-dir \
     ipython \
     django-debug-toolbar \
     watchdog

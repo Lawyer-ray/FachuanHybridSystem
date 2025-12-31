@@ -32,6 +32,9 @@ from .document_delivery import (
     DocumentQueryHistoryAdmin,
 )
 
+# 文书识别 Admin
+from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionTaskAdmin
+
 __all__ = [
     # 文档处理
     'DocumentProcessorAdmin',
@@ -50,4 +53,7 @@ __all__ = [
     # 文书送达
     'DocumentDeliveryScheduleAdmin',
     'DocumentQueryHistoryAdmin',
+    # 文书识别
+    'DocumentRecognitionAdmin',
+    'DocumentRecognitionTaskAdmin',
 ]

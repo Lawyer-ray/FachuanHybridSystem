@@ -1,0 +1,27 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+{% if original %}
+<script>
+(function() {
+    var submitRow = document.querySelector('.submit-row');
+    if (submitRow) {
+        var duplicateBtn = document.createElement('input');
+        duplicateBtn.type = 'submit';
+        duplicateBtn.value = '保存并复制';
+        duplicateBtn.name = '_save_and_duplicate';
+        duplicateBtn.className = '';
+        // 插入到删除链接之前（如果有的话），否则插入到最后
+        var deleteBox = submitRow.querySelector('.deletelink-box');
+        if (deleteBox) {
+            submitRow.insertBefore(duplicateBtn, deleteBox);
+        } else {
+            submitRow.appendChild(duplicateBtn);
+        }
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

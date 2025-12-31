@@ -221,6 +221,148 @@ def startup_check():
     }
 
 
+def execute_document_recognition_task(task_id: int):
+    """
+    执行文书识别任务（Django Q 异步任务）
+    
+    Args:
+        task_id: 识别任务 ID
+        
+    Requirements: 1.1, 1.2, 1.4, 5.1, 5.2, 5.3
+    """
+    from django.utils import timezone
+    from .models import DocumentRecognitionTask, DocumentRecognitionStatus
+    
+    logger.info(f"🔍 开始执行文书识别任务 #{task_id}")
+    
+    try:
+        task = DocumentRecognitionTask.objects.get(id=task_id)
+    except DocumentRecognitionTask.DoesNotExist:
+        logger.error(f"识别任务不存在: {task_id}")
+        return
+    
+    # 更新状态为处理中
+    task.status = DocumentRecognitionStatus.PROCESSING
+    task.started_at = timezone.now()
+    task.save(update_fields=["status", "started_at"])
+    
+    try:
+        # 获取识别服务
+        from apps.core.interfaces import ServiceLocator
+        service = ServiceLocator.get_court_document_recognition_service()
+        
+        # 执行识别
+        result = service.recognize_document(task.file_path, user=None)
+        
+        # 保存识别结果
+        recognition = result.recognition
+        task.document_type = recognition.document_type.value
+        task.case_number = recognition.case_number
+        task.key_time = recognition.key_time
+        task.confidence = recognition.confidence
+        task.extraction_method = recognition.extraction_method
+        task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else None  # 限制长度
+        task.renamed_file_path = result.file_path
+        
+        # 保存绑定结果
+        if result.binding:
+            task.binding_success = result.binding.success
+            task.binding_message = result.binding.message
+            task.binding_error_code = result.binding.error_code
+            if result.binding.case_id:
+                from apps.cases.models import Case, CaseLog
+                task.case_id = result.binding.case_id
+            if result.binding.case_log_id:
+                task.case_log_id = result.binding.case_log_id
+        
+        task.status = DocumentRecognitionStatus.SUCCESS
+        task.finished_at = timezone.now()
+        task.save()
+        
+        # Requirements 1.1, 1.2: 绑定成功后发送通知
+        if result.binding and result.binding.success:
+            _send_recognition_notification(task, result)
+        
+        logger.info(f"✅ 文书识别任务 #{task_id} 完成: {task.document_type}")
+        return {"task_id": task_id, "status": "success", "document_type": task.document_type}
+        
+    except Exception as e:
+        logger.error(f"❌ 文书识别任务 #{task_id} 失败: {e}", exc_info=True)
+        
+        task.status = DocumentRecognitionStatus.FAILED
+        task.error_message = str(e)
+        task.finished_at = timezone.now()
+        task.save(update_fields=["status", "error_message", "finished_at"])
+        
+        return {"task_id": task_id, "status": "failed", "error": str(e)}
+
+
+def _send_recognition_notification(task, result):
+    """
+    发送文书识别通知（内部辅助函数）
+    
+    在绑定成功后调用，发送飞书群通知。
+    通知失败不影响识别结果，仅记录错误。
+    
+    Args:
+        task: DocumentRecognitionTask 实例
+        result: RecognitionResponse 识别结果
+        
+    Requirements: 1.1, 1.4, 5.1, 5.2, 5.3
+    """
+    try:
+        from .services.court_document_recognition.notification_service import (
+            DocumentRecognitionNotificationService,
+        )
+        
+        notification_service = DocumentRecognitionNotificationService()
+        
+        # 使用重命名后的文件路径（如果有），否则使用原始路径
+        # Requirements 3.3: 使用重命名后的文件路径进行推送
+        file_path = task.renamed_file_path or task.file_path
+        
+        notification_result = notification_service.send_notification(
+            case_id=result.binding.case_id,
+            document_type=task.document_type,
+            case_number=task.case_number,
+            key_time=task.key_time,
+            file_path=file_path,
+            case_name=result.binding.case_name,
+        )
+        
+        # Requirements 5.1, 5.2, 5.3: 更新任务通知状态
+        task.notification_sent = notification_result.success
+        task.notification_sent_at = notification_result.sent_at
+        task.notification_file_sent = notification_result.file_sent
+        
+        if not notification_result.success:
+            task.notification_error = notification_result.message
+            logger.warning(
+                f"文书识别通知发送失败: task_id={task.id}, error={notification_result.message}"
+            )
+        else:
+            logger.info(
+                f"📨 文书识别通知发送成功: task_id={task.id}, file_sent={notification_result.file_sent}"
+            )
+        
+        task.save(update_fields=[
+            "notification_sent",
+            "notification_sent_at",
+            "notification_file_sent",
+            "notification_error",
+        ])
+        
+    except Exception as e:
+        # Requirements 1.4: 通知失败不影响识别结果，仅记录错误
+        logger.error(
+            f"发送文书识别通知异常: task_id={task.id}, error={e}",
+            exc_info=True
+        )
+        task.notification_sent = False
+        task.notification_error = str(e)
+        task.save(update_fields=["notification_sent", "notification_error"])
+
+
 def execute_preservation_quote_task(quote_id: int):
     """
     执行财产保全询价任务（Django Q 异步任务）
@@ -241,7 +383,10 @@ def execute_preservation_quote_task(quote_id: int):
         # 创建服务实例
         token_service = TokenService()
         insurance_client = CourtInsuranceClient(token_service)
-        quote_service = PreservationQuoteService(token_service, insurance_client)
+        quote_service = PreservationQuoteService(
+            token_service=token_service,
+            insurance_client=insurance_client
+        )
         
         # 执行询价任务（异步）
         result = asyncio.run(quote_service.execute_quote(quote_id))

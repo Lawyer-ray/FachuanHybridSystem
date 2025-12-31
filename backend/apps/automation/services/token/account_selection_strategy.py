@@ -261,9 +261,9 @@ class AccountSelectionStrategy:
                     cred = organization_service.get_credential_internal(cred.id)
                     return cred.login_success_count, None
                 else:
-                    service.update_login_failure(cred.id)
+                    organization_service.update_login_failure_internal(cred.id)
                     # 重新获取更新后的值
-                    cred.refresh_from_db()
+                    cred = organization_service.get_credential_internal(cred.id)
                     return None, cred.login_failure_count
             
             success_count, failure_count = await update_credential()

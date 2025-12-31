@@ -86,6 +86,12 @@ coverage.xml
 backend/apiSystem/.coverage
 backend/apiSystem/htmlcov/
 
+# Playwright screenshots (keep folder, ignore images)
+backend/tests/screenshots/*.png
+backend/tests/screenshots/*.jpg
+backend/tests/screenshots/*.jpeg
+backend/tests/screenshots/*.webp
+
 # Personal project - exclude tests
 backend/tests/
 

@@ -2,7 +2,7 @@
 自动化工具二级菜单配置
 通过自定义 app_list 实现分组显示和侧边栏排序
 
-自动化工具栏目：文书送达定时任务、法院短信、财产保全询价、测试法院系统
+自动化工具栏目：文书送达定时任务、法院短信、财产保全询价、测试法院系统、文书智能识别
 自动化记录栏目：Token管理、Token获取历史、文书查询历史、法院文书、任务管理
 
 侧边栏顺序：
@@ -65,17 +65,19 @@ def customize_admin_index(admin_site):
                 model_name = model.get('object_name', '')
                 model_verbose_name = model.get('name', '')
                 
-                # 自动化工具：文书送达定时任务、法院短信、财产保全询价、测试法院系统
+                # 自动化工具：文书送达定时任务、法院短信、财产保全询价、测试法院系统、文书智能识别
                 is_tool_model = (
                     'DocumentDeliverySchedule' in model_name or
                     'CourtSMS' in model_name or
                     'PreservationQuote' in model_name or
                     'InsuranceQuote' in model_name or
                     'TestCourt' in model_name or
+                    'DocumentRecognitionProxy' in model_name or
                     '文书送达定时任务' in model_verbose_name or
                     '法院短信' in model_verbose_name or
                     '财产保全询价' in model_verbose_name or
-                    '测试法院' in model_verbose_name
+                    '测试法院' in model_verbose_name or
+                    '文书智能识别' in model_verbose_name
                 )
                 
                 # 自动化记录：Token管理、Token获取历史、文书查询历史、法院文书、任务管理

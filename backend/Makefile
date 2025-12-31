@@ -5,7 +5,7 @@
 
 # 默认 Python 和虚拟环境
 PYTHON := venv311/bin/python
-PIP := venv311/bin/pip
+UV := uv
 PYTEST := venv311/bin/pytest
 MANAGE := $(PYTHON) apiSystem/manage.py
 
@@ -24,15 +24,15 @@ help: ## 显示帮助信息
 # 安装和配置
 # ============================================================
 
-install: ## 安装依赖
-	$(PIP) install -r requirements.txt
+install: ## 安装依赖 (使用 uv)
+	$(UV) pip install -r requirements.txt
 
-install-dev: ## 安装开发依赖
-	$(PIP) install -r requirements.txt
-	$(PIP) install black isort flake8 mypy
+install-dev: ## 安装开发依赖 (使用 uv)
+	$(UV) pip install -r requirements.txt
+	$(UV) pip install black isort flake8 mypy
 
-venv: ## 创建虚拟环境
-	python3.11 -m venv venv311
+venv: ## 创建虚拟环境 (使用 uv)
+	$(UV) venv venv311 --python 3.11
 	@echo "$(GREEN)虚拟环境已创建，请运行: source venv311/bin/activate$(NC)"
 
 # ============================================================

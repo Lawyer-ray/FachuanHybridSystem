@@ -22,11 +22,11 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # 复制依赖文件
 COPY backend/requirements.txt .
 
-# 创建虚拟环境并安装依赖
-RUN python -m venv /opt/venv
+# 安装 uv 并创建虚拟环境
+RUN pip install --no-cache-dir uv
+RUN uv venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache-dir -r requirements.txt
 
 # ============================================================
 # Stage 2: Runtime - 最终运行镜像

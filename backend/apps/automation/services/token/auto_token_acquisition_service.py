@@ -162,7 +162,6 @@ class AutoTokenAcquisitionService:
             
             try:
                 # 再次检查token（可能在等待期间已被其他任务获取）
-                from asgiref.sync import sync_to_async
                 
                 if credential_id:
                     credential = await self._get_credential_by_id(credential_id)
@@ -172,8 +171,8 @@ class AutoTokenAcquisitionService:
                     # 先检查缓存
                     existing_token = cache_manager.get_cached_token(site_name, credential.account)
                     if not existing_token:
-                        # 缓存未命中，检查数据库
-                        existing_token = await sync_to_async(self.token_service.get_token)(site_name, credential.account)
+                        # 缓存未命中，检查数据库（token_service.get_token 是异步方法）
+                        existing_token = await self.token_service.get_token_internal(site_name, credential.account)
                         if existing_token:
                             # 缓存Token
                             cache_manager.cache_token(site_name, credential.account, existing_token)
@@ -193,8 +192,8 @@ class AutoTokenAcquisitionService:
                         # 先检查缓存
                         existing_token = cache_manager.get_cached_token(site_name, credential.account)
                         if not existing_token:
-                            # 缓存未命中，检查数据库
-                            existing_token = await sync_to_async(self.token_service.get_token)(site_name, credential.account)
+                            # 缓存未命中，检查数据库（token_service.get_token 是异步方法）
+                            existing_token = await self.token_service.get_token_internal(site_name, credential.account)
                             if existing_token:
                                 # 缓存Token
                                 cache_manager.cache_token(site_name, credential.account, existing_token)
@@ -213,7 +212,15 @@ class AutoTokenAcquisitionService:
                             "acquisition_id": acquisition_id,
                             "site_name": site_name
                         })
-                        raise NoAvailableAccountError(f"网站 {site_name} 没有配置可用账号，请先在 /admin/organization/accountcredential/ 添加账号")
+                        raise NoAvailableAccountError(
+                            f"没有找到法院一张网的账号凭证\n\n"
+                            f"请在 Admin 后台添加账号：\n"
+                            f"1. 访问 /admin/organization/accountcredential/\n"
+                            f"2. 点击「添加账号密码」\n"
+                            f"3. URL 填写：https://zxfw.court.gov.cn\n"
+                            f"4. 填写账号和密码\n"
+                            f"5. 保存后重新执行询价"
+                        )
                 
                 # 执行自动登录获取token
                 result = await self._acquire_token_by_login(
@@ -344,9 +351,8 @@ class AutoTokenAcquisitionService:
             if not available_accounts:
                 return None
             
-            # 检查该账号的token（使用sync_to_async包装同步数据库操作）
-            from asgiref.sync import sync_to_async
-            token = await sync_to_async(self.token_service.get_token)(site_name, available_accounts.account)
+            # 检查该账号的token（token_service.get_token_internal 是异步方法）
+            token = await self.token_service.get_token_internal(site_name, available_accounts.account)
             if token:
                 logger.info(f"找到有效Token", extra={
                     "site_name": site_name,
@@ -466,18 +472,18 @@ class AutoTokenAcquisitionService:
                 )
                 login_attempts.append(login_attempt)
                 
-                # 3. 保存token（使用sync_to_async包装同步数据库操作）
+                # 3. 保存token（token_service.save_token_internal 是异步方法）
                 logger.info(f"保存Token到服务", extra={
                     "acquisition_id": acquisition_id,
                     "site_name": site_name,
                     "account": credential.account
                 })
                 
-                from asgiref.sync import sync_to_async
-                await sync_to_async(self.token_service.save_token)(
+                await self.token_service.save_token_internal(
                     site_name=site_name,
                     account=credential.account,
-                    token=token
+                    token=token,
+                    expires_in=3600  # 默认1小时过期
                 )
                 
                 # 缓存新获取的Token
@@ -521,9 +527,8 @@ class AutoTokenAcquisitionService:
                 # 等待一小段时间让Token保存完成
                 await asyncio.sleep(2)
                 
-                # 检查Token是否已保存（使用sync_to_async包装同步数据库操作）
-                from asgiref.sync import sync_to_async
-                saved_token = await sync_to_async(self.token_service.get_token)(site_name, credential.account)
+                # 检查Token是否已保存（token_service.get_token_internal 是异步方法）
+                saved_token = await self.token_service.get_token_internal(site_name, credential.account)
                 if saved_token:
                     logger.info(f"✅ 超时但Token已保存成功", extra={
                         "acquisition_id": acquisition_id,
@@ -657,9 +662,8 @@ class AutoTokenAcquisitionService:
                 # 等待一小段时间让Token保存完成
                 await asyncio.sleep(2)
                 
-                # 检查Token是否已保存（使用sync_to_async包装同步数据库操作）
-                from asgiref.sync import sync_to_async
-                saved_token = await sync_to_async(self.token_service.get_token)(site_name, credential.account)
+                # 检查Token是否已保存（token_service.get_token_internal 是异步方法）
+                saved_token = await self.token_service.get_token_internal(site_name, credential.account)
                 if saved_token:
                     logger.info(f"✅ AutoLoginService超时但Token已保存成功", extra={
                         "acquisition_id": acquisition_id,

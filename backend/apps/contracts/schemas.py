@@ -23,6 +23,7 @@ class ContractPartySourceOut(Schema):
     id: int           # Client ID
     name: str         # Client 名称
     source: str       # 来源: "contract" | "supplementary"
+    role: Optional[str] = None  # 当事人角色: "PRINCIPAL" | "BENEFICIARY" | "OPPOSING"
 
 
 class SupplementaryAgreementPartyInput(Schema):
