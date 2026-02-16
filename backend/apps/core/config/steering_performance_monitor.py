@@ -94,9 +94,9 @@ class PerformanceDataCollector:
     
     def __init__(self, max_history_size: int = 1000):
         self.max_history_size = max_history_size
-        self._loading_history: deque = deque(maxlen=max_history_size)
-        self._metrics_history: deque = deque(maxlen=max_history_size)
-        self._alerts_history: deque = deque(maxlen=max_history_size)
+        self._loading_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
+        self._metrics_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
+        self._alerts_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
         self._lock = threading.RLock()
         
         # 实时统计
@@ -109,7 +109,7 @@ class PerformanceDataCollector:
         
         # 性能统计
         self._load_times: List[float] = []
-        self._memory_samples: deque = deque(maxlen=100)
+        self._memory_samples: deque[float] = deque(maxlen=100)
         
         # 启动内存监控
         self._start_memory_monitoring()
@@ -487,7 +487,7 @@ class SteeringPerformanceMonitor:
         # 启动定期检查
         self._start_periodic_checks()
     
-    def monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
+    def monitor_loading(self, spec_path: str, loading_func: Callable[[], Any]) -> Any:
         """监控规范加载"""
         if not self.enabled:
             return loading_func()
@@ -517,7 +517,7 @@ class SteeringPerformanceMonitor:
             )
             raise
     
-    def monitor_cached_loading(self, spec_path: str, loading_func: Callable, 
+    def monitor_cached_loading(self, spec_path: str, loading_func: Callable[[], Any], 
                              cache_hit: bool) -> Any:
         """监控缓存加载"""
         if not self.enabled:
