@@ -1,16 +1,16 @@
 """Business logic services."""
 
-from typing import Any
 from collections.abc import Sequence
+from typing import Any
 
 from django.db.models import Prefetch
 
 from apps.cases.models import (
+    CaseLogAttachment,
     CaseMaterial,
     CaseMaterialCategory,
     CaseMaterialGroupOrder,
     CaseMaterialSide,
-    CaseLogAttachment,
     CaseParty,
 )
 
@@ -29,7 +29,7 @@ class CaseMaterialQueryService:
         self,
         case_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[dict[str, Any]]:
         self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
@@ -82,7 +82,7 @@ class CaseMaterialQueryService:
         self,
         case_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, Any]:
         case = self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)

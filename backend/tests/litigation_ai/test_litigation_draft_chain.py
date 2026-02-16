@@ -11,7 +11,9 @@ class _FakeResponse:
 
 class _FakeLLM:
     async def ainvoke(self, messages):
-        return _FakeResponse('{"litigation_request":"一、支付货款。","facts_and_reasons":"双方签订合同。","evidence_citations":[{"evidence_item_id":123,"evidence_name":"合同","pages":"1-2","used_in":"事实与理由"}]}')
+        return _FakeResponse(
+            '{"litigation_request":"一、支付货款。","facts_and_reasons":"双方签订合同。","evidence_citations":[{"evidence_item_id":123,"evidence_name":"合同","pages":"1-2","used_in":"事实与理由"}]}'
+        )
 
 
 @pytest.mark.anyio
@@ -45,7 +47,9 @@ async def test_litigation_draft_chain_returns_structured_draft(monkeypatch):
 
 class _FakeDefenseLLM:
     async def ainvoke(self, messages):
-        return _FakeResponse('{"defense_opinion":"不同意。","defense_reason":"合同已解除。","rebuttal_to_opponent_evidence":["对方证据1与事实不符"],"evidence_citations":[]}')
+        return _FakeResponse(
+            '{"defense_opinion":"不同意。","defense_reason":"合同已解除。","rebuttal_to_opponent_evidence":["对方证据1与事实不符"],"evidence_citations":[]}'
+        )
 
 
 @pytest.mark.anyio

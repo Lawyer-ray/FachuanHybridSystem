@@ -2,14 +2,19 @@
 Organization App Schemas
 提供组织模块的数据传输对象定义
 """
-from typing import Optional, List
-from ninja import Schema, ModelSchema
-from .models import Lawyer, LawFirm, Team, TeamType, AccountCredential
+
+from typing import List, Optional
+
+from ninja import ModelSchema, Schema
+
 from apps.core.schemas import SchemaMixin
+
+from .models import AccountCredential, LawFirm, Lawyer, Team, TeamType
 
 
 class LawFirmOut(ModelSchema):
     """律所输出 Schema"""
+
     class Meta:
         model = LawFirm
         fields = ["id", "name", "address", "phone", "social_credit_code"]
@@ -17,6 +22,7 @@ class LawFirmOut(ModelSchema):
 
 class LawFirmIn(Schema):
     """律所创建输入 Schema"""
+
     name: str
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -25,6 +31,7 @@ class LawFirmIn(Schema):
 
 class LawFirmUpdateIn(Schema):
     """律所更新输入 Schema"""
+
     name: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -33,6 +40,7 @@ class LawFirmUpdateIn(Schema):
 
 class LawyerOut(ModelSchema, SchemaMixin):
     """律师输出 Schema"""
+
     license_pdf_url: Optional[str] = None
     law_firm_detail: Optional[LawFirmOut] = None
 
@@ -61,6 +69,7 @@ class LawyerOut(ModelSchema, SchemaMixin):
 
 class LawyerCreateIn(Schema):
     """律师创建输入 Schema"""
+
     username: str
     password: str
     real_name: Optional[str] = None
@@ -75,6 +84,7 @@ class LawyerCreateIn(Schema):
 
 class LawyerUpdateIn(Schema):
     """律师更新输入 Schema"""
+
     real_name: Optional[str] = None
     phone: Optional[str] = None
     license_no: Optional[str] = None
@@ -88,18 +98,21 @@ class LawyerUpdateIn(Schema):
 
 class LoginIn(Schema):
     """登录输入 Schema"""
+
     username: str
     password: str
 
 
 class LoginOut(Schema):
     """登录输出 Schema"""
+
     success: bool
     user: Optional[LawyerOut] = None
 
 
 class TeamOut(ModelSchema):
     """团队输出 Schema"""
+
     class Meta:
         model = Team
         fields = ["id", "name", "team_type", "law_firm"]
@@ -107,6 +120,7 @@ class TeamOut(ModelSchema):
 
 class TeamIn(Schema):
     """团队创建输入 Schema"""
+
     name: str
     team_type: str
     law_firm_id: int
@@ -114,6 +128,7 @@ class TeamIn(Schema):
 
 class AccountCredentialOut(ModelSchema, SchemaMixin):
     """账号凭证输出 Schema"""
+
     class Meta:
         model = AccountCredential
         fields = [
@@ -138,6 +153,7 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
 
 class AccountCredentialIn(Schema):
     """账号凭证创建输入 Schema"""
+
     lawyer_id: int
     site_name: str
     url: Optional[str] = None
@@ -147,6 +163,7 @@ class AccountCredentialIn(Schema):
 
 class AccountCredentialUpdateIn(Schema):
     """账号凭证更新输入 Schema"""
+
     site_name: Optional[str] = None
     url: Optional[str] = None
     account: Optional[str] = None

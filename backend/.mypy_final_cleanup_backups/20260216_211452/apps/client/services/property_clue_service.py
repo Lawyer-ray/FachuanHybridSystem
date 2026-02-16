@@ -2,14 +2,17 @@
 财产线索服务层
 处理财产线索相关的业务逻辑
 """
-from typing import List, Optional, Dict, Any
-from django.db.models import QuerySet
-from django.db import transaction
+
+import logging
+from typing import Any, Dict, List, Optional
+
 from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import QuerySet
 
 from apps.core.exceptions import NotFoundError, ValidationException
+
 from ..models import PropertyClue, PropertyClueAttachment
-import logging
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")
@@ -29,7 +32,7 @@ class PropertyClueService:
     def __init__(self, client_service: Optional["ClientService"] = None):
         """
         初始化服务
-        
+
         Args:
             client_service: ClientService 实例，支持依赖注入
         """
@@ -40,16 +43,12 @@ class PropertyClueService:
         """延迟获取 ClientService"""
         if self._client_service is None:
             from .client_service import ClientService
+
             self._client_service = ClientService()
         return self._client_service
 
     @transaction.atomic
-    def create_clue(
-        self,
-        client_id: int,
-        data: Dict[str, Any],
-        user: Optional[User] = None
-    ) -> PropertyClue:
+    def create_clue(self, client_id: int, data: Dict[str, Any], user: Optional[User] = None) -> PropertyClue:
         """
         创建财产线索
 
@@ -73,7 +72,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=f"当事人不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
+                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
 
         # 2. 验证线索类型
@@ -82,15 +81,11 @@ class PropertyClueService:
             raise ValidationException(
                 message="无效的线索类型",
                 code="INVALID_CLUE_TYPE",
-                errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"}
+                errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
             )
 
         # 3. 创建财产线索
-        clue = PropertyClue.objects.create(
-            client=client,
-            clue_type=clue_type,
-            content=data.get("content", "")
-        )
+        clue = PropertyClue.objects.create(client=client, clue_type=clue_type, content=data.get("content", ""))
 
         # 4. 记录日志
         logger.info(
@@ -100,8 +95,8 @@ class PropertyClueService:
                 "client_id": client_id,
                 "clue_type": clue_type,
                 "user_id": user.id if user else None,
-                "action": "create_clue"
-            }
+                "action": "create_clue",
+            },
         )
 
         return clue
@@ -123,24 +118,18 @@ class PropertyClueService:
         Requirements: 1.1
         """
         # 使用 prefetch_related 优化附件查询
-        clue = PropertyClue.objects.prefetch_related("attachments").filter(
-            id=clue_id
-        ).first()
+        clue = PropertyClue.objects.prefetch_related("attachments").filter(id=clue_id).first()
 
         if not clue:
             raise NotFoundError(
                 message=f"财产线索不存在",
                 code="CLUE_NOT_FOUND",
-                errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"}
+                errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"},
             )
 
         return clue
 
-    def list_clues_by_client(
-        self,
-        client_id: int,
-        user: Optional[User] = None
-    ) -> List[PropertyClue]:
+    def list_clues_by_client(self, client_id: int, user: Optional[User] = None) -> List[PropertyClue]:
         """
         获取当事人的所有财产线索
 
@@ -159,23 +148,16 @@ class PropertyClueService:
             raise NotFoundError(
                 message=f"当事人不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
+                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
 
         # 使用 prefetch_related 优化附件查询
-        clues = PropertyClue.objects.prefetch_related("attachments").filter(
-            client_id=client_id
-        ).order_by("-created_at")
+        clues = PropertyClue.objects.prefetch_related("attachments").filter(client_id=client_id).order_by("-created_at")
 
         return list(clues)
 
     @transaction.atomic
-    def update_clue(
-        self,
-        clue_id: int,
-        data: Dict[str, Any],
-        user: Optional[User] = None
-    ) -> PropertyClue:
+    def update_clue(self, clue_id: int, data: Dict[str, Any], user: Optional[User] = None) -> PropertyClue:
         """
         更新财产线索
 
@@ -203,7 +185,7 @@ class PropertyClueService:
                 raise ValidationException(
                     message="无效的线索类型",
                     code="INVALID_CLUE_TYPE",
-                    errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"}
+                    errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
                 )
             clue.clue_type = clue_type
 
@@ -217,11 +199,7 @@ class PropertyClueService:
         # 5. 记录日志
         logger.info(
             f"财产线索更新成功",
-            extra={
-                "clue_id": clue.id,
-                "user_id": user.id if user else None,
-                "action": "update_clue"
-            }
+            extra={"clue_id": clue.id, "user_id": user.id if user else None, "action": "update_clue"},
         )
 
         return clue
@@ -249,20 +227,12 @@ class PropertyClueService:
         # 3. 记录日志
         logger.info(
             f"财产线索删除成功",
-            extra={
-                "clue_id": clue_id,
-                "user_id": user.id if user else None,
-                "action": "delete_clue"
-            }
+            extra={"clue_id": clue_id, "user_id": user.id if user else None, "action": "delete_clue"},
         )
 
     @transaction.atomic
     def add_attachment(
-        self,
-        clue_id: int,
-        file_path: str,
-        file_name: str,
-        user: Optional[User] = None
+        self, clue_id: int, file_path: str, file_name: str, user: Optional[User] = None
     ) -> PropertyClueAttachment:
         """
         为财产线索添加附件
@@ -292,16 +262,12 @@ class PropertyClueService:
                 code="INVALID_FILE_INFO",
                 errors={
                     "file_path": "文件路径不能为空" if not file_path else None,
-                    "file_name": "文件名不能为空" if not file_name else None
-                }
+                    "file_name": "文件名不能为空" if not file_name else None,
+                },
             )
 
         # 3. 创建附件
-        attachment = PropertyClueAttachment.objects.create(
-            property_clue=clue,
-            file_path=file_path,
-            file_name=file_name
-        )
+        attachment = PropertyClueAttachment.objects.create(property_clue=clue, file_path=file_path, file_name=file_name)
 
         # 4. 记录日志
         logger.info(
@@ -311,18 +277,14 @@ class PropertyClueService:
                 "clue_id": clue_id,
                 "file_name": file_name,
                 "user_id": user.id if user else None,
-                "action": "add_attachment"
-            }
+                "action": "add_attachment",
+            },
         )
 
         return attachment
 
     @transaction.atomic
-    def delete_attachment(
-        self,
-        attachment_id: int,
-        user: Optional[User] = None
-    ) -> None:
+    def delete_attachment(self, attachment_id: int, user: Optional[User] = None) -> None:
         """
         删除财产线索附件
 
@@ -342,7 +304,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=f"附件不存在",
                 code="ATTACHMENT_NOT_FOUND",
-                errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"}
+                errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
             )
 
         # 2. 删除附件
@@ -351,11 +313,7 @@ class PropertyClueService:
         # 3. 记录日志
         logger.info(
             f"财产线索附件删除成功",
-            extra={
-                "attachment_id": attachment_id,
-                "user_id": user.id if user else None,
-                "action": "delete_attachment"
-            }
+            extra={"attachment_id": attachment_id, "user_id": user.id if user else None, "action": "delete_attachment"},
         )
 
     @staticmethod

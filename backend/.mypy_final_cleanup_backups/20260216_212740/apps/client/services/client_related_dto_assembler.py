@@ -1,10 +1,9 @@
 """External service client."""
 
-from typing import cast, Any
-
-from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
+from typing import Any, cast
 
 from apps.client.models import ClientIdentityDoc, PropertyClue
+from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
 
 
 class ClientRelatedDtoAssembler:

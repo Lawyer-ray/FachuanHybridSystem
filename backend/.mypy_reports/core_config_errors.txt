@@ -1,12 +1,12 @@
 apps/core/config/validators/base.py:56:94: error: Incompatible default for
-argument "config" (default has type "None", argument has type "dict[str, Any]") 
+argument "config" (default has type "None", argument has type "dict[str, Any]")
 [assignment]
     ... field_def: Any = None, config: Dict[str, Any] = None) -> ValidationRe...
                                                         ^~~~
 apps/core/config/validators/base.py:56:94: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/core/config/validators/base.py:56:94: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
 apps/core/config/validators/base.py:94:94: error: Incompatible default for
-argument "config" (default has type "None", argument has type "dict[str, Any]") 
+argument "config" (default has type "None", argument has type "dict[str, Any]")
 [assignment]
     ... field_def: Any = None, config: Dict[str, Any] = None) -> ValidationRe...
                                                         ^~~~
@@ -164,7 +164,7 @@ from function declared to return "dict[str, Any]"  [no-any-return]
 apps/core/config/steering_performance_monitor.py:390:29: error: Argument "key"
 to "sort" of "list" has incompatible type
 "Callable[[dict[str, object]], object]"; expected
-"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"
 [arg-type]
             slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
                                 ^
@@ -179,14 +179,14 @@ parameters for generic type "Callable"  [type-arg]
                                                             ^
 apps/core/config/steering_performance_monitor.py:520:68: error: Missing type
 parameters for generic type "Callable"  [type-arg]
-    ... monitor_cached_loading(self, spec_path: str, loading_func: Callable, 
+    ... monitor_cached_loading(self, spec_path: str, loading_func: Callable,
                                                                    ^
 apps/core/config/steering_cache_strategies.py:108:9: error: Returning Any from
 function declared to return "bool"  [no-any-return]
             return cache_state.get("cache_size", 0) >= self.max_entries
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/steering_cache_strategies.py:316:9: error: Need type
-annotation for "recent_hits" (hint: "recent_hits: List[<type>] = ...") 
+annotation for "recent_hits" (hint: "recent_hits: List[<type>] = ...")
 [var-annotated]
             self.recent_hits = []
             ^~~~~~~~~~~~~~~~
@@ -592,7 +592,7 @@ from function declared to return "dict[str, Any]"  [no-any-return]
 apps/core/config/steering/performance_monitor.py:409:29: error: Argument "key"
 to "sort" of "list" has incompatible type
 "Callable[[dict[str, object]], object]"; expected
-"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"
 [arg-type]
             slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
                                 ^
@@ -668,7 +668,7 @@ apps/core/config/migration_runtime/rollback.py:90:41: error: Item "None" of
                 self.state.rollback_stack = rollback_point.get("rollback_s...
                                             ^~~~~~~~~~~~~~~~~~
 apps/core/config/steering_dependency_manager.py:329:13: error: Need type
-annotation for "levels" (hint: "levels: Dict[<type>, <type>] = ...") 
+annotation for "levels" (hint: "levels: Dict[<type>, <type>] = ...")
 [var-annotated]
                 levels = {}
                 ^~~~~~
@@ -714,7 +714,7 @@ keyword argument "conflicts" for "LoadOrderResult"  [call-arg]
                 return LoadOrderResult(
                        ^
 apps/core/config/providers/yaml.py:90:35: error: Incompatible types in
-assignment (expression has type "dict[str, Any]", variable has type "None") 
+assignment (expression has type "dict[str, Any]", variable has type "None")
 [assignment]
                 self._cached_config = flattened_config
                                       ^~~~~~~~~~~~~~~~
@@ -735,7 +735,7 @@ apps/core/config/providers/yaml.py:176:9: error: Need type annotation for
             result = {}
             ^~~~~~
 apps/core/config/providers/yaml.py:254:9: error: Need type annotation for
-"template_config" (hint: "template_config: Dict[<type>, <type>] = ...") 
+"template_config" (hint: "template_config: Dict[<type>, <type>] = ...")
 [var-annotated]
             template_config = {}
             ^~~~~~~~~~~~~~~
@@ -797,7 +797,7 @@ apps/core/config/manager.py:1643:9: error: Need type annotation for "snapshots"
             snapshots = []
             ^~~~~~~~~
 apps/core/config/manager.py:1781:46: error: Incompatible types in assignment
-(expression has type "SteeringIntegrationManager", variable has type "None") 
+(expression has type "SteeringIntegrationManager", variable has type "None")
 [assignment]
                     self._steering_integration = SteeringIntegrationManage...
                                                  ^~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -830,12 +830,12 @@ function declared to return "SteeringDependencyConfig"  [no-any-return]
                     return self._cache[cache_key]
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/steering_integration.py:238:9: error: Need type annotation for
-"_file_pattern_cache" (hint: "_file_pattern_cache: Dict[<type>, <type>] = ...") 
+"_file_pattern_cache" (hint: "_file_pattern_cache: Dict[<type>, <type>] = ...")
 [var-annotated]
             self._file_pattern_cache = {}
             ^~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/steering_integration.py:275:9: error: Need type annotation for
-"applicable_specs" (hint: "applicable_specs: List[<type>] = ...") 
+"applicable_specs" (hint: "applicable_specs: List[<type>] = ...")
 [var-annotated]
             applicable_specs = []
             ^~~~~~~~~~~~~~~~
@@ -848,7 +848,7 @@ apps/core/config/steering_integration.py:350:9: error: Need type annotation for
             self._cache = {}
             ^~~~~~~~~~~
 apps/core/config/steering_integration.py:351:9: error: Need type annotation for
-"_access_times" (hint: "_access_times: Dict[<type>, <type>] = ...") 
+"_access_times" (hint: "_access_times: Dict[<type>, <type>] = ...")
 [var-annotated]
             self._access_times = {}
             ^~~~~~~~~~~~~~~~~~
@@ -881,7 +881,7 @@ for generic type "Callable"  [type-arg]
     ... monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
                                                             ^
 apps/core/config/steering_integration.py:585:9: error: Need type annotation for
-"_dependency_graph" (hint: "_dependency_graph: Dict[<type>, <type>] = ...") 
+"_dependency_graph" (hint: "_dependency_graph: Dict[<type>, <type>] = ...")
 [var-annotated]
             self._dependency_graph = {}
             ^~~~~~~~~~~~~~~~~~~~~~
@@ -894,7 +894,7 @@ function declared to return "int"  [no-any-return]
                                 return metadata.get('priority', 0)
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/steering_integration.py:781:9: error: Need type annotation for
-"cache_config" (hint: "cache_config: Dict[<type>, <type>] = ...") 
+"cache_config" (hint: "cache_config: Dict[<type>, <type>] = ...")
 [var-annotated]
             cache_config = self.config_manager.get("steering.cache", {})
             ^~~~~~~~~~~~
@@ -940,13 +940,13 @@ from function declared to return "SteeringDependencyConfig"  [no-any-return]
                     return self._cache[cache_key]
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/utils.py:14:82: error: Incompatible default for argument
-"fallback_settings_key" (default has type "None", argument has type "str") 
+"fallback_settings_key" (default has type "None", argument has type "str")
 [assignment]
     ...: str, default: Any = None, fallback_settings_key: str = None) -> Any:
                                                                 ^~~~
 apps/core/config/utils.py:14:82: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/core/config/utils.py:14:82: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
-apps/core/config/utils.py:202:9: error: No return value expected 
+apps/core/config/utils.py:202:9: error: No return value expected
 [return-value]
             return getattr(settings, 'UNIFIED_CONFIG_MANAGER', None)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -970,15 +970,15 @@ apps/core/config/migrator.py:463:13: error: Unsupported target for indexed
 assignment ("object")  [index]
                 analysis['config_types'][config_type] = analysis['config_t...
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/config/migrator.py:463:53: error: "object" has no attribute "get" 
+apps/core/config/migrator.py:463:53: error: "object" has no attribute "get"
 [attr-defined]
     ...         analysis['config_types'][config_type] = analysis['config_type...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
-apps/core/config/migrator.py:467:17: error: "object" has no attribute "append" 
+apps/core/config/migrator.py:467:17: error: "object" has no attribute "append"
 [attr-defined]
                     analysis['sensitive_configs'].append(key)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/config/migrator.py:471:17: error: "object" has no attribute "append" 
+apps/core/config/migrator.py:471:17: error: "object" has no attribute "append"
 [attr-defined]
                     analysis['complex_configs'].append(key)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1047,7 +1047,7 @@ has no attribute "migrated_configs"  [union-attr]
             self._current_migration.migrated_configs += migrated_count
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/migrator.py:805:41: error: Argument 1 to
-"ConfigValidationError" has incompatible type "str"; expected "list[str]" 
+"ConfigValidationError" has incompatible type "str"; expected "list[str]"
 [arg-type]
                 raise ConfigValidationError(f"缺少必需的配置项: {', '.join(missing...
                                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -1153,7 +1153,7 @@ declared to return "bool"  [no-any-return]
                 return django_settings.is_overridden(setting)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/config/compatibility.py:352:9: error: Need type annotation for
-"settings_dict" (hint: "settings_dict: Dict[<type>, <type>] = ...") 
+"settings_dict" (hint: "settings_dict: Dict[<type>, <type>] = ...")
 [var-annotated]
             settings_dict = {}
             ^~~~~~~~~~~~~
@@ -1280,7 +1280,7 @@ apps/core/config/manager_tools.py:195:1: error: Function is missing a type
 annotation for one or more arguments  [no-untyped-def]
     def get_steering_integration(self) -> None:
     ^
-apps/core/config/manager_tools.py:198:5: error: No return value expected 
+apps/core/config/manager_tools.py:198:5: error: No return value expected
 [return-value]
         return self._steering_integration
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,6 +1,6 @@
 """Business workflow orchestration."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 from typing import Any
 
@@ -9,7 +9,7 @@ from apps.core.interfaces import CaseDTO
 
 
 class ContractCaseCreationWorkflow:
-    def __init__(self, *,  case_service: Any) -> None:
+    def __init__(self, *, case_service: Any) -> None:
         self.case_service = case_service
 
     def create_case_from_contract(

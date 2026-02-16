@@ -1,5 +1,6 @@
-from django.test import TestCase
 from unittest.mock import MagicMock
+
+from django.test import TestCase
 
 from apps.core.security import AccessContext, get_request_access_context
 
@@ -20,4 +21,3 @@ class AccessContextTest(TestCase):
         self.assertEqual(ctx.user, "u")
         self.assertEqual(ctx.org_access, {"k": 1})
         self.assertTrue(ctx.perm_open_access)
-

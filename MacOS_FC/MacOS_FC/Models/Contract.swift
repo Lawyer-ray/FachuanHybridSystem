@@ -30,17 +30,17 @@ struct Contract: Codable, Identifiable {
     let totalReceived: Double?
     let totalInvoiced: Double?
     let unpaidAmount: Double?
-    
+
     // MARK: - 计算属性
-    
+
     var displayName: String {
         name.isEmpty ? "未命名合同" : name
     }
-    
+
     var folderName: String {
         "\(displayName)_\(id)"
     }
-    
+
     var isActive: Bool {
         status == "active" && !isArchived
     }

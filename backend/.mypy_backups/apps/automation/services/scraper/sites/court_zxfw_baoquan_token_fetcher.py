@@ -1,6 +1,6 @@
 """Business logic services."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import logging
 import time
@@ -9,6 +9,7 @@ from typing import Any, Protocol
 from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.utils.logging_mixins.common import sanitize_url
+
 from .court_zxfw_token_extractors import (
     extract_baoquan_token_from_authorization_json,
     extract_token_from_url_query,
@@ -26,12 +27,12 @@ class BaoquanTokenFetcher:
     BAOQUAN_URL = "https://zxfw.court.gov.cn/zxfw/#/pagesOther/common/wsdb/index"
     BAOQUAN_SITE_NAME = "court_baoquan"
 
-    def __init__(self, *,  page: Page, context: BrowserContext, save_screenshot: ScreenshotSaver | None = None) -> None:
+    def __init__(self, *, page: Page, context: BrowserContext, save_screenshot: ScreenshotSaver | None = None) -> None:
         self.page = page
         self.context = context
         self._save_screenshot = save_screenshot
 
-    def fetch(self, *,  save_debug: bool = False) -> dict[str, Any]:
+    def fetch(self, *, save_debug: bool = False) -> dict[str, Any]:
         logger.info("=" * 60)
         logger.info("开始获取保全系统 Token (HS512)...")
         logger.info("=" * 60)
@@ -73,7 +74,7 @@ class BaoquanTokenFetcher:
                 self._save_screenshot("baoquan_error")
             raise
 
-    def _make_response_handler(self, captured_token: dict[str, str | None])  -> None:
+    def _make_response_handler(self, captured_token: dict[str, str | None]) -> None:
         """创建 Playwright 响应事件处理器"""
 
         def handle_response(response) -> None:

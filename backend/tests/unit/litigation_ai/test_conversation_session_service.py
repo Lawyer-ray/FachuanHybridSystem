@@ -1,11 +1,13 @@
 """
 LitigationConversationSessionService 单元测试（聚合服务）
 """
-import pytest
+
 from unittest.mock import Mock, patch
 
-from apps.litigation_ai.services.conversation_session_service import LitigationConversationSessionService
+import pytest
+
 from apps.core.exceptions import NotFoundError
+from apps.litigation_ai.services.conversation_session_service import LitigationConversationSessionService
 
 
 @pytest.mark.django_db
@@ -48,10 +50,7 @@ class TestLitigationConversationSessionService:
         session_dto = self.service.create_session(case_id=1, user_id=100)
 
         # 执行测试
-        updated_dto = self.service.update_session_status(
-            session_id=session_dto.session_id,
-            status="completed"
-        )
+        updated_dto = self.service.update_session_status(session_id=session_dto.session_id, status="completed")
 
         # 断言结果
         assert updated_dto.status == "completed"
@@ -85,11 +84,7 @@ class TestLitigationConversationSessionService:
         session_dto = self.service.create_session(case_id=1, user_id=100)
 
         # 执行测试
-        message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="user",
-            content="测试消息"
-        )
+        message_dto = self.service.add_message(session_id=session_dto.session_id, role="user", content="测试消息")
 
         # 断言结果
         assert message_dto.content == "测试消息"
@@ -154,10 +149,7 @@ class TestLitigationConversationSessionService:
         ]
 
         # 执行测试
-        created_messages = self.service.add_messages_batch(
-            session_id=session_dto.session_id,
-            messages=messages
-        )
+        created_messages = self.service.add_messages_batch(session_id=session_dto.session_id, messages=messages)
 
         # 断言结果
         assert len(created_messages) == 2
@@ -174,11 +166,9 @@ class TestLitigationConversationSessionService:
         # 断言结果
         assert len(messages) >= 1
 
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_case_service')
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service')
-    def test_get_recommended_document_types_delegates_to_lifecycle(
-        self, mock_signals_service, mock_case_service
-    ):
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_case_service")
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service")
+    def test_get_recommended_document_types_delegates_to_lifecycle(self, mock_signals_service, mock_case_service):
         """测试获取推荐文书类型委托给生命周期服务"""
         from apps.core.enums import LegalStatus
         from apps.litigation_ai.models.choices import DocumentType
@@ -249,12 +239,7 @@ class TestLitigationConversationSessionServiceBackwardCompatibility:
         from apps.litigation_ai.models import LitigationSession
 
         # 创建测试会话
-        session = LitigationSession.objects.create(
-            case_id=1,
-            user_id=100,
-            status="active",
-            metadata={}
-        )
+        session = LitigationSession.objects.create(case_id=1, user_id=100, status="active", metadata={})
 
         # 执行测试
         dto = self.service._to_session_dto(session)
@@ -266,14 +251,11 @@ class TestLitigationConversationSessionServiceBackwardCompatibility:
         """测试 _to_message_dto 向后兼容"""
         # 创建测试会话和消息
         session_dto = self.service.create_session(case_id=1, user_id=100)
-        message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="user",
-            content="测试消息"
-        )
+        message_dto = self.service.add_message(session_id=session_dto.session_id, role="user", content="测试消息")
 
         # 从数据库获取消息对象
         from apps.conversation_history.models import ConversationMessage
+
         message = ConversationMessage.objects.get(id=message_dto.id)
 
         # 执行测试
@@ -354,14 +336,8 @@ class TestLitigationConversationSessionServiceIntegration:
         session_dto = self.service.create_session(case_id=1, user_id=100)
 
         # 批量添加消息
-        messages = [
-            {"role": "user", "content": f"消息{i}"}
-            for i in range(5)
-        ]
-        created_messages = self.service.add_messages_batch(
-            session_id=session_dto.session_id,
-            messages=messages
-        )
+        messages = [{"role": "user", "content": f"消息{i}"} for i in range(5)]
+        created_messages = self.service.add_messages_batch(session_id=session_dto.session_id, messages=messages)
 
         # 验证批量添加成功
         assert len(created_messages) == 5
@@ -383,7 +359,7 @@ class TestLitigationConversationSessionServiceIntegration:
         updated_dto = self.service.update_session_status(
             session_id=session_dto.session_id,
             status="active",
-            metadata_updates={"step": "evidence_collection", "progress": 50}
+            metadata_updates={"step": "evidence_collection", "progress": 50},
         )
 
         # 验证元数据

@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,9 +7,8 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
-
 from apps.cases.models import Case, CaseLog, CaseLogVersion
+from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
 
 from .case_log_query_service import CaseLogQueryService
 
@@ -23,7 +23,7 @@ class CaseLogMutationService:
         case_id: int,
         content: str,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
@@ -58,7 +58,7 @@ class CaseLogMutationService:
         log_id: int,
         data: dict[str, Any],
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         log = self.query_service.get_log_internal(log_id=log_id)
@@ -90,7 +90,7 @@ class CaseLogMutationService:
         *,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         log = self.query_service.get_log_internal(log_id=log_id)

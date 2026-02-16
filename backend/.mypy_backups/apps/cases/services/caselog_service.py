@@ -3,14 +3,17 @@
 处理案件日志相关的业务逻辑
 符合三层架构规范：业务逻辑、权限检查、事务处理
 """
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from django.db import transaction
-from django.db.models import QuerySet, Q
-from django.core.files.uploadedfile import UploadedFile
 
-from apps.core.exceptions import NotFoundError, ValidationException, PermissionDenied
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
+from django.db.models import Q, QuerySet
+
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
+
 from ..models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
 
 
@@ -26,10 +29,7 @@ class CaseLogService:
     """
 
     # 允许的附件扩展名
-    ALLOWED_EXTENSIONS = {
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-        ".ppt", ".pptx", ".jpg", ".jpeg", ".png"
-    }
+    ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".jpg", ".jpeg", ".png"}
 
     # 最大文件大小 (50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -331,9 +331,7 @@ class CaseLogService:
 
         # 检查团队成员或被指派到该案件
         lawyers = list(org_access.get("lawyers", []))
-        if case_obj.assignments.filter(
-            Q(lawyer_id__in=lawyers) | Q(lawyer_id=uid)
-        ).exists():
+        if case_obj.assignments.filter(Q(lawyer_id__in=lawyers) | Q(lawyer_id=uid)).exists():
             return True
 
         return False
@@ -355,15 +353,13 @@ class CaseLogService:
 
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValidationException(
-                "不支持的文件类型",
-                errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
+                "不支持的文件类型", errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
             )
 
         size = getattr(file, "size", 0)
         if size and size > self.MAX_FILE_SIZE:
             raise ValidationException(
-                "文件大小超过限制",
-                errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024*1024)}MB"}
+                "文件大小超过限制", errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024*1024)}MB"}
             )
 
     # ============================================================
@@ -425,11 +421,7 @@ class CaseLogService:
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
             raise PermissionDenied("无权限访问此日志版本")
 
-        return list(
-            CaseLogVersion.objects.filter(log_id=log_id)
-            .select_related("actor")
-            .order_by("-version_at")
-        )
+        return list(CaseLogVersion.objects.filter(log_id=log_id).select_related("actor").order_by("-version_at"))
 
     def delete_attachment(
         self,

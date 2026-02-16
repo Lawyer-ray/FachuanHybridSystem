@@ -1,11 +1,10 @@
 """Module for secret codec."""
+
 from __future__ import annotations
-
-
 
 import base64
 from dataclasses import dataclass
-from typing import cast, Any
+from typing import Any, cast
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings

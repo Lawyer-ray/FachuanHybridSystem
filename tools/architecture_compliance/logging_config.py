@@ -1,6 +1,7 @@
 """
 架构合规性工具的日志配置
 """
+
 from __future__ import annotations
 
 import logging

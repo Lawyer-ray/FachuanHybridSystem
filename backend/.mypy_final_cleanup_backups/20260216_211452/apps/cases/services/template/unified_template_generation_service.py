@@ -8,7 +8,7 @@ Requirements: 1.1, 1.2, 1.3, 1.4, 1.6
 """
 
 import logging
-from typing import Any, cast, Tuple
+from typing import Any, Tuple, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
 

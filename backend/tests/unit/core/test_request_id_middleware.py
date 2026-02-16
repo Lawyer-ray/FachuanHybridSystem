@@ -133,7 +133,9 @@ def test_request_id_middleware_does_not_leak_between_threads():
         middleware = RequestIdMiddleware(get_response)
         req = DummyRequest(headers={"X-Request-ID": rid})
         _resp = middleware(req)
-        return (not hasattr(threading.current_thread(), "request_id")) and (not hasattr(threading.current_thread(), "trace_id"))
+        return (not hasattr(threading.current_thread(), "request_id")) and (
+            not hasattr(threading.current_thread(), "trace_id")
+        )
 
     with ThreadPoolExecutor(max_workers=2) as ex:
         f1 = ex.submit(run_in_thread, "rid-t1")

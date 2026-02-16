@@ -1,16 +1,15 @@
 """Module for legacy service locator."""
+
 from __future__ import annotations
-
-
 
 from typing import Any, ClassVar
 
 from apps.core.protocols import (
     IAccountSelectionStrategy,
     IAutoLoginService,
+    IAutomationService,
     IAutoNamerService,
     IAutoTokenAcquisitionService,
-    IAutomationService,
     IBrowserService,
     ICaptchaService,
     ICaseChatService,
@@ -23,6 +22,7 @@ from apps.core.protocols import (
     ICourtDocumentRecognitionService,
     ICourtDocumentService,
     ICourtSMSService,
+    IDocumentProcessingService,
     ILawFirmService,
     ILawyerService,
     IMonitorService,
@@ -32,7 +32,6 @@ from apps.core.protocols import (
     ISecurityService,
     ITokenService,
     IValidatorService,
-    IDocumentProcessingService,
 )
 
 
@@ -331,4 +330,3 @@ class LegacyServiceLocator:
             service = CourtDocumentRecognitionServiceAdapter()
             cls.register("court_document_recognition_service", service)
         return service
-

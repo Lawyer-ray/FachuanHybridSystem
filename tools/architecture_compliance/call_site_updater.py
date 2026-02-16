@@ -9,6 +9,7 @@
 
 采用行级正则替换，与 StaticMethodConverter 保持一致。
 """
+
 from __future__ import annotations
 
 import ast
@@ -73,11 +74,20 @@ class CallSiteUpdateReport:
 
 # ── 排除目录 ────────────────────────────────────────────────
 
-_EXCLUDE_DIRS: frozenset[str] = frozenset({
-    "__pycache__", ".git", ".tox", ".mypy_cache",
-    ".pytest_cache", "node_modules", "migrations",
-    "venv", ".venv", "venv312",
-})
+_EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+        "node_modules",
+        "migrations",
+        "venv",
+        ".venv",
+        "venv312",
+    }
+)
 
 
 # ── CallSiteUpdater ─────────────────────────────────────────
@@ -144,13 +154,15 @@ class CallSiteUpdater:
                 if stripped.startswith("#"):
                     continue
                 if pattern.search(line):
-                    call_sites.append(CallSite(
-                        file_path=str(py_file),
-                        line_number=lineno,
-                        original_code=stripped,
-                        class_name=class_name,
-                        method_name=method_name,
-                    ))
+                    call_sites.append(
+                        CallSite(
+                            file_path=str(py_file),
+                            line_number=lineno,
+                            original_code=stripped,
+                            class_name=class_name,
+                            method_name=method_name,
+                        )
+                    )
 
         logger.info(
             "扫描到 %d 个 %s.%s() 调用点",
@@ -185,7 +197,9 @@ class CallSiteUpdater:
         report = CallSiteUpdateReport()
 
         call_sites = self.scan_call_sites(
-            root, class_name, method_name,
+            root,
+            class_name,
+            method_name,
             exclude_file=exclude_file,
         )
         report.total_call_sites_found = len(call_sites)
@@ -200,7 +214,10 @@ class CallSiteUpdater:
         for file_path_str, sites in sites_by_file.items():
             file_path = Path(file_path_str)
             file_report = self._update_file_call_sites(
-                file_path, sites, class_name, method_name,
+                file_path,
+                sites,
+                class_name,
+                method_name,
                 dry_run=dry_run,
             )
             report.file_reports.append(file_report)
@@ -308,7 +325,9 @@ class CallSiteUpdater:
 
         # 检查文件中是否已有该类的实例
         has_existing_instance = self._find_existing_instance(
-            source, class_name, instance_var,
+            source,
+            class_name,
+            instance_var,
         )
 
         # 检查调用点是否在同类内部
@@ -317,16 +336,15 @@ class CallSiteUpdater:
         for site in call_sites:
             line_idx = site.line_number - 1
             if line_idx < 0 or line_idx >= len(lines):
-                file_report.errors.append(
-                    f"行号越界: {site.line_number}"
-                )
+                file_report.errors.append(f"行号越界: {site.line_number}")
                 continue
 
             line = lines[line_idx]
 
             # 判断是否在同类内部
             in_same_class = self._is_in_class(
-                site.line_number, class_line_ranges,
+                site.line_number,
+                class_line_ranges,
             )
 
             if in_same_class:
@@ -349,20 +367,19 @@ class CallSiteUpdater:
                 lines[line_idx] = new_line
                 updated_count += 1
                 file_report.changes.append(
-                    f"行 {site.line_number}: "
-                    f"{class_name}.{method_name}() → "
-                    f"{replacement}{method_name}()"
+                    f"行 {site.line_number}: " f"{class_name}.{method_name}() → " f"{replacement}{method_name}()"
                 )
 
         # 如果需要实例化且文件中没有现有实例，插入实例化代码
         if needs_instantiation and not has_existing_instance:
             lines = self._insert_instantiation(
-                lines, tree, class_name, instance_var,
+                lines,
+                tree,
+                class_name,
+                instance_var,
             )
             file_report.instantiation_added = True
-            file_report.changes.append(
-                f"插入实例化代码: {instance_var} = {class_name}()"
-            )
+            file_report.changes.append(f"插入实例化代码: {instance_var} = {class_name}()")
 
         file_report.call_sites_updated = updated_count
 
@@ -371,9 +388,7 @@ class CallSiteUpdater:
         try:
             ast.parse(new_source)
         except SyntaxError as exc:
-            file_report.errors.append(
-                f"更新后语法错误 (行 {exc.lineno}): {exc.msg}"
-            )
+            file_report.errors.append(f"更新后语法错误 (行 {exc.lineno}): {exc.msg}")
             return file_report
 
         if not dry_run and updated_count > 0:
@@ -457,10 +472,7 @@ class CallSiteUpdater:
         Returns:
             True 表示在类内部
         """
-        return any(
-            start <= line_number <= end
-            for start, end in class_ranges
-        )
+        return any(start <= line_number <= end for start, end in class_ranges)
 
     # ── 实例化代码插入 ──────────────────────────────────────
 

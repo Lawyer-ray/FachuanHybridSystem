@@ -56,4 +56,3 @@ def test_folder_templates_cache_busted_on_template_update():
 
     second = service.find_matching_folder_templates("contract", "civil")
     assert all(item["id"] != template.id for item in second)
-

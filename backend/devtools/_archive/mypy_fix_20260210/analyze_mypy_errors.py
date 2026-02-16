@@ -2,8 +2,8 @@
 """分析 mypy 错误类型"""
 
 import argparse
-import subprocess
 import re
+import subprocess
 import sys
 from collections import Counter
 

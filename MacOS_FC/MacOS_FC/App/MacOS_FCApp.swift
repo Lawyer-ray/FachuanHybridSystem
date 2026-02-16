@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct MacOS_FCApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
+
     var body: some Scene {
         WindowGroup {
             MainWindowView()
@@ -24,13 +24,13 @@ struct MacOS_FCApp: App {
                     NotificationCenter.default.post(name: .createContractFolder, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
-                
+
                 Button("新建案件文件夹") {
                     NotificationCenter.default.post(name: .createCaseFolder, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command, .option])
             }
-            
+
             // 视图菜单
             CommandGroup(after: .sidebar) {
                 Button("刷新") {
@@ -39,7 +39,7 @@ struct MacOS_FCApp: App {
                 .keyboardShortcut("r", modifiers: .command)
             }
         }
-        
+
         // 设置窗口
         Settings {
             SettingsView()

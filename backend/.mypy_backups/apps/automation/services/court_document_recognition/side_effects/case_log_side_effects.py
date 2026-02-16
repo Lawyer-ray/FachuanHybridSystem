@@ -5,9 +5,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
-from apps.core.exceptions import ValidationException
-
 from apps.automation.services.court_document_recognition.data_classes import DocumentType
+from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.automation")
 
@@ -24,10 +23,7 @@ class CaseLogSideEffects:
             return file_path
         if media_root and file_path.startswith(media_root):
             return os.path.relpath(file_path, media_root)
-        logger.warning(
-            "文件路径不在 MEDIA_ROOT 下",
-            extra= {}
-        )
+        logger.warning("文件路径不在 MEDIA_ROOT 下", extra={})
         return file_path
 
     def create_case_log(
@@ -54,10 +50,7 @@ class CaseLogSideEffects:
                 case_log_id=case_log_id, file_path=relative_path, file_name=file_name
             )
             if not success:
-                logger.warning(
-                    "添加日志附件失败",
-                    extra= {}
-                )
+                logger.warning("添加日志附件失败", extra={})
 
         return case_log_id
 
@@ -77,7 +70,7 @@ class CaseLogSideEffects:
             if success:
                 logger.debug(
                     "更新日志提醒成功",
-                    extra= {
+                    extra={
                         "action": "update_log_reminder",
                         "case_log_id": case_log_id,
                         "reminder_time": str(reminder_time),
@@ -87,8 +80,4 @@ class CaseLogSideEffects:
             else:
                 logger.warning("更新日志提醒失败", extra={"action": "update_log_reminder", "case_log_id": case_log_id})
         except Exception as e:
-            raise ValidationException(
-                message="更新日志提醒失败",
-                code="REMINDER_UPDATE_FAILED",
-                errors={}
-            ) from e
+            raise ValidationException(message="更新日志提醒失败", code="REMINDER_UPDATE_FAILED", errors={}) from e

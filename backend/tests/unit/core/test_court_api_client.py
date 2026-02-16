@@ -6,7 +6,7 @@
 
 import pytest
 
-from apps.core.services.court_api_client import CourtApiClient, CauseItem, CourtItem
+from apps.core.services.court_api_client import CauseItem, CourtApiClient, CourtItem
 
 
 class TestCourtApiClientParsing:
@@ -31,7 +31,7 @@ class TestCourtApiClientParsing:
                             "children": [{"id": "1001", "name": "合同纠纷", "children": []}],
                         }
                     ],
-                }
+                },
             },
         }
         causes = self.client.parse_cause_response(response, "0300", "civil")
@@ -60,7 +60,7 @@ class TestCourtApiClientParsing:
                             ],
                         }
                     ]
-                }
+                },
             },
         }
         causes = self.client.parse_cause_response(response, "0300", "civil")
@@ -153,9 +153,7 @@ class TestCourtApiClientParsing:
         """测试优先使用 cGbm 作为编码"""
         response = {
             "code": 200,
-            "data": [
-                {"id": "old_id", "name": "测试法院", "cGbm": "new_code", "children": []}
-            ],
+            "data": [{"id": "old_id", "name": "测试法院", "cGbm": "new_code", "children": []}],
         }
         courts = self.client.parse_court_response(response)
         assert courts[0].code == "new_code"

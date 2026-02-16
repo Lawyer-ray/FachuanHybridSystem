@@ -74,4 +74,3 @@ def test_filename_default_uses_case_name():
         power_of_attorney_code="power_of_attorney",
     )
     assert name == "起诉状（测试案）V1_20260101.docx"
-

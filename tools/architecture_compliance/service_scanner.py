@@ -7,6 +7,7 @@ Service层架构违规扫描器
 
 仅扫描 services/ 目录下的文件。
 """
+
 from __future__ import annotations
 
 import ast
@@ -21,9 +22,7 @@ from .scanner import ViolationScanner
 logger = get_logger("service_scanner")
 
 # 匹配 from apps.<module>.models import ... 的正则
-_CROSS_MODULE_IMPORT_RE: re.Pattern[str] = re.compile(
-    r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models"
-)
+_CROSS_MODULE_IMPORT_RE: re.Pattern[str] = re.compile(r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models")
 
 # 工具类名称后缀，这些类中使用 @staticmethod 是合理的
 _UTILITY_CLASS_SUFFIXES: tuple[str, ...] = (
@@ -116,7 +115,10 @@ class ServiceLayerScanner(ViolationScanner):
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 violation = self._check_cross_module_import(
-                    node, source, file_path, current_module,
+                    node,
+                    source,
+                    file_path,
+                    current_module,
                 )
                 if violation is not None:
                     violations.append(violation)
@@ -125,7 +127,9 @@ class ServiceLayerScanner(ViolationScanner):
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 class_violations = self._check_static_methods(
-                    node, source, file_path,
+                    node,
+                    source,
+                    file_path,
                 )
                 violations.extend(class_violations)
 
@@ -175,9 +179,7 @@ class ServiceLayerScanner(ViolationScanner):
             return None
 
         # 收集导入的名称
-        imported_names = ", ".join(
-            alias.name for alias in (node.names or [])
-        )
+        imported_names = ", ".join(alias.name for alias in (node.names or []))
         line_number: int = node.lineno
         code_snippet = self._get_source_line(source, line_number)
 
@@ -187,10 +189,7 @@ class ServiceLayerScanner(ViolationScanner):
             code_snippet=code_snippet,
             violation_type="service_cross_module_import",
             severity="high",
-            description=(
-                f"Service层跨模块Model导入: "
-                f"from {node.module} import {imported_names}"
-            ),
+            description=(f"Service层跨模块Model导入: " f"from {node.module} import {imported_names}"),
             violation_subtype="cross_module_import",
             imported_model=imported_names if imported_names else None,
         )
@@ -240,10 +239,7 @@ class ServiceLayerScanner(ViolationScanner):
                 code_snippet=code_snippet,
                 violation_type="service_static_method_abuse",
                 severity="medium",
-                description=(
-                    f"Service类 {class_node.name} 中使用@staticmethod: "
-                    f"{node.name}()"
-                ),
+                description=(f"Service类 {class_node.name} 中使用@staticmethod: " f"{node.name}()"),
                 violation_subtype="static_method_abuse",
                 method_name=node.name,
             )

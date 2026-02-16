@@ -5,7 +5,7 @@ struct MainTabViewHost: NSViewControllerRepresentable {
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
     let onTokenCaptured: (TokenPair) -> Void
-    
+
     func makeNSViewController(context: Context) -> MainTabsViewController {
         let viewController = MainTabsViewController(
             isLoading: $isLoading,
@@ -15,7 +15,7 @@ struct MainTabViewHost: NSViewControllerRepresentable {
         )
         return viewController
     }
-    
+
     func updateNSViewController(_ nsViewController: MainTabsViewController, context: Context) {
         nsViewController.updateBindings(
             isLoading: $isLoading,
@@ -31,7 +31,7 @@ final class MainTabsViewController: NSTabViewController {
     private var canGoBack: Binding<Bool>
     private var canGoForward: Binding<Bool>
     private var onTokenCaptured: (TokenPair) -> Void
-    
+
     init(
         isLoading: Binding<Bool>,
         canGoBack: Binding<Bool>,
@@ -44,17 +44,17 @@ final class MainTabsViewController: NSTabViewController {
         self.onTokenCaptured = onTokenCaptured
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     required init?(coder: NSCoder) {
         return nil
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         tabStyle = .toolbar
         transitionOptions = [.crossfade]
-        
+
         let web = NSHostingController(
             rootView: WebTabRootView(
                 isLoading: isLoading,
@@ -68,7 +68,7 @@ final class MainTabsViewController: NSTabViewController {
         let webItem = NSTabViewItem(viewController: web)
         webItem.label = "Web"
         webItem.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
-        
+
         let mac = NSHostingController(rootView: MacPlaceholderView())
         let macItem = NSTabViewItem(viewController: mac)
         macItem.label = "Mac"
@@ -81,7 +81,7 @@ final class MainTabsViewController: NSTabViewController {
             selectedTabViewItemIndex = 0
         }
     }
-    
+
     func updateBindings(
         isLoading: Binding<Bool>,
         canGoBack: Binding<Bool>,
@@ -100,7 +100,7 @@ struct WebTabRootView: View {
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
     let onTokenCaptured: (TokenPair) -> Void
-    
+
     var body: some View {
         WebViewContainer(
             url: URL(string: AppConfig.webAppURL)!,

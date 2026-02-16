@@ -6,7 +6,7 @@
 
 import logging
 import time
-from typing import Any, TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from apps.core.config import get_config
 from apps.core.path import Path
@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 
     class _DownloadHost(Protocol):
         task: ScraperTask
+
         @property
         def document_service(self) -> ICourtDocumentService: ...
+
 
 logger = logging.getLogger("apps.automation")
 
@@ -51,7 +53,9 @@ class CourtDocumentDownloadMixin(
         media_root_path = Path(str(media_root))
 
         if self.cast(int | None, self.cast(int, task.case_id)):
-            download_dir = media_root_path / "case_logs" / str(self.cast(int | None, self.cast(int, task.case_id))) / "documents"
+            download_dir = (
+                media_root_path / "case_logs" / str(self.cast(int | None, self.cast(int, task.case_id))) / "documents"
+            )
         else:
             download_dir = media_root_path / "automation" / "downloads" / f"task_{cast(int, self.task.pk)}"
 
@@ -77,7 +81,9 @@ class CourtDocumentDownloadMixin(
             success, filepath, error = download_result
 
             document = self.document_service.create_document_from_api_data(
-                scraper_task_id=cast(int, self.cast(int, task.pk)), api_data=document_data, case_id=self.cast(int | None, self.cast(int, task.case_id))
+                scraper_task_id=cast(int, self.cast(int, task.pk)),
+                api_data=document_data,
+                case_id=self.cast(int | None, self.cast(int, task.case_id)),
             )
 
             if success:
@@ -98,7 +104,10 @@ class CourtDocumentDownloadMixin(
                         relative_path = filepath
 
                 document = self.document_service.update_download_status(
-                    document_id=cast(int, document.id), status="success", local_file_path=relative_path, file_size=file_size
+                    document_id=cast(int, document.id),
+                    status="success",
+                    local_file_path=relative_path,
+                    file_size=file_size,
                 )
             else:
                 document = self.document_service.update_download_status(

@@ -7,10 +7,12 @@ Requirements: 1.1
 """
 
 from __future__ import annotations
+
+from typing import Any
+
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage
 from .moonshot import MoonshotBackend
 from .ollama import OllamaBackend
-from typing import Any
 
 _siliconflow_import_error: Exception | None = None
 try:

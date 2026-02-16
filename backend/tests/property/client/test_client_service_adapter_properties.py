@@ -7,11 +7,13 @@ Property 3: ClientServiceAdapter 客户存在性验证
 Property 4: ClientServiceAdapter 名称查询一致性
 Validates: Requirements 2.4, 2.5
 """
-import pytest
-from hypothesis import given, strategies as st, settings
 
-from apps.client.services import ClientServiceAdapter
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from apps.client.models import Client
+from apps.client.services import ClientServiceAdapter
 from apps.core.interfaces import ClientDTO
 from tests.factories import ClientFactory
 
@@ -26,11 +28,9 @@ class TestClientServiceAdapterExistenceProperties:
     """
 
     @given(
-        client_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        client_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=100)
     def test_validate_client_exists_consistency_with_get_client(self, client_name):
@@ -96,11 +96,9 @@ class TestClientServiceAdapterNameQueryProperties:
     """
 
     @given(
-        client_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        client_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=100)
     def test_get_client_by_name_returns_matching_name(self, client_name):
@@ -127,9 +125,7 @@ class TestClientServiceAdapterNameQueryProperties:
 
     @given(
         nonexistent_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=10,
-            max_size=50
+            alphabet=st.characters(whitelist_categories=("L", "N")), min_size=10, max_size=50
         ).filter(lambda x: x.strip()),
     )
     @settings(max_examples=100)
@@ -154,11 +150,9 @@ class TestClientServiceAdapterNameQueryProperties:
         assert dto is None
 
     @given(
-        client_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        client_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=50)
     def test_get_client_by_name_dto_fields_complete(self, client_name):
@@ -194,11 +188,9 @@ class TestClientServiceAdapterInstanceMethodProperties:
     """
 
     @given(
-        client_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        client_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=50)
     def test_get_client_uses_instance_method(self, client_name):

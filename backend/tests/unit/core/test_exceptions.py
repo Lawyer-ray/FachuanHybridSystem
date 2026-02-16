@@ -1,25 +1,27 @@
 """
 测试异常类
 """
+
 import pytest
+
 from apps.core.exceptions import (
-    BusinessException,
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError,
-    AuthenticationError,
-    RateLimitError,
-    ExternalServiceError,
-    ServiceUnavailableError,
-    RecognitionTimeoutError,
-    TokenError,
     APIError,
-    NetworkError,
+    AuthenticationError,
     AutoTokenAcquisitionError,
+    BusinessException,
+    CaptchaRecognitionError,
+    ConflictError,
+    ExternalServiceError,
     LoginFailedError,
+    NetworkError,
     NoAvailableAccountError,
-    CaptchaRecognitionError
+    NotFoundError,
+    PermissionDenied,
+    RateLimitError,
+    RecognitionTimeoutError,
+    ServiceUnavailableError,
+    TokenError,
+    ValidationException,
 )
 
 
@@ -37,11 +39,7 @@ class TestBusinessException:
     def test_create_with_all_parameters(self):
         """测试使用所有参数创建异常"""
         errors = {"field1": "错误1", "field2": "错误2"}
-        exc = BusinessException(
-            message="测试错误",
-            code="TEST_ERROR",
-            errors=errors
-        )
+        exc = BusinessException(message="测试错误", code="TEST_ERROR", errors=errors)
 
         assert exc.message == "测试错误"
         assert exc.code == "TEST_ERROR"
@@ -65,19 +63,11 @@ class TestBusinessException:
     def test_to_dict(self):
         """测试转换为字典"""
         errors = {"field1": "错误1"}
-        exc = BusinessException(
-            message="测试错误",
-            code="TEST_ERROR",
-            errors=errors
-        )
+        exc = BusinessException(message="测试错误", code="TEST_ERROR", errors=errors)
 
         result = exc.to_dict()
 
-        assert result == {
-            "error": "测试错误",
-            "code": "TEST_ERROR",
-            "errors": errors
-        }
+        assert result == {"error": "测试错误", "code": "TEST_ERROR", "errors": errors}
 
     def test_to_dict_without_errors(self):
         """测试转换为字典（无 errors）"""
@@ -85,11 +75,7 @@ class TestBusinessException:
 
         result = exc.to_dict()
 
-        assert result == {
-            "error": "测试错误",
-            "code": "TEST_ERROR",
-            "errors": {}
-        }
+        assert result == {"error": "测试错误", "code": "TEST_ERROR", "errors": {}}
 
     def test_inheritance(self):
         """测试继承关系"""
@@ -512,7 +498,7 @@ class TestExceptionHierarchy:
             AutoTokenAcquisitionError(),
             LoginFailedError(),
             NoAvailableAccountError(),
-            CaptchaRecognitionError()
+            CaptchaRecognitionError(),
         ]
 
         for exc in exceptions:
@@ -537,7 +523,7 @@ class TestExceptionHierarchy:
             AutoTokenAcquisitionError(),
             LoginFailedError(),
             NoAvailableAccountError(),
-            CaptchaRecognitionError()
+            CaptchaRecognitionError(),
         ]
 
         codes = [exc.code for exc in exceptions]
@@ -552,7 +538,7 @@ class TestExceptionHierarchy:
             ConflictError(),
             AuthenticationError(),
             RateLimitError(),
-            ExternalServiceError()
+            ExternalServiceError(),
         ]
 
         for exc in exceptions:

@@ -1,15 +1,16 @@
 """Business logic services."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
-from typing import Protocol, Any, Optional
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Optional, Protocol
+
+from playwright.sync_api import Page
 
 from apps.core.path import Path
-from playwright.sync_api import Page
 
 from .court_zxfw_selectors import CourtZxfwSelectors
 from .court_zxfw_token_extractors import extract_login_token_from_json, is_jwt_like
@@ -185,7 +186,7 @@ class CourtZxfwLoginFlow:
         self._save_screenshot = save_screenshot
         self._token_capture = LoginTokenCapture(page)
 
-    def login(self, *,  account: str, password: str, max_captcha_retries: int, save_debug: bool) -> LoginResult:
+    def login(self, *, account: str, password: str, max_captcha_retries: int, save_debug: bool) -> LoginResult:
         self._token_capture.start()
         try:
             self._page.goto(self._login_url, timeout=30000, wait_until="networkidle")
@@ -219,7 +220,9 @@ class CourtZxfwLoginFlow:
             return LoginResult(success=True, token=self._token_capture.token, url=self._page.url)
         return None
 
-    def _attempt_captcha_login(self, attempt: int, max_captcha_retries: int, save_debug: bool) -> Optional[LoginResult | None]:
+    def _attempt_captcha_login(
+        self, attempt: int, max_captcha_retries: int, save_debug: bool
+    ) -> Optional[LoginResult | None]:
         """执行一次验证码识别 + 登录尝试,成功返回 LoginResult,需重试返回 None"""
         captcha_text = recognize_captcha(
             page=self._page,
@@ -287,7 +290,7 @@ class CourtZxfwLoginFlow:
         except Exception:
             logger.debug("select_password_tab_failed", exc_info=True)
 
-    def _fill_credentials(self, *,  account: str, password: str) -> None:
+    def _fill_credentials(self, *, account: str, password: str) -> None:
         account_input = self._page.locator(f"xpath={CourtZxfwSelectors.ACCOUNT_INPUT_XPATH}")
         account_input.wait_for(state="visible", timeout=10000)
         account_input.fill(account)

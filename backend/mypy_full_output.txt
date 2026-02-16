@@ -86,7 +86,7 @@ apps/core/config/steering_performance_monitor.py:414:9: note: Use "-> None" if f
 apps/core/config/steering_cache_strategies.py:253:9: error: Need type annotation for "recent_hits" (hint: "recent_hits: List[<type>] = ...")  [var-annotated]
             self.recent_hits = []
             ^~~~~~~~~~~~~~~~
-apps/core/config/validators/type_validator.py:19:69: error: Argument 4 of "validate" is incompatible with supertype "ConfigValidator"; supertype defines the argument type as "dict[str, Any] | None" 
+apps/core/config/validators/type_validator.py:19:69: error: Argument 4 of "validate" is incompatible with supertype "ConfigValidator"; supertype defines the argument type as "dict[str, Any] | None"
 [override]
         def validate(self, key: str, value: Any, field_def: Any = None, config: Dict[str, Any] = None) -> ValidationResult:
                                                                         ^~~~~~~~~~~~~~~~~~~~~~
@@ -97,7 +97,7 @@ apps/core/config/validators/type_validator.py:19:94: error: Incompatible default
                                                                                                  ^~~~
 apps/core/config/validators/type_validator.py:19:94: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/core/config/validators/type_validator.py:19:94: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
-apps/core/config/validators/type_validator.py:199:69: error: Argument 4 of "validate" is incompatible with supertype "ConfigValidator"; supertype defines the argument type as "dict[str, Any] | None" 
+apps/core/config/validators/type_validator.py:199:69: error: Argument 4 of "validate" is incompatible with supertype "ConfigValidator"; supertype defines the argument type as "dict[str, Any] | None"
 [override]
         def validate(self, key: str, value: Any, field_def: Any = None, config: Dict[str, Any] = None) -> ValidationResult:
                                                                         ^~~~~~~~~~~~~~~~~~~~~~
@@ -890,11 +890,11 @@ apps/automation/services/image_rotation/transform/image_transform.py:114:19: err
 apps/automation/services/image_rotation/orientation/service.py:206:41: error: Missing type parameters for generic type "dict"  [type-arg]
         def detect_batch(self, images: list[dict]) -> list[dict]:
                                             ^
-apps/core/config/steering/integration.py:486:37: error: Argument 1 to "add_listener" of "ConfigManager" has incompatible type "SteeringConfigChangeListener"; expected "ConfigChangeListener" 
+apps/core/config/steering/integration.py:486:37: error: Argument 1 to "add_listener" of "ConfigManager" has incompatible type "SteeringConfigChangeListener"; expected "ConfigChangeListener"
 [arg-type]
             config_manager.add_listener(self.config_listener, prefix_filter="steering.")
                                         ^~~~~~~~~~~~~~~~~~~~
-apps/core/config/steering/integration.py:610:45: error: Argument 1 to "remove_listener" of "ConfigManager" has incompatible type "SteeringConfigChangeListener"; expected "ConfigChangeListener" 
+apps/core/config/steering/integration.py:610:45: error: Argument 1 to "remove_listener" of "ConfigManager" has incompatible type "SteeringConfigChangeListener"; expected "ConfigChangeListener"
 [arg-type]
             self.config_manager.remove_listener(self.config_listener)
                                                 ^~~~~~~~~~~~~~~~~~~~
@@ -1004,7 +1004,7 @@ apps/cases/services/material/case_material_query_service.py:78:25: error: Missin
 apps/cases/services/material/case_material_query_service.py:84:163: error: Missing type parameters for generic type "tuple"  [type-arg]
         def _sorted_groups(self, category: str, side: str | None, supervising_authority_id: int | None, groups_by_type_id: dict[int, dict[str, Any]], order_map: dict[tuple, list[int]]) -> list[d...
                                                                                                                                                                       ^
-apps/cases/services/material/case_material_query_service.py:88:36: error: Argument 1 to "dict" has incompatible type "dict[int, dict[str, Any]]"; expected "SupportsKeysAndGetItem[str, Any]" 
+apps/cases/services/material/case_material_query_service.py:88:36: error: Argument 1 to "dict" has incompatible type "dict[int, dict[str, Any]]"; expected "SupportsKeysAndGetItem[str, Any]"
 [arg-type]
             remaining = dict[str, Any](groups_by_type_id)
                                        ^~~~~~~~~~~~~~~~~
@@ -1024,7 +1024,7 @@ apps/cases/services/material/case_material_query_service.py:104:18: error: "Case
 apps/automation/services/scraper/sites/court_zxfw_login_flow.py:125:9: error: Function is missing a type annotation for one or more arguments  [no-untyped-def]
             def handle_response(response) -> None:
             ^
-apps/automation/services/scraper/sites/court_zxfw_baoquan_token_fetcher.py:41:19: error: "_make_response_handler" of "BaoquanTokenFetcher" does not return a value (it only ever returns None) 
+apps/automation/services/scraper/sites/court_zxfw_baoquan_token_fetcher.py:41:19: error: "_make_response_handler" of "BaoquanTokenFetcher" does not return a value (it only ever returns None)
 [func-returns-value]
             handler = self._make_response_handler(captured_token)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1061,7 +1061,7 @@ apps/automation/services/scraper/scrapers/court_document_download_jysd.py:224:28
 apps/automation/services/scraper/core/browser_manager.py:72:24: error: Argument "config" to "BrowserCreationError" has incompatible type "dict[str, Any] | None"; expected "dict[str, Any]"  [arg-type]
                     config=config.__dict__ if config else None,
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/scraper/core/browser_manager.py:141:24: error: Argument "config" to "BrowserCreationError" has incompatible type "dict[str, Any] | None"; expected "dict[str, Any]" 
+apps/automation/services/scraper/core/browser_manager.py:141:24: error: Argument "config" to "BrowserCreationError" has incompatible type "dict[str, Any] | None"; expected "dict[str, Any]"
 [arg-type]
                     config=config.__dict__ if config else None,
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1438,16 +1438,16 @@ apps/automation/exceptions.py:130:39: error: Incompatible types in assignment (e
 apps/automation/exceptions.py:294:13: error: Name "supported_formats" already defined on line 292  [no-redef]
                 supported_formats: list[Any] = []
                 ^
-apps/automation/usecases/court_document_recognition/recognize_document.py:24:24: error: "_empty_response" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None) 
+apps/automation/usecases/court_document_recognition/recognize_document.py:24:24: error: "_empty_response" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None)
 [func-returns-value]
                     return self._empty_response(file_path, extraction_result)  # type: ignore[no-any-return]
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/usecases/court_document_recognition/recognize_document.py:24:24: note: Error code "func-returns-value" not covered by "type: ignore" comment
-apps/automation/usecases/court_document_recognition/recognize_document.py:26:37: error: "_extract_key_info" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None) 
+apps/automation/usecases/court_document_recognition/recognize_document.py:26:37: error: "_extract_key_info" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None)
 [func-returns-value]
                 case_number, key_time = self._extract_key_info(doc_type, extraction_result.text)
                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/usecases/court_document_recognition/recognize_document.py:28:42: error: "_bind_document" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None) 
+apps/automation/usecases/court_document_recognition/recognize_document.py:28:42: error: "_bind_document" of "RecognizeCourtDocumentUsecase" does not return a value (it only ever returns None)
 [func-returns-value]
                 binding, renamed_file_path = self._bind_document(doc_type, case_number, key_time, extraction_result.text, file_path, user)
                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1544,7 +1544,7 @@ apps/automation/services/insurance/insurance_api.py:264:13: error: Name "company
 apps/automation/services/insurance/insurance_api.py:390:27: error: Need type annotation for "error_details"  [var-annotated]
                 error_details={},
                               ^~~
-apps/automation/services/insurance/insurance_api.py:400:27: error: Incompatible types in assignment (expression has type "dict[str, Collection[str]]", variable has type "tuple[dict[Any, Any]]") 
+apps/automation/services/insurance/insurance_api.py:400:27: error: Incompatible types in assignment (expression has type "dict[str, Collection[str]]", variable has type "tuple[dict[Any, Any]]")
 [assignment]
                 error_details={
                               ^
@@ -1575,7 +1575,7 @@ apps/automation/services/court_document_recognition/info_extractor.py:444:38: er
 "Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"  [arg-type]
             valid_regex_results.sort(key=lambda x: x['combined_score'], reverse=True)
                                          ^
-apps/automation/services/court_document_recognition/info_extractor.py:444:48: error: Incompatible return value type (got "object", expected "SupportsDunderLT[Any] | SupportsDunderGT[Any]") 
+apps/automation/services/court_document_recognition/info_extractor.py:444:48: error: Incompatible return value type (got "object", expected "SupportsDunderLT[Any] | SupportsDunderGT[Any]")
 [return-value]
             valid_regex_results.sort(key=lambda x: x['combined_score'], reverse=True)
                                                    ^~~~~~~~~~~~~~~~~~~
@@ -1583,7 +1583,7 @@ apps/automation/services/court_document_recognition/info_extractor.py:469:69: er
 "Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"  [arg-type]
                         best_invalid = max(validated_regex_results, key=lambda x: x['combined_score'])
                                                                         ^
-apps/automation/services/court_document_recognition/info_extractor.py:469:79: error: Incompatible return value type (got "object", expected "SupportsDunderLT[Any] | SupportsDunderGT[Any]") 
+apps/automation/services/court_document_recognition/info_extractor.py:469:79: error: Incompatible return value type (got "object", expected "SupportsDunderLT[Any] | SupportsDunderGT[Any]")
 [return-value]
                         best_invalid = max(validated_regex_results, key=lambda x: x['combined_score'])
                                                                                   ^~~~~~~~~~~~~~~~~~~
@@ -1737,7 +1737,7 @@ apps/documents/services/placeholders/supplementary/principal_service.py:238:13: 
 apps/documents/services/placeholders/supplementary/opposing_service.py:10:1: error: Module "apps.core.enums" has no attribute "PartyRole"  [attr-defined]
     from apps.core.enums import PartyRole
     ^
-apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:96:51: error: "EnhancedOpposingPartyService" has no attribute "_get_contract_party_ids"; maybe "_get_contract_cases"? 
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:96:51: error: "EnhancedOpposingPartyService" has no attribute "_get_contract_party_ids"; maybe "_get_contract_cases"?
 [attr-defined]
                 opposing_client_ids, our_client_ids = self._get_contract_party_ids(contract)
                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1942,7 +1942,7 @@ apps/core/llm/backends/siliconflow.py:104:43: error: Argument 1 to "append" of "
 apps/core/llm/backends/siliconflow.py:146:16: error: Unexpected keyword argument "max_tokens" for "ChatOpenAI"  [call-arg]
             return ChatOpenAI(api_key=self.api_key, base_url=self.base_url, model=model or self.default_model, temperature=temperature, max_tokens=max_tokens, timeout=self.timeout)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/llm/backends/siliconflow.py:146:35: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+apps/core/llm/backends/siliconflow.py:146:35: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
             return ChatOpenAI(api_key=self.api_key, base_url=self.base_url, model=model or self.default_model, temperature=temperature, max_tokens=max_tokens, timeout=self.timeout)
                                       ^~~~~~~~~~~~
@@ -1952,7 +1952,7 @@ apps/core/llm/backends/siliconflow.py:189:36: error: Argument "content" to "LLMR
 apps/core/llm/backends/siliconflow.py:216:15: error: Unexpected keyword argument "max_tokens" for "ChatOpenAI"  [call-arg]
             llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=used_model, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/llm/backends/siliconflow.py:216:34: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+apps/core/llm/backends/siliconflow.py:216:34: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
             llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=used_model, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
                                      ^~~~~~~
@@ -1962,14 +1962,14 @@ apps/core/llm/backends/siliconflow.py:236:36: error: Argument "content" to "LLMR
 apps/core/llm/backends/siliconflow.py:267:15: error: Unexpected keyword argument "max_tokens" for "ChatOpenAI"  [call-arg]
             llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=used_model, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/llm/backends/siliconflow.py:267:34: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+apps/core/llm/backends/siliconflow.py:267:34: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
             llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=used_model, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
                                      ^~~~~~~
 apps/core/llm/backends/siliconflow.py:326:16: error: Unexpected keyword argument "max_tokens" for "ChatOpenAI"  [call-arg]
             return ChatOpenAI(api_key=self.api_key, base_url=self.base_url, model=model or self.default_model, temperature=temperature if temperature is not None else LLMConfig.get_temperature()...
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
-apps/core/llm/backends/siliconflow.py:326:35: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+apps/core/llm/backends/siliconflow.py:326:35: error: Argument "api_key" to "ChatOpenAI" has incompatible type "str"; expected "SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
             return ChatOpenAI(api_key=self.api_key, base_url=self.base_url, model=model or self.default_model, temperature=temperature if temperature is not None else LLMConfig.get_temperature()...
                                       ^~~~~~~~~~~~
@@ -2016,7 +2016,7 @@ apps/contracts/api/contractpayment_api.py:27:29: error: Name "Any" is not define
     def create_payment(request: Any, payload: ContractPaymentIn) -> Any:
                                 ^
 apps/contracts/api/contractpayment_api.py:27:29: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Any")
-apps/contracts/api/contractpayment_api.py:33:185: error: Argument "invoiced_amount" to "create_payment" of "ContractPaymentService" has incompatible type "float | None"; expected "Decimal | None" 
+apps/contracts/api/contractpayment_api.py:33:185: error: Argument "invoiced_amount" to "create_payment" of "ContractPaymentService" has incompatible type "float | None"; expected "Decimal | None"
 [arg-type]
     ...ice.create_payment(contract_id=payload.contract_id, amount=Decimal(str(payload.amount)), received_at=received_at, invoice_status=payload.invoice_status, invoiced_amount=payload.invoiced_amou...
                                                                                                                                                                                 ^~~~~~~~~~~~~~~~~~~~~~~
@@ -2201,7 +2201,7 @@ apps/automation/services/chat/owner_config_manager.py:326:47: note: Did you forg
 apps/documents/schemas.py:195:28: error: "DocumentTemplate" has no attribute "folder_bindings"  [attr-defined]
                 for binding in obj.folder_bindings.all()
                                ^~~~~~~~~~~~~~~~~~~
-apps/documents/services/placeholder_usage_service.py:27:21: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str | IO[bytes] | None], Document]") 
+apps/documents/services/placeholder_usage_service.py:27:21: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str | IO[bytes] | None], Document]")
 [assignment]
         _DocxDocument = None
                         ^~~~
@@ -2415,7 +2415,7 @@ apps/automation/services/chat/feishu_provider.py:407:24: error: Item "str" of "s
 apps/automation/services/chat/feishu_provider.py:655:9: error: Function is missing a return type annotation  [no-untyped-def]
             def verify_operation():
             ^
-apps/documents/services/template_matching_service.py:55:20: error: "TemplateMatchingService" has no attribute "_matches_case_folder_template"; maybe "find_matching_case_file_templates"? 
+apps/documents/services/template_matching_service.py:55:20: error: "TemplateMatchingService" has no attribute "_matches_case_folder_template"; maybe "find_matching_case_file_templates"?
 [attr-defined]
                     if self._matches_case_folder_template(t, case_type, case_legal_statuses_set)
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2486,7 +2486,7 @@ apps/documents/usecases/folder_template/folder_template_usecases.py:37:5: error:
 apps/documents/usecases/folder_template/folder_template_usecases.py:78:22: error: Missing type parameters for generic type "dict"  [type-arg]
         ) -> tuple[bool, dict, list[str]]:
                          ^
-apps/documents/services/document_template_admin_service.py:82:31: error: Incompatible types in assignment (expression has type "_StrPromise", target has type "dict[str, Any] | bool | None") 
+apps/documents/services/document_template_admin_service.py:82:31: error: Incompatible types in assignment (expression has type "_StrPromise", target has type "dict[str, Any] | bool | None")
 [assignment]
                 result['error'] = _('只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径')
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2499,7 +2499,7 @@ apps/documents/services/document_template_admin_service.py:86:13: error: Unsuppo
 apps/documents/services/document_template_admin_service.py:87:13: error: Unsupported target for indexed assignment ("dict[str, Any] | bool | None")  [index]
                 result['cleaned_data']['existing_file'] = ''
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/documents/services/document_template_admin_service.py:92:31: error: Incompatible types in assignment (expression has type "_StrPromise", target has type "dict[str, Any] | bool | None") 
+apps/documents/services/document_template_admin_service.py:92:31: error: Incompatible types in assignment (expression has type "_StrPromise", target has type "dict[str, Any] | bool | None")
 [assignment]
                 result['error'] = _('必须选择一种文件来源')
                                   ^~~~~~~~~~~~~~~
@@ -2586,7 +2586,7 @@ apps/cases/services/case/case_internal_query_service.py:54:58: error: Argument 1
                 self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs)
                                                              ^~~~~~~~~~~~~~~~~~~~~~~~~
 apps/cases/services/case/case_internal_query_service.py:54:58: error: Argument 1 to "CaseQueryOrchestrator" has incompatible type
-"**dict[str, CaseRepo | CaseSearchRepo | CaseNumberQueryOrchestrator | CasePartyQueryOrchestrator | CaseAccessQueryOrchestrator | CaseDtoAssembler | None]"; expected "CaseSearchRepo | None" 
+"**dict[str, CaseRepo | CaseSearchRepo | CaseNumberQueryOrchestrator | CasePartyQueryOrchestrator | CaseAccessQueryOrchestrator | CaseDtoAssembler | None]"; expected "CaseSearchRepo | None"
 [arg-type]
                 self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs)
                                                              ^~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2606,14 +2606,14 @@ apps/cases/services/case/case_internal_query_service.py:54:58: error: Argument 1
                 self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs)
                                                              ^~~~~~~~~~~~~~~~~~~~~~~~~
 apps/cases/services/case/case_internal_query_service.py:54:58: error: Argument 1 to "CaseQueryOrchestrator" has incompatible type
-"**dict[str, CaseRepo | CaseSearchRepo | CaseNumberQueryOrchestrator | CasePartyQueryOrchestrator | CaseAccessQueryOrchestrator | CaseDtoAssembler | None]"; expected "CaseDtoAssembler | None" 
+"**dict[str, CaseRepo | CaseSearchRepo | CaseNumberQueryOrchestrator | CasePartyQueryOrchestrator | CaseAccessQueryOrchestrator | CaseDtoAssembler | None]"; expected "CaseDtoAssembler | None"
 [arg-type]
                 self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs)
                                                              ^~~~~~~~~~~~~~~~~~~~~~~~~
 apps/organization/services/account_credential_admin_service.py:50:40: error: Incompatible types in assignment (expression has type "AutoLoginService", variable has type "None")  [assignment]
                 self._auto_login_service = AutoLoginService()
                                            ^~~~~~~~~~~~~~~~~~
-apps/organization/services/account_credential_admin_service.py:60:35: error: Incompatible types in assignment (expression has type "AutoTokenAcquisitionService", variable has type "None") 
+apps/organization/services/account_credential_admin_service.py:60:35: error: Incompatible types in assignment (expression has type "AutoTokenAcquisitionService", variable has type "None")
 [assignment]
                 self._token_service = AutoTokenAcquisitionService(auto_login_service=self.auto_login_service, account_selection_strategy=account_strategy)
                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2648,7 +2648,7 @@ apps/core/services/cause_court_initialization_service.py:313:63: error: Invalid 
 apps/core/services/cause_court_initialization_service.py:517:63: error: Invalid type comment or annotation  [valid-type]
         def _collect_court_codes(self, items: list[CourtItem]) -> set[Any][str]:
                                                                   ^
-apps/core/interfaces/service_locator.py:128:23: error: Cannot instantiate abstract class "LawyerServiceAdapter" with abstract attributes "check_lawyer_permission" and "validate_lawyer_active" 
+apps/core/interfaces/service_locator.py:128:23: error: Cannot instantiate abstract class "LawyerServiceAdapter" with abstract attributes "check_lawyer_permission" and "validate_lawyer_active"
 [abstract]
                 service = LawyerServiceAdapter()
                           ^~~~~~~~~~~~~~~~~~~~~~
@@ -2686,7 +2686,7 @@ apps/core/interfaces/service_locator.py:691:16: error: Incompatible return value
 apps/core/interfaces/service_locator.py:701:16: error: Incompatible return value type (got "ContractGenerationService | Any", expected "IContractGenerationService")  [return-value]
             return service
                    ^~~~~~~
-apps/core/interfaces/service_locator.py:713:16: error: Incompatible return value type (got "SupplementaryAgreementGenerationService | Any", expected "ISupplementaryAgreementGenerationService") 
+apps/core/interfaces/service_locator.py:713:16: error: Incompatible return value type (got "SupplementaryAgreementGenerationService | Any", expected "ISupplementaryAgreementGenerationService")
 [return-value]
             return service
                    ^~~~~~~
@@ -2721,7 +2721,7 @@ apps/core/dependencies/documents_generation.py:31:12: note:     Expected:
 apps/core/dependencies/documents_generation.py:31:12: note:         def generate_contract_document(self, contract_id: int) -> tuple[bytes, str, str | None]
 apps/core/dependencies/documents_generation.py:31:12: note:     Got:
 apps/core/dependencies/documents_generation.py:31:12: note:         def generate_contract_document(self, contract_id: int) -> tuple[bytes | None, str | None, str | None]
-apps/core/dependencies/documents_generation.py:55:12: error: Incompatible return value type (got "SupplementaryAgreementGenerationService", expected "ISupplementaryAgreementGenerationService") 
+apps/core/dependencies/documents_generation.py:55:12: error: Incompatible return value type (got "SupplementaryAgreementGenerationService", expected "ISupplementaryAgreementGenerationService")
 [return-value]
         return SupplementaryAgreementGenerationService(
                ^
@@ -2741,7 +2741,7 @@ apps/core/dependencies/core.py:34:12: note:         def get_langchain_llm(self, 
 apps/core/dependencies/core.py:55:12: error: Incompatible return value type (got "CauseCourtQueryService", expected "ICauseCourtQueryService")  [return-value]
         return CauseCourtQueryService()
                ^~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/dependencies/business_organization.py:20:12: error: Cannot instantiate abstract class "LawyerServiceAdapter" with abstract attributes "check_lawyer_permission" and "validate_lawyer_active" 
+apps/core/dependencies/business_organization.py:20:12: error: Cannot instantiate abstract class "LawyerServiceAdapter" with abstract attributes "check_lawyer_permission" and "validate_lawyer_active"
 [abstract]
         return LawyerServiceAdapter()
                ^~~~~~~~~~~~~~~~~~~~~~
@@ -3076,7 +3076,7 @@ apps/automation/services/token/court_login_gateway.py:17:5: error: Function is m
         def login(self, *,  credential: AccountCredentialDTO, browser_context) -> Any:
         ^
 apps/automation/services/sms/sms_parser_service.py:72:29: error: Incompatible default for argument "ollama_model" (default has type "None", argument has type "str")  [assignment]
-            ollama_model: str = None, 
+            ollama_model: str = None,
                                 ^~~~
 apps/automation/services/sms/sms_parser_service.py:72:29: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/sms/sms_parser_service.py:72:29: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
@@ -3134,7 +3134,7 @@ apps/automation/services/fee_notice/comparison_service.py:206:21: error: "ICaseS
 "search_cases_for_binding_internal"?  [attr-defined]
             case_dtos = self.case_service.search_cases_internal(keyword, limit=limit)
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/fee_notice/check_service.py:22:5: error: Module "apps.automation.services.fee_notice.comparison_service" does not explicitly export attribute "CaseComparisonInfo" 
+apps/automation/services/fee_notice/check_service.py:22:5: error: Module "apps.automation.services.fee_notice.comparison_service" does not explicitly export attribute "CaseComparisonInfo"
 [attr-defined]
         from .comparison_service import CaseComparisonInfo, FeeComparisonService
         ^
@@ -3153,7 +3153,7 @@ apps/automation/services/fee_notice/check_service.py:161:75: error: Name "case" 
 apps/automation/services/fee_notice/check_service.py:298:13: error: "FeeNoticeCheckService" has no attribute "_format_preservation_fee_line"  [attr-defined]
                 self._format_preservation_fee_line(item, lines)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/court_document_recognition/adapter.py:29:29: error: Incompatible types in assignment (expression has type "CourtDocumentRecognitionService", variable has type "None") 
+apps/automation/services/court_document_recognition/adapter.py:29:29: error: Incompatible types in assignment (expression has type "CourtDocumentRecognitionService", variable has type "None")
 [assignment]
                 self._service = CourtDocumentRecognitionService()
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3655,7 +3655,7 @@ apps/automation/services/sms/document_attachment_service.py:112:9: error: Need t
             document_paths = []
             ^~~~~~~~~~~~~~
 apps/automation/services/sms/document_attachment_service.py:169:14: error: Name "CourtSMS" is not defined  [name-defined]
-            sms: "CourtSMS", 
+            sms: "CourtSMS",
                  ^
 apps/automation/services/sms/document_attachment_service.py:223:36: error: Name "CourtSMS" is not defined  [name-defined]
         def add_to_case_log(self, sms: "CourtSMS", file_paths: List[str]) -> bool:
@@ -3858,7 +3858,7 @@ apps/automation/services/scraper/core/validator_service.py:134:45: note: See htt
 apps/automation/services/scraper/core/validator_service.py:134:66: error: Missing type parameters for generic type "list"  [type-arg]
         def validate_file(self, file_path: str, expected_extensions: list=None) -> Dict[str, Any]:
                                                                      ^
-apps/automation/services/scraper/core/validator_service.py:134:71: error: Incompatible default for argument "expected_extensions" (default has type "None", argument has type "list[Any]") 
+apps/automation/services/scraper/core/validator_service.py:134:71: error: Incompatible default for argument "expected_extensions" (default has type "None", argument has type "list[Any]")
 [assignment]
         def validate_file(self, file_path: str, expected_extensions: list=None) -> Dict[str, Any]:
                                                                           ^~~~
@@ -3867,7 +3867,7 @@ apps/automation/services/scraper/core/validator_service.py:134:71: note: Use htt
 apps/automation/services/scraper/core/validator_service.py:154:75: error: Missing type parameters for generic type "list"  [type-arg]
         def validate_file_internal(self, file_path: str, expected_extensions: list=None) -> Dict[str, Any]:
                                                                               ^
-apps/automation/services/scraper/core/validator_service.py:154:80: error: Incompatible default for argument "expected_extensions" (default has type "None", argument has type "list[Any]") 
+apps/automation/services/scraper/core/validator_service.py:154:80: error: Incompatible default for argument "expected_extensions" (default has type "None", argument has type "list[Any]")
 [assignment]
         def validate_file_internal(self, file_path: str, expected_extensions: list=None) -> Dict[str, Any]:
                                                                                    ^~~~
@@ -3969,7 +3969,7 @@ apps/automation/services/scraper/core/browser_service.py:50:64: error: Argument 
 apps/automation/services/scraper/core/browser_service.py:50:64: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, object]"; expected "Sequence[str] | None"  [arg-type]
                 self._browser = self._playwright.chromium.launch(**launch_options)
                                                                    ^~~~~~~~~~~~~~
-apps/automation/services/scraper/core/browser_service.py:50:64: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, object]"; expected "bool | Sequence[str] | None" 
+apps/automation/services/scraper/core/browser_service.py:50:64: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, object]"; expected "bool | Sequence[str] | None"
 [arg-type]
                 self._browser = self._playwright.chromium.launch(**launch_options)
                                                                    ^~~~~~~~~~~~~~
@@ -3989,7 +3989,7 @@ apps/automation/services/scraper/core/browser_service.py:50:64: error: Argument 
 apps/automation/services/scraper/core/browser_service.py:58:16: error: Incompatible return value type (got "Browser | None", expected "Browser")  [return-value]
             return self._browser
                    ^~~~~~~~~~~~~
-apps/automation/services/scraper/core/browser_service.py:131:5: error: Return type "None" of "close_browser" incompatible with return type "Coroutine[Any, Any, None]" in supertype "IBrowserService" 
+apps/automation/services/scraper/core/browser_service.py:131:5: error: Return type "None" of "close_browser" incompatible with return type "Coroutine[Any, Any, None]" in supertype "IBrowserService"
 [override]
         def close_browser(self) -> None:
         ^
@@ -4017,11 +4017,11 @@ apps/automation/services/insurance/court_insurance_client.py:391:149: error: Inc
                                                                                                                                                         ^~~~
 apps/automation/services/insurance/court_insurance_client.py:391:149: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/insurance/court_insurance_client.py:391:149: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
-apps/automation/services/document/document_processing_service_adapter.py:94:89: error: Argument "preview_page" to "process_uploaded_document" has incompatible type "int | None"; expected "int" 
+apps/automation/services/document/document_processing_service_adapter.py:94:89: error: Argument "preview_page" to "process_uploaded_document" has incompatible type "int | None"; expected "int"
 [arg-type]
                 result = process_uploaded_document(uploaded_file, limit=limit, preview_page=preview_page)
                                                                                             ^~~~~~~~~~~~
-apps/automation/services/document/document_processing_service_adapter.py:113:84: error: Argument "preview_page" to "extract_document_content" has incompatible type "int | None"; expected "int" 
+apps/automation/services/document/document_processing_service_adapter.py:113:84: error: Argument "preview_page" to "extract_document_content" has incompatible type "int | None"; expected "int"
 [arg-type]
                 result = extract_document_content(file_path, limit=limit, preview_page=preview_page)
                                                                                        ^~~~~~~~~~~~
@@ -4095,11 +4095,11 @@ apps/automation/services/token/court_token_store_service.py:57:27: error: Argume
 apps/automation/services/token/auto_token_acquisition_service.py:40:1: error: Name "ConcurrencyConfig" already defined (possibly by an import)  [no-redef]
     class ConcurrencyConfig:
     ^
-apps/automation/services/token/auto_token_acquisition_service.py:154:40: error: Argument 3 to "record_acquisition_start" of "PerformanceMonitor" has incompatible type "int | str"; expected "str" 
+apps/automation/services/token/auto_token_acquisition_service.py:154:40: error: Argument 3 to "record_acquisition_start" of "PerformanceMonitor" has incompatible type "int | str"; expected "str"
 [arg-type]
                 acquisition_id, site_name, credential_id or "auto"
                                            ^~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/token/auto_token_acquisition_service.py:160:44: error: Argument 3 to "acquire_resource" of "ConcurrencyOptimizer" has incompatible type "int | str"; expected "str" 
+apps/automation/services/token/auto_token_acquisition_service.py:160:44: error: Argument 3 to "acquire_resource" of "ConcurrencyOptimizer" has incompatible type "int | str"; expected "str"
 [arg-type]
                     acquisition_id, site_name, credential_id or "auto"
                                                ^~~~~~~~~~~~~~~~~~~~~~~
@@ -4118,7 +4118,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:260:55: error: 
 apps/automation/services/token/auto_token_acquisition_service.py:263:34: error: Item "None" of "dict[str, Any] | None" has no attribute "get"  [union-attr]
                         error_type = result.error_details.get('error_type', 'unknown')
                                      ^~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/token/auto_token_acquisition_service.py:293:48: error: Argument 3 to "release_resource" of "ConcurrencyOptimizer" has incompatible type "int | str"; expected "str" 
+apps/automation/services/token/auto_token_acquisition_service.py:293:48: error: Argument 3 to "release_resource" of "ConcurrencyOptimizer" has incompatible type "int | str"; expected "str"
 [arg-type]
                         acquisition_id, site_name, credential_id or "auto"
                                                    ^~~~~~~~~~~~~~~~~~~~~~~
@@ -4168,7 +4168,7 @@ apps/automation/services/token/account_selection_strategy.py:162:9: error: Funct
 apps/automation/services/token/account_selection_strategy.py:249:13: error: Function is missing a return type annotation  [no-untyped-def]
                 def update_credential():
                 ^
-apps/automation/services/token/account_selection_strategy.py:255:24: error: "IOrganizationService" has no attribute "get_credential_by_account_internal"; maybe "get_credential_internal"? 
+apps/automation/services/token/account_selection_strategy.py:255:24: error: "IOrganizationService" has no attribute "get_credential_by_account_internal"; maybe "get_credential_internal"?
 [attr-defined]
                     cred = organization_service.get_credential_by_account_internal(account, site_name)
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4354,7 +4354,7 @@ apps/automation/services/insurance/preservation_quote_service_adapter.py:62:29: 
 apps/automation/services/insurance/preservation_quote_service_adapter.py:63:16: error: Incompatible return value type (got "None", expected "PreservationQuoteService")  [return-value]
             return self._service
                    ^~~~~~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:85:81: error: Argument 4 to "create_quote" of "PreservationQuoteService" has incompatible type "Any | None"; expected "int" 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:85:81: error: Argument 4 to "create_quote" of "PreservationQuoteService" has incompatible type "Any | None"; expected "int"
 [arg-type]
             return self.service.create_quote(preserve_amount, corp_id, category_id, credential_id)
                                                                                     ^~~~~~~~~~~~~
@@ -4374,7 +4374,7 @@ apps/automation/services/insurance/preservation_quote_service_adapter.py:191:40:
 apps/automation/services/insurance/preservation_quote_service_adapter.py:191:40: note:         def get_token(self, site_name: str) -> Coroutine[Any, Any, str | None]
 apps/automation/services/insurance/preservation_quote_service_adapter.py:191:40: note:     Got:
 apps/automation/services/insurance/preservation_quote_service_adapter.py:191:40: note:         def get_token(self, site_name: str, account: str) -> str | None
-apps/automation/services/insurance/preservation_quote_service_adapter.py:193:57: error: Incompatible default for argument "credential_id" (default has type "None", argument has type "int") 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:193:57: error: Incompatible default for argument "credential_id" (default has type "None", argument has type "int")
 [assignment]
         async def _get_valid_token(self, credential_id: int=None) -> str:
                                                             ^~~~
@@ -4383,38 +4383,38 @@ apps/automation/services/insurance/preservation_quote_service_adapter.py:193:57:
 apps/automation/services/insurance/preservation_quote_service_adapter.py:234:16: error: Too many arguments for "create_quote" of "PreservationQuoteService"  [call-arg]
             return self.create_quote(case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:234:34: error: Argument 1 to "create_quote" of "PreservationQuoteService" has incompatible type "str"; expected "Decimal" 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:234:34: error: Argument 1 to "create_quote" of "PreservationQuoteService" has incompatible type "str"; expected "Decimal"
 [arg-type]
             return self.create_quote(case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs)
                                      ^~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:234:76: error: Argument 4 to "create_quote" of "PreservationQuoteService" has incompatible type "str"; expected "int" 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:234:76: error: Argument 4 to "create_quote" of "PreservationQuoteService" has incompatible type "str"; expected "int"
 [arg-type]
             return self.create_quote(case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs)
                                                                                ^~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service_adapter.py:238:16: error: Too many arguments for "execute_quote" of "PreservationQuoteService"  [call-arg]
             return self.execute_quote(quote_id, force_refresh_token)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:238:16: error: Incompatible return value type (got "Coroutine[Any, Any, dict[str, Any]]", expected "dict[str, Any]") 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:238:16: error: Incompatible return value type (got "Coroutine[Any, Any, dict[str, Any]]", expected "dict[str, Any]")
 [return-value]
             return self.execute_quote(quote_id, force_refresh_token)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service_adapter.py:238:16: note: Maybe you forgot to use "await"?
-apps/automation/services/insurance/preservation_quote_service_adapter.py:242:16: error: "EnhancedPreservationQuoteService" has no attribute "get_quote_by_id"; maybe "get_quote_by_id_internal"? 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:242:16: error: "EnhancedPreservationQuoteService" has no attribute "get_quote_by_id"; maybe "get_quote_by_id_internal"?
 [attr-defined]
             return self.get_quote_by_id(quote_id)
                    ^~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service_adapter.py:246:16: error: Too many arguments for "list_quotes" of "PreservationQuoteService"  [call-arg]
             return self.list_quotes(status, limit, offset, page, page_size)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:246:16: error: Incompatible return value type (got "tuple[list[PreservationQuote], int]", expected "dict[str, Any]") 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:246:16: error: Incompatible return value type (got "tuple[list[PreservationQuote], int]", expected "dict[str, Any]")
 [return-value]
             return self.list_quotes(status, limit, offset, page, page_size)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:246:33: error: Argument 1 to "list_quotes" of "PreservationQuoteService" has incompatible type "str | None"; expected "int" 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:246:33: error: Argument 1 to "list_quotes" of "PreservationQuoteService" has incompatible type "str | None"; expected "int"
 [arg-type]
             return self.list_quotes(status, limit, offset, page, page_size)
                                     ^~~~~~
-apps/automation/services/insurance/preservation_quote_service_adapter.py:246:48: error: Argument 3 to "list_quotes" of "PreservationQuoteService" has incompatible type "int"; expected "str | None" 
+apps/automation/services/insurance/preservation_quote_service_adapter.py:246:48: error: Argument 3 to "list_quotes" of "PreservationQuoteService" has incompatible type "int"; expected "str | None"
 [arg-type]
             return self.list_quotes(status, limit, offset, page, page_size)
                                                    ^~~~~~
@@ -4434,11 +4434,11 @@ apps/cases/services/material/wiring.py:13:24: error: "type[ServiceLocator]" has 
 apps/cases/services/case/case_service_adapter.py:88:42: error: Redundant cast to "int"  [redundant-cast]
                 raise NotFoundError(f"案件 {cast(int, case.id)} 不存在")
                                              ^
-apps/cases/services/case/case_service_adapter.py:100:28: error: Argument "client_service" to "CasePartyMutationService" has incompatible type "IClientService | None"; expected "IClientService" 
+apps/cases/services/case/case_service_adapter.py:100:28: error: Argument "client_service" to "CasePartyMutationService" has incompatible type "IClientService | None"; expected "IClientService"
 [arg-type]
                 client_service=self._client_service,
                                ^~~~~~~~~~~~~~~~~~~~
-apps/cases/services/case/case_service_adapter.py:101:30: error: Argument "contract_service" to "CasePartyMutationService" has incompatible type "IContractService | None"; expected "IContractService" 
+apps/cases/services/case/case_service_adapter.py:101:30: error: Argument "contract_service" to "CasePartyMutationService" has incompatible type "IContractService | None"; expected "IContractService"
 [arg-type]
                 contract_service=self._contract_service,
                                  ^~~~~~~~~~~~~~~~~~~~~~
@@ -5103,7 +5103,7 @@ apps/automation/services/document_delivery/court_document_api_client.py:308:30: 
 "TimeoutException | None")  [assignment]
                     last_error = e
                                  ^
-apps/automation/services/document_delivery/court_document_api_client.py:322:30: error: Incompatible types in assignment (expression has type "Exception", variable has type "TimeoutException | None") 
+apps/automation/services/document_delivery/court_document_api_client.py:322:30: error: Incompatible types in assignment (expression has type "Exception", variable has type "TimeoutException | None")
 [assignment]
                     last_error = e
                                  ^
@@ -5210,7 +5210,7 @@ apps/automation/management/commands/clear_token_cache.py:20:5: error: Function i
 apps/automation/management/commands/clear_token_cache.py:35:20: error: "TokenCacheManager" has no attribute "_is_cache_clear_allowed"  [attr-defined]
                 if not manager._is_cache_clear_allowed():
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/management/commands/clear_token_cache.py:40:9: error: "TokenCacheManager" has no attribute "invalidate_site_cache"; maybe "invalidate_token_cache" or "invalidate_blacklist_cache"? 
+apps/automation/management/commands/clear_token_cache.py:40:9: error: "TokenCacheManager" has no attribute "invalidate_site_cache"; maybe "invalidate_token_cache" or "invalidate_blacklist_cache"?
 [attr-defined]
             manager.invalidate_site_cache(site, accounts=accounts or None)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5226,7 +5226,7 @@ apps/automation/api/preservation_quote_api.py:57:127: error: Name "Any" is not d
     def list_preservation_quotes(request: HttpRequest, page: int=1, page_size: Optional[int]=None, status: Optional[str]=None) -> Any:
                                                                                                                                   ^
 apps/automation/api/preservation_quote_api.py:57:127: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Any")
-apps/automation/api/preservation_quote_api.py:81:114: error: Argument "items" to "QuoteListSchema" has incompatible type "list[PreservationQuoteCreateSchema]"; expected "list[QuoteListItemSchema]" 
+apps/automation/api/preservation_quote_api.py:81:114: error: Argument "items" to "QuoteListSchema" has incompatible type "list[PreservationQuoteCreateSchema]"; expected "list[QuoteListItemSchema]"
 [arg-type]
         return QuoteListSchema(total=total, page=page, page_size=effective_page_size, total_pages=total_pages, items=items)
                                                                                                                      ^~~~~

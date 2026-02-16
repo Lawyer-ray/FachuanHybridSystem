@@ -1,17 +1,17 @@
 """Module for exceptions handlers."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 from typing import Any, Callable, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
-from django.http import Http404
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError, ValidationError
 
 from .exceptions_types import (
+    AuthenticationError,
     BusinessError,
     BusinessException,
     ConflictError,
@@ -22,7 +22,6 @@ from .exceptions_types import (
     RecognitionTimeoutError,
     ServiceUnavailableError,
     ValidationException,
-    AuthenticationError,
     logger,
 )
 
@@ -82,9 +81,11 @@ def _attach_request_meta(request: HttpRequest, payload: Any) -> Any:
     request_id = getattr(request, "request_id", None) or getattr(request, "headers", {}).get("X-Request-ID")
     try:
         from apps.core.infrastructure.request_context import get_trace_ids
+
         trace_id, span_id = get_trace_ids()
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.exception("获取 trace IDs 失败")
         trace_id, span_id = None, None

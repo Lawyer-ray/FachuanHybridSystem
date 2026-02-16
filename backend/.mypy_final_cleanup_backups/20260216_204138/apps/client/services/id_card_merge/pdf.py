@@ -1,18 +1,17 @@
 """Business logic services."""
 
+import logging
 import os
 import uuid
+from typing import Any
 
 import cv2
 import numpy as np
-from typing import Any
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 from apps.core.path import Path
-
-import logging
 
 logger = logging.getLogger(__name__)
 

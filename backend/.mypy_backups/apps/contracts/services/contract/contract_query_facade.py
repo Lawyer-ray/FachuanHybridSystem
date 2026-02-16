@@ -4,9 +4,9 @@ from typing import Any, Set
 
 from django.db.models import QuerySet
 
+from apps.contracts.models import Contract
 from apps.core.security.access_context import AccessContext
 
-from apps.contracts.models import Contract
 from .assemblers.contract_list_assembler import ContractListAssembler
 from .contract_access_policy import ContractAccessPolicy
 from .contract_query_service import ContractQueryService
@@ -102,7 +102,7 @@ class ContractQueryFacade:
         self.list_assembler.enrich([contract])
         return contract
 
-    def get_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> Any:
+    def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         contract = self.query_service.get_contract_internal(contract_id)
         self.access_policy.ensure_access_ctx(
             contract_id=contract_id, ctx=ctx, contract=contract, message="无权限访问该合同"

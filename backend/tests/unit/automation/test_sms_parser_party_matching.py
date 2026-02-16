@@ -31,4 +31,3 @@ def test_sms_parser_extract_party_names_uses_party_matching_service_results():
     names = svc.extract_party_names(content)
     assert names == ["佛山市升平百货有限公司"]
     assert fake.last_candidates is not None and len(fake.last_candidates) > 0
-

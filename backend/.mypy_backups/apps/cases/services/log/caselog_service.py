@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -10,13 +11,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from apps.cases.models import CaseLog, CaseLogAttachment, CaseLogVersion
-from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
-from apps.core.interfaces import ICaseService
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import QuerySet
 
+from apps.cases.models import CaseLog, CaseLogAttachment, CaseLogVersion
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
+from apps.core.interfaces import ICaseService
+
 from .case_log_attachment_service import CaseLogAttachmentService
 from .case_log_mutation_service import CaseLogMutationService
 from .case_log_query_repo import CaseLogQueryRepo
@@ -104,7 +106,7 @@ class CaseLogService:
         self,
         case_id: int | None = None,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[CaseLog, CaseLog]:
         """
@@ -130,7 +132,7 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -158,7 +160,7 @@ class CaseLogService:
         case_id: int,
         content: str,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
@@ -194,7 +196,7 @@ class CaseLogService:
         log_id: int,
         data: dict[str, Any],
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -226,7 +228,7 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         """
@@ -257,7 +259,7 @@ class CaseLogService:
         log_id: int,
         files: list[UploadedFile],
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogAttachment]:
         """
@@ -290,7 +292,7 @@ class CaseLogService:
         self,
         case_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[CaseLog, CaseLog]:
         """
@@ -316,7 +318,7 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:
         """
@@ -346,7 +348,7 @@ class CaseLogService:
         self,
         attachment_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         """

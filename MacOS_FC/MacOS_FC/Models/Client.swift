@@ -15,11 +15,11 @@ struct Client: Codable, Identifiable {
     let phone: String?
     let address: String?
     let isOurClient: Bool?
-    
+
     var displayName: String {
         name.isEmpty ? "未命名客户" : name
     }
-    
+
     var isNaturalPerson: Bool {
         clientType == "natural_person"
     }
@@ -30,7 +30,7 @@ struct Lawyer: Codable, Identifiable {
     let username: String
     let realName: String?
     let phone: String?
-    
+
     var displayName: String {
         realName ?? username
     }

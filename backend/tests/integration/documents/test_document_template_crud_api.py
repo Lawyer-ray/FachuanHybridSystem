@@ -6,6 +6,7 @@
 
 Requirements: 5.3
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -13,6 +14,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from apps.core.exceptions import NotFoundError
 from apps.documents.api.document_api import (
     create_document_template,
     delete_document_template,
@@ -22,7 +24,6 @@ from apps.documents.api.document_api import (
 )
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.schemas import DocumentTemplateIn, DocumentTemplateUpdate
-from apps.core.exceptions import NotFoundError
 from tests.factories.document_factories import DocumentTemplateFactory
 from tests.factories.organization_factories import LawyerFactory
 
@@ -95,16 +96,12 @@ class TestDocumentTemplateListAPI:
 
     def test_list_templates_filter_by_type(self) -> None:
         """按模板类型过滤"""
-        DocumentTemplateFactory.create_batch(
-            2, template_type=DocumentTemplateType.CONTRACT
-        )
+        DocumentTemplateFactory.create_batch(2, template_type=DocumentTemplateType.CONTRACT)
         DocumentTemplateFactory(template_type=DocumentTemplateType.CASE)
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        result = list_document_templates(
-            request, template_type=DocumentTemplateType.CONTRACT
-        )
+        result = list_document_templates(request, template_type=DocumentTemplateType.CONTRACT)
         assert len(list(result)) == 2
 
     def test_list_templates_filter_by_active(self) -> None:
@@ -163,9 +160,7 @@ class TestDocumentTemplateUpdateAPI:
 
     def test_update_template_partial(self) -> None:
         """部分更新（只更新指定字段）"""
-        template = DocumentTemplateFactory(
-            name="原名称", description="原描述"
-        )
+        template = DocumentTemplateFactory(name="原名称", description="原描述")
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 

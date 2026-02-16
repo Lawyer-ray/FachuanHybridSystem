@@ -7,6 +7,7 @@ StaticMethodConverter 单元测试
 - 替换 ClassName.method() → self.method()
 - 识别依赖并生成/更新 __init__
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -14,17 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from .static_method_analyzer import (
-    ConversionReason,
-    StaticMethodClassification,
-    StaticMethodInfo,
-)
-from .static_method_converter import (
-    DependencyInfo,
-    FileConversionPlan,
-    MethodConversionPlan,
-    StaticMethodConverter,
-)
+from .static_method_analyzer import ConversionReason, StaticMethodClassification, StaticMethodInfo
+from .static_method_converter import DependencyInfo, FileConversionPlan, MethodConversionPlan, StaticMethodConverter
 
 
 @pytest.fixture
@@ -82,12 +74,14 @@ class TestConvertFile:
         tmp_service_file: Path,
     ) -> None:
         """测试简单静态方法转换：移除装饰器 + 添加 self"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 @staticmethod
                 def calculate_fee(amount, rate):
                     return amount * rate
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -117,14 +111,16 @@ class TestConvertFile:
         tmp_service_file: Path,
     ) -> None:
         """测试 ClassName.method() → self.method() 替换"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 @staticmethod
                 def process(data):
                     result = ContractService.validate(data)
                     ContractService.save(result)
                     return result
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -156,7 +152,8 @@ class TestConvertFile:
         tmp_service_file: Path,
     ) -> None:
         """测试同一个类中多个静态方法的转换"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class MyService:
                 @staticmethod
                 def method_a(x):
@@ -165,7 +162,8 @@ class TestConvertFile:
                 @staticmethod
                 def method_b(y):
                     return MyService.method_a(y)
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         methods = [
@@ -212,12 +210,14 @@ class TestConvertFile:
         tmp_service_file: Path,
     ) -> None:
         """测试跳过 classification == KEEP 的方法"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class MyService:
                 @staticmethod
                 def pure_util(x):
                     return x * 2
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -259,12 +259,14 @@ class TestConvertFile:
         tmp_service_file: Path,
     ) -> None:
         """测试 dry_run 模式不写入文件"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class MyService:
                 @staticmethod
                 def do_work(data):
                     return data
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -282,7 +284,9 @@ class TestConvertFile:
         )
 
         result = converter.convert_file(
-            tmp_service_file, [method_info], dry_run=True,
+            tmp_service_file,
+            [method_info],
+            dry_run=True,
         )
         assert result.success is True
 
@@ -299,12 +303,14 @@ class TestDependencyIdentification:
         tmp_service_file: Path,
     ) -> None:
         """测试识别 Model.objects 依赖"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 @staticmethod
                 def get_active(status):
                     return Contract.objects.filter(status=status)
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -335,13 +341,15 @@ class TestDependencyIdentification:
         tmp_service_file: Path,
     ) -> None:
         """测试识别外部 Service 依赖"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 @staticmethod
                 def notify(contract_id):
                     svc = NotificationService()
                     svc.send(contract_id)
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -375,7 +383,8 @@ class TestInitHandling:
         tmp_service_file: Path,
     ) -> None:
         """测试更新已有的 __init__"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 def __init__(self):
                     self.repo = ContractRepo()
@@ -383,7 +392,8 @@ class TestInitHandling:
                 @staticmethod
                 def get_active(status):
                     return Contract.objects.filter(status=status)
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -415,7 +425,8 @@ class TestInitHandling:
         tmp_service_file: Path,
     ) -> None:
         """测试不重复添加已有的依赖属性"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             class ContractService:
                 def __init__(self):
                     self.contract_service = None
@@ -423,7 +434,8 @@ class TestInitHandling:
                 @staticmethod
                 def get_active(status):
                     return Contract.objects.filter(status=status)
-        """)
+        """
+        )
         tmp_service_file.write_text(source, encoding="utf-8")
 
         method_info = StaticMethodInfo(
@@ -454,21 +466,13 @@ class TestHelperMethods:
 
     def test_extract_model_name(self) -> None:
         """测试从 reason detail 提取 Model 名称"""
-        assert StaticMethodConverter._extract_model_name_from_reason(
-            "访问 Case.objects，需要服务注入"
-        ) == "Case"
-        assert StaticMethodConverter._extract_model_name_from_reason(
-            "无关文本"
-        ) == ""
+        assert StaticMethodConverter._extract_model_name_from_reason("访问 Case.objects，需要服务注入") == "Case"
+        assert StaticMethodConverter._extract_model_name_from_reason("无关文本") == ""
 
     def test_extract_service_name(self) -> None:
         """测试从 reason detail 提取 Service 名称"""
-        assert StaticMethodConverter._extract_service_name_from_reason(
-            "调用外部服务: CaseService()"
-        ) == "CaseService"
-        assert StaticMethodConverter._extract_service_name_from_reason(
-            "无关文本"
-        ) == ""
+        assert StaticMethodConverter._extract_service_name_from_reason("调用外部服务: CaseService()") == "CaseService"
+        assert StaticMethodConverter._extract_service_name_from_reason("无关文本") == ""
 
     def test_to_snake_case(self) -> None:
         """测试 CamelCase → snake_case"""

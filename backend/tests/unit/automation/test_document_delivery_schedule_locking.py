@@ -1,6 +1,8 @@
 import django.core.cache
 
-from apps.automation.services.document_delivery.document_delivery_schedule_service import DocumentDeliveryScheduleService
+from apps.automation.services.document_delivery.document_delivery_schedule_service import (
+    DocumentDeliveryScheduleService,
+)
 
 
 def test_document_delivery_schedule_execution_lock_key_is_stable():
@@ -41,4 +43,3 @@ def test_document_delivery_schedule_acquire_lock_returns_false_when_cache_add_fa
 
     service = DocumentDeliveryScheduleService()
     assert service._acquire_execution_lock(schedule_id=7, ttl_seconds=12) is False
-

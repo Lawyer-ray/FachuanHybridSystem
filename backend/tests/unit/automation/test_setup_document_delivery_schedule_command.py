@@ -48,4 +48,3 @@ def test_setup_document_delivery_schedule_remove_dry_run_does_not_delete_existin
 
     assert Schedule.objects.filter(name=schedule_name).count() == 1
     assert "[DRY RUN]" in out.getvalue()
-

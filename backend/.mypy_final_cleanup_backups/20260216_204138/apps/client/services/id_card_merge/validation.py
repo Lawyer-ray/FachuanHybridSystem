@@ -1,10 +1,10 @@
 """Business logic services."""
 
 import os
+from typing import Any, Optional
 
 import numpy as np
 from django.core.files.uploadedfile import UploadedFile
-from typing import Optional, Any
 
 
 def validate_image_format(

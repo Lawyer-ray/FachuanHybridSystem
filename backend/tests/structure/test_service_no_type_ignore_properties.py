@@ -16,9 +16,7 @@ from typing import NamedTuple
 import pytest
 
 # 匹配 type:ignore 注释的正则表达式模式（含可选的错误码后缀）
-TYPE_IGNORE_PATTERN: re.Pattern[str] = re.compile(
-    r"#\s*type:\s*ignore(?:\[[\w\-,\s]+\])?"
-)
+TYPE_IGNORE_PATTERN: re.Pattern[str] = re.compile(r"#\s*type:\s*ignore(?:\[[\w\-,\s]+\])?")
 
 
 class Violation(NamedTuple):
@@ -82,14 +80,8 @@ def test_service_layer_no_type_ignore() -> None:
     all_violations: list[Violation] = []
 
     for file_path in service_files:
-        all_violations.extend(
-            _scan_file_for_type_ignore(file_path, backend_path)
-        )
+        all_violations.extend(_scan_file_for_type_ignore(file_path, backend_path))
 
-    assert not all_violations, (
-        f"Service 层发现 {len(all_violations)} 处 type: ignore 注释违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} {v.line_content}"
-            for v in all_violations
-        )
+    assert not all_violations, f"Service 层发现 {len(all_violations)} 处 type: ignore 注释违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} {v.line_content}" for v in all_violations
     )

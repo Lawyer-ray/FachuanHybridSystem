@@ -23,4 +23,3 @@ class TestConfigManagerCharacterization(TestCase):
         manager = ConfigManager()
         manager.set("django.debug", True)
         self.assertEqual(manager.get("django.debug"), True)
-

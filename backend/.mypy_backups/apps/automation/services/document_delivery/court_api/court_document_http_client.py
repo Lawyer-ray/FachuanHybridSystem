@@ -14,10 +14,10 @@ logger = logging.getLogger("apps.automation")
 
 
 class CourtDocumentHttpClient:
-    def __init__(self, *,  timeout_seconds: float) -> None:
+    def __init__(self, *, timeout_seconds: float) -> None:
         self.timeout_seconds = timeout_seconds
 
-    def post_json(self, *,  url: str, headers: dict[str, str], json_data: dict[str, Any]) -> dict[str, Any]:
+    def post_json(self, *, url: str, headers: dict[str, str], json_data: dict[str, Any]) -> dict[str, Any]:
         safe_url = sanitize_url(url)
         try:
             with httpx.Client(timeout=self.timeout_seconds) as client:
@@ -28,9 +28,7 @@ class CourtDocumentHttpClient:
 
             if response.status_code >= 400:
                 raise ApiResponseError(
-                    message=f"HTTP 错误: {response.status_code}",
-                    response_code=response.status_code,
-                    errors={}
+                    message=f"HTTP 错误: {response.status_code}", response_code=response.status_code, errors={}
                 )
 
             return response.json()
@@ -50,7 +48,7 @@ class CourtDocumentHttpClient:
             logger.error(f"HTTP client 未知错误: url={safe_url}, error={e!s}")
             raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": safe_url}) from e
 
-    def get_bytes(self, *,  url: str, timeout_seconds: float | None = None) -> bytes:
+    def get_bytes(self, *, url: str, timeout_seconds: float | None = None) -> bytes:
         safe_url = sanitize_url(url)
         try:
             with httpx.Client(timeout=timeout_seconds or self.timeout_seconds) as client:
@@ -58,9 +56,7 @@ class CourtDocumentHttpClient:
 
             if response.status_code >= 400:
                 raise ApiResponseError(
-                    message=f"HTTP 错误: {response.status_code}",
-                    response_code=response.status_code,
-                    errors={}
+                    message=f"HTTP 错误: {response.status_code}", response_code=response.status_code, errors={}
                 )
 
             return response.content

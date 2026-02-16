@@ -3,7 +3,8 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 
 @pytest.mark.property_test
@@ -67,8 +68,7 @@ def test_keep_original_name_storage_import_compatibility():
     )
 )
 def test_protocol_import_backward_compatibility(protocol_name: str):
-    from apps.core import interfaces
-    from apps.core import protocols
+    from apps.core import interfaces, protocols
 
     assert hasattr(interfaces, protocol_name)
     assert hasattr(protocols, protocol_name)
@@ -126,4 +126,3 @@ def test_no_cross_module_model_imports_in_documents_and_cases():
     assert not violations, "发现 documents/cases 存在跨模块 Model 导入:\n" + "\n".join(
         f"- {path}: {pattern}" for path, pattern in violations
     )
-

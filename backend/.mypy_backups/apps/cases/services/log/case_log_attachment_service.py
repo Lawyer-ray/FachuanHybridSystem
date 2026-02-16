@@ -1,15 +1,16 @@
 """Business logic services."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
 
-from apps.core.exceptions import NotFoundError, ValidationException
-
 from apps.cases.models import CaseLogAttachment
 from apps.cases.utils import validate_case_log_attachment
+from apps.core.exceptions import NotFoundError, ValidationException
 
 from .case_log_query_service import CaseLogQueryService
-from typing import Any
 
 
 class CaseLogAttachmentService:
@@ -22,7 +23,7 @@ class CaseLogAttachmentService:
         log_id: int,
         files: list[UploadedFile],
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogAttachment]:
         log = self.query_service.get_log_internal(log_id=log_id)
@@ -49,7 +50,7 @@ class CaseLogAttachmentService:
         *,
         attachment_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         try:

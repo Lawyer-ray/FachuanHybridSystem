@@ -1,10 +1,9 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
-from typing import Any
-
 from dataclasses import dataclass
+from typing import Any
 
 from apps.documents.models import FolderTemplate
 
@@ -44,7 +43,7 @@ class FolderTemplateStructureIdRepairService:
 
         def repair_node(node) -> None:
             nonlocal changes
-            if not isinstance(node, dict) :
+            if not isinstance(node, dict):
                 return node
 
             current_id = node.get("id")
@@ -68,4 +67,3 @@ class FolderTemplateStructureIdRepairService:
             fixed_structure["children"] = [repair_node(child) for child in children]
 
         return fixed_structure, changes
-

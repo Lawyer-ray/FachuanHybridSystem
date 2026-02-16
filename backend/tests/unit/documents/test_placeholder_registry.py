@@ -9,7 +9,9 @@ class _TestPlaceholderService(BasePlaceholderService):
     description = "用于测试"
     category = "test"
     placeholder_keys = ["case_name"]
-    placeholder_metadata = {"case_name": {"display_name": "案件名称", "description": "案件名称", "example_value": "示例"}}
+    placeholder_metadata = {
+        "case_name": {"display_name": "案件名称", "description": "案件名称", "example_value": "示例"}
+    }
 
     def generate(self, context_data: Dict[str, Any]) -> Dict[str, Any]:
         return {"case_name": "X"}

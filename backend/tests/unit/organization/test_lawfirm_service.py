@@ -1,18 +1,15 @@
 """
 律所服务单元测试
 """
-import pytest
+
 from unittest.mock import Mock
 
-from apps.organization.services import LawFirmService
+import pytest
+
+from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.organization.schemas import LawFirmIn, LawFirmUpdateIn
-from tests.factories import LawyerFactory, LawFirmFactory
-from apps.core.exceptions import (
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError
-)
+from apps.organization.services import LawFirmService
+from tests.factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -28,10 +25,7 @@ class TestLawFirmService:
         # 准备测试数据
         admin_user = LawyerFactory(is_admin=True)
         data = LawFirmIn(
-            name="测试律所",
-            address="测试地址",
-            phone="13800138000",
-            social_credit_code="91110000000000000X"
+            name="测试律所", address="测试地址", phone="13800138000", social_credit_code="91110000000000000X"
         )
 
         # 执行测试
@@ -166,6 +160,7 @@ class TestLawFirmService:
 
         # 验证律所已删除
         from apps.organization.models import LawFirm
+
         assert not LawFirm.objects.filter(id=lawfirm.id).exists()
 
     def test_delete_lawfirm_with_lawyers(self):

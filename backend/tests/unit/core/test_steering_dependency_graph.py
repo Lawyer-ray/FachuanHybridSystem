@@ -64,4 +64,3 @@ class TestSteeringDependencyGraph:
         assert levels["C"] == 0
         assert levels["B"] == 1
         assert levels["A"] == 2
-

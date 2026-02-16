@@ -2,14 +2,17 @@
 案件指派服务层
 处理案件指派相关的业务逻辑
 """
-from typing import Optional, Dict, Any
+
+import logging
+from typing import Any, Dict, Optional
+
 from django.db import transaction
 from django.db.models import QuerySet
-import logging
 
-from apps.core.exceptions import NotFoundError, ConflictError, ValidationException
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
-from ..models import CaseAssignment, Case
+
+from ..models import Case, CaseAssignment
 
 logger = logging.getLogger("apps.cases")
 
@@ -58,10 +61,7 @@ class CaseAssignmentService:
         Returns:
             指派查询集
         """
-        qs = CaseAssignment.objects.select_related(
-            "case",
-            "lawyer"
-        ).order_by("-id")
+        qs = CaseAssignment.objects.select_related("case", "lawyer").order_by("-id")
 
         # 应用过滤条件
         if case_id:
@@ -76,8 +76,8 @@ class CaseAssignmentService:
                 "case_id": case_id,
                 "lawyer_id": lawyer_id,
                 "user_id": getattr(user, "id", None) if user else None,
-                "count": qs.count()
-            }
+                "count": qs.count(),
+            },
         )
 
         return qs
@@ -101,10 +101,7 @@ class CaseAssignmentService:
             NotFoundError: 指派不存在
         """
         try:
-            assignment = CaseAssignment.objects.select_related(
-                "case",
-                "lawyer"
-            ).get(id=assignment_id)
+            assignment = CaseAssignment.objects.select_related("case", "lawyer").get(id=assignment_id)
 
             logger.debug(
                 f"获取指派成功",
@@ -113,8 +110,8 @@ class CaseAssignmentService:
                     "assignment_id": assignment_id,
                     "case_id": assignment.case_id,
                     "lawyer_id": assignment.lawyer_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
 
             return assignment  # type: ignore[no-any-return]
@@ -124,13 +121,13 @@ class CaseAssignmentService:
                 extra={
                     "action": "get_assignment",
                     "assignment_id": assignment_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
-                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"}
+                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
             )
 
     @transaction.atomic
@@ -166,13 +163,11 @@ class CaseAssignmentService:
                     "action": "create_assignment",
                     "case_id": case_id,
                     "lawyer_id": lawyer_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="案件不存在",
-                code="CASE_NOT_FOUND",
-                errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         # 检查是否已存在相同的指派
@@ -183,20 +178,17 @@ class CaseAssignmentService:
                     "action": "create_assignment",
                     "case_id": case_id,
                     "lawyer_id": lawyer_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise ConflictError(
                 message="指派已存在",
                 code="ASSIGNMENT_ALREADY_EXISTS",
-                errors={"assignment": f"案件 {case_id} 已指派给律师 {lawyer_id}"}
+                errors={"assignment": f"案件 {case_id} 已指派给律师 {lawyer_id}"},
             )
 
         # 创建指派
-        assignment = CaseAssignment.objects.create(
-            case=case,
-            lawyer_id=lawyer_id
-        )
+        assignment = CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
 
         logger.info(
             f"创建指派成功",
@@ -205,8 +197,8 @@ class CaseAssignmentService:
                 "assignment_id": assignment.id,
                 "case_id": case_id,
                 "lawyer_id": lawyer_id,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return assignment
@@ -241,13 +233,13 @@ class CaseAssignmentService:
                 extra={
                     "action": "update_assignment",
                     "assignment_id": assignment_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
-                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"}
+                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
             )
 
         # 验证案件是否存在（如果更新了 case_id）
@@ -257,24 +249,23 @@ class CaseAssignmentService:
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist:
                 raise NotFoundError(
-                    message="案件不存在",
-                    code="CASE_NOT_FOUND",
-                    errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 )
 
         # 检查重复指派（如果更新了 case_id 或 lawyer_id）
         new_case_id = data.get("case_id", assignment.case_id)
         new_lawyer_id = data.get("lawyer_id", assignment.lawyer_id)
 
-        if (new_case_id != assignment.case_id or new_lawyer_id != assignment.lawyer_id):
-            if CaseAssignment.objects.filter(
-                case_id=new_case_id,
-                lawyer_id=new_lawyer_id
-            ).exclude(id=assignment_id).exists():
+        if new_case_id != assignment.case_id or new_lawyer_id != assignment.lawyer_id:
+            if (
+                CaseAssignment.objects.filter(case_id=new_case_id, lawyer_id=new_lawyer_id)
+                .exclude(id=assignment_id)
+                .exists()
+            ):
                 raise ConflictError(
                     message="指派已存在",
                     code="ASSIGNMENT_ALREADY_EXISTS",
-                    errors={"assignment": f"案件 {new_case_id} 已指派给律师 {new_lawyer_id}"}
+                    errors={"assignment": f"案件 {new_case_id} 已指派给律师 {new_lawyer_id}"},
                 )
 
         # 更新指派
@@ -291,8 +282,8 @@ class CaseAssignmentService:
                 "assignment_id": assignment_id,
                 "case_id": assignment.case_id,
                 "lawyer_id": assignment.lawyer_id,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return assignment  # type: ignore[no-any-return]
@@ -324,13 +315,13 @@ class CaseAssignmentService:
                 extra={
                     "action": "delete_assignment",
                     "assignment_id": assignment_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
-                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"}
+                errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
             )
 
         case_id = assignment.case_id
@@ -345,8 +336,8 @@ class CaseAssignmentService:
                 "assignment_id": assignment_id,
                 "case_id": case_id,
                 "lawyer_id": lawyer_id,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return {"success": True}

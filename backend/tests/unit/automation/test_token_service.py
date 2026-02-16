@@ -1,6 +1,7 @@
 """
 Token 服务测试
 """
+
 from datetime import timedelta
 
 import pytest
@@ -39,30 +40,20 @@ class TestTokenService:
         )
 
         # 获取 Token
-        retrieved_token = self.token_service.get_token(
-            site_name=self.site_name,
-            account=self.account
-        )
+        retrieved_token = self.token_service.get_token(site_name=self.site_name, account=self.account)
 
         assert retrieved_token == self.token
 
     def test_get_nonexistent_token(self):
         """测试获取不存在的 Token"""
-        token = self.token_service.get_token(
-            site_name="nonexistent_site",
-            account="nonexistent_account"
-        )
+        token = self.token_service.get_token(site_name="nonexistent_site", account="nonexistent_account")
 
         assert token is None
 
     def test_delete_token(self):
         """测试删除 Token"""
         # 先保存
-        self.token_service.save_token(
-            site_name=self.site_name,
-            account=self.account,
-            token=self.token
-        )
+        self.token_service.save_token(site_name=self.site_name, account=self.account, token=self.token)
 
         # 确认存在
         assert self.token_service.get_token(self.site_name, self.account) is not None
@@ -113,10 +104,7 @@ class TestTokenService:
         assert token is None
 
         # 确认已从数据库删除
-        assert not CourtToken.objects.filter(
-            site_name=self.site_name,
-            account=self.account
-        ).exists()
+        assert not CourtToken.objects.filter(site_name=self.site_name, account=self.account).exists()
 
     def test_update_existing_token(self):
         """测试更新已存在的 Token"""
@@ -141,10 +129,7 @@ class TestTokenService:
         assert retrieved_token == new_token
 
         # 确认数据库中只有一条记录
-        count = CourtToken.objects.filter(
-            site_name=self.site_name,
-            account=self.account
-        ).count()
+        count = CourtToken.objects.filter(site_name=self.site_name, account=self.account).count()
 
         assert count == 1
 

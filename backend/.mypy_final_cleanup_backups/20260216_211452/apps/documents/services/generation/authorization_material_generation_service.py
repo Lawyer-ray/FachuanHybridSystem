@@ -30,7 +30,9 @@ class AuthorizationMaterialGenerationService:
     AUTHORITY_LETTER_TEMPLATE = TEMPLATE_DIR / "所函.docx"
     LEGAL_REP_CERT_TEMPLATE = TEMPLATE_DIR / "法定代表人身份证明书.docx"
 
-    def __init__(self, *,  case_service: Any | None = None, client_service: Any | None = None, document_service: Any | None = None) -> None:
+    def __init__(
+        self, *, case_service: Any | None = None, client_service: Any | None = None, document_service: Any | None = None
+    ) -> None:
         self._case_service = case_service
         self._client_service = client_service
         self._document_service = document_service
@@ -169,7 +171,7 @@ class AuthorizationMaterialGenerationService:
             parties: list[Any] = []
         return [p for p in parties if getattr(getattr(p, "client", None), "is_our_client", False)]
 
-    def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *,  case: Any, our_parties: list[Any]) -> None:
+    def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *, case: Any, our_parties: list[Any]) -> None:
         case_id = getattr(case, "id", None)
         if not case_id:
             raise ValidationException(message="案件 ID 无效", code="INVALID_CASE_ID", errors={})
@@ -241,17 +243,30 @@ class AuthorizationMaterialGenerationService:
 
         for doc in identity_docs:
             self._zip_write_identity_doc(
-                zf, doc=doc, client_name=client_name, safe_client_name=safe_client_name,
-                media_root=media_root, missing_lines=missing_lines,
+                zf,
+                doc=doc,
+                client_name=client_name,
+                safe_client_name=safe_client_name,
+                media_root=media_root,
+                missing_lines=missing_lines,
             )
 
         self._check_missing_required_docs(
-            identity_docs, client=client, client_name=client_name, missing_lines=missing_lines,
+            identity_docs,
+            client=client,
+            client_name=client_name,
+            missing_lines=missing_lines,
         )
 
     def _zip_write_identity_doc(
-        self, zf: zipfile.ZipFile, *, doc: Any, client_name: str, safe_client_name: str,
-        media_root: str, missing_lines: list[str],
+        self,
+        zf: zipfile.ZipFile,
+        *,
+        doc: Any,
+        client_name: str,
+        safe_client_name: str,
+        media_root: str,
+        missing_lines: list[str],
     ) -> None:
         file_path = doc.file_path or ""
         if not file_path.strip():
@@ -269,6 +284,7 @@ class AuthorizationMaterialGenerationService:
             identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
         ) -> None:
             doc_types = {doc.doc_type for doc in identity_docs}
+
         if getattr(client, "client_type", "") == "natural":
             if "id_card" not in doc_types:
                 missing_lines.append(f"缺少{client_name}的身份证")
@@ -320,7 +336,7 @@ class AuthorizationMaterialGenerationService:
 
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
 
-    def _zip_add_missing_markdown(self, zf: zipfile.ZipFile, *,  missing_lines: list[str]) -> None:
+    def _zip_add_missing_markdown(self, zf: zipfile.ZipFile, *, missing_lines: list[str]) -> None:
         title = "# 当前授权手续所缺材料\n\n"
         if not missing_lines:
             body = "- 当前授权手续材料齐全\n"
@@ -344,13 +360,13 @@ class AuthorizationMaterialGenerationService:
     def _safe_name(self, name: str) -> str:
         return safe_name(name)
 
-    def _build_context(self, *,  case: Any, client: Any | None = None) -> dict[str, Any]:
+    def _build_context(self, *, case: Any, client: Any | None = None) -> dict[str, Any]:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
         return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
 
-    def _build_power_of_attorney_context(self, *,  case: Any, selected_clients: list[Any]) -> dict[str, Any]:
+    def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
             "case": case,
             "selected_clients": selected_clients,
@@ -551,13 +567,13 @@ class AuthorizationMaterialGenerationService:
                 errors={"error": str(e)},
             ) from e
 
-    def _build_authority_letter_filename(self, *,  case_name: str) -> str:
+    def _build_authority_letter_filename(self, *, case_name: str) -> str:
         date_str = datetime.now().strftime("%Y%m%d")
         template_name = "所函"
         safe_case_name = case_name or "案件"
         return f"{template_name}({safe_case_name})V1_{date_str}.docx"
 
-    def _build_legal_rep_certificate_filename(self, *,  company_name: str) -> str:
+    def _build_legal_rep_certificate_filename(self, *, company_name: str) -> str:
         date_str = datetime.now().strftime("%Y%m%d")
         template_name = "法定代表人身份证明书"
         safe_company_name = company_name or "公司"

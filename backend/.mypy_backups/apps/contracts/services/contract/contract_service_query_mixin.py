@@ -1,8 +1,8 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
-from typing import Any, TYPE_CHECKING, Set
+from typing import TYPE_CHECKING, Any, Set
 
 from django.db.models import QuerySet
 
@@ -54,5 +54,5 @@ class ContractServiceQueryMixin:
             perm_open_access=perm_open_access,
         )
 
-    def get_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> Any:
+    def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         return self.query_facade.get_contract_ctx(contract_id=contract_id, ctx=ctx)

@@ -18,35 +18,35 @@ files = [
 
 for filepath in files:
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # 检查是否有问题
-        if 'from __future__' not in content or 'import logging' not in content:
+        if "from __future__" not in content or "import logging" not in content:
             continue
-        
-        lines = content.split('\n')
+
+        lines = content.split("\n")
         future_idx = -1
         logging_idx = -1
-        
+
         for i, line in enumerate(lines):
-            if line.strip().startswith('from __future__'):
+            if line.strip().startswith("from __future__"):
                 future_idx = i
-            if line.strip() == 'import logging':
+            if line.strip() == "import logging":
                 logging_idx = i
                 break
-        
+
         if future_idx == -1 or logging_idx == -1:
             continue
-        
+
         if logging_idx < future_idx:
             # 移除 import logging
             lines.pop(logging_idx)
-            
+
             # 在 from __future__ 之后找到合适的位置插入
             # 跳过 from __future__ 和紧随的文档字符串
             insert_idx = future_idx
-            
+
             # 如果 from __future__ 后面是文档字符串，跳过它
             i = future_idx + 1
             while i < len(lines):
@@ -66,23 +66,23 @@ for filepath in files:
                                 break
                             i += 1
                         break
-                elif stripped == '' or stripped.startswith('#'):
+                elif stripped == "" or stripped.startswith("#"):
                     i += 1
                     continue
                 else:
                     insert_idx = i
                     break
-            
+
             # 插入 import logging
-            lines.insert(insert_idx, 'import logging')
-            
-            new_content = '\n'.join(lines)
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
+            lines.insert(insert_idx, "import logging")
+
+            new_content = "\n".join(lines)
+
+            with open(filepath, "w", encoding="utf-8") as f:
                 f.write(new_content)
-            
+
             print(f"✓ 修复 {filepath}")
-        
+
     except Exception as e:
         print(f"✗ 错误 {filepath}: {e}")
 

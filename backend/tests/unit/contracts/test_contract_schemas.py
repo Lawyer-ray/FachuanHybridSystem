@@ -1,11 +1,12 @@
 """
 合同 Schema 单元测试
 """
+
 import pytest
 from pydantic import ValidationError
 
-from apps.contracts.schemas import ContractIn, ContractOut, ContractAssignmentOut
 from apps.contracts.models import Contract, ContractAssignment
+from apps.contracts.schemas import ContractAssignmentOut, ContractIn, ContractOut
 from tests.factories import ContractFactory, LawyerFactory
 
 
@@ -16,13 +17,8 @@ class TestContractInSchema:
     def test_lawyer_ids_required(self):
         """测试 lawyer_ids 必填"""
         with pytest.raises(ValidationError) as exc_info:
-            ContractIn(
-                name="测试合同",
-                case_type="civil",
-                status="active",
-                lawyer_ids=[]  # 空列表应该失败
-            )
-        
+            ContractIn(name="测试合同", case_type="civil", status="active", lawyer_ids=[])  # 空列表应该失败
+
         assert "至少需要指派一个律师" in str(exc_info.value)
 
     def test_lawyer_ids_valid(self):
@@ -33,9 +29,9 @@ class TestContractInSchema:
             status="active",
             lawyer_ids=[1, 2, 3],
             fee_mode="FIXED",
-            fixed_amount=10000.0
+            fixed_amount=10000.0,
         )
-        
+
         assert contract_in.lawyer_ids == [1, 2, 3]
         assert contract_in.name == "测试合同"
 
@@ -49,7 +45,7 @@ class TestContractInSchema:
                 status="active",
                 assigned_lawyer_id=1,  # 旧字段
                 fee_mode="FIXED",
-                fixed_amount=10000.0
+                fixed_amount=10000.0,
             )
 
 
@@ -61,12 +57,7 @@ class TestContractAssignmentOutSchema:
         """测试从 ContractAssignment 创建 Schema"""
         lawyer = LawyerFactory(real_name="张律师")
         contract = ContractFactory()
-        assignment = ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True,
-            order=0
-        )
+        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
 
         schema = ContractAssignmentOut.from_assignment(assignment)
 
@@ -80,12 +71,7 @@ class TestContractAssignmentOutSchema:
         """测试律师没有真实姓名时使用用户名"""
         lawyer = LawyerFactory(real_name="", username="lawyer1")
         contract = ContractFactory()
-        assignment = ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=False,
-            order=1
-        )
+        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=False, order=1)
 
         schema = ContractAssignmentOut.from_assignment(assignment)
 
@@ -101,20 +87,10 @@ class TestContractOutSchema:
         lawyer1 = LawyerFactory(real_name="主办律师")
         lawyer2 = LawyerFactory(real_name="协办律师")
         contract = ContractFactory()
-        
+
         # 创建指派
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer1,
-            is_primary=True,
-            order=0
-        )
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer2,
-            is_primary=False,
-            order=1
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)
 
         # 解析 assignments
         assignments = ContractOut.resolve_assignments(contract)
@@ -129,14 +105,9 @@ class TestContractOutSchema:
         """测试解析 primary_lawyer 字段"""
         lawyer = LawyerFactory(real_name="主办律师")
         contract = ContractFactory()
-        
+
         # 创建主办律师指派
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True,
-            order=0
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
 
         # 解析 primary_lawyer
         primary_lawyer = ContractOut.resolve_primary_lawyer(contract)

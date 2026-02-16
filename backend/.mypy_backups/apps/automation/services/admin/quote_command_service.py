@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -11,14 +12,14 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, cast, Dict
+from typing import Any, Dict, cast
 
 from django.db import transaction
 from django.db.models import Q
 
+from apps.automation.models import PreservationQuote, QuoteStatus
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
-from apps.automation.models import PreservationQuote, QuoteStatus
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class QuoteCommandService:
         self.logger = logging.getLogger(__name__)
 
     @property
-    def preservation_quote_service(self)  -> Any:
+    def preservation_quote_service(self) -> Any:
         """延迟加载财产保全询价服务"""
         if not hasattr(self, "_preservation_quote_service"):
             self._preservation_quote_service = ServiceLocator.get_preservation_quote_service()
@@ -77,10 +78,7 @@ class QuoteCommandService:
             error_count = 0
             errors: list[Any] = []
 
-            self.logger.info(
-                "开始批量执行询价任务",
-                extra= {}
-            )
+            self.logger.info("开始批量执行询价任务", extra={})
 
             for quote in executable_quotes:
                 try:
@@ -88,7 +86,8 @@ class QuoteCommandService:
                     success_count += 1
 
                     self.logger.info(
-                        "询价任务执行成功", extra={"action": "execute_quotes", "quote_id": cast(int, quote.id), "result": result}
+                        "询价任务执行成功",
+                        extra={"action": "execute_quotes", "quote_id": cast(int, quote.id), "result": result},
                     )
 
                 except Exception as e:
@@ -99,7 +98,7 @@ class QuoteCommandService:
 
                     self.logger.error(
                         "询价任务执行失败",
-                        extra= {},
+                        extra={},
                         exc_info=True,
                     )
 
@@ -118,7 +117,7 @@ class QuoteCommandService:
         except Exception as e:
             self.logger.error(
                 "批量执行询价任务失败",
-                extra= {},
+                extra={},
                 exc_info=True,
             )
             from apps.core.exceptions import AutomationExceptions
@@ -166,17 +165,14 @@ class QuoteCommandService:
 
             result = {}
 
-            self.logger.info(
-                "重试失败询价任务完成",
-                extra= {}
-            )
+            self.logger.info("重试失败询价任务完成", extra={})
 
             return result
 
         except Exception as e:
             self.logger.error(
                 "重试失败询价任务失败",
-                extra= {},
+                extra={},
                 exc_info=True,
             )
             from apps.core.exceptions import AutomationExceptions
@@ -217,9 +213,7 @@ class QuoteCommandService:
                     preserve_amount = Decimal(str(config["preserve_amount"]))
                     if preserve_amount <= 0:
                         raise ValidationException(
-                            message="保全金额必须大于0",
-                            code="INVALID_PRESERVE_AMOUNT",
-                            errors={}
+                            message="保全金额必须大于0", code="INVALID_PRESERVE_AMOUNT", errors={}
                         )
 
                     quote = PreservationQuote.objects.create(
@@ -235,7 +229,7 @@ class QuoteCommandService:
                     logger.exception("操作失败")
                     errors.append({"config_index": i, "config": config, "error": str(e)})
 
-            result={
+            result = {
                 "created_count": len(created_quotes),
                 "error_count": len(errors),
                 "created_quote_ids": [cast(int, q.id) for q in created_quotes],
@@ -277,7 +271,7 @@ class QuoteCommandService:
                 raise ValidationException(
                     message=f"任务当前状态为 {quote.get_status_display()},无法执行",
                     code="INVALID_QUOTE_STATUS",
-                    errors={}
+                    errors={},
                 )
 
             task_id = async_task(
@@ -293,7 +287,4 @@ class QuoteCommandService:
             }
 
         except PreservationQuote.DoesNotExist:
-            raise NotFoundError(
-                message="询价任务不存在", code="QUOTE_NOT_FOUND",
-                errors={}
-            ) from None
+            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={}) from None

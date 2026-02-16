@@ -1,21 +1,20 @@
 """Module for encrypted."""
+
 from __future__ import annotations
 
-
-
 import base64
+import logging
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.db import models
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class EncryptedTextField(models.TextField):
-    prefix : str = "enc:v1:"
+    prefix: str = "enc:v1:"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

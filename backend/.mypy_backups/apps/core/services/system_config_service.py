@@ -3,8 +3,10 @@
 
 提供系统配置的 CRUD 操作和缓存管理.
 """
+
 from collections.abc import Iterable
 from typing import Any
+
 from django.core.cache import cache
 from django.db import transaction
 
@@ -259,6 +261,7 @@ class SystemConfigService:
     def _clear_cache(self, key: str) -> None:
         """清除系统配置缓存"""
         cache.delete(f"system_config:{key}")
+
     def get_value_internal(self, key: str, default: str = "") -> str:
         """获取配置值(内部方法,与 get_value 相同)"""
         return self.get_value(key, default)
@@ -311,4 +314,3 @@ class SystemConfigService:
         )
         self._clear_cache(key)
         return config
-

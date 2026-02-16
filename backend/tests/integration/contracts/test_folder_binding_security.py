@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from apps.core.exceptions import ValidationException
 from apps.contracts.services.folder_binding_service import FolderBindingService
+from apps.core.exceptions import ValidationException
 
 
 class TestFolderBindingSecurity:

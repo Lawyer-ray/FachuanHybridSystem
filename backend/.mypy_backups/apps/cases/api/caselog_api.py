@@ -2,11 +2,13 @@
 案件日志 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional
+
 from datetime import datetime
+from typing import List, Optional
+
 from ninja import Router
 
-from ..schemas import CaseLogIn, CaseLogUpdate, CaseLogOut
+from ..schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
 from ..services.caselog_service import CaseLogService
 
 router = Router()

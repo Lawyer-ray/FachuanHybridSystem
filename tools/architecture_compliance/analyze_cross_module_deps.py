@@ -9,6 +9,7 @@
 
 输出 JSON 分析报告到 tools/architecture_compliance/output/cross_module_analysis.json
 """
+
 from __future__ import annotations
 
 import ast
@@ -23,12 +24,11 @@ from .logging_config import get_logger, setup_logging
 logger = get_logger("cross_module_deps")
 
 # 匹配 from apps.<module>.models import ... 的正则
-_CROSS_MODULE_RE: re.Pattern[str] = re.compile(
-    r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models"
-)
+_CROSS_MODULE_RE: re.Pattern[str] = re.compile(r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models")
 
 
 # ── 数据模型 ────────────────────────────────────────────────
+
 
 @dataclass
 class CrossModuleViolation:
@@ -94,6 +94,7 @@ _MODEL_GETTER_MAP: dict[str, str] = {
 
 
 # ── 扫描逻辑 ───────────────────────────────────────────────
+
 
 def _extract_module_name(file_path: Path) -> Optional[str]:
     """从文件路径提取所属 apps 子模块名"""
@@ -172,7 +173,9 @@ def scan_file(file_path: Path) -> list[CrossModuleViolation]:
             needs_new_getter=needs_new,
             needs_new_protocol=needs_new,
             resolution_notes=_build_resolution_notes(
-                imported_names, existing_getter, needs_new,
+                imported_names,
+                existing_getter,
+                needs_new,
             ),
         )
         violations.append(violation)
@@ -216,6 +219,7 @@ def scan_directory(root: Path) -> list[CrossModuleViolation]:
 
 
 # ── 分析汇总 ───────────────────────────────────────────────
+
 
 def build_report(violations: list[CrossModuleViolation]) -> AnalysisReport:
     """
@@ -284,15 +288,14 @@ def save_report(report: AnalysisReport, output_path: Path) -> None:
 
 # ── 入口 ───────────────────────────────────────────────────
 
+
 def main() -> None:
     """主入口：扫描 backend/apps 并生成分析报告"""
     setup_logging()
 
     project_root = Path(__file__).resolve().parent.parent.parent
     backend_apps = project_root / "backend" / "apps"
-    output_file = (
-        Path(__file__).resolve().parent / "output" / "cross_module_analysis.json"
-    )
+    output_file = Path(__file__).resolve().parent / "output" / "cross_module_analysis.json"
 
     logger.info("开始扫描跨模块依赖: %s", backend_apps)
     violations = scan_directory(backend_apps)

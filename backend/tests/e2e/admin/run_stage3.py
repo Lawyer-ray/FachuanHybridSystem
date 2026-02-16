@@ -3,10 +3,12 @@
 
 测试所有内联表单功能
 """
+
 import asyncio
 import sys
 import time
 from datetime import datetime
+
 from .test_inline_forms import TestInlineForms
 
 
@@ -17,16 +19,16 @@ async def run_stage3_tests():
     print("=" * 80)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
-    
+
     test = TestInlineForms()
-    
+
     # 测试结果统计
     total_tests = 0
     passed_tests = 0
     failed_tests = 0
     skipped_tests = 0
     errors = []
-    
+
     # 测试列表
     tests = [
         # CaseAdmin 内联测试
@@ -38,35 +40,31 @@ async def run_stage3_tests():
         ("案件同时添加所有内联", test.test_case_all_inlines_together),
         ("编辑案件的内联记录", test.test_case_edit_inline),
         ("删除案件的内联记录", test.test_case_delete_inline),
-        
         # ContractAdmin 内联测试
         ("合同添加案件（内联）", test.test_contract_add_with_case_inline),
         ("合同嵌套内联", test.test_contract_nested_inline),
-        
         # ClientAdmin 内联测试
         ("客户添加身份证件", test.test_client_add_identity_doc),
-        
         # LawyerAdmin 内联测试
         ("律师添加账号凭证", test.test_lawyer_add_credential),
-        
         # 内联验证测试
         ("内联表单必填字段验证", test.test_inline_validation_required_fields),
         ("内联表单最大数量限制", test.test_inline_max_num_validation),
     ]
-    
+
     try:
         # 设置测试环境
         print("→ 设置测试环境...")
         await test.setup()
         print("✓ 测试环境设置完成\n")
-        
+
         # 运行测试
         for test_name, test_func in tests:
             total_tests += 1
             print(f"[{total_tests}/{len(tests)}] 测试: {test_name}")
-            
+
             start_time = time.time()
-            
+
             try:
                 await test_func()
                 passed_tests += 1
@@ -90,13 +88,13 @@ async def run_stage3_tests():
                     error_msg = f"异常: {str(e)}"
                     errors.append((test_name, error_msg))
                     print(f"  💥 错误 ({duration:.2f}s): {error_msg}\n")
-    
+
     finally:
         # 清理测试环境
         print("→ 清理测试环境...")
         await test.teardown()
         print("✓ 测试环境清理完成\n")
-    
+
     # 打印测试报告
     print("=" * 80)
     print("测试报告 - 阶段 3: 内联表单测试")
@@ -109,7 +107,7 @@ async def run_stage3_tests():
     print(f"⏭️  跳过: {skipped_tests}")
     print(f"成功率: {(passed_tests / total_tests * 100):.1f}%")
     print()
-    
+
     if errors:
         print("失败的测试:")
         print("-" * 80)
@@ -117,10 +115,10 @@ async def run_stage3_tests():
             print(f"❌ {test_name}")
             print(f"   {error_msg}")
             print()
-    
+
     # 生成测试报告文件
     generate_report(total_tests, passed_tests, failed_tests, skipped_tests, errors)
-    
+
     # 返回退出码
     return 0 if failed_tests == 0 else 1
 
@@ -129,10 +127,10 @@ def generate_report(total, passed, failed, skipped, errors):
     """生成测试报告文件"""
     report_content = f"""# Django Admin 内联表单测试报告 - 阶段 3
 
-**测试日期**: {datetime.now().strftime('%Y-%m-%d')}  
-**测试阶段**: 阶段 3 - 内联表单测试  
-**测试人员**: Kiro AI  
-**测试环境**: macOS, Python 3.12, Django 5.2  
+**测试日期**: {datetime.now().strftime('%Y-%m-%d')}
+**测试阶段**: 阶段 3 - 内联表单测试
+**测试人员**: Kiro AI
+**测试环境**: macOS, Python 3.12, Django 5.2
 **测试状态**: {'✅ 完成' if failed == 0 else '⚠️ 部分完成'}
 
 ---
@@ -180,16 +178,16 @@ def generate_report(total, passed, failed, skipped, errors):
 ### ✅ 成功的测试
 
 """
-    
+
     if passed > 0:
         report_content += f"共 {passed} 个测试通过\n\n"
-    
+
     if errors:
         report_content += "### ❌ 失败的测试\n\n"
         for test_name, error_msg in errors:
             report_content += f"#### {test_name}\n"
             report_content += f"**错误**: {error_msg}\n\n"
-    
+
     report_content += f"""
 ---
 
@@ -261,11 +259,11 @@ def generate_report(total, passed, failed, skipped, errors):
 
 **报告生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
-    
+
     # 写入报告文件
-    with open('backend/tests/admin/TEST_REPORT_STAGE3.md', 'w', encoding='utf-8') as f:
+    with open("backend/tests/admin/TEST_REPORT_STAGE3.md", "w", encoding="utf-8") as f:
         f.write(report_content)
-    
+
     print(f"✓ 测试报告已生成: backend/tests/admin/TEST_REPORT_STAGE3.md")
 
 

@@ -10,7 +10,7 @@ import FinderSync
 import Darwin
 
 class FinderSync: FIFinderSync {
-    
+
     // 今日文件夹名称格式
     private var todayFolderName: String {
         let formatter = DateFormatter()
@@ -22,10 +22,10 @@ class FinderSync: FIFinderSync {
     private var isAccessingSecurityScopedResource = false
     private lazy var rootMenu: NSMenu = makeRootMenu()
     private let isoFormatter = ISO8601DateFormatter()
-    
+
     override init() {
         super.init()
-        
+
         NSLog("FinderSync() 法穿AI扩展已启动")
         recordEvent(name: "init", payload: ["pid": "\(getpid())"])
         refreshDirectoryURLs()
@@ -34,9 +34,9 @@ class FinderSync: FIFinderSync {
     deinit {
         stopAccessingMonitoredRootIfNeeded()
     }
-    
+
     // MARK: - Menu
-    
+
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
         refreshDirectoryURLs()
         updateMenuState()
@@ -201,22 +201,22 @@ class FinderSync: FIFinderSync {
             return
         }
     }
-    
+
     // MARK: - Actions
-    
+
     @objc func createTodayFolder(_ sender: AnyObject?) {
         guard let targetURL = targetDirectoryURL() else {
             NSLog("无法获取目标文件夹路径")
             return
         }
-        
+
         let newFolderURL = targetURL.appendingPathComponent(todayFolderName)
 
         if FileManager.default.fileExists(atPath: newFolderURL.path) {
             NSSound.beep()
             return
         }
-        
+
         do {
             try FileManager.default.createDirectory(
                 at: newFolderURL,
@@ -224,9 +224,9 @@ class FinderSync: FIFinderSync {
                 attributes: nil
             )
             NSLog("成功创建今日文件夹: %@", newFolderURL.path)
-            
+
             revealAndBeginRename(newFolderURL)
-            
+
         } catch {
             NSLog("创建文件夹失败: %@", error.localizedDescription)
         }
@@ -234,7 +234,7 @@ class FinderSync: FIFinderSync {
 
     private func revealAndBeginRename(_ url: URL) {
         NSWorkspace.shared.activateFileViewerSelecting([url])
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [path = url.path] in
             let escapedPath = path.replacingOccurrences(of: "\"", with: "\\\"")
             let scriptSource = """
@@ -249,7 +249,7 @@ class FinderSync: FIFinderSync {
                 end tell
             end tell
             """
-            
+
             if let script = NSAppleScript(source: scriptSource) {
                 var error: NSDictionary?
                 script.executeAndReturnError(&error)
@@ -269,19 +269,19 @@ class FinderSync: FIFinderSync {
 
         return nil
     }
-    
+
     // MARK: - Toolbar (可选，暂时隐藏)
-    
+
     override var toolbarItemName: String {
         return "法穿AI"
     }
-    
+
     override var toolbarItemToolTip: String {
         return "法穿AI 快捷操作"
     }
-    
+
     override var toolbarItemImage: NSImage {
-        return NSImage(systemSymbolName: "folder.badge.gearshape", accessibilityDescription: nil) 
+        return NSImage(systemSymbolName: "folder.badge.gearshape", accessibilityDescription: nil)
             ?? NSImage(named: NSImage.folderName)!
     }
 }

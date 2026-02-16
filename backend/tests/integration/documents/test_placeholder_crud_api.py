@@ -5,6 +5,7 @@
 
 Requirements: 5.3
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,6 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.api.placeholder_api import (
     create_placeholder,
     delete_placeholder,
@@ -22,7 +24,6 @@ from apps.documents.api.placeholder_api import (
 )
 from apps.documents.models import Placeholder
 from apps.documents.schemas import PlaceholderIn, PlaceholderUpdate
-from apps.core.exceptions import NotFoundError, ValidationException
 from tests.factories.organization_factories import LawyerFactory
 
 
@@ -99,12 +100,8 @@ class TestPlaceholderListAPI:
 
     def test_list_placeholders_returns_active(self) -> None:
         """默认只返回活跃的替换词"""
-        Placeholder.objects.create(
-            key="active_key", display_name="活跃", is_active=True
-        )
-        Placeholder.objects.create(
-            key="inactive_key", display_name="禁用", is_active=False
-        )
+        Placeholder.objects.create(key="active_key", display_name="活跃", is_active=True)
+        Placeholder.objects.create(key="inactive_key", display_name="禁用", is_active=False)
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -115,12 +112,8 @@ class TestPlaceholderListAPI:
 
     def test_list_placeholders_filter_inactive(self) -> None:
         """过滤禁用的替换词"""
-        Placeholder.objects.create(
-            key="a_key", display_name="活跃", is_active=True
-        )
-        Placeholder.objects.create(
-            key="b_key", display_name="禁用", is_active=False
-        )
+        Placeholder.objects.create(key="a_key", display_name="活跃", is_active=True)
+        Placeholder.objects.create(key="b_key", display_name="禁用", is_active=False)
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -137,9 +130,7 @@ class TestPlaceholderGetAPI:
 
     def test_get_placeholder_by_id_success(self) -> None:
         """根据 ID 获取替换词"""
-        ph = Placeholder.objects.create(
-            key="test_key", display_name="测试"
-        )
+        ph = Placeholder.objects.create(key="test_key", display_name="测试")
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -156,9 +147,7 @@ class TestPlaceholderGetAPI:
 
     def test_get_placeholder_by_key_success(self) -> None:
         """根据键获取替换词"""
-        Placeholder.objects.create(
-            key="lookup_key", display_name="查找测试"
-        )
+        Placeholder.objects.create(key="lookup_key", display_name="查找测试")
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -181,9 +170,7 @@ class TestPlaceholderUpdateAPI:
 
     def test_update_placeholder_display_name(self) -> None:
         """更新显示名称"""
-        ph = Placeholder.objects.create(
-            key="upd_key", display_name="旧名称"
-        )
+        ph = Placeholder.objects.create(key="upd_key", display_name="旧名称")
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -211,9 +198,7 @@ class TestPlaceholderDeleteAPI:
 
     def test_delete_placeholder_success(self) -> None:
         """软删除替换词"""
-        ph = Placeholder.objects.create(
-            key="del_key", display_name="待删除"
-        )
+        ph = Placeholder.objects.create(key="del_key", display_name="待删除")
         ph_id = ph.id
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)

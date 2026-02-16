@@ -1,4 +1,5 @@
 """Business workflow orchestration."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,9 +9,7 @@ from django.db import transaction
 from apps.core.exceptions import ValidationException
 from apps.documents.models import DocumentTemplate
 from apps.documents.services.document_template.repo import DocumentTemplateRepo
-from apps.documents.services.document_template.validation_service import (
-    DocumentTemplateValidationService,
-)
+from apps.documents.services.document_template.validation_service import DocumentTemplateValidationService
 
 
 class DocumentTemplateWorkflow:
@@ -80,10 +79,14 @@ class DocumentTemplateWorkflow:
 
         with transaction.atomic():
             _SIMPLE_FIELDS = {
-                "name": name, "template_type": template_type,
-                "contract_sub_type": contract_sub_type, "description": description,
-                "case_types": case_types, "case_stages": case_stages,
-                "contract_types": contract_types, "is_active": is_active,
+                "name": name,
+                "template_type": template_type,
+                "contract_sub_type": contract_sub_type,
+                "description": description,
+                "case_types": case_types,
+                "case_stages": case_stages,
+                "contract_types": contract_types,
+                "is_active": is_active,
             }
             for attr, value in _SIMPLE_FIELDS.items():
                 if value is not None:
@@ -154,4 +157,5 @@ class DocumentTemplateWorkflow:
     def _clear_template_cache(self) -> None:
         """清除文档模板缓存"""
         from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
+
         bump_cache_version(CacheKeys.documents_matching_version_document_templates(), timeout=CacheTimeout.get_day())

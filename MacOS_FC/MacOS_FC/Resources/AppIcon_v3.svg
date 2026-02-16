@@ -7,43 +7,43 @@
       <stop offset="70%" style="stop-color:#1E1B4B"/>
       <stop offset="100%" style="stop-color:#2E1065"/>
     </linearGradient>
-    
+
     <!-- 核心光晕 - 多层 -->
     <radialGradient id="coreGlow1" cx="50%" cy="50%" r="50%">
       <stop offset="0%" style="stop-color:#A5B4FC;stop-opacity:0.5"/>
       <stop offset="30%" style="stop-color:#6366F1;stop-opacity:0.2"/>
       <stop offset="100%" style="stop-color:#1E1B4B;stop-opacity:0"/>
     </radialGradient>
-    
+
     <radialGradient id="coreGlow2" cx="50%" cy="50%" r="35%">
       <stop offset="0%" style="stop-color:#C4B5FD;stop-opacity:0.4"/>
       <stop offset="100%" style="stop-color:#6366F1;stop-opacity:0"/>
     </radialGradient>
-    
+
     <!-- 渐变线条 -->
     <linearGradient id="line1" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#E0E7FF"/>
       <stop offset="50%" style="stop-color:#A5B4FC"/>
       <stop offset="100%" style="stop-color:#6366F1"/>
     </linearGradient>
-    
+
     <linearGradient id="line2" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#C4B5FD"/>
       <stop offset="100%" style="stop-color:#7C3AED"/>
     </linearGradient>
-    
+
     <!-- 六边形填充 -->
     <linearGradient id="hexFill" x1="50%" y1="0%" x2="50%" y2="100%">
       <stop offset="0%" style="stop-color:#818CF8;stop-opacity:0.12"/>
       <stop offset="100%" style="stop-color:#4338CA;stop-opacity:0.03"/>
     </linearGradient>
-    
+
     <!-- 内六边形填充 -->
     <linearGradient id="innerHexFill" x1="50%" y1="0%" x2="50%" y2="100%">
       <stop offset="0%" style="stop-color:#A5B4FC;stop-opacity:0.2"/>
       <stop offset="100%" style="stop-color:#6366F1;stop-opacity:0.05"/>
     </linearGradient>
-    
+
     <!-- 光晕滤镜 -->
     <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
       <feGaussianBlur stdDeviation="10" result="blur"/>
@@ -52,7 +52,7 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    
+
     <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="5" result="blur"/>
       <feMerge>
@@ -60,7 +60,7 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    
+
     <filter id="tinyGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="2" result="blur"/>
       <feMerge>
@@ -69,10 +69,10 @@
       </feMerge>
     </filter>
   </defs>
-  
+
   <!-- 圆角背景 -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
-  
+
   <!-- 背景装饰粒子 -->
   <circle cx="180" cy="200" r="2" fill="#6366F1" opacity="0.4"/>
   <circle cx="844" cy="180" r="2" fill="#818CF8" opacity="0.3"/>
@@ -80,38 +80,38 @@
   <circle cx="864" cy="844" r="2" fill="#6366F1" opacity="0.4"/>
   <circle cx="280" cy="140" r="1.5" fill="#C4B5FD" opacity="0.3"/>
   <circle cx="744" cy="884" r="1.5" fill="#818CF8" opacity="0.3"/>
-  
+
   <!-- 核心光晕层 -->
   <circle cx="512" cy="512" r="340" fill="url(#coreGlow1)"/>
   <circle cx="512" cy="512" r="240" fill="url(#coreGlow2)"/>
-  
+
   <!-- 最外层轨道环 - 虚线 -->
   <circle cx="512" cy="512" r="340" stroke="#4338CA" stroke-width="1" stroke-dasharray="4 8" fill="none" opacity="0.25"/>
-  
+
   <!-- 外层轨道环 -->
   <circle cx="512" cy="512" r="300" stroke="url(#line1)" stroke-width="1.5" fill="none" opacity="0.35"/>
-  
+
   <!-- 中层轨道环 -->
   <circle cx="512" cy="512" r="240" stroke="url(#line2)" stroke-width="1.5" fill="none" opacity="0.45"/>
-  
+
   <!-- 内层轨道环 -->
   <circle cx="512" cy="512" r="180" stroke="url(#line1)" stroke-width="2" fill="none" opacity="0.55"/>
-  
+
   <!-- 最内层轨道环 -->
   <circle cx="512" cy="512" r="120" stroke="url(#line2)" stroke-width="2" fill="none" opacity="0.65"/>
-  
+
   <!-- 外六边形 - 填充 -->
   <polygon points="512,332 668,422 668,602 512,692 356,602 356,422" fill="url(#hexFill)"/>
-  
+
   <!-- 外六边形 - 边框 -->
   <polygon points="512,332 668,422 668,602 512,692 356,602 356,422" stroke="url(#line1)" stroke-width="3" fill="none" filter="url(#softGlow)"/>
-  
+
   <!-- 中六边形 -->
   <polygon points="512,392 608,447 608,577 512,632 416,577 416,447" stroke="url(#line2)" stroke-width="2" fill="url(#innerHexFill)" opacity="0.8"/>
-  
+
   <!-- 内六边形 -->
   <polygon points="512,452 560,482 560,542 512,572 464,542 464,482" stroke="url(#line1)" stroke-width="1.5" fill="none" opacity="0.6"/>
-  
+
   <!-- 主射线 - 从六边形顶点向外 -->
   <line x1="512" y1="332" x2="512" y2="172" stroke="url(#line1)" stroke-width="2" opacity="0.7" filter="url(#tinyGlow)"/>
   <line x1="668" y1="422" x2="812" y2="262" stroke="url(#line1)" stroke-width="2" opacity="0.7" filter="url(#tinyGlow)"/>
@@ -119,7 +119,7 @@
   <line x1="512" y1="692" x2="512" y2="852" stroke="url(#line1)" stroke-width="2" opacity="0.7" filter="url(#tinyGlow)"/>
   <line x1="356" y1="602" x2="212" y2="762" stroke="url(#line1)" stroke-width="2" opacity="0.7" filter="url(#tinyGlow)"/>
   <line x1="356" y1="422" x2="212" y2="262" stroke="url(#line1)" stroke-width="2" opacity="0.7" filter="url(#tinyGlow)"/>
-  
+
   <!-- 外围连接弧线 -->
   <path d="M512,172 Q662,172 812,262" stroke="#6366F1" stroke-width="1" fill="none" opacity="0.25"/>
   <path d="M812,262 Q862,512 812,762" stroke="#6366F1" stroke-width="1" fill="none" opacity="0.25"/>
@@ -127,52 +127,52 @@
   <path d="M512,852 Q362,852 212,762" stroke="#6366F1" stroke-width="1" fill="none" opacity="0.25"/>
   <path d="M212,762 Q162,512 212,262" stroke="#6366F1" stroke-width="1" fill="none" opacity="0.25"/>
   <path d="M212,262 Q362,172 512,172" stroke="#6366F1" stroke-width="1" fill="none" opacity="0.25"/>
-  
+
   <!-- 外围主节点 -->
   <circle cx="512" cy="172" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="512" cy="172" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <circle cx="812" cy="262" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="812" cy="262" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <circle cx="812" cy="762" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="812" cy="762" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <circle cx="512" cy="852" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="512" cy="852" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <circle cx="212" cy="762" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="212" cy="762" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <circle cx="212" cy="262" r="16" fill="#1E1B4B" stroke="url(#line1)" stroke-width="2"/>
   <circle cx="212" cy="262" r="8" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <!-- 六边形顶点节点 -->
   <circle cx="512" cy="332" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="512" cy="332" r="4" fill="#E0E7FF"/>
-  
+
   <circle cx="668" cy="422" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="668" cy="422" r="4" fill="#E0E7FF"/>
-  
+
   <circle cx="668" cy="602" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="668" cy="602" r="4" fill="#E0E7FF"/>
-  
+
   <circle cx="512" cy="692" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="512" cy="692" r="4" fill="#E0E7FF"/>
-  
+
   <circle cx="356" cy="602" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="356" cy="602" r="4" fill="#E0E7FF"/>
-  
+
   <circle cx="356" cy="422" r="10" fill="#312E81" stroke="#A5B4FC" stroke-width="1.5"/>
   <circle cx="356" cy="422" r="4" fill="#E0E7FF"/>
-  
+
   <!-- 核心 - 多层精致设计 -->
   <circle cx="512" cy="512" r="48" fill="#0F0A2E" stroke="#4338CA" stroke-width="2"/>
   <circle cx="512" cy="512" r="36" fill="#1E1B4B" stroke="#6366F1" stroke-width="1.5"/>
   <circle cx="512" cy="512" r="24" fill="#312E81" filter="url(#softGlow)"/>
   <circle cx="512" cy="512" r="14" fill="#6366F1" filter="url(#glow)"/>
   <circle cx="512" cy="512" r="6" fill="#E0E7FF"/>
-  
+
   <!-- 核心光芒 -->
   <line x1="512" y1="464" x2="512" y2="476" stroke="#A5B4FC" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
   <line x1="512" y1="548" x2="512" y2="560" stroke="#A5B4FC" stroke-width="2" stroke-linecap="round" opacity="0.8"/>

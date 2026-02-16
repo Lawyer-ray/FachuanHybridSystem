@@ -84,7 +84,9 @@ def test_clear_redis_namespace_cache_gracefully_handles_missing_redis_dependency
         return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    manager._clear_redis_namespace_cache({"LOCATION": "redis://x"}, backend="django.core.cache.backends.redis.RedisCache")
+    manager._clear_redis_namespace_cache(
+        {"LOCATION": "redis://x"}, backend="django.core.cache.backends.redis.RedisCache"
+    )
     assert called["msg"] == "token_cache_clear_redis_client_init_failed"
 
 

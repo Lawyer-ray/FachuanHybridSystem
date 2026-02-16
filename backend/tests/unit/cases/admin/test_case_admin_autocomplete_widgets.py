@@ -17,4 +17,3 @@ def test_supervising_authority_inline_form_marks_court_autocomplete_input():
     form = SupervisingAuthorityInlineForm()
     widget = form.fields["name"].widget
     assert "js-court-autocomplete" in (widget.attrs.get("class") or "")
-

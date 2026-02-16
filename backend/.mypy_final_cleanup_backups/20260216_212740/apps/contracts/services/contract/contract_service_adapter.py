@@ -3,12 +3,12 @@
 import logging
 from typing import Any, Optional, cast
 
-from apps.core.exceptions import NotFoundError
+from apps.contracts.models import Contract, ContractParty
 from apps.core.dtos import PartyRoleDTO, SupplementaryAgreementDTO
+from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import ContractDTO, ICaseService, LawyerDTO
 from apps.core.security.access_context import AccessContext
 
-from apps.contracts.models import Contract, ContractParty
 from .assemblers.contract_details_assembler import ContractDetailsAssembler
 from .assemblers.contract_dto_assembler import ContractDtoAssembler
 from .contract_service import ContractService

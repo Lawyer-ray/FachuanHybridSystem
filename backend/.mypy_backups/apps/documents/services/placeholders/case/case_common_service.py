@@ -1,25 +1,22 @@
 """Business logic services."""
 
+import logging
 import re
 from typing import Any, ClassVar
 
 from apps.core.enums import AuthorityType
-
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
-import logging
-
 
 logger = logging.getLogger(__name__)
 
 
-
 @PlaceholderRegistry.register
 class CaseCommonPlaceholderService(BasePlaceholderService):
-    name : str = "case_common_placeholder_service"
-    display_name : str = "案件通用信息"
-    description : str = "提供案件文档通用占位符(当事人/律师/阶段/案由等)"
-    category : str = "case"
+    name: str = "case_common_placeholder_service"
+    display_name: str = "案件通用信息"
+    description: str = "提供案件文档通用占位符(当事人/律师/阶段/案由等)"
+    category: str = "case"
     placeholder_keys: ClassVar = [
         "案件审理机构",
         "案件委托人名称",
@@ -95,7 +92,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
             names.append(name)
         return "、".join(names)
 
-    def _get_party_names(self, case: Any, *,  is_our_client: bool) -> str:
+    def _get_party_names(self, case: Any, *, is_our_client: bool) -> str:
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
@@ -126,12 +123,12 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
 
             assignments: list[Any] = []
 
-        def sort_key(a)  -> tuple[Any, ...]:
+        def sort_key(a) -> tuple[Any, ...]:
             return (0 if getattr(a, "is_primary", False) else 1, getattr(a, "id", 0))
 
         assignments = sorted(assignments, key=sort_key)
 
-        names : list[str] = []
+        names: list[str] = []
         seen = set()
         for assignment in assignments:
             lawyer = getattr(assignment, "lawyer", None)

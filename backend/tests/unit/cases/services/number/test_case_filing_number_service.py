@@ -25,4 +25,3 @@ def test_generate_case_filing_number_on_sqlite_does_not_fail():
         case_id=case2.id, case_type=case2.case_type, created_year=created_year
     )
     assert filing_number2.endswith("_2")
-

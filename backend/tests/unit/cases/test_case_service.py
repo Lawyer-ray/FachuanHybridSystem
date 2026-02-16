@@ -1,21 +1,19 @@
 """
 CaseService 单元测试
 """
-import pytest
-from unittest.mock import Mock, MagicMock
-from decimal import Decimal
 
+from decimal import Decimal
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
+from apps.cases.models import Case, CaseAssignment, CaseParty
 from apps.cases.services import CaseService
-from apps.cases.models import Case, CaseParty, CaseAssignment
-from apps.core.exceptions import (
-    ValidationException,
-    NotFoundError,
-    ConflictError
-)
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import ContractDTO
 from tests.factories.client_factories import ClientFactory
-from tests.factories.organization_factories import LawyerFactory, LawFirmFactory
 from tests.factories.contract_factories import ContractFactory
+from tests.factories.organization_factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -28,35 +26,22 @@ class TestCaseService:
         self.mock_contract_service = Mock()
 
         # 创建 Service 实例（注入 Mock）
-        self.service = CaseService(
-            contract_service=self.mock_contract_service
-        )
+        self.service = CaseService(contract_service=self.mock_contract_service)
 
     def test_create_case_success(self):
         """测试创建案件成功"""
         # 创建真实的合同对象（避免外键约束错误）
         from apps.contracts.models import Contract, ContractAssignment
-        from apps.organization.models import Lawyer, LawFirm
+        from apps.organization.models import LawFirm, Lawyer
 
         law_firm = LawFirm.objects.create(name="测试律所")
-        lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=law_firm
-        )
+        lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=law_firm)
 
         contract = Contract.objects.create(
-            name="测试合同",
-            case_type="civil",
-            status="active",
-            representation_stages=["first_trial", "second_trial"]
+            name="测试合同", case_type="civil", status="active", representation_stages=["first_trial", "second_trial"]
         )
         # 使用 ContractAssignment 关联律师
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True)
 
         # 创建 Mock 用户（避免 is_authenticated 属性问题）
         user = Mock()
@@ -77,7 +62,7 @@ class TestCaseService:
             name="测试合同",
             case_type="civil",
             status="active",
-            representation_stages=["first_trial", "second_trial"]
+            representation_stages=["first_trial", "second_trial"],
         )
         self.mock_contract_service.validate_contract_active.return_value = True
 
@@ -130,11 +115,7 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=1,
-            name="测试合同",
-            case_type="civil",
-            status="draft",
-            representation_stages=[]
+            id=1, name="测试合同", case_type="civil", status="draft", representation_stages=[]
         )
         self.mock_contract_service.validate_contract_active.return_value = False
 
@@ -176,10 +157,7 @@ class TestCaseService:
         user.id = 1
 
         # 创建测试案件
-        case = Case.objects.create(
-            name="原案件名称",
-            is_archived=False
-        )
+        case = Case.objects.create(name="原案件名称", is_archived=False)
 
         # 准备更新数据
         data = {
@@ -193,7 +171,7 @@ class TestCaseService:
             name="测试合同",
             case_type="civil",
             status="active",
-            representation_stages=["first_trial", "second_trial"]
+            representation_stages=["first_trial", "second_trial"],
         )
 
         # 执行测试
@@ -224,27 +202,16 @@ class TestCaseService:
         """测试更新案件关联新合同"""
         # 创建真实的合同对象
         from apps.contracts.models import Contract, ContractAssignment
-        from apps.organization.models import Lawyer, LawFirm
+        from apps.organization.models import LawFirm, Lawyer
 
         law_firm = LawFirm.objects.create(name="测试律所")
-        lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=law_firm
-        )
+        lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=law_firm)
 
         new_contract = Contract.objects.create(
-            name="新合同",
-            case_type="criminal",
-            status="active",
-            representation_stages=[]
+            name="新合同", case_type="criminal", status="active", representation_stages=[]
         )
         # 使用 ContractAssignment 关联律师
-        ContractAssignment.objects.create(
-            contract=new_contract,
-            lawyer=lawyer,
-            is_primary=True
-        )
+        ContractAssignment.objects.create(contract=new_contract, lawyer=lawyer, is_primary=True)
 
         # 创建 Mock 用户
         user = Mock()
@@ -252,10 +219,7 @@ class TestCaseService:
         user.id = 1
 
         # 创建测试案件
-        case = Case.objects.create(
-            name="测试案件",
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 准备更新数据
         data = {
@@ -264,11 +228,7 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=new_contract.id,
-            name="新合同",
-            case_type="criminal",
-            status="active",
-            representation_stages=[]
+            id=new_contract.id, name="新合同", case_type="criminal", status="active", representation_stages=[]
         )
 
         # 执行测试
@@ -288,10 +248,7 @@ class TestCaseService:
         user.id = 1
 
         # 创建测试案件
-        case = Case.objects.create(
-            name="测试案件",
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 执行测试
         result = self.service.delete_case(case.id, user=user)
@@ -317,9 +274,7 @@ class TestCaseService:
         """测试验证阶段成功"""
         # 执行测试
         result = self.service._validate_stage(
-            stage="first_trial",
-            case_type="civil",
-            representation_stages=["first_trial", "second_trial"]
+            stage="first_trial", case_type="civil", representation_stages=["first_trial", "second_trial"]
         )
 
         # 断言结果
@@ -330,9 +285,7 @@ class TestCaseService:
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
             self.service._validate_stage(
-                stage="enforcement",
-                case_type="civil",
-                representation_stages=["first_trial", "second_trial"]
+                stage="enforcement", case_type="civil", representation_stages=["first_trial", "second_trial"]
             )
 
         assert "阶段不在代理范围内" in str(exc_info.value.errors)
@@ -344,11 +297,8 @@ class TestCaseService:
         contract = ContractFactory()
         # 使用 ContractAssignment 关联律师
         from apps.contracts.models import ContractAssignment
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True
-        )
+
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True)
         client1 = ClientFactory(name="客户1")
         client2 = ClientFactory(name="客户2")
 
@@ -379,11 +329,7 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=contract.id,
-            name="测试合同",
-            case_type="civil",
-            status="active",
-            representation_stages=[]
+            id=contract.id, name="测试合同", case_type="civil", status="active", representation_stages=[]
         )
         self.mock_contract_service.validate_contract_active.return_value = True
 
@@ -462,8 +408,8 @@ class TestCaseServiceQueryOptimization:
         service = CaseService()
 
         # 使用优化的查询集
-        from django.test.utils import override_settings
         from django.db import connection, reset_queries
+        from django.test.utils import override_settings
 
         with override_settings(DEBUG=True):
             reset_queries()
@@ -502,17 +448,14 @@ class TestCaseServiceSearch:
     def test_search_by_case_number_exact_match(self):
         """测试按案号精确匹配搜索"""
         from apps.cases.models import CaseNumber
-        
+
         # 创建测试案件和案号
         case = Case.objects.create(name="测试案件", is_archived=False)
         CaseNumber.objects.create(case=case, number="（2024）粤01民初12345号")
 
         # 执行精确搜索
         result = self.service.search_by_case_number(
-            case_number="（2024）粤01民初12345号",
-            user=self.user,
-            perm_open_access=True,
-            exact_match=True
+            case_number="（2024）粤01民初12345号", user=self.user, perm_open_access=True, exact_match=True
         )
 
         # 断言结果
@@ -522,7 +465,7 @@ class TestCaseServiceSearch:
     def test_search_by_case_number_fuzzy_match(self):
         """测试按案号模糊匹配搜索"""
         from apps.cases.models import CaseNumber
-        
+
         # 创建测试案件和案号
         case1 = Case.objects.create(name="案件1", is_archived=False)
         case2 = Case.objects.create(name="案件2", is_archived=False)
@@ -531,10 +474,7 @@ class TestCaseServiceSearch:
 
         # 执行模糊搜索
         result = self.service.search_by_case_number(
-            case_number="粤01民初1234",
-            user=self.user,
-            perm_open_access=True,
-            exact_match=False
+            case_number="粤01民初1234", user=self.user, perm_open_access=True, exact_match=False
         )
 
         # 断言结果（应该匹配两个案件）
@@ -543,17 +483,14 @@ class TestCaseServiceSearch:
     def test_search_by_case_number_normalize(self):
         """测试案号规范化搜索"""
         from apps.cases.models import CaseNumber
-        
+
         # 创建测试案件（使用规范化的案号）
         case = Case.objects.create(name="测试案件", is_archived=False)
         CaseNumber.objects.create(case=case, number="（2024）粤01民初12345号")
 
         # 使用不同格式的案号搜索（英文括号、无"号"字）
         result = self.service.search_by_case_number(
-            case_number="(2024)粤01民初12345",
-            user=self.user,
-            perm_open_access=True,
-            exact_match=True
+            case_number="(2024)粤01民初12345", user=self.user, perm_open_access=True, exact_match=True
         )
 
         # 断言结果（应该能找到）
@@ -563,25 +500,18 @@ class TestCaseServiceSearch:
     def test_search_by_case_number_with_permission(self):
         """测试按案号搜索时的权限控制"""
         from apps.cases.models import CaseNumber
-        from apps.organization.models import Lawyer, LawFirm
-        
+        from apps.organization.models import LawFirm, Lawyer
+
         # 创建律师和案件
         law_firm = LawFirm.objects.create(name="测试律所")
-        lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=law_firm
-        )
-        
+        lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=law_firm)
+
         case = Case.objects.create(name="测试案件", is_archived=False)
         CaseNumber.objects.create(case=case, number="（2024）粤01民初12345号")
         CaseAssignment.objects.create(case=case, lawyer=lawyer)
 
         # 配置用户权限
-        org_access = {
-            "lawyers": {lawyer.id},
-            "extra_cases": set()
-        }
+        org_access = {"lawyers": {lawyer.id}, "extra_cases": set()}
 
         # 执行搜索
         result = self.service.search_by_case_number(
@@ -589,7 +519,7 @@ class TestCaseServiceSearch:
             user=self.user,
             org_access=org_access,
             perm_open_access=False,
-            exact_match=True
+            exact_match=True,
         )
 
         # 断言结果
@@ -602,11 +532,7 @@ class TestCaseServiceSearch:
         case2 = Case.objects.create(name="侵权纠纷案件", is_archived=False)
 
         # 执行搜索
-        result = self.service.search_cases(
-            query="合同",
-            user=self.user,
-            perm_open_access=True
-        )
+        result = self.service.search_cases(query="合同", user=self.user, perm_open_access=True)
 
         # 断言结果
         assert len(result) == 1
@@ -615,18 +541,14 @@ class TestCaseServiceSearch:
     def test_search_cases_by_party_name(self):
         """测试按当事人姓名搜索"""
         from apps.client.models import Client
-        
+
         # 创建客户和案件
         client = Client.objects.create(name="张三")
         case = Case.objects.create(name="测试案件", is_archived=False)
         CaseParty.objects.create(case=case, client=client, legal_status="plaintiff")
 
         # 执行搜索
-        result = self.service.search_cases(
-            query="张三",
-            user=self.user,
-            perm_open_access=True
-        )
+        result = self.service.search_cases(query="张三", user=self.user, perm_open_access=True)
 
         # 断言结果
         assert len(result) == 1
@@ -634,11 +556,7 @@ class TestCaseServiceSearch:
 
     def test_search_cases_empty_query(self):
         """测试空查询返回空列表"""
-        result = self.service.search_cases(
-            query="",
-            user=self.user,
-            perm_open_access=True
-        )
+        result = self.service.search_cases(query="", user=self.user, perm_open_access=True)
 
         assert len(result) == 0
 
@@ -649,12 +567,7 @@ class TestCaseServiceSearch:
             Case.objects.create(name=f"测试案件{i}", is_archived=False)
 
         # 执行搜索（限制 10 条）
-        result = self.service.search_cases(
-            query="测试",
-            limit=10,
-            user=self.user,
-            perm_open_access=True
-        )
+        result = self.service.search_cases(query="测试", limit=10, user=self.user, perm_open_access=True)
 
         # 断言结果
         assert len(result) == 10
@@ -696,45 +609,31 @@ class TestCaseServiceList:
         admin_user.is_admin = True
 
         # 执行查询
-        result = self.service.list_cases(
-            user=admin_user,
-            perm_open_access=False
-        )
+        result = self.service.list_cases(user=admin_user, perm_open_access=False)
 
         # 断言结果
         assert result.count() == 2
 
     def test_list_cases_with_lawyer_permission(self):
         """测试律师权限只能看到自己的案件"""
-        from apps.organization.models import Lawyer, LawFirm
-        
+        from apps.organization.models import LawFirm, Lawyer
+
         # 创建律师
         law_firm = LawFirm.objects.create(name="测试律所")
-        lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=law_firm
-        )
-        
+        lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=law_firm)
+
         # 创建案件
         case1 = Case.objects.create(name="我的案件", is_archived=False)
         case2 = Case.objects.create(name="其他案件", is_archived=False)
-        
+
         # 只给第一个案件分配律师
         CaseAssignment.objects.create(case=case1, lawyer=lawyer)
 
         # 配置权限
-        org_access = {
-            "lawyers": {lawyer.id},
-            "extra_cases": set()
-        }
+        org_access = {"lawyers": {lawyer.id}, "extra_cases": set()}
 
         # 执行查询
-        result = self.service.list_cases(
-            user=self.user,
-            org_access=org_access,
-            perm_open_access=False
-        )
+        result = self.service.list_cases(user=self.user, org_access=org_access, perm_open_access=False)
 
         # 断言结果（只能看到分配给自己的案件）
         assert result.count() == 1
@@ -759,11 +658,7 @@ class TestCaseServiceGetCase:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 执行查询
-        result = self.service.get_case(
-            case_id=case.id,
-            user=self.user,
-            perm_open_access=True
-        )
+        result = self.service.get_case(case_id=case.id, user=self.user, perm_open_access=True)
 
         # 断言结果
         assert result.id == case.id
@@ -773,33 +668,21 @@ class TestCaseServiceGetCase:
         """测试获取不存在的案件"""
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            self.service.get_case(
-                case_id=999,
-                user=self.user,
-                perm_open_access=True
-            )
+            self.service.get_case(case_id=999, user=self.user, perm_open_access=True)
 
     def test_get_case_forbidden(self):
         """测试无权限访问案件"""
         from apps.core.exceptions import ForbiddenError
-        
+
         # 创建测试案件
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 配置无权限
-        org_access = {
-            "lawyers": set(),
-            "extra_cases": set()
-        }
+        org_access = {"lawyers": set(), "extra_cases": set()}
 
         # 断言抛出异常
         with pytest.raises(ForbiddenError):
-            self.service.get_case(
-                case_id=case.id,
-                user=self.user,
-                org_access=org_access,
-                perm_open_access=False
-            )
+            self.service.get_case(case_id=case.id, user=self.user, org_access=org_access, perm_open_access=False)
 
     def test_get_case_with_admin(self):
         """测试管理员可以访问任何案件"""
@@ -812,11 +695,7 @@ class TestCaseServiceGetCase:
         admin_user.is_admin = True
 
         # 执行查询
-        result = self.service.get_case(
-            case_id=case.id,
-            user=admin_user,
-            perm_open_access=False
-        )
+        result = self.service.get_case(case_id=case.id, user=admin_user, perm_open_access=False)
 
         # 断言结果
         assert result.id == case.id
@@ -844,11 +723,7 @@ class TestCaseServiceCheckAccess:
         admin_user.is_admin = True
 
         # 执行检查
-        result = self.service.check_case_access(
-            case=case,
-            user=admin_user,
-            org_access=None
-        )
+        result = self.service.check_case_access(case=case, user=admin_user, org_access=None)
 
         # 断言结果
         assert result is True
@@ -859,48 +734,30 @@ class TestCaseServiceCheckAccess:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 配置额外授权
-        org_access = {
-            "lawyers": set(),
-            "extra_cases": {case.id}
-        }
+        org_access = {"lawyers": set(), "extra_cases": {case.id}}
 
         # 执行检查
-        result = self.service.check_case_access(
-            case=case,
-            user=self.user,
-            org_access=org_access
-        )
+        result = self.service.check_case_access(case=case, user=self.user, org_access=org_access)
 
         # 断言结果
         assert result is True
 
     def test_check_case_access_assigned_lawyer(self):
         """测试分配的律师有权限"""
-        from apps.organization.models import Lawyer, LawFirm
-        
+        from apps.organization.models import LawFirm, Lawyer
+
         # 创建律师和案件
         law_firm = LawFirm.objects.create(name="测试律所")
-        lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=law_firm
-        )
-        
+        lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=law_firm)
+
         case = Case.objects.create(name="测试案件", is_archived=False)
         CaseAssignment.objects.create(case=case, lawyer=lawyer)
 
         # 配置权限
-        org_access = {
-            "lawyers": {lawyer.id},
-            "extra_cases": set()
-        }
+        org_access = {"lawyers": {lawyer.id}, "extra_cases": set()}
 
         # 执行检查
-        result = self.service.check_case_access(
-            case=case,
-            user=self.user,
-            org_access=org_access
-        )
+        result = self.service.check_case_access(case=case, user=self.user, org_access=org_access)
 
         # 断言结果
         assert result is True
@@ -911,17 +768,10 @@ class TestCaseServiceCheckAccess:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 配置无权限
-        org_access = {
-            "lawyers": set(),
-            "extra_cases": set()
-        }
+        org_access = {"lawyers": set(), "extra_cases": set()}
 
         # 执行检查
-        result = self.service.check_case_access(
-            case=case,
-            user=self.user,
-            org_access=org_access
-        )
+        result = self.service.check_case_access(case=case, user=self.user, org_access=org_access)
 
         # 断言结果
         assert result is False
@@ -932,11 +782,7 @@ class TestCaseServiceCheckAccess:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 执行检查
-        result = self.service.check_case_access(
-            case=case,
-            user=self.user,
-            org_access=None
-        )
+        result = self.service.check_case_access(case=case, user=self.user, org_access=None)
 
         # 断言结果
         assert result is False

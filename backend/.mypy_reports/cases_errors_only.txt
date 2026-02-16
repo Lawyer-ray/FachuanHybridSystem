@@ -69,7 +69,7 @@ apps/cases/services/case/case_internal_query_service.py:54:58: error: Argument
 apps/cases/services/case_assignment_service.py:28:5: note: "CaseAssignmentService" defined here
 apps/cases/services/case_chat_service.py:98:33: error: "Case" has no attribute
 apps/cases/services/case_chat_service.py:108:37: error: "Case" has no attribute
-apps/cases/services/case_chat_service.py:214:25: error: Return value expected 
+apps/cases/services/case_chat_service.py:214:25: error: Return value expected
 apps/cases/services/case_chat_service.py:344:13: error: Returning Any from
 apps/cases/services/case_chat_service.py:354:37: error: Incompatible default
 apps/cases/services/case_chat_service.py:354:37: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
@@ -306,7 +306,7 @@ apps/cases/api/case_material_api.py:82:11: error: Unexpected keyword argument
 apps/cases/services/caselog_service.py:145:5: note: "create_log" of "CaseLogService" defined here
 apps/cases/api/case_material_api.py:82:11: error: Unexpected keyword argument
 apps/cases/services/caselog_service.py:145:5: note: "create_log" of "CaseLogService" defined here
-apps/cases/api/case_material_api.py:96:50: error: "str" has no attribute "id" 
+apps/cases/api/case_material_api.py:96:50: error: "str" has no attribute "id"
 apps/cases/api/case_api.py:41:1: error: Function is missing a return type
 apps/cases/api/case_api.py:41:1: error: Function is missing a type annotation
 apps/cases/api/case_api.py:63:15: error: Argument "limit" to "search_cases" of

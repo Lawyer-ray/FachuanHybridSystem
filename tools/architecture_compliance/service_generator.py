@@ -10,6 +10,7 @@ Service 方法生成器
 4. 处理 Model 导入和依赖注入
 5. 返回 ServiceGenerationResult 结构化结果
 """
+
 from __future__ import annotations
 
 import ast
@@ -18,11 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from .business_logic_extractor import (
-    ExtractedServiceMethod,
-    SaveMethodRefactoring,
-    format_service_method_template,
-)
+from .business_logic_extractor import ExtractedServiceMethod, SaveMethodRefactoring, format_service_method_template
 from .logging_config import get_logger
 
 logger = get_logger("service_generator")
@@ -30,9 +27,7 @@ logger = get_logger("service_generator")
 
 # ── CamelCase → snake_case ──────────────────────────────────
 
-_CAMEL_RE: re.Pattern[str] = re.compile(
-    r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])"
-)
+_CAMEL_RE: re.Pattern[str] = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def _to_snake_case(name: str) -> str:
@@ -106,7 +101,9 @@ class ServiceGenerator:
 
         # 确定目标文件路径
         service_path = self._resolve_service_path(
-            refactoring, project_root, target_service_path,
+            refactoring,
+            project_root,
+            target_service_path,
         )
 
         if not refactoring.service_methods:
@@ -120,11 +117,15 @@ class ServiceGenerator:
 
         if service_path.exists():
             result = self._update_existing_file(
-                service_path, service_class_name, refactoring,
+                service_path,
+                service_class_name,
+                refactoring,
             )
         else:
             result = self._create_new_file(
-                service_path, service_class_name, refactoring,
+                service_path,
+                service_class_name,
+                refactoring,
             )
 
         logger.info(
@@ -227,7 +228,7 @@ class ServiceGenerator:
             if part == "apps" and i + 2 < len(parts):
                 # 检查后续是否有 models 目录
                 app_name = parts[i + 1]
-                if "models" in parts[i + 2:]:
+                if "models" in parts[i + 2 :]:
                     return Path("apps") / app_name
         return None
 
@@ -263,7 +264,9 @@ class ServiceGenerator:
             tree = ast.parse(source)
         except SyntaxError as exc:
             logger.warning(
-                "Service 文件解析失败: %s - %s", service_path, exc,
+                "Service 文件解析失败: %s - %s",
+                service_path,
+                exc,
             )
             return ServiceGenerationResult(
                 service_file_path=str(service_path),
@@ -287,7 +290,10 @@ class ServiceGenerator:
                 service_class_name,
             )
             return self._append_class_to_file(
-                service_path, source, service_class_name, refactoring,
+                service_path,
+                source,
+                service_class_name,
+                refactoring,
             )
 
         # 获取已有方法名
@@ -303,7 +309,8 @@ class ServiceGenerator:
                 methods_skipped.append(method.method_name)
                 logger.info(
                     "方法 %s 已存在于 %s，跳过",
-                    method.method_name, actual_class_name,
+                    method.method_name,
+                    actual_class_name,
                 )
             else:
                 methods_to_add.append(method)
@@ -321,12 +328,16 @@ class ServiceGenerator:
 
         # 在类末尾插入新方法
         updated_source = self._insert_methods_into_class(
-            source, class_node, methods_to_add,
+            source,
+            class_node,
+            methods_to_add,
         )
 
         # 更新导入
         updated_source = self._ensure_model_import(
-            updated_source, refactoring.model_name, refactoring.file_path,
+            updated_source,
+            refactoring.model_name,
+            refactoring.file_path,
         )
 
         # 语法验证
@@ -575,7 +586,9 @@ class ServiceGenerator:
 
         # 确保导入
         updated_source = self._ensure_model_import(
-            updated_source, refactoring.model_name, refactoring.file_path,
+            updated_source,
+            refactoring.model_name,
+            refactoring.file_path,
         )
 
         return ServiceGenerationResult(

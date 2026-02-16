@@ -20,7 +20,9 @@ def test_refactor_targets_do_not_import_service_locator():
 
     for path in paths:
         content = path.read_text(encoding="utf-8")
-        assert "from apps.core.interfaces import ServiceLocator" not in content, f"{path} should not import ServiceLocator"
+        assert (
+            "from apps.core.interfaces import ServiceLocator" not in content
+        ), f"{path} should not import ServiceLocator"
 
 
 def test_court_sms_stages_do_not_import_django_q_tasks():
@@ -39,4 +41,3 @@ def test_court_sms_helpers_do_not_import_django_q_tasks():
     assert path.exists(), f"missing: {path}"
     content = path.read_text(encoding="utf-8")
     assert "django_q.tasks" not in content, f"{path} should not import django_q.tasks"
-

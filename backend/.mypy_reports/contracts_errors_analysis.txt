@@ -55,4 +55,3 @@ apps/contracts/services/folder/folder_binding_service.py:84
 
 apps/contracts/services/folder/folder_binding_service.py:94
   Signature
-

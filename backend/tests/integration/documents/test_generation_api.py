@@ -6,6 +6,7 @@
 
 Requirements: 5.3
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -48,9 +49,7 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_contract_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -65,9 +64,7 @@ class TestDownloadContractDocumentAPI:
             result = download_contract_document(request, contract.id)
 
             assert result["Content-Disposition"] is not None
-            mock_service.generate_contract_document_result.assert_called_once_with(
-                contract.id
-            )
+            mock_service.generate_contract_document_result.assert_called_once_with(contract.id)
 
     def test_download_contract_document_saved_to_folder(self) -> None:
         """合同文档保存到绑定文件夹（返回 JSON）"""
@@ -75,9 +72,7 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_contract_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -100,9 +95,7 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_contract_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -129,9 +122,7 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_folder_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -153,9 +144,7 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_folder_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -178,9 +167,7 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_folder_generation_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -207,9 +194,7 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_supplementary_agreement_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -221,9 +206,7 @@ class TestDownloadSupplementaryAgreementAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_supplementary_agreement(
-                request, contract.id, 1
-            )
+            result = download_supplementary_agreement(request, contract.id, 1)
 
             assert result["Content-Disposition"] is not None
 
@@ -233,9 +216,7 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_supplementary_agreement_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -247,9 +228,7 @@ class TestDownloadSupplementaryAgreementAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_supplementary_agreement(
-                request, contract.id, 1
-            )
+            result = download_supplementary_agreement(request, contract.id, 1)
 
             assert result["success"] is True
             assert result["folder_path"] == "/saved/path"
@@ -260,9 +239,7 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch(
-            "apps.documents.api.generation_api._require_contract_access"
-        ), patch(
+        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
             "apps.documents.api.generation_api._get_supplementary_agreement_service"
         ) as mock_factory:
             mock_service = Mock()
@@ -275,6 +252,4 @@ class TestDownloadSupplementaryAgreementAPI:
             mock_factory.return_value = mock_service
 
             with pytest.raises(ValidationException):
-                download_supplementary_agreement(
-                    request, contract.id, 1
-                )
+                download_supplementary_agreement(request, contract.id, 1)

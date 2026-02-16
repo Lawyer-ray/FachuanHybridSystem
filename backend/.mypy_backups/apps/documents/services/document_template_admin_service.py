@@ -272,7 +272,7 @@ class DocumentTemplateAdminService:
             html_parts.append(f'<tr style="{row_style}">')
             html_parts.append(
                 f'<td style="padding: 8px; border: 1px solid #ddd; font-family: monospace;">'
-                f'{{{{ {placeholder} }}}}</td>'
+                f"{{{{ {placeholder} }}}}</td>"
             )
             html_parts.append(f'<td style="padding: 8px; border: 1px solid #ddd;">{status}</td>')
             html_parts.append("</tr>")
@@ -300,7 +300,7 @@ class DocumentTemplateAdminService:
         ]
         html_parts.append(
             f'<p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">'
-            f'⚠️ 发现 {len(undefined)} 个未定义的占位符:</p>'
+            f"⚠️ 发现 {len(undefined)} 个未定义的占位符:</p>"
         )
         html_parts.append('<ul style="margin: 0; padding-left: 20px;">')
 

@@ -3,12 +3,15 @@
 处理案件访问权限相关的业务逻辑
 符合四层架构规范：业务逻辑、权限检查、依赖注入
 """
-from typing import List, Optional, Set, Dict, Any
+
+from typing import Any, Dict, List, Optional, Set
+
 from django.db.models import QuerySet
 
-from apps.core.exceptions import NotFoundError, ConflictError
+from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, ServiceLocator
 from apps.organization.middleware import invalidate_user_org_cache
+
 from ..models import Case, CaseAccessGrant
 
 
@@ -245,11 +248,7 @@ class CaseAccessService:
         Returns:
             案件 ID 集合
         """
-        return set(
-            CaseAccessGrant.objects
-            .filter(grantee_id=user_id)
-            .values_list("case_id", flat=True)
-        )
+        return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 
     def grant_access(self, case_id: int, grantee_id: int, user=None) -> CaseAccessGrant:
         """
@@ -339,9 +338,9 @@ class CaseAccessService:
 
         # 获取已存在的授权
         existing = set(
-            CaseAccessGrant.objects
-            .filter(case_id=case_id, grantee_id__in=grantee_ids)
-            .values_list("grantee_id", flat=True)
+            CaseAccessGrant.objects.filter(case_id=case_id, grantee_id__in=grantee_ids).values_list(
+                "grantee_id", flat=True
+            )
         )
 
         # 创建新授权

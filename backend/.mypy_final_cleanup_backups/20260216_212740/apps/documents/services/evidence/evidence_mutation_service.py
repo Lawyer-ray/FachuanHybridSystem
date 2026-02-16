@@ -1,7 +1,8 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
+import contextlib
 from typing import Any, Optional, cast
 
 from django.db import transaction
@@ -9,13 +10,14 @@ from django.db.models import Max
 
 from apps.core.error_catalog import case_not_found
 from apps.core.exceptions import ValidationException
-from apps.documents.models import EvidenceItem, EvidenceList, LIST_TYPE_PREVIOUS
-import contextlib
+from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList
 
 
 class EvidenceMutationService:
     @transaction.atomic
-    def create_evidence_list(self, *, case: Any, title: str, list_type: str | None = None, user: Any | None = None) -> EvidenceList:
+    def create_evidence_list(
+        self, *, case: Any, title: str, list_type: str | None = None, user: Any | None = None
+    ) -> EvidenceList:
         """
         创建证据清单
 
@@ -75,7 +77,7 @@ class EvidenceMutationService:
 
         return True, None, previous_list
 
-    def auto_link_previous_list(self, *,  evidence_list: EvidenceList) -> Optional[EvidenceList | None]:
+    def auto_link_previous_list(self, *, evidence_list: EvidenceList) -> Optional[EvidenceList | None]:
         required_previous_type = LIST_TYPE_PREVIOUS.get(evidence_list.list_type)
         if not required_previous_type:
             return None
@@ -89,7 +91,7 @@ class EvidenceMutationService:
         return previous_list
 
     @transaction.atomic
-    def update_evidence_list(self, *,  evidence_list: EvidenceList, title: str | None = None) -> EvidenceList:
+    def update_evidence_list(self, *, evidence_list: EvidenceList, title: str | None = None) -> EvidenceList:
         if title is not None:
             if not title or not title.strip():
                 raise ValidationException(
@@ -102,7 +104,7 @@ class EvidenceMutationService:
         return evidence_list
 
     @transaction.atomic
-    def delete_evidence_list(self, *,  evidence_list: EvidenceList) -> bool:
+    def delete_evidence_list(self, *, evidence_list: EvidenceList) -> bool:
         previous_list = evidence_list.previous_list
 
         next_lists = EvidenceList.objects.filter(previous_list=evidence_list)
@@ -123,7 +125,7 @@ class EvidenceMutationService:
         return True
 
     @transaction.atomic
-    def create_evidence_item(self, *,  evidence_list: EvidenceList, name: str, purpose: str) -> EvidenceItem:
+    def create_evidence_item(self, *, evidence_list: EvidenceList, name: str, purpose: str) -> EvidenceItem:
         if not name or not name.strip():
             raise ValidationException(
                 message="证据名称不能为空",
@@ -174,7 +176,7 @@ class EvidenceMutationService:
         return item
 
     @transaction.atomic
-    def delete_evidence_item(self, *,  item: EvidenceItem) -> bool:
+    def delete_evidence_item(self, *, item: EvidenceItem) -> bool:
         list_id = cast(int, item.evidence_list_id)  # type: ignore[attr-defined]
 
         if item.file:
@@ -194,7 +196,7 @@ class EvidenceMutationService:
                 item.save(update_fields=["order"])
 
     @transaction.atomic
-    def reorder_items(self, *,  evidence_list: EvidenceList, item_ids: list[int]) -> bool:
+    def reorder_items(self, *, evidence_list: EvidenceList, item_ids: list[int]) -> bool:
         existing_ids = set(evidence_list.items.values_list("id", flat=True))
         provided_ids = set(item_ids)
 
@@ -212,7 +214,7 @@ class EvidenceMutationService:
             EvidenceItem.objects.filter(id=item_id).update(order=index)
         return True
 
-    def require_case_model(self, *,  case_service: Any, case_id: int) -> Any:
+    def require_case_model(self, *, case_service: Any, case_id: int) -> Any:
         case = case_service.get_case_model_internal(case_id)
         if not case:
             raise case_not_found(case_id=case_id)

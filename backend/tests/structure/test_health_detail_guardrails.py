@@ -25,7 +25,11 @@ def test_health_detail_requires_auth():
         for kw in deco.keywords or []:
             if kw.arg != "auth":
                 continue
-            if isinstance(kw.value, ast.Call) and isinstance(kw.value.func, ast.Name) and kw.value.func.id == "JWTOrSessionAuth":
+            if (
+                isinstance(kw.value, ast.Call)
+                and isinstance(kw.value.func, ast.Name)
+                and kw.value.func.id == "JWTOrSessionAuth"
+            ):
                 found = True
     assert found
 

@@ -1,9 +1,9 @@
 import pytest
 
-from apps.litigation_ai.models import EvidenceChunk
-from apps.litigation_ai.services.evidence_rag_service import EvidenceRAGService
 from apps.documents.models import EvidenceItem, EvidenceList
 from apps.documents.models.evidence import ListType
+from apps.litigation_ai.models import EvidenceChunk
+from apps.litigation_ai.services.evidence_rag_service import EvidenceRAGService
 from tests.factories.case_factories import CaseFactory
 
 
@@ -34,4 +34,3 @@ def test_evidence_rag_service_retrieves_chunks(monkeypatch):
     chunks = EvidenceRAGService().retrieve("合同 价款 交付", [item.id], top_k=3)
     assert len(chunks) == 1
     assert chunks[0].evidence_item_id == item.id
-

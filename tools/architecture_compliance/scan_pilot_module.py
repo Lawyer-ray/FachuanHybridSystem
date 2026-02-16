@@ -11,6 +11,7 @@
     # 默认扫描 contracts 模块
     python -m tools.architecture_compliance.scan_pilot_module
 """
+
 from __future__ import annotations
 
 import sys

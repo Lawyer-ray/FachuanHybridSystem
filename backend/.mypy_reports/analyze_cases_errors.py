@@ -13,7 +13,7 @@ if not error_file.exists():
 content = error_file.read_text()
 
 # 提取错误类型
-error_pattern = r'\[([a-z-]+)\]'
+error_pattern = r"\[([a-z-]+)\]"
 errors = re.findall(error_pattern, content)
 
 # 统计错误类型

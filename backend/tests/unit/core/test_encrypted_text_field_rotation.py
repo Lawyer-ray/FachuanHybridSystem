@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 from cryptography.fernet import Fernet
 from django.conf import settings
-
 
 from apps.core.model_fields.encrypted import EncryptedTextField
 

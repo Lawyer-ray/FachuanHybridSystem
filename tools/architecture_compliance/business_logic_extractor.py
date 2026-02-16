@@ -13,6 +13,7 @@ Model层业务逻辑提取器
 5. 可选：将 data_validation 块迁移到 clean() 方法
 6. 返回结构化的 SaveMethodRefactoring 结果
 """
+
 from __future__ import annotations
 
 import ast
@@ -61,12 +62,9 @@ class SaveMethodRefactoring:
     original_save_code: str
 
 
-
 # ── CamelCase → snake_case 转换 ─────────────────────────────
 
-_CAMEL_TO_SNAKE_RE: re.Pattern[str] = re.compile(
-    r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])"
-)
+_CAMEL_TO_SNAKE_RE: re.Pattern[str] = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def _to_snake_case(name: str) -> str:
@@ -128,7 +126,8 @@ def _derive_method_name_from_description(
     """
     # 模式1: 调用其他Model: OtherModel.objects.create()
     orm_match = re.search(
-        r"调用其他Model:\s*(\w+)\.objects\.(\w+)\(\)", description,
+        r"调用其他Model:\s*(\w+)\.objects\.(\w+)\(\)",
+        description,
     )
     if orm_match:
         target_model = orm_match.group(1)
@@ -304,26 +303,15 @@ class BusinessLogicExtractor:
         model_name = analysis.model_name
 
         # 按类型分组代码块
-        biz_blocks = [
-            b for b in analysis.blocks
-            if b.block_type == BLOCK_BUSINESS_LOGIC
-        ]
-        val_blocks = [
-            b for b in analysis.blocks
-            if b.block_type == BLOCK_DATA_VALIDATION
-        ]
-        assign_blocks = [
-            b for b in analysis.blocks
-            if b.block_type == BLOCK_FIELD_ASSIGNMENT
-        ]
-        super_blocks = [
-            b for b in analysis.blocks
-            if b.block_type == BLOCK_SUPER_CALL
-        ]
+        biz_blocks = [b for b in analysis.blocks if b.block_type == BLOCK_BUSINESS_LOGIC]
+        val_blocks = [b for b in analysis.blocks if b.block_type == BLOCK_DATA_VALIDATION]
+        assign_blocks = [b for b in analysis.blocks if b.block_type == BLOCK_FIELD_ASSIGNMENT]
+        super_blocks = [b for b in analysis.blocks if b.block_type == BLOCK_SUPER_CALL]
 
         # 生成 Service 方法模板
         service_methods = self._generate_service_methods(
-            biz_blocks, model_name,
+            biz_blocks,
+            model_name,
         )
 
         # 生成清理后的 save() 方法
@@ -335,12 +323,14 @@ class BusinessLogicExtractor:
 
         # 生成 clean() 方法（如果有验证逻辑）
         clean_method = self._generate_clean_method(
-            val_blocks, model_name,
+            val_blocks,
+            model_name,
         )
 
         # 拼接原始 save() 代码
         original_save = self._reconstruct_original_save(
-            analysis.blocks, model_name,
+            analysis.blocks,
+            model_name,
         )
 
         result = SaveMethodRefactoring(
@@ -420,7 +410,8 @@ class BusinessLogicExtractor:
 
         for block in biz_blocks:
             method_name = _derive_method_name_from_description(
-                block.description, model_name,
+                block.description,
+                model_name,
             )
 
             # 去重：如果方法名已存在，添加数字后缀

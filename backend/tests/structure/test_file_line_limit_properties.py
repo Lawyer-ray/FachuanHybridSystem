@@ -78,10 +78,6 @@ def test_file_line_limit() -> None:
 
     assert scanned > 0, "未找到任何目标文件，请检查 apps/core/ 目录结构"
 
-    assert not violations, (
-        f"发现 {len(violations)} 个文件超过 {LINE_LIMIT} 行上限：\n"
-        + "\n".join(
-            f"  - {v.file}: {v.line_count} 行（上限 {LINE_LIMIT} 行）"
-            for v in violations
-        )
+    assert not violations, f"发现 {len(violations)} 个文件超过 {LINE_LIMIT} 行上限：\n" + "\n".join(
+        f"  - {v.file}: {v.line_count} 行（上限 {LINE_LIMIT} 行）" for v in violations
     )

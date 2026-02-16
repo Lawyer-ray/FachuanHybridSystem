@@ -2,14 +2,17 @@
 案件当事人服务层
 处理案件当事人相关的业务逻辑
 """
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from django.db import transaction
 from django.db.models import QuerySet
-import logging
 
-from apps.core.exceptions import NotFoundError, ConflictError, ValidationException
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, IClientService, IContractService, ServiceLocator
-from ..models import CaseParty, Case
+
+from ..models import Case, CaseParty
 
 if TYPE_CHECKING:
     pass
@@ -101,12 +104,10 @@ class CasePartyService:
                     "action": "validate_party_in_contract_scope",
                     "case_id": case_id,
                     "client_id": client_id,
-                }
+                },
             )
             raise NotFoundError(
-                message="案件不存在",
-                code="CASE_NOT_FOUND",
-                errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         # 如果案件未绑定合同，允许任意当事人 (Requirements 4.3)
@@ -117,7 +118,7 @@ class CasePartyService:
                     "action": "validate_party_in_contract_scope",
                     "case_id": case_id,
                     "client_id": client_id,
-                }
+                },
             )
             return True
 
@@ -133,12 +134,12 @@ class CasePartyService:
                     "case_id": case_id,
                     "contract_id": case.contract_id,
                     "client_id": client_id,
-                }
+                },
             )
             raise ValidationException(
                 message="关联合同不存在",
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": f"案件关联的合同 {case.contract_id} 不存在"}
+                errors={"contract_id": f"案件关联的合同 {case.contract_id} 不存在"},
             )
 
         # 检查 client_id 是否在合同当事人范围内 (Requirements 4.1)
@@ -153,13 +154,13 @@ class CasePartyService:
                     "contract_id": case.contract_id,
                     "client_id": client_id,
                     "valid_client_ids": list[Any](valid_client_ids),
-                }
+                },
             )
             # Requirements 4.2: 抛出 ValidationException
             raise ValidationException(
                 message="当事人必须属于绑定合同的当事人范围",
                 code="PARTY_NOT_IN_CONTRACT_SCOPE",
-                errors={"client_id": "当事人必须属于绑定合同的当事人范围"}
+                errors={"client_id": "当事人必须属于绑定合同的当事人范围"},
             )
 
         logger.debug(
@@ -169,7 +170,7 @@ class CasePartyService:
                 "case_id": case_id,
                 "contract_id": case.contract_id,
                 "client_id": client_id,
-            }
+            },
         )
         return True
 
@@ -188,10 +189,7 @@ class CasePartyService:
         Returns:
             当事人查询集
         """
-        qs = CaseParty.objects.select_related(
-            "case",
-            "client"
-        ).order_by("-id")
+        qs = CaseParty.objects.select_related("case", "client").order_by("-id")
 
         # 应用过滤条件
         if case_id:
@@ -203,8 +201,8 @@ class CasePartyService:
                 "action": "list_parties",
                 "case_id": case_id,
                 "user_id": getattr(user, "id", None) if user else None,
-                "count": qs.count()
-            }
+                "count": qs.count(),
+            },
         )
 
         return qs
@@ -228,10 +226,7 @@ class CasePartyService:
             NotFoundError: 当事人不存在
         """
         try:
-            party = CaseParty.objects.select_related(
-                "case",
-                "client"
-            ).get(id=party_id)
+            party = CaseParty.objects.select_related("case", "client").get(id=party_id)
 
             logger.debug(
                 f"获取当事人成功",
@@ -240,8 +235,8 @@ class CasePartyService:
                     "party_id": party_id,
                     "case_id": party.case_id,
                     "client_id": party.client_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
 
             return party  # type: ignore[no-any-return]
@@ -251,13 +246,11 @@ class CasePartyService:
                 extra={
                     "action": "get_party",
                     "party_id": party_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="当事人不存在",
-                code="PARTY_NOT_FOUND",
-                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             )
 
     @transaction.atomic
@@ -295,13 +288,11 @@ class CasePartyService:
                     "action": "create_party",
                     "case_id": case_id,
                     "client_id": client_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="案件不存在",
-                code="CASE_NOT_FOUND",
-                errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         # 验证客户是否存在
@@ -312,13 +303,11 @@ class CasePartyService:
                     "action": "create_party",
                     "case_id": case_id,
                     "client_id": client_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="客户不存在",
-                code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
+                message="客户不存在", code="CLIENT_NOT_FOUND", errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
             )
 
         # 检查是否已存在相同的当事人（重复检测）
@@ -329,13 +318,13 @@ class CasePartyService:
                     "action": "create_party",
                     "case_id": case_id,
                     "client_id": client_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise ConflictError(
                 message="当事人已存在",
                 code="PARTY_ALREADY_EXISTS",
-                errors={"party": f"案件 {case_id} 中已存在客户 {client_id} 的当事人记录"}
+                errors={"party": f"案件 {case_id} 中已存在客户 {client_id} 的当事人记录"},
             )
 
         # 验证当事人是否在合同范围内 (Requirements 4.1, 4.2, 4.3)
@@ -343,11 +332,7 @@ class CasePartyService:
         self.validate_party_in_contract_scope(case_id, client_id)
 
         # 创建当事人
-        party = CaseParty.objects.create(
-            case=case,
-            client_id=client_id,
-            legal_status=legal_status
-        )
+        party = CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)
 
         logger.info(
             f"创建当事人成功",
@@ -357,8 +342,8 @@ class CasePartyService:
                 "case_id": case_id,
                 "client_id": client_id,
                 "legal_status": legal_status,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return party
@@ -393,13 +378,11 @@ class CasePartyService:
                 extra={
                     "action": "update_party",
                     "party_id": party_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="当事人不存在",
-                code="PARTY_NOT_FOUND",
-                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             )
 
         # 验证案件是否存在（如果更新了 case_id）
@@ -409,9 +392,7 @@ class CasePartyService:
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist:
                 raise NotFoundError(
-                    message="案件不存在",
-                    code="CASE_NOT_FOUND",
-                    errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 )
 
         # 验证客户是否存在（如果更新了 client_id）
@@ -421,22 +402,19 @@ class CasePartyService:
                 raise NotFoundError(
                     message="客户不存在",
                     code="CLIENT_NOT_FOUND",
-                    errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
+                    errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
                 )
 
         # 检查重复当事人（如果更新了 case_id 或 client_id）
         new_case_id = data.get("case_id", party.case_id)
         new_client_id = data.get("client_id", party.client_id)
 
-        if (new_case_id != party.case_id or new_client_id != party.client_id):
-            if CaseParty.objects.filter(
-                case_id=new_case_id,
-                client_id=new_client_id
-            ).exclude(id=party_id).exists():
+        if new_case_id != party.case_id or new_client_id != party.client_id:
+            if CaseParty.objects.filter(case_id=new_case_id, client_id=new_client_id).exclude(id=party_id).exists():
                 raise ConflictError(
                     message="当事人已存在",
                     code="PARTY_ALREADY_EXISTS",
-                    errors={"party": f"案件 {new_case_id} 中已存在客户 {new_client_id} 的当事人记录"}
+                    errors={"party": f"案件 {new_case_id} 中已存在客户 {new_client_id} 的当事人记录"},
                 )
 
         # 更新当事人
@@ -453,8 +431,8 @@ class CasePartyService:
                 "party_id": party_id,
                 "case_id": party.case_id,
                 "client_id": party.client_id,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return party  # type: ignore[no-any-return]
@@ -486,13 +464,11 @@ class CasePartyService:
                 extra={
                     "action": "delete_party",
                     "party_id": party_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="当事人不存在",
-                code="PARTY_NOT_FOUND",
-                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             )
 
         case_id = party.case_id
@@ -507,8 +483,8 @@ class CasePartyService:
                 "party_id": party_id,
                 "case_id": case_id,
                 "client_id": client_id,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return {"success": True}

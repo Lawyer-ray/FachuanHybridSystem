@@ -5,6 +5,7 @@ Service 方法提取器
 使用 AST 检查 Service 文件中方法是否已存在，
 必要时生成方法模板并更新导入语句。
 """
+
 from __future__ import annotations
 
 import ast
@@ -184,10 +185,7 @@ class ServiceMethodExtractor:
         params_str = ", ".join(["self"] + signature.params)
         body = self._resolve_method_body(signature.model_name, signature.orm_method)
 
-        source = (
-            f"def {signature.method_name}({params_str}) -> {signature.return_type}:\n"
-            f"    {body}\n"
-        )
+        source = f"def {signature.method_name}({params_str}) -> {signature.return_type}:\n" f"    {body}\n"
 
         logger.info("生成方法模板: %s", signature.method_name)
 

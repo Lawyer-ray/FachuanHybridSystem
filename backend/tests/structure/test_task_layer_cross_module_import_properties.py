@@ -80,4 +80,3 @@ def test_task_layer_no_cross_module_models_or_services_imports():
         for line_no, imported_app, stmt in _extract_cross_app_imports(file_path):
             violations.append(f"{rel}:{line_no} - apps.{imported_app} import: {stmt}")
     assert not violations, "task 层跨模块导入守护失败：\n" + "\n".join(f"- {v}" for v in violations)
-

@@ -113,7 +113,9 @@ if _enable_request_metrics and "apps.core.middleware.RequestMetricsMiddleware" n
     _request_id_middleware = "apps.core.middleware_request_id.RequestIdMiddleware"
     _request_timing_middleware = "apps.core.middleware.RequestTimingMiddleware"
     try:
-        insert_after = _request_timing_middleware if _request_timing_middleware in MIDDLEWARE else _request_id_middleware
+        insert_after = (
+            _request_timing_middleware if _request_timing_middleware in MIDDLEWARE else _request_id_middleware
+        )
         MIDDLEWARE.insert(MIDDLEWARE.index(insert_after) + 1, "apps.core.middleware.RequestMetricsMiddleware")
     except ValueError:
         MIDDLEWARE.insert(1, "apps.core.middleware.RequestMetricsMiddleware")
@@ -279,7 +281,11 @@ AUTH_USER_MODEL = "organization.Lawyer"
 
 LOGIN_URL = "/admin/login/"
 
-ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "False") or "").lower() in ("true", "1", "yes")
+ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "False") or "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
 ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "False") or "").lower() in ("true", "1", "yes")
 
@@ -444,7 +450,9 @@ CONTENT_SECURITY_POLICY_REPORT_ONLY = (os.environ.get("CONTENT_SECURITY_POLICY_R
 CONTENT_SECURITY_POLICY = (os.environ.get("CONTENT_SECURITY_POLICY", "") or "").strip()
 CONTENT_SECURITY_POLICY_API_REPORT_ONLY = (os.environ.get("CONTENT_SECURITY_POLICY_API_REPORT_ONLY", "") or "").strip()
 CONTENT_SECURITY_POLICY_API = (os.environ.get("CONTENT_SECURITY_POLICY_API", "") or "").strip()
-CONTENT_SECURITY_POLICY_ADMIN_REPORT_ONLY = (os.environ.get("CONTENT_SECURITY_POLICY_ADMIN_REPORT_ONLY", "") or "").strip()
+CONTENT_SECURITY_POLICY_ADMIN_REPORT_ONLY = (
+    os.environ.get("CONTENT_SECURITY_POLICY_ADMIN_REPORT_ONLY", "") or ""
+).strip()
 CONTENT_SECURITY_POLICY_ADMIN = (os.environ.get("CONTENT_SECURITY_POLICY_ADMIN", "") or "").strip()
 CROSS_ORIGIN_OPENER_POLICY = (os.environ.get("CROSS_ORIGIN_OPENER_POLICY", "") or "").strip()
 CROSS_ORIGIN_RESOURCE_POLICY = (os.environ.get("CROSS_ORIGIN_RESOURCE_POLICY", "") or "").strip()
@@ -482,11 +490,7 @@ if not DEBUG:
         "base-uri 'self'"
     )
     _default_csp_api_policy = (
-        "default-src 'none'; "
-        "frame-ancestors 'none'; "
-        "base-uri 'none'; "
-        "form-action 'none'; "
-        "object-src 'none'"
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
     )
     _csp_enforce_env = (os.environ.get("CONTENT_SECURITY_POLICY_ENFORCE", "") or "").lower().strip()
     _csp_enforce_enabled = _csp_enforce_env in ("true", "1", "yes")

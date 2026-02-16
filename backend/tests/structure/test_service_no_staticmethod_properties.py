@@ -95,14 +95,8 @@ def test_service_layer_no_staticmethod() -> None:
     all_violations: list[Violation] = []
 
     for file_path in service_files:
-        all_violations.extend(
-            _scan_file_for_staticmethod(file_path, backend_path)
-        )
+        all_violations.extend(_scan_file_for_staticmethod(file_path, backend_path))
 
-    assert not all_violations, (
-        f"Service 层发现 {len(all_violations)} 处 @staticmethod 违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} @staticmethod def {v.function_name}()"
-            for v in all_violations
-        )
+    assert not all_violations, f"Service 层发现 {len(all_violations)} 处 @staticmethod 违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} @staticmethod def {v.function_name}()" for v in all_violations
     )

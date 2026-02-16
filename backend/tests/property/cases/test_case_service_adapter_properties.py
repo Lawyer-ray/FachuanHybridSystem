@@ -5,12 +5,15 @@ CaseServiceAdapter Property-Based Tests
 Feature: service-layer-decoupling, Property 6: 合同服务案件创建通过接口
 Validates: Requirements 1.1
 """
-import pytest
-from hypothesis import given, strategies as st, settings, assume
+
 from decimal import Decimal
 
-from apps.cases.services import CaseServiceAdapter
+import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+
 from apps.cases.models import Case, CaseAssignment, CaseParty
+from apps.cases.services import CaseServiceAdapter
 from apps.core.interfaces import CaseDTO
 
 
@@ -25,9 +28,7 @@ class TestCaseServiceAdapterCreateProperties:
 
     @given(
         case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N', 'P', 'S')),
-            min_size=1,
-            max_size=50
+            alphabet=st.characters(whitelist_categories=("L", "N", "P", "S")), min_size=1, max_size=50
         ).filter(lambda x: x.strip()),
     )
     @settings(max_examples=100)
@@ -64,11 +65,9 @@ class TestCaseServiceAdapterCreateProperties:
         assert Case.objects.filter(id=result.id).exists()
 
     @given(
-        case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=100)
     def test_create_case_dto_fields_match_database(self, case_name):
@@ -101,11 +100,9 @@ class TestCaseServiceAdapterAssignmentProperties:
     """CaseServiceAdapter 案件指派属性测试"""
 
     @given(
-        case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=50, deadline=None)
     def test_create_case_assignment_success(self, case_name):
@@ -132,17 +129,12 @@ class TestCaseServiceAdapterAssignmentProperties:
         assert result is True
 
         # 验证数据库中存在指派记录
-        assert CaseAssignment.objects.filter(
-            case_id=case.id,
-            lawyer_id=lawyer.id
-        ).exists()
+        assert CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).exists()
 
     @given(
-        case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=50, deadline=None)
     def test_create_case_assignment_idempotent(self, case_name):
@@ -171,10 +163,7 @@ class TestCaseServiceAdapterAssignmentProperties:
         assert result2 is True
 
         # 验证数据库中只有一条记录
-        count = CaseAssignment.objects.filter(
-            case_id=case.id,
-            lawyer_id=lawyer.id
-        ).count()
+        count = CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).count()
         assert count == 1
 
     def test_create_case_assignment_nonexistent_case(self):
@@ -197,11 +186,9 @@ class TestCaseServiceAdapterPartyProperties:
     """CaseServiceAdapter 案件当事人属性测试"""
 
     @given(
-        case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
         legal_status=st.sampled_from([None, "plaintiff", "defendant", "third"]),
     )
     @settings(max_examples=50)
@@ -229,19 +216,14 @@ class TestCaseServiceAdapterPartyProperties:
         assert result is True
 
         # 验证数据库中存在当事人记录
-        party = CaseParty.objects.filter(
-            case_id=case.id,
-            client_id=client.id
-        ).first()
+        party = CaseParty.objects.filter(case_id=case.id, client_id=client.id).first()
         assert party is not None
         assert party.legal_status == legal_status
 
     @given(
-        case_name=st.text(
-            alphabet=st.characters(whitelist_categories=('L', 'N')),
-            min_size=1,
-            max_size=30
-        ).filter(lambda x: x.strip()),
+        case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
+            lambda x: x.strip()
+        ),
     )
     @settings(max_examples=50)
     def test_create_case_party_idempotent(self, case_name):
@@ -270,10 +252,7 @@ class TestCaseServiceAdapterPartyProperties:
         assert result2 is True
 
         # 验证数据库中只有一条记录
-        count = CaseParty.objects.filter(
-            case_id=case.id,
-            client_id=client.id
-        ).count()
+        count = CaseParty.objects.filter(case_id=case.id, client_id=client.id).count()
         assert count == 1
 
     def test_create_case_party_nonexistent_case(self):

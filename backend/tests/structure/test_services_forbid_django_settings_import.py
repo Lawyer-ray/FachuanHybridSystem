@@ -59,4 +59,6 @@ def test_services_should_not_import_django_settings_by_default():
         offenders.append(rel)
 
     extra = sorted(set(offenders) - baseline)
-    assert extra == [], "发现新增 services 层 settings 导入，请改为注入/组合根解析或显式更新 baseline：\n" + "\n".join(extra)
+    assert extra == [], "发现新增 services 层 settings 导入，请改为注入/组合根解析或显式更新 baseline：\n" + "\n".join(
+        extra
+    )

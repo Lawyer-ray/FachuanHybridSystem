@@ -6,6 +6,7 @@ API层重构总结报告生成器
 
 Requirements: 5.4, 5.5
 """
+
 from __future__ import annotations
 
 import json
@@ -108,13 +109,15 @@ def _build_remaining_violations_detail(
     """
     details: list[dict[str, Any]] = []
     for v in violations:
-        details.append({
-            "file": v.file_path,
-            "line": v.line_number,
-            "description": v.description,
-            "code_snippet": v.code_snippet,
-            "severity": v.severity,
-        })
+        details.append(
+            {
+                "file": v.file_path,
+                "line": v.line_number,
+                "description": v.description,
+                "code_snippet": v.code_snippet,
+                "severity": v.severity,
+            }
+        )
     return details
 
 
@@ -151,11 +154,7 @@ def _build_summary(
         "refactoring_result": {
             "violations_fixed": fixed_count,
             "violations_remaining": after_total,
-            "fix_rate_percent": (
-                round(fixed_count / before_total * 100, 1)
-                if before_total > 0
-                else 0.0
-            ),
+            "fix_rate_percent": (round(fixed_count / before_total * 100, 1) if before_total > 0 else 0.0),
             "all_fixed": after_total == 0,
         },
         "service_methods_created": _SERVICE_METHODS_USED,

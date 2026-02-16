@@ -3,14 +3,14 @@
 
 提供通用的调试、文件管理和数据库保存功能
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from django.conf import settings
 
@@ -52,6 +52,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         if self._document_service is None:
             from apps.core.interfaces import ServiceLocator
+
             self._document_service = ServiceLocator.get_court_document_service()
         return self._document_service
 
@@ -89,11 +90,13 @@ class BaseCourtDocumentScraper(BaseScraper):
             buttons = self.page.locator("button").all()
             for i, btn in enumerate(buttons[:10]):
                 try:
-                    analysis["buttons"].append({
-                        "index": i,
-                        "text": btn.inner_text()[:50] if btn.inner_text() else "",
-                        "visible": btn.is_visible(),
-                    })
+                    analysis["buttons"].append(
+                        {
+                            "index": i,
+                            "text": btn.inner_text()[:50] if btn.inner_text() else "",
+                            "visible": btn.is_visible(),
+                        }
+                    )
                 except Exception:
                     logger.exception("操作失败")
 
@@ -103,12 +106,14 @@ class BaseCourtDocumentScraper(BaseScraper):
             links = self.page.locator("a").all()
             for i, link in enumerate(links[:10]):
                 try:
-                    analysis["links"].append({
-                        "index": i,
-                        "text": link.inner_text()[:50] if link.inner_text() else "",
-                        "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",
-                        "visible": link.is_visible(),
-                    })
+                    analysis["links"].append(
+                        {
+                            "index": i,
+                            "text": link.inner_text()[:50] if link.inner_text() else "",
+                            "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",
+                            "visible": link.is_visible(),
+                        }
+                    )
                 except Exception:
                     logger.exception("操作失败")
 
@@ -119,12 +124,14 @@ class BaseCourtDocumentScraper(BaseScraper):
             for i, elem in enumerate(download_elements[:10]):
                 try:
                     tag = elem.evaluate("el => el.tagName")
-                    analysis["download_elements"].append({
-                        "index": i,
-                        "tag": tag,
-                        "text": elem.inner_text()[:50] if elem.inner_text() else "",
-                        "visible": elem.is_visible(),
-                    })
+                    analysis["download_elements"].append(
+                        {
+                            "index": i,
+                            "tag": tag,
+                            "text": elem.inner_text()[:50] if elem.inner_text() else "",
+                            "visible": elem.is_visible(),
+                        }
+                    )
                 except Exception:
                     logger.exception("操作失败")
 
@@ -134,10 +141,12 @@ class BaseCourtDocumentScraper(BaseScraper):
             iframes = self.page.locator("iframe").all()
             for i, iframe in enumerate(iframes):
                 try:
-                    analysis["iframes"].append({
-                        "index": i,
-                        "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
-                    })
+                    analysis["iframes"].append(
+                        {
+                            "index": i,
+                            "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
+                        }
+                    )
                 except Exception:
                     logger.exception("操作失败")
 
@@ -203,7 +212,9 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         # 如果任务关联了案件,使用案件 ID 作为目录名
         if self.cast(int, task.case_id):
-            download_dir = Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, task.case_id))) / "documents"
+            download_dir = (
+                Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, task.case_id))) / "documents"
+            )
         else:
             download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{cast(int, self.task.id)}"
 
@@ -213,9 +224,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         return download_dir
 
     def _save_document_to_db(
-        self,
-        document_data: Dict[str, Any],
-        download_result: tuple[bool, Optional[str], Optional[str]]
+        self, document_data: Dict[str, Any], download_result: tuple[bool, Optional[str], Optional[str]]
     ) -> Optional[int]:
         """
         保存单个文书记录到数据库
@@ -237,12 +246,10 @@ class BaseCourtDocumentScraper(BaseScraper):
             success, filepath, error = download_result
 
             # 先创建文书记录
-            task_id_value = cast(int, getattr(self.task, 'id'))
+            task_id_value = cast(int, getattr(self.task, "id"))
             task_case_id = cast(int | None, self.cast(int, task.case_id)) if self.task.case else None
             document = self.document_service.create_document_from_api_data(
-                scraper_task_id=task_id_value,
-                api_data=document_data,
-                case_id=task_case_id
+                scraper_task_id=task_id_value, api_data=document_data, case_id=task_case_id
             )
 
             # 根据下载结果更新状态
@@ -257,17 +264,12 @@ class BaseCourtDocumentScraper(BaseScraper):
 
                 # 更新为成功状态
                 document = self.document_service.update_download_status(
-                    document_id=cast(int, document.id),
-                    status="success",
-                    local_file_path=filepath,
-                    file_size=file_size
+                    document_id=cast(int, document.id), status="success", local_file_path=filepath, file_size=file_size
                 )
             else:
                 # 更新为失败状态
                 document = self.document_service.update_download_status(
-                    document_id=cast(int, document.id),
-                    status="failed",
-                    error_message=error
+                    document_id=cast(int, document.id), status="failed", error_message=error
                 )
 
             logger.info(
@@ -278,8 +280,8 @@ class BaseCourtDocumentScraper(BaseScraper):
                     "document_id": cast(int, document.id),
                     "c_wsmc": document.c_wsmc,
                     "download_status": document.download_status,
-                    "file_path": filepath
-                }
+                    "file_path": filepath,
+                },
             )
 
             return cast(int, document.id)
@@ -293,15 +295,14 @@ class BaseCourtDocumentScraper(BaseScraper):
                     "timestamp": time.time(),
                     "document_data": document_data,
                     "download_result": download_result,
-                    "error": str(e)
+                    "error": str(e),
                 },
-                exc_info=True
+                exc_info=True,
             )
             return None
 
     def _save_documents_batch(
-        self,
-        documents_with_results: List[tuple[Dict[str, Any], tuple[bool, Optional[str], Optional[str]]]]
+        self, documents_with_results: List[tuple[Dict[str, Any], tuple[bool, Optional[str], Optional[str]]]]
     ) -> Dict[str, Any]:
         """
         批量保存文书记录到数据库
@@ -330,11 +331,7 @@ class BaseCourtDocumentScraper(BaseScraper):
 
         logger.info(
             f"开始批量保存文书记录",
-            extra={
-                "operation_type": "save_documents_batch_start",
-                "timestamp": time.time(),
-                "total_count": total
-            }
+            extra={"operation_type": "save_documents_batch_start", "timestamp": time.time(), "total_count": total},
         )
 
         # 逐个保存(确保错误隔离)
@@ -357,13 +354,8 @@ class BaseCourtDocumentScraper(BaseScraper):
                 "total_count": total,
                 "success_count": success_count,
                 "failed_count": failed_count,
-                "elapsed_time_ms": elapsed_time
-            }
+                "elapsed_time_ms": elapsed_time,
+            },
         )
 
-        return {
-            "total": total,
-            "success": success_count,
-            "failed": failed_count,
-            "document_ids": document_ids
-        }
+        return {"total": total, "success": success_count, "failed": failed_count, "document_ids": document_ids}

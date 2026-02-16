@@ -22,4 +22,3 @@ class ServiceLocatorGetOrCreateTest(TestCase):
         b = _DummyLocator.get_or_create("x", factory)
         self.assertIs(a, b)
         self.assertEqual(calls["n"], 1)
-

@@ -30,4 +30,3 @@ def test_generate_case_filing_number_invalid_year_raises():
     service = CaseFilingNumberService()
     with pytest.raises(Exception):
         service.generate_case_filing_number_internal(case_id=case.id, case_type=SimpleCaseType.CIVIL, created_year=1800)
-

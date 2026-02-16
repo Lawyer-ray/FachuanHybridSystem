@@ -79,7 +79,7 @@ class ConversationHistoryService:
             qs = qs.filter(litigation_session_id=litigation_session_id)
         return qs.count()
 
-    def count_messages_by_litigation_session_ids_internal(self, *,  litigation_session_ids: list[int]) -> dict[int, int]:
+    def count_messages_by_litigation_session_ids_internal(self, *, litigation_session_ids: list[int]) -> dict[int, int]:
         if not litigation_session_ids:
             return {}
 
@@ -136,4 +136,3 @@ class ConversationHistoryService:
                 }
             )
         return messages
-

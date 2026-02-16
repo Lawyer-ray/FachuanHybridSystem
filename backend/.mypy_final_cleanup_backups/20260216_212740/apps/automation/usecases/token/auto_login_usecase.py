@@ -1,21 +1,20 @@
 """Module for auto login usecase."""
+
 from __future__ import annotations
 
-
-
 import asyncio
+import contextlib
 import logging
 import time
-from dataclasses import dataclass
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any, Callable, Dict
 
+from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, TokenAcquisitionTimeoutError
 from apps.automation.services.token.browser_context_factory import BrowserContextFactory
 from apps.automation.services.token.court_login_gateway import CourtLoginGateway
-from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, TokenAcquisitionTimeoutError
 from apps.core.exceptions import NetworkError
 from apps.core.interfaces import AccountCredentialDTO, LoginAttemptResult
-import contextlib
-from typing import Any, Dict, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,7 @@ class AutoLoginUsecase:
             total_duration = self.time_provider() - start_time
             logger.error(
                 "登录超时",
-                extra= {
+                extra={
                     "account": credential.account,
                     "site_name": credential.site_name,
                     "timeout": self.retry_config.login_timeout,
@@ -98,7 +97,7 @@ class AutoLoginUsecase:
             total_duration = self.time_provider() - start_time
             logger.error(
                 "自动登录失败",
-                extra= {
+                extra={
                     "account": credential.account,
                     "site_name": credential.site_name,
                     "error": str(e),
@@ -168,7 +167,7 @@ class AutoLoginUsecase:
                 self._login_attempts.append(attempt_result)
                 logger.info(
                     "登录成功",
-                    extra= {
+                    extra={
                         "account": credential.account,
                         "network_attempt": network_attempt,
                         "captcha_attempt": captcha_attempt,

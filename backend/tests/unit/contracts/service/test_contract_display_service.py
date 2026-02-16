@@ -44,9 +44,9 @@ class TestContractDisplayService(unittest.TestCase):
     def test_get_matched_document_template_none(self):
         """测试无匹配模板"""
         self.mock_template_cache.get_document_templates.return_value = []
-        
+
         result = self.service.get_matched_document_template(self.mock_contract)
-        
+
         self.assertEqual(result, "无匹配模板")
 
     def test_get_matched_folder_templates_from_cache(self):
@@ -88,11 +88,11 @@ class TestContractDisplayService(unittest.TestCase):
         contract1 = MagicMock()
         contract1.id = 1
         contract1.case_type = "civil"
-        
+
         contract2 = MagicMock()
         contract2.id = 2
         contract2.case_type = "civil"  # Same type to test caching
-        
+
         contract3 = MagicMock()
         contract3.id = 3
         contract3.case_type = "criminal"
@@ -102,7 +102,7 @@ class TestContractDisplayService(unittest.TestCase):
             if case_type == "civil":
                 return [{"name": "民事模板"}]
             return []
-            
+
         self.mock_template_cache.get_document_templates.side_effect = get_doc_side_effect
         self.mock_template_cache.get_folder_templates.return_value = []
         self.mock_template_cache.get_template_check.return_value = {}
@@ -113,6 +113,6 @@ class TestContractDisplayService(unittest.TestCase):
         self.assertEqual(result[1]["document_template"], "民事模板")
         self.assertEqual(result[2]["document_template"], "民事模板")
         self.assertEqual(result[3]["document_template"], "无匹配模板")
-        
+
         # Verify cache was called twice (once for each unique type)
         self.assertEqual(self.mock_template_cache.get_document_templates.call_count, 2)

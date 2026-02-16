@@ -1,10 +1,10 @@
 """Business logic services."""
 
-import cv2
-import numpy as np
+import logging
 from typing import Any
 
-import logging
+import cv2
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

@@ -8,6 +8,7 @@
 
 Requirements: 5.4
 """
+
 from __future__ import annotations
 
 import json
@@ -158,8 +159,10 @@ def _build_before_after(current_counts: dict[str, int]) -> dict[str, Any]:
             "总修复数": fixed_total,
             "修复率": f"{round(fixed_total / before_total * 100, 1)}%" if before_total > 0 else "N/A",
             "API层修复": _BASELINE["api_direct_orm_access"] - current_counts["api_direct_orm_access"],
-            "Service层跨模块导入修复": _BASELINE["service_cross_module_import"] - current_counts["service_cross_module_import"],
-            "Service层静态方法修复": _BASELINE["service_static_method_abuse"] - current_counts["service_static_method_abuse"],
+            "Service层跨模块导入修复": _BASELINE["service_cross_module_import"]
+            - current_counts["service_cross_module_import"],
+            "Service层静态方法修复": _BASELINE["service_static_method_abuse"]
+            - current_counts["service_static_method_abuse"],
             "Model层修复": _BASELINE["model_business_logic"] - current_counts["model_business_logic"],
         },
     }
@@ -190,10 +193,7 @@ def _build_phase1_summary(api_data: dict[str, Any] | None) -> dict[str, Any]:
         "已修复": result.get("violations_fixed", 8),
         "剩余": result.get("violations_remaining", 0),
         "修复率": f"{result.get('fix_rate_percent', 100.0)}%",
-        "创建的Service方法": [
-            f"{m['service']}.{m['method']}"
-            for m in api_data.get("service_methods_created", [])
-        ],
+        "创建的Service方法": [f"{m['service']}.{m['method']}" for m in api_data.get("service_methods_created", [])],
         "需要人工处理": api_data.get("manual_handling_required", []),
     }
 
@@ -221,8 +221,7 @@ def _build_phase2_summary(cross_module_data: dict[str, Any] | None) -> dict[str,
     # 从模块依赖中提取涉及的模块对
     module_deps: list[dict[str, Any]] = cross_module_data.get("module_dependencies", [])
     dep_pairs: list[str] = [
-        f"{d['source_module']} → {d['target_module']} ({d['violation_count']}个)"
-        for d in module_deps
+        f"{d['source_module']} → {d['target_module']} ({d['violation_count']}个)" for d in module_deps
     ]
 
     return {
@@ -263,12 +262,8 @@ def _build_phase3_summary(
     converted: list[dict[str, Any]] = static_summary_data.get("converted_methods", [])
     kept: list[dict[str, Any]] = static_summary_data.get("kept_methods", [])
 
-    converted_names: list[str] = [
-        f"{m['class_name']}.{m['method_name']}" for m in converted
-    ]
-    kept_names: list[str] = [
-        f"{m['class_name']}.{m['method_name']}" for m in kept
-    ]
+    converted_names: list[str] = [f"{m['class_name']}.{m['method_name']}" for m in converted]
+    kept_names: list[str] = [f"{m['class_name']}.{m['method_name']}" for m in kept]
 
     return {
         "阶段": "Phase 3: Service层静态方法重构",
@@ -393,7 +388,9 @@ def _build_final_report(current_counts: dict[str, int]) -> dict[str, Any]:
     phase3: dict[str, Any] = _build_phase3_summary(static_summary_data, static_refactoring_data)
     phase4: dict[str, Any] = _build_phase4_summary(model_data)
     manual_items: list[dict[str, str]] = _collect_manual_items(
-        api_data, model_data, static_summary_data,
+        api_data,
+        model_data,
+        static_summary_data,
     )
 
     before_total: int = sum(_BASELINE.values())
@@ -412,7 +409,9 @@ def _build_final_report(current_counts: dict[str, int]) -> dict[str, Any]:
             "重构前违规总数": before_total,
             "重构后违规总数": after_total,
             "总修复数": before_total - after_total,
-            "总修复率": f"{round((before_total - after_total) / before_total * 100, 1)}%" if before_total > 0 else "N/A",
+            "总修复率": (
+                f"{round((before_total - after_total) / before_total * 100, 1)}%" if before_total > 0 else "N/A"
+            ),
             "所有违规已修复": after_total == 0,
         },
         "各阶段汇总": [phase1, phase2, phase3, phase4],

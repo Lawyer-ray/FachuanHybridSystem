@@ -34,4 +34,3 @@ class TestConfigManagerProviderPriority(TestCase):
         manager.add_provider(_Provider(priority=10, value="low"))
         manager.load(force_reload=True)
         self.assertEqual(manager.get("key"), "high")
-

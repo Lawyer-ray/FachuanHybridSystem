@@ -15,7 +15,7 @@ struct SettingsView: View {
     @AppStorage("defaultFolderPath") private var defaultFolderPath = ""
     @AppStorage("autoSyncEnabled") private var autoSyncEnabled = false
     @AppStorage("showNotifications") private var showNotifications = true
-    
+
     var body: some View {
         TabView {
             GeneralSettingsView(
@@ -26,12 +26,12 @@ struct SettingsView: View {
             .tabItem {
                 Label("通用", systemImage: "gear")
             }
-            
+
             AccountSettingsView()
             .tabItem {
                 Label("账户", systemImage: "person.circle")
             }
-            
+
             AboutView()
             .tabItem {
                 Label("关于", systemImage: "info.circle")
@@ -51,7 +51,7 @@ struct GeneralSettingsView: View {
     @State private var installErrorMessage: String?
     @State private var extensionStatusText: String = "未检测"
     private let logger = Logger(subsystem: "com.fachuan.macos", category: "settings")
-    
+
     var body: some View {
         Form {
             Section("Finder 扩展") {
@@ -102,24 +102,24 @@ struct GeneralSettingsView: View {
                     refreshExtensionStatus()
                 }
             }
-            
+
             Section("文件夹") {
                 HStack {
                     TextField("默认文件夹路径", text: $defaultFolderPath)
                         .textFieldStyle(.roundedBorder)
-                    
+
                     Button("选择...") {
                         selectDefaultFolder()
                     }
                 }
-                
+
                 Toggle("自动同步文件夹", isOn: $autoSyncEnabled)
                 Toggle("显示通知", isOn: $showNotifications)
             }
         }
         .padding()
     }
-    
+
     private func openExtensionSettings() {
         // 打开系统设置的扩展页面
         if let url = URL(string: "x-apple.systempreferences:com.apple.ExtensionsPreferences") {
@@ -249,7 +249,7 @@ struct GeneralSettingsView: View {
             logger.error("安装到 /Applications 失败: \(error.localizedDescription)")
         }
     }
-    
+
     private func selectDefaultFolder() {
         Task {
             if let url = await FolderService.shared.selectFolder(title: "选择默认文件夹") {
@@ -264,7 +264,7 @@ struct GeneralSettingsView: View {
 
 struct AccountSettingsView: View {
     @StateObject private var authService = AuthService.shared
-    
+
     var body: some View {
         Form {
             if authService.isAuthenticated {
@@ -278,7 +278,7 @@ struct AccountSettingsView: View {
                             LabeledContent("律所", value: lawfirmName)
                         }
                     }
-                    
+
                     Button("退出登录", role: .destructive) {
                         authService.logout()
                     }
@@ -287,7 +287,7 @@ struct AccountSettingsView: View {
                 Section {
                     Text("未登录")
                         .foregroundStyle(.secondary)
-                    
+
                     Text("请在主窗口中登录")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -306,20 +306,20 @@ struct AboutView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
-            
+
             Text("法传")
                 .font(.title)
                 .fontWeight(.bold)
-            
+
             Text("版本 \(AppConfig.appVersion) (\(AppConfig.buildNumber))")
                 .foregroundStyle(.secondary)
-            
+
             Text("律师案件管理系统")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            
+
             Spacer()
-            
+
             Link("访问官网", destination: URL(string: "https://fachuan.com")!)
                 .buttonStyle(.link)
         }

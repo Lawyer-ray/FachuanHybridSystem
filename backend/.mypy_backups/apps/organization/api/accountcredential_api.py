@@ -1,6 +1,8 @@
 from typing import List, Optional
+
 from ninja import Router
-from ..schemas import AccountCredentialOut, AccountCredentialIn, AccountCredentialUpdateIn
+
+from ..schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
 
 router = Router()
 
@@ -8,6 +10,7 @@ router = Router()
 def _get_credential_service():
     """工厂函数：创建 AccountCredentialService 实例"""
     from ..services import AccountCredentialService
+
     return AccountCredentialService()
 
 

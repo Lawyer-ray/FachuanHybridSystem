@@ -8,14 +8,12 @@ API 层职责：
 
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
+
 from typing import List, Optional
+
 from ninja import Router
 
-from ..schemas import (
-    CaseAccessGrantIn,
-    CaseAccessGrantOut,
-    CaseAccessGrantUpdate,
-)
+from ..schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
 
 router = Router()
 
@@ -28,6 +26,7 @@ def _get_case_access_service():
         CaseAccessService 实例
     """
     from ..services.case_access_service import CaseAccessService
+
     return CaseAccessService()
 
 

@@ -1,17 +1,15 @@
 """
 客户服务单元测试
 """
-import pytest
+
 from unittest.mock import Mock
+
+import pytest
 from django.contrib.auth import get_user_model
 
-from apps.client.services.client_service import ClientService
 from apps.client.models import Client
-from apps.core.exceptions import (
-    NotFoundError,
-    PermissionDenied,
-    ValidationException
-)
+from apps.client.services.client_service import ClientService
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from tests.factories.client_factories import ClientFactory
 
 User = get_user_model()

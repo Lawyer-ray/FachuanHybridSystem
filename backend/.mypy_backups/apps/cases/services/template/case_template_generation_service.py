@@ -5,23 +5,37 @@
 
 Requirements: 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 6.2, 6.3, 7.4
 """
+
 import io
 import logging
 import re
 from datetime import datetime
 from typing import Any, Tuple
+
+from docxtpl import DocxTemplate
+
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.path import Path
-from docxtpl import DocxTemplate
+
 from .wiring import get_case_service, get_client_service, get_document_service
-logger = logging.getLogger('apps.cases.services')
+
+logger = logging.getLogger("apps.cases.services")
+
 
 class CaseTemplateGenerationService:
     """案件模板生成服务"""
-    LEGAL_REP_CERT_TEMPLATE = '法定代表人身份证明书'
-    POWER_OF_ATTORNEY_TEMPLATE = '授权委托书'
 
-    def generate_document(self, case_id: int, template_id: int, client_id: int | None=None, client_ids: list[int] | None=None, mode: str | None=None) -> tuple[bytes, str]:
+    LEGAL_REP_CERT_TEMPLATE = "法定代表人身份证明书"
+    POWER_OF_ATTORNEY_TEMPLATE = "授权委托书"
+
+    def generate_document(
+        self,
+        case_id: int,
+        template_id: int,
+        client_id: int | None = None,
+        client_ids: list[int] | None = None,
+        mode: str | None = None,
+    ) -> tuple[bytes, str]:
         """
         生成模板文档
 
@@ -49,19 +63,34 @@ class CaseTemplateGenerationService:
         if self._is_legal_rep_cert_template(template):
             client = self._get_our_legal_client(case, client_id)
         elif self._is_power_of_attorney_template(template):
-            if mode == 'combined' and client_ids:
+            if mode == "combined" and client_ids:
                 clients = [self._get_our_client(case, cid) for cid in client_ids]
             elif client_id:
                 client = self._get_our_client(case, client_id)
         context = self._build_context(case, client=client, clients=clients)
         content = self._render_template(template_path, context)
-        case_name = getattr(case, 'name', '') or '案件'
-        template_name = template.name or '模板'
+        case_name = getattr(case, "name", "") or "案件"
+        template_name = template.name or "模板"
         client_name = client.name if client else None
         our_party_count = self._count_our_parties(case)
-        is_combined = mode == 'combined'
-        filename = self._build_filename(template_name=template_name, case_name=case_name, client_name=client_name, is_combined=is_combined, our_party_count=our_party_count)
-        logger.info('生成模板文档成功', extra={'case_id': case_id, 'template_id': template_id, 'client_id': client_id, 'mode': mode, 'output_filename': filename})
+        is_combined = mode == "combined"
+        filename = self._build_filename(
+            template_name=template_name,
+            case_name=case_name,
+            client_name=client_name,
+            is_combined=is_combined,
+            our_party_count=our_party_count,
+        )
+        logger.info(
+            "生成模板文档成功",
+            extra={
+                "case_id": case_id,
+                "template_id": template_id,
+                "client_id": client_id,
+                "mode": mode,
+                "output_filename": filename,
+            },
+        )
         return (content, filename)
 
     def _is_legal_rep_cert_template(self, template: Any) -> Any:
@@ -107,10 +136,16 @@ class CaseTemplateGenerationService:
         client_service = get_client_service()
         client_dto = client_service.get_client_internal(client_id)
         if not client_dto:
-            raise ValidationException(message='当事人不存在', code='INVALID_CLIENT', errors={'client_id': f'ID 为 {client_id} 的当事人不存在'})
+            raise ValidationException(
+                message="当事人不存在", code="INVALID_CLIENT", errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
+            )
         is_party = case.parties.filter(client_id=client_id, client__is_our_client=True).exists()
         if not is_party:
-            raise ValidationException(message='当事人非我方当事人', code='INVALID_OUR_CLIENT', errors={'client_id': f'ID 为 {client_id} 的当事人不是该案件的我方当事人'})
+            raise ValidationException(
+                message="当事人非我方当事人",
+                code="INVALID_OUR_CLIENT",
+                errors={"client_id": f"ID 为 {client_id} 的当事人不是该案件的我方当事人"},
+            )
         return client_dto
 
     def _get_our_legal_client(self, case: Any, client_id: int) -> Any:
@@ -133,7 +168,11 @@ class CaseTemplateGenerationService:
         client_service = get_client_service()
         is_natural = client_service.is_natural_person_internal(client_id)
         if is_natural:
-            raise ValidationException(message='当事人非法人', code='INVALID_LEGAL_CLIENT', errors={'client_id': f'ID 为 {client_id} 的当事人不是法人'})
+            raise ValidationException(
+                message="当事人非法人",
+                code="INVALID_LEGAL_CLIENT",
+                errors={"client_id": f"ID 为 {client_id} 的当事人不是法人"},
+            )
         return client
 
     def _count_our_parties(self, case: Any) -> Any:
@@ -164,7 +203,9 @@ class CaseTemplateGenerationService:
         case_service = get_case_service()
         case = case_service.get_case_model_internal(case_id)
         if not case:
-            raise NotFoundError(message='案件不存在', code='CASE_NOT_FOUND', errors={'case_id': f'ID 为 {case_id} 的案件不存在'})
+            raise NotFoundError(
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+            )
         return case
 
     def _get_template(self, template_id: int) -> Any:
@@ -183,7 +224,11 @@ class CaseTemplateGenerationService:
         document_service = get_document_service()
         template = document_service.get_template_by_id_internal(template_id)
         if not template:
-            raise NotFoundError(message='模板不存在', code='TEMPLATE_NOT_FOUND', errors={'template_id': f'ID 为 {template_id} 的模板不存在'})
+            raise NotFoundError(
+                message="模板不存在",
+                code="TEMPLATE_NOT_FOUND",
+                errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
+            )
         return template
 
     def _get_template_path(self, template: Any) -> Path:
@@ -199,15 +244,21 @@ class CaseTemplateGenerationService:
         Raises:
             ValidationException: 模板文件路径无效
         """
-        location = (getattr(template, 'file_path', None) or '').strip()
+        location = (getattr(template, "file_path", None) or "").strip()
         if not location:
-            raise ValidationException(message='模板文件路径为空', code='TEMPLATE_FILE_EMPTY', errors={'template_id': str(template.id)})
+            raise ValidationException(
+                message="模板文件路径为空", code="TEMPLATE_FILE_EMPTY", errors={"template_id": str(template.id)}
+            )
         path = Path(location)
         if not path.exists():
-            raise ValidationException(message=f'模板文件不存在: {location}', code='TEMPLATE_FILE_NOT_FOUND', errors={'template_path': location})
+            raise ValidationException(
+                message=f"模板文件不存在: {location}",
+                code="TEMPLATE_FILE_NOT_FOUND",
+                errors={"template_path": location},
+            )
         return path
 
-    def _build_context(self, case: Any, client: Any | None=None, clients: Any | None=None) -> dict[str, Any]:
+    def _build_context(self, case: Any, client: Any | None = None, clients: Any | None = None) -> dict[str, Any]:
         """
         使用 EnhancedContextBuilder 构建上下文
 
@@ -222,11 +273,12 @@ class CaseTemplateGenerationService:
         Requirements: 3.1
         """
         from apps.cases.dependencies import get_enhanced_context_builder
-        context_data: dict[str, Any] = {'case': case}
+
+        context_data: dict[str, Any] = {"case": case}
         if client:
-            context_data['client'] = client
+            context_data["client"] = client
         if clients:
-            context_data['clients'] = clients
+            context_data["clients"] = clients
         return get_enhanced_context_builder().build_context(context_data)
 
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
@@ -246,7 +298,7 @@ class CaseTemplateGenerationService:
         Requirements: 3.2, 3.3, 3.4
         """
         try:
-            logger.info('渲染模板', extra={'template_path': str(template_path), 'context_keys': list(context.keys())})
+            logger.info("渲染模板", extra={"template_path": str(template_path), "context_keys": list(context.keys())})
             doc = DocxTemplate(str(template_path))
             doc.render(context)
             buffer = io.BytesIO()
@@ -254,10 +306,19 @@ class CaseTemplateGenerationService:
             buffer.seek(0)
             return buffer.getvalue()
         except Exception as e:
-            logger.error('模板渲染失败', exc_info=True, extra={'template_path': str(template_path), 'error': str(e)})
-            raise ValidationException(message=f'模板渲染失败: {e!s}', code='TEMPLATE_RENDER_ERROR', errors={'error': str(e)}) from e
+            logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
+            raise ValidationException(
+                message=f"模板渲染失败: {e!s}", code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+            ) from e
 
-    def _build_filename(self, template_name: str, case_name: str, client_name: str | None=None, is_combined: bool=False, our_party_count: int=1) -> str:
+    def _build_filename(
+        self,
+        template_name: str,
+        case_name: str,
+        client_name: str | None = None,
+        is_combined: bool = False,
+        our_party_count: int = 1,
+    ) -> str:
         """
         构建输出文件名
 
@@ -279,18 +340,18 @@ class CaseTemplateGenerationService:
 
         Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
         """
-        date_str = datetime.now().strftime('%Y%m%d')
+        date_str = datetime.now().strftime("%Y%m%d")
         safe_template_name = self._safe_name(template_name)
         safe_case_name = self._safe_name(case_name)
         if template_name == self.LEGAL_REP_CERT_TEMPLATE and client_name:
             safe_client_name = self._safe_name(client_name)
-            return f'{safe_template_name}({safe_client_name})V1_{date_str}.docx'
+            return f"{safe_template_name}({safe_client_name})V1_{date_str}.docx"
         if template_name == self.POWER_OF_ATTORNEY_TEMPLATE:
             if not is_combined and our_party_count > 1 and client_name:
                 safe_client_name = self._safe_name(client_name)
-                return f'{safe_template_name}({safe_client_name})({safe_case_name})V1_{date_str}.docx'
-            return f'{safe_template_name}({safe_case_name})V1_{date_str}.docx'
-        return f'{safe_template_name}({safe_case_name})V1_{date_str}.docx'
+                return f"{safe_template_name}({safe_client_name})({safe_case_name})V1_{date_str}.docx"
+            return f"{safe_template_name}({safe_case_name})V1_{date_str}.docx"
+        return f"{safe_template_name}({safe_case_name})V1_{date_str}.docx"
 
     def _safe_name(self, name: str) -> str:
         """
@@ -306,8 +367,8 @@ class CaseTemplateGenerationService:
 
         Requirements: 4.2
         """
-        value = (name or '').strip()
-        value = value.replace('/', '／').replace('\\', '＼')
-        value = value.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-        value = re.sub('\\s+', ' ', value).strip()
-        return value or '未命名'
+        value = (name or "").strip()
+        value = value.replace("/", "／").replace("\\", "＼")
+        value = value.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+        value = re.sub("\\s+", " ", value).strip()
+        return value or "未命名"

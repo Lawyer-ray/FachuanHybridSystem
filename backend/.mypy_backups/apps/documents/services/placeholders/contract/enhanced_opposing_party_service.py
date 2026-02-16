@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 class EnhancedOpposingPartyService(BasePlaceholderService):
     """增强版对方当事人服务"""
 
-    name : str = "enhanced_opposing_party_service"
-    display_name : str = "增强版对方当事人服务"
-    description : str = "生成对方当事人名称、案由与案件数量"
-    category : str = "contract"
+    name: str = "enhanced_opposing_party_service"
+    display_name: str = "增强版对方当事人服务"
+    description: str = "生成对方当事人名称、案由与案件数量"
+    category: str = "contract"
     placeholder_keys: ClassVar = ["对方当事人名称案由与案件数量"]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
@@ -140,6 +140,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
 
         def _get_contract_party_ids(contract) -> tuple[set, set]:
             opposing_ids = set()
+
         our_ids = set()
         try:
             for cp in contract.contract_parties.all():
@@ -155,7 +156,9 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
 
     def _format_single_case(self, case: Any, opposing_client_ids: set[Any], our_client_ids: set[Any]) -> str:
         opposing_parties = self._extract_opposing_parties_from_case(
-            case, opposing_client_ids=opposing_client_ids, our_client_ids=our_client_ids,
+            case,
+            opposing_client_ids=opposing_client_ids,
+            our_client_ids=our_client_ids,
         )
         opposing_names = "、".join(opposing_parties) if opposing_parties else ""
         cause = self._extract_cause_of_action(case)

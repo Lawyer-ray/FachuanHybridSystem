@@ -1,9 +1,9 @@
 """Module for streaming."""
+
 from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Callable, Iterator
-
 from typing import Any
 
 from .backends import ILLMBackend, LLMStreamChunk
@@ -37,7 +37,9 @@ def _resolve_backends(
     return get_backends_by_priority()
 
 
-def _handle_stream_error(name: str, e: Exception, fallback: bool, errors: list[Any], log_prefix: str = "stream") -> None:
+def _handle_stream_error(
+    name: str, e: Exception, fallback: bool, errors: list[Any], log_prefix: str = "stream"
+) -> None:
     """处理流式调用错误"""
     errors.append((name, e))
     if isinstance(e, _RETRIABLE_ERRORS):

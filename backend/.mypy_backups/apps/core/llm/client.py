@@ -1,10 +1,10 @@
 """Module for client."""
+
 from __future__ import annotations
 
-
+from typing import Any
 
 from .backends import ILLMBackend, LLMResponse
-from typing import Any
 
 
 class LLMClient:

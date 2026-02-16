@@ -6,7 +6,7 @@
 
 import logging
 import tempfile
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from apps.core.path import Path
 
@@ -16,11 +16,12 @@ from .processor.document_delivery_processor import DocumentDeliveryProcessor
 from .repo.document_history_repo import DocumentHistoryRepo
 
 if TYPE_CHECKING:
+    from playwright.sync_api import Page
+
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
     from apps.core.interfaces import ICaseLogService, ICaseNumberService
-    from playwright.sync_api import Page
 
     from .court_document_api_client import CourtDocumentApiClient
 
@@ -238,7 +239,9 @@ class DocumentDownloadService:
     def _sync_case_number_to_case(self, case_id: int, case_number: str) -> None:
         self.processor.sync_case_number_to_case(case_id=case_id, case_number=case_number)
 
-    def _rename_and_attach_documents(self, sms: Any, case_id: int, case_name: str, extracted_files: list[str]) -> tuple[list[str], int | None]:
+    def _rename_and_attach_documents(
+        self, sms: Any, case_id: int, case_name: str, extracted_files: list[str]
+    ) -> tuple[list[str], int | None]:
         class _CaseLite:
             def __init__(self, id: int, name: str) -> None:
                 self.id = id

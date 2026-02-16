@@ -8,11 +8,11 @@ struct MacPlaceholderView: View {
                     Label("Mac", systemImage: "macwindow")
                         .font(.largeTitle)
                         .fontWeight(.semibold)
-                    
+
                     Text("原生功能区域（占位）")
                         .foregroundStyle(.secondary)
                 }
-                
+
                 GroupBox("计划中的能力") {
                     VStack(alignment: .leading, spacing: 10) {
                         Label("文件夹创建与模板", systemImage: "folder.badge.plus")
@@ -23,7 +23,7 @@ struct MacPlaceholderView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
                 }
-                
+
                 GroupBox("占位动作") {
                     VStack(alignment: .leading, spacing: 12) {
                         Button("选择工作目录") {}

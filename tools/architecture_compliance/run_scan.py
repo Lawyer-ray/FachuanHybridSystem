@@ -4,6 +4,7 @@
 在真实backend代码上运行所有三个扫描器（API层、Service层、Model层），
 生成合并报告并输出到 tools/architecture_compliance/output/ 目录。
 """
+
 from __future__ import annotations
 
 from pathlib import Path

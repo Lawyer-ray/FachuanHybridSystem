@@ -1,6 +1,6 @@
 """External service client."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import logging
 from typing import Any

@@ -1,4 +1,5 @@
 """Module for base."""
+
 from __future__ import annotations
 
 """
@@ -10,10 +11,9 @@ Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
 """
 
 from dataclasses import dataclass, field
+from typing import Any, ClassVar
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from typing import ClassVar
-from typing import Any
 
 
 @dataclass

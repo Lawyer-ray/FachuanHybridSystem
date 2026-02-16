@@ -60,4 +60,3 @@ def test_contract_details_assembler_builds_expected_shape():
     assert out["assignments"][0]["lawyer_name"] == "张三"
     assert out["cases"][0]["parties"][0]["client_name"] == "乙公司"
     assert out["cases"][0]["supervising_authorities"][0]["name"] == "机构X"
-

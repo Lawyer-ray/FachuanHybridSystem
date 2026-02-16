@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
-from apps.documents.services.placeholders.lawyer.lawyer_info_service import LawyerInfoService
 from apps.documents.services.generation.contract_generation_service import ContractDataWrapper
+from apps.documents.services.placeholders.lawyer.lawyer_info_service import LawyerInfoService
 
 
 class TestLawyerNamesPlaceholder:
@@ -55,9 +55,30 @@ class TestLawyerNamesPlaceholder:
             "id": 1,
             "name": "测试合同",
             "assignments": [
-                {"id": 1, "lawyer_id": 1, "lawyer_name": "张三", "is_primary": True, "order": 1, "law_firm_name": "测试律所"},
-                {"id": 2, "lawyer_id": 2, "lawyer_name": "李四", "is_primary": False, "order": 2, "law_firm_name": "测试律所"},
-                {"id": 3, "lawyer_id": 3, "lawyer_name": "王五", "is_primary": False, "order": 3, "law_firm_name": "测试律所"},
+                {
+                    "id": 1,
+                    "lawyer_id": 1,
+                    "lawyer_name": "张三",
+                    "is_primary": True,
+                    "order": 1,
+                    "law_firm_name": "测试律所",
+                },
+                {
+                    "id": 2,
+                    "lawyer_id": 2,
+                    "lawyer_name": "李四",
+                    "is_primary": False,
+                    "order": 2,
+                    "law_firm_name": "测试律所",
+                },
+                {
+                    "id": 3,
+                    "lawyer_id": 3,
+                    "lawyer_name": "王五",
+                    "is_primary": False,
+                    "order": 3,
+                    "law_firm_name": "测试律所",
+                },
             ],
         }
 

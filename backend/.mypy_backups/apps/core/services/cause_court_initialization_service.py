@@ -9,11 +9,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from apps.core.exceptions import TokenError
-from apps.core.models import CauseOfAction, Court
 from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.utils import timezone
+
+from apps.core.exceptions import TokenError
+from apps.core.models import CauseOfAction, Court
 
 from .court_api_client import CauseItem, CourtApiClient, CourtItem
 
@@ -249,8 +250,9 @@ class CauseCourtInitializationService:
 
         def _do_login() -> str | None:
             """同步执行登录"""
-            from apps.core.services.wiring import get_anti_detection, get_court_zxfw_service_factory
             from playwright.sync_api import sync_playwright
+
+            from apps.core.services.wiring import get_anti_detection, get_court_zxfw_service_factory
 
             anti_detection = get_anti_detection()
 

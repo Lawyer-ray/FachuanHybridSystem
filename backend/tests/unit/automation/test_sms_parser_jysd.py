@@ -20,10 +20,7 @@ class TestSMSParserJysdLink:
         assert links == ["https://jysd.10102368.com/sd?key=pKbAL9Jgv3UtIcSk-6275369f_01"]
 
     def test_extract_jysd_link_with_trailing_punctuation(self):
-        test_sms = (
-            "请点击 https://jysd.10102368.com/sd?key=abc123_01。"
-            "后续文字"
-        )
+        test_sms = "请点击 https://jysd.10102368.com/sd?key=abc123_01。" "后续文字"
 
         links = self.service.extract_download_links(test_sms)
 
@@ -31,8 +28,7 @@ class TestSMSParserJysdLink:
 
     def test_extract_multiple_jysd_links(self):
         test_sms = (
-            "链接1: https://jysd.10102368.com/sd?key=abc123_01 "
-            "链接2: https://jysd.10102368.com/sd?key=xyz789_02"
+            "链接1: https://jysd.10102368.com/sd?key=abc123_01 " "链接2: https://jysd.10102368.com/sd?key=xyz789_02"
         )
 
         links = self.service.extract_download_links(test_sms)
@@ -40,4 +36,3 @@ class TestSMSParserJysdLink:
         assert len(links) == 2
         assert "https://jysd.10102368.com/sd?key=abc123_01" in links
         assert "https://jysd.10102368.com/sd?key=xyz789_02" in links
-

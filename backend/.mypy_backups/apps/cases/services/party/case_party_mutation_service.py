@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 import logging
@@ -7,11 +8,10 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import QuerySet
 
+from apps.cases.models import CaseParty
 from apps.core.business_config import business_config
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, IContractService
-
-from apps.cases.models import CaseParty
 
 from .repo import CasePartyCommandRepo
 
@@ -306,7 +306,7 @@ class CasePartyMutationService:
             )
 
     @transaction.atomic
-    def delete_party(self, *,  party_id: int, user: Any | None = None) -> dict[str, bool]:
+    def delete_party(self, *, party_id: int, user: Any | None = None) -> dict[str, bool]:
         party = CaseParty.objects.filter(id=party_id).only("id", "case_id", "client_id").first()
         if not party:
             raise NotFoundError(
@@ -318,19 +318,19 @@ class CasePartyMutationService:
         party.delete()
 
         logger.info(
-        "删除当事人成功",
-        extra={
-        "action": "delete_party",
-        "party_id": party_id,
-        "case_id": case_id,
-        "client_id": client_id,
-        "user_id": getattr(user, "id", None) if user else None,
-        },
+            "删除当事人成功",
+            extra={
+                "action": "delete_party",
+                "party_id": party_id,
+                "case_id": case_id,
+                "client_id": client_id,
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
         return {"success": True}
 
     @transaction.atomic
-    def create_party_internal(self, *,  case_id: int, client_id: int, legal_status: str | None = None) -> bool:
+    def create_party_internal(self, *, case_id: int, client_id: int, legal_status: str | None = None) -> bool:
         case = self.repo.get_case(case_id)
         if not case:
             return False

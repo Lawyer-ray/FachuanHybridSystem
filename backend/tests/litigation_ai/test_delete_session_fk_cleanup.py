@@ -1,11 +1,10 @@
 import pytest
-
 from django.db import connection
 
 from apps.core.models import ConversationHistory
+from apps.documents.models import GenerationTask
 from apps.litigation_ai.models import LitigationSession
 from apps.litigation_ai.services.conversation_service import ConversationService
-from apps.documents.models import GenerationTask
 from tests.factories.case_factories import CaseFactory
 from tests.factories.organization_factories import LawyerFactory
 
@@ -34,9 +33,7 @@ def test_delete_session_cleans_related_rows():
     )
 
     with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='documents_litigationmessage';"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documents_litigationmessage';")
         if cursor.fetchone():
             cursor.execute(
                 """

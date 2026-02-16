@@ -1,12 +1,12 @@
 """Business logic services."""
 
-import cv2
-import numpy as np
+import logging
 from typing import Any
 
-from .validation import order_corners
+import cv2
+import numpy as np
 
-import logging
+from .validation import order_corners
 
 logger = logging.getLogger(__name__)
 

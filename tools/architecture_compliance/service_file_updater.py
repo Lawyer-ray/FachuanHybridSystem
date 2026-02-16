@@ -8,6 +8,7 @@ Service 文件更新器
 4. 对链式调用和复杂场景添加 ``# TODO: 需要人工审查`` 注释
 5. 写回更新后的文件并返回 RefactoringResult
 """
+
 from __future__ import annotations
 
 import ast
@@ -19,9 +20,9 @@ from typing import Optional
 from .logging_config import get_logger
 from .models import RefactoringResult
 from .service_refactoring_engine import (
+    _MODEL_GETTER_MAP,
     FileRefactoringPlan,
     ReplacementSpec,
-    _MODEL_GETTER_MAP,
     _build_service_method_name,
 )
 
@@ -31,19 +32,13 @@ logger = get_logger("service_file_updater")
 _SERVICE_LOCATOR_IMPORT = "from apps.core.interfaces import ServiceLocator"
 
 # 匹配 from apps.<module>.models import ... 的正则
-_MODEL_IMPORT_RE: re.Pattern[str] = re.compile(
-    r"^(\s*)from\s+apps\.\w+\.models\s+import\s+(.+)$"
-)
+_MODEL_IMPORT_RE: re.Pattern[str] = re.compile(r"^(\s*)from\s+apps\.\w+\.models\s+import\s+(.+)$")
 
 # 匹配 Model.objects.<method>(...) 的正则（含可选链式调用）
-_ORM_CALL_RE: re.Pattern[str] = re.compile(
-    r"\b([A-Z][A-Za-z0-9_]*)\.objects\.(\w+)\("
-)
+_ORM_CALL_RE: re.Pattern[str] = re.compile(r"\b([A-Z][A-Za-z0-9_]*)\.objects\.(\w+)\(")
 
 # 匹配独立的 Model.objects 访问（不跟方法调用）
-_ORM_ACCESS_RE: re.Pattern[str] = re.compile(
-    r"\b([A-Z][A-Za-z0-9_]*)\.objects\b(?!\.\w+\()"
-)
+_ORM_ACCESS_RE: re.Pattern[str] = re.compile(r"\b([A-Z][A-Za-z0-9_]*)\.objects\b(?!\.\w+\()")
 
 
 # ── 数据模型 ────────────────────────────────────────────────
@@ -53,10 +48,10 @@ _ORM_ACCESS_RE: re.Pattern[str] = re.compile(
 class _ImportLineInfo:
     """导入行的解析信息"""
 
-    line_number: int          # 1-based
-    module_path: str          # e.g. "apps.cases.models"
-    imported_names: list[str] # e.g. ["Case", "CaseLog"]
-    raw_line: str             # 原始行文本
+    line_number: int  # 1-based
+    module_path: str  # e.g. "apps.cases.models"
+    imported_names: list[str]  # e.g. ["Case", "CaseLog"]
+    raw_line: str  # 原始行文本
 
 
 @dataclass
@@ -84,8 +79,8 @@ class _OrmReplacement:
     orm_method: str
     getter_method: str
     service_method: str
-    original_pattern: str     # 正则匹配到的原始文本
-    replacement_text: str     # 替换后的文本
+    original_pattern: str  # 正则匹配到的原始文本
+    replacement_text: str  # 替换后的文本
 
 
 @dataclass
@@ -186,20 +181,15 @@ class ServiceFileUpdater:
 
         all_changes = update_plan.changes[:]
         if update_plan.manual_review_lines:
-            all_changes.append(
-                f"需要人工审查: {len(update_plan.manual_review_lines)} 处"
-            )
+            all_changes.append(f"需要人工审查: {len(update_plan.manual_review_lines)} 处")
             for review in update_plan.manual_review_lines:
-                all_changes.append(
-                    f"  - 第 {review.line_number} 行: {review.reason}"
-                )
+                all_changes.append(f"  - 第 {review.line_number} 行: {review.reason}")
 
         return RefactoringResult(
             success=True,
             file_path=str(file_path),
             changes_made=all_changes,
         )
-
 
     # ── 更新计划构建 ────────────────────────────────────────
 
@@ -242,8 +232,7 @@ class ServiceFileUpdater:
 
         # 步骤3: 确定是否需要 ServiceLocator 导入
         update.needs_service_locator_import = (
-            plan.needs_service_locator_import
-            and _SERVICE_LOCATOR_IMPORT not in source
+            plan.needs_service_locator_import and _SERVICE_LOCATOR_IMPORT not in source
         )
 
         return update
@@ -286,11 +275,7 @@ class ServiceFileUpdater:
                 line_number=cross_import.line_number,
                 module_path=cross_import.module_path,
                 imported_names=names_to_remove,
-                raw_line=(
-                    lines[cross_import.line_number - 1]
-                    if cross_import.line_number <= len(lines)
-                    else ""
-                ),
+                raw_line=(lines[cross_import.line_number - 1] if cross_import.line_number <= len(lines) else ""),
             )
 
             if names_to_keep:
@@ -304,8 +289,7 @@ class ServiceFileUpdater:
             else:
                 # 整行移除
                 update.changes.append(
-                    f"第 {cross_import.line_number} 行: "
-                    f"移除跨模块导入 {cross_import.import_statement}"
+                    f"第 {cross_import.line_number} 行: " f"移除跨模块导入 {cross_import.import_statement}"
                 )
 
             update.import_lines_to_remove.append(info)
@@ -331,38 +315,41 @@ class ServiceFileUpdater:
                 continue
 
             if repl_spec.needs_manual_review:
-                update.manual_review_lines.append(_ManualReviewLine(
-                    line_number=repl_spec.line_number,
-                    reason=repl_spec.review_reason,
-                    code_snippet=repl_spec.original_code,
-                ))
+                update.manual_review_lines.append(
+                    _ManualReviewLine(
+                        line_number=repl_spec.line_number,
+                        reason=repl_spec.review_reason,
+                        code_snippet=repl_spec.original_code,
+                    )
+                )
                 continue
 
             getter = _MODEL_GETTER_MAP.get(repl_spec.model_name)
             if getter is None:
                 update.errors.append(
-                    f"第 {repl_spec.line_number} 行: "
-                    f"{repl_spec.model_name} 无 ServiceLocator getter"
+                    f"第 {repl_spec.line_number} 行: " f"{repl_spec.model_name} 无 ServiceLocator getter"
                 )
                 continue
 
-            update.orm_replacements.append(_OrmReplacement(
-                line_number=repl_spec.line_number,
-                model_name=repl_spec.model_name,
-                orm_method=repl_spec.service_method.split(".")[-1]
-                    if "." in repl_spec.service_method
-                    else (repl_spec.service_method or ""),
-                getter_method=getter,
-                service_method=repl_spec.service_method,
-                original_pattern=f"{repl_spec.model_name}.objects.",
-                replacement_text=f"ServiceLocator.{getter}().{repl_spec.service_method}",
-            ))
-
-            update.changes.append(
-                f"第 {repl_spec.line_number} 行: "
-                f"{repl_spec.original_code} → {repl_spec.replacement_code}"
+            update.orm_replacements.append(
+                _OrmReplacement(
+                    line_number=repl_spec.line_number,
+                    model_name=repl_spec.model_name,
+                    orm_method=(
+                        repl_spec.service_method.split(".")[-1]
+                        if "." in repl_spec.service_method
+                        else (repl_spec.service_method or "")
+                    ),
+                    getter_method=getter,
+                    service_method=repl_spec.service_method,
+                    original_pattern=f"{repl_spec.model_name}.objects.",
+                    replacement_text=f"ServiceLocator.{getter}().{repl_spec.service_method}",
+                )
             )
 
+            update.changes.append(
+                f"第 {repl_spec.line_number} 行: " f"{repl_spec.original_code} → {repl_spec.replacement_code}"
+            )
 
     # ── 更新计划应用 ────────────────────────────────────────
 
@@ -436,20 +423,16 @@ class ServiceFileUpdater:
             line = result[idx]
             for repl in repls:
                 # 构建精确的正则模式
-                pattern = re.compile(
-                    re.escape(repl.model_name) + r"\.objects\.(\w+)\("
-                )
+                pattern = re.compile(re.escape(repl.model_name) + r"\.objects\.(\w+)\(")
                 match = pattern.search(line)
                 if match:
                     orm_method = match.group(1)
                     service_method = _build_service_method_name(
-                        repl.model_name, orm_method,
+                        repl.model_name,
+                        orm_method,
                     )
-                    replacement = (
-                        f"ServiceLocator.{repl.getter_method}()"
-                        f".{service_method}("
-                    )
-                    line = line[:match.start()] + replacement + line[match.end():]
+                    replacement = f"ServiceLocator.{repl.getter_method}()" f".{service_method}("
+                    line = line[: match.start()] + replacement + line[match.end() :]
 
             result[idx] = line
 
@@ -473,9 +456,7 @@ class ServiceFileUpdater:
             修改后的行列表
         """
         result = list(lines)
-        review_by_line: dict[int, _ManualReviewLine] = {
-            r.line_number: r for r in review_lines
-        }
+        review_by_line: dict[int, _ManualReviewLine] = {r.line_number: r for r in review_lines}
 
         for line_no, review in review_by_line.items():
             idx = line_no - 1
@@ -538,15 +519,11 @@ class ServiceFileUpdater:
                 keep_names = update.import_names_to_keep[line_no]
                 # 从原始行中提取 module_path
                 info = next(
-                    (i for i in update.import_lines_to_remove
-                     if i.line_number == line_no),
+                    (i for i in update.import_lines_to_remove if i.line_number == line_no),
                     None,
                 )
                 if info is not None:
-                    new_import = (
-                        f"from {info.module_path} import "
-                        f"{', '.join(keep_names)}\n"
-                    )
+                    new_import = f"from {info.module_path} import " f"{', '.join(keep_names)}\n"
                     # 处理多行导入
                     end_idx = self._find_import_end_line(result, idx)
                     for i in range(end_idx, idx, -1):

@@ -1,9 +1,11 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
-from typing import TYPE_CHECKING, Any, Optional, cast, Sequence
 from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
+
+from django.db import models, transaction
 
 from apps.cases.models import (
     CaseMaterial,
@@ -14,7 +16,6 @@ from apps.cases.models import (
     CaseParty,
 )
 from apps.core.exceptions import ValidationException
-from django.db import models, transaction
 
 if TYPE_CHECKING:
     from apps.cases.services.case.case_service import CaseService

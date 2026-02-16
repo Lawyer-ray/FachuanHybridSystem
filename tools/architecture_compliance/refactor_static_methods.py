@@ -7,6 +7,7 @@
 用法:
     python -m tools.architecture_compliance.refactor_static_methods [--dry-run]
 """
+
 from __future__ import annotations
 
 import ast
@@ -17,15 +18,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .call_site_updater import CallSiteUpdater, CallSiteUpdateReport
 from .logging_config import get_logger, setup_logging
 from .models import RefactoringResult
-from .static_method_analyzer import (
-    ConversionReason,
-    StaticMethodClassification,
-    StaticMethodInfo,
-)
+from .static_method_analyzer import ConversionReason, StaticMethodClassification, StaticMethodInfo
 from .static_method_converter import StaticMethodConverter
-from .call_site_updater import CallSiteUpdater, CallSiteUpdateReport
 
 logger = get_logger("refactor_static_methods")
 
@@ -37,19 +34,8 @@ _BACKEND_TESTS: Path = _PROJECT_ROOT / "backend" / "tests"
 
 # 需要扫描调用点的所有目录
 _SCAN_ROOTS: list[Path] = [_BACKEND_ROOT, _BACKEND_TESTS]
-_ANALYSIS_FILE: Path = (
-    _PROJECT_ROOT
-    / "tools"
-    / "architecture_compliance"
-    / "output"
-    / "static_method_analysis.json"
-)
-_OUTPUT_DIR: Path = (
-    _PROJECT_ROOT
-    / "tools"
-    / "architecture_compliance"
-    / "output"
-)
+_ANALYSIS_FILE: Path = _PROJECT_ROOT / "tools" / "architecture_compliance" / "output" / "static_method_analysis.json"
+_OUTPUT_DIR: Path = _PROJECT_ROOT / "tools" / "architecture_compliance" / "output"
 
 
 # ── 数据模型 ────────────────────────────────────────────────
@@ -108,8 +94,7 @@ def _build_methods_by_file(
     for item in priority_list:
         file_path: str = item["file_path"]
         reasons: list[ConversionReason] = [
-            ConversionReason(rule=r["rule"], detail=r["detail"])
-            for r in item.get("reasons", [])
+            ConversionReason(rule=r["rule"], detail=r["detail"]) for r in item.get("reasons", [])
         ]
         info = StaticMethodInfo(
             class_name=item["class_name"],
@@ -158,9 +143,7 @@ def _process_single_file(
         FileRefactoringReport
     """
     report = FileRefactoringReport(file_path=str(file_path))
-    method_names: list[str] = [
-        f"{m.class_name}.{m.method_name}" for m in methods
-    ]
+    method_names: list[str] = [f"{m.class_name}.{m.method_name}" for m in methods]
     report.methods_converted = method_names
 
     logger.info(
@@ -172,7 +155,9 @@ def _process_single_file(
 
     # 步骤 1: 转换静态方法
     result: RefactoringResult = converter.convert_file(
-        file_path, methods, dry_run=dry_run,
+        file_path,
+        methods,
+        dry_run=dry_run,
     )
     report.conversion_result = result
 
@@ -281,7 +266,11 @@ def run_refactoring(*, dry_run: bool = False) -> RefactoringReport:
             continue
 
         file_report: FileRefactoringReport = _process_single_file(
-            file_path, methods, converter, updater, dry_run=dry_run,
+            file_path,
+            methods,
+            converter,
+            updater,
+            dry_run=dry_run,
         )
         report.files_processed.append(file_report)
 
@@ -291,9 +280,7 @@ def run_refactoring(*, dry_run: bool = False) -> RefactoringReport:
             report.methods_converted += len(methods)
 
         if file_report.call_site_report is not None:
-            report.call_sites_updated += (
-                file_report.call_site_report.total_call_sites_updated
-            )
+            report.call_sites_updated += file_report.call_site_report.total_call_sites_updated
 
     # 汇总
     logger.info("=" * 60)

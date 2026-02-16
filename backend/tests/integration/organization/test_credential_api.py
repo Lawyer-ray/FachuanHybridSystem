@@ -1,9 +1,11 @@
 """
 测试账号凭证 API
 """
+
 import pytest
 from django.test import Client
-from apps.organization.models import Lawyer, LawFirm, AccountCredential
+
+from apps.organization.models import AccountCredential, LawFirm, Lawyer
 
 
 @pytest.fixture
@@ -15,27 +17,14 @@ def law_firm(db):
 @pytest.fixture
 def superuser(db, law_firm):
     """创建超级用户"""
-    return Lawyer.objects.create(
-        username="admin",
-        real_name="管理员",
-        law_firm=law_firm,
-        is_superuser=True
-    )
+    return Lawyer.objects.create(username="admin", real_name="管理员", law_firm=law_firm, is_superuser=True)
 
 
 @pytest.fixture
 def lawyers(db, law_firm):
     """创建测试律师"""
-    lawyer1 = Lawyer.objects.create(
-        username="zhangsan",
-        real_name="张三",
-        law_firm=law_firm
-    )
-    lawyer2 = Lawyer.objects.create(
-        username="lisi",
-        real_name="李四",
-        law_firm=law_firm
-    )
+    lawyer1 = Lawyer.objects.create(username="zhangsan", real_name="张三", law_firm=law_firm)
+    lawyer2 = Lawyer.objects.create(username="lisi", real_name="李四", law_firm=law_firm)
     return lawyer1, lawyer2
 
 
@@ -49,7 +38,7 @@ def credentials(db, lawyers):
         site_name="法院网站",
         url="https://court.example.com",
         account="zhangsan@example.com",
-        password="password123"
+        password="password123",
     )
 
     cred2 = AccountCredential.objects.create(
@@ -57,7 +46,7 @@ def credentials(db, lawyers):
         site_name="检察院网站",
         url="https://procuratorate.example.com",
         account="lisi@example.com",
-        password="password456"
+        password="password456",
     )
 
     return cred1, cred2
@@ -134,11 +123,7 @@ class TestCredentialAPI:
         client.force_login(superuser)
 
         # 同时使用 lawyer_id 和 lawyer_name（应该取交集）
-        response = client.get(
-            f"/api/v1/organization/credentials"
-            f"?lawyer_id={cred1.lawyer.id}"
-            f"&lawyer_name=张三"
-        )
+        response = client.get(f"/api/v1/organization/credentials" f"?lawyer_id={cred1.lawyer.id}" f"&lawyer_name=张三")
 
         assert response.status_code == 200
         data = response.json()
@@ -172,11 +157,7 @@ class TestCredentialAPI:
     def test_list_credentials_no_law_firm(self, credentials, db):
         """测试没有关联律所的用户看不到任何凭证"""
         # 创建没有律所的用户
-        user_no_firm = Lawyer.objects.create(
-            username="nofirm",
-            real_name="无律所用户",
-            law_firm=None
-        )
+        user_no_firm = Lawyer.objects.create(username="nofirm", real_name="无律所用户", law_firm=None)
         client = Client()
         client.force_login(user_no_firm)
 
@@ -190,11 +171,7 @@ class TestCredentialAPI:
         """测试不同律所的用户看不到其他律所的凭证"""
         # 创建另一个律所和用户
         other_firm = LawFirm.objects.create(name="其他律所")
-        other_user = Lawyer.objects.create(
-            username="other",
-            real_name="其他律所用户",
-            law_firm=other_firm
-        )
+        other_user = Lawyer.objects.create(username="other", real_name="其他律所用户", law_firm=other_firm)
         client = Client()
         client.force_login(other_user)
 
@@ -240,6 +217,7 @@ class TestCredentialCRUDAPI:
         client.force_login(superuser)
 
         import json
+
         payload = {
             "lawyer_id": lawyer1.id,
             "site_name": "新网站",
@@ -264,6 +242,7 @@ class TestCredentialCRUDAPI:
         client.force_login(superuser)
 
         import json
+
         payload = {
             "lawyer_id": 999999,
             "site_name": "网站",
@@ -286,6 +265,7 @@ class TestCredentialCRUDAPI:
         client.force_login(superuser)
 
         import json
+
         payload = {"site_name": "更新后的网站"}
         response = client.put(
             f"/api/v1/organization/credentials/{cred1.id}",
@@ -303,6 +283,7 @@ class TestCredentialCRUDAPI:
         client.force_login(superuser)
 
         import json
+
         payload = {"site_name": "新名称"}
         response = client.put(
             "/api/v1/organization/credentials/999999",

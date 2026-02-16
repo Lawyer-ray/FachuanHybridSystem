@@ -1,7 +1,9 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 from typing import Any, cast
+
 """
 证据清单 Admin 服务
 
@@ -224,6 +226,7 @@ class EvidenceAdminService:
         import os
 
         from apps.documents.models import EvidenceList
+
         from .pdf_utils import get_pdf_page_count_with_error
 
         evidence_list = EvidenceList.objects.get(pk=list_id)
@@ -248,6 +251,7 @@ class EvidenceAdminService:
 
         def _recount_item_pages(item, os, get_pdf_page_count_with_error) -> tuple[int, int, str | None]:
             """重新计算单个证据项的页数,返回 (updated_count, page_count, error_msg)"""
+
         if not item.file:
             update_fields: list[Any] = []
             if item.page_count != 0:

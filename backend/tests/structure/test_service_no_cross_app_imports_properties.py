@@ -17,14 +17,10 @@ from typing import NamedTuple
 import pytest
 
 # 匹配 from apps.xxx.models import ... 和 from apps.xxx.services import ...
-CROSS_APP_FROM_IMPORT_PATTERN: re.Pattern[str] = re.compile(
-    r"^\s*from\s+apps\.(\w+)\.(models|services)\b"
-)
+CROSS_APP_FROM_IMPORT_PATTERN: re.Pattern[str] = re.compile(r"^\s*from\s+apps\.(\w+)\.(models|services)\b")
 
 # 匹配 import apps.xxx.models 和 import apps.xxx.services
-CROSS_APP_DIRECT_IMPORT_PATTERN: re.Pattern[str] = re.compile(
-    r"^\s*import\s+apps\.(\w+)\.(models|services)\b"
-)
+CROSS_APP_DIRECT_IMPORT_PATTERN: re.Pattern[str] = re.compile(r"^\s*import\s+apps\.(\w+)\.(models|services)\b")
 
 # 共享模块，允许跨模块导入
 ALLOWED_MODULES: frozenset[str] = frozenset({"core"})
@@ -117,16 +113,8 @@ def test_service_layer_no_cross_app_imports() -> None:
     all_violations: list[Violation] = []
 
     for file_path in service_files:
-        all_violations.extend(
-            _scan_file_for_cross_app_imports(
-                file_path, backend_path, apps_path
-            )
-        )
+        all_violations.extend(_scan_file_for_cross_app_imports(file_path, backend_path, apps_path))
 
-    assert not all_violations, (
-        f"Service 层发现 {len(all_violations)} 处跨模块直接导入违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} [导入 apps.{v.imported_module}] {v.line_content}"
-            for v in all_violations
-        )
+    assert not all_violations, f"Service 层发现 {len(all_violations)} 处跨模块直接导入违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} [导入 apps.{v.imported_module}] {v.line_content}" for v in all_violations
     )

@@ -9,6 +9,7 @@ Service层静态方法分析器
   实例化自身类等 → 需要依赖注入 → 应转换为实例方法
 - **keep**: 纯工具函数（字符串处理、数学运算、返回常量等）→ 保留为静态方法
 """
+
 from __future__ import annotations
 
 import ast
@@ -252,7 +253,8 @@ class StaticMethodAnalyzer:
 
         # 规则2: 调用同类其他方法
         class_call_reason = self._check_calls_class_method(
-            method_node, class_name,
+            method_node,
+            class_name,
         )
         if class_call_reason is not None:
             convert_reasons.append(class_call_reason)
@@ -264,7 +266,8 @@ class StaticMethodAnalyzer:
 
         # 规则4: 实例化自身类
         self_inst_reason = self._check_instantiates_self_class(
-            method_node, class_name,
+            method_node,
+            class_name,
         )
         if self_inst_reason is not None:
             convert_reasons.append(self_inst_reason)
@@ -382,11 +385,7 @@ class StaticMethodAnalyzer:
                 continue
             func = node.func
             # 匹配 ClassName.method_name(...)
-            if (
-                isinstance(func, ast.Attribute)
-                and isinstance(func.value, ast.Name)
-                and func.value.id == class_name
-            ):
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == class_name:
                 return ConversionReason(
                     rule=_RULE_CALLS_CLASS_METHOD,
                     detail=f"调用同类方法: {class_name}.{func.attr}()",
@@ -413,10 +412,7 @@ class StaticMethodAnalyzer:
             if not isinstance(node, ast.Attribute):
                 continue
             # 匹配 XXX.objects
-            if (
-                node.attr == "objects"
-                and isinstance(node.value, ast.Name)
-            ):
+            if node.attr == "objects" and isinstance(node.value, ast.Name):
                 model_name = node.value.id
                 return ConversionReason(
                     rule=_RULE_MODEL_OBJECTS_ACCESS,
@@ -499,10 +495,7 @@ class StaticMethodAnalyzer:
             if not isinstance(node, ast.Call):
                 continue
             # 匹配 XxxService() 调用
-            if (
-                isinstance(node.func, ast.Name)
-                and node.func.id.endswith("Service")
-            ):
+            if isinstance(node.func, ast.Name) and node.func.id.endswith("Service"):
                 return ConversionReason(
                     rule=_RULE_CALLS_EXTERNAL_SERVICE,
                     detail=f"调用外部服务: {node.func.id}()",
@@ -550,13 +543,38 @@ class StaticMethodAnalyzer:
                             break
                 # 允许: 内置函数 (len, str, int, tuple, list, dict, set, bool, isinstance)
                 elif isinstance(func, ast.Name):
-                    _BUILTIN_NAMES = frozenset({
-                        "len", "str", "int", "float", "bool", "tuple",
-                        "list", "dict", "set", "isinstance", "type",
-                        "range", "enumerate", "zip", "map", "filter",
-                        "sorted", "reversed", "min", "max", "sum", "abs",
-                        "round", "repr", "hash", "id", "ord", "chr",
-                    })
+                    _BUILTIN_NAMES = frozenset(
+                        {
+                            "len",
+                            "str",
+                            "int",
+                            "float",
+                            "bool",
+                            "tuple",
+                            "list",
+                            "dict",
+                            "set",
+                            "isinstance",
+                            "type",
+                            "range",
+                            "enumerate",
+                            "zip",
+                            "map",
+                            "filter",
+                            "sorted",
+                            "reversed",
+                            "min",
+                            "max",
+                            "sum",
+                            "abs",
+                            "round",
+                            "repr",
+                            "hash",
+                            "id",
+                            "ord",
+                            "chr",
+                        }
+                    )
                     if func.id not in _BUILTIN_NAMES:
                         has_complex_call = True
                         break
@@ -586,7 +604,8 @@ class StaticMethodAnalyzer:
         """
         # 过滤掉文档字符串，只看实际语句
         body = [
-            stmt for stmt in method_node.body
+            stmt
+            for stmt in method_node.body
             if not (
                 isinstance(stmt, ast.Expr)
                 and isinstance(stmt.value, ast.Constant)
@@ -616,9 +635,7 @@ class StaticMethodAnalyzer:
 
         # 检查返回值是否为 tuple(...常量...)
         if isinstance(stmt.value, ast.Tuple):
-            all_const = all(
-                isinstance(elt, ast.Constant) for elt in stmt.value.elts
-            )
+            all_const = all(isinstance(elt, ast.Constant) for elt in stmt.value.elts)
             if all_const:
                 return ConversionReason(
                     rule=_RULE_RETURNS_CONSTANT,
@@ -660,11 +677,20 @@ class StaticMethodAnalyzer:
         Returns:
             排序后的文件路径列表
         """
-        _EXCLUDE_DIRS: frozenset[str] = frozenset({
-            "__pycache__", ".git", ".tox", ".mypy_cache",
-            ".pytest_cache", "node_modules", "migrations",
-            "venv", ".venv", "venv312",
-        })
+        _EXCLUDE_DIRS: frozenset[str] = frozenset(
+            {
+                "__pycache__",
+                ".git",
+                ".tox",
+                ".mypy_cache",
+                ".pytest_cache",
+                "node_modules",
+                "migrations",
+                "venv",
+                ".venv",
+                "venv312",
+            }
+        )
 
         py_files: list[Path] = []
         for path in sorted(root.rglob("*.py")):

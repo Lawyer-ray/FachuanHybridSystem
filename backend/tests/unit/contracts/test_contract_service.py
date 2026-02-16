@@ -1,21 +1,19 @@
 """
 ContractService 单元测试
 """
-import pytest
-from unittest.mock import Mock, MagicMock
-from decimal import Decimal
 
+from decimal import Decimal
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
+from apps.contracts.models import Contract, ContractAssignment, ContractParty, FeeMode
 from apps.contracts.services import ContractService
-from apps.contracts.models import Contract, ContractParty, ContractAssignment, FeeMode
-from apps.core.exceptions import (
-    ValidationException,
-    NotFoundError,
-    PermissionDenied
-)
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ContractDTO, LawyerDTO
-from tests.factories.contract_factories import ContractFactory, ContractAssignmentFactory, ContractPaymentFactory
-from tests.factories.organization_factories import LawyerFactory, LawFirmFactory
 from tests.factories.client_factories import ClientFactory
+from tests.factories.contract_factories import ContractAssignmentFactory, ContractFactory, ContractPaymentFactory
+from tests.factories.organization_factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -28,9 +26,7 @@ class TestContractService:
         self.mock_case_service = Mock()
 
         # 创建 Service 实例（注入 Mock）
-        self.service = ContractService(
-            case_service=self.mock_case_service
-        )
+        self.service = ContractService(case_service=self.mock_case_service)
 
     def test_create_contract_success(self):
         """测试创建合同成功"""
@@ -151,10 +147,7 @@ class TestContractService:
         contract = ContractFactory()
 
         # 执行查询
-        result = self.service.get_contract(
-            contract_id=contract.id,
-            perm_open_access=True
-        )
+        result = self.service.get_contract(contract_id=contract.id, perm_open_access=True)
 
         # 断言结果
         assert result.id == contract.id
@@ -164,10 +157,7 @@ class TestContractService:
         """测试获取不存在的合同"""
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            self.service.get_contract(
-                contract_id=999,
-                perm_open_access=True
-            )
+            self.service.get_contract(contract_id=999, perm_open_access=True)
 
     def test_get_contract_permission_denied(self):
         """测试无权限访问合同"""
@@ -187,12 +177,7 @@ class TestContractService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_contract(
-                contract_id=contract.id,
-                user=user,
-                org_access=org_access,
-                perm_open_access=False
-            )
+            self.service.get_contract(contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False)
 
     def test_get_contract_with_admin(self):
         """测试管理员可以访问任何合同"""
@@ -205,11 +190,7 @@ class TestContractService:
         admin_user.is_admin = True
 
         # 执行查询
-        result = self.service.get_contract(
-            contract_id=contract.id,
-            user=admin_user,
-            perm_open_access=False
-        )
+        result = self.service.get_contract(contract_id=contract.id, user=admin_user, perm_open_access=False)
 
         # 断言结果
         assert result.id == contract.id
@@ -234,10 +215,7 @@ class TestContractService:
 
         # 执行查询
         result = self.service.get_contract(
-            contract_id=contract.id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=False
+            contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False
         )
 
         # 断言结果
@@ -262,10 +240,7 @@ class TestContractService:
         ContractFactory(case_type="criminal")
 
         # 执行查询
-        result = self.service.list_contracts(
-            case_type="civil",
-            perm_open_access=True
-        )
+        result = self.service.list_contracts(case_type="civil", perm_open_access=True)
 
         # 断言结果
         assert result.count() == 1
@@ -278,10 +253,7 @@ class TestContractService:
         ContractFactory(status="completed")
 
         # 执行查询
-        result = self.service.list_contracts(
-            status="active",
-            perm_open_access=True
-        )
+        result = self.service.list_contracts(status="active", perm_open_access=True)
 
         # 断言结果
         assert result.count() == 1
@@ -299,10 +271,7 @@ class TestContractService:
         admin_user.is_admin = True
 
         # 执行查询
-        result = self.service.list_contracts(
-            user=admin_user,
-            perm_open_access=False
-        )
+        result = self.service.list_contracts(user=admin_user, perm_open_access=False)
 
         # 断言结果
         assert result.count() == 2
@@ -331,11 +300,7 @@ class TestContractService:
         }
 
         # 执行查询
-        result = self.service.list_contracts(
-            user=user,
-            org_access=org_access,
-            perm_open_access=False
-        )
+        result = self.service.list_contracts(user=user, org_access=org_access, perm_open_access=False)
 
         # 断言结果（只能看到分配给自己的合同）
         assert result.count() == 1
@@ -344,20 +309,9 @@ class TestContractService:
     def test_get_finance_summary(self):
         """测试获取合同财务汇总"""
         # 创建合同和收款记录
-        contract = ContractFactory(
-            fee_mode=FeeMode.FIXED,
-            fixed_amount=Decimal("10000.00")
-        )
-        ContractPaymentFactory(
-            contract=contract,
-            amount=Decimal("3000.00"),
-            invoiced_amount=Decimal("3000.00")
-        )
-        ContractPaymentFactory(
-            contract=contract,
-            amount=Decimal("2000.00"),
-            invoiced_amount=Decimal("1000.00")
-        )
+        contract = ContractFactory(fee_mode=FeeMode.FIXED, fixed_amount=Decimal("10000.00"))
+        ContractPaymentFactory(contract=contract, amount=Decimal("3000.00"), invoiced_amount=Decimal("3000.00"))
+        ContractPaymentFactory(contract=contract, amount=Decimal("2000.00"), invoiced_amount=Decimal("1000.00"))
 
         # 执行测试
         summary = self.service.get_finance_summary(contract.id)
@@ -371,14 +325,8 @@ class TestContractService:
     def test_get_finance_summary_hourly_fee(self):
         """测试按小时收费的合同财务汇总"""
         # 创建按小时收费的合同
-        contract = ContractFactory(
-            fee_mode=FeeMode.HOURLY,
-            fixed_amount=None
-        )
-        ContractPaymentFactory(
-            contract=contract,
-            amount=Decimal("1000.00")
-        )
+        contract = ContractFactory(fee_mode=FeeMode.HOURLY, fixed_amount=None)
+        ContractPaymentFactory(contract=contract, amount=Decimal("1000.00"))
 
         # 执行测试
         summary = self.service.get_finance_summary(contract.id)
@@ -423,10 +371,7 @@ class TestContractService:
         assert result is True
 
         # 验证当事人已删除
-        assert not ContractParty.objects.filter(
-            contract_id=contract.id,
-            client_id=client.id
-        ).exists()
+        assert not ContractParty.objects.filter(contract_id=contract.id, client_id=client.id).exists()
 
     def test_remove_party_not_found(self):
         """测试移除不存在的当事人"""
@@ -446,10 +391,7 @@ class TestContractService:
         lawyer2 = LawyerFactory()
 
         # 执行测试
-        assignments = self.service.update_contract_lawyers(
-            contract.id,
-            [lawyer1.id, lawyer2.id]
-        )
+        assignments = self.service.update_contract_lawyers(contract.id, [lawyer1.id, lawyer2.id])
 
         # 断言结果
         assert len(assignments) == 2
@@ -522,8 +464,8 @@ class TestContractServiceQueryOptimization:
         service = ContractService()
 
         # 使用优化的查询集
-        from django.test.utils import override_settings
         from django.db import connection, reset_queries
+        from django.test.utils import override_settings
 
         with override_settings(DEBUG=True):
             reset_queries()
@@ -581,9 +523,7 @@ class TestContractServiceAdapter:
     def test_get_contract_stages(self):
         """测试获取合同代理阶段"""
         # 创建测试合同
-        contract = ContractFactory(
-            representation_stages=["first_trial", "second_trial"]
-        )
+        contract = ContractFactory(representation_stages=["first_trial", "second_trial"])
 
         # 执行测试
         stages = self.adapter.get_contract_stages(contract.id)
@@ -632,11 +572,7 @@ class TestContractServiceAdapter:
         # 创建合同和律师
         contract = ContractFactory()
         lawyer = LawyerFactory()
-        ContractAssignmentFactory(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True
-        )
+        ContractAssignmentFactory(contract=contract, lawyer=lawyer, is_primary=True)
 
         # 执行测试
         lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)

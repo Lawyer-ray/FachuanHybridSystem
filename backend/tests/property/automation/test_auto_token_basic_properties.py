@@ -4,15 +4,18 @@
 **Feature: auto-token-acquisition, Properties 1-5**
 **Validates: Requirements 1.1-2.5**
 """
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from hypothesis import given, strategies as st, settings
-from datetime import datetime
 
-from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
-from apps.core.interfaces import AccountCredentialDTO
+from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, NoAvailableAccountError
+from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 from apps.core.exceptions import ValidationException
+from apps.core.interfaces import AccountCredentialDTO
 
 
 def create_test_credential(site_name: str, account_id: int = 1) -> AccountCredentialDTO:
@@ -27,7 +30,7 @@ def create_test_credential(site_name: str, account_id: int = 1) -> AccountCreden
         last_login_success_at=datetime.now().isoformat(),
         login_success_count=5,
         login_failure_count=0,
-        is_preferred=True
+        is_preferred=True,
     )
 
 
@@ -46,9 +49,7 @@ class TestBasicTokenAcquisitionProperties:
         """每个测试后清理"""
         AutoTokenAcquisitionService.clear_locks()
 
-    @given(
-        site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum())
-    )
+    @given(site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum()))
     @settings(max_examples=5, deadline=15000)
     async def test_token_acquisition_with_existing_token(self, site_name: str):
         """
@@ -69,26 +70,26 @@ class TestBasicTokenAcquisitionProperties:
         mock_token_service.get_token.return_value = f"existing_token_{site_name}"
 
         # 禁用缓存和其他组件
-        with patch('apps.automation.services.token.cache_manager.cache_manager') as mock_cache:
+        with patch("apps.automation.services.token.cache_manager.cache_manager") as mock_cache:
             mock_cache.get_cached_token.return_value = None  # 缓存未命中
             mock_cache.cache_token.return_value = None
-            
-            with patch('apps.automation.services.token.performance_monitor.performance_monitor') as mock_perf:
+
+            with patch("apps.automation.services.token.performance_monitor.performance_monitor") as mock_perf:
                 mock_perf.record_acquisition_start.return_value = None
                 mock_perf.record_acquisition_end.return_value = None
-                
-                with patch('apps.automation.services.token.concurrency_optimizer.concurrency_optimizer') as mock_conc:
+
+                with patch("apps.automation.services.token.concurrency_optimizer.concurrency_optimizer") as mock_conc:
                     mock_conc.acquire_resource = AsyncMock()
                     mock_conc.release_resource = AsyncMock()
-                    
-                    with patch('apps.automation.services.token.history_recorder.history_recorder') as mock_hist:
+
+                    with patch("apps.automation.services.token.history_recorder.history_recorder") as mock_hist:
                         mock_hist.record_acquisition_history = AsyncMock()
 
                         # 创建服务实例
                         service = AutoTokenAcquisitionService(
                             account_selection_strategy=mock_account_strategy,
                             auto_login_service=mock_login_service,
-                            token_service=mock_token_service
+                            token_service=mock_token_service,
                         )
 
                         # 执行测试
@@ -101,9 +102,7 @@ class TestBasicTokenAcquisitionProperties:
                         # 验证不应该触发登录
                         mock_login_service.login_and_get_token.assert_not_called()
 
-    @given(
-        site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum())
-    )
+    @given(site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum()))
     @settings(max_examples=5, deadline=15000)
     async def test_token_acquisition_without_existing_token(self, site_name: str):
         """
@@ -126,26 +125,26 @@ class TestBasicTokenAcquisitionProperties:
         mock_login_service.login_and_get_token.return_value = f"new_token_{site_name}"
 
         # 禁用缓存和其他组件
-        with patch('apps.automation.services.token.cache_manager.cache_manager') as mock_cache:
+        with patch("apps.automation.services.token.cache_manager.cache_manager") as mock_cache:
             mock_cache.get_cached_token.return_value = None  # 缓存未命中
             mock_cache.cache_token.return_value = None
-            
-            with patch('apps.automation.services.token.performance_monitor.performance_monitor') as mock_perf:
+
+            with patch("apps.automation.services.token.performance_monitor.performance_monitor") as mock_perf:
                 mock_perf.record_acquisition_start.return_value = None
                 mock_perf.record_acquisition_end.return_value = None
-                
-                with patch('apps.automation.services.token.concurrency_optimizer.concurrency_optimizer') as mock_conc:
+
+                with patch("apps.automation.services.token.concurrency_optimizer.concurrency_optimizer") as mock_conc:
                     mock_conc.acquire_resource = AsyncMock()
                     mock_conc.release_resource = AsyncMock()
-                    
-                    with patch('apps.automation.services.token.history_recorder.history_recorder') as mock_hist:
+
+                    with patch("apps.automation.services.token.history_recorder.history_recorder") as mock_hist:
                         mock_hist.record_acquisition_history = AsyncMock()
 
                         # 创建服务实例
                         service = AutoTokenAcquisitionService(
                             account_selection_strategy=mock_account_strategy,
                             auto_login_service=mock_login_service,
-                            token_service=mock_token_service
+                            token_service=mock_token_service,
                         )
 
                         # 执行测试
@@ -157,17 +156,15 @@ class TestBasicTokenAcquisitionProperties:
 
                         # 验证应该触发登录
                         mock_login_service.login_and_get_token.assert_called_once_with(test_credential)
-                        
+
                         # 验证应该保存Token
                         mock_token_service.save_token.assert_called_once_with(
-                            site_name=site_name,
-                            account=test_credential.account,
-                            token=expected_token
+                            site_name=site_name, account=test_credential.account, token=expected_token
                         )
 
     @given(
         site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum()),
-        error_type=st.sampled_from(["network_error", "captcha_error", "credential_error"])
+        error_type=st.sampled_from(["network_error", "captcha_error", "credential_error"]),
     )
     @settings(max_examples=6, deadline=15000)
     async def test_login_failure_exception_handling(self, site_name: str, error_type: str):
@@ -193,35 +190,34 @@ class TestBasicTokenAcquisitionProperties:
         error_messages = {
             "network_error": "网络连接失败",
             "captcha_error": "验证码识别失败",
-            "credential_error": "账号密码错误"
+            "credential_error": "账号密码错误",
         }
 
         mock_login_service.login_and_get_token.side_effect = LoginFailedError(
-            message=error_messages[error_type],
-            errors={"error_type": error_type}
+            message=error_messages[error_type], errors={"error_type": error_type}
         )
 
         # 禁用缓存和其他组件
-        with patch('apps.automation.services.token.cache_manager.cache_manager') as mock_cache:
+        with patch("apps.automation.services.token.cache_manager.cache_manager") as mock_cache:
             mock_cache.get_cached_token.return_value = None
             mock_cache.cache_token.return_value = None
-            
-            with patch('apps.automation.services.token.performance_monitor.performance_monitor') as mock_perf:
+
+            with patch("apps.automation.services.token.performance_monitor.performance_monitor") as mock_perf:
                 mock_perf.record_acquisition_start.return_value = None
                 mock_perf.record_acquisition_end.return_value = None
-                
-                with patch('apps.automation.services.token.concurrency_optimizer.concurrency_optimizer') as mock_conc:
+
+                with patch("apps.automation.services.token.concurrency_optimizer.concurrency_optimizer") as mock_conc:
                     mock_conc.acquire_resource = AsyncMock()
                     mock_conc.release_resource = AsyncMock()
-                    
-                    with patch('apps.automation.services.token.history_recorder.history_recorder') as mock_hist:
+
+                    with patch("apps.automation.services.token.history_recorder.history_recorder") as mock_hist:
                         mock_hist.record_acquisition_history = AsyncMock()
 
                         # 创建服务实例
                         service = AutoTokenAcquisitionService(
                             account_selection_strategy=mock_account_strategy,
                             auto_login_service=mock_login_service,
-                            token_service=mock_token_service
+                            token_service=mock_token_service,
                         )
 
                         # 执行测试并验证异常
@@ -230,11 +226,11 @@ class TestBasicTokenAcquisitionProperties:
 
                         # 验证异常信息
                         exception = exc_info.value
-                        assert error_messages[error_type] in str(exception), f"异常信息应包含: {error_messages[error_type]}"
+                        assert error_messages[error_type] in str(
+                            exception
+                        ), f"异常信息应包含: {error_messages[error_type]}"
 
-    @given(
-        site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum())
-    )
+    @given(site_name=st.text(min_size=1, max_size=10).filter(lambda x: x.strip() and x.isalnum()))
     @settings(max_examples=3, deadline=15000)
     async def test_no_available_account_handling(self, site_name: str):
         """
@@ -252,15 +248,15 @@ class TestBasicTokenAcquisitionProperties:
         mock_token_service.get_token.return_value = None
 
         # 禁用缓存和其他组件
-        with patch('apps.automation.services.token.cache_manager.cache_manager') as mock_cache:
+        with patch("apps.automation.services.token.cache_manager.cache_manager") as mock_cache:
             mock_cache.get_cached_token.return_value = None
             mock_cache.cache_token.return_value = None
-            
-            with patch('apps.automation.services.token.performance_monitor.performance_monitor') as mock_perf:
+
+            with patch("apps.automation.services.token.performance_monitor.performance_monitor") as mock_perf:
                 mock_perf.record_acquisition_start.return_value = None
                 mock_perf.record_acquisition_end.return_value = None
-                
-                with patch('apps.automation.services.token.concurrency_optimizer.concurrency_optimizer') as mock_conc:
+
+                with patch("apps.automation.services.token.concurrency_optimizer.concurrency_optimizer") as mock_conc:
                     mock_conc.acquire_resource = AsyncMock()
                     mock_conc.release_resource = AsyncMock()
 
@@ -268,7 +264,7 @@ class TestBasicTokenAcquisitionProperties:
                     service = AutoTokenAcquisitionService(
                         account_selection_strategy=mock_account_strategy,
                         auto_login_service=mock_login_service,
-                        token_service=mock_token_service
+                        token_service=mock_token_service,
                     )
 
                     # 执行测试并验证异常
@@ -279,12 +275,7 @@ class TestBasicTokenAcquisitionProperties:
                     exception = exc_info.value
                     assert site_name in str(exception), f"异常信息应包含网站名称: {site_name}"
 
-    @given(
-        invalid_site_name=st.one_of(
-            st.just(""),  # 空字符串
-            st.just("   ")  # 只有空格
-        )
-    )
+    @given(invalid_site_name=st.one_of(st.just(""), st.just("   ")))  # 空字符串  # 只有空格
     @settings(max_examples=3, deadline=5000)
     async def test_parameter_validation(self, invalid_site_name):
         """

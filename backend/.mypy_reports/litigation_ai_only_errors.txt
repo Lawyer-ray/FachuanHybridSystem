@@ -12,8 +12,8 @@ apps/litigation_ai/services/flow/session_repository.py:92: error: Unused
 apps/litigation_ai/services/flow/session_repository.py:117: error: Unused
 apps/litigation_ai/agent/state.py:102:5: error: Cannot override class variable
 apps/litigation_ai/agent/state.py:102:38: error: Incompatible types in
-apps/litigation_ai/agent/prompts.py:124: error: Unused "type: ignore" comment 
-apps/litigation_ai/agent/prompts.py:129: error: Unused "type: ignore" comment 
+apps/litigation_ai/agent/prompts.py:124: error: Unused "type: ignore" comment
+apps/litigation_ai/agent/prompts.py:129: error: Unused "type: ignore" comment
 apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:18: error:
 apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:22: error:
 apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:23: error:

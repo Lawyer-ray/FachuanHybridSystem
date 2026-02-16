@@ -12,6 +12,7 @@ Service层静态方法转换器
 
 采用行级正则替换，不做完整 AST 重写，保持简单可靠。
 """
+
 from __future__ import annotations
 
 import ast
@@ -22,11 +23,7 @@ from typing import Optional
 
 from .logging_config import get_logger
 from .models import RefactoringResult
-from .static_method_analyzer import (
-    StaticMethodAnalyzer,
-    StaticMethodClassification,
-    StaticMethodInfo,
-)
+from .static_method_analyzer import StaticMethodAnalyzer, StaticMethodClassification, StaticMethodInfo
 
 logger = get_logger("static_method_converter")
 
@@ -74,14 +71,10 @@ class FileConversionPlan:
 # ── 正则模式 ────────────────────────────────────────────────
 
 # 匹配 @staticmethod 装饰器行（允许前导空白）
-_STATICMETHOD_DECORATOR_RE: re.Pattern[str] = re.compile(
-    r"^(\s*)@staticmethod\s*$"
-)
+_STATICMETHOD_DECORATOR_RE: re.Pattern[str] = re.compile(r"^(\s*)@staticmethod\s*$")
 
 # 匹配 def method_name(... 的方法签名行
-_DEF_SIGNATURE_RE: re.Pattern[str] = re.compile(
-    r"^(\s*)(async\s+)?def\s+(\w+)\s*\("
-)
+_DEF_SIGNATURE_RE: re.Pattern[str] = re.compile(r"^(\s*)(async\s+)?def\s+(\w+)\s*\(")
 
 # 匹配 ClassName.method_name( 调用模式
 _CLASS_METHOD_CALL_RE_TEMPLATE = r"\b{class_name}\.(\w+)\s*\("
@@ -146,10 +139,7 @@ class StaticMethodConverter:
             )
 
         # 只处理 classification == CONVERT 的方法
-        convert_methods = [
-            m for m in methods_to_convert
-            if m.classification == StaticMethodClassification.CONVERT
-        ]
+        convert_methods = [m for m in methods_to_convert if m.classification == StaticMethodClassification.CONVERT]
         if not convert_methods:
             return RefactoringResult(
                 success=True,
@@ -211,10 +201,7 @@ class StaticMethodConverter:
         """
         file_path = Path(file_path)
         methods = self._analyzer.analyze_file(file_path)
-        convert_methods = [
-            m for m in methods
-            if m.classification == StaticMethodClassification.CONVERT
-        ]
+        convert_methods = [m for m in methods if m.classification == StaticMethodClassification.CONVERT]
         if not convert_methods:
             return RefactoringResult(
                 success=True,
@@ -223,7 +210,6 @@ class StaticMethodConverter:
             )
 
         return self.convert_file(file_path, convert_methods, dry_run=dry_run)
-
 
     # ── 转换计划构建 ────────────────────────────────────────
 
@@ -254,9 +240,7 @@ class StaticMethodConverter:
             return plan
 
         # 构建 (class_name, method_name) -> StaticMethodInfo 映射
-        method_map: dict[tuple[str, str], StaticMethodInfo] = {
-            (m.class_name, m.method_name): m for m in methods
-        }
+        method_map: dict[tuple[str, str], StaticMethodInfo] = {(m.class_name, m.method_name): m for m in methods}
 
         # 遍历 AST 收集信息
         for node in ast.walk(tree):
@@ -281,12 +265,11 @@ class StaticMethodConverter:
 
                 info = method_map[key]
                 decorator_line = self._find_staticmethod_decorator_line(
-                    item, source,
+                    item,
+                    source,
                 )
                 if decorator_line == 0:
-                    plan.errors.append(
-                        f"未找到 {class_name}.{item.name} 的 @staticmethod 装饰器"
-                    )
+                    plan.errors.append(f"未找到 {class_name}.{item.name} 的 @staticmethod 装饰器")
                     continue
 
                 # 识别依赖
@@ -301,15 +284,10 @@ class StaticMethodConverter:
                     dependencies=deps,
                 )
                 plan.methods.append(method_plan)
-                plan.changes.append(
-                    f"{class_name}.{item.name}: "
-                    f"移除 @staticmethod，添加 self 参数"
-                )
+                plan.changes.append(f"{class_name}.{item.name}: " f"移除 @staticmethod，添加 self 参数")
                 if deps:
                     dep_names = ", ".join(d.name for d in deps)
-                    plan.changes.append(
-                        f"  识别到依赖: {dep_names}"
-                    )
+                    plan.changes.append(f"  识别到依赖: {dep_names}")
 
             if has_init:
                 plan.classes_with_init.add(class_name)
@@ -364,28 +342,34 @@ class StaticMethodConverter:
                 model_name = self._extract_model_name_from_reason(reason.detail)
                 if model_name:
                     dep_name = self._to_snake_case(model_name) + "_service"
-                    deps.append(DependencyInfo(
-                        name=dep_name,
-                        source=f"{model_name}.objects",
-                        rule=reason.rule,
-                    ))
+                    deps.append(
+                        DependencyInfo(
+                            name=dep_name,
+                            source=f"{model_name}.objects",
+                            rule=reason.rule,
+                        )
+                    )
             elif reason.rule == "calls_external_service":
                 service_name = self._extract_service_name_from_reason(
                     reason.detail,
                 )
                 if service_name:
                     dep_name = self._to_snake_case(service_name)
-                    deps.append(DependencyInfo(
-                        name=dep_name,
-                        source=service_name,
-                        rule=reason.rule,
-                    ))
+                    deps.append(
+                        DependencyInfo(
+                            name=dep_name,
+                            source=service_name,
+                            rule=reason.rule,
+                        )
+                    )
             elif reason.rule == "accesses_settings":
-                deps.append(DependencyInfo(
-                    name="settings",
-                    source="django.conf.settings",
-                    rule=reason.rule,
-                ))
+                deps.append(
+                    DependencyInfo(
+                        name="settings",
+                        source="django.conf.settings",
+                        rule=reason.rule,
+                    )
+                )
 
         return deps
 
@@ -437,7 +421,9 @@ class StaticMethodConverter:
 
         # 按行号倒序处理方法（避免行号偏移）
         sorted_methods = sorted(
-            plan.methods, key=lambda m: m.line_number, reverse=True,
+            plan.methods,
+            key=lambda m: m.line_number,
+            reverse=True,
         )
 
         for method_plan in sorted_methods:
@@ -500,9 +486,7 @@ class StaticMethodConverter:
         body_start = method_def_idx + 1
         body_end = self._find_method_body_end(result, method_def_idx)
 
-        class_call_pattern = re.compile(
-            _CLASS_METHOD_CALL_RE_TEMPLATE.format(class_name=re.escape(class_name))
-        )
+        class_call_pattern = re.compile(_CLASS_METHOD_CALL_RE_TEMPLATE.format(class_name=re.escape(class_name)))
 
         for i in range(body_start, min(body_end, len(result))):
             line = result[i]
@@ -534,16 +518,16 @@ class StaticMethodConverter:
 
         # 找到左括号位置
         paren_idx = def_line.index("(", match.start())
-        after_paren = def_line[paren_idx + 1:]
+        after_paren = def_line[paren_idx + 1 :]
 
         # 检查括号后是否紧跟 )（无参数）
         stripped_after = after_paren.lstrip()
         if stripped_after.startswith(")"):
             # def method(): → def method(self):
-            new_line = def_line[:paren_idx + 1] + "self" + after_paren
+            new_line = def_line[: paren_idx + 1] + "self" + after_paren
         else:
             # def method(a, b): → def method(self, a, b):
-            new_line = def_line[:paren_idx + 1] + "self, " + after_paren
+            new_line = def_line[: paren_idx + 1] + "self, " + after_paren
 
         return new_line
 
@@ -643,11 +627,15 @@ class StaticMethodConverter:
 
             if class_name in plan.classes_with_init:
                 result = self._update_existing_init(
-                    result, class_node, deps,
+                    result,
+                    class_node,
+                    deps,
                 )
             else:
                 result = self._insert_new_init(
-                    result, class_node, deps,
+                    result,
+                    class_node,
+                    deps,
                 )
 
         return result
@@ -696,20 +684,14 @@ class StaticMethodConverter:
         init_lines: list[str] = []
         init_lines.append(f"{body_indent}def __init__(self) -> None:\n")
         for dep in deps:
-            init_lines.append(
-                f"{inner_indent}self.{dep.name} = None"
-                f"  # TODO: 注入 {dep.source}\n"
-            )
+            init_lines.append(f"{inner_indent}self.{dep.name} = None" f"  # TODO: 注入 {dep.source}\n")
         init_lines.append("\n")
 
         # 插入
         for i, init_line in enumerate(init_lines):
             result.insert(insert_idx + i, init_line)
 
-        plan_changes_msg = (
-            f"为 {class_node.name} 生成 __init__ 构造函数，"
-            f"包含 {len(deps)} 个依赖"
-        )
+        plan_changes_msg = f"为 {class_node.name} 生成 __init__ 构造函数，" f"包含 {len(deps)} 个依赖"
         logger.info(plan_changes_msg)
 
         return result
@@ -744,27 +726,20 @@ class StaticMethodConverter:
             return result
 
         # 确定 __init__ 方法体的缩进
-        init_body_indent = " " * (
-            len(lines[init_node.lineno - 1])
-            - len(lines[init_node.lineno - 1].lstrip())
-            + 4
-        )
+        init_body_indent = " " * (len(lines[init_node.lineno - 1]) - len(lines[init_node.lineno - 1].lstrip()) + 4)
 
         # 找到 __init__ 方法体的最后一行
-        init_end = (init_node.end_lineno or init_node.lineno)
+        init_end = init_node.end_lineno or init_node.lineno
 
         # 检查现有代码中是否已有这些依赖赋值
-        existing_source = "".join(result[init_node.lineno - 1:init_end])
+        existing_source = "".join(result[init_node.lineno - 1 : init_end])
 
         insert_lines: list[str] = []
         for dep in deps:
             attr_pattern = f"self.{dep.name}"
             if attr_pattern in existing_source:
                 continue
-            insert_lines.append(
-                f"{init_body_indent}self.{dep.name} = None"
-                f"  # TODO: 注入 {dep.source}\n"
-            )
+            insert_lines.append(f"{init_body_indent}self.{dep.name} = None" f"  # TODO: 注入 {dep.source}\n")
 
         if insert_lines:
             for i, line in enumerate(insert_lines):

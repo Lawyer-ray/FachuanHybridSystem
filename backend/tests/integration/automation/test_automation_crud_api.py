@@ -6,6 +6,7 @@ Automation app 集成测试
 
 Requirements: 5.5
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,19 +18,15 @@ from django.utils import timezone
 
 from apps.automation.api.court_sms_api import submit_sms
 from apps.automation.api.document_delivery_api import (
+    DocumentDeliveryScheduleCreateIn,
+    DocumentDeliveryScheduleUpdateIn,
     create_schedule,
     delete_schedule,
     get_schedule,
     list_schedules,
     update_schedule,
-    DocumentDeliveryScheduleCreateIn,
-    DocumentDeliveryScheduleUpdateIn,
 )
-from apps.automation.models import (
-    CourtSMS,
-    CourtSMSStatus,
-    DocumentDeliverySchedule,
-)
+from apps.automation.models import CourtSMS, CourtSMSStatus, DocumentDeliverySchedule
 from apps.automation.schemas.court_sms import CourtSMSSubmitIn
 from apps.core.exceptions import NotFoundError
 from apps.organization.models import AccountCredential
@@ -71,9 +68,7 @@ class TestCourtSMSSubmitAPI:
             received_at=timezone.now(),
         )
 
-        with patch(
-            "apps.automation.api.court_sms_api._get_court_sms_service"
-        ) as mock_factory:
+        with patch("apps.automation.api.court_sms_api._get_court_sms_service") as mock_factory:
             mock_service = Mock()
             mock_service.submit_sms.return_value = mock_sms
             mock_factory.return_value = mock_service
@@ -91,9 +86,7 @@ class TestCourtSMSSubmitAPI:
         request = _make_request()
         payload = CourtSMSSubmitIn(content="测试短信内容")
 
-        with patch(
-            "apps.automation.api.court_sms_api._get_court_sms_service"
-        ) as mock_factory:
+        with patch("apps.automation.api.court_sms_api._get_court_sms_service") as mock_factory:
             mock_service = Mock()
             mock_service.submit_sms.return_value = mock_sms
             mock_factory.return_value = mock_service
@@ -123,7 +116,6 @@ def _create_credential() -> AccountCredential:
         account="test_account",
         password="test_password",
     )
-
 
 
 @pytest.mark.django_db
@@ -201,10 +193,16 @@ class TestDocumentDeliveryScheduleListAPI:
         cred1 = _create_credential()
         cred2 = _create_credential()
         DocumentDeliverySchedule.objects.create(
-            credential=cred1, runs_per_day=1, hour_interval=24, cutoff_hours=24,
+            credential=cred1,
+            runs_per_day=1,
+            hour_interval=24,
+            cutoff_hours=24,
         )
         DocumentDeliverySchedule.objects.create(
-            credential=cred2, runs_per_day=2, hour_interval=12, cutoff_hours=48,
+            credential=cred2,
+            runs_per_day=2,
+            hour_interval=12,
+            cutoff_hours=48,
         )
 
         request = _make_request()
@@ -217,10 +215,12 @@ class TestDocumentDeliveryScheduleListAPI:
         cred1 = _create_credential()
         cred2 = _create_credential()
         DocumentDeliverySchedule.objects.create(
-            credential=cred1, is_active=True,
+            credential=cred1,
+            is_active=True,
         )
         DocumentDeliverySchedule.objects.create(
-            credential=cred2, is_active=False,
+            credential=cred2,
+            is_active=False,
         )
 
         request = _make_request()
@@ -238,7 +238,10 @@ class TestDocumentDeliveryScheduleGetAPI:
         """获取定时任务详情"""
         credential = _create_credential()
         schedule = DocumentDeliverySchedule.objects.create(
-            credential=credential, runs_per_day=3, hour_interval=8, cutoff_hours=48,
+            credential=credential,
+            runs_per_day=3,
+            hour_interval=8,
+            cutoff_hours=48,
         )
 
         request = _make_request()
@@ -266,8 +269,11 @@ class TestDocumentDeliveryScheduleUpdateAPI:
         """部分更新定时任务"""
         credential = _create_credential()
         schedule = DocumentDeliverySchedule.objects.create(
-            credential=credential, runs_per_day=1, hour_interval=24,
-            cutoff_hours=24, is_active=True,
+            credential=credential,
+            runs_per_day=1,
+            hour_interval=24,
+            cutoff_hours=24,
+            is_active=True,
         )
 
         request = _make_request()
@@ -282,7 +288,8 @@ class TestDocumentDeliveryScheduleUpdateAPI:
         """禁用定时任务"""
         credential = _create_credential()
         schedule = DocumentDeliverySchedule.objects.create(
-            credential=credential, is_active=True,
+            credential=credential,
+            is_active=True,
             next_run_at=timezone.now(),
         )
 

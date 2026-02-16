@@ -33,4 +33,3 @@ class AccessPolicyMixinsTest(TestCase):
     def test_ensure_admin_allows_superuser(self):
         mixin = DjangoPermsMixin()
         mixin.ensure_admin(_User(is_authenticated=True, is_superuser=True), perm_open_access=False)
-

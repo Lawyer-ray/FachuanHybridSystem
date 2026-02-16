@@ -20,8 +20,9 @@ def _default_args():
     ],
 )
 def test_resolve_security_config_production_requires_secure_secret_key(monkeypatch, env_secret_key):
-    from apps.core.config.django_runtime import resolve_security_config
     from cryptography.fernet import Fernet
+
+    from apps.core.config.django_runtime import resolve_security_config
 
     monkeypatch.setenv("DJANGO_DEBUG", "0")
     monkeypatch.setenv("DJANGO_SECRET_KEY", env_secret_key)
@@ -32,8 +33,9 @@ def test_resolve_security_config_production_requires_secure_secret_key(monkeypat
 
 
 def test_resolve_security_config_production_accepts_long_secret_key(monkeypatch):
-    from apps.core.config.django_runtime import resolve_security_config
     from cryptography.fernet import Fernet
+
+    from apps.core.config.django_runtime import resolve_security_config
 
     monkeypatch.setenv("DJANGO_DEBUG", "0")
     monkeypatch.setenv("DJANGO_SECRET_KEY", "x" * 64)

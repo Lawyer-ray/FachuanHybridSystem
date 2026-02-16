@@ -1,12 +1,14 @@
 """
 验证器单元测试
 """
-from decimal import Decimal
+
 from datetime import date
+from decimal import Decimal
+
 from django.test import TestCase
 
-from apps.core.validators import Validators, validate_model_data
 from apps.core.exceptions import ValidationException
+from apps.core.validators import Validators, validate_model_data
 
 
 class ValidatorsTest(TestCase):
@@ -123,18 +125,9 @@ class ValidatorsTest(TestCase):
 
     def test_validate_length(self):
         """测试长度验证"""
-        self.assertEqual(
-            Validators.validate_length("hello", "field", min_length=3, max_length=10),
-            "hello"
-        )
-        self.assertEqual(
-            Validators.validate_length("abc", "field", min_length=3),
-            "abc"
-        )
-        self.assertEqual(
-            Validators.validate_length("hello", "field", max_length=10),
-            "hello"
-        )
+        self.assertEqual(Validators.validate_length("hello", "field", min_length=3, max_length=10), "hello")
+        self.assertEqual(Validators.validate_length("abc", "field", min_length=3), "abc")
+        self.assertEqual(Validators.validate_length("hello", "field", max_length=10), "hello")
 
         with self.assertRaises(ValidationException):
             Validators.validate_length("hi", "field", min_length=3)
@@ -198,10 +191,7 @@ class ValidatorsTest(TestCase):
 
         # 测试日期范围
         result = Validators.validate_date(
-            "2024-01-15",
-            "date_field",
-            min_date=date(2024, 1, 1),
-            max_date=date(2024, 12, 31)
+            "2024-01-15", "date_field", min_date=date(2024, 1, 1), max_date=date(2024, 12, 31)
         )
         self.assertEqual(result, date(2024, 1, 15))
 

@@ -31,4 +31,3 @@ class BaseFolderBindingServiceTest(TestCase):
         out = svc.format_path_for_display(path, max_length=20)
         self.assertLessEqual(len(out), 20)
         self.assertIn("...", out)
-

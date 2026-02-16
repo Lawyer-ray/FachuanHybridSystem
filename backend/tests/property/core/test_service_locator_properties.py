@@ -5,8 +5,10 @@ ServiceLocator Property-Based Tests
 **Feature: service-layer-decoupling, Property 2: ServiceLocator 缓存一致性**
 **Validates: Requirements 4.4**
 """
+
 import pytest
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from apps.core.interfaces import ServiceLocator
 

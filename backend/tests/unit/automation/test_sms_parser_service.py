@@ -1,11 +1,13 @@
 """
 SMSParserService 单元测试
 """
-import pytest
+
 from unittest.mock import Mock, patch
 
-from apps.automation.services.sms.sms_parser_service import SMSParserService, SMSParseResult
+import pytest
+
 from apps.automation.models import CourtSMSType
+from apps.automation.services.sms.sms_parser_service import SMSParseResult, SMSParserService
 
 
 @pytest.mark.django_db
@@ -16,11 +18,9 @@ class TestSMSParserService:
         """每个测试方法前执行"""
         # 创建 Mock 客户服务
         self.mock_client_service = Mock()
-        
+
         # 创建服务实例（注入 Mock）
-        self.service = SMSParserService(
-            client_service=self.mock_client_service
-        )
+        self.service = SMSParserService(client_service=self.mock_client_service)
 
     def test_parse_document_delivery_sms(self):
         """测试解析文书送达短信"""
@@ -162,10 +162,8 @@ class TestSMSParserService:
         mock_client2.name = "李四"
         mock_client3 = Mock()
         mock_client3.name = "王五"
-        
-        self.mock_client_service.get_all_clients_internal.return_value = [
-            mock_client1, mock_client2, mock_client3
-        ]
+
+        self.mock_client_service.get_all_clients_internal.return_value = [mock_client1, mock_client2, mock_client3]
 
         # 执行测试
         party_names = self.service.extract_party_names(content)
@@ -196,7 +194,7 @@ class TestSMSParserService:
         # 配置 Mock - 返回不在短信中的客户
         mock_client = Mock()
         mock_client.name = "王五"
-        
+
         self.mock_client_service.get_all_clients_internal.return_value = [mock_client]
 
         # 执行测试
@@ -214,10 +212,8 @@ class TestSMSParserService:
         mock_client1.name = "张"  # 单字，应该被跳过
         mock_client2 = Mock()
         mock_client2.name = "张三"
-        
-        self.mock_client_service.get_all_clients_internal.return_value = [
-            mock_client1, mock_client2
-        ]
+
+        self.mock_client_service.get_all_clients_internal.return_value = [mock_client1, mock_client2]
 
         # 执行测试
         party_names = self.service.extract_party_names(content)
@@ -280,10 +276,8 @@ class TestSMSParserService:
         mock_client1.name = "广东某某有限公司"
         mock_client2 = Mock()
         mock_client2.name = "深圳某某科技有限公司"
-        
-        self.mock_client_service.get_all_clients_internal.return_value = [
-            mock_client1, mock_client2
-        ]
+
+        self.mock_client_service.get_all_clients_internal.return_value = [mock_client1, mock_client2]
 
         # 执行测试
         result = self.service.parse(content)
@@ -394,7 +388,7 @@ class TestSMSParserServiceEdgeCases:
         # 配置 Mock - 客户名称包含空格
         mock_client = Mock()
         mock_client.name = "  张三  "  # 前后有空格
-        
+
         self.mock_client_service.get_all_clients_internal.return_value = [mock_client]
 
         # 执行测试
