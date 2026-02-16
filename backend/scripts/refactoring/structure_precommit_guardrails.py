@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
-
 TODO_PATTERN = re.compile(r"(^|\s)#\s*(TODO|FIXME)\b")
 
 

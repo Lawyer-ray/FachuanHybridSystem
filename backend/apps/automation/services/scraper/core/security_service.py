@@ -9,6 +9,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 
 from apps.core.interfaces import ISecurityService
+from typing import Any
 
 logger = logging.getLogger("apps.automation")
 

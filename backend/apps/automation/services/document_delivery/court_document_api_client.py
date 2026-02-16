@@ -13,7 +13,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import httpx
 

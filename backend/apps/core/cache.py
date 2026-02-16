@@ -1,3 +1,4 @@
+from typing import Any
 """
 缓存配置模块
 提供 Redis 缓存配置

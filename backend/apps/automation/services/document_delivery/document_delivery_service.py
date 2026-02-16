@@ -7,7 +7,7 @@
 import logging
 import traceback
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from playwright.sync_api import Page
 
