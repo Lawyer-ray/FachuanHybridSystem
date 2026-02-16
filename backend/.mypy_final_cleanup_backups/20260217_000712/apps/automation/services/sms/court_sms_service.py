@@ -6,7 +6,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from django.db import transaction
 from django.utils import timezone

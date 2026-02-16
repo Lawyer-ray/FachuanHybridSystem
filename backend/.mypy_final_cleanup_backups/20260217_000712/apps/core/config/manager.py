@@ -12,7 +12,7 @@ import weakref
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 import yaml
 from watchdog.events import FileSystemEventHandler
