@@ -1,0 +1,12 @@
+apps/automation/admin/document/auto_namer_admin.py
+apps/automation/admin/scraper/test_admin.py
+apps/automation/admin/sms/court_sms_actions.py
+apps/automation/admin/sms/court_sms_views.py
+apps/cases/admin/caseparty_admin.py
+apps/cases/admin/mixins/save.py
+apps/cases/admin/mixins/views.py
+apps/contracts/admin/wiring_admin.py
+apps/core/admin/prompt_template_admin.py
+apps/documents/admin/evidence/mixins/actions.py
+apps/documents/admin/evidence/mixins/save.py
+apps/documents/admin/evidence/mixins/views.py

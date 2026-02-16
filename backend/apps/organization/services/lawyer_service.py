@@ -2,20 +2,17 @@
 律师服务层
 处理律师相关的业务逻辑
 """
-from typing import List, Optional, Set
-from django.db import transaction
-from django.db.models import QuerySet, Q
 
-from apps.core.exceptions import (
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError
-)
-from apps.core.interfaces import LawyerDTO, ILawyerService
-from ..models import Lawyer, Team, LawFirm, TeamType
-from ..schemas import LawyerCreateIn, LawyerUpdateIn
 import logging
+
+from django.db import transaction
+from django.db.models import Q, QuerySet
+
+from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
+from apps.core.interfaces import ILawyerService, LawyerDTO
+
+from ..models import LawFirm, Lawyer, Team, TeamType
+from ..schemas import LawyerCreateIn, LawyerUpdateIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -42,9 +39,7 @@ class LawyerService:
         Returns:
             律师查询集
         """
-        return Lawyer.objects.select_related("law_firm").prefetch_related(
-            "lawyer_teams", "biz_teams"
-        )
+        return Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams", "biz_teams")
 
     def get_lawyer(self, lawyer_id: int, user: Lawyer) -> Lawyer:
         """
@@ -64,26 +59,16 @@ class LawyerService:
         lawyer = self.get_lawyer_queryset().filter(id=lawyer_id).first()
 
         if not lawyer:
-            raise NotFoundError(
-                message=f"律师不存在",
-                code="LAWYER_NOT_FOUND"
-            )
+            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
 
         # 权限检查
         if not self._check_read_permission(user, lawyer):
-            raise PermissionDenied(
-                message="无权限访问该律师信息",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限访问该律师信息", code="PERMISSION_DENIED")
 
         return lawyer
 
     def list_lawyers(
-        self,
-        page: int = 1,
-        page_size: int = 20,
-        filters: dict = None,
-        user: Lawyer = None
+        self, page: int = 1, page_size: int = 20, filters: dict[str, Any] | None = None, user: Lawyer | None = None
     ) -> QuerySet[Lawyer]:
         """
         列表查询
@@ -108,17 +93,16 @@ class LawyerService:
             queryset = queryset.filter(law_firm_id=user.law_firm_id)
 
         # 应用业务过滤
-        if filters.get('search'):
+        if filters.get("search"):
             queryset = queryset.filter(
-                Q(username__icontains=filters['search']) |
-                Q(real_name__icontains=filters['search'])
+                Q(username__icontains=filters["search"]) | Q(real_name__icontains=filters["search"])
             )
 
-        if filters.get('law_firm_id'):
-            queryset = queryset.filter(law_firm_id=filters['law_firm_id'])
+        if filters.get("law_firm_id"):
+            queryset = queryset.filter(law_firm_id=filters["law_firm_id"])
 
         # 排序
-        queryset = queryset.order_by('-id')
+        queryset = queryset.order_by("-id")
 
         # 分页
         start = (page - 1) * page_size
@@ -127,12 +111,7 @@ class LawyerService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawyer(
-        self,
-        data: LawyerCreateIn,
-        user: Lawyer,
-        license_pdf=None
-    ) -> Lawyer:
+    def create_lawyer(self, data: LawyerCreateIn, user: Lawyer, license_pdf=None) -> Lawyer:
         """
         创建律师
 
@@ -151,13 +130,9 @@ class LawyerService:
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
-                f"用户 {user.id} 尝试创建律师但权限不足",
-                extra={"user_id": user.id, "action": "create_lawyer"}
+                f"用户 {user.id} 尝试创建律师但权限不足", extra={"user_id": user.id, "action": "create_lawyer"}
             )
-            raise PermissionDenied(
-                message="无权限创建律师",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
 
         # 2. 业务验证
         self._validate_create_data(data, user)
@@ -168,9 +143,7 @@ class LawyerService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在",
-                    code="LAWFIRM_NOT_FOUND",
-                    errors={"law_firm_id": "无效的律所 ID"}
+                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
 
         # 4. 创建律师
@@ -198,25 +171,12 @@ class LawyerService:
             self._set_biz_teams(lawyer, data.biz_team_ids, law_firm)
 
         # 6. 记录日志
-        logger.info(
-            f"律师创建成功",
-            extra={
-                "lawyer_id": lawyer.id,
-                "user_id": user.id,
-                "action": "create_lawyer"
-            }
-        )
+        logger.info("律师创建成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "create_lawyer"})
 
         return lawyer
 
     @transaction.atomic
-    def update_lawyer(
-        self,
-        lawyer_id: int,
-        data: LawyerUpdateIn,
-        user: Lawyer,
-        license_pdf=None
-    ) -> Lawyer:
+    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf=None) -> Lawyer:
         """
         更新律师
 
@@ -241,16 +201,9 @@ class LawyerService:
         if not self._check_update_permission(user, lawyer):
             logger.warning(
                 f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",
-                extra={
-                    "user_id": user.id,
-                    "lawyer_id": lawyer_id,
-                    "action": "update_lawyer"
-                }
+                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},
             )
-            raise PermissionDenied(
-                message="无权限更新该律师信息",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
 
         # 3. 业务验证
         self._validate_update_data(lawyer, data, user)
@@ -271,9 +224,7 @@ class LawyerService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在",
-                    code="LAWFIRM_NOT_FOUND",
-                    errors={"law_firm_id": "无效的律所 ID"}
+                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
             lawyer.law_firm = law_firm
 
@@ -293,14 +244,7 @@ class LawyerService:
             self._set_biz_teams(lawyer, data.biz_team_ids, lawyer.law_firm)
 
         # 6. 记录日志
-        logger.info(
-            f"律师更新成功",
-            extra={
-                "lawyer_id": lawyer.id,
-                "user_id": user.id,
-                "action": "update_lawyer"
-            }
-        )
+        logger.info("律师更新成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "update_lawyer"})
 
         return lawyer
 
@@ -325,43 +269,26 @@ class LawyerService:
         if not self._check_delete_permission(user, lawyer):
             logger.warning(
                 f"用户 {user.id} 尝试删除律师 {lawyer_id} 但权限不足",
-                extra={
-                    "user_id": user.id,
-                    "lawyer_id": lawyer_id,
-                    "action": "delete_lawyer"
-                }
+                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "delete_lawyer"},
             )
-            raise PermissionDenied(
-                message="无权限删除该律师",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限删除该律师", code="PERMISSION_DENIED")
 
         # 3. 业务验证（检查是否可以删除）
         # 检查是否有关联的案件、合同等
-        if hasattr(lawyer, 'created_cases') and lawyer.created_cases.exists():
-            raise ConflictError(
-                message="该律师创建了案件，无法删除",
-                code="LAWYER_HAS_CASES"
-            )
+        if hasattr(lawyer, "created_cases") and lawyer.created_cases.exists():
+            raise ConflictError(message="该律师创建了案件，无法删除", code="LAWYER_HAS_CASES")
 
         # 4. 删除律师
         lawyer.delete()
 
         # 5. 记录日志
-        logger.info(
-            f"律师删除成功",
-            extra={
-                "lawyer_id": lawyer_id,
-                "user_id": user.id,
-                "action": "delete_lawyer"
-            }
-        )
+        logger.info("律师删除成功", extra={"lawyer_id": lawyer_id, "user_id": user.id, "action": "delete_lawyer"})
 
-    def get_lawyers_by_ids(self, lawyer_ids: List[int]) -> List[Lawyer]:
+    def get_lawyers_by_ids(self, lawyer_ids: list[int]) -> list[Lawyer]:
         """批量获取律师"""
         return list(self.get_lawyer_queryset().filter(id__in=lawyer_ids))
 
-    def get_team_members(self, team_id: int) -> List[Lawyer]:
+    def get_team_members(self, team_id: int) -> list[Lawyer]:
         """获取团队成员"""
         try:
             team = Team.objects.prefetch_related("lawyers").get(id=team_id)
@@ -369,7 +296,7 @@ class LawyerService:
         except Team.DoesNotExist:
             return []
 
-    def get_team_member_ids(self, user: Lawyer) -> Set[int]:
+    def get_team_member_ids(self, user: Lawyer) -> set[int]:
         """
         获取用户所在团队的所有成员 ID
 
@@ -379,7 +306,7 @@ class LawyerService:
         Returns:
             成员 ID 集合
         """
-        member_ids: Set[int] = set()
+        member_ids: set[int] = set()
 
         teams = user.lawyer_teams.prefetch_related("lawyers").all()
         for team in teams:
@@ -429,41 +356,25 @@ class LawyerService:
         # 检查用户名是否重复
         if Lawyer.objects.filter(username=data.username).exists():
             raise ValidationException(
-                message="用户名已存在",
-                code="DUPLICATE_USERNAME",
-                errors={"username": "该用户名已被使用"}
+                message="用户名已存在", code="DUPLICATE_USERNAME", errors={"username": "该用户名已被使用"}
             )
 
         # 检查手机号是否重复
         if data.phone and Lawyer.objects.filter(phone=data.phone).exists():
             raise ValidationException(
-                message="手机号已存在",
-                code="DUPLICATE_PHONE",
-                errors={"phone": "该手机号已被使用"}
+                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
-    def _validate_update_data(
-        self,
-        lawyer: Lawyer,
-        data: LawyerUpdateIn,
-        user: Lawyer
-    ) -> None:
+    def _validate_update_data(self, lawyer: Lawyer, data: LawyerUpdateIn, user: Lawyer) -> None:
         """验证更新数据（私有方法）"""
         # 检查手机号是否与其他律师重复
         if data.phone and data.phone != lawyer.phone:
             if Lawyer.objects.filter(phone=data.phone).exists():
                 raise ValidationException(
-                    message="手机号已存在",
-                    code="DUPLICATE_PHONE",
-                    errors={"phone": "该手机号已被使用"}
+                    message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
                 )
 
-    def _set_lawyer_teams(
-        self,
-        lawyer: Lawyer,
-        team_ids: List[int],
-        law_firm: Optional[LawFirm]
-    ) -> None:
+    def _set_lawyer_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         """设置律师团队（私有方法）"""
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.LAWYER))
 
@@ -471,24 +382,19 @@ class LawyerService:
             raise ValidationException(
                 message="律师必须至少关联一个律师团队",
                 code="NO_LAWYER_TEAMS",
-                errors={"lawyer_team_ids": "至少需要一个律师团队"}
+                errors={"lawyer_team_ids": "至少需要一个律师团队"},
             )
 
         if law_firm and any(t.law_firm_id != law_firm.id for t in teams):
             raise ValidationException(
                 message="团队所属律所必须与律师所属律所一致",
                 code="TEAM_LAWFIRM_MISMATCH",
-                errors={"lawyer_team_ids": "团队律所不匹配"}
+                errors={"lawyer_team_ids": "团队律所不匹配"},
             )
 
         lawyer.lawyer_teams.set(teams)
 
-    def _set_biz_teams(
-        self,
-        lawyer: Lawyer,
-        team_ids: List[int],
-        law_firm: Optional[LawFirm]
-    ) -> None:
+    def _set_biz_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         """设置业务团队（私有方法）"""
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.BIZ))
 
@@ -496,12 +402,12 @@ class LawyerService:
             raise ValidationException(
                 message="团队所属律所必须与律师所属律所一致",
                 code="TEAM_LAWFIRM_MISMATCH",
-                errors={"biz_team_ids": "团队律所不匹配"}
+                errors={"biz_team_ids": "团队律所不匹配"},
             )
 
         lawyer.biz_teams.set(teams)
 
-    def _get_lawyer_internal(self, lawyer_id: int) -> Optional[Lawyer]:
+    def _get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
         """
         内部方法：获取律师（无权限检查）
 
@@ -523,7 +429,7 @@ class LawyerServiceAdapter(ILawyerService):
     实现跨模块接口，将 Model 转换为 DTO
     """
 
-    def __init__(self, service: Optional[LawyerService] = None):
+    def __init__(self, service: LawyerService | None = None):
         """初始化适配器"""
         self.service = service or LawyerService()
 
@@ -539,27 +445,27 @@ class LawyerServiceAdapter(ILawyerService):
             law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,
         )
 
-    def get_lawyer(self, lawyer_id: int) -> Optional[LawyerDTO]:
+    def get_lawyer(self, lawyer_id: int) -> LawyerDTO | None:
         """获取律师信息"""
         lawyer = self.service._get_lawyer_internal(lawyer_id)
         if not lawyer:
             return None
         return self._to_dto(lawyer)
 
-    def get_lawyers_by_ids(self, lawyer_ids: List[int]) -> List[LawyerDTO]:
+    def get_lawyers_by_ids(self, lawyer_ids: list[int]) -> list[LawyerDTO]:
         """批量获取律师信息"""
         lawyers = self.service.get_lawyers_by_ids(lawyer_ids)
         return [self._to_dto(lawyer) for lawyer in lawyers]
 
-    def get_team_members(self, team_id: int) -> List[LawyerDTO]:
+    def get_team_members(self, team_id: int) -> list[LawyerDTO]:
         """获取团队成员"""
         members = self.service.get_team_members(team_id)
         return [self._to_dto(m) for m in members]
 
-    def get_admin_lawyer_internal(self) -> Optional[LawyerDTO]:
+    def get_admin_lawyer_internal(self) -> LawyerDTO | None:
         """
         内部方法：获取管理员律师
-        
+
         Returns:
             管理员律师 DTO，不存在时返回 None
         """
@@ -568,27 +474,25 @@ class LawyerServiceAdapter(ILawyerService):
             return self._to_dto(admin_lawyer)
         return None
 
-    def get_all_lawyer_names_internal(self) -> List[str]:
+    def get_all_lawyer_names_internal(self) -> list[str]:
         """
         内部方法：获取所有律师姓名
-        
+
         Returns:
             所有律师的姓名列表
         """
-        names = Lawyer.objects.values_list('real_name', flat=True).filter(
-            real_name__isnull=False
-        ).exclude(real_name='')
+        names = Lawyer.objects.values_list("real_name", flat=True).filter(real_name__isnull=False).exclude(real_name="")
         return list(names)
 
-    def get_lawyer_internal(self, lawyer_id: int) -> Optional[Lawyer]:
+    def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
         """
         内部方法：获取律师 Model 对象（无权限检查）
-        
+
         供跨模块内部调用，返回原始 Model 对象用于 ForeignKey 赋值等场景。
-        
+
         Args:
             lawyer_id: 律师 ID
-            
+
         Returns:
             律师 Model 对象，不存在时返回 None
         """

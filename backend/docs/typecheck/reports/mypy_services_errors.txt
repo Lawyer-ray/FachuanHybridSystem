@@ -1,0 +1,65 @@
+apps/documents/services/generation/result.py:33:5: error: Function is missing a
+return type annotation  [no-untyped-def]
+        def __post_init__(self):
+        ^
+apps/documents/services/generation/result.py:33:5: note: Use "-> None" if function does not return a value
+apps/cases/services/template/unified/repo.py:6:9: error: Returning Any from
+function declared to return "bool"  [no-any-return]
+            return case.parties.filter(client_id=client_id, client__is_our...
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/cases/services/template/unified/repo.py:9:9: error: Returning Any from
+function declared to return "int"  [no-any-return]
+            return case.parties.filter(client__is_our_client=True).count()
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:24:13: error:
+"CodePlaceholderRegistry" has no attribute "_definitions"; maybe
+"list_definitions"?  [attr-defined]
+                cls._instance._definitions = {}
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:29:13: error:
+"CodePlaceholderRegistry" has no attribute "_definitions"; maybe
+"list_definitions"?  [attr-defined]
+                self._definitions.setdefault(definition.key, definition)
+                ^~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:33:13: error:
+"CodePlaceholderRegistry" has no attribute "_definitions"; maybe
+"list_definitions"?  [attr-defined]
+                self._definitions[definition.key] = definition
+                ^~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:36:23: error:
+"CodePlaceholderRegistry" has no attribute "_definitions"; maybe
+"list_definitions"?  [attr-defined]
+            return sorted(self._definitions.values(), key=lambda d: d.key)
+                          ^~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:39:9: error:
+"CodePlaceholderRegistry" has no attribute "_definitions"; maybe
+"list_definitions"?  [attr-defined]
+            self._definitions.clear()
+            ^~~~~~~~~~~~~~~~~
+apps/documents/services/code_placeholder_registry.py:69:9: error: "T" has no
+attribute "__code_placeholder_definitions__"  [attr-defined]
+            target.__code_placeholder_definitions__ = defs
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/documents/services/folder_template/validation_service.py:30:13: error:
+Name "path" already defined on line 25  [no-redef]
+                path: list = []
+                ^
+apps/documents/services/folder_template/validation_service.py:42:28: error:
+Unsupported left operand type for + ("None")  [operator]
+                current_path = path + [node_name]
+                               ^~~~~~~~~~~~~~~~~~
+apps/documents/services/folder_template/validation_service.py:42:28: note: Left operand is of type "list[Any] | None"
+apps/documents/services/folder_template/validation_service.py:57:13: error:
+Name "path" already defined on line 55  [no-redef]
+                path: list = []
+                ^
+apps/documents/services/folder_template/validation_service.py:68:28: error:
+Unsupported left operand type for + ("None")  [operator]
+                current_path = path + [name]
+                               ^~~~~~~~~~~~~
+apps/documents/services/folder_template/validation_service.py:68:28: note: Left operand is of type "list[Any] | None"
+apps/cases/services/template/template_binding_assembler.py:46:72: error:
+Argument 1 to "get" of "dict" has incompatible type "Any | None"; expected "str"
+ [arg-type]
+    ...type_display": self._config.sub_type_display.get(sub_type, sub_type or...
+                                                        ^~~~~~~~

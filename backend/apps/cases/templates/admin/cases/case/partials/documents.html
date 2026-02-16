@@ -1,0 +1,917 @@
+{% load i18n %}
+<div class="info-grid two-columns">
+    <!-- 文件夹绑定卡片 -->
+    <div class="info-card">
+        <div class="card-header">
+            <span class="card-icon">📁</span>
+            <h3 class="card-title">文件夹绑定</h3>
+        </div>
+        <div class="card-content">
+            {% if case.folder_binding %}
+            <div class="folder-binding">
+                <span class="binding-status bound">✓ 已绑定</span>
+                <span class="folder-path">{{ case.folder_binding.folder_path }}</span>
+            </div>
+            {% else %}
+            <p class="empty-state">未绑定文件夹</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 文件夹模板匹配信息卡片 -->
+    <div class="info-card">
+        <div class="card-header">
+            <span class="card-icon">📋</span>
+            <h3 class="card-title">文件夹模板</h3>
+        </div>
+        <div class="card-content">
+            <dl class="info-list">
+                <div class="info-item">
+                    <dt>匹配的模板</dt>
+                    <dd>{{ matched_folder_templates|default:"未设置" }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- AI 诉状生成卡片 -->
+    <div class="info-card full-width">
+        <div class="card-header">
+            <span class="card-icon">🤖</span>
+            <h3 class="card-title">AI 诉状生成</h3>
+        </div>
+        <div class="card-content">
+            {% include "admin/cases/case/partials/ai_chat.html" %}
+        </div>
+    </div>
+
+    <!-- 证据清单卡片 -->
+    <div class="info-card full-width">
+        <div class="card-header">
+            <span class="card-icon">📑</span>
+            <h3 class="card-title">证据清单</h3>
+        </div>
+        <div class="card-content">
+            <div class="evidence-actions" style="margin-bottom: 16px;">
+                <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
+                   class="btn btn-primary">
+                    + 新建证据清单
+                </a>
+                <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
+                   class="btn btn-secondary">
+                    查看全部
+                </a>
+            </div>
+
+            {% if case.evidence_lists.exists %}
+            <div class="evidence-list">
+                {% for evidence_list in case.evidence_lists.all %}
+                <div class="evidence-card">
+                    <div class="evidence-header">
+                        <h3 class="evidence-title">
+                            <a href="{% url 'admin:documents_evidencelist_change' evidence_list.pk %}">
+                                {{ evidence_list.title }}
+                            </a>
+                        </h3>
+                        <span class="evidence-order">第 {{ evidence_list.order }} 份</span>
+                    </div>
+
+                    <div class="evidence-meta">
+                        <span class="meta-item">
+                            <strong>证据数量：</strong>{{ evidence_list.items.count }}
+                        </span>
+                        <span class="meta-item">
+                            <strong>总页数：</strong>{{ evidence_list.total_pages }}
+                        </span>
+                        <span class="meta-item">
+                            <strong>页码范围：</strong>{{ evidence_list.page_range_display }}
+                        </span>
+                        <span class="meta-item">
+                            <strong>导出版本：</strong>V{{ evidence_list.export_version }}
+                        </span>
+                    </div>
+
+                    <div class="evidence-status">
+                        {% if evidence_list.merged_pdf %}
+                        <span class="status-badge status-success">✓ 已合并</span>
+                        {% else %}
+                        <span class="status-badge status-pending">未合并</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="evidence-actions">
+                        <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
+                           class="btn btn-sm btn-secondary">
+                            合并PDF
+                        </a>
+                        <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
+                           class="btn btn-sm btn-secondary">
+                            导出清单
+                        </a>
+                        {% if evidence_list.merged_pdf %}
+                        <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
+                           class="btn btn-sm btn-primary">
+                            下载PDF
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>暂无证据清单</p>
+                <p class="hint">点击上方"新建证据清单"按钮创建第一份证据清单</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 文档生成操作卡片 -->
+    <div class="info-card full-width">
+        <div class="card-header">
+            <span class="card-icon">⚡</span>
+            <h3 class="card-title">快速文档生成</h3>
+        </div>
+        <div class="card-content">
+            <!-- 模板生成 -->
+            <div class="action-group">
+                <h4 class="action-group-title">模板生成（快速生成，无需 AI）</h4>
+                <div class="action-item"
+                     x-data="litigationGenerationApp({
+                         apiBasePath: '/api/v1/documents',
+                         caseId: {{ case.pk }}
+                     })">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @click="openDialog()"
+                            title="使用预设模板快速生成文书，适合标准化案件">
+                        模板生成
+                    </button>
+
+                    <!-- 成功消息提示 -->
+                    <div class="litigation-success-message"
+                         x-show="successMessage"
+                         x-cloak
+                         x-text="successMessage"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+
+                    <!-- 对话框背景遮罩 -->
+                    <template x-teleport="body">
+                        <div x-show="isDialogOpen"
+                             x-cloak
+                             @click="handleOverlayClick($event)"
+                             class="litigation-dialog-overlay"></div>
+                    </template>
+
+                    <!-- 诉状类型选择对话框 -->
+                    <template x-teleport="body">
+                        <div id="litigation_type_dialog"
+                             x-show="isDialogOpen"
+                             x-cloak
+                             class="litigation-dialog">
+                            <h3>选择诉状类型</h3>
+
+                            <!-- 诉状类型选项 -->
+                            <div class="litigation-types-grid">
+                                <template x-for="type in litigationTypes" :key="type.value">
+                                    <div :class="getTypeClass(type)"
+                                         @click="selectType(type)">
+                                        <span class="type-icon" x-text="type.icon"></span>
+                                        <span class="type-label" x-text="type.label"></span>
+                                        <span x-show="type.disabled" class="disabled-badge">开发中</span>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- 错误信息 -->
+                            <div x-show="errorMessage"
+                                 x-text="errorMessage"
+                                 class="litigation-error"></div>
+
+                            <!-- 按钮区域 -->
+                            <div class="litigation-dialog-buttons">
+                                <button type="button"
+                                        @click="closeDialog()"
+                                        :disabled="isGenerating"
+                                        class="btn-cancel">取消</button>
+                                <button type="button"
+                                        @click="generateDocument()"
+                                        :disabled="isGenerating || !selectedType"
+                                        class="btn-generate">
+                                    <span x-show="!isGenerating">生成文档</span>
+                                    <span x-show="isGenerating">生成中...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- 授权委托材料 -->
+            <div class="action-group">
+                <h4 class="action-group-title">生成授权委托材料</h4>
+                <div class="action-item"
+                     x-data="authorizationMaterialsApp({
+                         apiBasePath: '/api/v1/documents',
+                         caseId: {{ case.pk }},
+                         legalEntitiesJson: '{{ our_legal_entities_json|default:"[]"|escapejs }}',
+                         ourPartiesJson: '{{ our_parties_json|default:"[]"|escapejs }}'
+                     })">
+                    <span :title="hasOurParties ? '' : '没有我方当事人，无法生成全套委托材料'">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!hasOurParties || isDownloading"
+                                @click="downloadFullAuthorizationPackage()">
+                            全套委托材料
+                        </button>
+                    </span>
+
+                    <span :title="hasLegalEntities ? '' : '我方当事人无法人，无需生成身份证明书'">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!hasLegalEntities || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!hasLegalEntities || isDownloading"
+                                @click="handleLegalRepCertificateClick()">
+                            法定代表人身份证明书
+                        </button>
+                    </span>
+
+                    <button type="button"
+                            class="btn btn-primary"
+                            :class="isDownloading ? 'btn-disabled' : ''"
+                            :disabled="isDownloading"
+                            @click="downloadAuthorityLetter()">
+                        所函
+                    </button>
+
+                    <span :title="hasOurParties ? '' : '没有我方当事人，无法生成授权委托书'">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!hasOurParties || isDownloading"
+                                @click="handlePowerOfAttorneyClick()">
+                            授权委托书
+                        </button>
+                    </span>
+
+                    <div class="litigation-success-message"
+                         x-show="successMessage"
+                         x-cloak
+                         x-text="successMessage"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+
+                    <template x-teleport="body">
+                        <div x-show="isEntityDialogOpen || isPoaDialogOpen"
+                             x-cloak
+                             @click="handleOverlayClick($event)"
+                             class="litigation-dialog-overlay"></div>
+                    </template>
+
+                    <template x-teleport="body">
+                        <div id="legal_entity_dialog"
+                             x-show="isEntityDialogOpen"
+                             x-cloak
+                             class="litigation-dialog">
+                            <h3>选择法人</h3>
+
+                            <div class="auth-entity-toolbar">
+                                <label class="auth-entity-select-all">
+                                    <input type="checkbox" @change="toggleAllEntities($event)" :checked="isAllSelected()">
+                                    <span>全选</span>
+                                </label>
+                            </div>
+
+                            <div class="auth-entity-list">
+                                <template x-for="entity in legalEntities" :key="entity.id">
+                                    <label class="auth-entity-item">
+                                        <input type="checkbox" :value="entity.id" x-model="selectedEntityIds">
+                                        <span x-text="entity.name"></span>
+                                    </label>
+                                </template>
+                            </div>
+
+                            <div x-show="errorMessage"
+                                 x-text="errorMessage"
+                                 class="litigation-error"></div>
+
+                            <div class="litigation-dialog-buttons">
+                                <button type="button"
+                                        @click="closeEntityDialog()"
+                                        :disabled="isDownloading"
+                                        class="btn-cancel">取消</button>
+                                <button type="button"
+                                        @click="downloadSelectedLegalRepCertificates()"
+                                        :disabled="isDownloading || selectedEntityIds.length === 0"
+                                        class="btn-generate">
+                                    <span x-show="!isDownloading">生成并下载</span>
+                                    <span x-show="isDownloading">生成中...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-teleport="body">
+                        <div id="poa_dialog"
+                             x-show="isPoaDialogOpen"
+                             x-cloak
+                             class="litigation-dialog">
+                            <h3>授权委托书</h3>
+
+                            <div class="litigation-types-grid">
+                                <div :class="poaMode === 'individual' ? 'litigation-type-option selected' : 'litigation-type-option'"
+                                     @click="selectPoaMode('individual')">
+                                    <span class="type-label">单独授权</span>
+                                </div>
+                                <div :class="poaMode === 'combined' ? 'litigation-type-option selected' : 'litigation-type-option'"
+                                     @click="selectPoaMode('combined')">
+                                    <span class="type-label">合并授权</span>
+                                </div>
+                            </div>
+
+                            <div x-show="poaMode === 'combined'" class="muted" style="margin-bottom: 16px;">
+                                将对所有我方当事人合并授权，无需选择。
+                            </div>
+
+                            <div x-show="poaMode === 'individual'">
+                                <div class="auth-entity-toolbar">
+                                    <label class="auth-entity-select-all">
+                                        <input type="checkbox" @change="toggleAllOurParties($event)" :checked="isAllOurPartiesSelected()">
+                                        <span>全选</span>
+                                    </label>
+                                </div>
+
+                                <div class="auth-entity-list">
+                                    <template x-for="party in ourParties" :key="party.id">
+                                        <label class="auth-entity-item">
+                                            <input type="checkbox" :value="party.id" x-model="selectedOurPartyIds">
+                                            <span x-text="party.name"></span>
+                                            <span x-show="party.legal_status_display" class="muted" x-text="`（${party.legal_status_display}）`"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div x-show="errorMessage"
+                                 x-text="errorMessage"
+                                 class="litigation-error"></div>
+
+                            <div class="litigation-dialog-buttons">
+                                <button type="button"
+                                        @click="closePoaDialog()"
+                                        :disabled="isDownloading"
+                                        class="btn-cancel">取消</button>
+                                <button type="button"
+                                        @click="confirmPowerOfAttorney()"
+                                        :disabled="isDownloading || !poaMode || (poaMode === 'individual' && selectedOurPartyIds.length === 0)"
+                                        class="btn-generate">
+                                    <span x-show="!isDownloading">生成并下载</span>
+                                    <span x-show="isDownloading">生成中...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- 财产保全材料 -->
+            <div class="action-group">
+                <h4 class="action-group-title">生成财产保全材料</h4>
+                <div class="action-item"
+                     x-data="window.preservationMaterialsApp({
+                         apiBasePath: '/api/v1/documents',
+                         caseId: {{ case.pk }},
+                         respondentsJson: '{{ respondents_json|default:"[]"|escapejs }}',
+                         hasPreservationTemplate: {{ has_preservation_template|yesno:"true,false" }},
+                         hasDelayDeliveryTemplate: {{ has_delay_delivery_template|yesno:"true,false" }}
+                     })"
+                     x-init="init()">
+                    <span :title="getFullPackageButtonTitle()">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!canDownloadFullPackage || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!canDownloadFullPackage || isDownloading"
+                                @click="downloadFullPackage()">
+                            全套财产保全材料
+                        </button>
+                    </span>
+
+                    <span :title="getPreservationButtonTitle()">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!canDownloadPreservation || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!canDownloadPreservation || isDownloading"
+                                @click="downloadPreservationApplication()">
+                            财产保全申请书
+                        </button>
+                    </span>
+
+                    <span :title="getDelayDeliveryButtonTitle()">
+                        <button type="button"
+                                class="btn btn-primary"
+                                :class="(!canDownloadDelayDelivery || isDownloading) ? 'btn-disabled' : ''"
+                                :disabled="!canDownloadDelayDelivery || isDownloading"
+                                @click="downloadDelayDeliveryApplication()">
+                            暂缓送达申请书
+                        </button>
+                    </span>
+
+                    <div class="litigation-success-message"
+                         x-show="successMessage"
+                         x-cloak
+                         x-text="successMessage"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+
+                    <div class="litigation-error"
+                         x-show="errorMessage"
+                         x-cloak
+                         x-text="errorMessage"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+                </div>
+            </div>
+
+            <!-- 文件夹生成 -->
+            <div class="action-group">
+                <h4 class="action-group-title">文件夹生成</h4>
+                <div class="action-item">
+                    <button type="button" class="btn btn-secondary btn-disabled" disabled title="功能开发中">
+                        生成文件夹
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<style>
+.action-group {
+    margin-bottom: 1.5rem;
+}
+
+.action-group:last-child {
+    margin-bottom: 0;
+}
+
+.action-group-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.75rem;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.btn-icon {
+    font-size: 1.125rem;
+    line-height: 1;
+}
+
+.btn-primary {
+    background: #417690;
+    color: white !important;
+}
+
+.btn-primary:hover {
+    background: #356175;
+    color: white !important;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white !important;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    color: white !important;
+}
+
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+.litigation-success-message {
+    padding: 0.5rem 1rem;
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.auth-entity-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.auth-entity-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.auth-entity-list {
+    display: grid;
+    gap: 0.5rem;
+    max-height: 280px;
+    overflow: auto;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.auth-entity-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #111827;
+}
+
+/* 证据清单样式 */
+.evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.evidence-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.evidence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.evidence-title {
+    margin: 0;
+    font-size: 16px;
+}
+
+.evidence-title a {
+    color: #1976d2;
+    text-decoration: none;
+}
+
+.evidence-title a:hover {
+    text-decoration: underline;
+}
+
+.evidence-order {
+    color: #666;
+    font-size: 14px;
+}
+
+.evidence-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #666;
+}
+
+.evidence-status {
+    margin-bottom: 12px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.status-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-pending {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.empty-state .hint {
+    font-size: 14px;
+    color: #999;
+    margin-top: 8px;
+}
+
+/* AI Chat Styles */
+.ai-chat-embedded {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: height 0.3s ease;
+}
+
+.ai-chat-embedded.minimized {
+    height: 50px;
+}
+
+.ai-chat-header {
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.ai-chat-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.ai-chat-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ai-chat-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.ai-chat-status.connected {
+    color: #10b981;
+}
+
+.ai-chat-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.ai-chat-session-select {
+    height: 28px;
+    padding: 2px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.ai-chat-session-select:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 2px rgba(65,118,144,0.1);
+}
+
+.ai-chat-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.ai-chat-btn:hover {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+.ai-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ai-chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.ai-chat-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.ai-chat-message {
+    display: flex;
+    flex-direction: column;
+    max-width: 85%;
+    gap: 4px;
+}
+
+.ai-chat-message.user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.ai-chat-message.assistant,
+.ai-chat-message.system {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+
+.ai-chat-message.system {
+    align-self: center;
+    max-width: 90%;
+    align-items: center;
+}
+
+.ai-chat-message-header {
+    display: flex;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-bottom: 2px;
+}
+
+.ai-chat-message-content {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.ai-chat-message.user .ai-chat-message-content {
+    background: #417690;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.ai-chat-message.assistant .ai-chat-message-content {
+    background: #f3f4f6;
+    color: #1f2937;
+    border-bottom-left-radius: 4px;
+}
+
+.ai-chat-message.system .ai-chat-message-content {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+}
+
+.ai-chat-input-area {
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.ai-chat-input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.ai-chat-textarea {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.ai-chat-textarea:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.1);
+}
+
+.ai-chat-send-btn,
+.ai-chat-stop-btn {
+    padding: 8px 20px;
+    height: 44px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.ai-chat-send-btn {
+    background: #417690;
+    color: white;
+}
+
+.ai-chat-send-btn:hover:not(:disabled) {
+    background: #356175;
+}
+
+.ai-chat-send-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.ai-chat-stop-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.ai-chat-stop-btn:hover {
+    background: #dc2626;
+}
+
+.ai-chat-streaming {
+    padding: 12px 16px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+    color: #1f2937;
+    align-self: flex-start;
+    max-width: 85%;
+    border-left: 3px solid #417690;
+    white-space: pre-wrap;
+}
+
+.ai-chat-error {
+    margin-top: 8px;
+    padding: 10px;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+</style>

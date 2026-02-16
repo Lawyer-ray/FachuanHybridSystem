@@ -1,0 +1,299 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* 树形选择器样式 */
+.folder-tree-selector {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #fafafa;
+    margin-top: 10px;
+}
+
+.folder-tree-selector .tree-node {
+    padding: 4px 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.folder-tree-selector .tree-node:hover {
+    background: #e3f2fd;
+}
+
+.folder-tree-selector .tree-node.selected {
+    background: #bbdefb;
+    font-weight: bold;
+}
+
+.folder-tree-selector .tree-node .node-icon {
+    margin-right: 6px;
+    color: #ffc107;
+}
+
+.folder-tree-selector .tree-node .node-name {
+    color: #333;
+}
+
+.folder-tree-selector .tree-children {
+    margin-left: 20px;
+    border-left: 1px dashed #ccc;
+    padding-left: 10px;
+}
+
+.folder-tree-selector .tree-toggle {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    cursor: pointer;
+    color: #666;
+}
+
+.folder-tree-selector .tree-toggle:hover {
+    color: #1976d2;
+}
+
+.folder-tree-placeholder {
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+.selected-folder-display {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 4px;
+    color: #2e7d32;
+}
+
+.selected-folder-display .path {
+    font-family: monospace;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+<script>
+(function() {
+    'use strict';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const folderTemplateField = document.getElementById('id_folder_template');
+        const folderNodeIdField = document.getElementById('id_folder_node_id');
+
+        if (!folderTemplateField || !folderNodeIdField) return;
+
+        // 隐藏原始的节点ID输入框
+        const nodeIdRow = folderNodeIdField.closest('.form-row');
+        if (nodeIdRow) {
+            nodeIdRow.style.display = 'none';
+        }
+
+        // 创建树形选择器容器
+        const treeContainer = document.createElement('div');
+        treeContainer.className = 'form-row';
+        treeContainer.innerHTML = `
+            <div>
+                <label>目标文件夹：</label>
+                <div id="folder-tree-container" class="folder-tree-selector">
+                    <div class="folder-tree-placeholder">请先选择文件夹模板</div>
+                </div>
+                <div id="selected-folder-display" class="selected-folder-display" style="display: none;">
+                    已选择：<span class="path"></span>
+                </div>
+            </div>
+        `;
+
+        // 插入到文件夹模板字段后面
+        const templateRow = folderTemplateField.closest('.form-row');
+        if (templateRow) {
+            templateRow.parentNode.insertBefore(treeContainer, templateRow.nextSibling);
+        }
+
+        // 监听文件夹模板变化
+        folderTemplateField.addEventListener('change', function() {
+            loadFolderTree(this.value);
+        });
+
+        // 如果已有值，加载树
+        if (folderTemplateField.value) {
+            loadFolderTree(folderTemplateField.value);
+        }
+
+        function loadFolderTree(templateId) {
+            const container = document.getElementById('folder-tree-container');
+
+            if (!templateId) {
+                container.innerHTML = '<div class="folder-tree-placeholder">请先选择文件夹模板</div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="folder-tree-placeholder">加载中...</div>';
+
+            // 获取文件夹模板数据
+            fetch(`/admin/documents/foldertemplate/${templateId}/structure-json/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.structure) {
+                        renderTree(data.structure.children || [], container);
+
+                        // 如果已有选中值，高亮显示
+                        if (folderNodeIdField.value) {
+                            highlightSelected(folderNodeIdField.value);
+                        }
+                    } else {
+                        container.innerHTML = '<div class="folder-tree-placeholder">该模板暂无文件夹结构</div>';
+                    }
+                })
+                .catch(() => {
+                    container.innerHTML = '<div class="folder-tree-placeholder">加载失败，请重试</div>';
+                });
+        }
+
+        function renderTree(children, container, path = '') {
+            container.innerHTML = '';
+
+            if (!children || children.length === 0) {
+                container.innerHTML = '<div class="folder-tree-placeholder">暂无文件夹</div>';
+                return;
+            }
+
+            const ul = document.createElement('div');
+            ul.className = 'tree-root';
+
+            children.forEach(child => {
+                const node = createTreeNode(child, path);
+                ul.appendChild(node);
+            });
+
+            container.appendChild(ul);
+        }
+
+        function createTreeNode(node, parentPath) {
+            const div = document.createElement('div');
+            const nodePath = parentPath ? `${parentPath}/${node.name}` : node.name;
+            const hasChildren = node.children && node.children.length > 0;
+
+            const nodeDiv = document.createElement('div');
+            nodeDiv.className = 'tree-node';
+            nodeDiv.dataset.nodeId = node.id;
+            nodeDiv.dataset.nodePath = nodePath;
+
+            // 展开/折叠按钮
+            const toggle = document.createElement('span');
+            toggle.className = 'tree-toggle';
+            toggle.innerHTML = hasChildren ? '▶' : '&nbsp;';
+
+            // 文件夹图标
+            const icon = document.createElement('span');
+            icon.className = 'node-icon';
+            icon.innerHTML = '📁';
+
+            // 名称
+            const name = document.createElement('span');
+            name.className = 'node-name';
+            name.textContent = node.name;
+
+            nodeDiv.appendChild(toggle);
+            nodeDiv.appendChild(icon);
+            nodeDiv.appendChild(name);
+
+            // 点击选择
+            nodeDiv.addEventListener('click', function(e) {
+                if (e.target === toggle) return;
+                selectNode(node.id, nodePath);
+            });
+
+            div.appendChild(nodeDiv);
+
+            // 子节点容器
+            if (hasChildren) {
+                const childrenDiv = document.createElement('div');
+                childrenDiv.className = 'tree-children';
+                childrenDiv.style.display = 'none';
+
+                node.children.forEach(child => {
+                    childrenDiv.appendChild(createTreeNode(child, nodePath));
+                });
+
+                div.appendChild(childrenDiv);
+
+                // 展开/折叠
+                toggle.addEventListener('click', function() {
+                    const isExpanded = childrenDiv.style.display !== 'none';
+                    childrenDiv.style.display = isExpanded ? 'none' : 'block';
+                    toggle.innerHTML = isExpanded ? '▶' : '▼';
+                });
+            }
+
+            return div;
+        }
+
+        function selectNode(nodeId, nodePath) {
+            // 更新隐藏字段
+            folderNodeIdField.value = nodeId;
+
+            // 移除之前的选中状态
+            document.querySelectorAll('.folder-tree-selector .tree-node.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // 添加选中状态
+            const selectedNode = document.querySelector(`.tree-node[data-node-id="${nodeId}"]`);
+            if (selectedNode) {
+                selectedNode.classList.add('selected');
+
+                // 展开父节点
+                let parent = selectedNode.parentElement;
+                while (parent) {
+                    if (parent.classList && parent.classList.contains('tree-children')) {
+                        parent.style.display = 'block';
+                        const toggle = parent.previousElementSibling?.querySelector('.tree-toggle');
+                        if (toggle) toggle.innerHTML = '▼';
+                    }
+                    parent = parent.parentElement;
+                }
+            }
+
+            // 显示选中路径
+            const display = document.getElementById('selected-folder-display');
+            display.style.display = 'block';
+            display.querySelector('.path').textContent = nodePath;
+        }
+
+        function highlightSelected(nodeId) {
+            const node = document.querySelector(`.tree-node[data-node-id="${nodeId}"]`);
+            if (node) {
+                node.classList.add('selected');
+
+                // 展开父节点
+                let parent = node.parentElement;
+                while (parent) {
+                    if (parent.classList && parent.classList.contains('tree-children')) {
+                        parent.style.display = 'block';
+                        const toggle = parent.previousElementSibling?.querySelector('.tree-toggle');
+                        if (toggle) toggle.innerHTML = '▼';
+                    }
+                    parent = parent.parentElement;
+                }
+
+                // 显示路径
+                const display = document.getElementById('selected-folder-display');
+                display.style.display = 'block';
+                display.querySelector('.path').textContent = node.dataset.nodePath;
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

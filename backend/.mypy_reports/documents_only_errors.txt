@@ -1,0 +1,335 @@
+apps/documents/services/pdf_merge_utils.py:26:19: error: Incompatible types in
+apps/documents/services/pdf_merge_utils.py:133:46: error: Unsupported operand
+apps/documents/services/pdf_merge_utils.py:134:47: error: Unsupported operand
+apps/documents/services/pdf_merge_utils.py:156:13: error: Missing positional
+apps/documents/services/placeholders/registry.py:39:13: error: Cannot assign to
+apps/documents/services/placeholders/supplementary/principal_service.py:54:53: error:
+apps/documents/services/placeholders/supplementary/principal_service.py:109:58: error:
+apps/documents/services/placeholders/supplementary/principal_service.py:134:49: error:
+apps/documents/services/placeholders/supplementary/principal_service.py:166:60: error:
+apps/documents/services/placeholders/supplementary/principal_service.py:238:13: error:
+apps/documents/services/placeholders/supplementary/opposing_service.py:106:62: error:
+apps/documents/services/placeholders/party/opposing_party_service.py:68:61: error:
+apps/documents/services/placeholders/lawyer/lawyer_info_service.py:72:48: error:
+apps/documents/services/placeholders/lawyer/lawyer_info_service.py:121:53: error:
+apps/documents/services/placeholders/lawyer/lawyer_info_service.py:141:56: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:118:56: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:124:51: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:141:56: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:147:21: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:154:16: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:156:67: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:166:5: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:170:30: error:
+apps/documents/services/placeholders/contract/enhanced_opposing_party_service.py:171:25: error:
+apps/documents/services/placeholders/contract/case_detail_service.py:99:41: error:
+apps/documents/services/placeholders/contract/case_detail_service.py:126:5: error:
+apps/documents/services/placeholders/case/case_common_service.py:129:9: error:
+apps/documents/services/placeholders/basic/number_service.py:69:22: error:
+apps/documents/services/placeholders/basic/number_service.py:71:23: error:
+apps/documents/services/placeholders/basic/number_service.py:73:13: error:
+apps/documents/services/placeholders/basic/number_service.py:88:27: error: Name
+apps/documents/services/placeholders/basic/number_service.py:102:23: error:
+apps/documents/services/placeholders/basic/number_service.py:104:23: error:
+apps/documents/schemas.py:195:28: error: "DocumentTemplate" has no attribute
+apps/documents/services/placeholder_usage_service.py:27:21: error: Incompatible
+apps/documents/services/pdf_merge_service.py:31:17: error: "EvidenceList" has
+apps/documents/services/pdf_merge_service.py:70:13: error: Need type annotation
+apps/documents/services/pdf_merge_service.py:86:13: error: "PDFMergeWorkflow"
+apps/documents/services/pdf_merge_service.py:88:13: error: Returning Any from
+apps/documents/services/pdf_merge_service.py:99:5: error: Function is missing a
+apps/documents/services/pdf_merge_service.py:125:5: error: Function is missing
+apps/documents/services/pdf_merge_service.py:134:9: error: Function is missing
+apps/documents/services/pdf_merge_service.py:156:21: error: _ST? has no
+apps/documents/services/generation_service.py:72:9: error: "GenerationService"
+apps/documents/services/generation_service.py:73:9: error: "GenerationService"
+apps/documents/services/generation_service.py:82:41: error: Missing type
+apps/documents/services/generation_service.py:93:48: error: Missing type
+apps/documents/services/generation_service.py:137:5: error: Function is missing
+apps/documents/services/generation_service.py:157:9: error: Need type
+apps/documents/services/generation_service.py:158:9: error: Need type
+apps/documents/services/evidence_query_service.py:42:33: error: Item
+apps/documents/services/evidence_query_service.py:42:33: error: Item
+apps/documents/services/evidence_query_service.py:42:33: error: Item
+apps/documents/services/evidence_query_service.py:88:33: error: Item
+apps/documents/services/evidence_query_service.py:88:33: error: Item
+apps/documents/services/evidence_query_service.py:88:33: error: Item
+apps/documents/services/evidence_query_service.py:133:33: error: Item
+apps/documents/services/evidence_query_service.py:133:33: error: Item
+apps/documents/services/evidence_query_service.py:133:33: error: Item
+apps/documents/services/document_template_query_service.py:34:5: error:
+apps/documents/services/contract_template_binding_service.py:29:41: error:
+apps/documents/services/contract_template_binding_service.py:156:13: error:
+apps/documents/services/folder_template/id_service.py:14:48: error: Missing
+apps/documents/services/folder_template/id_service.py:17:9: error: Function is
+apps/documents/services/folder_template/id_service.py:52:9: error: Need type
+apps/documents/services/folder_template/id_service.py:56:37: error: Argument 1
+apps/documents/services/folder_template/id_service.py:60:61: error: Missing
+apps/documents/services/folder_template/id_service.py:61:9: error: Function is
+apps/documents/services/folder_template/id_service.py:91:20: error: Unsupported
+apps/documents/services/folder_template/id_service.py:97:31: error: Missing
+apps/documents/services/folder_template/id_service.py:102:31: error: Item
+apps/documents/services/evidence/page_range_calculator.py:13:17: error:
+apps/documents/services/evidence/page_range_calculator.py:36:21: error:
+apps/documents/services/evidence/evidence_mutation_service.py:35:21: error:
+apps/documents/services/evidence/evidence_mutation_service.py:45:17: error: No
+apps/documents/services/evidence/evidence_mutation_service.py:45:17: note: Possible overload variants:
+apps/documents/services/evidence/evidence_mutation_service.py:45:17: note:     def get(self, ListType, /) -> int | None
+apps/documents/services/evidence/evidence_mutation_service.py:45:17: note:     def get(self, ListType, int, /) -> int
+apps/documents/services/evidence/evidence_mutation_service.py:45:17: note:     def [_T] get(self, ListType, _T, /) -> int | _T
+apps/documents/services/evidence/evidence_mutation_service.py:64:34: error: No
+apps/documents/services/evidence/evidence_mutation_service.py:64:34: note: Possible overload variants:
+apps/documents/services/evidence/evidence_mutation_service.py:64:34: note:     def get(self, ListType, /) -> ListType | None
+apps/documents/services/evidence/evidence_mutation_service.py:64:34: note:     def get(self, ListType, ListType | None, /) -> ListType | None
+apps/documents/services/evidence/evidence_mutation_service.py:64:34: note:     def [_T] get(self, ListType, _T, /) -> ListType | _T | None
+apps/documents/services/evidence/evidence_mutation_service.py:84:21: error:
+apps/documents/services/evidence/evidence_mutation_service.py:117:21: error:
+apps/documents/services/evidence/evidence_mutation_service.py:141:21: error:
+apps/documents/services/evidence/evidence_mutation_service.py:178:29: error:
+apps/documents/services/evidence/evidence_mutation_service.py:198:28: error:
+apps/documents/services/evidence/evidence_file_service.py:22:5: error: Function
+apps/documents/services/evidence/evidence_file_service.py:74:5: error: Function
+apps/documents/services/document_template/repo.py:21:5: error: Function is
+apps/documents/services/document_template/repo.py:24:5: error: Function is
+apps/documents/management/commands/init_document_system.py:20:5: error:
+apps/documents/management/commands/init_document_system.py:32:5: error:
+apps/documents/management/commands/create_default_prompt_versions.py:16:5: error:
+apps/documents/services/template_matching_service.py:53:20: error:
+apps/documents/services/template_matching_service.py:59:94: error: Missing type
+apps/documents/services/template_matching_service.py:61:12: error: Name
+apps/documents/services/template_matching_service.py:64:35: error: Name
+apps/documents/services/template_matching_service.py:68:22: error: Name
+apps/documents/services/template_matching_service.py:85:13: error: Returning
+apps/documents/services/template_matching_service.py:111:13: error: Returning
+apps/documents/services/template_matching_service.py:154:13: error: Returning
+apps/documents/services/folder_template/structure_rules.py:15:26: error:
+apps/documents/services/folder_template/structure_rules.py:16:22: error:
+apps/documents/services/folder_template/structure_rules.py:21:72: error:
+apps/documents/services/folder_template/structure_rules.py:22:68: error:
+apps/documents/services/folder_template/structure_rules.py:35:49: error:
+apps/documents/services/folder_template/structure_rules.py:40:72: error:
+apps/documents/services/folder_template/structure_rules.py:44:68: error:
+apps/documents/services/folder_template/repair_service.py:31:57: error: Missing
+apps/documents/services/folder_template/repair_service.py:43:9: error: Function
+apps/documents/services/folder_template/repair_service.py:59:37: error: Call to
+apps/documents/services/folder_template/repair_service.py:66:44: error: Call to
+apps/documents/services/folder_template/query_service.py:27:13: error:
+apps/documents/services/folder_template/query_service.py:50:5: error: Function
+apps/documents/services/folder_template/query_service.py:59:20: error:
+apps/documents/services/document_template/workflow.py:37:5: error: Function is
+apps/documents/services/document_template/workflow.py:64:5: error: Function is
+apps/documents/services/document_template/workflow.py:104:38: error: Missing
+apps/documents/services/document_template/workflow.py:124:66: error: Missing
+apps/documents/services/template_service.py:120:5: error: Function is missing a
+apps/documents/services/template_service.py:322:20: error: Call to untyped
+apps/documents/services/template_service.py:361:47: error: Missing type
+apps/documents/services/template_service.py:382:65: error: Missing type
+apps/documents/services/document_service_adapter.py:164:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:184:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:204:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:223:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:242:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:260:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:280:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:299:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:302:9: error: Returning Any
+apps/documents/services/document_service_adapter.py:305:9: error: Returning Any
+apps/documents/services/folder_template/command_service.py:25:5: error:
+apps/documents/services/folder_template/command_service.py:31:20: error:
+apps/documents/services/folder_template/command_service.py:67:65: error:
+apps/documents/services/folder_template/command_service.py:119:51: error:
+apps/documents/services/folder_template/command_service.py:142:69: error:
+apps/documents/management/commands/fix_folder_template_ids.py:19:5: error:
+apps/documents/management/commands/fix_folder_template_ids.py:23:5: error:
+apps/documents/management/commands/fix_folder_template_ids.py:70:68: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:26:9: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:32:9: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:37:5: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:43:20: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:58:64: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:64:50: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:67:68: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:70:48: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:73:52: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:77:29: error:
+apps/documents/usecases/folder_template/folder_template_usecases.py:78:22: error:
+apps/documents/services/document_template_admin_service.py:78:5: error:
+apps/documents/services/document_template_admin_service.py:118:31: error:
+apps/documents/services/document_template_admin_service.py:123:13: error:
+apps/documents/services/document_template_admin_service.py:124:13: error:
+apps/documents/services/document_template_admin_service.py:125:13: error:
+apps/documents/services/document_template_admin_service.py:133:31: error:
+apps/documents/services/document_template_admin_service.py:165:17: error:
+apps/documents/services/document_template_admin_service.py:174:17: error:
+apps/documents/api/document_api.py:30:1: error: Function is missing a return
+apps/documents/api/document_api.py:60:60: error: "DocumentTemplate" has no
+apps/documents/api/document_api.py:69:60: error: "DocumentTemplate" has no
+apps/documents/services/folder_service.py:34:26: error: Missing type parameters
+apps/documents/services/folder_service.py:35:22: error: Missing type parameters
+apps/documents/services/folder_service.py:48:49: error: Missing type parameters
+apps/documents/services/folder_service.py:64:5: error: Function is missing a
+apps/documents/services/folder_service.py:69:20: error: Missing type parameters
+apps/documents/services/folder_service.py:84:61: error: Missing type parameters
+apps/documents/services/folder_service.py:133:45: error: Missing type
+apps/documents/services/folder_service.py:150:26: error: Missing type
+apps/documents/services/folder_service.py:150:45: error: Missing type
+apps/documents/services/folder_service.py:150:70: error: Missing type
+apps/documents/services/folder_service.py:194:47: error: Missing type
+apps/documents/services/folder_service.py:194:59: error: Missing type
+apps/documents/services/folder_service.py:265:47: error: Missing type
+apps/documents/services/folder_service.py:284:65: error: Missing type
+apps/documents/services/evidence_service.py:69:56: error: Missing type
+apps/documents/services/evidence_service.py:83:56: error: Missing type
+apps/documents/services/evidence_service.py:91:56: error: Missing type
+apps/documents/services/evidence_service.py:106:5: error: Function is missing a
+apps/documents/services/evidence_list_placeholder_service.py:201:18: error:
+apps/documents/services/evidence_list_placeholder_service.py:205:17: error:
+apps/documents/services/evidence_list_placeholder_service.py:208:47: error:
+apps/documents/services/placeholders/context_builder.py:135:5: error: Function
+apps/documents/services/placeholders/context_builder.py:165:9: error: Need type
+apps/documents/services/generation/contract_generation_service.py:22:30: error:
+apps/documents/services/generation/contract_generation_service.py:34:5: error:
+apps/documents/services/generation/contract_generation_service.py:39:30: error:
+apps/documents/services/generation/contract_generation_service.py:44:5: error:
+apps/documents/services/generation/contract_generation_service.py:52:5: error:
+apps/documents/services/generation/contract_generation_service.py:57:36: error:
+apps/documents/services/generation/contract_generation_service.py:60:5: error:
+apps/documents/services/generation/contract_generation_service.py:65:30: error:
+apps/documents/services/generation/contract_generation_service.py:70:5: error:
+apps/documents/services/generation/contract_generation_service.py:223:46: error:
+apps/documents/services/wiring.py:18:12: error: "type[ServiceLocator]" has no
+apps/documents/services/wiring.py:42:12: error: "type[ServiceLocator]" has no
+apps/documents/services/generation/supplementary_agreement_generation_service.py:139:9: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:141:5: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:157:34: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:158:33: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:159:32: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:162:5: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:191:5: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:203:5: error:
+apps/documents/services/generation/supplementary_agreement_generation_service.py:215:5: error:
+apps/documents/services/folder_template_admin_service.py:25:73: error:
+apps/documents/services/folder_template_admin_service.py:25:73: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/documents/services/folder_template_admin_service.py:25:73: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/documents/services/evidence_export_service.py:150:5: error: Function is
+apps/documents/services/evidence_export_service.py:297:43: error: Function
+apps/documents/services/evidence_export_service.py:297:43: note: Perhaps you need "Callable[...]" or a callback protocol?
+apps/documents/services/evidence_export_service.py:309:17: error: Document? has
+apps/documents/services/evidence_export_service.py:339:49: error: Function
+apps/documents/services/evidence_export_service.py:339:49: note: Perhaps you need "Callable[...]" or a callback protocol?
+apps/documents/services/evidence_export_service.py:351:9: error: Document? has
+apps/documents/services/evidence_export_service.py:354:9: error: Document? has
+apps/documents/services/evidence_export_service.py:358:13: error: Document? has
+apps/documents/services/evidence_export_service.py:362:13: error: Document? has
+apps/documents/services/evidence_export_service.py:363:13: error: Document? has
+apps/documents/services/evidence_export_service.py:364:13: error: Document? has
+apps/documents/services/evidence_export_service.py:367:9: error: Document? has
+apps/documents/services/evidence_export_service.py:384:49: error:
+apps/documents/services/evidence_export_service.py:413:21: error: _ST? has no
+apps/documents/services/placeholders/supplementary/signature_service.py:87:49: error:
+apps/documents/services/placeholders/party/principal_info_service.py:49:41: error:
+apps/documents/services/placeholders/party/principal_info_service.py:75:50: error:
+apps/documents/services/placeholders/party/principal_info_service.py:95:49: error:
+apps/documents/services/placeholders/litigation/preservation_property_clue_service.py:183:38: error:
+apps/documents/services/placeholders/litigation/case_details_accessor.py:54:28: error:
+apps/documents/services/placeholders/authorization_materials/power_of_attorney_service.py:192:17: error:
+apps/documents/services/placeholders/authorization_materials/power_of_attorney_service.py:193:19: error:
+apps/documents/services/placeholders/authorization_materials/power_of_attorney_service.py:198:18: error:
+apps/documents/services/placeholders/authorization_materials/power_of_attorney_service.py:201:5: error:
+apps/documents/services/placeholders/authorization_materials/power_of_attorney_service.py:209:5: error:
+apps/documents/services/generation/litigation_llm_generator.py:22:5: error:
+apps/documents/services/generation/litigation_llm_generator.py:29:45: error:
+apps/documents/services/generation/litigation_llm_generator.py:59:43: error:
+apps/documents/services/generation/litigation_context_builder.py:60:5: error:
+apps/documents/services/generation/litigation_context_builder.py:71:63: error:
+apps/documents/services/generation/litigation_context_builder.py:84:5: error:
+apps/documents/services/generation/litigation_context_builder.py:96:63: error:
+apps/documents/services/generation/folder_generation_service.py:86:9: error:
+apps/documents/services/generation/folder_generation_service.py:106:56: error:
+apps/documents/services/generation/folder_generation_service.py:139:9: error:
+apps/documents/services/generation/folder_generation_service.py:220:46: error:
+apps/documents/services/generation/context_builder.py:68:5: error: Function is
+apps/documents/services/generation/context_builder.py:73:38: error:
+apps/documents/services/generation/context_builder.py:94:21: error: Returning
+apps/documents/services/generation/context_builder.py:241:49: error: Argument 1
+apps/documents/services/generation/context_builder.py:265:27: error: Need type
+apps/documents/services/generation/authorization_material_generation_service.py:66:41: error:
+apps/documents/services/generation/authorization_material_generation_service.py:81:41: error:
+apps/documents/services/generation/authorization_material_generation_service.py:248:9: error:
+apps/documents/services/generation/authorization_material_generation_service.py:272:20: error:
+apps/documents/services/generation/authorization_material_generation_service.py:273:33: error:
+apps/documents/services/generation/authorization_material_generation_service.py:276:42: error:
+apps/documents/services/generation/authorization_material_generation_service.py:278:43: error:
+apps/documents/services/generation/authorization_material_generation_service.py:351:55: error:
+apps/documents/services/generation/authorization_material_generation_service.py:364:55: error:
+apps/documents/api/placeholder_api.py:45:1: error: Function is missing a return
+apps/documents/api/placeholder_api.py:106:1: error: Function is missing a
+apps/documents/api/folder_template_api.py:28:5: error: Returning Any from
+apps/documents/api/folder_template_api.py:28:12: error: Call to untyped
+apps/documents/api/folder_template_api.py:32:1: error: Function is missing a
+apps/documents/api/folder_template_api.py:60:63: error: "FolderTemplate" has no
+apps/documents/api/folder_template_api.py:69:63: error: "FolderTemplate" has no
+apps/documents/apps.py:37:5: error: Function is missing a type annotation for
+apps/documents/services/evidence_admin_service.py:80:71: error: "EvidenceList"
+apps/documents/services/evidence_admin_service.py:158:22: error: "EvidenceList"
+apps/documents/services/evidence_admin_service.py:230:17: error: "EvidenceList"
+apps/documents/services/evidence_admin_service.py:237:52: error:
+apps/documents/services/placeholders/litigation/supervising_authority_service.py:33:38: error:
+apps/documents/services/placeholders/litigation/preservation_signature_service.py:115:37: error:
+apps/documents/services/placeholders/litigation/preservation_signature_service.py:115:69: error:
+apps/documents/services/placeholders/litigation/preservation_party_service.py:76:36: error:
+apps/documents/services/placeholders/litigation/defense_signature_service.py:35:38: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:35:38: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:41:59: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:79:50: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:94:20: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:97:31: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:98:33: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:99:21: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:101:51: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:108:40: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:111:12: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:118:42: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:121:12: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:128:30: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:131:12: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:161:78: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:173:32: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:175:49: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:175:64: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:188:76: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:194:31: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:203:85: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:209:64: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:241:12: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:242:20: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:244:12: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:245:22: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:245:45: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:246:18: error:
+apps/documents/services/placeholders/litigation/defense_party_service.py:246:25: error:
+apps/documents/services/placeholders/litigation/complaint_signature_service.py:35:38: error:
+apps/documents/services/placeholders/litigation/complaint_signature_service.py:93:41: error:
+apps/documents/services/placeholders/litigation/complaint_signature_service.py:93:73: error:
+apps/documents/services/placeholders/litigation/complaint_party_service.py:36:38: error:
+apps/documents/services/placeholders/litigation/complaint_party_service.py:59:36: error:
+apps/documents/services/placeholders/litigation/basic_placeholder_services.py:28:38: error:
+apps/documents/services/placeholders/litigation/basic_placeholder_services.py:53:38: error:
+apps/documents/services/placeholders/litigation/basic_placeholder_services.py:101:38: error:
+apps/documents/services/generation/base_generator.py:67:33: error: Missing type
+apps/documents/services/generation/base_generator.py:81:41: error: Missing type
+apps/documents/services/generation/base_generator.py:101:60: error: Missing
+apps/documents/services/generation/base_generator.py:153:44: error: Missing
+apps/documents/management/commands/init_folder_templates.py:18:5: error:
+apps/documents/management/commands/init_folder_templates.py:25:5: error:
+apps/documents/services/generation/registry.py:42:13: error: Cannot assign to
+apps/documents/services/generation/preservation_materials_generation_service.py:265:9: error:
+apps/documents/services/generation/preservation_materials_generation_service.py:340:55: error:
+apps/documents/services/generation/preservation_materials_generation_service.py:371:5: error:
+apps/documents/services/generation/litigation_generation_service.py:72:45: error:
+apps/documents/services/generation/litigation_generation_service.py:96:43: error:
+apps/documents/services/generation/litigation_generation_service.py:238:53: error:
+apps/documents/services/generation/litigation_generation_service.py:280:51: error:
+apps/documents/services/generation/litigation_generation_service.py:322:62: error:
+apps/documents/services/generation/generators/contract_generator.py:37:9: error:
+apps/documents/services/generation/generators/contract_generator.py:39:33: error:

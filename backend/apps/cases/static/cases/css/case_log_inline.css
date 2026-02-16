@@ -1,0 +1,249 @@
+/**
+ * 案件日志内联样式 - 紧凑卡片设计
+ */
+
+/* 日志区域容器 */
+.case-log-section {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+}
+
+/* 标题栏 - 覆盖 Django Admin 默认样式 */
+.case-log-section .case-log-header,
+.inline-group.case-log-section h2,
+.case-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin: 0;
+    background: #417690;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.case-log-header:hover {
+    background: #205067;
+}
+
+.case-log-section .case-log-header h2,
+.case-log-header h2 {
+    margin: 0;
+    padding: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+}
+
+.case-log-icon { font-size: 14px; }
+.case-log-count { font-weight: normal; font-size: 12px; color: #fff; }
+
+.case-log-sort-link {
+    color: #fff !important;
+    text-decoration: none !important;
+    font-weight: normal !important;
+}
+
+.case-log-sort-link:hover {
+    color: #fff !important;
+    text-decoration: underline !important;
+}
+
+/* 标题栏右侧操作区 */
+.case-log-header-actions {
+    display: flex;
+    align-items: center;
+}
+
+.case-log-toggle { color: #fff; font-size: 10px; transition: transform 0.2s ease; }
+.case-log-section.collapsed .case-log-toggle { transform: rotate(-90deg); }
+
+/* 内容区域 */
+.case-log-content {
+    padding: 10px;
+    background: #f8f9fa;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+/* 时间线容器 */
+.case-log-timeline { position: relative; padding-left: 16px; }
+.case-log-timeline::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ddd;
+}
+
+/* 日志卡片 */
+.case-log-item { position: relative; margin-bottom: 6px; }
+.case-log-item::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 10px;
+    width: 8px;
+    height: 8px;
+    background: #417690;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #417690;
+}
+.case-log-item.new::before { background: #28a745; box-shadow: 0 0 0 1px #28a745; }
+
+/* 日志卡片样式 */
+.log-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.log-card:hover { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); }
+
+/* 卡片头部 */
+.log-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 10px;
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
+}
+
+.log-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.log-time { color: #666; font-size: 11px; font-weight: 500; }
+.log-author { color: #417690; font-size: 11px; font-weight: 600; padding: 1px 6px; background: #e3f2fd; border-radius: 8px; }
+.log-reminder-badge { font-size: 10px; padding: 1px 6px; background: #fff3e0; color: #e65100; border-radius: 8px; }
+
+.log-actions { display: flex; gap: 6px; }
+.log-expand-btn, .log-edit-link {
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-decoration: none;
+}
+.log-expand-btn { background: #f0f0f0; border: 1px solid #ddd; color: #555; }
+.log-expand-btn:hover { background: #e0e0e0; }
+.log-edit-link { background: #417690; border: 1px solid #417690; color: white; }
+.log-edit-link:hover { background: #2e5984; }
+
+/* 卡片内容 */
+.log-card-body { padding: 6px 10px; }
+.log-content-preview, .log-content-full {
+    color: #333;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.log-content-preview { color: #555; }
+.log-content-full {
+    background: #fafafa;
+    padding: 6px;
+    border-radius: 3px;
+    border-left: 2px solid #417690;
+    margin-top: 4px;
+}
+
+/* 提醒信息 */
+.log-reminder-info {
+    margin-top: 4px;
+    padding: 3px 6px;
+    background: #fff8e1;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #f57c00;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.reminder-icon { font-size: 11px; }
+
+/* 附件区域 */
+.log-attachments {
+    margin-top: 4px;
+    padding: 3px 6px;
+    background: #f5f5f5;
+    border-radius: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+.attachment-label { font-size: 11px; color: #666; }
+.attachment-link {
+    font-size: 11px;
+    color: #1976d2;
+    text-decoration: none;
+    padding: 1px 5px;
+    background: #e3f2fd;
+    border-radius: 3px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+.attachment-link:hover { background: #bbdefb; text-decoration: underline; }
+
+/* 新增日志表单 */
+.log-add-form { background: white; border: 1px dashed #28a745; border-radius: 4px; }
+.log-add-header {
+    padding: 5px 10px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.add-icon { font-size: 12px; }
+.log-add-body { padding: 8px; }
+.log-add-body .form-row { margin-bottom: 6px; }
+.log-add-body label { display: block; margin-bottom: 2px; font-weight: 600; font-size: 11px; color: #555; }
+.log-add-body textarea {
+    width: 100%;
+    min-height: 50px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+.log-add-body textarea:focus { outline: none; border-color: #417690; }
+.log-add-body select, .log-add-body input[type="text"] {
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* 空表单隐藏 */
+.case-log-item.empty-form { display: none; }
+
+/* 滚动条 */
+.case-log-content::-webkit-scrollbar { width: 5px; }
+.case-log-content::-webkit-scrollbar-track { background: #f1f1f1; }
+.case-log-content::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 2px; }
+
+/* 响应式 - 移动端保持舒适 */
+@media (max-width: 768px) {
+    .case-log-content { max-height: 450px; padding: 12px; }
+    .log-card-header { flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 10px; }
+    .log-actions { width: 100%; justify-content: flex-end; }
+    .log-card-body { padding: 8px 10px; }
+}

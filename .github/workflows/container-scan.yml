@@ -1,0 +1,46 @@
+name: container-scan
+
+on:
+  pull_request:
+    paths:
+      - "backend/Dockerfile"
+      - "backend/requirements*.txt"
+      - "backend/constraints/**"
+      - ".github/workflows/container-scan.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "backend/Dockerfile"
+      - "backend/requirements*.txt"
+      - "backend/constraints/**"
+      - ".github/workflows/container-scan.yml"
+  schedule:
+    - cron: "0 3 * * 0"
+
+jobs:
+  backend-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image (lite)
+        run: |
+          docker build \
+            --build-arg INSTALL_FULL_DEPS=false \
+            -t fachuan-backend:ci \
+            -f backend/Dockerfile \
+            backend
+
+      - name: Scan image (os + library)
+        uses: aquasecurity/trivy-action@0.26.0
+        with:
+          image-ref: "fachuan-backend:ci"
+          format: "table"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"

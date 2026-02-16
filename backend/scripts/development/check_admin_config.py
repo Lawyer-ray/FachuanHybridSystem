@@ -4,14 +4,16 @@
 """
 import os
 import sys
+
 import django
 
 # 设置 Django 环境
 sys.path.insert(0, os.path.dirname(__file__))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'apiSystem.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
 
 from django.contrib import admin
+
 from apps.organization.models import AccountCredential
 
 print("=" * 60)
@@ -30,7 +32,7 @@ else:
 
 # 2. 检查是否有 test_login_button 方法
 print("\n2. 检查是否有 test_login_button 方法...")
-if hasattr(admin_class, 'test_login_button'):
+if hasattr(admin_class, "test_login_button"):
     print("   ✅ 存在 test_login_button 方法")
 else:
     print("   ❌ 不存在 test_login_button 方法")
@@ -39,7 +41,7 @@ else:
 
 # 3. 检查是否有 test_login_view 方法
 print("\n3. 检查是否有 test_login_view 方法...")
-if hasattr(admin_class, 'test_login_view'):
+if hasattr(admin_class, "test_login_view"):
     print("   ✅ 存在 test_login_view 方法")
 else:
     print("   ❌ 不存在 test_login_view 方法")
@@ -47,7 +49,7 @@ else:
 
 # 4. 检查 list_display 是否包含 test_login_button
 print("\n4. 检查 list_display 配置...")
-if 'test_login_button' in admin_class.list_display:
+if "test_login_button" in admin_class.list_display:
     print("   ✅ list_display 包含 test_login_button")
 else:
     print("   ❌ list_display 不包含 test_login_button")
@@ -58,8 +60,9 @@ else:
 print("\n5. 检查自定义 URL...")
 try:
     from django.urls import reverse
+
     # 尝试反向解析 URL
-    url = reverse('admin:organization_accountcredential_test_login', args=[1])
+    url = reverse("admin:organization_accountcredential_test_login", args=[1])
     print(f"   ✅ 自定义 URL 已配置: {url}")
 except Exception as e:
     print(f"   ❌ 自定义 URL 配置失败: {e}")
@@ -77,13 +80,15 @@ else:
 # 7. 检查依赖
 print("\n7. 检查依赖...")
 try:
-    import ddddocr
-    print("   ✅ ddddocr 已安装")
+    from rapidocr import RapidOCR
+
+    print("   ✅ rapidocr 已安装")
 except ImportError:
-    print("   ❌ ddddocr 未安装，请运行: pip install ddddocr")
+    print("   ❌ rapidocr 未安装，请运行: pip install rapidocr")
 
 try:
     from playwright.sync_api import sync_playwright
+
     print("   ✅ playwright 已安装")
 except ImportError:
     print("   ❌ playwright 未安装，请运行: pip install playwright")
@@ -92,6 +97,7 @@ except ImportError:
 print("\n8. 检查 CourtZxfwService...")
 try:
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
     print("   ✅ CourtZxfwService 可导入")
 except ImportError as e:
     print(f"   ❌ CourtZxfwService 导入失败: {e}")
@@ -102,7 +108,7 @@ print("\n9. 检查数据...")
 credential_count = AccountCredential.objects.count()
 if credential_count > 0:
     print(f"   ✅ 数据库中有 {credential_count} 条账号凭证记录")
-    
+
     # 显示第一条记录
     first = AccountCredential.objects.first()
     print(f"   示例记录:")

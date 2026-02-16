@@ -1,0 +1,5 @@
+apps/core/config/validators/range_validator.py:18:101: error: closing
+parenthesis ']' does not match opening parenthesis '('  [syntax]
+    ...def: Anconfig: Optional[Dict[str, Any]] = Noneny] = None) -> Validatio...
+                                                        ^
+Found 1 error in 1 file (errors prevented further checking)

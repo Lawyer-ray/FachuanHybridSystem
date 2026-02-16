@@ -1,0 +1,568 @@
+/**
+ * 身份材料智能识别对话框样式
+ * 参考法院文书识别对话框样式
+ * Requirements: 4.1
+ */
+
+/* ========================================
+   对话框基础样式
+   ======================================== */
+
+.identity-recognition-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.identity-recognition-dialog.hidden {
+    display: none;
+}
+
+.dialog-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.dialog-content {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ========================================
+   对话框头部
+   ======================================== */
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    color: white;
+}
+
+.dialog-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.dialog-close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.dialog-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================
+   对话框主体
+   ======================================== */
+
+.dialog-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.recognition-intro {
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);
+    padding: 16px 20px;
+    border-radius: 10px;
+    border-left: 4px solid #417690;
+    margin-bottom: 24px;
+}
+
+.recognition-intro p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* ========================================
+   证件类型选择
+   ======================================== */
+
+.doc-type-section {
+    margin-bottom: 24px;
+}
+
+.doc-type-section label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.doc-type-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.doc-type-select:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 4px rgba(65, 118, 144, 0.15);
+}
+
+/* ========================================
+   上传区域
+   ======================================== */
+
+.identity-upload-zone {
+    border: 3px dashed #b8d4e3;
+    border-radius: 16px;
+    padding: 60px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #f8fbfd 0%, #eef5f9 100%);
+    margin-bottom: 24px;
+}
+
+.identity-upload-zone:hover,
+.identity-upload-zone.drag-over {
+    border-color: #417690;
+    background: #e3f2fd;
+    transform: scale(1.01);
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.upload-icon {
+    width: 72px;
+    height: 72px;
+    color: #417690;
+    opacity: 0.8;
+}
+
+.identity-upload-zone:hover .upload-icon {
+    opacity: 1;
+}
+
+.upload-content h4 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.upload-content p {
+    margin: 0;
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.upload-btn {
+    display: inline-block;
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    box-shadow: 0 4px 15px rgba(65, 118, 144, 0.3);
+    border: none;
+    font-size: 14px;
+}
+
+.upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(65, 118, 144, 0.4);
+}
+
+/* ========================================
+   加载状态
+   ======================================== */
+
+.identity-loading-state {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.identity-loading-state.hidden {
+    display: none;
+}
+
+.loading-spinner {
+    width: 56px;
+    height: 56px;
+    border: 5px solid #e9ecef;
+    border-top-color: #417690;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.identity-loading-state p {
+    color: #555;
+    font-size: 16px;
+    margin: 0;
+}
+
+/* ========================================
+   识别结果卡片
+   ======================================== */
+
+.identity-result-card {
+    background: #fff;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.identity-result-card.hidden {
+    display: none;
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    color: white;
+}
+
+.result-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.confidence-tag {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.confidence-tag.high {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.confidence-tag.medium {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+}
+
+.confidence-tag.low {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.result-body {
+    padding: 24px;
+}
+
+.result-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.result-field {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f3f5;
+}
+
+.result-field:last-child {
+    border-bottom: none;
+}
+
+.result-field label {
+    width: 120px;
+    font-weight: 600;
+    color: #5a6c7d;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.field-value {
+    flex: 1;
+    color: #2c3e50;
+    font-size: 14px;
+    padding-left: 16px;
+}
+
+/* ========================================
+   操作按钮
+   ======================================== */
+
+.result-actions {
+    display: flex;
+    gap: 12px;
+    padding: 20px 24px;
+    background: #f8fafc;
+    border-top: 1px solid #e8eef3;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #417690;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #2c5f7c;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #fff;
+    border: 1px solid #417690;
+    color: #417690;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #f0f7ff;
+}
+
+.btn-outline-primary {
+    background: transparent;
+    border: 2px solid #417690;
+    color: #417690;
+    padding: 10px 20px;
+    font-size: 14px;
+}
+
+.btn-outline-primary:hover {
+    background: #417690;
+    color: white;
+}
+
+/* ========================================
+   错误状态
+   ======================================== */
+
+.identity-error-state {
+    background: #fff5f5;
+    border: 1px solid #ffcdd2;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.identity-error-state.hidden {
+    display: none;
+}
+
+.error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #f44336;
+}
+
+.identity-error-state h4 {
+    color: #c62828;
+    margin: 0 0 10px;
+    font-size: 18px;
+}
+
+.identity-error-state p {
+    color: #e53935;
+    margin: 0 0 20px;
+    font-size: 14px;
+}
+
+/* ========================================
+   触发按钮
+   ======================================== */
+
+.identity-recognition-trigger {
+    margin-top: 20px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);
+    border: 1px solid #b8d4e3;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.identity-recognition-trigger .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ========================================
+   响应式设计
+   ======================================== */
+
+@media (max-width: 768px) {
+    .identity-recognition-dialog {
+        padding: 10px;
+    }
+
+    .dialog-content {
+        max-height: 95vh;
+    }
+
+    .dialog-header {
+        padding: 16px 20px;
+    }
+
+    .dialog-body {
+        padding: 20px;
+    }
+
+    .identity-upload-zone {
+        padding: 40px 16px;
+    }
+
+    .upload-content h4 {
+        font-size: 18px;
+    }
+
+    .result-actions {
+        flex-direction: column;
+        padding: 16px 20px;
+    }
+
+    .result-field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .result-field label {
+        width: auto;
+    }
+
+    .field-value {
+        padding-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .dialog-header h3 {
+        font-size: 16px;
+    }
+
+    .upload-content h4 {
+        font-size: 16px;
+    }
+
+    .upload-content p {
+        font-size: 13px;
+    }
+
+    .upload-btn {
+        padding: 12px 20px;
+        font-size: 13px;
+    }
+}
+
+/* ========================================
+   工具类
+   ======================================== */
+
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.mt-2 {
+    margin-top: 8px !important;
+}
+
+.mb-2 {
+    margin-bottom: 8px !important;
+}
+
+.p-2 {
+    padding: 8px !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}

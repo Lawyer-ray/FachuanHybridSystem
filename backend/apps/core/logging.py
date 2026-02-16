@@ -7,6 +7,7 @@ Docker 环境支持：
 - 优先输出到 stdout/stderr（Docker 日志收集）
 - 同时保留文件日志（持久化到 Volume）
 """
+
 import os
 import sys
 
@@ -15,6 +16,7 @@ def _safe_get_config(key, default=None):
     """安全获取配置，避免循环导入"""
     try:
         from .config import get_config
+
         return get_config(key, default)
     except Exception:
         return default
@@ -23,41 +25,41 @@ def _safe_get_config(key, default=None):
 def _is_docker_environment() -> bool:
     """
     检测是否在 Docker 环境中运行
-    
+
     检测方法：
     1. 检查 /.dockerenv 文件
     2. 检查 /proc/1/cgroup 中是否包含 docker
     3. 检查环境变量 DOCKER_CONTAINER
     """
     # 方法1: 检查 .dockerenv 文件
-    if os.path.exists('/.dockerenv'):
+    if os.path.exists("/.dockerenv"):
         return True
-    
+
     # 方法2: 检查 cgroup
     try:
-        with open('/proc/1/cgroup', 'r') as f:
-            if 'docker' in f.read():
+        with open("/proc/1/cgroup") as f:
+            if "docker" in f.read():
                 return True
     except (FileNotFoundError, PermissionError):
         pass
-    
+
     # 方法3: 检查环境变量
-    if os.environ.get('DOCKER_CONTAINER') == 'true':
+    if os.environ.get("DOCKER_CONTAINER") == "true":
         return True
-    
+
     # 方法4: 检查 DATABASE_PATH 是否为 Docker 路径
-    if os.environ.get('DATABASE_PATH', '').startswith('/app/'):
+    if os.environ.get("DATABASE_PATH", "").startswith("/app/"):
         return True
-    
+
     return False
 
 
-def get_logging_config(base_dir, debug: bool = True) -> dict:
+def get_logging_config(base_dir, debug: bool = True) -> dict[str, Any]:
     """
     获取日志配置
 
     从统一配置管理系统获取日志配置参数
-    
+
     Docker 环境特性：
     - 优先输出到 stdout（Docker 日志收集）
     - 使用 JSON 格式便于日志聚合
@@ -79,7 +81,7 @@ def get_logging_config(base_dir, debug: bool = True) -> dict:
     api_backup_count = _safe_get_config("logging.api_backup_count", 5)
     error_backup_count = _safe_get_config("logging.error_backup_count", 10)
     sql_backup_count = _safe_get_config("logging.sql_backup_count", 3)
-    
+
     # 获取日志级别配置
     console_level = _safe_get_config("logging.console_level", "DEBUG" if debug else "INFO")
     file_level = _safe_get_config("logging.file_level", "INFO")
@@ -211,7 +213,7 @@ def get_logging_config(base_dir, debug: bool = True) -> dict:
             "level": root_level,
         },
     }
-    
+
     return config
 
 
@@ -220,6 +222,7 @@ class JsonFormatter:
 
     def __init__(self):
         import json
+
         self.json = json
 
     def format(self, record):

@@ -1,0 +1,69 @@
+{
+  "report_title": "API层重构总结报告",
+  "generated_at": "2026-02-11T12:39:55.650731",
+  "before_refactoring": {
+    "total_api_violations": 8,
+    "affected_files": [
+      "backend/apps/automation/api/court_document_recognition_api.py"
+    ],
+    "violations_detail": [
+      {
+        "file": "backend/apps/automation/api/court_document_recognition_api.py",
+        "model": "DocumentRecognitionTask",
+        "orm_methods": [
+          "objects.create",
+          "objects.get",
+          "objects.filter"
+        ],
+        "count": 8
+      }
+    ]
+  },
+  "after_refactoring": {
+    "total_api_violations": 0,
+    "remaining_violations": []
+  },
+  "refactoring_result": {
+    "violations_fixed": 8,
+    "violations_remaining": 0,
+    "fix_rate_percent": 100.0,
+    "all_fixed": true
+  },
+  "service_methods_created": [
+    {
+      "service": "DocumentRecognitionTaskService",
+      "method": "create_task",
+      "file": "backend/apps/automation/services/court_document_recognition/task_service.py"
+    },
+    {
+      "service": "DocumentRecognitionTaskService",
+      "method": "get_task",
+      "file": "backend/apps/automation/services/court_document_recognition/task_service.py"
+    },
+    {
+      "service": "DocumentRecognitionTaskService",
+      "method": "update_task_info",
+      "file": "backend/apps/automation/services/court_document_recognition/task_service.py"
+    },
+    {
+      "service": "DocumentRecognitionTaskService",
+      "method": "search_cases_for_binding",
+      "file": "backend/apps/automation/services/court_document_recognition/task_service.py"
+    }
+  ],
+  "manual_handling_required": [],
+  "issues_and_solutions": [
+    {
+      "issue": "API文件中存在8处直接ORM调用（Model.objects.*）",
+      "solution": "将ORM调用迁移至DocumentRecognitionTaskService，API层通过工厂函数_get_task_service()获取服务实例"
+    },
+    {
+      "issue": "contracts模块API层已符合规范，无需重构",
+      "solution": "扫描确认0个违规，跳过该模块"
+    }
+  ],
+  "test_results": {
+    "test_failures_during_refactoring": 0,
+    "all_tests_passed": true
+  }
+}

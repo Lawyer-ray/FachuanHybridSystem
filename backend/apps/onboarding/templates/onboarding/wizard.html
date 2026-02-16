@@ -1,0 +1,306 @@
+{% extends "onboarding/base.html" %}
+{% load static %}
+
+{% block title %}立案引导 - 向导{% endblock %}
+
+{% block content %}
+<div x-data="wizardApp()" x-init="init()" class="min-h-screen">
+    <!-- 顶部导航栏 -->
+    <header class="fixed top-0 left-0 right-0 z-50 navbar-v3">
+        <div class="max-w-screen-2xl mx-auto px-6 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-400 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/25">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-slate-800">立案引导</h1>
+                            <p class="text-xs text-slate-500">快速创建当事人、合同和案件</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-slate-600">{{ user.get_full_name|default:user.username }}</span>
+                    <button @click="if(confirm('确定要重新开始吗？所有已填写的数据将被清空。')) { resetWizard(); }"
+                            class="btn-ghost-v3 text-amber-600 hover:bg-amber-50 cursor-pointer"
+                            title="清空所有数据，重新开始">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        重新开始
+                    </button>
+                    <a href="/admin/" class="btn-secondary-v3 !py-2 !px-4 cursor-pointer">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        返回后台
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容 -->
+    <div class="max-w-screen-2xl mx-auto px-6 pt-24 pb-24 wizard-content-wrapper-v3">
+        <div class="flex gap-8">
+            <!-- 左侧步骤导航 -->
+            <aside class="w-80 flex-shrink-0 sidebar-v3-wrapper">
+                <div class="sidebar-v3 p-6 sticky top-24">
+                    <!-- 步骤标题 -->
+                    <div class="flex items-center gap-3 mb-6 pb-5 border-b border-slate-100">
+                        <div class="w-9 h-9 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl flex items-center justify-center">
+                            <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                        </div>
+                        <span class="text-slate-800 font-semibold">流程步骤</span>
+                    </div>
+
+                    <div class="space-y-1">
+                        <!-- 步骤 1 -->
+                        <div class="step-nav-item-v3" :class="{'active': currentStep === 1, 'completed': currentStep > 1}" @click="currentStep > 1 && goToStep(1)">
+                            <div class="step-indicator-v3">
+                                <template x-if="currentStep > 1">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </template>
+                                <template x-if="currentStep <= 1">
+                                    <span>1</span>
+                                </template>
+                            </div>
+                            <div class="step-content-v3">
+                                <div class="step-title-v3">选择当事人</div>
+                                <div class="step-desc-v3" x-show="selectedClients.length > 0">
+                                    已选 <span x-text="selectedClients.length" class="font-semibold text-primary-600"></span> 人
+                                </div>
+                            </div>
+                            <div class="step-arrow-v3" x-show="currentStep === 1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="step-connector-v3" :class="{'active': currentStep > 1}"></div>
+
+                        <!-- 步骤 2 -->
+                        <div class="step-nav-item-v3" :class="{'active': currentStep === 2, 'completed': currentStep > 2, 'disabled': currentStep < 2}">
+                            <div class="step-indicator-v3">
+                                <template x-if="currentStep > 2">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </template>
+                                <template x-if="currentStep <= 2">
+                                    <span>2</span>
+                                </template>
+                            </div>
+                            <div class="step-content-v3">
+                                <div class="step-title-v3">创建合同</div>
+                                <div class="step-desc-v3" x-show="createdContract">合同已创建</div>
+                            </div>
+                            <div class="step-arrow-v3" x-show="currentStep === 2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <template x-if="needsCaseStep">
+                            <div class="step-connector-v3" :class="{'active': currentStep > 2}"></div>
+                        </template>
+
+                        <!-- 步骤 3: 案件 -->
+                        <template x-if="needsCaseStep">
+                            <div class="step-nav-item-v3" :class="{'active': currentStep === 3, 'completed': currentStep > 3, 'disabled': currentStep < 3}">
+                                <div class="step-indicator-v3">
+                                    <template x-if="currentStep > 3">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </template>
+                                    <template x-if="currentStep <= 3">
+                                        <span>3</span>
+                                    </template>
+                                </div>
+                                <div class="step-content-v3">
+                                    <div class="step-title-v3">创建案件</div>
+                                    <div class="step-desc-v3" x-show="createdCase">案件已创建</div>
+                                </div>
+                                <div class="step-arrow-v3" x-show="currentStep === 3">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="step-connector-v3" :class="{'active': currentStep >= actualTotalSteps}"></div>
+
+                        <!-- 完成步骤 -->
+                        <div class="step-nav-item-v3" :class="{'active': currentStep >= actualTotalSteps, 'disabled': currentStep < actualTotalSteps}">
+                            <div class="step-indicator-v3 success">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                            <div class="step-content-v3">
+                                <div class="step-title-v3">完成</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 进度信息 -->
+                    <div class="mt-8 pt-6 border-t border-slate-100">
+                        <div class="flex items-center justify-between text-sm mb-3">
+                            <span class="text-slate-500">完成进度</span>
+                            <span class="font-bold text-primary-600" x-text="`${Math.round((currentStep / actualTotalSteps) * 100)}%`"></span>
+                        </div>
+                        <div class="progress-bar-v3">
+                            <div class="progress-fill-v3" :style="`width: ${(currentStep / actualTotalSteps) * 100}%`"></div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 右侧内容区域 -->
+            <main class="flex-1 min-w-0">
+                <!-- 全局加载遮罩 -->
+                <div x-show="loading"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     class="loading-overlay-v3">
+                    <div class="text-center">
+                        <div class="loading-spinner-v3 mx-auto"></div>
+                        <p class="loading-text-v3">
+                            <span x-text="loadingMessage || '处理中'"></span>...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 全局错误提示 -->
+                <div x-show="errors._global" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                            <svg class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <p class="text-sm text-red-700" x-text="errors._global"></p>
+                    </div>
+                </div>
+
+                <!-- 步骤内容卡片 -->
+                <div class="main-card-v3" x-show="!loading">
+                    <!-- 步骤 1: 当事人选择/创建 -->
+                    <div x-show="currentStep === 1" x-transition:enter="step-enter-v3">
+                        {% include "onboarding/components/step_client.html" %}
+                    </div>
+
+                    <!-- 步骤 2: 合同创建 -->
+                    <div x-show="currentStep === 2" x-transition:enter="step-enter-v3">
+                        <div class="p-8">
+                            <div class="mb-8">
+                                <h2 class="text-2xl font-bold text-slate-800">创建合同</h2>
+                                <p class="text-slate-500 mt-1">为选中的当事人创建代理合同</p>
+                            </div>
+                            {% include "onboarding/components/step_contract.html" %}
+                        </div>
+                    </div>
+
+                    <!-- 步骤 3: 案件创建 -->
+                    <div x-show="currentStep === 3 && needsCaseStep" x-transition:enter="step-enter-v3">
+                        <div class="p-8">
+                            <div class="mb-8">
+                                <h2 class="text-2xl font-bold text-slate-800">创建案件</h2>
+                                <p class="text-slate-500 mt-1">为合同创建关联案件</p>
+                            </div>
+                            {% include "onboarding/components/step_case.html" %}
+                        </div>
+                    </div>
+
+                    <!-- 完成页面 -->
+                    <div x-show="currentStep >= actualTotalSteps" x-transition:enter="step-enter-v3">
+                        {% include "onboarding/components/step_complete.html" %}
+                    </div>
+                </div>
+
+                <!-- 底部导航按钮 -->
+                <div x-show="!loading && currentStep < actualTotalSteps" class="wizard-footer-v3">
+                    <div class="wizard-footer-inner-v3">
+                        <button type="button"
+                                x-show="currentStep > 1"
+                                @click="prevStep()"
+                                class="btn-secondary-v3 cursor-pointer">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            上一步
+                        </button>
+
+                        <div x-show="currentStep === 1" class="flex-1"></div>
+
+                        <button type="button"
+                                @click="nextStep()"
+                                :disabled="currentStep === 1 && selectedClients.length === 0"
+                                class="btn-primary-v3 cursor-pointer">
+                            下一步
+                            <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div x-show="toast.show"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform -translate-y-2"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         class="fixed top-20 right-6 z-50 max-w-sm">
+        <div class="toast-v3 p-4"
+             :class="{
+                 'success': toast.type === 'success',
+                 'error': toast.type === 'error',
+                 'warning': toast.type === 'warning',
+                 'info': toast.type === 'info'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div x-show="toast.type === 'success'" class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                        <svg class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <div x-show="toast.type === 'error'" class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg class="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="ml-3 text-sm font-medium text-slate-700" x-text="toast.message"></p>
+                <button @click="toast.show = false" class="ml-4 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ onboarding_data|json_script:"onboarding-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'onboarding/js/wizard.js' %}"></script>
+{% endblock %}

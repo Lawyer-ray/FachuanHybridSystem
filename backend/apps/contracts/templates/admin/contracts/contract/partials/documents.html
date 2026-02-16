@@ -1,0 +1,115 @@
+{% load i18n %}
+<!-- 文档与提醒标签页 -->
+<div x-show="activeTab === 'documents'" x-cloak>
+    <div class="info-grid two-columns">
+        <!-- 补充协议卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">📝</span>
+                <h3 class="card-title">补充协议</h3>
+            </div>
+            {% if supplementary_agreements %}
+            <div class="agreement-list">
+                {% for agreement in supplementary_agreements %}
+                <div class="agreement-item">
+                    <span class="agreement-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                    <span class="agreement-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">暂无补充协议</p>
+            {% endif %}
+        </div>
+
+        <!-- 重要日期提醒卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">🔔</span>
+                <h3 class="card-title">重要日期提醒</h3>
+            </div>
+            {% if reminders %}
+            <div class="reminder-list">
+                {% for reminder in reminders %}
+                <div class="reminder-item {% if reminder.due_at <= soon_due_date and reminder.due_at >= today %}reminder-soon{% endif %} {% if reminder.due_at < today %}reminder-overdue{% endif %}">
+                    <span class="reminder-type">{{ reminder.get_reminder_type_display }}</span>
+                    <span class="reminder-content">{{ reminder.content }}</span>
+                    <span class="reminder-due-date">
+                        {% if reminder.due_at < today %}<span class="overdue-badge">已过期</span>
+                        {% elif reminder.due_at <= soon_due_date %}<span class="soon-badge">即将到期</span>{% endif %}
+                        {{ reminder.due_at|date:"Y-m-d H:i" }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">暂无重要日期提醒</p>
+            {% endif %}
+        </div>
+
+        <!-- 文件夹绑定卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">📁</span>
+                <h3 class="card-title">文件夹绑定</h3>
+            </div>
+            {% if folder_binding %}
+            <div class="folder-binding-info">
+                <div class="binding-status">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">已绑定</span>
+                </div>
+                <div class="folder-path">
+                    <label>文件夹路径</label>
+                    <span class="path-value">{{ folder_binding.folder_path }}</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="folder-binding-info">
+                <div class="binding-status unbound">
+                    <span class="status-icon">✗</span>
+                    <span class="status-text">未绑定</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 文档生成操作卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">⚡</span>
+                <h3 class="card-title">文档生成</h3>
+            </div>
+            <div class="document-actions">
+                <div class="action-item">
+                    <button type="button" class="btn-action {% if not has_contract_template %}btn-disabled{% endif %}"
+                            {% if has_contract_template %}@click="generateContract()"{% else %}disabled title="无匹配的合同模板"{% endif %}
+                            :disabled="generating">
+                        <span class="action-icon">📄</span>
+                        <span class="action-text">生成合同</span>
+                        <span class="action-loading" x-show="generatingType === 'contract'" x-cloak><span class="spinner"></span></span>
+                    </button>
+                </div>
+
+                <div class="action-item">
+                    <button type="button" class="btn-action {% if not has_supplementary_agreements %}btn-disabled{% endif %}"
+                            {% if has_supplementary_agreements %}@click="showAgreementDialog = true"{% else %}disabled title="暂无补充协议"{% endif %}
+                            :disabled="generating">
+                        <span class="action-icon">📝</span>
+                        <span class="action-text">生成补充协议</span>
+                    </button>
+                </div>
+
+                <div class="action-item">
+                    <button type="button" class="btn-action {% if not has_folder_template %}btn-disabled{% endif %}"
+                            {% if has_folder_template %}@click="generateFolder()"{% else %}disabled title="无匹配的文件夹模板"{% endif %}
+                            :disabled="generating">
+                        <span class="action-icon">📁</span>
+                        <span class="action-text">生成文件夹</span>
+                        <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

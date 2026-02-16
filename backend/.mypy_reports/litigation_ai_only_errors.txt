@@ -1,0 +1,68 @@
+apps/litigation_ai/services/evidence_vector_store_service.py:12: error: Unused
+apps/litigation_ai/services/evidence_vector_store_service.py:29: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:22: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:27: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:35: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:43: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:50: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:57: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:72: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:83: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:92: error: Unused
+apps/litigation_ai/services/flow/session_repository.py:117: error: Unused
+apps/litigation_ai/agent/state.py:102:5: error: Cannot override class variable
+apps/litigation_ai/agent/state.py:102:38: error: Incompatible types in
+apps/litigation_ai/agent/prompts.py:124: error: Unused "type: ignore" comment 
+apps/litigation_ai/agent/prompts.py:129: error: Unused "type: ignore" comment 
+apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:18: error:
+apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:22: error:
+apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:23: error:
+apps/litigation_ai/services/session_message_service.py:50: error: Unused
+apps/litigation_ai/services/session_message_service.py:65: error: Unused
+apps/litigation_ai/services/session_message_service.py:80: error: Unused
+apps/litigation_ai/services/session_message_service.py:90: error: Unused
+apps/litigation_ai/services/session_message_service.py:99: error: Unused
+apps/litigation_ai/services/session_message_service.py:116: error: Unused
+apps/litigation_ai/services/session_message_service.py:140: error: Unused
+apps/litigation_ai/services/session_message_service.py:155: error: Unused
+apps/litigation_ai/services/session_message_service.py:171: error: Unused
+apps/litigation_ai/services/session_message_service.py:180: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:38: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:149: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:163: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:181: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:242: error: Unused
+apps/litigation_ai/services/session_lifecycle_service.py:246: error: Unused
+apps/litigation_ai/services/context_service.py:117: error: Unused
+apps/litigation_ai/services/document_generator_service.py:21: error: Unused
+apps/litigation_ai/services/document_generator_service.py:31: error: Unused
+apps/litigation_ai/services/document_generator_service.py:47: error: Unused
+apps/litigation_ai/services/document_generator_service.py:65: error: Unused
+apps/litigation_ai/services/document_generator_service.py:70: error: Unused
+apps/litigation_ai/services/document_generator_service.py:89: error: Unused
+apps/litigation_ai/services/document_generator_service.py:149: error: Unused
+apps/litigation_ai/services/document_generator_service.py:161: error: Unused
+apps/litigation_ai/services/evidence_rag_service.py:19: error: Unused
+apps/litigation_ai/services/evidence_rag_service.py:22: error: Unused
+apps/litigation_ai/services/evidence_rag_service.py:25: error: Unused
+apps/litigation_ai/services/evidence_rag_service.py:41: error: Unused
+apps/litigation_ai/services/evidence_rag_service.py:45: error: Unused
+apps/litigation_ai/services/evidence_digest_service.py:47: error: Unused
+apps/litigation_ai/services/evidence_digest_service.py:139: error: Unused
+apps/litigation_ai/services/evidence_digest_service.py:147: error: Unused
+apps/litigation_ai/services/draft_service.py:160: error: Unused "type: ignore"
+apps/litigation_ai/services/litigation_agent_service.py:199: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:71: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:154: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:189: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:231: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:253: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:277: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:317: error: Unused
+apps/litigation_ai/consumers/litigation_consumer.py:332: error: Unused
+apps/litigation_ai/api/litigation_api.py:51: error: Unused "type: ignore"
+apps/litigation_ai/api/litigation_api.py:73: error: Unused "type: ignore"
+apps/litigation_ai/api/litigation_api.py:103: error: Unused "type: ignore"
+apps/litigation_ai/api/litigation_api.py:128: error: Unused "type: ignore"
+apps/litigation_ai/api/litigation_api.py:186: error: Unused "type: ignore"
+apps/litigation_ai/api/litigation_api.py:204: error: Unused "type: ignore"

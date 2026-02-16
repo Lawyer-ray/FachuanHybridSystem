@@ -1,0 +1,126 @@
+{
+  "total_models_with_save": 2,
+  "total_violations": 0,
+  "risk_counts": {
+    "低风险": 2,
+    "中风险": 0,
+    "高风险": 0
+  },
+  "phase_16_5_summary": {
+    "status": "completed",
+    "title": "Model层重构最终汇总报告",
+    "scan_statistics": {
+      "total_models_scanned": 3,
+      "models_with_save_override": 3,
+      "save_overrides_remaining": 2,
+      "save_overrides_removed": 1
+    },
+    "risk_distribution": {
+      "低风险": 3,
+      "中风险": 0,
+      "高风险": 0
+    },
+    "refactoring_results": {
+      "business_logic_extracted_count": 0,
+      "models_refactored_count": 1,
+      "models_retained_count": 2,
+      "service_methods_created_count": 0
+    },
+    "actions_taken": [
+      {
+        "model": "Client",
+        "file": "backend/apps/client/models.py",
+        "action": "移除空的save()覆写",
+        "reason": "save()方法仅调用super().save()，无任何业务逻辑或字段转换"
+      },
+      {
+        "model": "CaseNumber",
+        "file": "backend/apps/cases/models.py",
+        "action": "保留save()覆写",
+        "reason": "简单字段转换（统一括号格式、删除空格），符合Requirement 4.3允许的简单字段转换"
+      },
+      {
+        "model": "SystemConfig",
+        "file": "backend/apps/core/models.py",
+        "action": "保留save()覆写",
+        "reason": "缓存清除属于数据持久化副作用管理，非业务逻辑"
+      }
+    ],
+    "models_requiring_manual_processing": [],
+    "conclusion": "Phase 4 Model层重构完成。扫描发现3个Model包含save()覆写，全部为低风险。0个业务逻辑违规需要提取到Service层。1个空save()覆写（Client）已清理移除，2个save()覆写（CaseNumber、SystemConfig）因属于简单字段转换和缓存管理而保留。无需人工处理的Model。Model层已符合四层架构规范。"
+  },
+  "phase_16_4_review": {
+    "status": "completed",
+    "conclusion": "扫描结果显示高风险Model数量为0，无需执行高风险Model处理",
+    "high_risk_count": 0,
+    "details": [],
+    "refactoring_suggestions": [],
+    "manual_refactoring_required": [],
+    "note": "所有检测到的save()覆写均为低风险（简单字段转换或缓存清除），不存在复杂业务逻辑需要生成重构建议或标记人工重构"
+  },
+  "phase_16_3_review": {
+    "status": "completed",
+    "conclusion": "扫描结果显示中风险Model数量为0，无需执行中等风险Model重构",
+    "details": [],
+    "note": "所有检测到的save()覆写均为低风险，已在phase_16_2中审查处理完毕"
+  },
+  "phase_16_2_review": {
+    "status": "completed",
+    "conclusion": "所有低风险Model已符合架构规范，无需提取业务逻辑到Service层",
+    "details": [
+      {
+        "model": "CaseNumber",
+        "save_content": "字段格式化（统一括号、删除空格）+ super().save()",
+        "classification": "简单字段转换，符合Requirement 4.3",
+        "action": "保留，无需重构"
+      },
+      {
+        "model": "Client",
+        "save_content": "仅 super().save()，空覆写",
+        "classification": "无业务逻辑",
+        "action": "已移除空的save()覆写"
+      },
+      {
+        "model": "SystemConfig",
+        "save_content": "super().save() + 缓存清除",
+        "classification": "数据持久化副作用管理，非业务逻辑",
+        "action": "保留，无需重构"
+      }
+    ]
+  },
+  "assessments": [
+    {
+      "model_name": "CaseNumber",
+      "file_path": "backend/apps/cases/models.py",
+      "risk_level": "低风险",
+      "business_logic_count": 0,
+      "business_logic_summary": [],
+      "has_external_service_call": false,
+      "total_blocks": 2,
+      "extraction_recommendations": [],
+      "review_status": "compliant"
+    },
+    {
+      "model_name": "Client",
+      "file_path": "backend/apps/client/models.py",
+      "risk_level": "低风险",
+      "business_logic_count": 0,
+      "business_logic_summary": [],
+      "has_external_service_call": false,
+      "total_blocks": 0,
+      "extraction_recommendations": [],
+      "review_status": "cleaned_up - removed empty save() override"
+    },
+    {
+      "model_name": "SystemConfig",
+      "file_path": "backend/apps/core/models.py",
+      "risk_level": "低风险",
+      "business_logic_count": 0,
+      "business_logic_summary": [],
+      "has_external_service_call": false,
+      "total_blocks": 3,
+      "extraction_recommendations": [],
+      "review_status": "compliant"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* 当事人管理组件样式 */
+    .client-admin-container {
+        position: relative;
+    }
+
+    /* 成功消息 */
+    .success-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4caf50;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 4px;
+        z-index: 10001;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="client-admin-container" x-data="clientAdminApp()" x-init="init()">
+    {{ block.super }}
+
+    <!-- 成功消息提示 -->
+    <div class="success-toast"
+         x-show="successMessage"
+         x-text="successMessage"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:leave="transition ease-in duration-200">
+    </div>
+</div>
+
+<!-- 引入 Alpine.js 当事人管理组件 -->
+<script src="{% static 'client/client_admin_app.js' %}?v=1"></script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% load i18n %}
+<div class="info-section case-materials" data-materials-tab="non_party">
+    <div class="materials-header">
+        <button type="button" class="btn btn-secondary btn-sm" data-material-sort-toggle>
+            时间：正序
+        </button>
+        <div class="materials-actions">
+            <a href="{% url 'admin:cases_case_materials' case.pk %}" class="btn btn-primary btn-sm">
+                上传/绑定材料
+            </a>
+        </div>
+    </div>
+
+    {% if case_materials_view.non_party %}
+        {% with cnt=case_materials_view.non_party|length %}
+        <div class="materials-grid materials-grid--wrap {% if cnt == 1 %}materials-grid--wrap-1{% elif cnt == 2 %}materials-grid--wrap-2{% else %}materials-grid--wrap-3{% endif %}">
+            {% for column in case_materials_view.non_party %}
+                <section class="materials-column">
+                    <h3 class="materials-column-title">{{ column.title }}</h3>
+
+                    <div class="material-group-list"
+                         data-material-group-list
+                         data-category="non_party"
+                         data-supervising-authority-id="{{ column.supervising_authority_id }}">
+                        {% for group in column.groups %}
+                            <div class="material-group" data-type-id="{{ group.type_id }}">
+                                <div class="material-group-header">
+                                    <span class="material-group-handle" title="拖拽排序">⋮⋮</span>
+                                    <span class="material-group-title">{{ group.type_name }}</span>
+                                </div>
+                                <div class="material-file-list" data-material-file-list>
+                                    {% for item in group.items %}
+                                        <a class="material-file"
+                                           href="{{ item.file_url }}"
+                                           target="_blank"
+                                           rel="noopener"
+                                           data-uploaded-at="{{ item.uploaded_at|date:'c' }}">
+                                            <span class="material-file-name">{{ item.file_name }}</span>
+                                            <span class="material-file-meta">
+                                                <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
+                                            </span>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="empty-state">
+                                <p>暂无材料</p>
+                                <p class="hint">点击右上角“上传/绑定材料”开始整理</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
+        </div>
+        {% endwith %}
+    {% else %}
+        <div class="empty-state">
+            <p>本案未配置主管机关或暂无非当事人材料</p>
+            <p class="hint">先在案件编辑页配置主管机关，再到“上传/绑定材料”整理</p>
+        </div>
+    {% endif %}
+</div>

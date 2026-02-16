@@ -1,19 +1,219 @@
 {% extends "admin/base.html" %}
 {% load i18n %}
+{% load static %}
 
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<!-- Alpine.js -->
+<script defer src="{% static 'admin/js/alpine.js' %}"></script>
+<script defer src="{% static 'core/js/csrf.js' %}"></script>
+{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
 <style>
+    /* Alpine.js x-cloak 防止闪烁 */
+    [x-cloak] { display: none !important; }
+
+    /* 我要立案按钮样式 - 轻量边框风格 */
+    #user-tools .onboarding-btn {
+        color: #e0e7ff !important;
+        padding: 5px 14px;
+        border-radius: 6px;
+        margin-right: 15px;
+        font-weight: 500;
+        font-size: 13px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        display: inline-block;
+        border: 1px solid rgba(255,255,255,0.35);
+        background: rgba(255,255,255,0.08);
+    }
+
+    #user-tools .onboarding-btn:hover {
+        background: rgba(255,255,255,0.15);
+        border-color: rgba(255,255,255,0.5);
+        color: #fff !important;
+    }
+
     /* 关于链接样式 - 融入用户工具栏 */
     #user-tools .about-link {
         color: var(--header-link-color, #81d4fa);
         margin-right: 10px;
     }
-    
+
     #user-tools .about-link:hover {
         color: var(--header-link-color, #fff);
+    }
+
+    /* 反馈侧边栏样式 */
+    .feedback-sidebar {
+        position: fixed;
+        right: 0;
+        bottom: 100px;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .feedback-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px 8px;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 2px 15px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+        letter-spacing: 2px;
+        min-height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .feedback-button:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        box-shadow: -4px 4px 25px rgba(102, 126, 234, 0.5);
+        transform: translateX(-5px);
+    }
+
+    .feedback-tooltip {
+        position: absolute;
+        right: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: -5px 5px 30px rgba(0,0,0,0.15);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        width: 280px;
+        margin-right: 10px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .feedback-sidebar:hover .feedback-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(-50%) translateX(-10px);
+    }
+
+    .feedback-tooltip::after {
+        content: '';
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 8px solid transparent;
+        border-left-color: white;
+    }
+
+    .feedback-tooltip h4 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .feedback-qrcode {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .feedback-qrcode img {
+        width: 120px;
+        height: 120px;
+        border-radius: 8px;
+        border: 2px solid #f0f0f0;
+    }
+
+    .feedback-qrcodes {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .feedback-qrcode-item {
+        flex: 1;
+        text-align: center;
+    }
+
+    .feedback-qrcode-item img {
+        width: 100px;
+        height: 100px;
+        border-radius: 8px;
+        border: 2px solid #f0f0f0;
+        transition: transform 0.2s ease;
+    }
+
+    .feedback-qrcode-item img:hover {
+        transform: scale(1.05);
+    }
+
+    .feedback-qrcode-item .qr-label {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .feedback-text {
+        text-align: center;
+        color: #666;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .feedback-text .highlight {
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .feedback-sidebar {
+            bottom: 80px;
+        }
+
+        .feedback-button {
+            padding: 12px 6px;
+            font-size: 12px;
+            min-height: 100px;
+        }
+
+        .feedback-tooltip {
+            width: 240px;
+            padding: 15px;
+        }
+
+        .feedback-qrcodes {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feedback-qrcode-item img {
+            width: 80px;
+            height: 80px;
+        }
+    }
+
+    #container a {
+        text-decoration: none !important;
+    }
+
+    #container a:focus,
+    #container a:hover {
+        text-decoration: none !important;
     }
 </style>
 {% endblock %}
@@ -27,6 +227,34 @@
 {% endblock %}
 
 {% block userlinks %}
+<a href="{% url 'onboarding:wizard' %}" class="onboarding-btn">我要立案</a>
 <a href="{% url 'admin:about' %}" class="about-link">关于法穿</a>
 {{ block.super }}
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<!-- 反馈侧边栏 -->
+<div class="feedback-sidebar">
+    <button class="feedback-button">
+        问题反馈
+    </button>
+    <div class="feedback-tooltip">
+        <h4>💬 问题反馈</h4>
+        <div class="feedback-qrcodes">
+            <div class="feedback-qrcode-item">
+                <img src="{% static 'core/images/法穿公众号.jpg' %}" alt="法穿公众号二维码">
+                <div class="qr-label">公众号反馈</div>
+            </div>
+            <div class="feedback-qrcode-item">
+                <img src="{% static 'core/images/wechat.jpg' %}" alt="作者微信二维码">
+                <div class="qr-label">联系作者</div>
+            </div>
+        </div>
+        <div class="feedback-text">
+            <p>扫码关注 <span class="highlight">「法穿」</span> 公众号反馈问题</p>
+            <p>或直接添加作者微信进行交流</p>
+        </div>
+    </div>
+</div>
 {% endblock %}

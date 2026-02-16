@@ -1,0 +1,280 @@
+/**
+ * 证据清单 Admin 样式
+ *
+ * Requirements: 11.6, 11.7
+ */
+
+/* 操作按钮样式 */
+.field-actions_display a.button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    margin: 2px 6px 2px 0;
+    font-size: 12.5px;
+    text-decoration: none;
+    background: linear-gradient(180deg, #2b6a85 0%, #205b74 100%);
+    color: #fff;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.2s;
+}
+
+.field-actions_display a.button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(2, 6, 23, 0.12);
+}
+
+/* 合并状态样式 */
+.field-has_merged_pdf_display span {
+    font-weight: 500;
+}
+
+/* 页码范围样式 */
+.field-page_range_display {
+    font-family: monospace;
+}
+
+/* 证据数量样式 */
+.field-item_count_display {
+    text-align: center;
+}
+
+/* 导出设置区域样式优化 */
+.evidence-export-section {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px !important;
+    margin-top: 16px;
+    margin-bottom: 20px;
+}
+
+.evidence-export-section .form-row {
+    margin-bottom: 16px;
+}
+
+.evidence-export-section .form-row:last-child {
+    margin-bottom: 0;
+}
+
+/* 导出版本号字段样式 */
+.evidence-export-section .field-export_version {
+    margin-bottom: 20px;
+}
+
+.evidence-export-section .field-export_version label {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.evidence-export-section .field-export_version input {
+    width: 120px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.evidence-export-section .field-export_version input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.evidence-export-section .field-export_version .help {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* 导出模板字段样式 */
+.evidence-export-section .field-export_template {
+    position: relative;
+    z-index: 100;
+}
+
+.evidence-export-section .field-export_template label {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.evidence-export-section .field-export_template .help {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+/* 模板选择器容器 */
+.evidence-export-section .field-export_template > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 下拉框样式 */
+.evidence-export-section .field-export_template select {
+    flex: 1;
+    min-width: 280px;
+    max-width: 500px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.evidence-export-section .field-export_template select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Admin Autocomplete 下拉菜单高度与层级 */
+.evidence-export-section .field-export_template .select2-container {
+    flex: 1;
+    min-width: 280px;
+    max-width: 500px;
+}
+
+.evidence-export-section .field-export_template .select2-container--admin-autocomplete .select2-selection--single {
+    min-height: 38px;
+}
+
+.evidence-export-section .field-export_template .select2-container--admin-autocomplete .select2-selection--single .select2-selection__rendered {
+    line-height: 36px;
+}
+
+.evidence-export-section .field-export_template .select2-container--admin-autocomplete .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+}
+
+.evidence-export-section .select2-container--admin-autocomplete .select2-results > .select2-results__options {
+    max-height: 420px;
+}
+
+.evidence-export-section .select2-container--open {
+    z-index: 10001;
+}
+
+/* 操作按钮组样式 */
+.evidence-export-section .field-export_template .related-widget-wrapper-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.evidence-export-section .field-export_template .related-widget-wrapper-link:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+}
+
+.evidence-export-section .field-export_template .related-widget-wrapper-link img {
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+}
+
+.evidence-export-section .field-export_template .related-widget-wrapper-link:hover img {
+    opacity: 1;
+}
+
+/* 按钮组容器 */
+.evidence-export-section .field-export_template .related-widget-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+    .field-actions_display a.button {
+        display: block;
+        margin: 4px 0;
+        text-align: center;
+    }
+
+    .evidence-export-section .field-export_template > div {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .evidence-export-section .field-export_template select {
+        max-width: 100%;
+    }
+
+    .evidence-export-section .field-export_template .related-widget-wrapper {
+        justify-content: flex-start;
+    }
+}
+
+.evidence-merge-progress {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid #dbeafe;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    display: none;
+}
+
+.evidence-merge-progress__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.evidence-merge-progress__text {
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.35;
+    font-family: inherit;
+}
+
+.evidence-merge-progress__track {
+    flex: 1;
+    max-width: 560px;
+    height: 10px;
+    background: #dbeafe;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.evidence-merge-progress__bar {
+    height: 10px;
+    width: 0%;
+    background: linear-gradient(90deg, #2563eb 0%, #06b6d4 100%);
+    border-radius: 999px;
+}
+
+.evidence-merge-progress__error {
+    margin-top: 8px;
+    color: #b91c1c;
+    display: none;
+    white-space: pre-wrap;
+    font-size: 12.5px;
+    line-height: 1.35;
+}

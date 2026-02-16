@@ -1,0 +1,68 @@
+"""
+法院文书下载爬虫主入口
+
+根据 URL 自动选择对应的下载策略
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any
+
+from .base_court_scraper import BaseCourtDocumentScraper
+from .gdems_scraper import GdemsCourtScraper
+from .zxfw_scraper import ZxfwCourtScraper
+
+if TYPE_CHECKING:
+    from apps.core.interfaces import ICourtDocumentService
+
+logger = logging.getLogger("apps.automation")
+
+
+class CourtDocumentScraper(BaseCourtDocumentScraper):
+    """
+    法院文书下载爬虫主入口
+
+    根据不同的链接格式,自动选择对应的下载策略:
+    - zxfw.court.gov.cn: 法院执行网
+    - sd.gdems.com: 广东电子送达
+    """
+
+    def __init__(self, task: Any, document_service: ICourtDocumentService | None = None) -> None:
+        super().__init__(task, document_service)
+        self._scraper: BaseCourtDocumentScraper | None = None
+
+    def _run(self) -> dict[str, Any]:
+        """
+        执行文书下载任务
+
+        Returns:
+            包含下载文件路径列表的字典
+        """
+        logger.info(f"执行法院文书下载: {self.task.url}")
+
+        # 根据 URL 判断链接类型并选择对应的爬虫
+        url = self.task.url
+
+        if "zxfw.court.gov.cn" in url:
+            self._scraper = ZxfwCourtScraper(self.task, self._document_service)
+            # 复制必要的属性
+            if hasattr(self, "page"):
+                self._scraper.page = self.page
+            if hasattr(self, "context"):
+                self._scraper.context = self.context
+            if hasattr(self, "browser"):
+                self._scraper.browser = self.browser  # type: ignore[attr-defined]
+            return self._scraper.run()
+        elif "sd.gdems.com" in url:
+            self._scraper = GdemsCourtScraper(self.task, self._document_service)
+            # 复制必要的属性
+            if hasattr(self, "page"):
+                self._scraper.page = self.page
+            if hasattr(self, "context"):
+                self._scraper.context = self.context
+            if hasattr(self, "browser"):
+                self._scraper.browser = self.browser  # type: ignore[attr-defined]
+            return self._scraper.run()
+        else:
+            raise ValueError(f"不支持的链接格式: {url}")

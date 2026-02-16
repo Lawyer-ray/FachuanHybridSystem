@@ -1,0 +1,107 @@
+{% load static %}
+
+<div class="ai-chat-container" x-data="aiLitigationTabApp({ caseId: {{ case.pk }} })" x-init="init()" style="display: flex !important; height: 600px !important;">
+    <!-- 左侧会话列表 (30%) -->
+    <div class="session-list" style="width: 30% !important; min-width: 300px !important; border-right: 1px solid #e0e0e0 !important; display: flex !important; flex-direction: column !important; background: #f9f9f9 !important;">
+        <button @click="createNewSession()" class="btn-new-session">
+            ➕ 新建对话
+        </button>
+
+        <div class="session-items">
+            <template x-for="session in sessions" :key="session.session_id">
+                <div
+                    class="session-item"
+                    :class="{ active: currentSessionId === session.session_id }"
+                    @click="selectSession(session.session_id)"
+                >
+                    <div class="session-header">
+                        <span class="session-type" x-text="getDocumentTypeDisplay(session.document_type)"></span>
+                        <span class="session-status" x-text="getStatusIcon(session.status)"></span>
+                    </div>
+                    <div class="session-time" x-text="formatFullTime(session.created_at)"></div>
+                    <button
+                        class="session-delete"
+                        @click.stop="deleteSession(session.session_id)"
+                        title="删除会话"
+                    >
+                        🗑️
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <!-- 空状态 -->
+        <div x-show="sessions.length === 0" class="empty-state">
+            <div class="empty-icon">💬</div>
+            <div class="empty-text">暂无会话</div>
+            <div class="empty-hint">点击"新建对话"开始</div>
+        </div>
+    </div>
+
+    <!-- 右侧对话区域 (70%) -->
+    <div class="chat-area" style="width: 70% !important; display: flex !important; flex-direction: column !important; background: white !important;">
+        <!-- 会话信息栏 -->
+        <div x-show="currentSessionId" class="chat-header">
+            <template x-for="session in sessions" :key="session.session_id">
+                <div x-show="session.session_id === currentSessionId" class="chat-info">
+                    <span class="doc-type" x-text="getDocumentTypeDisplay(session.document_type)"></span>
+                    <span class="separator">|</span>
+                    <span class="created-time" x-text="formatFullTime(session.created_at)"></span>
+                    <span class="separator">|</span>
+                    <span class="status-badge" x-text="session.status === 'active' ? '进行中' : '已完成'"></span>
+                </div>
+            </template>
+        </div>
+
+        <!-- 消息列表 -->
+        <div class="messages-container" x-ref="messagesContainer">
+            <!-- 加载状态 -->
+            <div x-show="loading" class="loading-state">
+                <div class="spinner"></div>
+                <div>加载中...</div>
+            </div>
+
+            <!-- 消息列表 -->
+            <template x-for="message in messages" :key="message.id || message.created_at">
+                <div class="message" :class="message.role">
+                    <div x-show="message.role !== 'system'" class="message-avatar">
+                        <span x-text="message.role === 'user' ? '👤' : '🤖'"></span>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text" x-text="message.content"></div>
+                        <div x-show="message.role !== 'system'" class="message-time">
+                            <span x-text="new Date(message.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })"></span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- 空状态 -->
+            <div x-show="!loading && !currentSessionId" class="empty-state">
+                <div class="empty-icon">💬</div>
+                <div class="empty-text">选择一个会话开始对话</div>
+                <div class="empty-hint">或点击"新建对话"创建新会话</div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div x-show="currentSessionId" class="input-area">
+            <textarea
+                x-ref="inputArea"
+                x-model="inputMessage"
+                @keydown.enter="$event.shiftKey || ($event.preventDefault(), sendMessage())"
+                placeholder="输入消息... (Shift+Enter 换行，Enter 发送)"
+                rows="3"
+            ></textarea>
+            <button
+                @click="sendMessage()"
+                :disabled="!inputMessage.trim() || sending"
+                class="btn-send"
+            >
+                发送
+            </button>
+        </div>
+    </div>
+
+    <!-- 删除确认对话框（已移除：点击垃圾桶直接删除） -->
+</div>

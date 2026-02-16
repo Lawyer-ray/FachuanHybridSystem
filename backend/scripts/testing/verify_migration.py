@@ -16,7 +16,8 @@ Usage:
 
 import subprocess
 import sys
-from pathlib import Path
+
+from apps.core.path import Path
 
 
 def run_command(cmd, description):
@@ -24,20 +25,14 @@ def run_command(cmd, description):
     print(f"\n{'='*80}")
     print(f"Running: {description}")
     print(f"{'='*80}")
-    
+
     try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
+
         print(result.stdout)
         if result.stderr:
             print("STDERR:", result.stderr)
-        
+
         return result.returncode == 0
     except subprocess.TimeoutExpired:
         print(f"⚠️  Command timed out: {description}")
@@ -50,59 +45,55 @@ def run_command(cmd, description):
 def main():
     """Run all verification checks."""
     print("Backend Structure Optimization - Migration Verification")
-    print("="*80)
-    
+    print("=" * 80)
+
     results = {}
-    
+
     # 1. Structure validation tests
-    results['structure'] = run_command(
-        "venv311/bin/python -m pytest tests/structure/ -v --no-cov --tb=no -q",
-        "Structure Validation Tests"
+    results["structure"] = run_command(
+        "venv312/bin/python -m pytest tests/structure/ -v --no-cov --tb=no -q", "Structure Validation Tests"
     )
-    
+
     # 2. Core unit tests
-    results['unit_core'] = run_command(
-        "venv311/bin/python -m pytest tests/unit/core/ -v --no-cov --tb=no -q",
-        "Core Unit Tests"
+    results["unit_core"] = run_command(
+        "venv312/bin/python -m pytest tests/unit/core/ -v --no-cov --tb=no -q", "Core Unit Tests"
     )
-    
+
     # 3. Cases integration tests
-    results['integration_cases'] = run_command(
-        "venv311/bin/python -m pytest tests/integration/cases/ -v --no-cov --tb=no -q",
-        "Cases Integration Tests"
+    results["integration_cases"] = run_command(
+        "venv312/bin/python -m pytest tests/integration/cases/ -v --no-cov --tb=no -q", "Cases Integration Tests"
     )
-    
+
     # 4. Cases property tests
-    results['property_cases'] = run_command(
-        "venv311/bin/python -m pytest tests/property/cases/ -v --no-cov --tb=no -q",
-        "Cases Property-Based Tests"
+    results["property_cases"] = run_command(
+        "venv312/bin/python -m pytest tests/property/cases/ -v --no-cov --tb=no -q", "Cases Property-Based Tests"
     )
-    
+
     # 5. Test collection summary
     print(f"\n{'='*80}")
     print("Test Collection Summary")
     print(f"{'='*80}")
-    
-    for test_type in ['unit', 'integration', 'property', 'structure']:
+
+    for test_type in ["unit", "integration", "property", "structure"]:
         result = subprocess.run(
-            f"venv311/bin/python -m pytest tests/{test_type}/ --collect-only -q 2>&1 | tail -1",
+            f"venv312/bin/python -m pytest tests/{test_type}/ --collect-only -q 2>&1 | tail -1",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
         )
         print(f"{test_type.capitalize()}: {result.stdout.strip()}")
-    
+
     # Print summary
     print(f"\n{'='*80}")
     print("VERIFICATION SUMMARY")
     print(f"{'='*80}")
-    
+
     for name, passed in results.items():
         status = "✅ PASSED" if passed else "❌ FAILED"
         print(f"{name:30s}: {status}")
-    
+
     all_passed = all(results.values())
-    
+
     print(f"\n{'='*80}")
     if all_passed:
         print("✅ ALL VERIFICATION CHECKS PASSED")
@@ -111,7 +102,7 @@ def main():
         print("⚠️  SOME VERIFICATION CHECKS FAILED")
         print("Please review the failures above.")
     print(f"{'='*80}\n")
-    
+
     return 0 if all_passed else 1
 
 

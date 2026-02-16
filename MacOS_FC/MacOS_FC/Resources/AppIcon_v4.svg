@@ -1,0 +1,161 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 深空背景 -->
+    <radialGradient id="spaceBg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" style="stop-color:#1a1333"/>
+      <stop offset="50%" style="stop-color:#0d0a1a"/>
+      <stop offset="100%" style="stop-color:#030108"/>
+    </radialGradient>
+    
+    <!-- 星云光晕 -->
+    <radialGradient id="nebula1" cx="30%" cy="30%" r="50%">
+      <stop offset="0%" style="stop-color:#7C3AED;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:0"/>
+    </radialGradient>
+    
+    <radialGradient id="nebula2" cx="70%" cy="70%" r="50%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:0"/>
+    </radialGradient>
+    
+    <!-- 核心能量 -->
+    <radialGradient id="coreEnergy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#F0ABFC;stop-opacity:0.9"/>
+      <stop offset="30%" style="stop-color:#A855F7;stop-opacity:0.5"/>
+      <stop offset="60%" style="stop-color:#6366F1;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#1E1B4B;stop-opacity:0"/>
+    </radialGradient>
+    
+    <!-- 光束渐变 -->
+    <linearGradient id="beam" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E0E7FF;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#A5B4FC;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#E0E7FF;stop-opacity:0"/>
+    </linearGradient>
+    
+    <!-- 环形渐变 -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C4B5FD"/>
+      <stop offset="50%" style="stop-color:#818CF8"/>
+      <stop offset="100%" style="stop-color:#6366F1"/>
+    </linearGradient>
+    
+    <!-- 金属质感 -->
+    <linearGradient id="metallic" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E0E7FF"/>
+      <stop offset="50%" style="stop-color:#818CF8"/>
+      <stop offset="100%" style="stop-color:#E0E7FF"/>
+    </linearGradient>
+    
+    <!-- 滤镜 -->
+    <filter id="megaGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="tinyGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 圆角背景 -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#spaceBg)"/>
+  
+  <!-- 星云效果 -->
+  <ellipse cx="350" cy="350" rx="300" ry="250" fill="url(#nebula1)"/>
+  <ellipse cx="674" cy="674" rx="280" ry="230" fill="url(#nebula2)"/>
+  
+  <!-- 星星背景 -->
+  <circle cx="180" cy="200" r="1.5" fill="#fff" opacity="0.6"/>
+  <circle cx="280" cy="140" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="820" cy="180" r="1.5" fill="#fff" opacity="0.5"/>
+  <circle cx="880" cy="280" r="1" fill="#fff" opacity="0.3"/>
+  <circle cx="160" cy="780" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="220" cy="860" r="1.5" fill="#fff" opacity="0.5"/>
+  <circle cx="780" cy="880" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="860" cy="760" r="1.5" fill="#fff" opacity="0.5"/>
+  <circle cx="140" cy="500" r="1" fill="#fff" opacity="0.3"/>
+  <circle cx="884" cy="520" r="1" fill="#fff" opacity="0.3"/>
+  
+  <!-- 核心能量场 -->
+  <circle cx="512" cy="512" r="280" fill="url(#coreEnergy)"/>
+  
+  <!-- 外层旋转环 - 倾斜椭圆 -->
+  <ellipse cx="512" cy="512" rx="320" ry="120" transform="rotate(-20 512 512)" stroke="url(#ringGrad)" stroke-width="2" fill="none" opacity="0.4"/>
+  <ellipse cx="512" cy="512" rx="320" ry="120" transform="rotate(40 512 512)" stroke="url(#ringGrad)" stroke-width="2" fill="none" opacity="0.35"/>
+  <ellipse cx="512" cy="512" rx="320" ry="120" transform="rotate(100 512 512)" stroke="url(#ringGrad)" stroke-width="2" fill="none" opacity="0.3"/>
+  
+  <!-- 中层轨道环 -->
+  <circle cx="512" cy="512" r="220" stroke="#6366F1" stroke-width="1" stroke-dasharray="2 6" fill="none" opacity="0.4"/>
+  <circle cx="512" cy="512" r="180" stroke="#818CF8" stroke-width="1.5" fill="none" opacity="0.5"/>
+  <circle cx="512" cy="512" r="140" stroke="#A5B4FC" stroke-width="2" fill="none" opacity="0.6"/>
+  
+  <!-- 能量光束 - 十字 -->
+  <rect x="100" y="506" width="824" height="12" rx="6" fill="url(#beam)" opacity="0.3"/>
+  <rect x="506" y="100" width="12" height="824" rx="6" fill="url(#beam)" opacity="0.3"/>
+  
+  <!-- 对角光束 -->
+  <rect x="100" y="506" width="824" height="8" rx="4" fill="url(#beam)" opacity="0.2" transform="rotate(45 512 512)"/>
+  <rect x="100" y="506" width="824" height="8" rx="4" fill="url(#beam)" opacity="0.2" transform="rotate(-45 512 512)"/>
+  
+  <!-- 六边形框架 -->
+  <polygon points="512,312 685,412 685,612 512,712 339,612 339,412" stroke="url(#metallic)" stroke-width="3" fill="none" filter="url(#softGlow)"/>
+  
+  <!-- 内六边形 -->
+  <polygon points="512,382 625,447 625,577 512,642 399,577 399,447" stroke="#A5B4FC" stroke-width="2" fill="none" opacity="0.7"/>
+  
+  <!-- 六边形顶点能量球 -->
+  <circle cx="512" cy="312" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="512" cy="312" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <circle cx="685" cy="412" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="685" cy="412" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <circle cx="685" cy="612" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="685" cy="612" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <circle cx="512" cy="712" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="512" cy="712" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <circle cx="339" cy="612" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="339" cy="612" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <circle cx="339" cy="412" r="12" fill="#1E1B4B" stroke="#C4B5FD" stroke-width="2"/>
+  <circle cx="339" cy="412" r="5" fill="#E0E7FF" filter="url(#tinyGlow)"/>
+  
+  <!-- 轨道上的卫星点 -->
+  <circle cx="512" cy="292" r="6" fill="#A5B4FC" filter="url(#tinyGlow)"/>
+  <circle cx="732" cy="512" r="6" fill="#818CF8" filter="url(#tinyGlow)"/>
+  <circle cx="512" cy="732" r="6" fill="#A5B4FC" filter="url(#tinyGlow)"/>
+  <circle cx="292" cy="512" r="6" fill="#818CF8" filter="url(#tinyGlow)"/>
+  
+  <!-- 核心结构 -->
+  <circle cx="512" cy="512" r="70" fill="#0d0a1a" stroke="#4338CA" stroke-width="3"/>
+  <circle cx="512" cy="512" r="55" fill="#1E1B4B" stroke="#6366F1" stroke-width="2"/>
+  <circle cx="512" cy="512" r="40" fill="#312E81"/>
+  
+  <!-- 核心发光球 -->
+  <circle cx="512" cy="512" r="28" fill="#6366F1" filter="url(#megaGlow)"/>
+  <circle cx="512" cy="512" r="18" fill="#A5B4FC" filter="url(#softGlow)"/>
+  <circle cx="512" cy="512" r="10" fill="#E0E7FF"/>
+  <circle cx="512" cy="512" r="4" fill="#fff"/>
+  
+  <!-- 核心高光 -->
+  <ellipse cx="506" cy="504" rx="6" ry="4" fill="#fff" opacity="0.6"/>
+</svg>

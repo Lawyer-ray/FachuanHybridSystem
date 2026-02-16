@@ -1,0 +1,5 @@
+apps/automation/tasks_impl/document_processor.py
+apps/automation/tasks_impl/document_recognition.py
+apps/automation/tasks_impl/monitoring.py
+apps/automation/workers/court_sms_tasks.py
+apps/chat_records/tasks.py

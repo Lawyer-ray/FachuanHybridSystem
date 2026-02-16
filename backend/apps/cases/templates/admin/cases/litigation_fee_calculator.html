@@ -1,0 +1,548 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}诉讼费用计算器{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .calculator-container {
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    .calculator-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .calculator-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+    .calculator-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+    .calculator-subtitle {
+        color: #666;
+        margin: 0;
+    }
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #417690;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #f0f7fa;
+        transition: background 0.2s;
+    }
+    .back-link:hover {
+        background: #e0eff5;
+        text-decoration: none;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+        height: 44px;
+    }
+    .form-group input:focus, .form-group select:focus {
+        outline: none;
+        border-color: #417690;
+        box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.1);
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-row .form-group {
+        margin-bottom: 0;
+    }
+    .form-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .btn-calculate {
+        background: #417690;
+        color: #fff;
+        border: none;
+        padding: 12px 28px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        height: 44px;
+    }
+    .btn-calculate:hover {
+        background: #205067;
+    }
+    .btn-reset {
+        background: #f5f5f5;
+        color: #333;
+        border: 1px solid #ddd;
+        padding: 12px 28px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        height: 44px;
+    }
+    .btn-reset:hover {
+        background: #eee;
+    }
+    .results-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #eee;
+    }
+    .results-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 16px;
+    }
+    .result-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .result-item.highlight {
+        background: #e8f4f8;
+        border: 1px solid #b8d4e3;
+    }
+    .result-label {
+        color: #555;
+    }
+    .result-value {
+        font-weight: 600;
+        color: #1a1a1a;
+    }
+    .result-value.primary {
+        color: #417690;
+        font-size: 18px;
+    }
+    .fee-rules {
+        margin-top: 24px;
+        padding: 16px;
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 6px;
+    }
+    .fee-rules-title {
+        font-weight: 600;
+        color: #92400e;
+        margin-bottom: 8px;
+    }
+    .fee-rules-content {
+        font-size: 13px;
+        color: #78350f;
+        line-height: 1.6;
+    }
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+    .loading.show {
+        display: block;
+    }
+    .error-message {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-top: 16px;
+        display: none;
+    }
+    .error-message.show {
+        display: block;
+    }
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .calculator-header {
+            flex-direction: column;
+            gap: 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="calculator-container">
+    <div class="calculator-card">
+        <div class="calculator-header">
+            <div>
+                <h1 class="calculator-title">诉讼费用计算器</h1>
+                <p class="calculator-subtitle">根据《诉讼费用交纳办法》（2007年4月1日施行）计算各类诉讼费用</p>
+            </div>
+            <a href="{% url 'admin:cases_case_changelist' %}" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回案件列表
+            </a>
+        </div>
+
+        <form id="feeCalculatorForm">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="target_amount">涉案金额（元）</label>
+                    <input type="number" id="target_amount" name="target_amount"
+                           placeholder="请输入涉案金额" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="preservation_amount">财产保全金额（元）</label>
+                    <input type="number" id="preservation_amount" name="preservation_amount"
+                           placeholder="请输入财产保全金额" min="0" step="0.01">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="case_type">案件类型</label>
+                    <select id="case_type" name="case_type">
+                        <optgroup label="财产案件">
+                            <option value="property" selected>财产案件（民事）</option>
+                        </optgroup>
+                        <optgroup label="非财产案件">
+                            <option value="divorce">离婚案件（50-300元）</option>
+                            <option value="personality_rights">人格权侵权案件（100-500元）</option>
+                            <option value="other_non_property">其他非财产案件（50-100元）</option>
+                        </optgroup>
+                        <optgroup label="知识产权案件">
+                            <option value="ip_no_amount">知识产权案件（无争议金额，500-1000元）</option>
+                            <option value="ip_with_amount">知识产权案件（有争议金额，按财产案件）</option>
+                        </optgroup>
+                        <optgroup label="行政案件">
+                            <option value="admin_ip">商标/专利/海事行政案件（100元）</option>
+                            <option value="admin_other">其他行政案件（50元）</option>
+                        </optgroup>
+                        <optgroup label="申请费">
+                            <option value="execution">执行案件</option>
+                            <option value="preservation_only">申请保全措施</option>
+                            <option value="payment_order">申请支付令（财产案件1/3）</option>
+                            <option value="public_notice">申请公示催告（100元）</option>
+                            <option value="revoke_arbitration">撤销仲裁裁决/认定仲裁协议效力（400元）</option>
+                            <option value="bankruptcy">破产案件（减半，最高30万）</option>
+                        </optgroup>
+                        <optgroup label="其他">
+                            <option value="labor">劳动争议案件（10元）</option>
+                            <option value="jurisdiction_objection">管辖权异议（50-100元）</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-calculate">计算费用</button>
+                        <button type="button" class="btn-reset" onclick="resetForm()">重置</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="loading" id="loading">
+            <span>计算中...</span>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <h2 class="results-title">计算结果</h2>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <div class="fee-rules">
+            <div class="fee-rules-title">📋 费用计算规则说明（依据《诉讼费用交纳办法》）</div>
+            <div class="fee-rules-content">
+                <strong>一、财产案件受理费（分段累计）：</strong><br>
+                • 不超过1万元：50元<br>
+                • 1万-10万元：2.5%<br>
+                • 10万-20万元：2%<br>
+                • 20万-50万元：1.5%<br>
+                • 50万-100万元：1%<br>
+                • 100万-200万元：0.9%<br>
+                • 200万-500万元：0.8%<br>
+                • 500万-1000万元：0.7%<br>
+                • 1000万-2000万元：0.6%<br>
+                • 超过2000万元：0.5%<br><br>
+
+                <strong>二、非财产案件：</strong><br>
+                • 离婚案件：50-300元；财产超过20万按0.5%<br>
+                • 人格权侵权：100-500元；赔偿5万-10万按1%，超10万按0.5%<br>
+                • 其他非财产案件：50-100元<br><br>
+
+                <strong>三、知识产权案件：</strong><br>
+                • 无争议金额：500-1000元<br>
+                • 有争议金额：按财产案件标准<br><br>
+
+                <strong>四、执行案件：</strong><br>
+                • 不超过1万元：50元<br>
+                • 1万-50万元：1.5%<br>
+                • 50万-500万元：1%<br>
+                • 500万-1000万元：0.5%<br>
+                • 超过1000万元：0.1%<br><br>
+
+                <strong>五、财产保全费：</strong><br>
+                • 不超过1000元：30元<br>
+                • 1000元-10万元：1%<br>
+                • 超过10万元：0.5%<br>
+                • 最高不超过5000元<br><br>
+
+                <strong>六、其他费用：</strong><br>
+                • 支付令申请费：财产案件费的1/3<br>
+                • 破产案件：财产案件费减半，最高30万元<br>
+                • 劳动争议：10元<br>
+                • 公示催告：100元<br>
+                • 撤销仲裁裁决：400元<br><br>
+
+                <strong>七、减免规定：</strong><br>
+                • 调解结案/撤诉/简易程序：减半<br>
+                • 反诉合并审理：减半
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('feeCalculatorForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const loading = document.getElementById('loading');
+    const errorMessage = document.getElementById('errorMessage');
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    // 重置状态
+    loading.classList.add('show');
+    errorMessage.classList.remove('show');
+    resultsSection.style.display = 'none';
+
+    const targetAmount = document.getElementById('target_amount').value || null;
+    const preservationAmount = document.getElementById('preservation_amount').value || null;
+    const caseType = document.getElementById('case_type').value || 'property';
+
+    // 根据案件类型验证输入
+    const needsAmount = ['property', 'execution', 'bankruptcy', 'payment_order', 'ip_with_amount', 'divorce', 'personality_rights'].includes(caseType);
+    const needsPreservation = ['preservation_only'].includes(caseType);
+
+    if (needsAmount && !targetAmount) {
+        loading.classList.remove('show');
+        errorMessage.textContent = '该案件类型需要输入涉案金额';
+        errorMessage.classList.add('show');
+        return;
+    }
+
+    if (needsPreservation && !preservationAmount) {
+        loading.classList.remove('show');
+        errorMessage.textContent = '申请保全措施需要输入财产保全金额';
+        errorMessage.classList.add('show');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/v1/cases/calculate-fee', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({
+                target_amount: targetAmount ? parseFloat(targetAmount) : null,
+                preservation_amount: preservationAmount ? parseFloat(preservationAmount) : null,
+                case_type: caseType,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || '计算失败');
+        }
+
+        const result = await response.json();
+        displayResults(result, caseType);
+
+    } catch (error) {
+        errorMessage.textContent = error.message || '计算服务暂时不可用';
+        errorMessage.classList.add('show');
+    } finally {
+        loading.classList.remove('show');
+    }
+});
+
+function displayResults(result, caseType) {
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    let html = '';
+
+    // 固定费用类型
+    if (result.fixed_fee !== null && result.fixed_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">${result.fee_name || '案件受理费'}</span>
+                <span class="result-value primary">${formatCurrency(result.fixed_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 案件受理费
+    if (result.acceptance_fee !== null && result.acceptance_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">案件受理费</span>
+                <span class="result-value primary">${formatCurrency(result.acceptance_fee)}</span>
+            </div>
+        `;
+        if (result.acceptance_fee_half !== null) {
+            html += `
+                <div class="result-item">
+                    <span class="result-label">减半后受理费（调解/撤诉/简易程序）</span>
+                    <span class="result-value">${formatCurrency(result.acceptance_fee_half)}</span>
+                </div>
+            `;
+        }
+    }
+
+    // 支付令申请费
+    if (result.payment_order_fee !== null && result.payment_order_fee !== undefined) {
+        html += `
+            <div class="result-item">
+                <span class="result-label">支付令申请费</span>
+                <span class="result-value">${formatCurrency(result.payment_order_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 执行案件费用
+    if (result.execution_fee !== null && result.execution_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">执行案件费用</span>
+                <span class="result-value primary">${formatCurrency(result.execution_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 破产案件费用
+    if (result.bankruptcy_fee !== null && result.bankruptcy_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">破产案件费用</span>
+                <span class="result-value primary">${formatCurrency(result.bankruptcy_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 财产保全费
+    if (result.preservation_fee !== null && result.preservation_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">财产保全费</span>
+                <span class="result-value primary">${formatCurrency(result.preservation_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 离婚案件费用
+    if (result.divorce_fee !== null && result.divorce_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">离婚案件费用</span>
+                <span class="result-value primary">${formatCurrency(result.divorce_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 人格权案件费用
+    if (result.personality_rights_fee !== null && result.personality_rights_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">人格权侵权案件费用</span>
+                <span class="result-value primary">${formatCurrency(result.personality_rights_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 知识产权案件费用
+    if (result.ip_fee !== null && result.ip_fee !== undefined) {
+        html += `
+            <div class="result-item highlight">
+                <span class="result-label">知识产权案件费用</span>
+                <span class="result-value primary">${formatCurrency(result.ip_fee)}</span>
+            </div>
+        `;
+    }
+
+    // 计算说明
+    if (result.calculation_details && result.calculation_details.length > 0) {
+        html += `
+            <div class="result-item" style="background: #f0f9ff; border: 1px solid #bae6fd; flex-direction: column; gap: 4px;">
+                <span class="result-label" style="font-weight: 600; color: #0369a1;">计算说明</span>
+                <span class="result-value" style="font-size: 13px; color: #0c4a6e; font-weight: normal;">
+                    ${result.calculation_details.join('<br>')}
+                </span>
+            </div>
+        `;
+    }
+
+    if (!html) {
+        html = '<div class="result-item"><span class="result-label">暂无计算结果</span></div>';
+    }
+
+    resultsContainer.innerHTML = html;
+    resultsSection.style.display = 'block';
+}
+
+function formatCurrency(amount) {
+    if (amount === null || amount === undefined) return '-';
+    return amount.toLocaleString('zh-CN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }) + ' 元';
+}
+
+function resetForm() {
+    document.getElementById('feeCalculatorForm').reset();
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('errorMessage').classList.remove('show');
+}
+</script>
+{% endblock %}

@@ -5,24 +5,33 @@ URL configuration for apiSystem project.
 - /api/v1/ - API v1 版本
 - /api/ - 重定向到 /api/v1/
 """
-from django.contrib import admin
-from django.urls import path
-from django.http import HttpResponseRedirect, HttpResponse
+
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import render
+from django.urls import include, path
 
-from .api import api_v1
 from apps.organization.views import register
 
+from .api import api_v1
+
 # 配置 Django Admin 界面标题
-admin.site.site_header = getattr(settings, 'ADMIN_SITE_HEADER', '法穿案件管理')
-admin.site.site_title = getattr(settings, 'ADMIN_SITE_TITLE', '法穿案件管理')
-admin.site.index_title = getattr(settings, 'ADMIN_INDEX_TITLE', '欢迎来到法穿案件管理系统')
+admin.site.site_header = getattr(settings, "ADMIN_SITE_HEADER", "法穿AI案件管理系统")
+admin.site.site_title = getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件管理系统")
+admin.site.index_title = getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统")
 
 
-def api_root_redirect(request):
-    """重定向到 API 文档"""
-    return HttpResponseRedirect("/api/v1/docs")
+def index_view(request):
+    """首页视图"""
+    return render(request, "index.html")
+
+
+def root_redirect(request):
+    """根路径重定向到首页"""
+    return HttpResponseRedirect("/index/")
 
 
 def api_redirect(request):
@@ -39,21 +48,18 @@ def favicon_view(request):
 
 
 urlpatterns = [
-    path("admin/register/", register, name="admin_register"),  # 注册页面
+    path("admin/register/", register, name="admin_register"),
     path("admin/", admin.site.urls),
-    
-    # API v1 版本
+    path("onboarding/", include("apps.onboarding.urls")),
     path("api/v1/", api_v1.urls),
-    
-    # /api/ 重定向到 /api/v1/
     path("api/", api_redirect),
-    
-    # favicon 处理
     path("favicon.ico", favicon_view, name="favicon"),
-    
-    # 根路径重定向到 API 文档
-    path("", api_root_redirect),
+    path("index/", index_view, name="index"),
+    # 根路径重定向到首页 - 必须在最后
+    path("", root_redirect),
 ]
 
+# 媒体文件服务
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += staticfiles_urlpatterns()

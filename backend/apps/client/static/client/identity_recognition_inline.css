@@ -1,0 +1,478 @@
+/**
+ * 身份材料智能识别 - Django Admin 风格
+ * 与 Django Admin 原生样式保持一致
+ */
+
+/* ========================================
+   主容器 - Django Admin fieldset 风格
+   ======================================== */
+
+.identity-recognition-inline {
+    background: #f8f8f8;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0 0 20px 0;
+}
+
+/* ========================================
+   头部区域 - Django Admin module 风格
+   ======================================== */
+
+.recognition-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: #417690;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+}
+
+.recognition-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.toggle-btn:hover {
+    opacity: 1;
+}
+
+.toggle-icon {
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.toggle-icon.expanded {
+    transform: rotate(180deg);
+}
+
+/* ========================================
+   内容区域
+   ======================================== */
+
+.recognition-content {
+    padding: 15px;
+    max-height: 500px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.recognition-content.collapsed {
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+}
+
+.recognition-intro {
+    background: #edf5fa;
+    border: 1px solid #79aec8;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+    font-size: 12px;
+    color: #333;
+    line-height: 1.5;
+}
+
+.recognition-intro p {
+    margin: 0;
+}
+
+/* ========================================
+   表单区域 - 优化的垂直布局
+   ======================================== */
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.label-icon {
+    width: 16px;
+    height: 16px;
+    color: #79aec8;
+    flex-shrink: 0;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    box-sizing: border-box;
+    min-height: 44px;
+    line-height: 1.4;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #79aec8;
+    box-shadow: 0 0 0 2px rgba(121, 174, 200, 0.1);
+}
+
+/* ========================================
+   上传区域 - 更美观的设计
+   ======================================== */
+
+.upload-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    background: #fafbfc;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+    border-color: #79aec8;
+    background: #f0f8ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(121, 174, 200, 0.15);
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    color: #79aec8;
+    margin-bottom: 4px;
+}
+
+.upload-text {
+    text-align: center;
+}
+
+.upload-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.upload-hint {
+    display: block;
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+/* ========================================
+   处理状态
+   ======================================== */
+
+.processing-state {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 15px;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.processing-state.hidden {
+    display: none;
+}
+
+.processing-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #ddd;
+    border-top-color: #79aec8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#processingText {
+    font-size: 13px;
+    color: #666;
+}
+
+/* ========================================
+   识别结果 - Django Admin 表格风格
+   ======================================== */
+
+.result-section {
+    background: #fff;
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
+}
+
+.result-section.hidden {
+    display: none;
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8f8f8;
+    border-bottom: 1px solid #ccc;
+}
+
+.result-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+}
+
+.confidence-score {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    background: #dfd;
+    color: #060;
+}
+
+.confidence-score.medium {
+    background: #ffd;
+    color: #960;
+}
+
+.confidence-score.low {
+    background: #fdd;
+    color: #900;
+}
+
+.result-grid {
+    padding: 0;
+}
+
+.result-field {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+}
+
+.result-field:last-child {
+    border-bottom: none;
+}
+
+.result-field:nth-child(odd) {
+    background: #f9f9f9;
+}
+
+.result-field label {
+    width: 100px;
+    font-weight: bold;
+    color: #666;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.field-value {
+    flex: 1;
+    color: #333;
+    padding: 4px 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+/* ========================================
+   操作按钮 - Django Admin 按钮风格
+   ======================================== */
+
+.result-actions {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f8f8f8;
+    border-top: 1px solid #ccc;
+}
+
+.btn {
+    padding: 8px 15px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: normal;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #417690;
+    color: #fff;
+    border: 1px solid #417690;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #205067;
+}
+
+.btn-secondary {
+    background: #fff;
+    color: #417690;
+    border: 1px solid #ccc;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #f8f8f8;
+    border-color: #417690;
+}
+
+.btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ========================================
+   错误状态
+   ======================================== */
+
+.error-section {
+    background: #fdd;
+    border: 1px solid #c66;
+    padding: 12px;
+    margin-bottom: 15px;
+}
+
+.error-section.hidden {
+    display: none;
+}
+
+.error-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.error-icon {
+    width: 24px;
+    height: 24px;
+    color: #c00;
+    flex-shrink: 0;
+}
+
+.error-text {
+    flex: 1;
+}
+
+.error-text h4 {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    font-weight: bold;
+    color: #900;
+}
+
+.error-text p {
+    margin: 0;
+    font-size: 12px;
+    color: #900;
+}
+
+/* ========================================
+   响应式
+   ======================================== */
+
+@media (max-width: 767px) {
+    .recognition-form .form-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .upload-content {
+        flex-direction: column;
+    }
+
+    .upload-text {
+        text-align: center;
+    }
+
+    .result-field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .result-field label {
+        width: auto;
+    }
+
+    .field-value {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .result-actions {
+        flex-direction: column;
+    }
+
+    .error-content {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+/* ========================================
+   工具类
+   ======================================== */
+
+.hidden {
+    display: none !important;
+}

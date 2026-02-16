@@ -1,0 +1,61 @@
+target-version = "py312"
+line-length = 120
+extend-exclude = [
+    "migrations",
+    "venv311",
+    "venv312",
+]
+
+[lint]
+select = ["E", "F", "W", "B", "C4", "SIM", "TID", "C90", "UP", "RUF", "S"]
+ignore = [
+    "B008",
+    "B023",
+    "B027",
+    "C401",
+    "C414",
+    "E203",
+    "E402",
+    "RUF005",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "RUF022",
+    "RUF059",
+    "S101",
+    "S104",
+    "S105",
+    "S106",
+    "S107",
+    "S108",
+    "S110",  # 保留：爬虫和配置加载的容错
+    "S112",  # 保留：爬虫和配置加载的容错
+    "S307",
+    "S308",
+    "S311",
+    "S324",
+    "S603",
+    "S608",
+    "SIM103",
+    "SIM108",
+    "SIM110",
+    "SIM115",
+    "SIM118",
+    "SIM401",
+    "UP028",
+    "UP042",
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"admin.py" = ["F401"]
+"**/admin/*.py" = ["F401"]
+"apps/automation/services/token/history_recorder.py" = ["C901"]
+"apps/automation/services/token/token_acquisition_orchestrator.py" = ["C901"]
+"apps/cases/admin/case_widgets_admin.py" = ["F821"]
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.flake8-tidy-imports.banned-api]
+requests = { msg = "禁止使用 requests，请改用 httpx" }

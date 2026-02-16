@@ -1,0 +1,193 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}测试工具{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .tools-container {
+        max-width: 1000px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    .tools-header {
+        margin-bottom: 32px;
+    }
+    .tools-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .tools-title-icon {
+        width: 36px;
+        height: 36px;
+        color: #417690;
+    }
+    .tools-subtitle {
+        color: #666;
+        font-size: 15px;
+    }
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .tool-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 28px;
+        transition: all 0.25s ease;
+        border: 1px solid #e5e7eb;
+        text-decoration: none;
+        display: block;
+        position: relative;
+        overflow: hidden;
+    }
+    .tool-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--card-color-start), var(--card-color-end));
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+    .tool-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+        border-color: transparent;
+    }
+    .tool-card:hover::before {
+        opacity: 1;
+    }
+    .tool-card.primary { --card-color-start: #417690; --card-color-end: #205067; }
+    .tool-card.secondary { --card-color-start: #6366f1; --card-color-end: #4f46e5; }
+    .tool-card.success { --card-color-start: #10b981; --card-color-end: #059669; }
+    .tool-card.warning { --card-color-start: #f59e0b; --card-color-end: #d97706; }
+
+    .tool-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .tool-icon svg {
+        width: 28px;
+        height: 28px;
+    }
+    .tool-icon.primary {
+        background: linear-gradient(135deg, #417690 0%, #205067 100%);
+        color: #fff;
+    }
+    .tool-icon.secondary {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #fff;
+    }
+    .tool-icon.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #fff;
+    }
+    .tool-icon.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #fff;
+    }
+    .tool-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+    .tool-description {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.6;
+        min-height: 44px;
+    }
+    .tool-arrow {
+        margin-top: 20px;
+        color: #417690;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: gap 0.2s ease;
+    }
+    .tool-card:hover .tool-arrow {
+        gap: 10px;
+    }
+    .tool-arrow svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.2s ease;
+    }
+    .tool-card:hover .tool-arrow svg {
+        transform: translateX(2px);
+    }
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #417690;
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 24px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+    .back-link:hover {
+        background: #f0f7fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tools-container">
+    <a href="{% url 'admin:index' %}" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        返回首页
+    </a>
+
+    <div class="tools-header">
+        <h1 class="tools-title">
+            <svg class="tools-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            测试工具
+        </h1>
+        <p class="tools-subtitle">各类功能测试工具的统一入口，方便快速访问和测试系统功能</p>
+    </div>
+
+    <div class="tools-grid">
+        {% for tool in test_tools %}
+        <a href="{% url 'admin:'|add:tool.url %}" class="tool-card {{ tool.color }}">
+            <div class="tool-icon {{ tool.color }}">
+                {{ tool.icon|safe }}
+            </div>
+            <div class="tool-name">{{ tool.name }}</div>
+            <div class="tool-description">{{ tool.description }}</div>
+            <div class="tool-arrow">
+                进入测试
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

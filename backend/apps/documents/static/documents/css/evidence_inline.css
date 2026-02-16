@@ -1,0 +1,246 @@
+/**
+ * 证据明细内联样式
+ *
+ * Requirements: 11.3
+ */
+
+/* 内联表格基础样式 */
+.inline-group {
+    border: 1px solid #e6edf3;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    font-family: inherit;
+}
+
+.inline-group > h2 {
+    background: transparent;
+    color: #0f172a;
+    padding: 10px 12px;
+    margin: 0;
+    border-bottom: 1px solid #e6edf3;
+    font-weight: 600;
+    letter-spacing: normal;
+    font-family: inherit;
+}
+
+.inline-group .tabular {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: inherit;
+}
+
+.inline-group .tabular thead th {
+    background: linear-gradient(180deg, #2b6a85 0%, #205b74 100%);
+    color: white;
+    padding: 9px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 1px solid #1a4a5f;
+    font-family: inherit;
+}
+
+.inline-group .tabular thead th:first-child {
+    border-top-left-radius: 10px;
+}
+
+.inline-group .tabular thead th:last-child {
+    border-top-right-radius: 10px;
+}
+
+.inline-group .tabular thead th.original,
+.inline-group .tabular td.original {
+    display: none;
+}
+
+.inline-group .tabular tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.inline-group .tabular tbody tr:nth-child(even) {
+    background: #fbfdff;
+}
+
+.inline-group .tabular tbody tr:hover {
+    background-color: #f1f7ff;
+}
+
+.inline-group .tabular td {
+    padding: 12px 10px;
+    vertical-align: top;
+    border-bottom: 1px solid #eef2f6;
+}
+
+/* 序号字段（order）：完全隐藏，只用于拖拽排序 */
+.inline-group .tabular th.column-order,
+.inline-group .tabular td.field-order {
+    display: none !important;
+}
+
+/* 全局序号显示字段 */
+.inline-group .tabular td.field-global_order_display {
+    width: 80px;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.inline-group .tabular td.field-global_order_display p {
+    margin: 0;
+    padding: 6px 8px;
+    font-weight: 600;
+    color: #334155;
+    font-size: 14px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    min-width: 32px;
+    text-align: center;
+}
+
+/* 证据名称字段 */
+.inline-group .tabular td.field-name {
+    width: 200px;
+}
+
+.inline-group .tabular td.field-name input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 8px;
+    background: #fff;
+    height: 34px;
+    line-height: 20px;
+    display: block;
+}
+
+/* 证明内容字段 */
+.inline-group .tabular td.field-purpose {
+    min-width: 250px;
+}
+
+.inline-group .tabular td.field-purpose textarea {
+    width: 100%;
+    min-height: 72px;
+    box-sizing: border-box;
+    resize: vertical;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #fff;
+}
+
+.inline-group .tabular input:focus,
+.inline-group .tabular textarea:focus {
+    outline: none;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* 文件字段 */
+.inline-group .tabular td.field-file {
+    width: 220px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #475569;
+}
+
+.inline-group .tabular td.field-file a {
+    color: #0369a1;
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+.inline-group .tabular td.field-file a:hover {
+    text-decoration: underline;
+}
+
+.inline-group .tabular td.field-file input[type="file"] {
+    width: 100%;
+    font-size: 12px;
+    margin-top: 6px;
+    color: #64748b;
+}
+
+/* 页数和页码范围字段 */
+.inline-group .tabular td.field-page_count,
+.inline-group .tabular td.field-page_range_display {
+    width: 80px;
+    text-align: center;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    background: #f1f5f9;
+    border-left: 1px solid #eef2f6;
+    border-right: 1px solid #eef2f6;
+    font-size: 12px;
+}
+
+/* 原始标签隐藏（避免重复显示） */
+.inline-group .inline-related h3 {
+    display: none;
+}
+
+/* 拖拽手柄样式 */
+.drag-handle {
+    cursor: move;
+    padding: 4px;
+    color: #94a3b8;
+    font-size: 18px;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-right: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    margin-top: 6px;
+}
+
+.drag-handle:hover {
+    color: #475569;
+    background: #f1f5f9;
+}
+
+/* 拖拽状态样式 */
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #e3f2fd !important;
+}
+
+.sortable-chosen {
+    background-color: #e3f2fd !important;
+}
+
+.sortable-drag {
+    background-color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 删除按钮样式 */
+.inline-group .tabular td.delete {
+    width: 50px;
+    text-align: center;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+    .inline-group .tabular td.field-purpose textarea {
+        min-height: 60px;
+    }
+}
+
+@media (max-width: 768px) {
+    .inline-group .tabular {
+        display: block;
+        overflow-x: auto;
+    }
+}

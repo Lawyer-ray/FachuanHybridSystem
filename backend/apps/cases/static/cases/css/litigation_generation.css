@@ -1,0 +1,216 @@
+/**
+ * 诉状生成区域样式
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 2.4
+ */
+
+/* 对话框遮罩 */
+.litigation-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+}
+
+/* 诉状类型选择对话框 */
+.litigation-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    min-width: 480px;
+    max-width: 90vw;
+}
+
+.litigation-dialog h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 12px;
+}
+
+/* 诉状类型网格 */
+.litigation-types-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* 诉状类型选项 */
+.litigation-type-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.litigation-type-option:hover:not(.disabled) {
+    border-color: #417690;
+    background: #f5f9fc;
+}
+
+.litigation-type-option.selected {
+    border-color: #417690;
+    background: #e3f2fd;
+    box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.2);
+}
+
+.litigation-type-option.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f5f5f5;
+}
+
+.type-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.type-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+/* 开发中徽章 */
+.disabled-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    background: #9e9e9e;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+/* 错误信息 */
+.litigation-error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: #ffebee;
+    border: 1px solid #f44336;
+    border-radius: 4px;
+    color: #c62828;
+    font-size: 13px;
+}
+
+/* 对话框按钮区域 */
+.litigation-dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+}
+
+.btn-cancel {
+    padding: 10px 20px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #f0f0f0;
+    color: #333;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.btn-generate {
+    padding: 10px 24px;
+    border-radius: 4px;
+    border: 1px solid #417690;
+    background: #417690;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-generate:hover:not(:disabled) {
+    background: #2e5984;
+    border-color: #2e5984;
+}
+
+.btn-generate:disabled,
+.btn-cancel:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 成功消息样式 */
+.litigation-success-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4caf50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    z-index: 10001;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease;
+    max-width: 400px;
+    min-width: 250px;
+    word-wrap: break-word;
+    line-height: 1.4;
+    border-left: 4px solid #2e7d32;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .litigation-dialog {
+        min-width: 300px;
+        max-width: 95vw;
+        padding: 16px;
+    }
+
+    .litigation-types-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .litigation-dialog-buttons {
+        flex-direction: column;
+    }
+
+    .litigation-dialog-buttons button {
+        width: 100%;
+    }
+}

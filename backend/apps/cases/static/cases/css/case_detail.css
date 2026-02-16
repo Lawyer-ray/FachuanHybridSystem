@@ -1,0 +1,802 @@
+/* 案件详情页样式 */
+/* Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.10 */
+
+/* 隐藏 Django admin 自动生成的页面标题 */
+#content > h1:first-child,
+#content > h2:first-child {
+    display: none;
+}
+
+/* 页面容器 */
+.case-detail-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* 头部区域 */
+.detail-header {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.case-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--unfold-text-primary, #1a1a1a);
+    margin: 0;
+}
+
+/* 状态徽章 - 语义化颜色 */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.status-active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-badge.status-closed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.status-archived {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* 类型和阶段标签 */
+.type-tag, .stage-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* 建档状态 */
+.archived-status {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.archived-status.archived {
+    color: #15803d;
+}
+
+/* 操作按钮 */
+.header-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--unfold-primary, #3b82f6);
+    color: #fff !important;
+    border: 1px solid var(--unfold-primary, #3b82f6);
+}
+
+.btn-primary:hover {
+    background: var(--unfold-primary-dark, #2563eb);
+    color: #fff !important;
+    border-color: var(--unfold-primary-dark, #2563eb);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 标签页导航 */
+.tab-panel {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 16px;
+}
+
+.tab-nav button {
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.tab-nav button:hover {
+    color: #374151;
+}
+
+.tab-nav button.active {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+.tab-nav button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--unfold-primary, #3b82f6);
+}
+
+.tab-content {
+    padding: 24px;
+}
+
+/* 信息网格 */
+.info-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.info-grid.two-columns {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 768px) {
+    .info-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 信息卡片 */
+.info-card {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 20px;
+    transition: box-shadow 0.2s ease;
+}
+
+.info-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.info-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.card-icon {
+    font-size: 18px;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+}
+
+/* 信息列表 */
+.info-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.info-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.info-item dt {
+    font-size: 13px;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.info-item dd {
+    font-size: 13px;
+    color: #1a1a1a;
+    text-align: left;
+    margin: 0;
+    word-break: break-word;
+}
+
+/* 空状态 */
+.empty-state {
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+}
+
+/* 合同链接 */
+.contract-link {
+    color: var(--unfold-primary, #3b82f6);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.contract-link:hover {
+    text-decoration: underline;
+}
+
+/* 案号列表 */
+.case-number-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.case-number-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.case-number-list li:last-child {
+    border-bottom: none;
+}
+
+.case-number {
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.remarks {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* 主管机关列表 */
+.authority-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.authority-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.authority-type {
+    background: #e5e7eb;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #374151;
+}
+
+.authority-name {
+    color: #1a1a1a;
+}
+
+/* 当事人列表 */
+.party-list, .lawyer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.party-item, .lawyer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.party-item:last-child, .lawyer-item:last-child {
+    border-bottom: none;
+}
+
+.party-name, .lawyer-name {
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.legal-status {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.our-client-badge {
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 对方当事人徽章 */
+.opposing-party-badge {
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 我方当事人高亮 */
+.party-item.our-client {
+    background: #f0f9ff;
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+/* 时间线 */
+.timeline {
+    position: relative;
+    padding-left: 24px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e5e7eb;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -20px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--unfold-primary, #3b82f6);
+    border: 2px solid #fff;
+}
+
+.timeline-content {
+    background: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.timeline-actor {
+    font-weight: 500;
+    color: #374151;
+}
+
+.timeline-time {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.timeline-body {
+    font-size: 14px;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+.timeline-body p {
+    margin: 0 0 8px 0;
+}
+
+.timeline-body p:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-reminder {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #fef3c7;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.reminder-type {
+    font-weight: 500;
+    color: #92400e;
+}
+
+.reminder-time {
+    color: #b45309;
+    margin-left: 8px;
+}
+
+.timeline-attachments {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.attachments-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.attachment-link {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--unfold-primary, #3b82f6);
+    text-decoration: none;
+}
+
+.attachment-link:hover {
+    text-decoration: underline;
+}
+
+/* 群聊列表 */
+.chat-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-item:last-child {
+    border-bottom: none;
+}
+
+.chat-platform {
+    background: #e5e7eb;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #374151;
+}
+
+.chat-name {
+    flex: 1;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.chat-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.chat-status.active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.chat-status.inactive {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* 文件夹绑定 */
+.folder-binding {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.binding-status {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.binding-status.bound {
+    color: #15803d;
+}
+
+.folder-path {
+    font-size: 13px;
+    color: #4b5563;
+    word-break: break-all;
+}
+
+/* 操作按钮区域 */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-hint {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* 消息提示 */
+.message-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+.message-toast.success {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.message-toast.error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+
+/* 消息提示动画 */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.message-toast {
+    animation: slideIn 0.3s ease;
+}
+
+
+/* 文档生成操作组样式 */
+.action-group {
+    margin-bottom: 20px;
+}
+
+.action-group:last-child {
+    margin-bottom: 0;
+}
+
+.action-group-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 12px 0;
+}
+
+.action-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* 轮廓按钮样式 */
+.btn-outline {
+    background: transparent;
+    color: var(--unfold-primary, #3b82f6);
+    border: 1px solid var(--unfold-primary, #3b82f6);
+}
+
+.btn-outline:hover {
+    background: var(--unfold-primary, #3b82f6);
+    color: #fff;
+}
+
+.btn-outline.btn-disabled {
+    border-color: #d1d5db;
+    color: #9ca3af;
+}
+
+.btn-outline.btn-disabled:hover {
+    background: transparent;
+    color: #9ca3af;
+}
+
+/* 抽屉组件样式 */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+}
+
+.drawer-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 420px;
+    max-width: 90vw;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.drawer-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.drawer-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+.drawer-close:hover {
+    color: #374151;
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.detail-value {
+    font-size: 14px;
+    color: #1a1a1a;
+    word-break: break-all;
+    user-select: text;
+}
+
+.detail-value.copyable {
+    background: #f9fafb;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.detail-value.copyable:hover {
+    background: #f3f4f6;
+}
+
+.copy-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+/* 当事人/律师项目可点击样式 */
+.party-item.clickable,
+.lawyer-item.clickable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.party-item.clickable:hover,
+.lawyer-item.clickable:hover {
+    background: #f3f4f6;
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+.party-item .view-detail-icon,
+.lawyer-item .view-detail-icon {
+    margin-left: auto;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.party-item:hover .view-detail-icon,
+.lawyer-item:hover .view-detail-icon {
+    color: var(--unfold-primary, #3b82f6);
+}

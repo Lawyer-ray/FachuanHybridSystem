@@ -1,0 +1,13 @@
+"""Module for monitor protocols."""
+
+from typing import Any, Protocol
+
+
+class IMonitorService(Protocol):
+    def get_task_statistics(self, hours: int = 24) -> dict[str, Any]: ...
+
+    def check_stuck_tasks(self, timeout_minutes: int = 30) -> list[Any]: ...
+
+    def check_high_failure_rate(self, threshold: float = 0.5, min_tasks: int = 10) -> dict[str, float]: ...
+
+    def send_alert(self, title: str, message: str, level: str = "warning") -> None: ...

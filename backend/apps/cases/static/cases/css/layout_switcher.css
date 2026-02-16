@@ -1,0 +1,163 @@
+/**
+ * 案件编辑页面折叠布局样式
+ */
+
+/* ========== 隐藏 Django 默认标题 ========== */
+#content > h2:first-of-type {
+    display: none !important;
+}
+
+/* ========== 可折叠区块样式 ========== */
+.collapsible-wrapper {
+    margin-bottom: 16px;
+    border: 1px solid var(--hairline-color, #e8e8e8);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--body-bg, #fff);
+}
+
+.collapsible-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    margin: 0;
+    background: var(--darkened-bg, #f8f8f8);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--body-fg, #333);
+}
+
+.collapsible-header:hover {
+    background: var(--selected-bg, #e8e8e8);
+}
+
+.collapse-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease;
+    color: var(--body-quiet-color, #666);
+}
+
+.collapsible-wrapper.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.collapsible-title {
+    flex: 1;
+}
+
+/* 折叠内容 */
+.collapsible-content {
+    border-top: 1px solid var(--hairline-color, #e8e8e8);
+}
+
+/* 内部 fieldset 样式重置 */
+.collapsible-content > fieldset.module {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+.collapsible-content > fieldset.module > h2 {
+    display: none;
+}
+
+/* inline-group 样式重置 */
+.collapsible-content > .inline-group {
+    margin: 0;
+    padding: 0;
+}
+
+.collapsible-content > .inline-group > h2 {
+    display: none;
+}
+
+/* 保持 inline-related 内部样式 */
+.collapsible-content .inline-related {
+    margin: 0;
+    border-bottom: 1px solid var(--hairline-color, #f0f0f0);
+}
+
+.collapsible-content .inline-related:last-child {
+    border-bottom: none;
+}
+
+/* ========== 深色模式适配 ========== */
+@media (prefers-color-scheme: dark) {
+    .collapsible-wrapper {
+        border-color: var(--hairline-color, #444);
+        background: var(--body-bg, #1a1a1a);
+    }
+
+    .collapsible-header {
+        background: var(--darkened-bg, #2a2a2a);
+        color: var(--body-fg, #ddd);
+    }
+
+    .collapsible-header:hover {
+        background: var(--selected-bg, #333);
+    }
+
+    .collapsible-content {
+        border-color: var(--hairline-color, #444);
+    }
+}
+
+/* Unfold 深色模式类支持 */
+.dark .collapsible-wrapper,
+[data-theme="dark"] .collapsible-wrapper {
+    border-color: var(--hairline-color, #444);
+    background: var(--body-bg, #1a1a1a);
+}
+
+.dark .collapsible-header,
+[data-theme="dark"] .collapsible-header {
+    background: var(--darkened-bg, #2a2a2a);
+    color: var(--body-fg, #ddd);
+}
+
+.dark .collapsible-header:hover,
+[data-theme="dark"] .collapsible-header:hover {
+    background: var(--selected-bg, #333);
+}
+
+.dark .collapsible-content,
+[data-theme="dark"] .collapsible-content {
+    border-color: var(--hairline-color, #444);
+}
+
+/* ========== 隐藏 inline 行的重复标题 ========== */
+/* Django nested_admin TabularInline 会在 .original 列显示对象的 __str__，导致重复 */
+/* 隐藏表头的 original 列 */
+.djn-thead th.original {
+    display: none !important;
+}
+
+/* 隐藏每行的 original 列（包含重复的 __str__ 内容） */
+.djn-tr td.original {
+    display: none !important;
+}
+
+/* 保留 inline-group 的主标题（已被折叠组件处理） */
+.inline-group > h2 {
+    display: none;
+}
+
+/* ========== 减少动画模式支持 ========== */
+@media (prefers-reduced-motion: reduce) {
+    .collapse-icon,
+    .collapsible-header {
+        transition: none;
+    }
+}

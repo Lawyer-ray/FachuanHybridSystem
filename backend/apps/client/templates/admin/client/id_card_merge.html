@@ -1,0 +1,461 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}身份证合并{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .merge-container { max-width: 1100px; margin: 20px auto; padding: 20px; }
+    .merge-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    .merge-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .merge-title { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
+    .merge-subtitle { color: #666; margin: 0; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: #417690; text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: 6px; background: #f0f7fa; }
+    .back-link:hover { background: #e0eff5; }
+
+    .steps { display: flex; gap: 8px; margin-bottom: 24px; }
+    .step { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 14px; background: #f5f5f5; color: #666; }
+    .step.active { background: #417690; color: #fff; }
+    .step.done { background: #059669; color: #fff; }
+    .step-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-weight: 600; }
+
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; background: #fafafa; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s; }
+    .upload-box:hover, .upload-box.dragover { border-color: #417690; background: #f0f7fa; }
+    .upload-box.has-file { border-color: #059669; background: #f0fdf4; border-style: solid; }
+    .upload-box-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-box-title { font-weight: 600; color: #333; margin-bottom: 6px; }
+    .upload-box-hint { font-size: 12px; color: #9ca3af; }
+
+    .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .editor-box { background: #f8f9fa; border-radius: 8px; padding: 16px; }
+    .editor-label { font-weight: 600; color: #333; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .editor-canvas-wrap { position: relative; background: #1a1a1a; border-radius: 6px; overflow: hidden; }
+    .editor-canvas { display: block; max-width: 100%; }
+    .editor-tools { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .tool-btn { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .tool-btn:hover { background: #f5f5f5; }
+    .tool-btn.active { background: #417690; color: #fff; border-color: #417690; }
+    .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 按钮样式 - 使用 !important 覆盖 Django Admin 默认样式 */
+    .merge-container .btn-primary {
+        background: #417690 !important; color: #fff !important; border: none !important;
+        padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
+        font-weight: 500 !important; cursor: pointer !important; line-height: 1.4 !important;
+        display: inline-block !important; text-decoration: none !important;
+    }
+    .merge-container .btn-primary:hover { background: #205067 !important; }
+    .merge-container .btn-primary:disabled { background: #9ca3af !important; cursor: not-allowed !important; }
+
+    .merge-container .btn-secondary {
+        background: #f5f5f5 !important; color: #333 !important; border: 1px solid #ddd !important;
+        padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
+        cursor: pointer !important; line-height: 1.4 !important;
+        display: inline-block !important; text-decoration: none !important;
+    }
+    .merge-container .btn-secondary:hover { background: #eee !important; }
+
+    .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; justify-content: center; }
+
+    .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 24px; text-align: center; }
+    .success-icon { font-size: 56px; margin-bottom: 16px; }
+    .success-text { font-size: 18px; color: #166534; margin-bottom: 20px; }
+    .download-link { display: inline-flex; align-items: center; gap: 8px; background: #059669; color: #fff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px; }
+    .download-link:hover { background: #047857; color: #fff; }
+
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #417690; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { margin-top: 16px; color: #666; font-size: 16px; }
+
+    .hint-box { background: #dbeafe; border: 1px solid #93c5fd; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; color: #1e40af; font-size: 14px; }
+    .hint-box.warning { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .point-status { display: flex; gap: 8px; margin-top: 8px; }
+    .point-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: #e5e7eb; color: #666; }
+    .point-badge.done { background: #059669; color: #fff; }
+    .point-badge.current { background: #417690; color: #fff; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+    @media (max-width: 900px) { .upload-grid, .editor-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="merge-container" x-data="idCardMergeApp()" x-cloak>
+    <div class="loading-overlay" x-show="loading">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" x-text="loadingText">处理中...</div>
+        </div>
+    </div>
+
+    <div class="merge-card">
+        <div class="merge-header">
+            <div>
+                <h1 class="merge-title">身份证合并</h1>
+                <p class="merge-subtitle">上传身份证正反面图片，用钢笔工具圈定四角后合并为 PDF</p>
+            </div>
+            <a href="{% url 'admin:client_clientidentitydoc_changelist' %}" class="back-link">← 返回证件列表</a>
+        </div>
+
+        <div class="steps">
+            <div class="step" :class="{ 'active': step === 1, 'done': step > 1 }"><span class="step-num">1</span> 上传图片</div>
+            <div class="step" :class="{ 'active': step === 2, 'done': step > 2 }"><span class="step-num">2</span> 圈定区域</div>
+            <div class="step" :class="{ 'active': step === 3 }"><span class="step-num">3</span> 完成</div>
+        </div>
+
+        <!-- 步骤1: 上传 -->
+        <div x-show="step === 1">
+            <div class="upload-grid">
+                <div class="upload-box" :class="{ 'has-file': frontFile, 'dragover': frontDrag }"
+                     @click="$refs.frontInput.click()" @dragover.prevent="frontDrag = true" @dragleave.prevent="frontDrag = false" @drop.prevent="handleDrop($event, 'front')">
+                    <template x-if="!frontFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">身份证正面</div><div class="upload-box-hint">点击或拖拽上传</div></div></template>
+                    <template x-if="frontFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">正面已选择</div><div class="upload-box-hint" x-text="frontFile.name"></div></div></template>
+                    <input type="file" x-ref="frontInput" @change="handleSelect($event, 'front')" accept="image/*" style="display:none">
+                </div>
+                <div class="upload-box" :class="{ 'has-file': backFile, 'dragover': backDrag }"
+                     @click="$refs.backInput.click()" @dragover.prevent="backDrag = true" @dragleave.prevent="backDrag = false" @drop.prevent="handleDrop($event, 'back')">
+                    <template x-if="!backFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">身份证反面</div><div class="upload-box-hint">点击或拖拽上传</div></div></template>
+                    <template x-if="backFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">反面已选择</div><div class="upload-box-hint" x-text="backFile.name"></div></div></template>
+                    <input type="file" x-ref="backInput" @change="handleSelect($event, 'back')" accept="image/*" style="display:none">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-primary" @click="goToStep2()" :disabled="!frontFile || !backFile">下一步：圈定区域</button>
+            </div>
+        </div>
+
+        <!-- 步骤2: 圈定区域 -->
+        <div x-show="step === 2">
+            <div class="hint-box">
+                ✏️ <strong>钢笔工具</strong>：依次点击身份证的 <strong>左上 → 右上 → 右下 → 左下</strong> 四个角。点错可撤销或重置。
+            </div>
+            <div class="editor-grid">
+                <!-- 正面编辑器 -->
+                <div class="editor-box">
+                    <div class="editor-label">
+                        <span>正面图片</span>
+                        <span style="font-size:12px;color:#666">点击 <span x-text="4 - frontCorners.length"></span> 个点</span>
+                    </div>
+                    <div class="point-status">
+                        <template x-for="i in 4" :key="'fp'+i">
+                            <div class="point-badge" :class="{ 'done': frontCorners.length >= i, 'current': frontCorners.length === i - 1 }" x-text="['左上','右上','右下','左下'][i-1]"></div>
+                        </template>
+                    </div>
+                    <div class="editor-canvas-wrap" style="margin-top:12px">
+                        <canvas x-ref="frontCanvas" class="editor-canvas" style="cursor:crosshair"
+                                @click="addPoint($event, 'front')"
+                                @mousemove="updateCursor($event, 'front')"></canvas>
+                    </div>
+                    <div class="editor-tools">
+                        <button type="button" class="tool-btn" @click="rotateImage('front', -90)">↺ 左转</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('front', 90)">↻ 右转</button>
+                        <button type="button" class="tool-btn" @click="undoPoint('front')" :disabled="frontCorners.length === 0">↩ 撤销</button>
+                        <button type="button" class="tool-btn" @click="resetCorners('front')">⟲ 重置</button>
+                    </div>
+                </div>
+                <!-- 反面编辑器 -->
+                <div class="editor-box">
+                    <div class="editor-label">
+                        <span>反面图片</span>
+                        <span style="font-size:12px;color:#666">点击 <span x-text="4 - backCorners.length"></span> 个点</span>
+                    </div>
+                    <div class="point-status">
+                        <template x-for="i in 4" :key="'bp'+i">
+                            <div class="point-badge" :class="{ 'done': backCorners.length >= i, 'current': backCorners.length === i - 1 }" x-text="['左上','右上','右下','左下'][i-1]"></div>
+                        </template>
+                    </div>
+                    <div class="editor-canvas-wrap" style="margin-top:12px">
+                        <canvas x-ref="backCanvas" class="editor-canvas" style="cursor:crosshair"
+                                @click="addPoint($event, 'back')"
+                                @mousemove="updateCursor($event, 'back')"></canvas>
+                    </div>
+                    <div class="editor-tools">
+                        <button type="button" class="tool-btn" @click="rotateImage('back', -90)">↺ 左转</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('back', 90)">↻ 右转</button>
+                        <button type="button" class="tool-btn" @click="undoPoint('back')" :disabled="backCorners.length === 0">↩ 撤销</button>
+                        <button type="button" class="tool-btn" @click="resetCorners('back')">⟲ 重置</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-secondary" @click="step = 1">上一步</button>
+                <button class="btn-primary" @click="submitMerge()" :disabled="frontCorners.length < 4 || backCorners.length < 4">合并生成 PDF</button>
+            </div>
+        </div>
+
+        <!-- 步骤3: 完成 -->
+        <div x-show="step === 3">
+            <div class="success-box">
+                <div class="success-icon">✅</div>
+                <div class="success-text">身份证合并成功！</div>
+                <a :href="pdfUrl" target="_blank" class="download-link">📥 下载 PDF</a>
+            </div>
+            <div class="form-actions">
+                <button class="btn-secondary" @click="resetAll()">继续合并</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function idCardMergeApp() {
+    return {
+        step: 1, loading: false, loadingText: '处理中...', pdfUrl: '',
+        frontFile: null, backFile: null, frontDrag: false, backDrag: false,
+        frontImg: null, backImg: null, frontRotation: 0, backRotation: 0,
+        frontScale: 1, backScale: 1,
+        frontCorners: [], backCorners: [],  // 原图坐标
+        cursorPos: { front: null, back: null },
+
+        handleSelect(e, side) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                if (side === 'front') this.frontFile = file;
+                else this.backFile = file;
+            }
+        },
+        handleDrop(e, side) {
+            this[side + 'Drag'] = false;
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                if (side === 'front') this.frontFile = file;
+                else this.backFile = file;
+            }
+        },
+        goToStep2() {
+            this.loading = true; this.loadingText = '加载图片...';
+            Promise.all([this.loadImage(this.frontFile, 'front'), this.loadImage(this.backFile, 'back')]).then(() => {
+                this.step = 2; this.loading = false;
+                this.$nextTick(() => { this.initCanvas('front'); this.initCanvas('back'); });
+            });
+        },
+        loadImage(file, side) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    if (side === 'front') { this.frontImg = img; this.frontRotation = 0; }
+                    else { this.backImg = img; this.backRotation = 0; }
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        },
+        initCanvas(side) {
+            const canvas = this.$refs[side + 'Canvas'];
+            const img = side === 'front' ? this.frontImg : this.backImg;
+            const rotation = side === 'front' ? this.frontRotation : this.backRotation;
+            const isRotated = Math.abs(rotation) % 180 === 90;
+            const imgW = isRotated ? img.naturalHeight : img.naturalWidth;
+            const imgH = isRotated ? img.naturalWidth : img.naturalHeight;
+            const maxW = 480;
+            const scale = Math.min(1, maxW / imgW);
+            canvas.width = imgW * scale; canvas.height = imgH * scale;
+            if (side === 'front') this.frontScale = scale; else this.backScale = scale;
+            this.drawCanvas(side);
+        },
+
+        drawCanvas(side) {
+            const canvas = this.$refs[side + 'Canvas'];
+            const ctx = canvas.getContext('2d');
+            const img = side === 'front' ? this.frontImg : this.backImg;
+            const rotation = side === 'front' ? this.frontRotation : this.backRotation;
+            const scale = side === 'front' ? this.frontScale : this.backScale;
+            const corners = side === 'front' ? this.frontCorners : this.backCorners;
+            const cursor = this.cursorPos[side];
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制旋转后的图片
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(rotation * Math.PI / 180);
+            const isRotated = Math.abs(rotation) % 180 === 90;
+            const drawW = isRotated ? canvas.height : canvas.width;
+            const drawH = isRotated ? canvas.width : canvas.height;
+            ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+            ctx.restore();
+
+            // 如果有4个点，绘制遮罩和选区
+            if (corners.length === 4) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.beginPath();
+                const sc = corners.map(c => [c[0] * scale, c[1] * scale]);
+                ctx.moveTo(sc[0][0], sc[0][1]);
+                for (let i = 1; i < 4; i++) ctx.lineTo(sc[i][0], sc[i][1]);
+                ctx.closePath(); ctx.clip();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(rotation * Math.PI / 180);
+                ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+                ctx.restore();
+            }
+
+            // 绘制已标记的点和连线
+            const labels = ['左上', '右上', '右下', '左下'];
+            if (corners.length > 0) {
+                ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                const sc = corners.map(c => [c[0] * scale, c[1] * scale]);
+                ctx.moveTo(sc[0][0], sc[0][1]);
+                for (let i = 1; i < sc.length; i++) ctx.lineTo(sc[i][0], sc[i][1]);
+                if (corners.length === 4) ctx.closePath();
+                ctx.stroke();
+
+                // 绘制点
+                sc.forEach((p, i) => {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.beginPath(); ctx.arc(p[0], p[1], 8, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillText(labels[i], p[0], p[1] + 4);
+                });
+            }
+
+            // 绘制预览线（鼠标位置到最后一个点）
+            if (cursor && corners.length > 0 && corners.length < 4) {
+                const lastPt = corners[corners.length - 1];
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(lastPt[0] * scale, lastPt[1] * scale);
+                ctx.lineTo(cursor[0], cursor[1]);
+                if (corners.length === 3) { // 预览闭合
+                    ctx.lineTo(corners[0][0] * scale, corners[0][1] * scale);
+                }
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            // 绘制光标十字
+            if (cursor && corners.length < 4) {
+                ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cursor[0] - 10, cursor[1]); ctx.lineTo(cursor[0] + 10, cursor[1]);
+                ctx.moveTo(cursor[0], cursor[1] - 10); ctx.lineTo(cursor[0], cursor[1] + 10);
+                ctx.stroke();
+            }
+        },
+
+        addPoint(e, side) {
+            const corners = side === 'front' ? this.frontCorners : this.backCorners;
+            if (corners.length >= 4) return;
+
+            const canvas = this.$refs[side + 'Canvas'];
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const scale = side === 'front' ? this.frontScale : this.backScale;
+
+            // 转换为原图坐标
+            const origX = Math.round(x / scale);
+            const origY = Math.round(y / scale);
+
+            corners.push([origX, origY]);
+            this.drawCanvas(side);
+        },
+
+        updateCursor(e, side) {
+            const canvas = this.$refs[side + 'Canvas'];
+            const rect = canvas.getBoundingClientRect();
+            this.cursorPos[side] = [e.clientX - rect.left, e.clientY - rect.top];
+            this.drawCanvas(side);
+        },
+
+        undoPoint(side) {
+            const corners = side === 'front' ? this.frontCorners : this.backCorners;
+            if (corners.length > 0) {
+                corners.pop();
+                this.drawCanvas(side);
+            }
+        },
+
+        resetCorners(side) {
+            if (side === 'front') this.frontCorners = [];
+            else this.backCorners = [];
+            this.drawCanvas(side);
+        },
+
+        rotateImage(side, deg) {
+            if (side === 'front') {
+                this.frontRotation = (this.frontRotation + deg + 360) % 360;
+                this.frontCorners = [];
+            } else {
+                this.backRotation = (this.backRotation + deg + 360) % 360;
+                this.backCorners = [];
+            }
+            this.initCanvas(side);
+        },
+
+        async submitMerge() {
+            this.loading = true; this.loadingText = '正在合并...';
+            try {
+                const frontData = await this.getCroppedImageData('front');
+                const backData = await this.getCroppedImageData('back');
+
+                const formData = new FormData();
+                formData.append('front_image', this.dataURLtoBlob(frontData), 'front.jpg');
+                formData.append('back_image', this.dataURLtoBlob(backData), 'back.jpg');
+
+                const response = await fetch('/api/v1/client/identity-docs/merge-id-card', {
+                    method: 'POST', body: formData,
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' }
+                });
+                const result = await response.json();
+
+                if (result.success || result.pdf_url) {
+                    this.pdfUrl = result.pdf_url; this.step = 3;
+                } else {
+                    alert('合并失败: ' + (result.message || '未知错误'));
+                }
+            } catch (err) { alert('请求失败: ' + err.message); }
+            finally { this.loading = false; }
+        },
+
+        getCroppedImageData(side) {
+            return new Promise((resolve) => {
+                const img = side === 'front' ? this.frontImg : this.backImg;
+                const rotation = side === 'front' ? this.frontRotation : this.backRotation;
+                const corners = side === 'front' ? this.frontCorners : this.backCorners;
+
+                // 创建旋转后的完整图片
+                const tempCanvas = document.createElement('canvas');
+                const isRotated = Math.abs(rotation) % 180 === 90;
+                tempCanvas.width = isRotated ? img.naturalHeight : img.naturalWidth;
+                tempCanvas.height = isRotated ? img.naturalWidth : img.naturalHeight;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+                ctx.rotate(rotation * Math.PI / 180);
+                ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+                // 计算边界框
+                const xs = corners.map(c => c[0]), ys = corners.map(c => c[1]);
+                const minX = Math.max(0, Math.min(...xs)), maxX = Math.min(tempCanvas.width, Math.max(...xs));
+                const minY = Math.max(0, Math.min(...ys)), maxY = Math.min(tempCanvas.height, Math.max(...ys));
+
+                // 裁剪输出
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = maxX - minX; outCanvas.height = maxY - minY;
+                outCanvas.getContext('2d').drawImage(tempCanvas, minX, minY, outCanvas.width, outCanvas.height, 0, 0, outCanvas.width, outCanvas.height);
+                resolve(outCanvas.toDataURL('image/jpeg', 0.92));
+            });
+        },
+
+        dataURLtoBlob(dataURL) {
+            const arr = dataURL.split(','), mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]); let n = bstr.length; const u8arr = new Uint8Array(n);
+            while (n--) u8arr[n] = bstr.charCodeAt(n);
+            return new Blob([u8arr], { type: mime });
+        },
+
+        resetAll() {
+            this.step = 1; this.frontFile = null; this.backFile = null;
+            this.frontImg = null; this.backImg = null;
+            this.frontCorners = []; this.backCorners = [];
+            this.frontRotation = 0; this.backRotation = 0; this.pdfUrl = '';
+        }
+    }
+}
+</script>
+{% csrf_token %}
+{% endblock %}

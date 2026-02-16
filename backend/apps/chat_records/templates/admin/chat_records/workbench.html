@@ -1,0 +1,949 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}梳理聊天记录工作台{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'chat_records/css/workbench.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">首页</a>
+    &rsaquo; <a href="{% url 'admin:chat_records_chatrecordproject_changelist' %}">梳理聊天记录</a>
+    &rsaquo; 工作台
+</div>
+{% endblock %}
+
+{% block content %}
+<div
+    class="crw-container"
+    x-data="chatRecordWorkbench({{ project.id }}, &quot;{{ project.name|escapejs }}&quot;)"
+    x-init="init()"
+>
+    <div class="crw-header" x-show="lockedMode" x-cloak>
+        <div>
+            <h1 class="crw-title">梳理聊天记录工作台</h1>
+            <div class="crw-subtitle">上传录屏后后台按可配置间隔自动截帧，支持手动截取当前帧，拖拽排序并导出 PDF/Word。</div>
+            <div class="crw-badges">
+                <span class="crw-badge">项目：{{ project.name }}</span>
+                <span class="crw-badge crw-badge-muted"><span x-text="screenshots.length"></span> 张截图</span>
+            </div>
+        </div>
+        <div class="crw-actions">
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordrecording_changelist' %}" target="_blank">录屏列表</a>
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordexporttask_changelist' %}" target="_blank">导出任务</a>
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordscreenshot_changelist' %}" target="_blank">截图列表</a>
+        </div>
+    </div>
+
+    <div class="crw-landing" x-show="!lockedMode" x-cloak>
+        <div class="crw-landing-title">梳理聊天记录</div>
+        <div class="crw-dropzone crw-dropzone-lg" @dragover.prevent @drop.prevent="onDropUpload($event)">
+            <input type="file" accept="video/*,image/*" multiple class="crw-dropzone-input" @change="onUploadFileSelected($event)" />
+            <div class="crw-dropzone-inner">
+                <div class="crw-dropzone-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 4v16m-8-8h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="crw-dropzone-title crw-dropzone-title-lg">点击或拖拽上传文件</div>
+                <div class="crw-dropzone-sub crw-dropzone-sub-lg">支持视频与图片</div>
+            </div>
+        </div>
+
+        <div x-show="recordingUploading || imagesUploading" class="crw-uploading crw-uploading-lg">
+            <div class="crw-uploading-title">上传中...</div>
+            <div class="crw-uploading-bar"><div class="crw-uploading-bar-fill"></div></div>
+        </div>
+
+        <button type="button" class="button crw-cta" disabled>开始解析</button>
+
+        <div class="crw-features">
+            <div class="crw-feature">
+                <div class="crw-feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 7h8M8 11h8M8 15h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M6 3h12a2 2 0 0 1 2 2v14l-4-2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="crw-feature-text">视频自动截帧</div>
+            </div>
+            <div class="crw-feature">
+                <div class="crw-feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 6h12M8 12h12M8 18h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="crw-feature-text">自动排序</div>
+            </div>
+            <div class="crw-feature">
+                <div class="crw-feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M7 3h10v6H7V3Z" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M7 21h10v-8H7v8Z" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M5 9h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="crw-feature-text">一键生成PDF、DOCX</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="crw-grid" x-show="lockedMode" x-cloak>
+        <div class="crw-left">
+        <div class="crw-card">
+            <div class="crw-card-header">
+                <div class="crw-card-title">录屏与预览</div>
+                <div class="crw-muted" x-show="recordingsLoading">加载录屏中...</div>
+            </div>
+            <div class="crw-card-body">
+                <div class="crw-section">
+                    <div class="crw-muted">该项目已选择 <span x-text="lockedMode === 'video' ? '视频' : '图片'"></span> 模式</div>
+
+                    <div x-show="lockedMode === 'video'" class="crw-section">
+                        <div class="crw-row">
+                            <div class="crw-field" style="min-width: 260px; flex: 1;">
+                                <div class="crw-label">当前视频</div>
+                                <div class="crw-muted" x-text="currentRecordingName"></div>
+                            </div>
+                            <div class="crw-field" style="min-width: 170px;">
+                                <div class="crw-label">抽帧策略</div>
+                                <select class="crw-select" x-model="extractStrategy">
+                                    <option value="interval">固定间隔</option>
+                                    <option value="scene">画面变化优先</option>
+                                    <option value="smart">智能去重（更强）</option>
+                                    <option value="keyframe">关键帧（I帧）</option>
+                                    <option value="ocr">OCR 文本变化优先（最强）</option>
+                                </select>
+                            </div>
+                            <div class="crw-field" style="min-width: 180px;" x-show="extractStrategy === 'interval' || extractStrategy === 'ocr'">
+                                <div class="crw-label">截帧间隔（秒）</div>
+                                <input type="number" class="crw-input" x-model="extractIntervalSeconds" step="0.1" min="0.1" placeholder="例如：1.5" />
+                            </div>
+                            <div class="crw-field" style="min-width: 190px;" x-show="extractStrategy === 'ocr'">
+                                <div class="crw-label">OCR 敏感度</div>
+                                <select class="crw-select" x-model="ocrSensitivity">
+                                    <option value="aggressive">激进（去重更狠）</option>
+                                    <option value="balanced">平衡</option>
+                                    <option value="conservative">保守（保留更多）</option>
+                                </select>
+                            </div>
+                            <div class="crw-field" style="min-width: 170px;">
+                                <div class="crw-label">去重强度</div>
+                                <select class="crw-select" x-model="dedupStrength">
+                                    <option value="off">关闭</option>
+                                    <option value="weak">弱</option>
+                                    <option value="medium">中</option>
+                                    <option value="strong">强</option>
+                                    <option value="extreme">极强</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="crw-row crw-row-actions">
+                            <button type="button" class="button crw-btn crw-btn-primary" @click="startExtract()" :disabled="extracting || !selectedRecordingId">
+                                <span x-show="!extracting">开始解析</span>
+                                <span x-show="extracting">提交中...</span>
+                            </button>
+                            <button type="button" class="button crw-btn crw-btn-danger" @click="cancelExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">取消</button>
+                            <button type="button" class="button crw-btn crw-btn-ghost" @click="resetExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">重置</button>
+                        </div>
+
+                        <div x-show="selectedRecordingId" class="crw-progress">
+                            <div class="crw-progress-top">
+                                <div class="crw-progress-message">
+                                    <span x-text="recordingStatusLabel"></span>
+                                    <span x-text="recordingMessage"></span>
+                                </div>
+                                <div class="crw-progress-value"><span x-text="recordingProgress"></span>%</div>
+                            </div>
+                            <div class="crw-progress-track">
+                                <div class="crw-progress-fill" :style="`width: ${recordingProgress}%;`"></div>
+                            </div>
+                            <div x-show="recordingError" class="crw-error" x-text="recordingError"></div>
+                        </div>
+
+                        <video class="crw-video" x-ref="video" controls preload="auto" playsinline @loadedmetadata="onVideoReady()"></video>
+                        <canvas x-ref="canvas" style="display:none;"></canvas>
+                        <div class="crw-row" style="justify-content: flex-start;">
+                            <button type="button" class="button crw-btn crw-btn-primary" @click="captureAndUpload()" :disabled="uploading || !videoReady">
+                                <span x-show="!uploading">截取当前帧</span>
+                                <span x-show="uploading">上传中...</span>
+                            </button>
+                            <span class="crw-muted">按当前时间自动插入到对应位置</span>
+                        </div>
+                    </div>
+
+                    <div x-show="lockedMode === 'images'" class="crw-row">
+                        <div class="crw-muted">当前为图片模式，可在右侧查看与排序截图</div>
+                    </div>
+
+                    <div x-show="error" class="crw-error" x-text="error"></div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <div class="crw-right">
+        <div class="crw-card">
+            <div class="crw-card-header">
+                <div class="crw-card-title">导出与截图列表</div>
+                <div class="crw-actions">
+                    <button type="button" class="button crw-btn crw-btn-ghost" @click="refreshScreenshots()" :disabled="loadingList">刷新列表</button>
+                </div>
+            </div>
+            <div class="crw-card-body">
+                <div class="crw-section">
+                    <div class="crw-split">
+                        <div class="crw-field">
+                            <div class="crw-label">类型</div>
+                            <select class="crw-select" x-model="exportType" @change="normalizeImagesPerPage()">
+                                <option value="pdf">PDF</option>
+                                <option value="docx">Word</option>
+                            </select>
+                        </div>
+                        <div class="crw-field">
+                            <div class="crw-label">每页张数</div>
+                            <select class="crw-select" x-model="imagesPerPage">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                            </select>
+                        </div>
+                        <div class="crw-field">
+                            <div class="crw-label">页眉（可空，默认项目名）</div>
+                            <input class="crw-input" type="text" x-model="headerText" />
+                        </div>
+                        <div class="crw-row" style="justify-content: flex-end;">
+                            <label class="crw-muted" style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" x-model="showPageNumber" />
+                                <span>显示页码</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="crw-row">
+                        <button type="button" class="button crw-btn crw-btn-primary" @click="startExport()" :disabled="exporting || screenshots.length === 0">
+                            <span x-show="!exporting">开始导出</span>
+                            <span x-show="exporting">导出中...</span>
+                        </button>
+                        <a x-show="downloadUrl" :href="downloadUrl" class="button crw-btn crw-btn-ghost" target="_blank">下载</a>
+                    </div>
+
+                    <div x-show="exportTaskId" class="crw-progress">
+                        <div class="crw-progress-top">
+                            <div class="crw-progress-message">
+                                <span x-text="exportStatusLabel"></span>
+                                <span x-text="exportMessage"></span>
+                            </div>
+                            <div class="crw-progress-value"><span x-text="exportProgress"></span>%</div>
+                        </div>
+                        <div class="crw-progress-track">
+                            <div class="crw-progress-fill crw-progress-fill-blue" :style="`width: ${exportProgress}%;`"></div>
+                        </div>
+                        <div x-show="exportError" class="crw-error" x-text="exportError"></div>
+                    </div>
+
+                    <div class="crw-divider"></div>
+
+                    <div class="crw-list-toolbar">
+                        <div class="crw-card-title">截图列表（拖拽排序）</div>
+                        <div class="crw-muted" x-show="loadingList">加载中...</div>
+                    </div>
+                    <div x-show="!loadingList && screenshots.length === 0" class="crw-muted">暂无截图</div>
+
+                    <div class="crw-wall">
+                        <template x-for="(shot, idx) in screenshots" :key="shot.id">
+                            <div
+                                class="crw-tile"
+                                draggable="true"
+                                @dragstart="onDragStart(idx)"
+                                @dragover.prevent
+                                @drop="onDrop(idx)"
+                            >
+                                <div class="crw-tile-thumb" @click="openPreview(shot.image_url, '截图')">
+                                    <img :src="shot.image_url" />
+                                    <div class="crw-new-badge" x-show="shot.is_new">NEW</div>
+                                    <div class="crw-tile-top">
+                                        <div class="crw-time-badge" x-show="formatShotTime(shot)" x-text="formatShotTime(shot)"></div>
+                                        <div class="crw-index-badge" x-text="idx+1"></div>
+                                    </div>
+                                </div>
+                                <div class="crw-tile-actions">
+                                    <button type="button" class="button crw-btn crw-btn-danger" @click="removeShot(shot)" :disabled="shot.deleting">
+                                        <span x-show="!shot.deleting">删除</span>
+                                        <span x-show="shot.deleting">删除中...</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div x-show="previewOpen" class="crw-modal" @keydown.escape.window="closePreview()" x-cloak>
+        <div class="crw-modal-card" @click.away="closePreview()">
+            <div class="crw-modal-top">
+                <div x-text="previewTitle"></div>
+                <button type="button" class="crw-modal-close" @click="closePreview()">关闭</button>
+            </div>
+            <div class="crw-modal-body">
+                <img :src="previewUrl" />
+            </div>
+        </div>
+    </div>
+
+    <div x-show="toastOpen" class="crw-toast" x-cloak>
+        <div class="crw-toast-card" :class="toastClass">
+            <div class="crw-toast-title" x-text="toastTitle"></div>
+            <div class="crw-toast-message" x-text="toastMessage"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function chatRecordWorkbench(projectId, projectName) {
+    return {
+        projectId,
+        projectName,
+        screenshots: [],
+        loadingList: false,
+        uploading: false,
+        videoReady: false,
+        error: '',
+        dragFromIndex: null,
+        recordings: [],
+        recordingsLoading: false,
+        recordingUploading: false,
+        selectedRecordingId: '',
+        currentRecordingName: '',
+        uploadMode: 'video',
+        lockedMode: '',
+        extracting: false,
+        extractIntervalSeconds: '1.5',
+        extractStrategy: 'interval',
+        dedupStrength: 'medium',
+        ocrSensitivity: 'aggressive',
+        recordingProgress: 0,
+        recordingStatus: '',
+        recordingStatusLabel: '',
+        recordingMessage: '',
+        recordingError: '',
+        recordingPollTimer: null,
+        exportType: 'pdf',
+        imagesPerPage: '2',
+        showPageNumber: true,
+        headerText: '',
+        exporting: false,
+        exportTaskId: '',
+        exportProgress: 0,
+        exportStatusLabel: '',
+        exportMessage: '',
+        exportError: '',
+        downloadUrl: '',
+        pollTimer: null,
+        localObjectUrl: '',
+        imagesUploading: false,
+        previewOpen: false,
+        previewUrl: '',
+        previewTitle: '',
+        toastOpen: false,
+        toastMessage: '',
+        toastTitle: '',
+        toastClass: 'crw-toast-info',
+        toastTimer: null,
+        newShotMarks: {},
+
+        async init() {
+            this.headerText = this.projectName;
+            this.extractIntervalSeconds = '1.5';
+            await Promise.all([this.refreshScreenshots(), this.refreshRecordings()]);
+            this.applyLockMode();
+        },
+
+        setUploadMode(mode) {
+            if (this.lockedMode && this.lockedMode !== mode) return;
+            this.uploadMode = mode;
+        },
+
+        applyLockMode() {
+            if (this.lockedMode) return;
+            if (Array.isArray(this.recordings) && this.recordings.length > 0) {
+                const r = this.recordings[0];
+                this.lockedMode = 'video';
+                this.uploadMode = 'video';
+                this.selectedRecordingId = r.id;
+                this.currentRecordingName = r.original_name || r.id;
+                this.setVideoSrc(r.stream_url || r.video_url);
+                this.startRecordingPolling();
+                return;
+            }
+            if (Array.isArray(this.screenshots) && this.screenshots.length > 0) {
+                this.lockedMode = 'images';
+                this.uploadMode = 'images';
+                this.selectedRecordingId = '';
+                this.currentRecordingName = '';
+                return;
+            }
+            this.lockedMode = '';
+            if (!this.uploadMode) this.uploadMode = 'video';
+        },
+
+        onDropUpload(e) {
+            const dt = e && e.dataTransfer;
+            const files = dt && dt.files ? Array.from(dt.files) : [];
+            if (!files.length) return;
+            const videoFile = files.find(x => x && (x.type || '').startsWith('video/'));
+            if (videoFile) {
+                this.uploadVideoFile(videoFile);
+                return;
+            }
+            const images = files.filter(x => x && (x.type || '').startsWith('image/'));
+            if (images.length) {
+                this.uploadImagesFiles(images);
+            }
+        },
+
+        onUploadFileSelected(e) {
+            const input = e && e.target;
+            const files = input && input.files ? Array.from(input.files) : [];
+            if (!files.length) return;
+            const videoFile = files.find(x => x && (x.type || '').startsWith('video/'));
+            if (videoFile) {
+                this.uploadVideoFile(videoFile);
+            } else {
+                const images = files.filter(x => x && (x.type || '').startsWith('image/'));
+                if (images.length) this.uploadImagesFiles(images);
+            }
+            try {
+                input.value = '';
+            } catch (err) {}
+        },
+
+        normalizeImagesPerPage() {
+            if (!['1', '2'].includes(String(this.imagesPerPage))) this.imagesPerPage = '2';
+        },
+
+        getDedupThreshold() {
+            const v = String(this.dedupStrength || 'medium');
+            if (v === 'off') return null;
+            if (v === 'weak') return 4;
+            if (v === 'strong') return 20;
+            if (v === 'extreme') return 28;
+            return 8;
+        },
+
+        getOcrParams() {
+            const v = String(this.ocrSensitivity || 'aggressive');
+            const threshold = v === 'conservative' ? 0.94 : v === 'balanced' ? 0.90 : 0.86;
+            const minNewChars = v === 'conservative' ? 6 : v === 'balanced' ? 10 : 16;
+            return { threshold, minNewChars };
+        },
+
+        getCsrfToken() {
+            return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+        },
+
+        async refreshScreenshots() {
+            this.loadingList = true;
+            this.error = '';
+            try {
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/screenshots`);
+                const data = await resp.json();
+                const now = Date.now();
+                const marks = this.newShotMarks || {};
+                Object.keys(marks).forEach(k => {
+                    if (!marks[k] || marks[k] < now) delete marks[k];
+                });
+                this.newShotMarks = marks;
+                this.screenshots = (Array.isArray(data) ? data : []).map(s => ({
+                    ...s,
+                    is_new: !!marks[s.id],
+                    saving: false,
+                    deleting: false,
+                }));
+            } catch (e) {
+                this.error = '加载截图失败';
+                this.toast('加载截图失败', 'error');
+            } finally {
+                this.loadingList = false;
+            }
+        },
+
+        async refreshRecordings() {
+            this.recordingsLoading = true;
+            try {
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/recordings`);
+                const data = await resp.json();
+                this.recordings = Array.isArray(data) ? data : [];
+            } catch (e) {
+            } finally {
+                this.recordingsLoading = false;
+            }
+        },
+
+        async uploadVideoFile(file) {
+            if (!file) return;
+            if (this.lockedMode && this.lockedMode !== 'video') {
+                this.toast('该项目已选择图片模式，无法上传视频', 'error');
+                return;
+            }
+            this.recordingUploading = true;
+            this.error = '';
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/recordings`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error((data && data.detail) || 'upload failed');
+                await this.refreshRecordings();
+                this.applyLockMode();
+                this.toast('录屏上传成功', 'success');
+            } catch (e) {
+                this.error = (e && e.message) ? e.message : '录屏上传失败';
+                this.toast(this.error, 'error');
+            } finally {
+                this.recordingUploading = false;
+            }
+        },
+
+        async uploadImagesFiles(files) {
+            if (!files || !files.length) return;
+            if (this.lockedMode && this.lockedMode !== 'images') {
+                this.toast('该项目已选择视频模式，无法上传图片', 'error');
+                return;
+            }
+            this.imagesUploading = true;
+            this.error = '';
+            try {
+                const formData = new FormData();
+                files.forEach(f => formData.append('files', f));
+                formData.append('deduplicate', 'true');
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/screenshots`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error((data && data.detail) || 'upload images failed');
+                const ttl = Date.now() + 3 * 60 * 1000;
+                if (Array.isArray(data)) {
+                    data.forEach(s => {
+                        if (s && s.id) this.newShotMarks[s.id] = ttl;
+                    });
+                }
+                await this.refreshScreenshots();
+                if (!this.lockedMode) this.lockedMode = 'images';
+                this.uploadMode = 'images';
+                this.toast('图片上传成功', 'success');
+            } catch (e) {
+                this.error = (e && e.message) ? e.message : '图片上传失败';
+                this.toast(this.error, 'error');
+            } finally {
+                this.imagesUploading = false;
+            }
+        },
+
+        setVideoSrc(url) {
+            if (!url) return;
+            if (this.localObjectUrl) {
+                try {
+                    URL.revokeObjectURL(this.localObjectUrl);
+                } catch (e) {}
+                this.localObjectUrl = '';
+            }
+            const v = this.$refs.video;
+            try {
+                v.pause();
+            } catch (e) {}
+            v.src = url;
+            try {
+                v.load();
+            } catch (e) {}
+            this.videoReady = false;
+        },
+
+        async startExtract() {
+            if (!this.selectedRecordingId) return;
+            this.extracting = true;
+            this.recordingError = '';
+            try {
+                const formData = new FormData();
+                formData.append('strategy', String(this.extractStrategy || 'interval'));
+                formData.append('interval_seconds', String(this.extractIntervalSeconds || '1'));
+                const dedupThreshold = this.getDedupThreshold();
+                if (dedupThreshold !== null && dedupThreshold !== undefined) {
+                    formData.append('dedup_threshold', String(dedupThreshold));
+                }
+                if (String(this.extractStrategy) === 'ocr') {
+                    const p = this.getOcrParams();
+                    formData.append('ocr_similarity_threshold', String(p.threshold));
+                    formData.append('ocr_min_new_chars', String(p.minNewChars));
+                }
+                const resp = await fetch(`/api/v1/chat-records/recordings/${this.selectedRecordingId}/extract`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error((data && (data.message || data.detail)) || 'extract failed');
+                this.recordingProgress = data.extract_progress || 0;
+                this.recordingMessage = data.extract_message || '';
+                this.recordingError = data.extract_error || '';
+                this.recordingStatus = data.extract_status || '';
+                this.recordingStatusLabel = data.extract_status_label || data.extract_status || '';
+                this.startRecordingPolling();
+                this.toast('抽帧任务已提交', 'info');
+            } catch (e) {
+                this.recordingError = (e && e.message) ? String(e.message) : '提交抽帧失败';
+                this.toast(this.recordingError, 'error');
+            } finally {
+                this.extracting = false;
+            }
+        },
+
+        async cancelExtract() {
+            if (!this.selectedRecordingId) return;
+            try {
+                const resp = await fetch(`/api/v1/chat-records/recordings/${this.selectedRecordingId}/extract/cancel`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error((data && (data.message || data.detail)) || 'cancel failed');
+                this.recordingMessage = data.extract_message || '';
+                this.recordingError = data.extract_error || '';
+                this.recordingStatus = data.extract_status || '';
+                this.recordingStatusLabel = data.extract_status_label || data.extract_status || '';
+                this.toast('已请求取消', 'info');
+            } catch (e) {
+                this.toast((e && e.message) ? String(e.message) : '取消失败', 'error');
+            }
+        },
+
+        async resetExtract() {
+            if (!this.selectedRecordingId) return;
+            try {
+                const resp = await fetch(`/api/v1/chat-records/recordings/${this.selectedRecordingId}/extract/reset`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error((data && (data.message || data.detail)) || 'reset failed');
+                this.recordingProgress = data.extract_progress || 0;
+                this.recordingMessage = data.extract_message || '';
+                this.recordingError = data.extract_error || '';
+                this.recordingStatus = data.extract_status || '';
+                this.recordingStatusLabel = data.extract_status_label || data.extract_status || '';
+                this.toast('已重置，可重新提交', 'success');
+            } catch (e) {
+                this.toast((e && e.message) ? String(e.message) : '重置失败', 'error');
+            }
+        },
+
+        startRecordingPolling() {
+            if (!this.selectedRecordingId) return;
+            if (this.recordingPollTimer) clearInterval(this.recordingPollTimer);
+            this.recordingPollTimer = setInterval(() => this.pollRecordingOnce(), 1500);
+        },
+
+        async pollRecordingOnce() {
+            if (!this.selectedRecordingId) return;
+            try {
+                const resp = await fetch(`/api/v1/chat-records/recordings/${this.selectedRecordingId}`);
+                const data = await resp.json();
+                if (!resp.ok) throw new Error('poll recording failed');
+                this.recordingProgress = data.extract_progress || 0;
+                this.recordingMessage = data.extract_message || '';
+                this.recordingError = data.extract_error || '';
+                this.recordingStatus = data.extract_status || '';
+                this.recordingStatusLabel = data.extract_status_label || data.extract_status || '';
+                if (['success', 'failed'].includes(data.extract_status)) {
+                    clearInterval(this.recordingPollTimer);
+                    this.recordingPollTimer = null;
+                    if (data.extract_status === 'success') {
+                        await this.refreshScreenshots();
+                        this.toast('抽帧完成，已刷新截图列表', 'success');
+                    } else {
+                        this.toast('抽帧失败', 'error');
+                    }
+                }
+            } catch (e) {
+                clearInterval(this.recordingPollTimer);
+                this.recordingPollTimer = null;
+            }
+        },
+
+        onSelectVideo(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            this.localObjectUrl = url;
+            const v = this.$refs.video;
+            try {
+                v.pause();
+            } catch (e) {}
+            v.src = url;
+            try {
+                v.load();
+            } catch (e) {}
+            this.videoReady = false;
+        },
+
+        onVideoReady() {
+            this.videoReady = true;
+        },
+
+        async captureAndUpload() {
+            if (!this.videoReady) return;
+            this.uploading = true;
+            this.error = '';
+            try {
+                const video = this.$refs.video;
+                const captureTimeSeconds = video.currentTime || 0;
+                const canvas = this.$refs.canvas;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+                if (!blob) throw new Error('toBlob failed');
+                const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+                const formData = new FormData();
+                formData.append('files', file);
+                formData.append('deduplicate', 'true');
+                formData.append('capture_time_seconds', String(captureTimeSeconds));
+
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/screenshots`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    body: formData,
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || 'upload failed');
+                }
+                const created = await resp.json();
+                const ttl = Date.now() + 3 * 60 * 1000;
+                if (Array.isArray(created)) {
+                    created.forEach(s => {
+                        if (s && s.id) this.newShotMarks[s.id] = ttl;
+                    });
+                }
+                await this.refreshScreenshots();
+                this.toast('截图上传成功', 'success');
+            } catch (e) {
+                this.error = '截图上传失败';
+                this.toast('截图上传失败', 'error');
+            } finally {
+                this.uploading = false;
+            }
+        },
+
+        onDragStart(idx) {
+            this.dragFromIndex = idx;
+        },
+
+        async onDrop(toIndex) {
+            const fromIndex = this.dragFromIndex;
+            this.dragFromIndex = null;
+            if (fromIndex === null || fromIndex === toIndex) return;
+
+            const moved = this.screenshots.splice(fromIndex, 1)[0];
+            this.screenshots.splice(toIndex, 0, moved);
+            await this.saveOrder();
+        },
+
+        async saveOrder() {
+            try {
+                const payload = { screenshot_ids: this.screenshots.map(s => s.id) };
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/screenshots/reorder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (!resp.ok) throw new Error('reorder failed');
+            } catch (e) {
+                this.error = '保存顺序失败';
+                this.toast('保存顺序失败', 'error');
+            }
+        },
+
+        async saveShot(shot) {
+            shot.saving = true;
+            this.error = '';
+            try {
+                const resp = await fetch(`/api/v1/chat-records/screenshots/${shot.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken(),
+                    },
+                    body: JSON.stringify({ title: shot.title, note: shot.note }),
+                });
+                if (!resp.ok) throw new Error('save failed');
+                this.toast('已保存', 'success');
+            } catch (e) {
+                this.error = '保存失败';
+                this.toast('保存失败', 'error');
+            } finally {
+                shot.saving = false;
+            }
+        },
+
+        async removeShot(shot) {
+            if (!confirm('确认删除这张截图？')) return;
+            shot.deleting = true;
+            this.error = '';
+            try {
+                const resp = await fetch(`/api/v1/chat-records/screenshots/${shot.id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                });
+                if (!resp.ok) throw new Error('delete failed');
+                this.screenshots = this.screenshots.filter(s => s.id !== shot.id);
+                await this.saveOrder();
+                this.toast('已删除', 'success');
+            } catch (e) {
+                this.error = '删除失败';
+                this.toast('删除失败', 'error');
+            } finally {
+                shot.deleting = false;
+            }
+        },
+
+        async startExport() {
+            this.exporting = true;
+            this.exportError = '';
+            this.downloadUrl = '';
+            try {
+                const payload = {
+                    export_type: this.exportType,
+                    layout: {
+                        images_per_page: parseInt(this.imagesPerPage, 10),
+                        show_page_number: this.showPageNumber,
+                        header_text: (this.headerText || '').trim(),
+                    }
+                };
+                const resp = await fetch(`/api/v1/chat-records/projects/${this.projectId}/exports`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data && data.detail ? data.detail : 'export failed');
+
+                this.exportTaskId = data.id;
+                this.exportProgress = data.progress || 0;
+                this.exportStatusLabel = data.status_label || '';
+                this.exportMessage = data.message || '';
+                this.exportError = data.error || '';
+                this.downloadUrl = data.download_url || '';
+                this.startPolling();
+                this.toast('已提交导出任务', 'info');
+            } catch (e) {
+                this.exportError = '提交导出失败';
+                this.toast('提交导出失败', 'error');
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        startPolling() {
+            if (this.pollTimer) clearInterval(this.pollTimer);
+            this.pollTimer = setInterval(() => this.pollOnce(), 1500);
+        },
+
+        async pollOnce() {
+            if (!this.exportTaskId) return;
+            try {
+                const resp = await fetch(`/api/v1/chat-records/exports/${this.exportTaskId}`);
+                const data = await resp.json();
+                if (!resp.ok) throw new Error('poll failed');
+                this.exportProgress = data.progress || 0;
+                this.exportStatusLabel = data.status_label || '';
+                this.exportMessage = data.message || '';
+                this.exportError = data.error || '';
+                this.downloadUrl = data.download_url || '';
+                if (['success', 'failed'].includes(data.status)) {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                    if (data.status === 'success') {
+                        this.toast('导出完成，开始下载...', 'success');
+                        if (this.downloadUrl) {
+                            setTimeout(() => {
+                                const link = document.createElement('a');
+                                link.href = this.downloadUrl;
+                                link.download = '';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }, 500);
+                        }
+                    } else {
+                        this.toast('导出失败', 'error');
+                    }
+                }
+            } catch (e) {
+                clearInterval(this.pollTimer);
+                this.pollTimer = null;
+            }
+        },
+
+        openPreview(url, title) {
+            if (!url) return;
+            this.previewUrl = url;
+            this.previewTitle = title || '预览';
+            this.previewOpen = true;
+        },
+
+        closePreview() {
+            this.previewOpen = false;
+            this.previewUrl = '';
+            this.previewTitle = '';
+        },
+
+        formatShotTime(shot) {
+            const v = shot && shot.capture_time_seconds;
+            if (v === null || v === undefined || isNaN(Number(v))) {
+                return '';
+            }
+            const total = Math.max(0, Math.floor(Number(v)));
+            const mm = String(Math.floor(total / 60)).padStart(2, '0');
+            const ss = String(total % 60).padStart(2, '0');
+            return `${mm}:${ss}`;
+        },
+
+        toast(message, type) {
+            const t = type || 'info';
+            this.toastMessage = message || '';
+            this.toastTitle = t === 'success' ? '成功' : t === 'error' ? '失败' : '提示';
+            this.toastClass = t === 'success' ? 'crw-toast-success' : t === 'error' ? 'crw-toast-error' : 'crw-toast-info';
+            this.toastOpen = true;
+            if (this.toastTimer) clearTimeout(this.toastTimer);
+            this.toastTimer = setTimeout(() => {
+                this.toastOpen = false;
+            }, 2200);
+        },
+    }
+}
+</script>
+{% endblock %}

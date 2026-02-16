@@ -85,10 +85,10 @@
                 const canvas = document.createElement('canvas');
                 canvas.width = img.naturalWidth || img.width;
                 canvas.height = img.naturalHeight || img.height;
-                
+
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
-                
+
                 const base64 = canvas.toDataURL('image/png').split(',')[1];
                 resolve(base64);
             } catch (error) {
@@ -141,7 +141,7 @@
 
         // 设置值
         input.value = text;
-        
+
         // 触发输入事件
         const events = ['input', 'change', 'blur'];
         events.forEach(eventType => {
@@ -240,11 +240,11 @@
                     if (errorText && errorText.length > 0) {
                         log(`检测到错误消息: ${errorText}`, 'info');
                         log('重新识别验证码...', 'info');
-                        
+
                         // 重置状态
                         state.lastCaptchaUrl = null;
                         state.retryCount = 0;
-                        
+
                         // 延迟一下，等待验证码图片刷新
                         setTimeout(() => {
                             processCaptcha();
@@ -277,7 +277,7 @@
             // 等待密码标签出现
             log('等待密码登录标签...', 'info');
             const passwordTab = await waitForElement(SELECTORS.PASSWORD_TAB, 5000);
-            
+
             // 点击切换到密码登录
             log('点击切换到密码登录...', 'info');
             passwordTab.click();
@@ -299,7 +299,7 @@
             setInterval(() => {
                 const captchaImg = getElementByXPath(SELECTORS.CAPTCHA_IMAGE);
                 const captchaInput = getElementByXPath(SELECTORS.CAPTCHA_INPUT);
-                
+
                 // 如果验证码图片存在且输入框为空，则重新识别
                 if (captchaImg && captchaInput && !captchaInput.value) {
                     log('检测到验证码输入框为空，重新识别...', 'debug');

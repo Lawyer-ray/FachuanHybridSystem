@@ -1,34 +1,31 @@
-import httpx
 import json
+
+import httpx
 
 from apps.automation.services.ai import get_ollama_base_url
 
 
-def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict:
+def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict[str, Any]:
     """
     调用Ollama API进行聊天
-    
+
     Args:
         model: 模型名称
         messages: 消息列表
         base_url: Ollama服务的基础URL，如果不提供则从 Django settings 读取
-    
+
     Returns:
         dict: Ollama API返回的JSON响应
     """
     base = base_url or get_ollama_base_url()
     url = base.rstrip("/") + "/api/chat"
-    payload = {
-        "model": model,
-        "messages": messages,
-        "stream": False  # 设置为False以获取完整响应而不是流式响应
-    }
-    
+    payload = {"model": model, "messages": messages, "stream": False}  # 设置为False以获取完整响应而不是流式响应
+
     try:
         with httpx.Client(timeout=120) as client:
             resp = client.post(url, json=payload)
             resp.raise_for_status()
-            
+
             # 尝试解析JSON响应
             try:
                 return resp.json()
@@ -37,22 +34,22 @@ def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict:
                 text = resp.text.strip()
                 if text:
                     # 尝试解析每一行JSON（流式响应格式）
-                    lines = text.split('\n')
+                    lines = text.split("\n")
                     last_valid_json = None
                     for line in lines:
                         line = line.strip()
                         if line:
                             try:
                                 data = json.loads(line)
-                                if 'message' in data:
+                                if "message" in data:
                                     last_valid_json = data
                             except json.JSONDecodeError:
                                 continue
-                    
+
                     if last_valid_json:
                         return last_valid_json
-                
-                raise ValueError(f"无法解析Ollama响应: {str(e)}\n响应内容: {text[:500]}")
+
+                raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             raise ConnectionError(
@@ -63,9 +60,6 @@ def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict:
             )
         raise ConnectionError(f"Ollama API错误 ({e.response.status_code}): {e.response.text}")
     except httpx.ConnectError as e:
-        raise ConnectionError(
-            f"无法连接到Ollama服务 ({base})。请确保Ollama服务正在运行。\n"
-            f"错误详情: {str(e)}"
-        )
+        raise ConnectionError(f"无法连接到Ollama服务 ({base})。请确保Ollama服务正在运行。\n错误详情: {e!s}")
     except Exception as e:
-        raise RuntimeError(f"调用Ollama API时发生错误: {str(e)}")
+        raise RuntimeError(f"调用Ollama API时发生错误: {e!s}")

@@ -1,0 +1,11 @@
+pre-commit>=4.0.0
+black==24.10.0
+isort==5.13.2
+ruff==0.15.0
+mypy==1.8.0
+django-stubs>=5.2.0,<5.3
+django-stubs-ext>=5.2.0,<5.3
+detect-secrets==1.5.0
+pip-audit>=2.7.0
+bandit>=1.7.8
+watchfiles>=1.1.1

@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyc
+*.pyo
+*.pyd
 .Python
 build/
 develop-eggs/
@@ -23,10 +26,12 @@ wheels/
 # Virtual Environment
 venv/
 venv311/
+venv312/
 ENV/
 env/
 .venv/
 backend/venv311/
+backend/venv312/
 
 # IDE
 .idea/
@@ -70,6 +75,9 @@ backend/apiSystem/htmlcov/
 # IDE specific (Trae)
 .trae/
 
+# Agent/skill artifacts
+.agents/
+
 # Logs
 logs/
 *.log
@@ -92,12 +100,6 @@ backend/tests/screenshots/*.jpg
 backend/tests/screenshots/*.jpeg
 backend/tests/screenshots/*.webp
 
-# Personal project - exclude tests
-backend/tests/
-
-# Internal documentation (not for open source)
-backend/docs/
-
 # Jupyter
 .ipynb_checkpoints/
 
@@ -108,10 +110,20 @@ backend/docs/
 celerybeat-schedule
 celerybeat.pid
 
-# Redis
-dump.rdb
-
 # Temporary files
 *.tmp
 *.temp
 *.bak
+.cache/
+**/.cache/
+
+# Repo-root one-off scripts (keep root clean)
+/analyze_exceptions.py
+/fix_all_silent_exceptions.py
+/fix_exceptions_smart.py
+/fix_silent_exceptions.py
+/run_tests.py
+/mypy_services_errors.txt
+
+# Docker volumes (auto-created on first run)
+docker-volumes/
