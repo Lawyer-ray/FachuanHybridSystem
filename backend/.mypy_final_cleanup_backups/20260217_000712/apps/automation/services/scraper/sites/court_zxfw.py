@@ -4,7 +4,7 @@
 """
 import logging
 import time
-from typing import Any, Dict, Optional, Type
+from typing import Dict, Any, Optional
 from playwright.sync_api import Page, BrowserContext
 from pathlib import Path
 

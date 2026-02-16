@@ -2,7 +2,7 @@
 合同服务层
 处理合同相关的业务逻辑
 """
-from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import QuerySet, Sum
