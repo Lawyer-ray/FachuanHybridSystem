@@ -73,7 +73,7 @@ class ValidatorService:
         Returns:
             规范化后的案号
         """
-        return self.text_utils.normalize_case_number(case_number)
+        return self.text_utils.normalize_case_number(case_number)  # type: ignore[no-any-return]
 
     def validate_file(self, file_path: str, expected_extensions: list[Any] = None) -> dict[str, Any][str, Any]:
         """
@@ -98,7 +98,7 @@ class ValidatorService:
         Returns:
             清洗后的文本
         """
-        return self.text_utils.clean_text(text)
+        return self.text_utils.clean_text(text)  # type: ignore[no-any-return]
 
     def extract_case_numbers(self, text: str) -> list[Any]:
         """
@@ -110,7 +110,7 @@ class ValidatorService:
         Returns:
             案号列表
         """
-        return self.text_utils.extract_case_numbers(text)
+        return self.text_utils.extract_case_numbers(text)  # type: ignore[no-any-return]
 
 
 class ValidatorServiceAdapter(IValidatorService):

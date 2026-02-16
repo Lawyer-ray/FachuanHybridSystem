@@ -373,14 +373,14 @@ class CaseService:
 
         # 权限检查
         if perm_open_access:
-            return case
+            return case  # type: ignore[no-any-return]
 
         if user and getattr(user, "is_authenticated", False):
             if getattr(user, "is_admin", False):
-                return case
+                return case  # type: ignore[no-any-return]
 
             if self.check_case_access(case, user, org_access):
-                return case
+                return case  # type: ignore[no-any-return]
 
         raise ForbiddenError("无权限访问此案件")
 
@@ -555,7 +555,7 @@ class CaseService:
             }
         )
 
-        return case
+        return case  # type: ignore[no-any-return]
 
     def delete_case(self, case_id: int, user: Optional[Any] = None) -> bool:
         """
@@ -851,7 +851,7 @@ class CaseServiceAdapter:
         """
         try:
             case = Case.objects.only("current_stage").get(id=case_id)
-            return case.current_stage
+            return case.current_stage  # type: ignore[no-any-return]
         except Case.DoesNotExist:
             return None
 

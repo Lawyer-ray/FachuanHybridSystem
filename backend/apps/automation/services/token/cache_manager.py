@@ -55,7 +55,7 @@ class TokenCacheManager:
                     'account': account,
                     'cache_key': cache_key
                 })
-                return cached_data.get('token')
+                return cached_data.get('token')  # type: ignore[no-any-return]
             
             logger.debug(f"Token缓存未命中", extra={
                 'site_name': site_name,
@@ -253,7 +253,7 @@ class TokenCacheManager:
                     'site_name': site_name,
                     'cache_key': cache_key
                 })
-                return cached_data
+                return cached_data  # type: ignore[no-any-return]
             
             return None
             
@@ -334,7 +334,7 @@ class TokenCacheManager:
                     'cache_key': cache_key,
                     'count': len(cached_data)
                 })
-                return cached_data
+                return cached_data  # type: ignore[no-any-return]
             
             return None
             

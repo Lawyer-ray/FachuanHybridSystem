@@ -207,7 +207,7 @@ class Validators:
         if max_date and value > max_date:
             raise ValidationException(f"{field_name} 日期过晚", errors={field_name: f"日期不能晚于 {max_date}"})
 
-        return value
+        return value  # type: ignore[no-any-return]
 
     @classmethod
     def validate_in_choices(

@@ -45,4 +45,4 @@ class CaseNumberServiceAdapter(ICaseNumberService):
     
     def normalize_case_number(self, number: str) -> str:
         """规范化案号"""
-        return self.case_number_service.normalize_case_number(number)
+        return self.case_number_service.normalize_case_number(number)  # type: ignore[no-any-return]

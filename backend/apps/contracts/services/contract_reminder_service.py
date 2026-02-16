@@ -66,7 +66,7 @@ class ContractReminderService:
             NotFoundError: 提醒不存在
         """
         try:
-            return ContractReminder.objects.select_related("contract").get(id=reminder_id)
+            return ContractReminder.objects.select_related("contract").get(id=reminder_id)  # type: ignore[no-any-return]
         except ContractReminder.DoesNotExist:
             raise NotFoundError(f"提醒记录 {reminder_id} 不存在")
 

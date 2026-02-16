@@ -116,7 +116,7 @@ class DocumentRenamer:
                 
                 if title:
                     logger.info(f"成功提取文书标题: {title}")
-                    return title
+                    return title  # type: ignore[no-any-return]
             
             logger.warning("Ollama 返回的响应格式不正确或为空")
             return None

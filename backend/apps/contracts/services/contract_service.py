@@ -204,7 +204,7 @@ class ContractService:
             NotFoundError: 合同不存在
         """
         try:
-            return self.get_contract_queryset().get(id=contract_id)
+            return self.get_contract_queryset().get(id=contract_id)  # type: ignore[no-any-return]
         except Contract.DoesNotExist:
             raise NotFoundError(f"合同 {contract_id} 不存在")
 
@@ -498,7 +498,7 @@ class ContractService:
             }
         )
 
-        return assignments
+        return assignments  # type: ignore[no-any-return]
 
     @transaction.atomic
     def create_contract_with_cases(
@@ -1014,7 +1014,7 @@ class ContractServiceAdapter:
         """
         try:
             contract = self.contract_service._get_contract_internal(contract_id)
-            return contract.status == "active"
+            return contract.status == "active"  # type: ignore[no-any-return]
         except NotFoundError:
             return False
 

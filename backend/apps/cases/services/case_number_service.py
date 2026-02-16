@@ -107,7 +107,7 @@ class CaseNumberService:
                 }
             )
 
-            return case_number
+            return case_number  # type: ignore[no-any-return]
         except CaseNumber.DoesNotExist:
             logger.warning(
                 f"案号不存在",
@@ -280,7 +280,7 @@ class CaseNumberService:
             }
         )
 
-        return case_number
+        return case_number  # type: ignore[no-any-return]
 
     @transaction.atomic
     def delete_number(

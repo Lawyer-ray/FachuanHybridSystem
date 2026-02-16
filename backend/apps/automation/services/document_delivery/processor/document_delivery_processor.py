@@ -201,7 +201,7 @@ class DocumentDeliveryProcessor:
         thread.start()
         thread.join(timeout=60)
 
-        return result_queue.get() if not result_queue.empty() else {"success": False, "error_message": "SMS 处理超时"}
+        return result_queue.get() if not result_queue.empty() else {"success": False, "error_message": "SMS 处理超时"}  # type: ignore[no-any-return]
 
     def record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
         """在独立线程中记录查询历史"""

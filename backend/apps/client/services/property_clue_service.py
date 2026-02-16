@@ -134,7 +134,7 @@ class PropertyClueService:
                 errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"}
             )
 
-        return clue
+        return clue  # type: ignore[no-any-return]
 
     def list_clues_by_client(
         self,
@@ -371,4 +371,4 @@ class PropertyClueService:
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
-        return PropertyClue.CONTENT_TEMPLATES.get(clue_type, "")
+        return PropertyClue.CONTENT_TEMPLATES.get(clue_type, "")  # type: ignore[no-any-return]

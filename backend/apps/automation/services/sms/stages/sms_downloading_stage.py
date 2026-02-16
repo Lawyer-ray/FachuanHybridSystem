@@ -61,7 +61,7 @@ class SMSDownloadingStage(BaseSMSStage):
         Returns:
             bool: 是否可以处理
         """
-        return sms.status == CourtSMSStatus.PARSING
+        return sms.status == CourtSMSStatus.PARSING  # type: ignore[no-any-return]
     
     def process(self, sms: CourtSMS) -> CourtSMS:
         """

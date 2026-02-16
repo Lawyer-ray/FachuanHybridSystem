@@ -80,7 +80,7 @@ class SMSMatchingStage(BaseSMSStage):
         return "匹配"
     
     def can_process(self, sms: CourtSMS) -> bool:
-        return sms.status == CourtSMSStatus.MATCHING
+        return sms.status == CourtSMSStatus.MATCHING  # type: ignore[no-any-return]
     
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理案件匹配阶段"""

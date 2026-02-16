@@ -401,7 +401,7 @@ class PreservationQuoteService:
                 },
             )
 
-            return quote
+            return quote  # type: ignore[no-any-return]
         except PreservationQuote.DoesNotExist:
             logger.error(
                 "询价任务不存在",

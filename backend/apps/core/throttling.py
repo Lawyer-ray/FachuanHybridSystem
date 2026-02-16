@@ -39,8 +39,8 @@ class RateLimiter:
         """获取客户端 IP"""
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR", "unknown")
+            return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
+        return request.META.get("REMOTE_ADDR", "unknown")  # type: ignore[no-any-return]
 
     def get_cache_key(self, request: HttpRequest, key_func: Optional[callable] = None) -> str:
         """

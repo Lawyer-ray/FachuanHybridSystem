@@ -170,7 +170,7 @@ class OwnerConfigManager:
         if default_owner and default_owner.strip():
             default_owner = default_owner.strip()
             logger.debug(f"使用默认群主ID: {default_owner}")
-            return default_owner
+            return default_owner  # type: ignore[no-any-return]
 
         # 测试环境特殊处理
         if self.is_test_environment():
@@ -178,7 +178,7 @@ class OwnerConfigManager:
             if test_owner and test_owner.strip():
                 test_owner = test_owner.strip()
                 logger.debug(f"从测试环境配置加载默认群主ID: {test_owner}")
-                return test_owner
+                return test_owner  # type: ignore[no-any-return]
 
         logger.debug("未找到默认群主ID配置")
         return None
@@ -334,7 +334,7 @@ class OwnerConfigManager:
             if manager.is_test_environment():
                 print("当前运行在测试环境")
         """
-        return self._config.get("TEST_MODE", False)
+        return self._config.get("TEST_MODE", False)  # type: ignore[no-any-return]
 
     def is_validation_enabled(self) -> bool:
         """检查是否启用了群主ID验证
@@ -342,7 +342,7 @@ class OwnerConfigManager:
         Returns:
             bool: 是否启用验证
         """
-        return self._config.get("OWNER_VALIDATION_ENABLED", True)
+        return self._config.get("OWNER_VALIDATION_ENABLED", True)  # type: ignore[no-any-return]
 
     def is_retry_enabled(self) -> bool:
         """检查是否启用了重试机制
@@ -350,7 +350,7 @@ class OwnerConfigManager:
         Returns:
             bool: 是否启用重试
         """
-        return self._config.get("OWNER_RETRY_ENABLED", True)
+        return self._config.get("OWNER_RETRY_ENABLED", True)  # type: ignore[no-any-return]
 
     def get_max_retries(self) -> int:
         """获取最大重试次数
@@ -358,7 +358,7 @@ class OwnerConfigManager:
         Returns:
             int: 最大重试次数
         """
-        return self._config.get("OWNER_MAX_RETRIES", 3)
+        return self._config.get("OWNER_MAX_RETRIES", 3)  # type: ignore[no-any-return]
 
     def handle_empty_owner_id(self, owner_id: str | None) -> str | None:
         """处理空的群主ID

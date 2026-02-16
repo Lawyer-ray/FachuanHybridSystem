@@ -41,7 +41,7 @@ class FeishuBotService:
                 if get_unified_config:
                     webhook_url = get_unified_config('chat_platforms.feishu.webhook_url')
                     if webhook_url:
-                        return webhook_url
+                        return webhook_url  # type: ignore[no-any-return]
         except Exception as e:
             logger.debug(f"从统一配置获取飞书 Webhook URL 失败: {e}")
         
@@ -58,7 +58,7 @@ class FeishuBotService:
         if not webhook_url:
             logger.warning("未配置飞书 Webhook URL，飞书通知功能将不可用")
             
-        return webhook_url
+        return webhook_url  # type: ignore[no-any-return]
     
     def _get_timeout(self) -> int:
         """从配置获取超时时间"""
@@ -68,13 +68,13 @@ class FeishuBotService:
                 get_unified_config = getattr(settings, 'get_unified_config', None)
                 if get_unified_config:
                     timeout = get_unified_config('chat_platforms.feishu.timeout', 30)
-                    return timeout
+                    return timeout  # type: ignore[no-any-return]
         except Exception as e:
             logger.debug(f"从统一配置获取飞书超时时间失败: {e}")
         
         # 回退到传统配置方式
         feishu_config = getattr(settings, 'FEISHU', {})
-        return feishu_config.get('TIMEOUT', 30)
+        return feishu_config.get('TIMEOUT', 30)  # type: ignore[no-any-return]
     
     def build_rich_text_message(
         self,
@@ -285,7 +285,7 @@ class FeishuBotService:
             是否发送成功
         """
         result = self.send_sms_notification(case_name, sms_content, document_path, processed_at)
-        return result["success"]
+        return result["success"]  # type: ignore[no-any-return]
     
     def upload_file(self, file_path: str) -> Optional[str]:
         """
@@ -348,7 +348,7 @@ class FeishuBotService:
                         if result.get("code") == 0:
                             file_key = result.get("data", {}).get("file_key")
                             logger.info(f"文件上传成功: {file_key}")
-                            return file_key
+                            return file_key  # type: ignore[no-any-return]
                         else:
                             logger.error(f"文件上传失败: {result}")
                             return None
@@ -402,7 +402,7 @@ class FeishuBotService:
                     if result.get("code") == 0:
                         token = result.get("app_access_token")
                         logger.debug("获取飞书访问令牌成功")
-                        return token
+                        return token  # type: ignore[no-any-return]
                     else:
                         logger.error(f"获取飞书访问令牌失败: {result}")
                         return None

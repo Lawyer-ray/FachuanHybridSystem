@@ -259,7 +259,7 @@ class PerformanceDataCollector:
         try:
             process = psutil.Process()
             memory_info = process.memory_info()
-            return memory_info.rss / (1024 * 1024)  # 转换为 MB
+            return memory_info.rss / (1024 * 1024)  # type: ignore[no-any-return]  #  转换为 MB
         except Exception:
             return 0.0
     
@@ -298,7 +298,7 @@ class PerformanceAnalyzer:
             if cache_key in self._analysis_cache:
                 cached_result, cache_time = self._analysis_cache[cache_key]
                 if time.time() - cache_time < 5:
-                    return cached_result
+                    return cached_result  # type: ignore[no-any-return]
             
             # 获取加载历史
             history = self.data_collector.get_recent_loading_history(500)

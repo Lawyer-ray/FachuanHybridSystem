@@ -315,7 +315,7 @@ class CaseChatService:
 
         if existing_chat:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
-            return existing_chat
+            return existing_chat  # type: ignore[no-any-return]
 
         # 不存在则创建新群聊
         logger.info(f"未找到现有群聊，开始创建新群聊: case_id={case_id}, platform={platform.value}")

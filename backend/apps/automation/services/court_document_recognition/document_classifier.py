@@ -224,7 +224,7 @@ class DocumentClassifier:
         
         # 直接尝试解析
         try:
-            return json.loads(content)
+            return json.loads(content)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             pass
         
@@ -236,7 +236,7 @@ class DocumentClassifier:
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_str = content[start_idx:end_idx + 1]
             try:
-                return json.loads(json_str)
+                return json.loads(json_str)  # type: ignore[no-any-return]
             except json.JSONDecodeError:
                 pass
         
@@ -246,7 +246,7 @@ class DocumentClassifier:
                 json_start = content.index("```json") + 7
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)
+                return json.loads(json_str)  # type: ignore[no-any-return]
             except (ValueError, json.JSONDecodeError):
                 pass
         
@@ -255,7 +255,7 @@ class DocumentClassifier:
                 json_start = content.index("```") + 3
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)
+                return json.loads(json_str)  # type: ignore[no-any-return]
             except (ValueError, json.JSONDecodeError):
                 pass
         

@@ -29,7 +29,7 @@ class TimestampMixin:
         try:
             return timezone.localtime(value)
         except Exception:
-            return value
+            return value  # type: ignore[no-any-return]
 
     @staticmethod
     def _resolve_datetime_iso(value: Any) -> Optional[str]:
@@ -72,7 +72,7 @@ class DisplayLabelMixin:
         try:
             getter = getattr(obj, f"get_{field_name}_display", None)
             if getter:
-                return getter()
+                return getter()  # type: ignore[no-any-return]
             return getattr(obj, field_name, None)
         except Exception:
             return None
@@ -98,7 +98,7 @@ class FileFieldMixin:
         if not file_field:
             return None
         try:
-            return file_field.url
+            return file_field.url  # type: ignore[no-any-return]
         except Exception:
             return None
 
@@ -116,7 +116,7 @@ class FileFieldMixin:
         if not file_field:
             return None
         try:
-            return file_field.path
+            return file_field.path  # type: ignore[no-any-return]
         except Exception:
             return None
 

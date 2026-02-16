@@ -177,7 +177,7 @@ class DependencyValidator(ConfigValidator):
                 "None": None,
             }
 
-            return eval(condition, allowed_names)
+            return eval(condition, allowed_names)  # type: ignore[no-any-return]
 
         except Exception:
             # 条件评估失败时返回False

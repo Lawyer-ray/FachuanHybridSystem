@@ -386,7 +386,7 @@ class PerformanceMonitor:
     
     def _get_concurrent_count(self) -> int:
         """获取当前并发计数"""
-        return cache.get('performance:concurrent_count', 0)
+        return cache.get('performance:concurrent_count', 0)  # type: ignore[no-any-return]
     
     def _update_counters(self, success: bool, error_type: Optional[str]) -> None:
         """更新统计计数器"""

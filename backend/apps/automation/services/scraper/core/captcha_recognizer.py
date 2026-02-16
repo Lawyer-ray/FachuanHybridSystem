@@ -120,7 +120,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
             # 清理结果：去除空格
             cleaned_result = result.strip().replace(" ", "")
             logger.info(f"✅ 验证码识别成功: {cleaned_result}")
-            return cleaned_result
+            return cleaned_result  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"❌ 验证码识别失败: {e}", exc_info=True)
             return None

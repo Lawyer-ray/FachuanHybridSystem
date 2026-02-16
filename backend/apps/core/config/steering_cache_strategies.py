@@ -105,7 +105,7 @@ class LRUCacheStrategy(CacheStrategyInterface):
     
     def should_evict(self, entry: CacheEntry, cache_state: Dict[str, Any]) -> bool:
         """当缓存满时淘汰"""
-        return cache_state.get("cache_size", 0) >= self.max_entries
+        return cache_state.get("cache_size", 0) >= self.max_entries  # type: ignore[no-any-return]
     
     def get_eviction_candidates(self, entries: Dict[str, CacheEntry], 
                                target_count: int) -> List[str]:

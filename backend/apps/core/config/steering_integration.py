@@ -83,7 +83,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.loading_rules"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return self._cache[cache_key]  # type: ignore[no-any-return]
             
             rules = []
             
@@ -113,7 +113,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.cache_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return self._cache[cache_key]  # type: ignore[no-any-return]
             
             config = SteeringCacheConfig(
                 enabled=self.config_manager.get("steering.cache.enabled", True),
@@ -132,7 +132,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.performance_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return self._cache[cache_key]  # type: ignore[no-any-return]
             
             config = SteeringPerformanceConfig(
                 load_threshold_ms=self.config_manager.get("steering.performance.load_threshold_ms", 100.0),
@@ -151,7 +151,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.dependency_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return self._cache[cache_key]  # type: ignore[no-any-return]
             
             config = SteeringDependencyConfig(
                 auto_resolve=self.config_manager.get("steering.dependencies.auto_resolve", True),
@@ -310,7 +310,7 @@ class SteeringConditionalLoader:
         """根据规范模式获取对应的文件模式"""
         with self._lock:
             if spec_pattern in self._file_pattern_cache:
-                return self._file_pattern_cache[spec_pattern]
+                return self._file_pattern_cache[spec_pattern]  # type: ignore[no-any-return]
             
             patterns = []
             
@@ -643,7 +643,7 @@ class SteeringDependencyResolver:
                         if isinstance(inherits, str):
                             inherits = [inherits]
                         
-                        return inherits
+                        return inherits  # type: ignore[no-any-return]
                     except yaml.YAMLError:
                         pass
             
@@ -709,7 +709,7 @@ class SteeringDependencyResolver:
                         import yaml
                         try:
                             metadata = yaml.safe_load(parts[1]) or {}
-                            return metadata.get('priority', 0)
+                            return metadata.get('priority', 0)  # type: ignore[no-any-return]
                         except yaml.YAMLError:
                             pass
                 

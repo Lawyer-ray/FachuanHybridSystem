@@ -205,7 +205,7 @@ class CaseChatService:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
             return existing_chat  # type: ignore[return-value]
         logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
-        return self.create_chat_for_case(
+        return self.create_chat_for_case(  # type: ignore[no-any-return]
             case_id, platform, owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
         )  # type: ignore[no-any-return]
 

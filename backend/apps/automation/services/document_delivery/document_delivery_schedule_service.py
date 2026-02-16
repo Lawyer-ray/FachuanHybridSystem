@@ -291,7 +291,7 @@ class DocumentDeliveryScheduleService:
             except Exception as save_error:
                 logger.error(f"更新任务执行时间失败: {str(save_error)}")
             
-            return result
+            return result  # type: ignore[no-any-return]
             
         elif not exception_queue.empty():
             e = exception_queue.get()
@@ -376,7 +376,7 @@ class DocumentDeliveryScheduleService:
         )
         
         logger.info(f"Django Q 调度任务已创建: name={schedule_name}, interval={interval_minutes}分钟, task_id={task_id}")
-        return task_id
+        return task_id  # type: ignore[no-any-return]
     
     def remove_django_q_schedule(self, schedule_name: str = "document_delivery_periodic_check") -> int:
         """
@@ -398,7 +398,7 @@ class DocumentDeliveryScheduleService:
         schedules.delete()
         
         logger.info(f"已移除 {count} 个调度任务: {schedule_name}")
-        return count
+        return count  # type: ignore[no-any-return]
     
     def list_schedules(
         self,

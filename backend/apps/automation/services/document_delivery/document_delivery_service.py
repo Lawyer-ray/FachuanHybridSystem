@@ -532,7 +532,7 @@ class DocumentDeliveryService:
         thread.join(timeout=10)  # 最多等待10秒
 
         if not result_queue.empty():
-            return result_queue.get()
+            return result_queue.get()  # type: ignore[no-any-return]
 
         # 超时时默认处理
         logger.warning("检查文书处理历史超时，默认处理")
@@ -575,7 +575,7 @@ class DocumentDeliveryService:
                 if login_result.get("success"):
                     token = login_result.get("token")
                     if token:
-                        return token
+                        return token  # type: ignore[no-any-return]
                     else:
                         raise Exception("登录成功但未获取到token")
                 else:
@@ -1213,7 +1213,7 @@ class DocumentDeliveryService:
         thread.join(timeout=10)  # 最多等待10秒
 
         if not result_queue.empty():
-            return result_queue.get()
+            return result_queue.get()  # type: ignore[no-any-return]
 
         # 超时时默认处理
         logger.warning("检查文书处理历史超时，默认处理")
@@ -1508,7 +1508,7 @@ class DocumentDeliveryService:
         thread.join(timeout=60)  # 最多等待60秒
 
         if not result_queue.empty():
-            return result_queue.get()
+            return result_queue.get()  # type: ignore[no-any-return]
 
         return {"success": False, "error_message": "SMS 处理超时"}
 
