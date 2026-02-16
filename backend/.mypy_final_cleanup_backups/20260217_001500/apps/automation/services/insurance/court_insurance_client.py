@@ -35,8 +35,8 @@ class PremiumResult:
     premium: Optional[Decimal]
     status: str  # "success" or "failed"
     error_message: Optional[str]
-    response_data: Optional[dict[str, Any]]
-    request_info: Optional[dict[str, Any]] = None  # 请求信息（用于调试）
+    response_data: Optional[Dict]
+    request_info: Optional[Dict] = None  # 请求信息（用于调试）
 
 
 class CourtInsuranceClient:

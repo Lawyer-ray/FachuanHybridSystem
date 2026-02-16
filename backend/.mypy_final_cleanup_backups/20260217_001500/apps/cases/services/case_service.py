@@ -150,7 +150,7 @@ class CaseService:
         self,
         case_number: str,
         user: Optional[Any] = None,
-        org_access: Optional[dict[str, Any]] = None,
+        org_access: Optional[Dict] = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
     ) -> QuerySet:
@@ -213,7 +213,7 @@ class CaseService:
         query: str,
         limit: int = 10,
         user: Optional[Any] = None,
-        org_access: Optional[dict[str, Any]] = None,
+        org_access: Optional[Dict] = None,
         perm_open_access: bool = False,
     ) -> List[Case]:
         """
@@ -289,7 +289,7 @@ class CaseService:
         case_type: Optional[str] = None,
         status: Optional[str] = None,
         user: Optional[Any] = None,
-        org_access: Optional[dict[str, Any]] = None,
+        org_access: Optional[Dict] = None,
         perm_open_access: bool = False,
     ) -> QuerySet:
         """
@@ -342,7 +342,7 @@ class CaseService:
         self,
         case_id: int,
         user: Optional[Any] = None,
-        org_access: Optional[dict[str, Any]] = None,
+        org_access: Optional[Dict] = None,
         perm_open_access: bool = False,
     ) -> Case:
         """
@@ -388,7 +388,7 @@ class CaseService:
         self,
         case: Case,
         user: Any,
-        org_access: Optional[dict[str, Any]],
+        org_access: Optional[Dict],
     ) -> bool:
         """
         检查用户是否有权访问案件

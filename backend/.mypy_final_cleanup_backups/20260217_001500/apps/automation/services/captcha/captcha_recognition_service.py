@@ -34,7 +34,7 @@ class CaptchaRecognitionService:
     def __init__(
         self,
         recognizer: Optional[DdddocrRecognizer] = None,
-        config: Optional[dict[str, Any]] = None
+        config: Optional[Dict] = None
     ):
         """
         初始化服务（支持依赖注入）

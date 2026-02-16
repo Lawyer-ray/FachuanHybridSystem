@@ -439,7 +439,7 @@ class ContractPaymentService:
         actor_id: Optional[int],
         action: str,
         level: str = "INFO",
-        payload: Optional[dict[str, Any]] = None,
+        payload: Optional[Dict] = None,
     ) -> None:
         """
         记录财务日志
