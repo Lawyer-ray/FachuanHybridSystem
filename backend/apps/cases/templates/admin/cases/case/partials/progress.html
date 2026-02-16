@@ -1,0 +1,77 @@
+{% load i18n %}
+<div class="info-grid">
+    <!-- 案件日志卡片 -->
+    <div class="info-card full-width">
+        <div class="card-header">
+            <span class="card-icon">📝</span>
+            <h3 class="card-title">案件日志</h3>
+        </div>
+        <div class="card-content">
+            {% if case.logs.exists %}
+            <div class="timeline">
+                {% for log in case.logs.all %}
+                <div class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-header">
+                            <span class="timeline-actor">{{ log.actor.real_name }}</span>
+                            <span class="timeline-time">{{ log.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <div class="timeline-body">
+                            {{ log.content|linebreaks }}
+                        </div>
+                        {% if log.reminders.exists %}
+                        <div class="timeline-reminder">
+                            {% for r in log.reminders.all %}
+                            <div>
+                                <span class="reminder-type">{{ r.get_reminder_type_display }}</span>
+                                <span class="reminder-time">{{ r.due_at|date:"Y-m-d H:i" }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if log.attachments.exists %}
+                        <div class="timeline-attachments">
+                            <span class="attachments-label">附件：</span>
+                            {% for attachment in log.attachments.all %}
+                            <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
+                                {{ attachment.file.name|cut:"case_logs/" }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">暂无案件日志</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 案件群聊卡片 -->
+    <div class="info-card full-width">
+        <div class="card-header">
+            <span class="card-icon">💬</span>
+            <h3 class="card-title">案件群聊</h3>
+        </div>
+        <div class="card-content">
+            {% if case.chats.exists %}
+            <ul class="chat-list">
+                {% for chat in case.chats.all %}
+                <li class="chat-item">
+                    <span class="chat-platform">{{ chat.get_platform_display }}</span>
+                    <span class="chat-name">{{ chat.name }}</span>
+                    <span class="chat-status {% if chat.is_active %}active{% else %}inactive{% endif %}">
+                        {% if chat.is_active %}有效{% else %}已失效{% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">暂无关联群聊</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

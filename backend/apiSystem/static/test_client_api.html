@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试合同当事人身份自动选择</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .client { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .our-client { background-color: #e3f2fd; }
+        .opposing-client { background-color: #fff3e0; }
+        select, button { margin: 5px; padding: 8px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>合同当事人身份自动选择测试</h1>
+
+    <div class="test-section">
+        <h2>1. 测试客户API</h2>
+        <button onclick="testClientAPI()">获取客户列表</button>
+        <div id="clientResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 模拟当事人选择</h2>
+        <p>选择客户：</p>
+        <select id="clientSelect" onchange="handleClientChange()">
+            <option value="">请选择客户</option>
+        </select>
+
+        <p>当事人身份：</p>
+        <select id="roleSelect">
+            <option value="PRINCIPAL">委托人</option>
+            <option value="BENEFICIARY">受益人</option>
+            <option value="OPPOSING">对方当事人</option>
+        </select>
+
+        <div id="selectionResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 测试日志</h2>
+        <div id="testLog"></div>
+    </div>
+
+    <script>
+        // 客户信息缓存
+        var clientCache = {};
+        var allClients = [];
+
+        // 日志函数
+        function log(message) {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            console.log(message);
+        }
+
+        // 获取客户信息
+        async function fetchClientInfo(clientId) {
+            if (clientCache[clientId]) {
+                return Promise.resolve(clientCache[clientId]);
+            }
+
+            try {
+                const response = await fetch('/api/v1/client/clients/' + clientId);
+                if (response.ok) {
+                    const data = await response.json();
+                    clientCache[clientId] = data;
+                    log(`✓ 获取到客户信息: ${data.name}, is_our_client: ${data.is_our_client}`);
+                    return data;
+                } else {
+                    throw new Error('获取客户信息失败: ' + response.status);
+                }
+            } catch (error) {
+                log(`✗ API调用失败: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 根据客户信息设置身份
+        async function setPartyRoleByClient(clientSelect, roleSelect) {
+            const clientId = clientSelect.value;
+            if (!clientId || clientId === '' || clientSelect.selectedIndex === 0) {
+                log('客户ID为空或未选择，跳过身份设置');
+                return;
+            }
+
+            log(`开始为客户ID ${clientId} 设置身份`);
+
+            try {
+                const clientData = await fetchClientInfo(clientId);
+                if (clientData && roleSelect) {
+                    // 根据 is_our_client 设置身份
+                    const newRole = clientData.is_our_client === true ? 'PRINCIPAL' : 'OPPOSING';
+
+                    log(`客户信息: name=${clientData.name}, is_our_client=${clientData.is_our_client} (${typeof clientData.is_our_client}), newRole=${newRole}`);
+
+                    // 只有当前角色不是目标角色时才更改
+                    if (roleSelect.value !== newRole) {
+                        roleSelect.value = newRole;
+
+                        // 触发 change 事件
+                        const event = new Event('change', { bubbles: true });
+                        roleSelect.dispatchEvent(event);
+
+                        log(`✓ 自动设置当事人身份: ${clientData.name} → ${newRole} (is_our_client: ${clientData.is_our_client})`);
+
+                        // 显示结果
+                        const resultDiv = document.getElementById('selectionResult');
+                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = `
+                            <strong>自动设置结果：</strong><br>
+                            客户：${clientData.name}<br>
+                            is_our_client：${clientData.is_our_client}<br>
+                            设置身份：${newRole === 'PRINCIPAL' ? '委托人' : '对方当事人'}
+                        `;
+                    } else {
+                        log(`身份已正确，无需更改: ${clientData.name} → ${newRole}`);
+                    }
+                } else {
+                    log('✗ 客户数据或角色选择框为空');
+                }
+            } catch (error) {
+                log(`✗ 获取客户信息失败: ${error.message}`);
+            }
+        }
+
+        // 处理客户选择变化
+        function handleClientChange() {
+            const clientSelect = document.getElementById('clientSelect');
+            const roleSelect = document.getElementById('roleSelect');
+
+            log(`检测到客户选择变化: ${clientSelect.value}`);
+            setPartyRoleByClient(clientSelect, roleSelect);
+        }
+
+        // 测试客户API
+        async function testClientAPI() {
+            const resultsDiv = document.getElementById('clientResults');
+            resultsDiv.innerHTML = '<p>正在获取客户列表...</p>';
+            log('开始测试客户API');
+
+            try {
+                const response = await fetch('http://127.0.0.1:8002/api/v1/client/clients?page_size=10');
+                const clients = await response.json();
+
+                allClients = clients;
+                log(`✓ 获取到 ${clients.length} 个客户`);
+
+                let html = `<h3>客户列表 (共 ${clients.length} 个)</h3>`;
+
+                // 填充客户选择框
+                const clientSelect = document.getElementById('clientSelect');
+                clientSelect.innerHTML = '<option value="">请选择客户</option>';
+
+                clients.forEach(client => {
+                    const cssClass = client.is_our_client ? 'our-client' : 'opposing-client';
+                    const roleText = client.is_our_client ? '我方客户' : '对方客户';
+
+                    html += `
+                        <div class="client ${cssClass}">
+                            <strong>${client.name}</strong> (ID: ${client.id})<br>
+                            <span>身份: ${roleText} (is_our_client: ${client.is_our_client})</span><br>
+                            <span>类型: ${client.client_type}</span><br>
+                            <span>预期设置为: ${client.is_our_client ? 'PRINCIPAL (委托人)' : 'OPPOSING (对方当事人)'}</span>
+                        </div>
+                    `;
+
+                    // 添加到选择框
+                    const option = document.createElement('option');
+                    option.value = client.id;
+                    option.textContent = `${client.name} (${roleText})`;
+                    clientSelect.appendChild(option);
+                });
+
+                resultsDiv.innerHTML = html;
+                log('✓ 客户列表加载完成');
+
+            } catch (error) {
+                resultsDiv.innerHTML = '<p style="color: red;">API调用失败: ' + error.message + '</p>';
+                log(`✗ API调用失败: ${error.message}`);
+            }
+        }
+
+        // 页面加载时自动测试
+        window.onload = function() {
+            log('页面加载完成，开始测试');
+            testClientAPI();
+        };
+    </script>
+</body>
+</html>

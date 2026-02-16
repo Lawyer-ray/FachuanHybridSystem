@@ -1,0 +1,155 @@
+case_stages:
+  - value: first_trial
+    label: 一审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: second_trial
+    label: 二审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: enforcement
+    label: 执行
+    applicable_case_types: [civil, administrative]
+  - value: labor_arbitration
+    label: 劳动仲裁
+    applicable_case_types: [labor]
+  - value: administrative_review
+    label: 行政复议
+    applicable_case_types: [administrative]
+  - value: private_prosecution
+    label: 自诉
+    applicable_case_types: [criminal]
+  - value: investigation
+    label: 侦查
+    applicable_case_types: [criminal]
+  - value: prosecution_review
+    label: 审查起诉
+    applicable_case_types: [criminal]
+  - value: death_penalty_review
+    label: 死刑复核程序
+    applicable_case_types: [criminal]
+  - value: retrial_first
+    label: 重审一审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: retrial_second
+    label: 重审二审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: apply_retrial
+    label: 申请再审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: rehearing_first
+    label: 再审一审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: rehearing_second
+    label: 再审二审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: review
+    label: 提审
+    applicable_case_types: [civil, criminal, administrative]
+  - value: petition
+    label: 申诉
+    applicable_case_types: [civil, criminal, administrative]
+  - value: apply_protest
+    label: 申请抗诉
+    applicable_case_types: [criminal]
+  - value: petition_protest
+    label: 申诉抗诉
+    applicable_case_types: [criminal]
+
+legal_statuses:
+  - value: plaintiff
+    label: 原告
+    applicable_case_types: [civil]
+  - value: defendant
+    label: 被告
+    applicable_case_types: [civil, criminal]
+  - value: third
+    label: 第三人
+    applicable_case_types: [civil, administrative]
+  - value: applicant
+    label: 申请人
+    applicable_case_types: [labor, intl, administrative]
+  - value: respondent
+    label: 被申请人
+    applicable_case_types: [labor, intl, administrative]
+  - value: criminal_defendant
+    label: 被告人
+    applicable_case_types: [criminal]
+  - value: victim
+    label: 被害人
+    applicable_case_types: [criminal]
+  - value: appellant
+    label: 上诉人
+    applicable_case_types: [civil, criminal, administrative]
+  - value: appellee
+    label: 被上诉人
+    applicable_case_types: [civil, criminal, administrative]
+  - value: orig_plaintiff
+    label: 原审原告
+    applicable_case_types: [civil]
+  - value: orig_defendant
+    label: 原审被告
+    applicable_case_types: [civil]
+  - value: orig_third
+    label: 原审第三人
+    applicable_case_types: [civil, administrative]
+
+legal_status_compatibility:
+  plaintiff:
+    value: plaintiff
+    label: 原告
+    group: plaintiff_side
+    compatible_statuses: [plaintiff, third]
+  defendant:
+    value: defendant
+    label: 被告
+    group: defendant_side
+    compatible_statuses: [defendant, third]
+  appellant:
+    value: appellant
+    label: 上诉人
+    group: appellant_side
+    compatible_statuses: [appellant, third, orig_plaintiff, orig_defendant, orig_third]
+  appellee:
+    value: appellee
+    label: 被上诉人
+    group: appellee_side
+    compatible_statuses: [appellee, third, orig_plaintiff, orig_defendant, orig_third]
+  criminal_defendant:
+    value: criminal_defendant
+    label: 被告人
+    group: criminal_defendant_side
+    compatible_statuses: [criminal_defendant]
+  victim:
+    value: victim
+    label: 被害人
+    group: criminal_victim_side
+    compatible_statuses: [victim]
+  third:
+    value: third
+    label: 第三人
+    group: third_party
+    compatible_statuses: null
+  orig_plaintiff:
+    value: orig_plaintiff
+    label: 原审原告
+    group: original_party
+    compatible_statuses: null
+  orig_defendant:
+    value: orig_defendant
+    label: 原审被告
+    group: original_party
+    compatible_statuses: null
+  orig_third:
+    value: orig_third
+    label: 原审第三人
+    group: original_party
+    compatible_statuses: null
+  applicant:
+    value: applicant
+    label: 申请人
+    group: applicant_side
+    compatible_statuses: null
+  respondent:
+    value: respondent
+    label: 被申请人
+    group: respondent_side
+    compatible_statuses: null

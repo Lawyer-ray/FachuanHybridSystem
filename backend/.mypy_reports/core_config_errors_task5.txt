@@ -1,0 +1,1327 @@
+apps/core/config/schema/schema.py:174:21: error: Incompatible types in
+assignment (expression has type "ConfigField | None", variable has type
+"ConfigField")  [assignment]
+                field = self.get_field(key)
+                        ^~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:12:5: error: Function is missing a
+type annotation for one or more arguments  [no-untyped-def]
+        def __init__(self, manager) -> None:
+        ^
+apps/core/config/components/query_service.py:25:17: error: Returning Any from
+function declared to return "T"  [no-any-return]
+                    return cached_value
+                    ^~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:30:17: error: Returning Any from
+function declared to return "T"  [no-any-return]
+                    return value
+                    ^~~~~~~~~~~~
+apps/core/config/components/query_service.py:35:17: error: Returning Any from
+function declared to return "T"  [no-any-return]
+                    return value
+                    ^~~~~~~~~~~~
+apps/core/config/components/query_service.py:40:21: error: Returning Any from
+function declared to return "T"  [no-any-return]
+                        return field.default
+                        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:55:13: error: Returning Any from
+function declared to return "T"  [no-any-return]
+                return self._convert_type(value, type_)
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:69:13: error: Returning Any from
+function declared to return "dict[str, Any]"  [no-any-return]
+                return self._m._raw_config.copy()
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:87:13: error: Returning Any from
+function declared to return "dict[str, Any]"  [no-any-return]
+                return self._m._cache.get_stats()
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/components/query_service.py:91:13: error: Returning Any from
+function declared to return "int"  [no-any-return]
+                return self._m._cache.cleanup_expired()
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_performance_monitor.py:97:32: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._loading_history: deque = deque(maxlen=max_history_size)
+                                   ^
+apps/core/config/steering_performance_monitor.py:98:32: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._metrics_history: deque = deque(maxlen=max_history_size)
+                                   ^
+apps/core/config/steering_performance_monitor.py:99:31: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._alerts_history: deque = deque(maxlen=max_history_size)
+                                  ^
+apps/core/config/steering_performance_monitor.py:112:31: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._memory_samples: deque = deque(maxlen=100)
+                                  ^
+apps/core/config/steering_performance_monitor.py:262:13: error: Returning Any
+from function declared to return "float"  [no-any-return]
+                return memory_info.rss / (1024 * 1024)  # 转换为 MB
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_performance_monitor.py:289:9: error: Need type
+annotation for "_analysis_cache" (hint:
+"_analysis_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._analysis_cache = {}
+            ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_performance_monitor.py:301:21: error: Returning Any
+from function declared to return "dict[str, Any]"  [no-any-return]
+                        return cached_result
+                        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_performance_monitor.py:390:29: error: Argument "key"
+to "sort" of "list" has incompatible type
+"Callable[[dict[str, object]], object]"; expected
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+[arg-type]
+            slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
+                                ^
+apps/core/config/steering_performance_monitor.py:390:39: error: Incompatible
+return value type (got "object", expected
+"SupportsDunderLT[Any] | SupportsDunderGT[Any]")  [return-value]
+            slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
+                                          ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_performance_monitor.py:490:61: error: Missing type
+parameters for generic type "Callable"  [type-arg]
+    ... monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
+                                                            ^
+apps/core/config/steering_performance_monitor.py:520:68: error: Missing type
+parameters for generic type "Callable"  [type-arg]
+    ...f monitor_cached_loading(self, spec_path: str, loading_func: Callable,
+                                                                    ^
+apps/core/config/steering_cache_strategies.py:108:9: error: Returning Any from
+function declared to return "bool"  [no-any-return]
+            return cache_state.get("cache_size", 0) >= self.max_entries
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_cache_strategies.py:316:9: error: Need type
+annotation for "recent_hits" (hint: "recent_hits: List[<type>] = ...") 
+[var-annotated]
+            self.recent_hits = []
+            ^~~~~~~~~~~~~~~~
+apps/core/config/notifications.py:94:47: error: Missing type parameters for
+generic type "set"  [type-arg]
+        def _collect_listeners(self, key: str) -> set:
+                                                  ^
+apps/core/config/notifications.py:105:5: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+        def _dispatch_to_listener(listener, change_type: str, key: str, ol...
+        ^
+apps/core/config/migrator_schema_registry.py:27:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:27:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:27:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:35:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:35:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:35:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:43:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:43:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:43:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:52:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:52:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:52:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:59:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:59:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:59:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:66:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:66:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:66:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:73:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:73:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:73:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:81:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:81:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:81:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:88:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:88:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:88:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:95:9: error: "ConfigSchema" has no
+attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:95:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:95:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:110:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:110:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:110:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:117:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:117:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:117:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:124:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:124:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:124:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:131:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:131:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:131:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:139:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:139:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:139:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:145:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:145:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:145:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:152:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:152:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:152:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:168:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:168:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:168:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:175:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:175:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:175:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:182:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:182:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:182:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:189:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:189:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:189:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:196:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:196:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:196:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:204:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:204:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:204:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:211:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:211:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:211:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:218:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:218:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:218:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:226:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:226:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:226:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:233:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:233:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:233:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:240:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:240:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:240:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:248:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:248:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:248:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:255:9: error: "ConfigSchema" has
+no attribute "add_field"; maybe "has_field"?  [attr-defined]
+            schema.add_field(ConfigField(
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migrator_schema_registry.py:255:26: error: Unexpected keyword
+argument "key" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/migrator_schema_registry.py:255:26: error: Unexpected keyword
+argument "field_type" for "ConfigField"  [call-arg]
+            schema.add_field(ConfigField(
+                             ^
+apps/core/config/validators/type_validator.py:19:69: error: Argument 4 of
+"validate" is incompatible with supertype "ConfigValidator"; supertype defines
+the argument type as "dict[str, Any] | None"  [override]
+    ...lf, key: str, value: Any, field_def: Any = None, config: Dict[str, Any...
+                                                        ^~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/validators/type_validator.py:19:69: note: This violates the Liskov substitution principle
+apps/core/config/validators/type_validator.py:19:69: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
+apps/core/config/validators/type_validator.py:19:94: error: Incompatible
+default for argument "config" (default has type "None", argument has type
+"dict[str, Any]")  [assignment]
+    ... field_def: Any = None, config: Dict[str, Any] = None) -> ValidationRe...
+                                                        ^~~~
+apps/core/config/validators/type_validator.py:19:94: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/core/config/validators/type_validator.py:19:94: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/core/config/validators/type_validator.py:199:69: error: Argument 4 of
+"validate" is incompatible with supertype "ConfigValidator"; supertype defines
+the argument type as "dict[str, Any] | None"  [override]
+    ...lf, key: str, value: Any, field_def: Any = None, config: Dict[str, Any...
+                                                        ^~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/validators/type_validator.py:199:69: note: This violates the Liskov substitution principle
+apps/core/config/validators/type_validator.py:199:69: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
+apps/core/config/validators/type_validator.py:199:94: error: Incompatible
+default for argument "config" (default has type "None", argument has type
+"dict[str, Any]")  [assignment]
+    ... field_def: Any = None, config: Dict[str, Any] = None) -> ValidationRe...
+                                                        ^~~~
+apps/core/config/validators/type_validator.py:199:94: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/core/config/validators/type_validator.py:199:94: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/core/config/validators/safe_expression_evaluator.py:100:33: error:
+Argument 1 to "get" of "dict" has incompatible type "type[AST]"; expected
+"type[expr]"  [arg-type]
+            handler = _DISPATCH.get(type(node))
+                                    ^~~~~~~~~~
+apps/core/config/validators/safe_expression_evaluator.py:103:16: error: Cannot
+call function of unknown type  [operator]
+            return handler(node)
+                   ^~~~~~~~~~~~~
+apps/core/config/steering/performance_monitor.py:105:32: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._loading_history: deque = deque(maxlen=max_history_size)
+                                   ^
+apps/core/config/steering/performance_monitor.py:106:32: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._metrics_history: deque = deque(maxlen=max_history_size)
+                                   ^
+apps/core/config/steering/performance_monitor.py:107:31: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._alerts_history: deque = deque(maxlen=max_history_size)
+                                  ^
+apps/core/config/steering/performance_monitor.py:120:31: error: Missing type
+parameters for generic type "deque"  [type-arg]
+            self._memory_samples: deque = deque(maxlen=100)
+                                  ^
+apps/core/config/steering/performance_monitor.py:275:13: error: Returning Any
+from function declared to return "float"  [no-any-return]
+                return memory_info.rss / (1024 * 1024)  # 转换为 MB
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/performance_monitor.py:304:9: error: Need type
+annotation for "_analysis_cache" (hint:
+"_analysis_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._analysis_cache = {}
+            ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/performance_monitor.py:316:21: error: Returning Any
+from function declared to return "dict[str, Any]"  [no-any-return]
+                        return cached_result
+                        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/performance_monitor.py:409:29: error: Argument "key"
+to "sort" of "list" has incompatible type
+"Callable[[dict[str, object]], object]"; expected
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+[arg-type]
+            slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
+                                ^
+apps/core/config/steering/performance_monitor.py:409:39: error: Incompatible
+return value type (got "object", expected
+"SupportsDunderLT[Any] | SupportsDunderGT[Any]")  [return-value]
+            slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=Tr...
+                                          ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/performance_monitor.py:499:61: error: Missing type
+parameters for generic type "Callable"  [type-arg]
+    ... monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
+                                                            ^
+apps/core/config/steering/performance_monitor.py:524:68: error: Missing type
+parameters for generic type "Callable"  [type-arg]
+    ...ched_loading(self, spec_path: str, loading_func: Callable, cache_hit: ...
+                                                        ^
+apps/core/config/steering/cache_strategies.py:107:9: error: Returning Any from
+function declared to return "bool"  [no-any-return]
+            return cache_state.get("cache_size", 0) >= self.max_entries
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/cache_strategies.py:297:9: error: Need type
+annotation for "recent_hits" (hint: "recent_hits: List[<type>] = ...") 
+[var-annotated]
+            self.recent_hits = []
+            ^~~~~~~~~~~~~~~~
+apps/core/config/migration_tracker.py:229:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:270:6: error: Argument 1 to
+"contextmanager" has incompatible type
+"Callable[[MigrationStateTracker], None]"; expected
+"Callable[[MigrationStateTracker], Iterator[Never]]"  [arg-type]
+        @contextmanager
+         ^
+apps/core/config/migration_tracker.py:271: error: The return type of a
+generator function should be "Generator" or one of its supertypes  [misc]
+        def _get_db_connection(self) -> None:
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migration_tracker.py:594:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:615:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:667:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:704:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:717:31: error: Argument 1 to "append" of
+"list" has incompatible type "int"; expected "str"  [arg-type]
+                    params.append(limit)
+                                  ^~~~~
+apps/core/config/migration_tracker.py:747:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:781:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:914:14: error: Need type annotation for
+"conn"  [var-annotated]
+            with self._get_db_connection() as conn:
+                 ^
+apps/core/config/migration_tracker.py:941:13: error: Returning Any from
+function declared to return "int"  [no-any-return]
+                return event_count + progress_count
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migration_runtime/rollback.py:84:28: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+                config_state = rollback_point.get("config_state", {})
+                               ^~~~~~~~~~~~~~~~~~
+apps/core/config/migration_runtime/rollback.py:90:41: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+                self.state.rollback_stack = rollback_point.get("rollback_s...
+                                            ^~~~~~~~~~~~~~~~~~
+apps/core/config/steering_dependency_manager.py:330:13: error: Need type
+annotation for "levels" (hint: "levels: Dict[<type>, <type>] = ...") 
+[var-annotated]
+                levels = {}
+                ^~~~~~
+apps/core/config/steering_dependency_manager.py:334:21: error: Returning Any
+from function declared to return "int"  [no-any-return]
+                        return levels[spec]
+                        ^~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_dependency_manager.py:416:13: error: Need type
+annotation for "metadata_dict" (hint:
+"metadata_dict: Dict[<type>, <type>] = ...")  [var-annotated]
+                metadata_dict = {}
+                ^~~~~~~~~~~~~
+apps/core/config/steering_dependency_manager.py:611:26: error: Need type
+annotation for "graph_data"  [var-annotated]
+                graph_data = {
+                             ^
+apps/core/config/steering_dependency_manager.py:618:17: error: Unsupported
+target for indexed assignment ("Collection[Any]")  [index]
+                    graph_data["nodes"][spec_path] = {
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_dependency_manager.py:630:21: error:
+"Collection[Any]" has no attribute "append"  [attr-defined]
+                        graph_data["edges"].append({
+                        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_dependency_manager.py:656:13: error: Need type
+annotation for "dep_type_counts"  [var-annotated]
+                dep_type_counts = defaultdict(int)
+                ^~~~~~~~~~~~~~~
+apps/core/config/snapshot.py:115:13: error: Returning Any from function
+declared to return "dict[str, Any]"  [no-any-return]
+                return config_data
+                ^~~~~~~~~~~~~~~~~~
+apps/core/config/snapshot.py:130:9: error: Need type annotation for "snapshots"
+(hint: "snapshots: List[<type>] = ...")  [var-annotated]
+            snapshots = []
+            ^~~~~~~~~
+apps/core/config/import_export.py:214:20: error: Incompatible return value type
+(got "None", expected "str")  [return-value]
+                return None
+                       ^~~~
+apps/core/config/import_export.py:234:9: error: Need type annotation for
+"nested" (hint: "nested: Dict[<type>, <type>] = ...")  [var-annotated]
+            nested = {}
+            ^~~~~~
+apps/core/config/steering/dependency_manager.py:330:13: error: Need type
+annotation for "levels" (hint: "levels: Dict[<type>, <type>] = ...") 
+[var-annotated]
+                levels = {}
+                ^~~~~~
+apps/core/config/steering/dependency_manager.py:334:21: error: Returning Any
+from function declared to return "int"  [no-any-return]
+                        return levels[spec]
+                        ^~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/dependency_manager.py:412:13: error: Need type
+annotation for "metadata_dict" (hint:
+"metadata_dict: Dict[<type>, <type>] = ...")  [var-annotated]
+                metadata_dict = {}
+                ^~~~~~~~~~~~~
+apps/core/config/steering/dependency_manager.py:598:26: error: Need type
+annotation for "graph_data"  [var-annotated]
+                graph_data = {"nodes": {}, "edges": []}
+                             ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/dependency_manager.py:602:17: error: Unsupported
+target for indexed assignment ("Collection[Any]")  [index]
+                    graph_data["nodes"][spec_path] = {
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/dependency_manager.py:614:21: error:
+"Collection[Any]" has no attribute "append"  [attr-defined]
+                        graph_data["edges"].append(
+                        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/dependency_manager.py:642:13: error: Need type
+annotation for "dep_type_counts"  [var-annotated]
+                dep_type_counts = defaultdict(int)
+                ^~~~~~~~~~~~~~~
+apps/core/config/providers/yaml.py:90:35: error: Incompatible types in
+assignment (expression has type "dict[str, Any]", variable has type "None") 
+[assignment]
+                self._cached_config = flattened_config
+                                      ^~~~~~~~~~~~~~~~
+apps/core/config/providers/yaml.py:91:35: error: Incompatible types in
+assignment (expression has type "float", variable has type "None")  [assignment]
+                self._last_modified = current_modified
+                                      ^~~~~~~~~~~~~~~~
+apps/core/config/providers/yaml.py:120:9: error: Function is missing a type
+annotation  [no-untyped-def]
+            def replace_var(match):
+            ^
+apps/core/config/providers/yaml.py:149:9: error: Need type annotation for
+"items" (hint: "items: List[<type>] = ...")  [var-annotated]
+            items = []
+            ^~~~~
+apps/core/config/providers/yaml.py:176:9: error: Need type annotation for
+"result" (hint: "result: Dict[<type>, <type>] = ...")  [var-annotated]
+            result = {}
+            ^~~~~~
+apps/core/config/providers/yaml.py:254:9: error: Need type annotation for
+"template_config" (hint: "template_config: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            template_config = {}
+            ^~~~~~~~~~~~~~~
+apps/core/config/components/command_service.py:24:5: error: Function is missing
+a type annotation for one or more arguments  [no-untyped-def]
+        def __init__(self, manager) -> None:
+        ^
+apps/core/config/manager.py:411:5: error: Function is missing a type annotation
+for one or more arguments  [no-untyped-def]
+        def on_modified(self, event) -> None:
+        ^
+apps/core/config/manager.py:448:33: error: Variable
+"watchdog.observers.Observer" is not valid as a type  [valid-type]
+            self.observer: Optional[Observer] = None
+                                    ^
+apps/core/config/manager.py:448:33: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+apps/core/config/manager.py:714:42: error: Incompatible default for argument
+"default" (default has type "None", argument has type "T")  [assignment]
+        def get(self, key: str, default: T = None) -> T:
+                                             ^~~~
+apps/core/config/manager.py:714:42: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/core/config/manager.py:714:42: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/core/config/manager.py:736:17: error: Returning Any from function declared
+to return "T"  [no-any-return]
+                    return cached_value
+                    ^~~~~~~~~~~~~~~~~~~
+apps/core/config/manager.py:742:17: error: Returning Any from function declared
+to return "T"  [no-any-return]
+                    return value
+                    ^~~~~~~~~~~~
+apps/core/config/manager.py:748:17: error: Returning Any from function declared
+to return "T"  [no-any-return]
+                    return value
+                    ^~~~~~~~~~~~
+apps/core/config/manager.py:754:21: error: Returning Any from function declared
+to return "T"  [no-any-return]
+                        return field.default
+                        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/manager.py:787:64: error: Incompatible default for argument
+"default" (default has type "None", argument has type "T")  [assignment]
+    ...def get_typed(self, key: str, type_: type[T], default: T = None) -> T:
+                                                                  ^~~~
+apps/core/config/manager.py:787:64: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/core/config/manager.py:787:64: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/core/config/manager.py:813:13: error: Returning Any from function declared
+to return "T"  [no-any-return]
+                return self._convert_type(value, type_)
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/manager.py:1257:20: error: Incompatible return value type (got
+"None", expected "str")  [return-value]
+                return None
+                       ^~~~
+apps/core/config/manager.py:1277:9: error: Need type annotation for "nested"
+(hint: "nested: Dict[<type>, <type>] = ...")  [var-annotated]
+            nested = {}
+            ^~~~~~
+apps/core/config/manager.py:1643:9: error: Need type annotation for "snapshots"
+(hint: "snapshots: List[<type>] = ...")  [var-annotated]
+            snapshots = []
+            ^~~~~~~~~
+apps/core/config/manager.py:1781:46: error: Incompatible types in assignment
+(expression has type "SteeringIntegrationManager", variable has type "None") 
+[assignment]
+                    self._steering_integration = SteeringIntegrationManage...
+                                                 ^~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/manager.py:1786:5: error: Function is missing a return type
+annotation  [no-untyped-def]
+        def get_steering_integration(self):
+        ^
+apps/core/config/manager.py:1794:23: error: Call to untyped function
+"get_steering_integration" in typed context  [no-untyped-call]
+            integration = self.get_steering_integration()
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/manager.py:1796:13: error: Returning Any from function
+declared to return "list[Any]"  [no-any-return]
+                return integration.load_specifications_for_file(target_fil...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/steering_integration.py:78:9: error: Need type annotation for
+"_cache" (hint: "_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._cache = {}
+            ^~~~~~~~~~~
+apps/core/config/steering_integration.py:86:17: error: Returning Any from
+function declared to return "list[SteeringLoadingRule]"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:91:13: error: Need type annotation for
+"rules_config" (hint: "rules_config: List[<type>] = ...")  [var-annotated]
+                rules_config = self.config_manager.get("steering.condition...
+                ^~~~~~~~~~~~
+apps/core/config/steering_integration.py:116:17: error: Returning Any from
+function declared to return "SteeringCacheConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:135:17: error: Returning Any from
+function declared to return "SteeringPerformanceConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:154:17: error: Returning Any from
+function declared to return "SteeringDependencyConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:238:9: error: Need type annotation for
+"_file_pattern_cache" (hint: "_file_pattern_cache: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._file_pattern_cache = {}
+            ^~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:275:9: error: Need type annotation for
+"applicable_specs" (hint: "applicable_specs: List[<type>] = ...") 
+[var-annotated]
+            applicable_specs = []
+            ^~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:313:17: error: Returning Any from
+function declared to return "list[str]"  [no-any-return]
+                    return self._file_pattern_cache[spec_pattern]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:350:9: error: Need type annotation for
+"_cache" (hint: "_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._cache = {}
+            ^~~~~~~~~~~
+apps/core/config/steering_integration.py:351:9: error: Need type annotation for
+"_access_times" (hint: "_access_times: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._access_times = {}
+            ^~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:356:69: error: Missing type parameters
+for generic type "Callable"  [type-arg]
+    ...hed_specification(self, spec_path: str, loader_func: Callable) -> Any:
+                                                            ^
+apps/core/config/steering_integration.py:447:35: error: Incompatible types in
+assignment (expression has type "Timer", variable has type "None")  [assignment]
+                self._cleanup_timer = threading.Timer(
+                                      ^
+apps/core/config/steering_integration.py:451:13: error: "None" has no attribute
+"daemon"  [attr-defined]
+                self._cleanup_timer.daemon = True
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:452:13: error: "None" has no attribute
+"start"  [attr-defined]
+                self._cleanup_timer.start()
+                ^~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:489:1: error: Name
+"SteeringPerformanceMonitor" already defined (possibly by an import)  [no-redef]
+    class SteeringPerformanceMonitor:
+    ^
+apps/core/config/steering_integration.py:494:9: error: Need type annotation for
+"_metrics" (hint: "_metrics: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._metrics = {}
+            ^~~~~~~~~~~~~
+apps/core/config/steering_integration.py:497:61: error: Missing type parameters
+for generic type "Callable"  [type-arg]
+    ... monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
+                                                            ^
+apps/core/config/steering_integration.py:585:9: error: Need type annotation for
+"_dependency_graph" (hint: "_dependency_graph: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._dependency_graph = {}
+            ^~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:646:25: error: Returning Any from
+function declared to return "list[str]"  [no-any-return]
+                            return inherits
+                            ^~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:712:29: error: Returning Any from
+function declared to return "int"  [no-any-return]
+                                return metadata.get('priority', 0)
+                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering_integration.py:781:9: error: Need type annotation for
+"cache_config" (hint: "cache_config: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            cache_config = self.config_manager.get("steering.cache", {})
+            ^~~~~~~~~~~~
+apps/core/config/steering_integration.py:787:9: error: Need type annotation for
+"perf_config" (hint: "perf_config: Dict[<type>, <type>] = ...")  [var-annotated]
+            perf_config = self.config_manager.get("steering.performance", ...
+            ^~~~~~~~~~~
+apps/core/config/steering_integration.py:791:9: error: Need type annotation for
+"dep_config" (hint: "dep_config: Dict[<type>, <type>] = ...")  [var-annotated]
+            dep_config = self.config_manager.get("steering.dependencies", ...
+            ^~~~~~~~~~
+apps/core/config/test_steering_integration.py:60:23: error: Call to untyped
+function "get_steering_integration" in typed context  [no-untyped-call]
+            integration = config_manager.get_steering_integration()
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/hot_reload.py:31:5: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+        def on_modified(self, event) -> None:
+        ^
+apps/core/config/hot_reload.py:55:24: error: Variable
+"watchdog.observers.Observer" is not valid as a type  [valid-type]
+            self.observer: Observer | None = None
+                           ^
+apps/core/config/hot_reload.py:55:24: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+apps/core/config/steering/integration_provider.py:22:9: error: Need type
+annotation for "_cache" (hint: "_cache: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._cache = {}
+            ^~~~~~~~~~~
+apps/core/config/steering/integration_provider.py:29:17: error: Returning Any
+from function declared to return "list[SteeringLoadingRule]"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration_provider.py:32:13: error: Need type
+annotation for "rules_config" (hint: "rules_config: List[<type>] = ...") 
+[var-annotated]
+                rules_config = self.config_manager.get("steering.condition...
+                ^~~~~~~~~~~~
+apps/core/config/steering/integration_provider.py:55:17: error: Returning Any
+from function declared to return "SteeringCacheConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration_provider.py:73:17: error: Returning Any
+from function declared to return "SteeringPerformanceConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration_provider.py:91:17: error: Returning Any
+from function declared to return "SteeringDependencyConfig"  [no-any-return]
+                    return self._cache[cache_key]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/utils.py:14:82: error: Incompatible default for argument
+"fallback_settings_key" (default has type "None", argument has type "str") 
+[assignment]
+    ...: str, default: Any = None, fallback_settings_key: str = None) -> Any:
+                                                                ^~~~
+apps/core/config/utils.py:14:82: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/core/config/utils.py:14:82: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/core/config/migrator.py:444:15: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                f"{self._current_migration.migration_id}_backup.json"
+                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:453:9: error: Item "None" of "MigrationLog | None"
+has no attribute "total_configs"  [union-attr]
+            self._current_migration.total_configs = len(django_configs)
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:466:13: error: Unsupported target for indexed
+assignment ("object")  [index]
+                analysis['config_types'][config_type] = analysis['config_t...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:466:53: error: "object" has no attribute "get" 
+[attr-defined]
+    ...         analysis['config_types'][config_type] = analysis['config_type...
+                                                        ^~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:470:17: error: "object" has no attribute "append" 
+[attr-defined]
+                    analysis['sensitive_configs'].append(key)
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:474:17: error: "object" has no attribute "append" 
+[attr-defined]
+                    analysis['complex_configs'].append(key)
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:479:15: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                f"{self._current_migration.migration_id}_analysis.json"
+                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:665:43: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                    self._track_config_change(self._current_migration.migr...
+                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:679:43: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                    self._track_config_change(self._current_migration.migr...
+                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:686:43: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                    self._track_config_change(self._current_migration.migr...
+                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:693:43: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                    self._track_config_change(self._current_migration.migr...
+                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:700:43: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                    self._track_config_change(self._current_migration.migr...
+                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:704:9: error: Item "None" of "MigrationLog | None"
+has no attribute "migrated_configs"  [union-attr]
+            self._current_migration.migrated_configs += migrated_count
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:717:39: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                self._track_config_change(self._current_migration.migratio...
+                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:725:39: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                self._track_config_change(self._current_migration.migratio...
+                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:737:47: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                        self._track_config_change(self._current_migration....
+                                                  ^~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:744:47: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                        self._track_config_change(self._current_migration....
+                                                  ^~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:748:9: error: Item "None" of "MigrationLog | None"
+has no attribute "migrated_configs"  [union-attr]
+            self._current_migration.migrated_configs += migrated_count
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:763:47: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                        self._track_config_change(self._current_migration....
+                                                  ^~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:774:47: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                        self._track_config_change(self._current_migration....
+                                                  ^~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:785:47: error: Item "None" of
+"MigrationLog | None" has no attribute "migration_id"  [union-attr]
+                        self._track_config_change(self._current_migration....
+                                                  ^~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:788:9: error: Item "None" of "MigrationLog | None"
+has no attribute "migrated_configs"  [union-attr]
+            self._current_migration.migrated_configs += migrated_count
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:808:41: error: Argument 1 to
+"ConfigValidationError" has incompatible type "str"; expected "list[str]" 
+[arg-type]
+                raise ConfigValidationError(f"缺少必需的配置项: {', '.join(missing...
+                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/migrator.py:956:13: error: Unsupported target for indexed
+assignment ("Collection[str]")  [index]
+                report['migration_statistics']['success_rate'] = completed...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:960:13: error: "Collection[str]" has no attribute
+"append"  [attr-defined]
+                report['recommendations'].append("迁移成功完成，建议进行全面测试")
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:961:13: error: "Collection[str]" has no attribute
+"append"  [attr-defined]
+                report['recommendations'].append("可以考虑清理旧的 Django settings...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:963:13: error: "Collection[str]" has no attribute
+"append"  [attr-defined]
+                report['recommendations'].append("迁移失败，建议检查错误日志并修复问题")
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:964:13: error: "Collection[str]" has no attribute
+"append"  [attr-defined]
+                report['recommendations'].append("可以尝试回滚到迁移前状态")
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1032:28: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+                config_state = rollback_point.get('config_state', {})
+                               ^~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1042:36: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+                self._rollback_stack = rollback_point.get('rollback_stack'...
+                                       ^~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1375:17: error: "object" has no attribute "append"
+ [attr-defined]
+                    result['backup_files'].append(backup_file)
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1385:29: error: "object" has no attribute "append"
+ [attr-defined]
+                                result['issues'].append(f"备份文件缺少必需字段: {key...
+                                ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1389:21: error: "object" has no attribute "append"
+ [attr-defined]
+                        result['issues'].append(f"备份文件损坏: {str(e)}")
+                        ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1392:17: error: "object" has no attribute "append"
+ [attr-defined]
+                    result['issues'].append("找不到备份文件")
+                    ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1398:21: error: "object" has no attribute "append"
+ [attr-defined]
+                        result['rollback_points'].append(rollback_point['p...
+                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1409:17: error: "object" has no attribute "append"
+ [attr-defined]
+                    result['issues'].append("没有可用的回滚操作")
+                    ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1421:17: error: "object" has no attribute "append"
+ [attr-defined]
+                    result['issues'].append("找不到迁移进度信息")
+                    ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1425:13: error: "object" has no attribute "append"
+ [attr-defined]
+                result['issues'].append(f"验证过程中发生错误: {str(e)}")
+                ^~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1452:13: error: Item "Sequence[str]" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1452:13: error: Item "None" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1458:13: error: Item "Sequence[str]" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1458:13: error: Item "None" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1471:13: error: Item "Sequence[str]" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/migrator.py:1471:13: error: Item "None" of
+"Sequence[str] | None" has no attribute "append"  [union-attr]
+                options['available_strategies'].append({
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/compatibility.py:38:9: error: Need type annotation for
+"_django_settings_cache" (hint:
+"_django_settings_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._django_settings_cache = {}
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/compatibility.py:216:9: error: Need type annotation for
+"attrs" (hint: "attrs: Set[<type>] = ...")  [var-annotated]
+            attrs = set()
+            ^~~~~
+apps/core/config/compatibility.py:248:5: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+        def configure(self, **options) -> None:
+        ^
+apps/core/config/compatibility.py:275:13: error: Returning Any from function
+declared to return "bool"  [no-any-return]
+                return django_settings.is_overridden(setting)
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/compatibility.py:352:9: error: Need type annotation for
+"settings_dict" (hint: "settings_dict: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            settings_dict = {}
+            ^~~~~~~~~~~~~
+apps/core/config/compatibility.py:438:5: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+        def configure(self, **options) -> None:
+        ^
+apps/core/config/compatibility.py:469:5: error: Function is missing a return
+type annotation  [no-untyped-def]
+        def get_original_settings(self):
+        ^
+apps/core/config/compatibility.py:523:28: error: Incompatible types in
+assignment (expression has type "SettingsProxy", variable has type
+"LazySettings")  [assignment]
+        django.conf.settings = proxy
+                               ^~~~~
+apps/core/config/compatibility.py:528:13: error: Module has no attribute
+"settings"  [attr-defined]
+                module.settings = proxy
+                ^~~~~~~~~~~~~~~
+apps/core/config/compatibility.py:549:13: error: Module has no attribute
+"settings"  [attr-defined]
+                module.settings = module.settings.get_original_settings()
+                ^~~~~~~~~~~~~~~
+apps/core/config/compatibility.py:549:31: error: Call to untyped function
+"get_original_settings" in typed context  [no-untyped-call]
+                module.settings = module.settings.get_original_settings()
+                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:45:9: error: Need type annotation for
+"_file_pattern_cache" (hint: "_file_pattern_cache: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._file_pattern_cache = {}
+            ^~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:82:9: error: Need type annotation for
+"applicable_specs" (hint: "applicable_specs: List[<type>] = ...") 
+[var-annotated]
+            applicable_specs = []
+            ^~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:134:17: error: Returning Any from
+function declared to return "list[str]"  [no-any-return]
+                    return self._file_pattern_cache[spec_pattern]
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:152:9: error: Need type annotation for
+"_cache" (hint: "_cache: Dict[<type>, <type>] = ...")  [var-annotated]
+            self._cache = {}
+            ^~~~~~~~~~~
+apps/core/config/steering/integration.py:153:9: error: Need type annotation for
+"_access_times" (hint: "_access_times: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._access_times = {}
+            ^~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:158:69: error: Missing type parameters
+for generic type "Callable"  [type-arg]
+    ...hed_specification(self, spec_path: str, loader_func: Callable) -> Any:
+                                                            ^
+apps/core/config/steering/integration.py:249:35: error: Incompatible types in
+assignment (expression has type "Timer", variable has type "None")  [assignment]
+                self._cleanup_timer = threading.Timer(cache_config.cleanup...
+                                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+apps/core/config/steering/integration.py:250:13: error: "None" has no attribute
+"daemon"  [attr-defined]
+                self._cleanup_timer.daemon = True
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:251:13: error: "None" has no attribute
+"start"  [attr-defined]
+                self._cleanup_timer.start()
+                ^~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:293:9: error: Need type annotation for
+"_dependency_graph" (hint: "_dependency_graph: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            self._dependency_graph = {}
+            ^~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:355:25: error: Returning Any from
+function declared to return "list[str]"  [no-any-return]
+                            return inherits
+                            ^~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:422:29: error: Returning Any from
+function declared to return "int"  [no-any-return]
+                                return metadata.get("priority", 0)
+                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:486:37: error: Argument 1 to
+"add_listener" of "ConfigManager" has incompatible type
+"SteeringConfigChangeListener"; expected "ConfigChangeListener"  [arg-type]
+            config_manager.add_listener(self.config_listener, prefix_filte...
+                                        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:491:9: error: Need type annotation for
+"cache_config" (hint: "cache_config: Dict[<type>, <type>] = ...") 
+[var-annotated]
+            cache_config = self.config_manager.get("steering.cache", {})
+            ^~~~~~~~~~~~
+apps/core/config/steering/integration.py:495:9: error: Need type annotation for
+"perf_config" (hint: "perf_config: Dict[<type>, <type>] = ...")  [var-annotated]
+            perf_config = self.config_manager.get("steering.performance", ...
+            ^~~~~~~~~~~
+apps/core/config/steering/integration.py:499:9: error: Need type annotation for
+"dep_config" (hint: "dep_config: Dict[<type>, <type>] = ...")  [var-annotated]
+            dep_config = self.config_manager.get("steering.dependencies", ...
+            ^~~~~~~~~~
+apps/core/config/steering/integration.py:568:33: error:
+"SteeringDependencyManager" has no attribute "get_statistics"  [attr-defined]
+                "dependency_stats": self.dependency_manager.get_statistics...
+                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:601:9: error:
+"SteeringDependencyManager" has no attribute "refresh_metadata"  [attr-defined]
+            self.dependency_manager.refresh_metadata()
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/steering/integration.py:606:45: error: Argument 1 to
+"remove_listener" of "ConfigManager" has incompatible type
+"SteeringConfigChangeListener"; expected "ConfigChangeListener"  [arg-type]
+            self.config_manager.remove_listener(self.config_listener)
+                                                ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/rollback_migrator.py:177:24: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+            config_state = rollback_point.get("config_state", {})
+                           ^~~~~~~~~~~~~~~~~~
+apps/core/config/rollback_migrator.py:185:31: error: Item "None" of
+"dict[str, Any] | None" has no attribute "get"  [union-attr]
+            rollback_stack.extend(rollback_point.get("rollback_stack", [])...
+                                  ^~~~~~~~~~~~~~~~~~
+apps/core/config/manager_tools.py:17:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def create_snapshot(self, name: str | None = None, description: str = ...
+    ^
+apps/core/config/manager_tools.py:47:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def restore_snapshot(self, snapshot_id: str, validate: bool = True) ->...
+    ^
+apps/core/config/manager_tools.py:78:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def list_snapshots(self) -> list[dict[str, Any]]:
+    ^
+apps/core/config/manager_tools.py:114:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def delete_snapshot(self, snapshot_id: str) -> bool:
+    ^
+apps/core/config/manager_tools.py:131:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def _get_snapshot_directory(self) -> str:
+    ^
+apps/core/config/manager_tools.py:135:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def _find_snapshot_file(self, snapshot_id: str) -> str | None:
+    ^
+apps/core/config/manager_tools.py:151:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def _validate_snapshot_data(self, snapshot_data: dict[str, Any]) -> No...
+    ^
+apps/core/config/manager_tools.py:166:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def __getitem__(self, key: str) -> Any:
+    ^
+apps/core/config/manager_tools.py:170:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def __setitem__(self, key: str, value: Any) -> None:
+    ^
+apps/core/config/manager_tools.py:174:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def __contains__(self, key: str) -> bool:
+    ^
+apps/core/config/manager_tools.py:175:5: error: Returning Any from function
+declared to return "bool"  [no-any-return]
+        return self.has(key)
+        ^~~~~~~~~~~~~~~~~~~~
+apps/core/config/manager_tools.py:178:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def __len__(self) -> int:
+    ^
+apps/core/config/manager_tools.py:184:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def enable_steering_integration(self) -> None:
+    ^
+apps/core/config/manager_tools.py:195:1: error: Function is missing a return
+type annotation  [no-untyped-def]
+    def get_steering_integration(self):
+    ^
+apps/core/config/manager_tools.py:201:1: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def load_steering_specifications(self, target_file_path: str) -> list[...
+    ^
+apps/core/config/manager_tools.py:202:19: error: Call to untyped function
+"get_steering_integration" in typed context  [no-untyped-call]
+        integration = get_steering_integration(self)
+                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apps/core/config/manager_tools.py:204:9: error: Returning Any from function
+declared to return "list[Any]"  [no-any-return]
+            return integration.load_specifications_for_file(target_file_pa...
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Found 316 errors in 29 files (checked 71 source files)

@@ -1,0 +1,1286 @@
+/* 合同详情页样式 - 与案件详情页统一 */
+
+/* 隐藏 Django admin 自动生成的页面标题 */
+#content > h1:first-child,
+#content > h2:first-child {
+    display: none;
+}
+
+/* 页面容器 */
+.contract-detail-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* 头部区域 */
+.detail-header {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.contract-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--unfold-text-primary, #1a1a1a);
+    margin: 0;
+}
+
+/* 状态徽章 */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.status-active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-badge.status-closed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.status-archived {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* 类型标签 */
+.type-tag, .stage-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* 头部元信息 */
+.header-meta {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 16px;
+}
+
+.header-meta strong {
+    color: #374151;
+}
+
+/* 操作按钮 */
+.header-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--unfold-primary, #3b82f6);
+    color: #fff !important;
+    border: 1px solid var(--unfold-primary, #3b82f6);
+}
+
+.btn-primary:hover {
+    background: var(--unfold-primary-dark, #2563eb);
+    color: #fff !important;
+    border-color: var(--unfold-primary-dark, #2563eb);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+
+/* 标签页导航 */
+.tab-panel {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 16px;
+}
+
+.tab-nav button {
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.tab-nav button:hover {
+    color: #374151;
+}
+
+.tab-nav button.active {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+.tab-nav button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--unfold-primary, #3b82f6);
+}
+
+.tab-content {
+    padding: 24px;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* 信息网格 */
+.info-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.info-grid.two-columns {
+    grid-template-columns: repeat(2, 1fr);
+    align-items: stretch;
+}
+
+.info-grid.two-columns > .info-card {
+    margin-bottom: 0 !important;
+}
+
+@media (max-width: 768px) {
+    .info-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 信息卡片 */
+.info-card {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 20px;
+    transition: box-shadow 0.2s ease;
+    margin-bottom: 20px;
+}
+
+.info-card:last-child {
+    margin-bottom: 0;
+}
+
+.info-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.info-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.card-icon {
+    font-size: 18px;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+}
+
+.card-body {
+    /* 兼容旧模板 */
+}
+
+/* 信息列表 */
+.info-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.info-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.info-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.info-item label,
+.info-item dt {
+    font-size: 13px;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.info-item span,
+.info-item dd {
+    font-size: 13px;
+    color: #1a1a1a;
+    text-align: left;
+    margin: 0;
+    word-break: break-word;
+}
+
+/* 空状态 */
+.empty-state {
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+}
+
+/* 文本样式 */
+.text-muted {
+    color: #9ca3af;
+}
+
+/* 建档状态样式 */
+.archived-yes {
+    color: #15803d;
+    font-weight: 500;
+}
+
+.archived-no {
+    color: #6b7280;
+}
+
+/* 当事人列表 */
+.party-list, .lawyer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.party-item, .lawyer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.party-item:last-child, .lawyer-item:last-child {
+    border-bottom: none;
+}
+
+.party-name, .lawyer-name {
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.party-role {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.party-role.role-principal {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.party-role.role-beneficiary {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.party-role.role-opposing {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.party-legal-rep {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.primary-badge {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 当事人/律师可点击样式 */
+.party-item.clickable,
+.lawyer-item.clickable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.party-item.clickable:hover,
+.lawyer-item.clickable:hover {
+    background: #f3f4f6;
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+.view-detail-icon {
+    margin-left: auto;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.party-item:hover .view-detail-icon,
+.lawyer-item:hover .view-detail-icon {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+/* 收费模式标签 */
+.fee-mode-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.fee-mode-tag.fee-mode-fixed {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.fee-mode-tag.fee-mode-semi_risk {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.fee-mode-tag.fee-mode-full_risk {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.fee-mode-tag.fee-mode-custom {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+/* 金额样式 */
+.amount {
+    font-weight: 600;
+    color: #15803d;
+}
+
+/* 收款摘要 */
+.payment-summary {
+    display: flex;
+    gap: 30px;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.summary-item label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.summary-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.summary-value.amount {
+    color: #15803d;
+}
+
+/* 收款记录列表 */
+.payment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.payment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.payment-date {
+    font-size: 13px;
+    color: #6b7280;
+    min-width: 90px;
+}
+
+.payment-amount {
+    font-size: 14px;
+    font-weight: 600;
+    color: #15803d;
+    min-width: 100px;
+}
+
+.invoice-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.invoice-status.invoice-uninvoiced {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.invoice-status.invoice-invoiced_partial {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.invoice-status.invoice-invoiced_full {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.payment-note {
+    font-size: 12px;
+    color: #6b7280;
+    flex: 1;
+}
+
+/* 补充协议列表 */
+.agreement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agreement-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.agreement-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.agreement-date {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* 提醒列表 */
+.reminder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.reminder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.reminder-item.reminder-soon {
+    background: #fefce8;
+    border-color: #fbbf24;
+}
+
+.reminder-item.reminder-overdue {
+    background: #fef2f2;
+    border-color: #f87171;
+}
+
+.reminder-type {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.reminder-content {
+    flex: 1;
+    font-size: 14px;
+    color: #1a1a1a;
+    min-width: 150px;
+}
+
+.reminder-due-date {
+    font-size: 13px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.soon-badge {
+    background: #f59e0b;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.overdue-badge {
+    background: #ef4444;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* 文件夹绑定 */
+.folder-binding-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.binding-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.binding-status .status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #dcfce7;
+    color: #15803d;
+    border-radius: 50%;
+    font-size: 14px;
+}
+
+.binding-status.unbound .status-icon {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.binding-status .status-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #15803d;
+}
+
+.binding-status.unbound .status-text {
+    color: #6b7280;
+}
+
+.folder-path,
+.binding-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.folder-path label,
+.binding-time label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.path-value {
+    font-size: 13px;
+    color: #1a1a1a;
+    font-family: monospace;
+    background: #f3f4f6;
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+/* 文档生成操作区 */
+.document-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.action-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--unfold-primary, #3b82f6);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+.btn-action:hover:not(:disabled) {
+    background: var(--unfold-primary-dark, #2563eb);
+}
+
+.btn-action:disabled,
+.btn-action.btn-disabled {
+    background: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.action-icon {
+    font-size: 16px;
+}
+
+.action-text {
+    flex: 1;
+}
+
+.action-hint {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* 加载动画 */
+.action-loading {
+    display: inline-flex;
+    align-items: center;
+}
+
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 模态对话框 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-dialog {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #374151;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-hint {
+    margin: 0 0 16px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* 补充协议选择列表 */
+.agreement-select-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agreement-select-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.agreement-select-item:hover {
+    background: #f0f9ff;
+    border-color: #bfdbfe;
+}
+
+.agreement-select-item.selected {
+    background: #dbeafe;
+    border-color: var(--unfold-primary, #3b82f6);
+}
+
+.agreement-select-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.agreement-select-date {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Toast 消息提示 */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    max-width: 400px;
+    animation: slideIn 0.3s ease;
+}
+
+.toast-success {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.toast-error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.toast-icon {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 14px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 抽屉组件样式 */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+}
+
+.drawer-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 420px;
+    max-width: 90vw;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.drawer-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.drawer-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+.drawer-close:hover {
+    color: #374151;
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.detail-value {
+    font-size: 14px;
+    color: #1a1a1a;
+    word-break: break-all;
+    user-select: text;
+}
+
+.detail-value.copyable {
+    background: #f9fafb;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.detail-value.copyable:hover {
+    background: #f3f4f6;
+}
+
+.copy-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+/* 补充协议部分样式 */
+.supplementary-agreements-section {
+    margin-top: 24px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 16px;
+}
+
+.card-date {
+    margin-left: auto;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .contract-detail-page {
+        padding: 12px;
+    }
+
+    .header-main {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .contract-title {
+        font-size: 20px;
+    }
+
+    .tab-nav {
+        flex-wrap: wrap;
+        padding: 0 8px;
+    }
+
+    .tab-nav button {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+
+    .info-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .document-actions {
+        flex-direction: column;
+    }
+
+    .btn-action {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+
+/* 关联案件列表 */
+.case-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.case-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+    flex-wrap: wrap;
+}
+
+.case-item:last-child {
+    border-bottom: none;
+}
+
+.case-link {
+    text-decoration: none;
+    color: var(--unfold-primary, #3b82f6);
+    transition: color 0.2s;
+}
+
+.case-link:hover {
+    color: var(--unfold-primary-dark, #2563eb);
+    text-decoration: underline;
+}
+
+.case-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.case-status {
+    flex-shrink: 0;
+}
+
+.case-cause {
+    font-size: 13px;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.case-lawyer {
+    font-size: 13px;
+    color: #374151;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.case-lawyer::before {
+    content: "主办：";
+    color: #9ca3af;
+}
+
+
+/* 履行进度卡片样式 */
+.progress-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.progress-amounts {
+    display: flex;
+    gap: 30px;
+}
+
+.progress-amount-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progress-amount-item label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.progress-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.progress-value.amount {
+    color: #15803d;
+}
+
+.progress-bar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-bar-fill.completed {
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.progress-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-percent {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.progress-completed-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: #dcfce7;
+    color: #15803d;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.progress-hint {
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 0;
+}
+
+/* 开票汇总卡片样式 */
+.invoice-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.invoice-amounts {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.invoice-amount-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.invoice-amount-item label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.invoice-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.invoice-value.invoiced {
+    color: #15803d;
+}
+
+.invoice-value.pending {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.invoice-progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-bar-fill.invoice-progress {
+    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.invoice-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.invoice-percent {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.invoice-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}

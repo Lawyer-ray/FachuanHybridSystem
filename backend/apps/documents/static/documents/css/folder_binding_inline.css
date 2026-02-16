@@ -1,0 +1,182 @@
+/**
+ * 文书模板文件夹绑定 - 树形选择器样式
+ */
+
+/* 选择器容器 */
+.folder-selector-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 280px;
+}
+
+#folder_bindings-group,
+#folder_bindings-group .tabular,
+#folder_bindings-group .tabular th,
+#folder_bindings-group .tabular td,
+#folder_bindings-group .tabular input,
+#folder_bindings-group .tabular select,
+#folder_bindings-group .tabular textarea,
+#folder_bindings-group .tabular button,
+#folder_bindings-group .tabular .related-widget-wrapper,
+#documenttemplatefolderbinding_set-group,
+#documenttemplatefolderbinding_set-group .tabular,
+#documenttemplatefolderbinding_set-group .tabular th,
+#documenttemplatefolderbinding_set-group .tabular td,
+#documenttemplatefolderbinding_set-group .tabular input,
+#documenttemplatefolderbinding_set-group .tabular select,
+#documenttemplatefolderbinding_set-group .tabular textarea,
+#documenttemplatefolderbinding_set-group .tabular button,
+#documenttemplatefolderbinding_set-group .tabular .related-widget-wrapper {
+    font-size: 13px;
+}
+
+/* 已选择显示区域 */
+.folder-selected-display {
+    flex: 1;
+    min-height: 28px;
+    padding: 4px 10px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+}
+
+.folder-selected-display .placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.folder-selected-display .path-text {
+    color: #1565c0;
+    font-weight: 500;
+}
+
+/* 选择按钮 */
+.folder-select-btn {
+    background: #417690;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.folder-select-btn:hover {
+    background: #205067;
+}
+
+/* 树形弹出层 */
+.folder-tree-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 9999;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    min-width: 320px;
+    max-width: 500px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 4px;
+    padding: 8px;
+}
+
+/* 加载/错误/空状态 */
+.tree-loading,
+.tree-error,
+.tree-empty {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+.tree-error {
+    color: #c62828;
+}
+
+/* 树形列表 */
+.folder-tree .tree-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.folder-tree .tree-children .tree-list {
+    padding-left: 20px;
+}
+
+/* 树节点 */
+.folder-tree .tree-item {
+    margin: 0;
+}
+
+/* 节点行 */
+.folder-tree .tree-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.folder-tree .tree-row:hover {
+    background: #f0f0f0;
+}
+
+.folder-tree .tree-row.selected {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+/* 展开/折叠图标 */
+.folder-tree .tree-toggle {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #666;
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+
+.folder-tree .tree-toggle.has-children {
+    cursor: pointer;
+}
+
+.folder-tree .tree-toggle.has-children:hover {
+    color: #1976d2;
+}
+
+/* 文件夹图标 */
+.folder-tree .tree-icon {
+    margin-right: 6px;
+    font-size: 14px;
+}
+
+/* 节点名称 */
+.folder-tree .tree-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+/* 子节点容器 */
+.folder-tree .tree-children {
+    border-left: 1px dashed #ddd;
+    margin-left: 9px;
+}

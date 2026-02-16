@@ -3,14 +3,17 @@
 处理案件日志相关的业务逻辑
 符合三层架构规范：业务逻辑、权限检查、事务处理
 """
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from django.db import transaction
-from django.db.models import QuerySet, Q
-from django.core.files.uploadedfile import UploadedFile
 
-from apps.core.exceptions import NotFoundError, ValidationException, PermissionDenied
+from datetime import datetime
+from typing import Any
+
+from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
+from django.db.models import Q, QuerySet
+
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
+
 from ..models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
 
 
@@ -26,15 +29,12 @@ class CaseLogService:
     """
 
     # 允许的附件扩展名
-    ALLOWED_EXTENSIONS = {
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-        ".ppt", ".pptx", ".jpg", ".jpeg", ".png"
-    }
+    ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".jpg", ".jpeg", ".png"}
 
     # 最大文件大小 (50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024
 
-    def __init__(self, case_service: ICaseService = None):
+    def __init__(self, case_service: ICaseService | None = None):
         """
         构造函数，支持依赖注入
 
@@ -45,9 +45,9 @@ class CaseLogService:
 
     def list_logs(
         self,
-        case_id: Optional[int] = None,
+        case_id: int | None = None,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet:
         """
@@ -90,7 +90,7 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -126,8 +126,8 @@ class CaseLogService:
         case_id: int,
         content: str,
         user=None,
-        reminder_type: Optional[str] = None,
-        reminder_time: Optional[datetime] = None,
+        reminder_type: str | None = None,
+        reminder_time: datetime | None = None,
     ) -> CaseLog:
         """
         创建案件日志
@@ -163,9 +163,9 @@ class CaseLogService:
     def update_log(
         self,
         log_id: int,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -213,9 +213,9 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         删除案件日志
 
@@ -244,11 +244,11 @@ class CaseLogService:
     def upload_attachments(
         self,
         log_id: int,
-        files: List[UploadedFile],
+        files: list[UploadedFile],
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         上传日志附件
 
@@ -302,7 +302,7 @@ class CaseLogService:
         except CaseLog.DoesNotExist:
             raise NotFoundError(f"日志 {log_id} 不存在")
 
-    def _check_case_access(self, case_obj, user, org_access: Optional[Dict]) -> bool:
+    def _check_case_access(self, case_obj, user, org_access: dict | None) -> bool:
         """
         检查用户是否有权限访问案件
 
@@ -331,9 +331,7 @@ class CaseLogService:
 
         # 检查团队成员或被指派到该案件
         lawyers = list(org_access.get("lawyers", []))
-        if case_obj.assignments.filter(
-            Q(lawyer_id__in=lawyers) | Q(lawyer_id=uid)
-        ).exists():
+        if case_obj.assignments.filter(Q(lawyer_id__in=lawyers) | Q(lawyer_id=uid)).exists():
             return True
 
         return False
@@ -355,15 +353,13 @@ class CaseLogService:
 
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValidationException(
-                "不支持的文件类型",
-                errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
+                "不支持的文件类型", errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
             )
 
         size = getattr(file, "size", 0)
         if size and size > self.MAX_FILE_SIZE:
             raise ValidationException(
-                "文件大小超过限制",
-                errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024*1024)}MB"}
+                "文件大小超过限制", errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024 * 1024)}MB"}
             )
 
     # ============================================================
@@ -374,7 +370,7 @@ class CaseLogService:
         self,
         case_id: int,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet:
         """
@@ -400,9 +396,9 @@ class CaseLogService:
         self,
         log_id: int,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
-    ) -> List[CaseLogVersion]:
+    ) -> list[CaseLogVersion]:
         """
         获取日志的历史版本
 
@@ -425,19 +421,15 @@ class CaseLogService:
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
             raise PermissionDenied("无权限访问此日志版本")
 
-        return list(
-            CaseLogVersion.objects.filter(log_id=log_id)
-            .select_related("actor")
-            .order_by("-version_at")
-        )
+        return list(CaseLogVersion.objects.filter(log_id=log_id).select_related("actor").order_by("-version_at"))
 
     def delete_attachment(
         self,
         attachment_id: int,
         user=None,
-        org_access: Optional[Dict] = None,
+        org_access: dict | None = None,
         perm_open_access: bool = False,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         删除日志附件
 

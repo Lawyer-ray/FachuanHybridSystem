@@ -1,0 +1,27 @@
+venv312/bin/python -m mypy \
+		apps/core/infrastructure/throttling.py \
+		apps/core/middleware_request_id.py \
+		apps/core/exceptions_handlers.py \
+		apps/core/httpx_clients.py \
+		apps/core/config/django_runtime.py \
+		apps/core/protocols/common_protocols.py \
+		apps/core/dto/auth.py \
+		apps/core/llm/config.py \
+		apps/core/llm/service.py \
+		apps/core/llm/router.py \
+		apps/core/llm/backends/base.py \
+		apps/core/services/wiring.py \
+		apps/core/services/system_config_service.py \
+		apps/core/security/secret_codec.py \
+		apps/core/dependencies/automation_sms.py \
+		apps/core/security/scrub.py \
+		apps/automation/services/document/document_processing_service_adapter.py \
+		apps/automation/services/token/trigger_reasons.py \
+		apps/automation/services/scraper/core/token_service.py \
+		apps/cases/services/case/case_service.py \
+		apps/contracts/services/contract/contract_service_adapter.py \
+		apps/organization/services/org_access_computation_service.py \
+		apps/organization/services/wiring.py \
+		--follow-imports=skip \
+		--config-file mypy.ini
+Success: no issues found in 23 source files

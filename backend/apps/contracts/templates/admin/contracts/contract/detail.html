@@ -1,0 +1,109 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'contracts/css/contract_detail.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    › <a href="{% url 'admin:contracts_contract_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    › {{ contract.name }}
+</div>
+{% endblock %}
+
+
+
+{% block content %}
+<div class="contract-detail-page" x-data="contractDetailApp({ contractId: {{ contract.pk }} })">
+    <!-- Header Section -->
+    <header class="detail-header">
+        <div class="header-main">
+            <h1 class="contract-title">{{ contract.name }}</h1>
+            <span class="status-badge status-{{ contract.status|lower }}">{{ contract.get_status_display }}</span>
+            <span class="type-tag">{{ contract.get_case_type_display }}</span>
+        </div>
+        <div class="header-meta">
+            <span class="primary-lawyer">
+                主办律师: {% if primary_lawyer %}{{ primary_lawyer.real_name|default:primary_lawyer.username }}{% else %}未指派{% endif %}
+            </span>
+            <span style="margin-left: 16px;">
+                {% if contract.is_archived and contract.filing_number %}
+                    建档编号: {{ contract.filing_number }}
+                {% elif contract.is_archived %}
+                    ✓ 已建档
+                {% else %}
+                    未建档
+                {% endif %}
+            </span>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'admin:contracts_contract_changelist' %}" class="btn btn-secondary">← 返回列表</a>
+            {% if has_change_permission %}
+            <a href="{% url 'admin:contracts_contract_change' contract.pk %}" class="btn btn-primary">编辑</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Tab Panel -->
+    <div class="tab-panel">
+        <nav class="tab-nav">
+            <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">基本信息</button>
+            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">当事人与律师</button>
+            <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">收费与财务</button>
+            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">文档与提醒</button>
+        </nav>
+
+        <div class="tab-content">
+            {% include "admin/contracts/contract/partials/basic_info.html" %}
+            {% include "admin/contracts/contract/partials/parties_lawyers.html" %}
+            {% include "admin/contracts/contract/partials/finance.html" %}
+            {% include "admin/contracts/contract/partials/documents.html" %}
+        </div>
+    </div>
+
+    <!-- 补充协议选择对话框 -->
+    <div class="modal-overlay" x-show="showAgreementDialog" x-cloak @click.self="showAgreementDialog = false">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>选择补充协议</h3>
+                <button type="button" class="modal-close" @click="showAgreementDialog = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint">请选择要生成的补充协议：</p>
+                <div class="agreement-select-list">
+                    {% for agreement in supplementary_agreements %}
+                    <div class="agreement-select-item"
+                         @click="selectedAgreementId = {{ agreement.id }}"
+                         :class="{ 'selected': selectedAgreementId === {{ agreement.id }} }">
+                        <span class="agreement-select-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                        <span class="agreement-select-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="showAgreementDialog = false">取消</button>
+                <button type="button" class="btn btn-primary"
+                        @click="generateSupplementaryAgreement()"
+                        :disabled="!selectedAgreementId || generating">确定生成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 消息提示 -->
+    <div class="toast-container">
+        <template x-for="(toast, index) in toasts" :key="index">
+            <div class="toast" :class="'toast-' + toast.type" x-show="toast.show">
+                <span class="toast-icon" x-text="toast.type === 'success' ? '✓' : '✗'"></span>
+                <span class="toast-message" x-text="toast.message"></span>
+            </div>
+        </template>
+    </div>
+</div>
+
+<script src="{% static 'contracts/js/contract_detail.js' %}"></script>
+{% endblock %}

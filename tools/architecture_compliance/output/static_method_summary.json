@@ -1,0 +1,150 @@
+{
+  "report_title": "静态方法重构总结报告",
+  "generated_at": "2026-02-11T14:38:01.076331",
+  "scan_timestamp": "2026-02-11T14:24:32.052414",
+  "refactoring_timestamp": "2026-02-11T14:31:06.257523",
+  "overview": {
+    "total_static_methods_found": 12,
+    "methods_to_convert": 6,
+    "methods_to_keep": 6,
+    "methods_converted": 6,
+    "methods_failed": 0,
+    "call_sites_updated": 5,
+    "conversion_success_rate_percent": 100.0,
+    "all_conversions_successful": true
+  },
+  "converted_methods": [
+    {
+      "class_name": "SecurityService",
+      "method_name": "encrypt_config",
+      "file_path": "backend/apps/automation/services/scraper/core/security_service.py",
+      "reasons": [
+        "方法体实例化自身类: SecurityService()",
+        "调用外部服务: SecurityService()"
+      ],
+      "changes": [
+        "SecurityService.encrypt_config: 移除 @staticmethod，添加 self 参数",
+        "  识别到依赖: security_service",
+        "SecurityService.decrypt_config: 移除 @staticmethod，添加 self 参数",
+        "  识别到依赖: security_service"
+      ]
+    },
+    {
+      "class_name": "SecurityService",
+      "method_name": "decrypt_config",
+      "file_path": "backend/apps/automation/services/scraper/core/security_service.py",
+      "reasons": [
+        "方法体实例化自身类: SecurityService()",
+        "调用外部服务: SecurityService()"
+      ],
+      "changes": [
+        "SecurityService.encrypt_config: 移除 @staticmethod，添加 self 参数",
+        "  识别到依赖: security_service",
+        "SecurityService.decrypt_config: 移除 @staticmethod，添加 self 参数",
+        "  识别到依赖: security_service"
+      ]
+    },
+    {
+      "class_name": "CaseService",
+      "method_name": "get_case_queryset",
+      "file_path": "backend/apps/cases/services/case_service.py",
+      "reasons": [
+        "访问 Case.objects，需要服务注入"
+      ],
+      "changes": [
+        "CaseService.get_case_queryset: 移除 @staticmethod，添加 self 参数",
+        "  识别到依赖: case_service"
+      ]
+    },
+    {
+      "class_name": "BrowserManager",
+      "method_name": "_apply_anti_detection",
+      "file_path": "backend/apps/automation/services/scraper/core/browser_manager.py",
+      "reasons": [
+        "方法体包含import语句: anti_detection"
+      ],
+      "changes": [
+        "BrowserManager.create_browser: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._apply_anti_detection: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._inject_stealth_script: 移除 @staticmethod，添加 self 参数"
+      ]
+    },
+    {
+      "class_name": "BrowserManager",
+      "method_name": "_inject_stealth_script",
+      "file_path": "backend/apps/automation/services/scraper/core/browser_manager.py",
+      "reasons": [
+        "方法体包含import语句: anti_detection"
+      ],
+      "changes": [
+        "BrowserManager.create_browser: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._apply_anti_detection: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._inject_stealth_script: 移除 @staticmethod，添加 self 参数"
+      ]
+    },
+    {
+      "class_name": "BrowserManager",
+      "method_name": "create_browser",
+      "file_path": "backend/apps/automation/services/scraper/core/browser_manager.py",
+      "reasons": [
+        "调用同类方法: BrowserManager._cleanup()"
+      ],
+      "changes": [
+        "BrowserManager.create_browser: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._apply_anti_detection: 移除 @staticmethod，添加 self 参数",
+        "BrowserManager._inject_stealth_script: 移除 @staticmethod，添加 self 参数"
+      ]
+    }
+  ],
+  "kept_methods": [
+    {
+      "class_name": "TextExtractionService",
+      "method_name": "is_supported_format",
+      "file_path": "backend/apps/automation/services/court_document_recognition/text_extraction_service.py",
+      "reasons_for_keeping": [
+        "未检测到需要依赖的模式，默认保留为静态方法"
+      ]
+    },
+    {
+      "class_name": "TextExtractionService",
+      "method_name": "get_supported_extensions",
+      "file_path": "backend/apps/automation/services/court_document_recognition/text_extraction_service.py",
+      "reasons_for_keeping": [
+        "方法仅包含字符串/数学运算，是纯工具函数"
+      ]
+    },
+    {
+      "class_name": "BrowserManager",
+      "method_name": "_cleanup",
+      "file_path": "backend/apps/automation/services/scraper/core/browser_manager.py",
+      "reasons_for_keeping": [
+        "方法仅包含字符串/数学运算，是纯工具函数"
+      ]
+    },
+    {
+      "class_name": "SecurityService",
+      "method_name": "mask_sensitive_data",
+      "file_path": "backend/apps/automation/services/scraper/core/security_service.py",
+      "reasons_for_keeping": [
+        "方法仅包含字符串/数学运算，是纯工具函数"
+      ]
+    },
+    {
+      "class_name": "CaseNumberService",
+      "method_name": "normalize_case_number",
+      "file_path": "backend/apps/cases/services/case_number_service.py",
+      "reasons_for_keeping": [
+        "方法仅包含字符串/数学运算，是纯工具函数"
+      ]
+    },
+    {
+      "class_name": "PropertyClueService",
+      "method_name": "get_content_template",
+      "file_path": "backend/apps/client/services/property_clue_service.py",
+      "reasons_for_keeping": [
+        "方法仅包含字符串/数学运算，是纯工具函数"
+      ]
+    }
+  ],
+  "errors": []
+}

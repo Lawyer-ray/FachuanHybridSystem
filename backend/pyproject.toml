@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 120
-target-version = ['py311']
+target-version = ['py312']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -11,6 +11,7 @@ exclude = '''
   | \.tox
   | \.venv
   | venv311
+  | venv312
   | _build
   | buck-out
   | build
@@ -27,27 +28,7 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
-skip_glob = ["*/migrations/*", "venv311/*", ".hypothesis/*"]
-
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "apiSystem.settings"
-python_files = ["tests.py", "test_*.py", "*_tests.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--reuse-db",
-    "--cov=apps",
-    "--cov-report=html",
-    "--cov-report=term-missing",
-    "--cov-fail-under=70",
-    "-v",
-    "--tb=short",
-]
-testpaths = ["tests"]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-]
+skip_glob = ["*/migrations/*", "venv311/*", "venv312/*", ".hypothesis/*"]
 
 [tool.coverage.run]
 source = ["apps"]
@@ -57,6 +38,7 @@ omit = [
     "*/test_*.py",
     "*/__pycache__/*",
     "*/venv311/*",
+    "*/venv312/*",
     "tests/*",
 ]
 

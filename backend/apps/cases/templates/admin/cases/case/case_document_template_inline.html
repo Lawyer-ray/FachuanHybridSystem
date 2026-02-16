@@ -1,0 +1,408 @@
+{% load i18n admin_urls static %}
+
+{# 案件文件模板内联模块 - 紧凑卡片布局 #}
+
+<div class="case-document-template-section js-inline-admin-formset inline-group"
+     id="{{ inline_admin_formset.formset.prefix }}-group"
+     data-inline-type="stacked"
+     data-inline-formset="{{ inline_admin_formset.inline_formset_data }}"
+     x-data="caseDocumentTemplateApp({ caseId: {{ original.pk|default:'null' }} })">
+
+    {# 标题栏 #}
+    <h2 style="cursor: pointer;" @click="toggleSection()">
+        {{ inline_admin_formset.opts.verbose_name_plural|capfirst }}
+        <span style="float: right; font-size: 10px;" x-text="isCollapsed ? '▶' : '▼'"></span>
+    </h2>
+
+    {# 内容区域 #}
+    <div class="tpl-content" x-show="!isCollapsed" x-cloak>
+        {{ inline_admin_formset.formset.management_form }}
+
+        {# 消息提示 #}
+        <template x-if="errorMessage">
+            <div class="errornote" style="margin: 8px 0;">
+                <span x-text="errorMessage"></span>
+                <a href="#" @click.prevent="errorMessage = ''" style="float: right; color: inherit;">×</a>
+            </div>
+        </template>
+
+        <template x-if="successMessage">
+            <div style="margin: 8px 0; padding: 6px 10px; background: #dfd; border: 1px solid #cec; font-size: 12px;">
+                <span x-text="successMessage"></span>
+            </div>
+        </template>
+
+        {# 加载状态 #}
+        <div x-show="isLoading" style="padding: 15px; text-align: center; color: #666; font-size: 12px;">
+            加载中...
+        </div>
+
+        {# 模板分类列表 #}
+        <template x-if="!isLoading && categories.length > 0">
+            <div class="tpl-categories">
+                <template x-for="category in categories" :key="category.category">
+                    <div class="tpl-category">
+                        {# 分类标题 #}
+                        <div class="tpl-cat-header">
+                            <span x-text="category.category_display"></span>
+                            <span class="tpl-cat-count" x-text="'(' + category.templates.length + ')'"></span>
+                        </div>
+
+                        {# 模板卡片 - 横向排列 #}
+                        <div class="tpl-cards">
+                            <template x-for="template in category.templates" :key="template.binding_id || template.template_id">
+                                <div class="tpl-card">
+                                    <span class="tpl-name" x-text="template.name"></span>
+                                    <span x-show="template.binding_source === 'manual_bound'" class="tpl-tag tpl-tag-manual">手动</span>
+                                    <a href="#" x-show="template.binding_source === 'manual_bound'" class="tpl-remove" @click.prevent="unbindTemplate(template.binding_id)" title="移除">×</a>
+                                </div>
+                            </template>
+                            {# 添加按钮 - 放在卡片末尾 #}
+                            <div class="tpl-card tpl-card-add" @click="openAddDialog()">
+                                <span>+ 添加</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        {# 空状态 - 只显示添加按钮 #}
+        <template x-if="!isLoading && categories.length === 0">
+            <div class="tpl-empty">
+                <div class="tpl-card tpl-card-add" @click="openAddDialog()">
+                    <span>+ 添加模板</span>
+                </div>
+                <p style="margin: 10px 0 0; color: #999; font-size: 11px;">暂无匹配的文件模板</p>
+            </div>
+        </template>
+
+        {# 添加模板对话框 #}
+        <div x-show="isDialogOpen" class="tpl-dialog-overlay" @click.self="closeAddDialog()" x-cloak>
+            <div class="tpl-dialog">
+                <div class="tpl-dialog-header">
+                    <span>添加模板</span>
+                    <a href="#" @click.prevent="closeAddDialog()" class="tpl-dialog-close">×</a>
+                </div>
+                <div class="tpl-dialog-body">
+                    <div x-show="isLoadingAvailable" style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                        加载可用模板...
+                    </div>
+
+                    <template x-if="!isLoadingAvailable && availableTemplates.length > 0">
+                        <div class="tpl-avail-list">
+                            <template x-for="template in availableTemplates" :key="template.template_id">
+                                <div class="tpl-avail-item" @click="bindTemplate(template.template_id)">
+                                    <span class="tpl-avail-name" x-text="template.name"></span>
+                                    <span x-show="template.case_sub_type_display" class="tpl-avail-type" x-text="template.case_sub_type_display"></span>
+                                    <span class="tpl-avail-add">+</span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!isLoadingAvailable && availableTemplates.length === 0">
+                        <div style="text-align: center; padding: 25px; color: #666; font-size: 12px;">
+                            暂无可添加的模板
+                        </div>
+                    </template>
+                </div>
+                <div class="tpl-dialog-footer">
+                    <input type="button" value="关闭" class="default" @click="closeAddDialog()">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function caseDocumentTemplateApp(config) {
+    return {
+        caseId: config.caseId,
+        apiBase: '/api/v1/cases',
+        isCollapsed: false,
+        isLoading: false,
+        isLoadingAvailable: false,
+        isDialogOpen: false,
+        categories: [],
+        availableTemplates: [],
+        totalCount: 0,
+        errorMessage: '',
+        successMessage: '',
+
+        async init() {
+            if (this.caseId) await this.loadTemplates();
+        },
+
+        toggleSection() {
+            this.isCollapsed = !this.isCollapsed;
+        },
+
+        async loadTemplates() {
+            if (!this.caseId) return;
+            this.isLoading = true;
+            this.errorMessage = '';
+            try {
+                const resp = await fetch(`${this.apiBase}/${this.caseId}/template-bindings`);
+                if (!resp.ok) throw new Error('加载失败');
+                const data = await resp.json();
+                this.categories = data.categories || [];
+                this.totalCount = data.total_count || 0;
+            } catch (e) {
+                this.errorMessage = e.message || '加载模板列表失败';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async loadAvailableTemplates() {
+            if (!this.caseId) return;
+            this.isLoadingAvailable = true;
+            try {
+                const resp = await fetch(`${this.apiBase}/${this.caseId}/available-templates`);
+                if (!resp.ok) throw new Error('加载失败');
+                this.availableTemplates = await resp.json();
+            } catch (e) {
+                this.errorMessage = e.message || '加载可用模板失败';
+            } finally {
+                this.isLoadingAvailable = false;
+            }
+        },
+
+        async openAddDialog() {
+            this.isDialogOpen = true;
+            await this.loadAvailableTemplates();
+        },
+
+        closeAddDialog() {
+            this.isDialogOpen = false;
+            this.availableTemplates = [];
+        },
+
+        async bindTemplate(templateId) {
+            if (!this.caseId) return;
+            try {
+                const resp = await fetch(`${this.apiBase}/${this.caseId}/template-bindings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCSRFToken() },
+                    body: JSON.stringify({ template_id: templateId })
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || '绑定失败');
+                }
+                this.successMessage = '模板添加成功';
+                this.closeAddDialog();
+                await this.loadTemplates();
+                setTimeout(() => { this.successMessage = ''; }, 2000);
+            } catch (e) {
+                this.errorMessage = e.message || '绑定模板失败';
+            }
+        },
+
+        async unbindTemplate(bindingId) {
+            if (!this.caseId || !confirm('确定要移除此模板吗？')) return;
+            try {
+                const resp = await fetch(`${this.apiBase}/${this.caseId}/template-bindings/${bindingId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': this.getCSRFToken() }
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || '移除失败');
+                }
+                this.successMessage = '模板已移除';
+                await this.loadTemplates();
+                setTimeout(() => { this.successMessage = ''; }, 2000);
+            } catch (e) {
+                this.errorMessage = e.message || '移除模板失败';
+            }
+        },
+
+        getCSRFToken() {
+            return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+        }
+    };
+}
+</script>
+
+<style>
+/* 文件模板模块 */
+.case-document-template-section { margin-bottom: 10px; }
+.case-document-template-section h2 {
+    background: #79aec8;
+    color: #fff;
+    padding: 8px 10px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: bold;
+}
+.tpl-content {
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+}
+[x-cloak] { display: none !important; }
+
+/* 分类 */
+.tpl-categories { }
+.tpl-category { margin-bottom: 10px; }
+.tpl-cat-header {
+    font-size: 11px;
+    font-weight: bold;
+    color: #666;
+    margin-bottom: 6px;
+}
+.tpl-cat-count {
+    font-weight: normal;
+    color: #999;
+}
+
+/* 卡片容器 - 横向排列，自动换行 */
+.tpl-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* 单个卡片 - 紧凑长方形 */
+.tpl-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.tpl-card:hover {
+    background: #eee;
+    border-color: #ccc;
+}
+.tpl-name {
+    color: #333;
+}
+.tpl-tag {
+    font-size: 10px;
+    padding: 0 4px;
+    border-radius: 2px;
+}
+.tpl-tag-manual {
+    background: #e8f4e8;
+    color: #5a8a5a;
+}
+.tpl-remove {
+    color: #999;
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 1;
+    margin-left: 2px;
+}
+.tpl-remove:hover {
+    color: #c00;
+}
+
+/* 添加按钮卡片 */
+.tpl-card-add {
+    background: #fff;
+    border: 1px dashed #aaa;
+    color: #666;
+    cursor: pointer;
+}
+.tpl-card-add:hover {
+    background: #f0f7fa;
+    border-color: #79aec8;
+    color: #417690;
+}
+
+/* 空状态 */
+.tpl-empty {
+    padding: 10px 0;
+}
+
+/* 对话框 */
+.tpl-dialog-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tpl-dialog {
+    background: #fff;
+    border-radius: 4px;
+    width: 450px;
+    max-width: 90vw;
+    max-height: 70vh;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+}
+.tpl-dialog-header {
+    padding: 10px 12px;
+    background: #79aec8;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 4px 4px 0 0;
+}
+.tpl-dialog-close {
+    color: #fff;
+    text-decoration: none;
+    font-size: 18px;
+    line-height: 1;
+}
+.tpl-dialog-body {
+    padding: 8px;
+    overflow-y: auto;
+    flex: 1;
+}
+.tpl-dialog-footer {
+    padding: 8px 12px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+/* 可用模板列表 */
+.tpl-avail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tpl-avail-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.tpl-avail-item:hover {
+    background: #e8f0f4;
+    border-color: #79aec8;
+}
+.tpl-avail-name {
+    flex: 1;
+    color: #333;
+}
+.tpl-avail-type {
+    color: #888;
+    font-size: 11px;
+    margin-right: 8px;
+}
+.tpl-avail-add {
+    color: #417690;
+    font-size: 16px;
+    font-weight: bold;
+}
+</style>

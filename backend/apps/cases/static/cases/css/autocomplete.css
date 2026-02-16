@@ -1,0 +1,217 @@
+/**
+ * 自动补全组件样式 - 现代设计
+ * 参考 Headless UI / Tailwind UI 风格
+ */
+
+/* ========== 容器 ========== */
+.autocomplete-container {
+    position: relative;
+    width: 100%;
+}
+
+.ac-input-wrap {
+    position: relative;
+    width: 100%;
+}
+
+/* ========== 输入框 ========== */
+.autocomplete-input {
+    width: 100%;
+    padding: 8px 32px 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+    background: #fff;
+    transition: all 0.15s ease;
+}
+
+.autocomplete-input:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.15);
+}
+
+.autocomplete-input::placeholder {
+    color: #9ca3af;
+}
+
+/* ========== 加载动画 ========== */
+.ac-spinner {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: #6b7280;
+}
+
+.ac-spinner svg {
+    width: 100%;
+    height: 100%;
+    animation: ac-spin 0.8s linear infinite;
+}
+
+@keyframes ac-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ========== 下拉框 ========== */
+.ac-dropdown {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -2px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+/* ========== 结果列表（可滚动区域） ========== */
+.ac-list {
+    max-height: 320px;  /* 约10个选项的高度 */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* 自定义滚动条 */
+.ac-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ac-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ac-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.ac-list::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* ========== 选项项 ========== */
+.ac-item {
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.ac-item:last-child {
+    border-bottom: none;
+}
+
+.ac-item:hover {
+    background: #f9fafb;
+}
+
+/* 选中/高亮状态 */
+.ac-item.ac-active {
+    background: linear-gradient(135deg, #417690 0%, #4a8db0 100%);
+    color: #fff;
+}
+
+.ac-item.ac-active .ac-highlight {
+    background: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+/* ========== 关键词高亮 ========== */
+.ac-highlight {
+    background: #fef08a;
+    color: #92400e;
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+/* ========== 空状态 ========== */
+.ac-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.ac-empty svg {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 12px;
+    opacity: 0.4;
+}
+
+.ac-empty span {
+    display: block;
+    font-size: 13px;
+}
+
+/* ========== 底部状态栏 ========== */
+.ac-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.ac-footer strong {
+    color: #374151;
+    font-weight: 600;
+}
+
+.ac-hint {
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+/* ========== 隐藏元素 ========== */
+[x-cloak] {
+    display: none !important;
+}
+
+/* ========== Django Admin 兼容 ========== */
+.form-row .autocomplete-container,
+td .autocomplete-container,
+.inline-group .autocomplete-container {
+    width: 100%;
+}
+
+/* 确保下拉框不被裁剪 */
+.autocomplete-container,
+.ac-input-wrap {
+    overflow: visible !important;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+    .ac-list {
+        max-height: 240px;
+    }
+
+    .ac-item {
+        padding: 12px 14px;
+    }
+}
+
+/* ========== 减少动画 ========== */
+@media (prefers-reduced-motion: reduce) {
+    .autocomplete-input,
+    .ac-item {
+        transition: none;
+    }
+
+    .ac-spinner svg {
+        animation: none;
+    }
+}

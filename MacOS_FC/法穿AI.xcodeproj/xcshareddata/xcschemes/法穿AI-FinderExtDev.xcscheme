@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "1610"
+   version = "1.3">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "459296AB2F336FE300926E80"
+               BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+               BlueprintName = "&#x6cd5;&#x7a7f;AI"
+               ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "459296AB2F336FE300926E80"
+            BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+            BlueprintName = "&#x6cd5;&#x7a7f;AI"
+            ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "459296BC2F336FE400926E80"
+               BuildableName = "&#x6cd5;&#x7a7f;AITests.xctest"
+               BlueprintName = "&#x6cd5;&#x7a7f;AITests"
+               ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "459296C62F336FE400926E80"
+               BuildableName = "&#x6cd5;&#x7a7f;AIUITests.xctest"
+               BlueprintName = "&#x6cd5;&#x7a7f;AIUITests"
+               ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Enable FinderSync (Debug)"
+               scriptText = "if [ &quot;$CONFIGURATION&quot; != &quot;Debug&quot; ]; then exit 0; fi&#10;set -u&#10;SRC_APP_PATH=&quot;${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}&quot;&#10;DEST_APP_PATH=&quot;${HOME}/Applications/法穿AI-dev.app&quot;&#10;EXT_ID=&quot;com.HuangSong.MacOS-FC.FinderSyncExtension&quot;&#10;LSREGISTER=&quot;/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister&quot;&#10;mkdir -p &quot;${HOME}/Applications&quot; || true&#10;rm -rf &quot;${DEST_APP_PATH}&quot; || true&#10;/usr/bin/ditto &quot;${SRC_APP_PATH}&quot; &quot;${DEST_APP_PATH}&quot;&#10;APP_PATH=&quot;${DEST_APP_PATH}&quot;&#10;APPEX_PATH=&quot;${APP_PATH}/Contents/PlugIns/FinderSyncExtension.appex&quot;&#10;echo &quot;[FinderSync Dev] app: ${APP_PATH}&quot;&#10;echo &quot;[FinderSync Dev] appex: ${APPEX_PATH}&quot;&#10;&quot;${LSREGISTER}&quot; -f -R -trusted &quot;${APP_PATH}&quot; || true&#10;/usr/bin/pluginkit -a &quot;${APPEX_PATH}&quot; || true&#10;/usr/bin/pluginkit -e use -i &quot;${EXT_ID}&quot; || true&#10;/usr/bin/killall Finder || true&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "459296AB2F336FE300926E80"
+                     BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+                     BlueprintName = "&#x6cd5;&#x7a7f;AI"
+                     ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "459296AB2F336FE300926E80"
+            BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+            BlueprintName = "&#x6cd5;&#x7a7f;AI"
+            ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Disable FinderSync (Debug)"
+               scriptText = "if [ &quot;$CONFIGURATION&quot; != &quot;Debug&quot; ]; then exit 0; fi&#10;EXT_ID=&quot;com.HuangSong.MacOS-FC.FinderSyncExtension&quot;&#10;/usr/bin/pluginkit -e ignore -i &quot;${EXT_ID}&quot; || true&#10;/usr/bin/killall Finder || true&#10;echo &quot;[FinderSync Dev] disabled&quot;&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "459296AB2F336FE300926E80"
+                     BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+                     BlueprintName = "&#x6cd5;&#x7a7f;AI"
+                     ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "459296AB2F336FE300926E80"
+            BuildableName = "&#x6cd5;&#x7a7f;AI.app"
+            BlueprintName = "&#x6cd5;&#x7a7f;AI"
+            ReferencedContainer = "container:&#x6cd5;&#x7a7f;AI.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Debug">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "YES">
+   </ArchiveAction>
+</Scheme>

@@ -1,0 +1,65 @@
+/**
+ * 多选复选框样式
+ */
+
+/* 多选字段容器 */
+.field-case_types_field ul,
+.field-case_stages_field ul,
+.field-contract_types_field ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+
+.field-case_types_field li,
+.field-case_stages_field li,
+.field-contract_types_field li {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+}
+
+.field-case_types_field label,
+.field-case_stages_field label,
+.field-contract_types_field label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.field-case_types_field label:hover,
+.field-case_stages_field label:hover,
+.field-contract_types_field label:hover {
+    background-color: #f0f0f0;
+}
+
+.field-case_types_field input[type="checkbox"],
+.field-case_stages_field input[type="checkbox"],
+.field-contract_types_field input[type="checkbox"] {
+    margin-right: 4px;
+}
+
+/* 选中状态 */
+.field-case_types_field input[type="checkbox"]:checked + span,
+.field-case_stages_field input[type="checkbox"]:checked + span,
+.field-contract_types_field input[type="checkbox"]:checked + span {
+    color: #417690;
+    font-weight: 500;
+}
+
+/* 帮助文本 */
+.field-case_types_field .help,
+.field-case_stages_field .help,
+.field-contract_types_field .help {
+    display: block;
+    margin-top: 8px;
+    color: #666;
+    font-size: 11px;
+}

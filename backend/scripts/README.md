@@ -218,7 +218,7 @@ python scripts/refactoring/migrate_structure.py --dry-run
 
 ```bash
 # 激活虚拟环境
-source venv311/bin/activate
+source venv312/bin/activate
 
 # 运行脚本
 python scripts/testing/run_admin_tests.py

@@ -4,10 +4,17 @@
 .PHONY: help install run test migrate shell lint clean
 
 # 默认 Python 和虚拟环境
-PYTHON := venv311/bin/python
+VENV_DIR ?= venv312
+PYTHON_SYS ?= $(shell command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null)
+PYTHON := $(VENV_DIR)/bin/python
 UV := uv
-PYTEST := venv311/bin/pytest
+PYTEST := $(VENV_DIR)/bin/pytest
 MANAGE := $(PYTHON) apiSystem/manage.py
+DAPHNE := $(VENV_DIR)/bin/daphne
+WATCHFILES := $(VENV_DIR)/bin/watchfiles
+PIP := $(PYTHON) -m pip
+PORT ?= 8002
+TEST_DB_PATH ?= $(shell $(PYTHON) -c "import tempfile; print(tempfile.gettempdir() + '/fachuan_pytest.sqlite3')")
 
 # 颜色定义
 GREEN := \033[0;32m
@@ -24,26 +31,44 @@ help: ## 显示帮助信息
 # 安装和配置
 # ============================================================
 
-install: ## 安装依赖 (使用 uv)
-	$(UV) pip install -r requirements.txt
+install: ## 安装依赖
+	@if command -v $(UV) >/dev/null 2>&1; then \
+		$(UV) pip install -r requirements.txt -c constraints/py312.txt; \
+	else \
+		$(PIP) install -r requirements.txt -c constraints/py312.txt; \
+	fi
 
-install-dev: ## 安装开发依赖 (使用 uv)
-	$(UV) pip install -r requirements.txt
-	$(UV) pip install black isort flake8 mypy
+install-dev: ## 安装开发依赖
+	@if command -v $(UV) >/dev/null 2>&1; then \
+		$(UV) pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt; \
+	else \
+		$(PIP) install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt; \
+	fi
 
-venv: ## 创建虚拟环境 (使用 uv)
-	$(UV) venv venv311 --python 3.11
-	@echo "$(GREEN)虚拟环境已创建，请运行: source venv311/bin/activate$(NC)"
+venv: ## 创建虚拟环境
+	@if command -v $(UV) >/dev/null 2>&1; then \
+		$(UV) venv $(VENV_DIR) --python 3.12; \
+	else \
+		if [ -z "$(PYTHON_SYS)" ]; then \
+			echo "未找到可用的 Python（优先 python3.12，其次 python3/python）。"; \
+			exit 1; \
+		fi; \
+		$(PYTHON_SYS) -m venv $(VENV_DIR); \
+	fi
+	@echo "$(GREEN)虚拟环境已创建，请运行: source $(VENV_DIR)/bin/activate$(NC)"
 
 # ============================================================
 # 开发服务器
 # ============================================================
 
-run: ## 启动开发服务器 (端口 8000)
-	$(MANAGE) runserver 0.0.0.0:8000
+run: ## 启动开发服务器 (默认端口 8002, 使用 daphne, 可通过 PORT=8003 修改)
+	cd apiSystem && ../$(DAPHNE) -b 0.0.0.0 -p $(PORT) apiSystem.asgi:application
+
+run-dev: ## 启动开发服务器 (带自动重载, 推荐开发时使用)
+	cd apiSystem && ../$(WATCHFILES) --filter python '../$(DAPHNE) -b 0.0.0.0 -p $(PORT) apiSystem.asgi:application'
 
 run-port: ## 启动开发服务器 (自定义端口, 使用 PORT=8001)
-	$(MANAGE) runserver 0.0.0.0:$(PORT)
+	cd apiSystem && ../$(DAPHNE) -b 0.0.0.0 -p $(PORT) apiSystem.asgi:application
 
 # ============================================================
 # 数据库
@@ -79,42 +104,98 @@ superuser: ## 创建超级用户
 # ============================================================
 
 test: ## 运行测试
-	PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short $(ARGS)
 
 test-cov: ## 运行测试 (带覆盖率)
-	PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short --cov=apps --cov-report=html --cov-report=term
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short --cov=apps --cov-report=html --cov-report=term
 
 test-fast: ## 快速测试 (不显示详情)
-	PYTHONPATH=apiSystem:. $(PYTEST) tests -q
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -q
 
 test-unit: ## 运行单元测试
-	PYTHONPATH=apiSystem:. $(PYTEST) tests/unit -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/unit -v --tb=short $(ARGS)
 
 test-integration: ## 运行集成测试
-	PYTHONPATH=apiSystem:. $(PYTEST) tests/integration -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/integration -v --tb=short $(ARGS)
 
 test-property: ## 运行 Property-Based Tests
-	PYTHONPATH=apiSystem:. $(PYTEST) tests/property -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/property -v --tb=short $(ARGS)
 
 test-structure: ## 运行结构验证测试
-	PYTHONPATH=apiSystem:. $(PYTEST) tests/structure -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/structure -v --tb=short --no-cov $(ARGS)
 
 test-admin: ## 运行 Admin 测试
-	PYTHONPATH=apiSystem:. $(PYTEST) tests/admin -v --tb=short $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/admin -v --tb=short $(ARGS)
 
 # ============================================================
 # 代码质量
 # ============================================================
 
+RUFF_RATCHET_PATHS = \
+	apps/core/security/scrub.py \
+	apps/core/infrastructure/cache.py \
+	apps/automation/models/token.py \
+	apps/automation/services/automation_service_adapter.py \
+	apps/automation/services/scraper/core/token_service.py \
+	apps/automation/services/token/cache_manager.py \
+	apps/automation/services/token/history_recorder.py \
+	apps/automation/services/token/token_acquisition_orchestrator.py \
+	apps/automation/services/token/trigger_reasons.py \
+	apps/client/services/wiring.py \
+	apps/chat_records/services/wiring.py \
+	apps/core/services/wiring.py \
+	apps/core/services/conversation_service.py \
+	apps/core/services/cause_court_initialization_service.py \
+	apps/core/services/court_tokens/baoquan_token_service.py \
+	apps/litigation_ai/services/wiring.py \
+	apps/litigation_ai/agent/factory.py \
+	apps/litigation_ai/agent/llm_provider.py \
+	apps/litigation_ai/agent/middleware.py \
+	apps/litigation_ai/chains/document_type_parse_chain.py \
+	apps/litigation_ai/chains/litigation_draft_chain.py \
+	apps/litigation_ai/chains/litigation_goal_intake_chain.py \
+	apps/litigation_ai/chains/user_choice_parse_chain.py
+
 lint: ## 代码检查
-	$(PYTHON) -m flake8 apps --max-line-length=120 --ignore=E501,W503
+	$(PYTHON) -m ruff check $(RUFF_RATCHET_PATHS) --config ruff.toml
+
+lint-full: ## 全量代码检查（历史存量可能不通过）
+	$(PYTHON) -m ruff check apps --config ruff.toml
 
 format: ## 格式化代码
 	$(PYTHON) -m black apps --line-length=120
 	$(PYTHON) -m isort apps
 
 typecheck: ## 类型检查
-	$(PYTHON) -m mypy apps --ignore-missing-imports
+	$(PYTHON) -m mypy \
+		apps/core/infrastructure/throttling.py \
+		apps/core/middleware_request_id.py \
+		apps/core/exceptions_handlers.py \
+		apps/core/httpx_clients.py \
+		apps/core/config/django_runtime.py \
+		apps/core/protocols/common_protocols.py \
+		apps/core/dto/auth.py \
+		apps/core/llm/config.py \
+		apps/core/llm/service.py \
+		apps/core/llm/router.py \
+		apps/core/llm/backends/base.py \
+		apps/core/services/wiring.py \
+		apps/core/services/system_config_service.py \
+		apps/core/security/secret_codec.py \
+		apps/core/dependencies/automation_sms.py \
+		apps/core/security/scrub.py \
+		apps/automation/services/document/document_processing_service_adapter.py \
+		apps/automation/services/token/trigger_reasons.py \
+		apps/automation/services/scraper/core/token_service.py \
+		apps/cases/services/case/case_service.py \
+		apps/contracts/services/contract/contract_service_adapter.py \
+		apps/organization/services/org_access_computation_service.py \
+		apps/organization/services/wiring.py \
+		--follow-imports=skip \
+		--config-file mypy.ini
+
+typecheck-full: ## 全量类型检查（历史存量可能不通过）
+	$(PYTHON) -m mypy apps --config-file mypy.ini
 
 check: lint typecheck ## 运行所有检查
 
@@ -210,7 +291,7 @@ docker-run: ## 运行 Docker 容器
 # ============================================================
 
 health: ## 检查服务健康状态
-	@curl -s http://localhost:8000/api/v1/health | python -m json.tool || echo "服务未运行"
+	@curl -s http://localhost:8002/api/v1/health | python -m json.tool || echo "服务未运行"
 
 health-detail: ## 详细健康检查
-	@curl -s http://localhost:8000/api/v1/health/detail | python -m json.tool || echo "服务未运行"
+	@curl -s http://localhost:8002/api/v1/health/detail | python -m json.tool || echo "服务未运行"

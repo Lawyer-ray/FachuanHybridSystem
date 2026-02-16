@@ -15,7 +15,9 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
         args: ['--maxkb=1000']
+        exclude: ^backend/\.secrets\.baseline$|^backend/apps/automation/services/ocr/models/.*\.onnx$
       - id: check-json
+        exclude: ^frontend/tsconfig\.(app|node)\.json$
       - id: check-toml
       - id: check-merge-conflict
       - id: debug-statements
@@ -27,9 +29,9 @@ repos:
     rev: 24.10.0
     hooks:
       - id: black
-        language_version: python3.11
+        language_version: python3.12
         args: ['--line-length=120']
-        exclude: ^.*/(migrations|venv311)/.*$
+        exclude: ^.*/(migrations|venv312)/.*$
 
   # Import sorting
   - repo: https://github.com/PyCQA/isort
@@ -37,29 +39,52 @@ repos:
     hooks:
       - id: isort
         args: ['--profile=black', '--line-length=120']
-        exclude: ^.*/(migrations|venv311)/.*$
+        exclude: ^.*/(migrations|venv312)/.*$
 
-  # Linting
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+  # Linting (ruff)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
     hooks:
-      - id: flake8
-        args: ['--config=.flake8']
-        exclude: ^.*/(migrations|venv311)/.*$
+      - id: ruff-check
+        args: ['--config=backend/ruff.toml', '--fix', '--exit-non-zero-on-fix']
+        files: ^backend/(apps|apiSystem)/.*\.py$
+        exclude: ^.*/(migrations|venv311|venv312)/.*$
+      - id: ruff-format
+        args: ['--config=backend/ruff.toml']
+        files: ^backend/(apps|apiSystem)/.*\.py$
+        exclude: ^.*/(migrations|venv311|venv312)/.*$
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        files: ^backend/(apps/.*\.py|apiSystem/apiSystem/.*\.py)$
+        args: ['--config-file=backend/mypy.ini']
+        exclude: ^.*/(migrations|tests|venv311|venv312)/.*$
         additional_dependencies: [
-          'flake8-bugbear',
-          'flake8-comprehensions',
-          'flake8-simplify',
+          'django-stubs',
+          'django-stubs-ext',
         ]
 
-  # Type checking (optional - can be slow)
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.8.0
-  #   hooks:
-  #     - id: mypy
-  #       args: ['--config-file=mypy.ini']
-  #       exclude: ^.*/(migrations|tests|venv311)/.*$
-  #       additional_dependencies: [
-  #         'django-stubs',
-  #         'types-requests',
-  #       ]
+  # Secrets scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', 'backend/.secrets.baseline']
+        exclude: ^.*/(logs|htmlcov|media|migrations|staticfiles|venv312)/.*$|^backend/\.secrets\.baseline$
+
+  - repo: local
+    hooks:
+      - id: forbid-added-todo-markers
+        name: Forbid added TODO markers
+        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check todo
+        language: python
+        types: [python]
+
+      - id: forbid-added-print
+        name: Forbid added print/pprint
+        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check print
+        language: python
+        types: [python]

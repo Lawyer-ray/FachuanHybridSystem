@@ -1,0 +1,805 @@
+/**
+ * 合同文档操作区域样式
+ */
+
+/* 文档操作容器 */
+.document-actions-container {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+}
+
+/* 操作组 */
+.action-group {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.action-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* 操作标签 */
+.action-label {
+    flex-shrink: 0;
+    width: 90px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    padding-top: 6px;
+}
+
+/* 操作按钮组 */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-buttons input[type="button"],
+#binding_actions input[type="button"] {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 4px;
+    border: 1px solid #417690;
+    background: #417690;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-buttons input[type="button"]:hover,
+#binding_actions input[type="button"].default:hover {
+    background: #2e5984;
+    border-color: #2e5984;
+}
+
+.action-buttons input[type="button"]:disabled {
+    background: #aaa;
+    border-color: #aaa;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 文件夹绑定区域 */
+#folder_binding_section {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.binding-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* 绑定状态显示 */
+#binding_status {
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 120px;
+}
+
+#binding_status_text {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+#binding_status_text strong {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+#binding_status_text small {
+    display: block;
+    color: #999;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+/* 绑定操作按钮 */
+#binding_actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#binding_actions input[type="button"].default {
+    background: #417690;
+    color: white;
+    border-color: #417690;
+}
+
+#unbind_folder_btn {
+    background: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
+#unbind_folder_btn:hover {
+    background: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+/* 文件夹绑定对话框 */
+#folder_binding_dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    min-width: 500px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+#folder_binding_dialog h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+/* 文件夹路径输入区域 */
+.folder-input-section {
+    margin: 15px 0;
+}
+
+.folder-input-section > label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+}
+
+/* 快捷路径选择 */
+.quick-paths {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quick-paths-label {
+    font-size: 12px;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.quick-path-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.quick-path-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f5f5f5;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-path-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.quick-path-btn:active {
+    background: #dee2e6;
+}
+
+/* 路径输入框包装 */
+.path-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+#folder_path_input {
+    width: 100%;
+    padding: 10px 35px 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+#folder_path_input:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.2);
+}
+
+.clear-btn {
+    position: absolute;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: #ccc;
+    color: white;
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    padding: 0;
+}
+
+.clear-btn:hover {
+    background: #999;
+}
+
+#folder_path_input:not(:placeholder-shown) + .clear-btn {
+    display: block;
+}
+
+/* 错误提示 */
+#folder_path_error {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #ffebee;
+    border: 1px solid #f44336;
+    border-radius: 4px;
+    color: #c62828;
+    font-size: 13px;
+    display: none;
+}
+
+#folder_path_error::before {
+    content: "⚠ ";
+    font-weight: bold;
+}
+
+/* 对话框按钮区域 */
+.dialog-buttons {
+    text-align: right;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.dialog-buttons button {
+    padding: 8px 16px;
+    margin-left: 10px;
+    border-radius: 4px;
+    border: 1px solid;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+#cancel_folder_dialog {
+    background: #f0f0f0;
+    color: #333;
+    border-color: #ccc;
+}
+
+#cancel_folder_dialog:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+#confirm_folder_binding {
+    background: #417690;
+    color: white;
+    border-color: #417690;
+}
+
+#confirm_folder_binding:hover {
+    background: #2e5984;
+    border-color: #2e5984;
+}
+
+#confirm_folder_binding:disabled {
+    background: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 对话框遮罩层 */
+#dialog_overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: none;
+}
+
+/* 成功消息样式 */
+.folder-binding-success-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4caf50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    z-index: 10001;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease;
+    max-width: 400px;
+    min-width: 250px;
+    word-wrap: break-word;
+    line-height: 1.4;
+    border-left: 4px solid #2e7d32;
+}
+
+/* 错误消息样式 */
+.folder-binding-error-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #f44336;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    z-index: 10001;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease;
+    max-width: 400px;
+    min-width: 250px;
+    word-wrap: break-word;
+    line-height: 1.4;
+    border-left: 4px solid #d32f2f;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.folder-browser {
+    margin-top: 12px;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.folder-browser-toolbar {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.folder-browser-pathbar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.folder-browser-pathbar input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.folder-browser-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f5f5f5;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.folder-browser-btn:hover {
+    background: #e9ecef;
+    border-color: #cfcfcf;
+}
+
+.folder-browser-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.folder-browser-btn.primary {
+    border-color: #417690;
+    background: #417690;
+    color: #fff;
+}
+
+.folder-browser-btn.primary:hover {
+    background: #2e5984;
+    border-color: #2e5984;
+}
+
+.folder-browser-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.folder-browser-search {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.folder-browser-toggle {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+    color: #555;
+    user-select: none;
+}
+
+.folder-browser-body {
+    display: flex;
+    min-height: 320px;
+    max-height: 360px;
+}
+
+.folder-browser-sidebar {
+    width: 210px;
+    border-right: 1px solid #f0f0f0;
+    background: #fcfcfc;
+    padding: 10px;
+    overflow: auto;
+}
+
+.folder-browser-section-title {
+    font-size: 11px;
+    color: #888;
+    margin: 8px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.folder-browser-sideitem {
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-browser-sideitem:hover {
+    background: #f3f6f8;
+    border-color: #e6eef3;
+}
+
+.folder-browser-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.folder-browser-header {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #fff;
+}
+
+.folder-browser-breadcrumbs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    overflow: hidden;
+}
+
+.folder-browser-crumb {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #417690;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.folder-browser-crumb:hover {
+    background: #f3f6f8;
+    border-color: #e6eef3;
+}
+
+.folder-browser-hint {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.folder-browser-error {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #c62828;
+}
+
+.folder-browser-loading {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #666;
+}
+
+.folder-browser-list {
+    flex: 1;
+    overflow: auto;
+    outline: none;
+}
+
+.folder-browser-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-top: 1px solid #f5f5f5;
+    cursor: default;
+}
+
+.folder-browser-row:hover {
+    background: #f7fafc;
+}
+
+.folder-browser-row.is-selected {
+    background: #e8f0f6;
+}
+
+.folder-browser-row-name {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+    flex: 1;
+}
+
+.folder-browser-icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.folder-browser-row-name span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-browser-mini {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+
+.folder-browser-mini:hover {
+    background: #e9ecef;
+    border-color: #cfcfcf;
+}
+
+.folder-browser-empty {
+    padding: 14px 10px;
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+}
+
+.folder-browser-footer {
+    padding: 10px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    background: #fafafa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .action-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .action-label {
+        width: auto;
+        margin-bottom: 8px;
+    }
+
+    .binding-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    #folder_binding_dialog {
+        min-width: 300px;
+        max-width: 95vw;
+        padding: 15px;
+    }
+
+    #folder_binding_dialog h3 {
+        font-size: 16px;
+    }
+
+    #binding_actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    #binding_actions input[type="button"] {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+
+    .dialog-buttons {
+        text-align: center;
+    }
+
+    .dialog-buttons button {
+        margin: 5px;
+        min-width: 80px;
+    }
+}
+
+@media (max-width: 480px) {
+    #folder_binding_dialog {
+        min-width: 280px;
+        padding: 12px;
+    }
+
+    .path-format-help {
+        font-size: 11px;
+    }
+
+    .path-format-help li {
+        font-size: 10px;
+    }
+
+    .folder-binding-success-message,
+    .folder-binding-error-message {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        text-align: center;
+        font-size: 13px;
+    }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+    #binding_status {
+        border-width: 2px;
+    }
+
+    #folder_path_input:focus {
+        border-width: 2px;
+    }
+
+    #folder_binding_dialog {
+        border-width: 3px;
+    }
+}
+
+/* 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    #folder_binding_dialog {
+        background: #2b2b2b;
+        border-color: #555;
+        color: #fff;
+    }
+
+    #folder_binding_dialog h3 {
+        color: #fff;
+        border-bottom-color: #555;
+    }
+
+    #folder_path_input {
+        background: #3b3b3b;
+        border-color: #555;
+        color: #fff;
+    }
+
+    #folder_path_input:focus {
+        border-color: #6bb6ff;
+    }
+
+    .path-format-help {
+        background: #3b3b3b;
+        color: #ccc;
+        border-left-color: #6bb6ff;
+    }
+
+    #binding_status {
+        background: #3b3b3b;
+        border-color: #555;
+    }
+
+    #cancel_folder_dialog {
+        background: #555;
+        color: #fff;
+        border-color: #777;
+    }
+
+    #cancel_folder_dialog:hover {
+        background: #666;
+    }
+}
+
+body.app-contracts.model-contract.change-form .inline-group .tabular select,
+body.app-contracts.model-contract.change-form .inline-group .tabular input,
+body.app-contracts.model-contract.change-form .inline-group .tabular textarea,
+body.app-contracts.model-contract.change-form .inline-group .select2-container--admin-autocomplete,
+body.app-contracts.model-contract.change-form .inline-group .select2-container--admin-autocomplete .select2-selection--single,
+body.app-contracts.model-contract.change-form .inline-group .select2-container--admin-autocomplete .select2-selection--single .select2-selection__rendered,
+body.app-contracts.model-contract.change-form .inline-group .select2-container--admin-autocomplete .select2-search__field {
+    font-size: 13px;
+}

@@ -1,0 +1,27 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    environment:
+      PORT: "8002"
+      DJANGO_DEBUG: "0"
+      DATABASE_PATH: "/data/db.sqlite3"
+      DJANGO_CACHE_REDIS_URL: "redis://redis:6379/0"
+      DJANGO_CHANNEL_REDIS_URL: "redis://redis:6379/0"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+    volumes:
+      - backend_data:/data
+    ports:
+      - "8002:8002"
+    depends_on:
+      - redis
+
+volumes:
+  backend_data:
+

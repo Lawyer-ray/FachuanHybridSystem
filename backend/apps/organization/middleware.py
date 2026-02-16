@@ -1,11 +1,13 @@
 """
 组织访问控制中间件
 """
-from typing import Set, Optional, Any
+
+from typing import Any
+
 from django.conf import settings
-from django.utils.deprecation import MiddlewareMixin
-from django.http import HttpRequest
 from django.core.cache import cache
+from django.http import HttpRequest
+from django.utils.deprecation import MiddlewareMixin
 
 from apps.core.cache import CacheKeys, CacheTimeout
 from apps.core.interfaces import ServiceLocator
@@ -34,13 +36,13 @@ class OrgAccessMiddleware(MiddlewareMixin):
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))
         return None
 
-    def _compute_org_access(self, user: Any) -> dict:
+    def _compute_org_access(self, user: Any) -> dict[str, Any]:
         """
         计算用户的组织访问权限
         使用 prefetch_related 优化 N+1 查询
         """
-        lawyers: Set[int] = set()
-        team_ids: Set[int] = set()
+        lawyers: set[int] = set()
+        team_ids: set[int] = set()
 
         # 使用 prefetch_related 一次性加载团队和成员
         # 避免 N+1 查询

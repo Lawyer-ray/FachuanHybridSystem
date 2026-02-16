@@ -1,0 +1,58 @@
+================================================================================
+Contracts 模块错误详细分析
+================================================================================
+
+
+unknown - 其他 (86 个错误)
+--------------------------------------------------------------------------------
+apps/contracts/services/contract_reminder_service.py:33
+  "QuerySet"
+
+apps/contracts/services/contract_payment_service.py:40
+  "QuerySet"
+
+apps/contracts/services/contract_payment_service.py:251
+  _ST? has no
+
+apps/contracts/services/contract_payment_service.py:252
+  _ST? has no
+
+apps/contracts/services/contract_payment_service.py:261
+  _ST? has no
+
+apps/contracts/services/payment/contract_payment_service.py:253
+  _ST?
+
+apps/contracts/services/payment/contract_payment_service.py:254
+  _ST?
+
+apps/contracts/services/payment/contract_payment_service.py:257
+  _ST?
+
+apps/contracts/services/payment/contract_payment_service.py:264
+  _ST?
+
+apps/contracts/services/contract/contract_validator.py:27
+  Argument 1
+
+
+方法签名不匹配 (6 个错误)
+--------------------------------------------------------------------------------
+apps/contracts/services/folder/folder_binding_service.py:72
+  Signature
+
+apps/contracts/services/folder/folder_binding_service.py:75
+  Signature
+
+apps/contracts/services/folder/folder_binding_service.py:78
+  Signature
+
+apps/contracts/services/folder/folder_binding_service.py:81
+  Signature
+
+apps/contracts/services/folder/folder_binding_service.py:84
+  Signature
+
+apps/contracts/services/folder/folder_binding_service.py:94
+  Signature
+

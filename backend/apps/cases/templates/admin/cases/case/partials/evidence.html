@@ -1,0 +1,170 @@
+{% load i18n %}
+<!-- 证据清单标签页 -->
+<div class="info-section">
+    <h2 class="section-title">证据清单</h2>
+
+    <div class="evidence-actions" style="margin-bottom: 20px;">
+        <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
+           class="btn btn-primary">
+            + 新建证据清单
+        </a>
+        <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
+           class="btn btn-secondary">
+            查看全部
+        </a>
+    </div>
+
+    {% if case.evidence_lists.exists %}
+    <div class="evidence-list">
+        {% for evidence_list in case.evidence_lists.all %}
+        <div class="evidence-card">
+            <div class="evidence-header">
+                <h3 class="evidence-title">
+                    <a href="{% url 'admin:documents_evidencelist_change' evidence_list.pk %}">
+                        {{ evidence_list.title }}
+                    </a>
+                </h3>
+                <span class="evidence-order">第 {{ evidence_list.order }} 份</span>
+            </div>
+
+            <div class="evidence-meta">
+                <span class="meta-item">
+                    <strong>证据数量：</strong>{{ evidence_list.items.count }}
+                </span>
+                <span class="meta-item">
+                    <strong>总页数：</strong>{{ evidence_list.total_pages }}
+                </span>
+                <span class="meta-item">
+                    <strong>页码范围：</strong>{{ evidence_list.page_range_display }}
+                </span>
+                <span class="meta-item">
+                    <strong>导出版本：</strong>V{{ evidence_list.export_version }}
+                </span>
+            </div>
+
+            <div class="evidence-status">
+                {% if evidence_list.merged_pdf %}
+                <span class="status-badge status-success">✓ 已合并</span>
+                {% else %}
+                <span class="status-badge status-pending">未合并</span>
+                {% endif %}
+            </div>
+
+            <div class="evidence-actions">
+                <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
+                   class="btn btn-sm btn-secondary">
+                    合并PDF
+                </a>
+                <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
+                   class="btn btn-sm btn-secondary">
+                    导出清单
+                </a>
+                {% if evidence_list.merged_pdf %}
+                <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
+                   class="btn btn-sm btn-primary">
+                    下载PDF
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无证据清单</p>
+        <p class="hint">点击上方"新建证据清单"按钮创建第一份证据清单</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.evidence-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.evidence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.evidence-title {
+    margin: 0;
+    font-size: 16px;
+}
+
+.evidence-title a {
+    color: #1976d2;
+    text-decoration: none;
+}
+
+.evidence-title a:hover {
+    text-decoration: underline;
+}
+
+.evidence-order {
+    color: #666;
+    font-size: 14px;
+}
+
+.evidence-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #666;
+}
+
+.evidence-status {
+    margin-bottom: 12px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.status-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-pending {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.evidence-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.empty-state .hint {
+    font-size: 14px;
+    color: #999;
+}
+</style>

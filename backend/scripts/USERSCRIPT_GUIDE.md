@@ -26,12 +26,12 @@
 
 ```bash
 cd backend
-source venv311/bin/activate
+source venv312/bin/activate
 cd apiSystem
-python manage.py runserver 8000
+python manage.py runserver 0.0.0.0:8000
 ```
 
-确保服务运行在 `http://127.0.0.1:8000`
+确保服务运行在 `http://127.0.0.1:8000`，局域网其他设备可通过 `http://<你的电脑局域网IP>:8000` 访问
 
 ## 使用方法
 

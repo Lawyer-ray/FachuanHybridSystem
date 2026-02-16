@@ -1,0 +1,283 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials_manage.css' %}?v=20260125f">
+{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    › <a href="{{ detail_url }}">{{ case.name }}</a>
+    › 上传/绑定材料
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="case-materials-manage-page"
+     x-data="caseMaterialsManageApp({
+        caseId: {{ case.pk }},
+        partyTypes: JSON.parse('{{ party_types_json|escapejs }}'),
+        nonPartyTypes: JSON.parse('{{ non_party_types_json|escapejs }}'),
+        ourParties: JSON.parse('{{ our_case_parties_json|escapejs }}'),
+        opponentParties: JSON.parse('{{ opponent_case_parties_json|escapejs }}'),
+        supervisingAuthorities: JSON.parse('{{ supervising_authorities_json|escapejs }}')
+     })"
+     x-init="init()">
+
+    <header class="materials-manage-header">
+        <div>
+            <h1 class="materials-manage-title">上传/绑定材料：{{ case.name }}</h1>
+            <div class="materials-manage-subtitle">
+                <a href="{{ detail_url }}">← 返回案件详情</a>
+            </div>
+        </div>
+
+        <div class="materials-manage-actions">
+            <button type="button" class="button default" @click="save()">保存</button>
+        </div>
+    </header>
+
+    <div class="materials-manage-top">
+        <section class="cm-card">
+            <div class="cm-card-header">
+                <div class="cm-card-title">上传</div>
+            </div>
+
+            <div class="cm-upload-controls">
+                <div class="cm-control">
+                    <span class="cm-label">上传大类</span>
+                    <select class="cm-select" x-model="uploadCategory">
+                        <option value="party">当事人材料</option>
+                        <option value="non_party">非当事人材料</option>
+                    </select>
+                </div>
+
+                <div class="cm-actions">
+                    <button type="button"
+                            class="button default"
+                            :disabled="!pendingFiles.length || isUploading"
+                            @click="upload()"
+                            x-show="pendingFiles.length || isUploading"
+                            style="display: none;"
+                            >
+                        <span x-text="($data.uploadButtonText || '上传')">上传</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="cm-dropzone"
+                 :class="{ 'is-dragging': isDragging, 'is-flash': flashDropzone }"
+                 @click="openFilePicker()"
+                 @dragenter.prevent="onDragOver($event)"
+                 @dragover.prevent="onDragOver($event)"
+                 @dragleave.prevent="onDragLeave($event)"
+                 @drop.prevent.stop="onDrop($event)">
+                <div class="cm-dropzone-inner">
+                    <svg class="cm-dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                    </svg>
+                    <div class="cm-dropzone-title">
+                        <span x-text="($data.dropzoneTitle || '拖拽文件到这里')">拖拽文件到这里</span>
+                    </div>
+                    <div class="cm-dropzone-desc" x-show="dropzoneDesc">
+                        <span x-text="dropzoneDesc"></span>
+                    </div>
+                </div>
+
+                <input id="cm-upload-files"
+                       type="file"
+                       multiple
+                       x-ref="uploadFiles"
+                       class="cm-file-input"
+                       @change="onFilePick($event)"
+                />
+            </div>
+
+            <template x-if="pendingFiles.length">
+                <div class="cm-filechips">
+                    <template x-for="(f, idx) in pendingFiles" :key="`${f.name}-${idx}`">
+                        <span class="cm-chip">
+                            <span class="cm-chip-text" x-text="f.name"></span>
+                            <button type="button" class="cm-chip-x" @click="removePending(idx)">×</button>
+                        </span>
+                    </template>
+                </div>
+            </template>
+        </section>
+
+        <section class="cm-card">
+            <div class="cm-card-header">
+                <div class="cm-card-title">筛选</div>
+            </div>
+
+            <div class="cm-filters">
+                <div class="cm-filters-row">
+                    <input type="text" class="cm-input cm-input--wide" placeholder="搜索文件名" x-model.trim="searchKeyword" />
+
+                    <select class="cm-select" x-model="filterCategory" @change="onFilterCategoryChange()">
+                        <option value="all">全部</option>
+                        <option value="unclassified">未分类</option>
+                        <option value="party">当事人材料</option>
+                        <option value="non_party">非当事人材料</option>
+                    </select>
+
+                    <template x-if="filterCategory === 'party'">
+                        <select class="cm-select" x-model="filterSide">
+                            <option value="">全部方向</option>
+                            <option value="our">我方</option>
+                            <option value="opponent">对方</option>
+                        </select>
+                    </template>
+
+                    <template x-if="filterCategory === 'non_party'">
+                        <select class="cm-select" x-model="filterAuthorityId">
+                            <option value="">全部主管机关</option>
+                            <template x-for="auth in supervisingAuthorities" :key="auth.id">
+                                <option :value="String(auth.id)" x-text="authTitle(auth)"></option>
+                            </template>
+                        </select>
+                    </template>
+                </div>
+
+                <div class="cm-filters-row cm-filters-row--bottom">
+                    <div class="cm-pills">
+                        <button type="button"
+                                class="cm-pill"
+                                :class="{ active: filterCategory === 'unclassified' }"
+                                @click="filterCategory = (filterCategory === 'unclassified' ? 'all' : 'unclassified'); onFilterCategoryChange()">
+                            未分类
+                        </button>
+                        <button type="button" class="cm-pill" :class="{ active: onlyUnfinished }" @click="onlyUnfinished = !onlyUnfinished">
+                            未完成
+                        </button>
+                        <button type="button" class="cm-pill" :class="{ active: onlyUnbound }" @click="onlyUnbound = !onlyUnbound">
+                            未绑定
+                        </button>
+                    </div>
+
+                    <div class="cm-filters-actions">
+                        <button type="button" class="button" @click="resetFilters()">清空</button>
+                        <div class="cm-count">
+                            显示 <strong x-text="filteredRows.length"></strong> / <span x-text="rows.length"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计信息填充空白 -->
+            <div class="cm-stats">
+                <div class="cm-stat-item">
+                    <span class="cm-stat-label">已绑定</span>
+                    <span class="cm-stat-value cm-stat-value--success" x-text="rows.filter(r => r.isBound).length">0</span>
+                </div>
+                <div class="cm-stat-item">
+                    <span class="cm-stat-label">未绑定</span>
+                    <span class="cm-stat-value cm-stat-value--danger" x-text="rows.filter(r => !r.isBound).length">0</span>
+                </div>
+                <div class="cm-stat-item">
+                    <span class="cm-stat-label">未完成</span>
+                    <span class="cm-stat-value cm-stat-value--warn" x-text="rows.filter(r => isRowUnfinished(r)).length">0</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="materials-manage-message" x-show="message" :class="messageType" x-text="message"></div>
+
+    <div class="materials-table-wrapper">
+        <table class="materials-table">
+            <thead>
+                <tr>
+                    <th style="width: 54px;">
+                        <label class="cm-check">
+                            <input type="checkbox"
+                                   @change="toggleSelectAllFiltered()"
+                                   :checked="allFilteredSelected"
+                                   x-ref="selectAllBox"
+                                   x-effect="$refs.selectAllBox.indeterminate = partiallyFilteredSelected"
+                            />
+                            <span>全选</span>
+                        </label>
+                    </th>
+                    <th style="width: 260px;">文件</th>
+                    <th style="width: 140px;">上传时间</th>
+                    <th style="width: 140px;">材料大类</th>
+                    <th style="width: 220px;">方向/主管机关</th>
+                    <th style="width: 240px;">当事人（可选）</th>
+                    <th>类型名称</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="row in filteredRows" :key="row.attachmentId">
+                    <tr :class="{ 'row-unfinished': isRowUnfinished(row) }">
+                        <td>
+                            <input type="checkbox" class="cm-row-check" :checked="isRowSelected(row)" @change="toggleRowSelected(row)" />
+                        </td>
+                        <td>
+                            <div class="file-cell">
+                                <a :href="row.fileUrl" target="_blank" rel="noopener" x-text="row.fileName"></a>
+                                <span class="status-pill" :class="row.isBound ? 'bound' : 'unbound'" x-text="row.isBound ? '已绑定' : '未绑定'"></span>
+                            </div>
+                        </td>
+                        <td x-text="row.uploadedAtDisplay"></td>
+                        <td>
+                            <select x-model="row.category" @change="onCategoryChange(row, $event)">
+                                <option value="">未分类</option>
+                                <option value="party">当事人材料</option>
+                                <option value="non_party">非当事人材料</option>
+                            </select>
+                        </td>
+                        <td>
+                            <template x-if="row.category === 'party'">
+                                <select x-model="row.side" @change="onSideChange(row, $event)">
+                                    <option value="">请选择</option>
+                                    <option value="our">我方当事人材料</option>
+                                    <option value="opponent">对方当事人材料</option>
+                                </select>
+                            </template>
+                            <template x-if="row.category === 'non_party'">
+                                <select x-model="row.supervisingAuthorityId" @change="onAuthorityChange(row, $event)">
+                                    <option value="">请选择</option>
+                                    <template x-for="auth in supervisingAuthorities" :key="auth.id">
+                                        <option :value="String(auth.id)" :selected="String(row.supervisingAuthorityId) === String(auth.id)" x-text="authTitle(auth)"></option>
+                                    </template>
+                                </select>
+                            </template>
+                        </td>
+                        <td>
+                            <template x-if="row.category === 'party' && row.side">
+                                <select multiple size="3" x-model="row.partyIds" @change="onPartyChange(row, $event)">
+                                    <template x-for="p in partyOptions(row)" :key="p.id">
+                                        <option :value="String(p.id)" x-text="partyTitle(p)"></option>
+                                    </template>
+                                </select>
+                            </template>
+                        </td>
+                        <td>
+                            <div class="type-cell" x-show="row.category">
+                                <select :value="row.typeSelect" @change="row.typeSelect = $event.target.value; onTypeSelect(row, $event)">
+                                    <option value="">请选择</option>
+                                    <template x-for="t in typeOptions(row)" :key="t.id">
+                                        <option :value="String(t.id)" :selected="row.typeSelect === String(t.id)" x-text="t.name"></option>
+                                    </template>
+                                    <option value="__custom__" :selected="row.typeSelect === '__custom__'">自定义...</option>
+                                </select>
+                                <input x-show="row.typeSelect === '__custom__'" type="text" placeholder="输入类型名称" x-model="row.customTypeName" @input="onCustomTypeNameChange(row)" />
+                            </div>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% csrf_token %}
+<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260125f"></script>
+{% endblock %}

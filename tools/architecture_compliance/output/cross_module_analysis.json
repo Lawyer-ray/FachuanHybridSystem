@@ -1,0 +1,309 @@
+{
+  "total_violations": 15,
+  "violations_with_existing_getter": 15,
+  "violations_needing_new_getter": 0,
+  "module_dependencies": [
+    {
+      "source_module": "automation",
+      "target_module": "core",
+      "violation_count": 2,
+      "imported_models": [
+        "SystemConfig"
+      ],
+      "getter_method": "get_system_config_service"
+    },
+    {
+      "source_module": "automation",
+      "target_module": "cases",
+      "violation_count": 3,
+      "imported_models": [
+        "Case",
+        "CaseLog",
+        "CaseNumber",
+        "CaseParty"
+      ],
+      "getter_method": "get_case_service"
+    },
+    {
+      "source_module": "cases",
+      "target_module": "organization",
+      "violation_count": 1,
+      "imported_models": [
+        "Lawyer"
+      ],
+      "getter_method": "get_lawyer_service"
+    },
+    {
+      "source_module": "cases",
+      "target_module": "core",
+      "violation_count": 2,
+      "imported_models": [
+        "SystemConfig",
+        "CauseOfAction"
+      ],
+      "getter_method": "get_system_config_service"
+    },
+    {
+      "source_module": "contracts",
+      "target_module": "cases",
+      "violation_count": 1,
+      "imported_models": [
+        "Case",
+        "CaseParty",
+        "CaseAssignment",
+        "SimpleCaseType"
+      ],
+      "getter_method": "get_case_service"
+    },
+    {
+      "source_module": "documents",
+      "target_module": "contracts",
+      "violation_count": 5,
+      "imported_models": [
+        "PartyRole"
+      ],
+      "getter_method": "get_contract_service"
+    },
+    {
+      "source_module": "documents",
+      "target_module": "client",
+      "violation_count": 1,
+      "imported_models": [
+        "Client"
+      ],
+      "getter_method": "get_client_service"
+    }
+  ],
+  "violations": [
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/chat/feishu_provider.py",
+      "line_number": 103,
+      "source_module": "automation",
+      "target_module": "core",
+      "imported_models": [
+        "SystemConfig"
+      ],
+      "import_statement": "from apps.core.models import SystemConfig",
+      "existing_getter": "get_system_config_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "SystemConfig → ServiceLocator.get_system_config_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/chat/owner_config_manager.py",
+      "line_number": 89,
+      "source_module": "automation",
+      "target_module": "core",
+      "imported_models": [
+        "SystemConfig"
+      ],
+      "import_statement": "from apps.core.models import SystemConfig",
+      "existing_getter": "get_system_config_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "SystemConfig → ServiceLocator.get_system_config_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/court_document_recognition/case_binding_service.py",
+      "line_number": 459,
+      "source_module": "automation",
+      "target_module": "cases",
+      "imported_models": [
+        "Case",
+        "CaseLog"
+      ],
+      "import_statement": "from apps.cases.models import Case, CaseLog",
+      "existing_getter": "get_case_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "Case → ServiceLocator.get_case_service(); CaseLog → ServiceLocator.get_case_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/court_document_recognition/case_binding_service.py",
+      "line_number": 235,
+      "source_module": "automation",
+      "target_module": "cases",
+      "imported_models": [
+        "CaseLog"
+      ],
+      "import_statement": "from apps.cases.models import CaseLog",
+      "existing_getter": "get_case_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "CaseLog → ServiceLocator.get_case_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/court_document_recognition/task_service.py",
+      "line_number": 141,
+      "source_module": "automation",
+      "target_module": "cases",
+      "imported_models": [
+        "Case",
+        "CaseNumber",
+        "CaseParty"
+      ],
+      "import_statement": "from apps.cases.models import Case, CaseNumber, CaseParty",
+      "existing_getter": "get_case_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "Case → ServiceLocator.get_case_service(); CaseNumber → ServiceLocator.get_case_service(); CaseParty → ServiceLocator.get_case_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/cases/services/case_service.py",
+      "line_number": 1204,
+      "source_module": "cases",
+      "target_module": "organization",
+      "imported_models": [
+        "Lawyer"
+      ],
+      "import_statement": "from apps.organization.models import Lawyer",
+      "existing_getter": "get_lawyer_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "Lawyer → ServiceLocator.get_lawyer_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/cases/services/chat_name_config_service.py",
+      "line_number": 24,
+      "source_module": "cases",
+      "target_module": "core",
+      "imported_models": [
+        "SystemConfig"
+      ],
+      "import_statement": "from apps.core.models import SystemConfig",
+      "existing_getter": "get_system_config_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "SystemConfig → ServiceLocator.get_system_config_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/cases/services/data/cause_court_data_service.py",
+      "line_number": 429,
+      "source_module": "cases",
+      "target_module": "core",
+      "imported_models": [
+        "CauseOfAction"
+      ],
+      "import_statement": "from apps.core.models import CauseOfAction",
+      "existing_getter": "get_cause_court_query_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "CauseOfAction → ServiceLocator.get_cause_court_query_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/contracts/services/contract_admin_service.py",
+      "line_number": 113,
+      "source_module": "contracts",
+      "target_module": "cases",
+      "imported_models": [
+        "Case",
+        "CaseParty",
+        "CaseAssignment",
+        "SimpleCaseType"
+      ],
+      "import_statement": "from apps.cases.models import Case, CaseParty, CaseAssignment, SimpleCaseType",
+      "existing_getter": "get_case_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "Case → ServiceLocator.get_case_service(); CaseParty → ServiceLocator.get_case_service(); CaseAssignment → ServiceLocator.get_case_service(); SimpleCaseType → ServiceLocator.get_case_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/generation/context_builder.py",
+      "line_number": 19,
+      "source_module": "documents",
+      "target_module": "contracts",
+      "imported_models": [
+        "PartyRole"
+      ],
+      "import_statement": "from apps.contracts.models import PartyRole",
+      "existing_getter": "get_contract_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "PartyRole → ServiceLocator.get_contract_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/generation/supplementary_agreement_generation_service.py",
+      "line_number": 12,
+      "source_module": "documents",
+      "target_module": "contracts",
+      "imported_models": [
+        "PartyRole"
+      ],
+      "import_statement": "from apps.contracts.models import PartyRole",
+      "existing_getter": "get_contract_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "PartyRole → ServiceLocator.get_contract_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/supplementary/opposing_service.py",
+      "line_number": 10,
+      "source_module": "documents",
+      "target_module": "contracts",
+      "imported_models": [
+        "PartyRole"
+      ],
+      "import_statement": "from apps.contracts.models import PartyRole",
+      "existing_getter": "get_contract_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "PartyRole → ServiceLocator.get_contract_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/supplementary/opposing_service.py",
+      "line_number": 11,
+      "source_module": "documents",
+      "target_module": "client",
+      "imported_models": [
+        "Client"
+      ],
+      "import_statement": "from apps.client.models import Client",
+      "existing_getter": "get_client_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "Client → ServiceLocator.get_client_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/supplementary/principal_service.py",
+      "line_number": 73,
+      "source_module": "documents",
+      "target_module": "contracts",
+      "imported_models": [
+        "PartyRole"
+      ],
+      "import_statement": "from apps.contracts.models import PartyRole",
+      "existing_getter": "get_contract_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "PartyRole → ServiceLocator.get_contract_service()"
+    },
+    {
+      "file_path": "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/supplementary/principal_service.py",
+      "line_number": 98,
+      "source_module": "documents",
+      "target_module": "contracts",
+      "imported_models": [
+        "PartyRole"
+      ],
+      "import_statement": "from apps.contracts.models import PartyRole",
+      "existing_getter": "get_contract_service",
+      "needs_new_getter": false,
+      "needs_new_protocol": false,
+      "resolution_notes": "PartyRole → ServiceLocator.get_contract_service()"
+    }
+  ],
+  "model_to_getter_mapping": {
+    "SystemConfig": "get_system_config_service",
+    "CauseOfAction": "get_cause_court_query_service",
+    "Case": "get_case_service",
+    "CaseLog": "get_case_service",
+    "CaseNumber": "get_case_service",
+    "CaseParty": "get_case_service",
+    "CaseAssignment": "get_case_service",
+    "SimpleCaseType": "get_case_service",
+    "PartyRole": "get_contract_service",
+    "Client": "get_client_service",
+    "Lawyer": "get_lawyer_service"
+  },
+  "summary": "共 15 个跨模块导入违规, 15 个可用现有 getter 解决, 0 个需要新增 getter"
+}

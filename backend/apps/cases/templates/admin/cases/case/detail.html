@@ -1,0 +1,135 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20250118">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/ai_litigation_chat.css' %}?v=20250118">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260124e">
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    › {{ case.name }}
+</div>
+{% endblock %}
+
+
+
+{% block content %}
+<div class="case-detail-page" data-case-id="{{ case.pk }}" x-data="caseDetailApp()" x-init="init()">
+    <!-- Header Section -->
+    <header class="detail-header">
+        <div class="header-main">
+            <h1 class="case-title">{{ case.name }}</h1>
+            <span class="status-badge status-{{ case.status }}">
+                {{ case.get_status_display }}
+            </span>
+            {% if case.case_type %}
+            <span class="type-tag">{{ case.get_case_type_display }}</span>
+            {% endif %}
+            {% if case.current_stage %}
+            <span class="stage-tag">{{ case.get_current_stage_display }}</span>
+            {% endif %}
+        </div>
+        <div class="header-meta">
+            <span class="archived-status {% if case.is_archived %}archived{% endif %}">
+                {% if case.is_archived and case.filing_number %}
+                    建档编号: {{ case.filing_number }}
+                {% elif case.is_archived %}
+                    ✓ 已建档
+                {% else %}
+                    未建档
+                {% endif %}
+            </span>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'admin:cases_case_changelist' %}" class="btn btn-secondary">
+                ← 返回列表
+            </a>
+            {% if has_change_permission %}
+            <a href="{% url 'admin:cases_case_change' case.pk %}" class="btn btn-primary">
+                编辑
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Tab Panel -->
+    <div class="tab-panel">
+        <nav class="tab-nav">
+            <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">
+                基本信息
+            </button>
+            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">
+                当事人与律师
+            </button>
+            <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
+                案件进展
+            </button>
+            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
+                文档生成
+            </button>
+            <button type="button" @click="activeTab = 'party_materials'" :class="{ active: activeTab === 'party_materials' }">
+                当事人材料
+            </button>
+            <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
+                非当事人材料
+            </button>
+        </nav>
+
+        <div class="tab-content">
+            <!-- 基本信息标签页 -->
+            <div x-show="activeTab === 'basic'" x-transition>
+                {% include "admin/cases/case/partials/basic_info.html" %}
+            </div>
+
+            <!-- 当事人与律师标签页 -->
+            <div x-show="activeTab === 'parties'" x-transition>
+                {% include "admin/cases/case/partials/parties_lawyers.html" %}
+            </div>
+
+            <!-- 案件进展标签页 -->
+            <div x-show="activeTab === 'progress'" x-transition>
+                {% include "admin/cases/case/partials/progress.html" %}
+            </div>
+
+            <!-- 文档生成标签页 -->
+            <div x-show="activeTab === 'documents'" x-transition>
+                {% include "admin/cases/case/partials/documents.html" %}
+            </div>
+
+            <div x-show="activeTab === 'party_materials'" x-transition>
+                {% include "admin/cases/case/partials/party_materials.html" %}
+            </div>
+
+            <div x-show="activeTab === 'non_party_materials'" x-transition>
+                {% include "admin/cases/case/partials/non_party_materials.html" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div x-show="message" x-transition
+         class="message-toast"
+         :class="messageType">
+        <span x-text="message"></span>
+    </div>
+</div>
+
+{% csrf_token %}
+<script src="{% static 'cases/js/case_detail.js' %}?v=20260125b"></script>
+<script src="{% static 'cases/js/litigation_generation.js' %}?v=20250117b"></script>
+<script src="{% static 'cases/js/authorization_materials.js' %}?v=20260122"></script>
+<script src="{% static 'cases/js/preservation_materials.js' %}?v=20260206a"></script>
+<script src="{% static 'cases/js/ai_litigation_chat.js' %}?v=20250118"></script>
+<script src="{% static 'cases/js/case_materials_tabs.js' %}?v=20260124b"></script>
+{% endblock %}

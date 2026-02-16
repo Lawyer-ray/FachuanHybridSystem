@@ -1,0 +1,91 @@
+<!-- 步骤三：案件创建组件 - Modern Light Theme -->
+<div class="space-y-6">
+    <!-- 案件基本信息 -->
+    <div class="card-section-v3">
+        <h3 class="card-section-title-v3">
+            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+            </div>
+            案件基本信息
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                <label class="form-label-v3">案件名称 <span class="text-red-500">*</span></label>
+                <input type="text"
+                       x-model="caseInfo.name"
+                       @input="errors.case_title && delete errors.case_title"
+                       placeholder="请输入案件名称"
+                       class="form-input-v3"
+                       :class="errors.case_title ? 'error' : ''">
+                <p x-show="errors.case_title" class="mt-1 text-sm text-red-500" x-text="errors.case_title"></p>
+            </div>
+
+            <div>
+                <label class="form-label-v3">案件类型</label>
+                <select x-model="contract.case_type" class="form-select-v3 bg-slate-100" disabled>
+                    <template x-for="caseType in window.onboardingData.caseTypes" :key="caseType.value">
+                        <option :value="caseType.value" x-text="caseType.label"></option>
+                    </template>
+                </select>
+                <p class="mt-1 text-xs text-slate-500">案件类型与合同类型保持一致</p>
+            </div>
+
+            <div>
+                <label class="form-label-v3">案件阶段</label>
+                <select x-model="caseInfo.current_stage" class="form-select-v3">
+                    <template x-for="stage in window.onboardingData.caseStages" :key="stage.value">
+                        <option :value="stage.value" x-text="stage.label"></option>
+                    </template>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 案件当事人 -->
+    <div class="card-section-v3 highlight">
+        <h3 class="card-section-title-v3 text-primary-700">
+            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            案件当事人
+        </h3>
+        <div class="space-y-3">
+            <template x-for="item in selectedClients" :key="item.client.id">
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2.5 h-2.5 rounded-full"
+                             :class="item.role === 'OPPOSING' ? 'bg-red-500' : 'bg-primary-500'"></div>
+                        <span class="text-sm font-semibold text-slate-800" x-text="item.client.name"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select x-model="item.legal_status" class="form-select-v3 !w-auto !py-1.5 !px-3 text-xs">
+                            <template x-for="status in window.onboardingData.legalStatuses" :key="status.value">
+                                <option :value="status.value" x-text="status.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- 验证提示 -->
+    <div x-show="!canProceedFromCase" class="card-section-v3 bg-amber-50 border-amber-200">
+        <div class="flex items-start">
+            <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="h-4 w-4 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-semibold text-amber-800">请完善案件信息</h3>
+                <p class="mt-1 text-sm text-amber-700">请填写案件名称后继续。</p>
+            </div>
+        </div>
+    </div>
+</div>

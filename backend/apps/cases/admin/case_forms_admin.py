@@ -1,0 +1,96 @@
+"""Django admin configuration."""
+
+import logging
+from typing import Any, ClassVar
+
+from django import forms
+
+from apps.cases.models import Case, CaseParty, CaseStage, SupervisingAuthority
+from apps.cases.validators import normalize_stages
+
+
+class CaseAdminForm(forms.ModelForm):
+    current_stage = forms.ChoiceField(
+        choices=[("", "---------")] + list(CaseStage.choices), required=False, label="当前阶段"
+    )
+
+    class Meta:
+        model = Case
+        fields: str = "__all__"
+        widgets: ClassVar = {
+            "cause_of_action": forms.TextInput(
+                attrs={
+                    "class": "vTextField js-cause-autocomplete",
+                    "placeholder": "请输入案由关键词...",
+                    "autocomplete": "off",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def clean(self) -> None:
+
+        logger = logging.getLogger(__name__)
+
+        cleaned = super().clean()
+        logger.info(f"[CaseAdminForm.clean] 开始验证, errors so far: {self.errors}")
+
+        cur = cleaned.get("current_stage")
+        contract = cleaned.get("contract")
+        ctype = getattr(contract, "case_type", None) if contract else None
+        rep = getattr(contract, "representation_stages", []) if contract else []
+
+        logger.info(f"[CaseAdminForm.clean] cur={cur}, ctype={ctype}, rep={rep}")
+
+        try:
+            _, cur2 = normalize_stages(ctype, rep, cur, strict=False)
+            cleaned["current_stage"] = cur2
+        except ValueError as e:
+            code = str(e)
+            logger.error(f"[CaseAdminForm.clean] normalize_stages error: {code}")
+            if code == "invalid_cur":
+                self.add_error("current_stage", "当前阶段不在可选范围内")
+            elif code == "cur_not_in_rep":
+                self.add_error("current_stage", "当前阶段必须在合同的代理阶段范围内")
+            elif code == "stages_not_applicable":
+                self.add_error("current_stage", "该案件类型不支持阶段设置")
+            elif code.startswith("invalid_rep:"):
+                invalid_stages = code.split(":", 1)[1]
+                self.add_error("current_stage", f"代理阶段包含无效值: {invalid_stages}")
+            else:
+                logger.error(f"未处理的案件验证错误: {code}")
+                self.add_error(None, f"案件数据验证失败: {code}")
+
+        logger.info(f"[CaseAdminForm.clean] 验证完成, final errors: {self.errors}")
+        return cleaned
+
+
+class CasePartyInlineForm(forms.ModelForm):
+    class Meta:
+        model = CaseParty
+        fields: str = "__all__"
+        widgets: ClassVar = {
+            "client": forms.Select(
+                attrs={
+                    "class": "contract-party-client-select",
+                    "data-contract-party-filter": "true",
+                }
+            ),
+        }
+
+
+class SupervisingAuthorityInlineForm(forms.ModelForm):
+    class Meta:
+        model = SupervisingAuthority
+        fields: str = "__all__"
+        widgets: ClassVar = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": "vTextField js-court-autocomplete",
+                    "placeholder": "请输入法院名称...",
+                    "autocomplete": "off",
+                }
+            )
+        }

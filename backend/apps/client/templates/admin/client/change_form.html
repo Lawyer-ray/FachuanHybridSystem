@@ -1,0 +1,577 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'client/identity_recognition_inline.css' %}?v=5">
+    <style>
+        /* 文本解析区域样式 */
+        .text-parser-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .text-parser-section h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .text-parser-textarea {
+            width: 100%;
+            height: 120px;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        .text-parser-controls {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .parse-btn {
+            background-color: #007cba;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .parse-btn:hover {
+            background-color: #005a87;
+        }
+        .parse-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .format-hint {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 8px;
+        }
+        .format-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .format-badge.json {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .format-badge.text {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .success-message, .info-message, .success-ai-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .success-ai-message {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-color: #90caf9;
+        }
+        .info-message {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        /* 成功消息提示 */
+        .success-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 4px;
+            z-index: 10001;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block form_top %}
+    {% if not original %}
+    <!-- 文本解析区域 - Alpine.js 版本 -->
+    <div class="text-parser-section" x-data="textParserApp()" x-init="init()">
+        <h3>🚀 快速填充当事人信息
+            <span class="format-badge"
+                  :class="detectedFormat"
+                  x-show="detectedFormat"
+                  x-text="detectedFormat === 'json' ? 'JSON' : '文本'">
+            </span>
+        </h3>
+
+        <textarea x-model="parseText"
+                  @input="detectFormat()"
+                  @paste="handlePaste($event)"
+                  class="text-parser-textarea"
+                  placeholder="支持粘贴文本或JSON，自动识别格式：
+
+文本格式：
+原告：广东XXX公司
+被告：徐X，男，汉族，1977年9月10日出生
+地址：广东省XXX
+电话：0XXX53
+
+JSON格式：
+{&quot;name&quot;: &quot;广东XX有限公司&quot;, &quot;client_type&quot;: &quot;legal&quot;, ...}"></textarea>
+        <div class="text-parser-controls">
+            <button type="button"
+                    class="parse-btn"
+                    @click="smartParse()"
+                    :disabled="isParsing"
+                    x-text="isParsing ? '解析中...' : '解析并填充'">
+            </button>
+            <label style="font-size: 12px; color: #6c757d;">
+                <input type="checkbox" x-model="autoParse"> 粘贴时自动解析
+            </label>
+        </div>
+        <div class="format-hint">💡 自动识别 JSON 或文本格式，直接粘贴即可</div>
+
+        <!-- 消息提示 -->
+        <div x-show="message"
+             :class="messageType + '-message'"
+             x-text="message"
+             x-transition>
+        </div>
+    </div>
+
+    <script>
+    /**
+     * 文本解析 Alpine.js 组件
+     * 功能：智能解析文本/JSON，填充当事人表单
+     */
+    function textParserApp() {
+        return {
+            // ========== 状态 ==========
+            parseText: '',
+            autoParse: true,
+            isParsing: false,
+            detectedFormat: null,
+            message: '',
+            messageType: 'info',
+
+            // ========== 初始化 ==========
+            init() {
+                console.log('[TextParserApp] 初始化文本解析组件');
+                this.initClientTypeWatcher();
+            },
+
+            // ========== 格式检测 ==========
+            detectFormat() {
+                const trimmed = this.parseText.trim();
+                if (!trimmed) {
+                    this.detectedFormat = null;
+                    return null;
+                }
+                if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                    (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                    try {
+                        JSON.parse(trimmed);
+                        this.detectedFormat = 'json';
+                        return 'json';
+                    } catch (e) {
+                        this.detectedFormat = 'text';
+                        return 'text';
+                    }
+                }
+                this.detectedFormat = 'text';
+                return 'text';
+            },
+
+            // ========== 粘贴处理 ==========
+            handlePaste(event) {
+                setTimeout(() => {
+                    this.detectFormat();
+                    if (this.autoParse && this.parseText.trim()) {
+                        this.smartParse();
+                    }
+                }, 100);
+            },
+
+            // ========== 智能解析 ==========
+            async smartParse() {
+                const text = this.parseText.trim();
+                if (!text) {
+                    this.showMessage('请输入要解析的内容', 'error');
+                    return;
+                }
+
+                const format = this.detectFormat();
+                if (format === 'json') {
+                    this.parseJson(text);
+                } else {
+                    await this.parseTextApi(text);
+                }
+            },
+
+            // ========== JSON 解析 ==========
+            parseJson(jsonText) {
+                try {
+                    const data = JSON.parse(jsonText);
+                    this.fillFormWithData(data);
+                    this.showMessage('JSON 解析成功，表单已自动填充！', 'success');
+                    this.parseText = '';
+                    this.detectedFormat = null;
+                } catch (e) {
+                    this.showMessage('JSON 格式错误: ' + e.message, 'error');
+                }
+            },
+
+            // ========== 文本 API 解析 ==========
+            async parseTextApi(text) {
+                this.isParsing = true;
+                this.showMessage('正在解析文本...', 'info');
+
+                try {
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    const response = await fetch('/api/v1/client/clients/parse-text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ text: text, parse_multiple: false })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && data.client) {
+                        this.fillFormWithData(data.client);
+
+                        let message = '文本解析成功，表单已自动填充！';
+                        let messageType = 'success';
+
+                        if (data.parse_method === 'ollama') {
+                            message = '🤖 正则匹配失败，Ollama AI解析成功！表单已自动填充';
+                            messageType = 'success-ai';
+                        } else if (data.parse_method === 'regex') {
+                            message = '✅ 正则匹配成功，表单已自动填充！';
+                            messageType = 'success';
+                        }
+
+                        this.showMessage(message, messageType);
+                        this.parseText = '';
+                        this.detectedFormat = null;
+                    } else {
+                        this.showMessage('❌ ' + (data.error || '解析失败：正则匹配和Ollama解析都失败'), 'error');
+                    }
+                } catch (error) {
+                    console.error('[TextParserApp] 解析请求失败:', error);
+                    this.showMessage('❌ 解析请求失败，请检查网络连接', 'error');
+                } finally {
+                    this.isParsing = false;
+                }
+            },
+
+            // ========== 表单填充 ==========
+            fillFormWithData(data) {
+                if (data.client_type) {
+                    this.setFieldValue('client_type', data.client_type);
+                    this.updateFormByClientType(false);
+                }
+                if (data.name) this.setFieldValue('name', data.name);
+                if (data.phone) this.setFieldValue('phone', data.phone);
+                if (data.address) this.setFieldValue('address', data.address);
+                if (data.id_number) this.setFieldValue('id_number', data.id_number);
+                if (data.legal_representative) this.setFieldValue('legal_representative', data.legal_representative);
+                if (data.is_our_client !== undefined) this.setFieldValue('is_our_client', data.is_our_client);
+                this.highlightFilledFields();
+            },
+
+            setFieldValue(fieldName, value) {
+                const field = document.getElementById('id_' + fieldName);
+                if (field && value !== undefined && value !== null) {
+                    if (field.type === 'checkbox') {
+                        field.checked = !!value;
+                    } else {
+                        field.value = value;
+                    }
+                    field.dispatchEvent(new Event('change'));
+                }
+            },
+
+            highlightFilledFields() {
+                ['name', 'phone', 'address', 'id_number', 'legal_representative'].forEach(fieldName => {
+                    const field = document.getElementById('id_' + fieldName);
+                    if (field && field.value) {
+                        field.style.backgroundColor = '#e8f5e8';
+                        field.style.borderColor = '#4caf50';
+                        setTimeout(() => {
+                            field.style.backgroundColor = '';
+                            field.style.borderColor = '';
+                        }, 3000);
+                    }
+                });
+            },
+
+            // ========== 客户类型切换 ==========
+            initClientTypeWatcher() {
+                const clientTypeField = document.getElementById('id_client_type');
+                if (clientTypeField) {
+                    this.updateFormByClientType(false);
+                    clientTypeField.addEventListener('change', () => {
+                        this.updateFormByClientType(true);
+                    });
+                }
+            },
+
+            updateFormByClientType(clearFields) {
+                const clientTypeField = document.getElementById('id_client_type');
+                const clientType = clientTypeField ? clientTypeField.value : 'legal';
+                const isNatural = clientType === 'natural';
+
+                const legalRepRow = document.querySelector('.form-row.field-legal_representative');
+                const legalRepIdRow = document.querySelector('.form-row.field-legal_representative_id_number');
+                const idNumberLabel = document.querySelector('label[for="id_id_number"]');
+
+                if (legalRepRow) legalRepRow.style.display = isNatural ? 'none' : '';
+                if (legalRepIdRow) legalRepIdRow.style.display = isNatural ? 'none' : '';
+                if (idNumberLabel) idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
+
+                if (clearFields) {
+                    ['name', 'phone', 'address', 'id_number', 'legal_representative', 'legal_representative_id_number'].forEach(fieldName => {
+                        const field = document.getElementById('id_' + fieldName);
+                        if (field) field.value = '';
+                    });
+                }
+            },
+
+            // ========== 消息显示 ==========
+            showMessage(msg, type) {
+                this.message = msg;
+                this.messageType = type;
+                setTimeout(() => {
+                    if (this.message === msg) this.message = '';
+                }, 3000);
+            }
+        };
+    }
+    </script>
+    {% endif %}
+
+    <!-- 身份材料智能识别内联区域 - Alpine.js 版本 -->
+    <div class="identity-recognition-inline"
+         x-data="identityApp({ mode: 'inline', instanceId: 'client-form' })"
+         x-init="init()">
+
+        <!-- 头部区域 -->
+        <div class="recognition-header" @click="toggleExpansion()">
+            <h3>身份材料智能识别</h3>
+            <div class="recognition-toggle">
+                <button type="button" class="toggle-btn">
+                    <svg class="toggle-icon" :class="{ 'expanded': isExpanded }" viewBox="0 0 24 24" width="16" height="16">
+                        <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="recognition-content" :class="isExpanded ? 'expanded' : 'collapsed'">
+            <div class="recognition-intro">
+                <p>上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，快速填充表单。</p>
+            </div>
+
+            <div class="recognition-form">
+                <div class="form-section">
+                    <!-- 证件类型选择 -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon" viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            证件类型
+                        </label>
+                        <select x-model="docType" class="form-control">
+                            <option value="">请选择证件类型</option>
+                            <option value="id_card">身份证</option>
+                            <option value="passport">护照</option>
+                            <option value="hk_macao_permit">港澳通行证</option>
+                            <option value="residence_permit">居住证</option>
+                            <option value="household_register">户口本</option>
+                            <option value="business_license">营业执照</option>
+                            <option value="legal_rep_id_card">法定代表人/负责人身份证</option>
+                        </select>
+                    </div>
+
+                    <!-- 文件上传区域 -->
+                    <div class="form-group" x-show="showUploadZone()">
+                        <label class="form-label">
+                            <svg class="label-icon" viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                            上传证件
+                        </label>
+                        <div class="upload-zone"
+                             :class="{ 'drag-over': isDragOver }"
+                             @click="$refs.fileInput.click()"
+                             @dragenter="handleDragEnter($event)"
+                             @dragover="handleDragOver($event)"
+                             @dragleave="handleDragLeave($event)"
+                             @drop="handleDrop($event)">
+                            <div class="upload-content">
+                                <svg class="upload-icon" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
+                                </svg>
+                                <div class="upload-text">
+                                    <span class="upload-title">点击或拖拽上传</span>
+                                    <span class="upload-hint">支持 JPG、PNG、PDF，最大 10MB</span>
+                                </div>
+                            </div>
+                            <input type="file"
+                                   x-ref="fileInput"
+                                   accept=".jpg,.jpeg,.png,.pdf"
+                                   style="display: none;"
+                                   @change="handleFileSelect($event)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 处理状态 -->
+                <div class="processing-state" x-show="isLoading">
+                    <div class="processing-content">
+                        <div class="spinner"></div>
+                        <span x-text="loadingText">正在识别...</span>
+                    </div>
+                </div>
+
+                <!-- 识别结果 -->
+                <div class="result-section" x-show="showResult">
+                    <div class="result-header">
+                        <h4>识别结果</h4>
+                        <span class="confidence-score" :class="getConfidenceClass()" x-text="'置信度: ' + confidence + '%'"></span>
+                    </div>
+                    <div class="result-grid">
+                        <template x-for="entry in getExtractedDataEntries()" :key="entry.key">
+                            <div class="result-field">
+                                <label x-text="entry.label"></label>
+                                <span class="field-value" :data-field="entry.key" x-text="entry.value"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="result-actions">
+                        <button type="button"
+                                class="btn btn-primary"
+                                @click="confirmResult()"
+                                :disabled="isConfirming">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                            </svg>
+                            <span x-text="isConfirming ? '应用中...' : '应用到表单'"></span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" @click="resetRecognition()">重新识别</button>
+                    </div>
+                </div>
+
+                <!-- 错误状态 -->
+                <div class="error-section" x-show="showError">
+                    <div class="error-content">
+                        <svg class="error-icon" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                        </svg>
+                        <div class="error-text">
+                            <h4>识别失败</h4>
+                            <p x-text="errorMessage">未知错误</p>
+                        </div>
+                        <button type="button" class="btn btn-primary" @click="resetRecognition()">重试</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 Alpine.js 身份识别组件 -->
+    <script src="{% static 'client/identity_app.js' %}?v=2"></script>
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+    {{ block.super }}
+    <script>
+    (function() {
+        'use strict';
+
+        /**
+         * 客户类型切换处理
+         * 根据主体类型显示/隐藏法定代表人字段
+         */
+        function initClientTypeToggle() {
+            const clientTypeField = document.getElementById('id_client_type');
+            if (!clientTypeField) return;
+
+            function updateFormByClientType() {
+                const clientType = clientTypeField.value;
+                const isNatural = clientType === 'natural';
+
+                // 查找法定代表人字段行
+                const legalRepRow = document.querySelector('.form-row.field-legal_representative');
+                const legalRepIdRow = document.querySelector('.form-row.field-legal_representative_id_number');
+                const idNumberLabel = document.querySelector('label[for="id_id_number"]');
+
+                // 显示/隐藏字段
+                if (legalRepRow) {
+                    legalRepRow.style.display = isNatural ? 'none' : '';
+                }
+                if (legalRepIdRow) {
+                    legalRepIdRow.style.display = isNatural ? 'none' : '';
+                }
+
+                // 更新证件号码标签
+                if (idNumberLabel) {
+                    idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
+                }
+            }
+
+            // 监听客户类型变化
+            clientTypeField.addEventListener('change', updateFormByClientType);
+
+            // 页面加载时初始化
+            updateFormByClientType();
+        }
+
+        // DOM 加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initClientTypeToggle);
+        } else {
+            initClientTypeToggle();
+        }
+    })();
+    </script>
+{% endblock %}

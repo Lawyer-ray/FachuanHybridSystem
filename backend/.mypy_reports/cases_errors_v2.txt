@@ -1,0 +1,5 @@
+apps/cases/services/case/case_service_adapter.py:24:6: error: invalid syntax 
+[syntax]
+        , cast) -> None:
+         ^
+Found 1 error in 1 file (errors prevented further checking)

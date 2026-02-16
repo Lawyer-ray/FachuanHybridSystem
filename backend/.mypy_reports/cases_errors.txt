@@ -1,0 +1,55 @@
+apps/automation/services/scraper/core/exceptions.py:78:73: error: Incompatible
+default for argument "selector" (default has type "None", argument has type
+"str")  [assignment]
+    ...(self, message: str, attempts: int = 0, selector: str = None) -> None:
+                                                               ^~~~
+apps/automation/services/scraper/core/exceptions.py:78:73: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/automation/services/scraper/core/exceptions.py:78:73: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/automation/services/scraper/core/exceptions.py:108:83: error: Incompatible
+default for argument "account" (default has type "None", argument has type
+"str")  [assignment]
+    ...sage: str, site_name: str | None = None, account: str = None) -> None:
+                                                               ^~~~
+apps/automation/services/scraper/core/exceptions.py:108:83: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+apps/automation/services/scraper/core/exceptions.py:108:83: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+apps/documents/services/folder_template/validation_service.py:33:13: error:
+Name "path" already defined on line 28  [no-redef]
+                path: list[Any] = []
+                ^
+apps/documents/services/folder_template/validation_service.py:45:28: error:
+Unsupported left operand type for + ("None")  [operator]
+                current_path = path + [node_name]
+                               ^~~~~~~~~~~~~~~~~~
+apps/documents/services/folder_template/validation_service.py:45:28: note: Left operand is of type "list[str] | None"
+apps/documents/services/folder_template/validation_service.py:60:13: error:
+Name "path" already defined on line 58  [no-redef]
+                path: list[Any] = []
+                ^
+apps/documents/services/folder_template/validation_service.py:71:28: error:
+Unsupported left operand type for + ("None")  [operator]
+                current_path = path + [name]
+                               ^~~~~~~~~~~~~
+apps/documents/services/folder_template/validation_service.py:71:28: note: Left operand is of type "list[str] | None"
+apps/core/path.py:15:12: error: Variable "apps.core.path._BasePath" is not
+valid as a type  [valid-type]
+    class Path(_BasePath):
+               ^
+apps/core/path.py:15:12: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+apps/core/path.py:15:12: error: Invalid base class "_BasePath"  [misc]
+    class Path(_BasePath):
+               ^
+apps/automation/services/scraper/config/browser_config.py:66:5: error: Function
+is missing a return type annotation  [no-untyped-def]
+        def __post_init__(self):
+        ^
+apps/automation/services/scraper/config/browser_config.py:66:5: note: Use "-> None" if function does not return a value
+apps/automation/schemas/document_delivery.py:60:23: error: Argument "send_time"
+to "DocumentDeliveryRecord" has incompatible type "datetime | None"; expected
+"datetime"  [arg-type]
+                send_time=send_time,
+                          ^~~~~~~~~
+apps/automation/services/document_delivery/data_classes.py:231:23: error:
+Argument "send_time" to "DocumentDeliveryRecord" has incompatible type
+"datetime | None"; expected "datetime"  [arg-type]
+                send_time=send_time,
+                          ^~~~~~~~~

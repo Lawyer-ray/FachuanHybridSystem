@@ -1,136 +1,46 @@
-# Backend 快速启动指南
+# 快速开始
 
-## 🚀 启动服务器
+本页是给“第一次拉仓库的人”的最短路径。更完整说明见 `backend/README.md`。
 
-### 方式 1: 使用虚拟环境直接运行
-```bash
-backend/venv311/bin/python backend/apiSystem/manage.py runserver 0.0.0.0:8000
-```
+## 1) 环境准备
 
-### 方式 2: 使用 Makefile（推荐）
-```bash
-cd backend
-make run          # 默认端口 8000
-make run PORT=8001  # 自定义端口
-```
+- Python：3.12.x
+- 依赖：`requirements.txt` + `requirements-dev.txt` + `requirements-test.txt`（配合 `constraints/py312.txt`）
 
-## 📍 重要端点
-
-- **API 健康检查**: http://localhost:8000/api/v1/health
-- **Admin 后台**: http://localhost:8000/admin/
-- **API 文档**: http://localhost:8000/api/docs
-
-## 🛠️ 常用命令
-
-### 数据库操作
-```bash
-cd backend
-make migrate              # 运行迁移
-make makemigrations       # 创建迁移
-make migrations           # 创建并运行迁移
-make superuser            # 创建超级用户
-```
-
-### 测试
-```bash
-cd backend
-make test                 # 运行测试
-make test-cov            # 带覆盖率的测试
-make test-fast           # 快速测试
-```
-
-### 后台任务
-```bash
-cd backend
-make qcluster            # 启动任务队列
-make process-tasks       # 处理待处理任务
-```
-
-### 清理
-```bash
-cd backend
-make clean               # 清理临时文件
-make clean-logs          # 清理日志
-```
-
-### 工具脚本
-```bash
-cd backend
-make check-admin         # 检查 Admin 配置
-make test-court-login    # 测试法院登录
-```
-
-## 📦 虚拟环境
-
-项目使用 Python 3.11 虚拟环境：
-- 位置: `backend/venv311/`
-- Python: 3.11.10
-- Django: 5.2.8
-
-### 激活虚拟环境（可选）
-```bash
-source backend/venv311/bin/activate
-```
-
-### 安装/更新依赖
-```bash
-cd backend
-make install             # 安装依赖
-make install-dev         # 安装开发依赖
-```
-
-## 🔍 健康检查
+## 2) 本地启动（开发模式）
 
 ```bash
-# 简单检查
-curl http://localhost:8000/api/v1/health
-
-# 详细检查
-curl http://localhost:8000/api/v1/health/detail | python3 -m json.tool
+cp .env.example .env
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+python apiSystem/manage.py migrate
+python apiSystem/manage.py runserver 0.0.0.0:8000
 ```
 
-## 📝 开发工作流
+## 3) 常用命令
 
-1. **启动服务器**
-   ```bash
-   cd backend && make run
-   ```
+- Django 自检
 
-2. **在另一个终端启动任务队列**（如需要爬虫功能）
-   ```bash
-   cd backend && make qcluster
-   ```
-
-3. **运行测试**
-   ```bash
-   cd backend && make test
-   ```
-
-## 🐛 故障排查
-
-### 端口被占用
 ```bash
-# 查找占用端口的进程
-lsof -i :8000
-
-# 杀死进程
-kill -9 <PID>
+python apiSystem/manage.py check
 ```
 
-### 数据库问题
+- 跑 CI 同款结构门禁（快速）
+
 ```bash
-cd backend
-make resetdb             # 重置数据库（会删除所有数据！）
+pytest -c pytest.ini --no-cov -q tests/structure/test_cross_module_import_properties.py
 ```
 
-### 依赖问题
+- 跑单测（按需增减）
+
 ```bash
-cd backend
-backend/venv311/bin/pip install -r requirements.txt
+pytest -c pytest.ini --no-cov -q tests/unit
 ```
 
-## 📚 更多信息
+## 4) 常见问题排查
 
-- 查看 `Makefile` 了解所有可用命令
-- 查看 `PROJECT_CLEANUP_SUMMARY.md` 了解项目结构
-- 查看各应用的 README 了解具体功能
+- 运行报 “No module named django”：说明没激活 venv 或没安装依赖
+- 结构测试失败：优先检查是否引入了跨模块导入/越界依赖
+- 日志排障：优先使用 request_id/trace_id 关联同一请求内日志

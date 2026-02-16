@@ -1,0 +1,242 @@
+<!-- 步骤二：合同创建组件 - Modern Light Theme -->
+<div class="space-y-6">
+    <!-- 合同基本信息 -->
+    <div class="card-section-v3">
+        <h3 class="card-section-title-v3">
+            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            合同基本信息
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="form-label-v3">合同名称 <span class="text-red-500">*</span></label>
+                <input type="text"
+                       x-model="contract.name"
+                       @input="errors.contract_name && delete errors.contract_name"
+                       placeholder="请输入合同名称"
+                       class="form-input-v3"
+                       :class="errors.contract_name ? 'error' : ''">
+                <p x-show="errors.contract_name" class="mt-1 text-sm text-red-500" x-text="errors.contract_name"></p>
+            </div>
+
+            <div>
+                <label class="form-label-v3">合同类型 <span class="text-red-500">*</span></label>
+                <select x-model="contract.case_type"
+                        @change="errors.case_type && delete errors.case_type; onCaseTypeChange()"
+                        class="form-select-v3"
+                        :class="errors.case_type ? 'error' : ''">
+                    <option value="">请选择合同类型</option>
+                    <template x-for="caseType in window.onboardingData.caseTypes" :key="caseType.value">
+                        <option :value="caseType.value" x-text="caseType.label"></option>
+                    </template>
+                </select>
+                <p x-show="errors.case_type" class="mt-1 text-sm text-red-500" x-text="errors.case_type"></p>
+            </div>
+        </div>
+
+        <!-- 代理阶段选择 -->
+        <div x-show="needsStageSelection" x-transition class="mt-4">
+            <label class="form-label-v3">代理阶段 <span class="text-slate-400 font-normal">(可多选)</span></label>
+            <div class="flex flex-wrap gap-2 mt-2">
+                <template x-for="stage in window.onboardingData.caseStages" :key="stage.value">
+                    <button type="button"
+                            @click="toggleStage(stage.value)"
+                            class="px-4 py-2 text-sm rounded-xl border-2 transition-all cursor-pointer font-medium"
+                            :class="isStageSelected(stage.value)
+                                ? 'bg-primary-50 text-primary-700 border-primary-300'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'">
+                        <span x-text="stage.label"></span>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+                <label class="form-label-v3">指定日期</label>
+                <input type="date"
+                       x-model="contract.specified_date"
+                       class="form-input-v3">
+            </div>
+
+            <div>
+                <label class="form-label-v3">收费模式 <span class="text-red-500">*</span></label>
+                <select x-model="contract.fee_mode"
+                        @change="errors.fee_mode && delete errors.fee_mode; onFeeModeChange()"
+                        class="form-select-v3"
+                        :class="errors.fee_mode ? 'error' : ''">
+                    <template x-for="feeMode in window.onboardingData.feeModes" :key="feeMode.value">
+                        <option :value="feeMode.value" x-text="feeMode.label"></option>
+                    </template>
+                </select>
+                <p x-show="errors.fee_mode" class="mt-1 text-sm text-red-500" x-text="errors.fee_mode"></p>
+            </div>
+        </div>
+
+        <!-- 收费模式条件字段 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div x-show="contract.fee_mode === 'FIXED' || contract.fee_mode === 'SEMI_RISK'" x-transition>
+                <label class="form-label-v3">
+                    <span x-text="contract.fee_mode === 'FIXED' ? '固定金额' : '前期律师费'"></span>
+                    <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <input type="number"
+                           x-model="contract.fixed_amount"
+                           @input="errors.fixed_amount && delete errors.fixed_amount"
+                           placeholder="请输入金额"
+                           step="0.01"
+                           min="0"
+                           class="form-input-v3 pr-12"
+                           :class="errors.fixed_amount ? 'error' : ''">
+                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                        <span class="text-slate-400 text-sm font-medium">元</span>
+                    </div>
+                </div>
+                <p x-show="errors.fixed_amount" class="mt-1 text-sm text-red-500" x-text="errors.fixed_amount"></p>
+            </div>
+
+            <div x-show="contract.fee_mode === 'SEMI_RISK' || contract.fee_mode === 'FULL_RISK'" x-transition>
+                <label class="form-label-v3">风险比例 <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="number"
+                           x-model="contract.risk_rate"
+                           @input="errors.risk_rate && delete errors.risk_rate"
+                           placeholder="请输入风险比例"
+                           step="0.01"
+                           min="0"
+                           max="100"
+                           class="form-input-v3 pr-12"
+                           :class="errors.risk_rate ? 'error' : ''">
+                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                        <span class="text-slate-400 text-sm font-medium">%</span>
+                    </div>
+                </div>
+                <p x-show="errors.risk_rate" class="mt-1 text-sm text-red-500" x-text="errors.risk_rate"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 合同当事人信息 -->
+    <div class="card-section-v3 highlight">
+        <h3 class="card-section-title-v3 text-primary-700">
+            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            合同当事人
+        </h3>
+        <div class="space-y-2">
+            <template x-for="item in selectedClients" :key="item.client.id">
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2.5 h-2.5 rounded-full"
+                             :class="item.role === 'OPPOSING' ? 'bg-red-500' : 'bg-primary-500'"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-slate-800" x-text="item.client.name"></span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium"
+                                  :class="item.client.client_type === 'natural' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'"
+                                  x-text="item.client.client_type === 'natural' ? '自然人' : (item.client.client_type === 'legal' ? '法人' : '非法人组织')">
+                            </span>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                          :class="item.role === 'PRINCIPAL' ? 'bg-primary-50 text-primary-700' : (item.role === 'BENEFICIARY' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')"
+                          x-text="getPartyRoleLabel(item.role)"></span>
+                </div>
+            </template>
+        </div>
+        <p class="mt-3 text-sm text-slate-500 flex items-center">
+            <svg class="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            当事人身份可在上一步修改
+        </p>
+    </div>
+
+    <!-- 律师指派 -->
+    <div class="card-section-v3">
+        <h3 class="card-section-title-v3">
+            <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            律师指派
+        </h3>
+
+        <div x-show="!lawyersLoaded && !lawyersLoading" class="text-center py-4">
+            <button @click="loadLawyers()" class="btn-secondary-v3 cursor-pointer">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                加载律师列表
+            </button>
+        </div>
+
+        <div x-show="lawyersLoading" class="text-center py-4">
+            <div class="loading-spinner-v3 mx-auto" style="width: 32px; height: 32px;"></div>
+            <span class="text-sm text-slate-500 mt-2 block">加载中...</span>
+        </div>
+
+        <div x-show="lawyersLoaded" class="space-y-4">
+            <div>
+                <label class="form-label-v3">主办律师 <span class="text-red-500">*</span></label>
+                <select x-model="contract.primary_lawyer"
+                        @change="errors.primary_lawyer && delete errors.primary_lawyer"
+                        class="form-select-v3"
+                        :class="errors.primary_lawyer ? 'error' : ''">
+                    <option value="">请选择主办律师</option>
+                    <template x-for="lawyer in lawyers" :key="lawyer.id">
+                        <option :value="lawyer.id" x-text="lawyer.real_name || lawyer.username"></option>
+                    </template>
+                </select>
+                <p x-show="errors.primary_lawyer" class="mt-1 text-sm text-red-500" x-text="errors.primary_lawyer"></p>
+            </div>
+
+            <div>
+                <label class="form-label-v3">协办律师</label>
+                <div class="space-y-2">
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="lawyerId in contract.assistant_lawyers" :key="lawyerId">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                <span x-text="getLawyerName(lawyerId)"></span>
+                                <button @click="removeAssistantLawyer(lawyerId)" class="ml-2 text-slate-400 hover:text-red-500 cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </span>
+                        </template>
+                    </div>
+                    <select @change="addAssistantLawyer($event.target.value); $event.target.value = ''" class="form-select-v3">
+                        <option value="">添加协办律师...</option>
+                        <template x-for="lawyer in availableAssistantLawyers" :key="lawyer.id">
+                            <option :value="lawyer.id" x-text="lawyer.real_name || lawyer.username"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 验证提示 -->
+    <div x-show="!canProceedFromContract" class="card-section-v3 bg-amber-50 border-amber-200">
+        <div class="flex items-start">
+            <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="h-4 w-4 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-semibold text-amber-800">请完善合同信息</h3>
+                <p class="mt-1 text-sm text-amber-700">请填写合同名称、选择合同类型、收费模式和主办律师后继续。</p>
+            </div>
+        </div>
+    </div>
+</div>

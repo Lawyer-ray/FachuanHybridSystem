@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fachuan
+      POSTGRES_USER: fachuan
+      POSTGRES_PASSWORD: fachuan
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    environment:
+      DB_ENGINE: "postgres"
+      DB_NAME: "fachuan"
+      DB_USER: "fachuan"
+      DB_PASSWORD: "fachuan"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+    depends_on:
+      - redis
+      - postgres
+
+volumes:
+  postgres_data:
+
