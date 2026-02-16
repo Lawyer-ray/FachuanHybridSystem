@@ -20,10 +20,10 @@ class AutomationLogger:
     @staticmethod
     def log_captcha_recognition_start(
         image_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录验证码识别开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "captcha_recognition_start",
             "timestamp": datetime.now().isoformat(),
         }
@@ -38,10 +38,10 @@ class AutomationLogger:
         processing_time: float,
         result_length: int,
         image_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录验证码识别成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "captcha_recognition_success",
             "success": True,
             "processing_time": processing_time,
@@ -59,10 +59,10 @@ class AutomationLogger:
         processing_time: float,
         error_message: str,
         image_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录验证码识别失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "captcha_recognition_failed",
             "success": False,
             "processing_time": processing_time,
@@ -82,10 +82,10 @@ class AutomationLogger:
         acquisition_id: str,
         site_name: str,
         account: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Token获取开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "token_acquisition_start",
             "acquisition_id": acquisition_id,
             "site_name": site_name,
@@ -103,10 +103,10 @@ class AutomationLogger:
         site_name: str,
         account: str,
         total_duration: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Token获取成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "token_acquisition_success",
             "success": True,
             "acquisition_id": acquisition_id,
@@ -126,10 +126,10 @@ class AutomationLogger:
         error_message: str,
         account: Optional[str] = None,
         total_duration: Optional[float] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Token获取失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "token_acquisition_failed",
             "success": False,
             "acquisition_id": acquisition_id,
@@ -151,10 +151,10 @@ class AutomationLogger:
         site_name: str,
         account: str,
         token_expires_at: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录使用现有Token"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "existing_token_used",
             "acquisition_id": acquisition_id,
             "site_name": site_name,
@@ -174,10 +174,10 @@ class AutomationLogger:
         acquisition_id: str,
         site_name: str,
         account: str,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录自动登录开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "auto_login_start",
             "acquisition_id": acquisition_id,
             "site_name": site_name,
@@ -194,10 +194,10 @@ class AutomationLogger:
         site_name: str,
         account: str,
         login_duration: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录自动登录成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "auto_login_success",
             "success": True,
             "acquisition_id": acquisition_id,
@@ -217,10 +217,10 @@ class AutomationLogger:
         account: str,
         timeout_seconds: int,
         login_duration: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录自动登录超时"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "auto_login_timeout",
             "success": False,
             "acquisition_id": acquisition_id,
@@ -240,10 +240,10 @@ class AutomationLogger:
         max_network_retries: int,
         captcha_attempt: Optional[int] = None,
         max_captcha_retries: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录登录重试"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "login_retry",
             "network_attempt": network_attempt,
             "max_network_retries": max_network_retries,
@@ -263,10 +263,10 @@ class AutomationLogger:
     def log_document_creation_start(
         scraper_task_id: int,
         case_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档创建开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_creation_start",
             "scraper_task_id": scraper_task_id,
             "timestamp": datetime.now().isoformat(),
@@ -282,10 +282,10 @@ class AutomationLogger:
         document_id: int,
         scraper_task_id: int,
         case_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档创建成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_creation_success",
             "success": True,
             "document_id": document_id,
@@ -303,10 +303,10 @@ class AutomationLogger:
         document_id: int,
         old_status: str,
         new_status: str,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档状态更新"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_status_update",
             "document_id": document_id,
             "old_status": old_status,
@@ -323,10 +323,10 @@ class AutomationLogger:
     def log_document_processing_start(
         file_type: str,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档处理开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_processing_start",
             "file_type": file_type,
             "timestamp": datetime.now().isoformat(),
@@ -343,10 +343,10 @@ class AutomationLogger:
         processing_time: float,
         content_length: int,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档处理成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_processing_success",
             "success": True,
             "file_type": file_type,
@@ -366,10 +366,10 @@ class AutomationLogger:
         error_message: str,
         processing_time: float,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录文档处理失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_processing_failed",
             "success": False,
             "file_type": file_type,
@@ -388,10 +388,10 @@ class AutomationLogger:
     @staticmethod
     def log_ai_filename_generation_start(
         content_length: int,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录AI文件名生成开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "ai_filename_generation_start",
             "content_length": content_length,
             "timestamp": datetime.now().isoformat(),
@@ -405,10 +405,10 @@ class AutomationLogger:
         generated_filename: str,
         processing_time: float,
         content_length: int,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录AI文件名生成成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "ai_filename_generation_success",
             "success": True,
             "generated_filename": generated_filename,
@@ -425,10 +425,10 @@ class AutomationLogger:
         error_message: str,
         processing_time: float,
         content_length: int,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录AI文件名生成失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "ai_filename_generation_failed",
             "success": False,
             "error_message": error_message,
@@ -446,10 +446,10 @@ class AutomationLogger:
     def log_audio_transcription_start(
         file_format: str,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录音频转录开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "audio_transcription_start",
             "file_format": file_format,
             "timestamp": datetime.now().isoformat(),
@@ -466,10 +466,10 @@ class AutomationLogger:
         processing_time: float,
         file_format: str,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录音频转录成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "audio_transcription_success",
             "success": True,
             "transcription_length": transcription_length,
@@ -489,10 +489,10 @@ class AutomationLogger:
         processing_time: float,
         file_format: str,
         file_size: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录音频转录失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "audio_transcription_failed",
             "success": False,
             "error_message": error_message,
@@ -511,10 +511,10 @@ class AutomationLogger:
     @staticmethod
     def log_performance_metrics_collection_start(
         metric_type: str,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录性能指标收集开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "performance_metrics_collection_start",
             "metric_type": metric_type,
             "timestamp": datetime.now().isoformat(),
@@ -528,10 +528,10 @@ class AutomationLogger:
         metric_type: str,
         metrics_count: int,
         collection_time: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录性能指标收集成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "performance_metrics_collection_success",
             "success": True,
             "metric_type": metric_type,
@@ -548,10 +548,10 @@ class AutomationLogger:
         metric_type: str,
         error_message: str,
         collection_time: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录性能指标收集失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "performance_metrics_collection_failed",
             "success": False,
             "metric_type": metric_type,
@@ -567,10 +567,10 @@ class AutomationLogger:
     def log_performance_metric_recorded(
         metric_name: str,
         value: Union[int, float],
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录性能指标记录"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "performance_metric_recorded",
             "metric_name": metric_name,
             "value": value,
@@ -586,10 +586,10 @@ class AutomationLogger:
     def log_admin_operation_start(
         operation: str,
         user_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Admin操作开始"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "admin_operation_start",
             "operation": operation,
             "timestamp": datetime.now().isoformat(),
@@ -606,10 +606,10 @@ class AutomationLogger:
         affected_count: int,
         processing_time: float,
         user_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Admin操作成功"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "admin_operation_success",
             "success": True,
             "operation": operation,
@@ -629,10 +629,10 @@ class AutomationLogger:
         error_message: str,
         processing_time: float,
         user_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录Admin操作失败"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "admin_operation_failed",
             "success": False,
             "operation": operation,
@@ -655,10 +655,10 @@ class AutomationLogger:
         resource_id: Optional[Union[int, str]] = None,
         user_id: Optional[int] = None,
         success: bool = True,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录通用业务操作"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "business_operation",
             "operation": operation,
             "resource_type": resource_type,
@@ -680,10 +680,10 @@ class AutomationLogger:
         target_module: str,
         service_name: str,
         method_name: str,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """记录跨模块调用"""
-        extra = {
+        extra: dict[str, Any] = {
             "action": "cross_module_call",
             "source_module": source_module,
             "target_module": target_module,
@@ -704,14 +704,14 @@ class AutomationLogger:
         page_num: Optional[int] = None,
         page_size: Optional[int] = None,
         sdbh: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书 API 请求开始
         
         Requirements: 7.1
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_api_request_start",
             "api_name": api_name,
             "timestamp": datetime.now().isoformat(),
@@ -734,14 +734,14 @@ class AutomationLogger:
         document_count: Optional[int] = None,
         total_count: Optional[int] = None,
         page_num: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书 API 请求成功
         
         Requirements: 7.1, 7.2
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_api_request_success",
             "success": True,
             "api_name": api_name,
@@ -766,14 +766,14 @@ class AutomationLogger:
         processing_time: float,
         response_code: Optional[int] = None,
         page_num: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书 API 请求失败
         
         Requirements: 7.1, 7.4
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_api_request_failed",
             "success": False,
             "api_name": api_name,
@@ -797,14 +797,14 @@ class AutomationLogger:
         failed_count: int,
         query_method: str = "api",
         credential_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书查询统计信息
         
         Requirements: 7.2
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_query_statistics",
             "total_found": total_found,
             "processed_count": processed_count,
@@ -828,14 +828,14 @@ class AutomationLogger:
         document_name: str,
         url: Optional[str] = None,
         sdbh: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书下载开始
         
         Requirements: 7.1
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_download_start",
             "document_name": document_name,
             "timestamp": datetime.now().isoformat(),
@@ -855,14 +855,14 @@ class AutomationLogger:
         file_size: int,
         processing_time: float,
         save_path: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书下载成功
         
         Requirements: 7.1, 7.2
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_download_success",
             "success": True,
             "document_name": document_name,
@@ -881,14 +881,14 @@ class AutomationLogger:
         document_name: str,
         error_message: str,
         processing_time: float,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录文书下载失败
         
         Requirements: 7.1, 7.4
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "document_download_failed",
             "success": False,
             "document_name": document_name,
@@ -907,14 +907,14 @@ class AutomationLogger:
         reason: str,
         error_type: Optional[str] = None,
         credential_id: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录降级触发
         
         Requirements: 7.3
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "fallback_triggered",
             "from_method": from_method,
             "to_method": to_method,
@@ -937,14 +937,14 @@ class AutomationLogger:
         stack_trace: Optional[str] = None,
         request_params: Optional[Dict[str, Any]] = None,
         response_data: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         """
         记录 API 详细错误信息
         
         Requirements: 7.4
         """
-        extra = {
+        extra: dict[str, Any] = {
             "action": "api_error_detail",
             "api_name": api_name,
             "error_type": error_type,
