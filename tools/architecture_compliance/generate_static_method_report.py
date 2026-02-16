@@ -6,6 +6,7 @@
 
 Requirements: 5.5
 """
+
 from __future__ import annotations
 
 import json
@@ -104,13 +105,15 @@ def _build_converted_methods(
             class_name: str = method_ref.split(".")[0] if "." in method_ref else ""
             method_name: str = method_ref.split(".")[1] if "." in method_ref else method_ref
 
-            converted.append({
-                "class_name": class_name,
-                "method_name": method_name,
-                "file_path": file_path,
-                "reasons": reasons,
-                "changes": file_info.get("conversion_result", {}).get("changes_made", []),
-            })
+            converted.append(
+                {
+                    "class_name": class_name,
+                    "method_name": method_name,
+                    "file_path": file_path,
+                    "reasons": reasons,
+                    "changes": file_info.get("conversion_result", {}).get("changes_made", []),
+                }
+            )
 
     return converted
 
@@ -128,12 +131,14 @@ def _build_kept_methods(analysis_data: dict[str, Any]) -> list[dict[str, Any]]:
     kept: list[dict[str, Any]] = []
     for item in analysis_data.get("keep_list", []):
         reasons: list[str] = [r["detail"] for r in item.get("reasons", [])]
-        kept.append({
-            "class_name": item["class_name"],
-            "method_name": item["method_name"],
-            "file_path": _strip_project_prefix(item["file_path"]),
-            "reasons_for_keeping": reasons,
-        })
+        kept.append(
+            {
+                "class_name": item["class_name"],
+                "method_name": item["method_name"],
+                "file_path": _strip_project_prefix(item["file_path"]),
+                "reasons_for_keeping": reasons,
+            }
+        )
     return kept
 
 
@@ -186,7 +191,8 @@ def _build_summary(
     call_sites_updated: int = refactoring_data.get("call_sites_updated", 0)
 
     converted_details: list[dict[str, Any]] = _build_converted_methods(
-        refactoring_data, analysis_data,
+        refactoring_data,
+        analysis_data,
     )
     kept_details: list[dict[str, Any]] = _build_kept_methods(analysis_data)
     errors: list[dict[str, Any]] = _collect_errors(refactoring_data)
@@ -204,9 +210,7 @@ def _build_summary(
             "methods_failed": methods_failed,
             "call_sites_updated": call_sites_updated,
             "conversion_success_rate_percent": (
-                round(methods_converted / convert_count * 100, 1)
-                if convert_count > 0
-                else 0.0
+                round(methods_converted / convert_count * 100, 1) if convert_count > 0 else 0.0
             ),
             "all_conversions_successful": methods_failed == 0 and methods_converted == convert_count,
         },

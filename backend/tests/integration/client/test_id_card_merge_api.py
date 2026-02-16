@@ -4,6 +4,7 @@
 测试 /api/v1/client/identity-docs/merge-id-card 和
 /api/v1/client/identity-docs/merge-id-card-manual 接口
 """
+
 import json
 
 import cv2
@@ -18,10 +19,7 @@ def _create_test_image(width: int = 800, height: int = 600) -> bytes:
     image = np.ones((height, width, 3), dtype=np.uint8) * 255
     # 添加一些内容
     cv2.rectangle(image, (50, 50), (width - 50, height - 50), (200, 200, 200), 2)
-    cv2.putText(
-        image, "TEST", (width // 3, height // 2),
-        cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 3
-    )
+    cv2.putText(image, "TEST", (width // 3, height // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 3)
     # 编码为 JPEG
     _, buffer = cv2.imencode(".jpg", image)
     return buffer.tobytes()
@@ -59,7 +57,7 @@ class TestMergeIdCardAPI:
         # 断言结果
         assert response.status_code == 200
         data = response.json()
-        
+
         # 注意：由于测试图片没有明显的身份证边缘，可能会返回 AUTO_DETECT_FAILED
         # 这是预期行为，因为我们的测试图片不是真实的身份证
         assert "success" in data

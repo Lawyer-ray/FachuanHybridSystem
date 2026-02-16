@@ -7,4 +7,3 @@ def test_interfaces_does_not_define_service_locator_class():
     assert interfaces_py.exists()
     content = interfaces_py.read_text(encoding="utf-8")
     assert "class ServiceLocator" not in content
-

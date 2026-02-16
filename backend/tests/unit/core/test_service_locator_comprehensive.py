@@ -1,12 +1,15 @@
 """
 测试 ServiceLocator 服务定位器
 """
+
 import pytest
+
 from apps.core.service_locator_base import BaseServiceLocator
 
 
 class MockService:
     """模拟服务类"""
+
     def __init__(self, name: str):
         self.name = name
 
@@ -96,6 +99,7 @@ class TestBaseServiceLocator:
 
     def test_get_or_create_creates_new_service(self):
         """测试 get_or_create 创建新服务"""
+
         def factory():
             return MockService("created")
 
@@ -201,6 +205,7 @@ class TestBaseServiceLocator:
         # 注册函数
         def test_func():
             return "result"
+
         BaseServiceLocator.register("func", test_func)
         assert BaseServiceLocator.get("func")() == "result"
 
@@ -246,14 +251,7 @@ class TestBaseServiceLocator:
     def test_service_name_with_special_characters(self):
         """测试包含特殊字符的服务名"""
         service = MockService("special")
-        special_names = [
-            "service.name",
-            "service-name",
-            "service_name",
-            "service:name",
-            "service/name",
-            "service@name"
-        ]
+        special_names = ["service.name", "service-name", "service_name", "service:name", "service/name", "service@name"]
 
         for name in special_names:
             BaseServiceLocator.register(name, service)

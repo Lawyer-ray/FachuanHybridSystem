@@ -1,18 +1,15 @@
 """
 律师服务单元测试
 """
-import pytest
+
 from unittest.mock import Mock
 
-from apps.organization.services import LawyerService
+import pytest
+
+from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.organization.schemas import LawyerCreateIn, LawyerUpdateIn
-from tests.factories import LawyerFactory, LawFirmFactory, TeamFactory
-from apps.core.exceptions import (
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError
-)
+from apps.organization.services import LawyerService
+from tests.factories import LawFirmFactory, LawyerFactory, TeamFactory
 
 
 @pytest.mark.django_db
@@ -34,7 +31,7 @@ class TestLawyerService:
             real_name="测试律师",
             phone="13800138001",
             law_firm_id=lawfirm.id,
-            is_admin=False
+            is_admin=False,
         )
 
         # 执行测试
@@ -50,10 +47,7 @@ class TestLawyerService:
         """测试创建律师权限不足"""
         # 准备测试数据
         normal_user = LawyerFactory(is_admin=False, is_superuser=False)
-        data = LawyerCreateIn(
-            username="testlawyer",
-            password="testpass123"
-        )
+        data = LawyerCreateIn(username="testlawyer", password="testpass123")
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied) as exc_info:
@@ -66,10 +60,7 @@ class TestLawyerService:
         # 准备测试数据
         admin_user = LawyerFactory(is_admin=True)
         LawyerFactory(username="existing")
-        data = LawyerCreateIn(
-            username="existing",
-            password="testpass123"
-        )
+        data = LawyerCreateIn(username="existing", password="testpass123")
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
@@ -82,11 +73,7 @@ class TestLawyerService:
         # 准备测试数据
         admin_user = LawyerFactory(is_admin=True)
         LawyerFactory(phone="13800138000")
-        data = LawyerCreateIn(
-            username="newlawyer",
-            password="testpass123",
-            phone="13800138000"
-        )
+        data = LawyerCreateIn(username="newlawyer", password="testpass123", phone="13800138000")
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
@@ -210,6 +197,7 @@ class TestLawyerService:
 
         # 验证律师已删除
         from apps.organization.models import Lawyer
+
         assert not Lawyer.objects.filter(id=lawyer.id).exists()
 
     def test_delete_lawyer_permission_denied(self):

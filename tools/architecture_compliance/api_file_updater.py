@@ -8,6 +8,7 @@ API 文件更新器
 3. 移除不再使用的 Model 导入
 4. 写回更新后的文件
 """
+
 from __future__ import annotations
 
 import ast
@@ -16,12 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from .api_refactoring_engine import (
-    ApiRefactoringEngine,
-    ParsedOrmCall,
-    ServiceCallSpec,
-    _to_snake_case,
-)
+from .api_refactoring_engine import ApiRefactoringEngine, ParsedOrmCall, ServiceCallSpec, _to_snake_case
 from .errors import RefactoringError, RefactoringSyntaxError
 from .logging_config import get_logger
 from .models import ApiViolation, RefactoringResult
@@ -165,26 +161,23 @@ class ApiFileUpdater:
         for violation in violations:
             parsed = self._engine.parse_orm_call(violation, current_source)
             if parsed is None:
-                plan.errors.append(
-                    f"第 {violation.line_number} 行: 无法解析 ORM 调用"
-                )
+                plan.errors.append(f"第 {violation.line_number} 行: 无法解析 ORM 调用")
                 continue
 
             spec = self._engine.generate_service_call(parsed)
             if spec.needs_manual_review:
-                plan.errors.append(
-                    f"第 {violation.line_number} 行: {spec.review_reason}"
-                )
+                plan.errors.append(f"第 {violation.line_number} 行: {spec.review_reason}")
                 continue
 
             # AST 重写 ORM 调用
             new_source = self._engine.rewrite_source(
-                current_source, violation, parsed, spec,
+                current_source,
+                violation,
+                parsed,
+                spec,
             )
             if new_source is None:
-                plan.errors.append(
-                    f"第 {violation.line_number} 行: AST 重写失败"
-                )
+                plan.errors.append(f"第 {violation.line_number} 行: AST 重写失败")
                 continue
 
             current_source = new_source
@@ -202,7 +195,9 @@ class ApiFileUpdater:
             # 规划 Service 文件更新
             if service_base_dir is not None:
                 service_update = self._plan_service_update(
-                    parsed, service_base_dir, app_label,
+                    parsed,
+                    service_base_dir,
+                    app_label,
                 )
                 if service_update is not None:
                     plan.service_file_updates.append(service_update)
@@ -232,7 +227,8 @@ class ApiFileUpdater:
 
         # 确定哪些 Model 真正可以从导入中移除
         removable = self._find_removable_imports(
-            source, plan.models_to_remove_from_imports,
+            source,
+            plan.models_to_remove_from_imports,
         )
         if removable:
             source = self._remove_model_imports(source, removable)
@@ -256,7 +252,9 @@ class ApiFileUpdater:
 
         # 在函数体中添加 service 实例化调用
         source = self._insert_service_instantiation(
-            source, plan.service_var_mappings, existing_factories,
+            source,
+            plan.service_var_mappings,
+            existing_factories,
         )
 
         return source
@@ -286,11 +284,7 @@ class ApiFileUpdater:
         """
         func_name = self._factory_function_name(model_name)
         service_cls = self._service_class_name(model_name)
-        return (
-            f"\n\ndef {func_name}():\n"
-            f"    from ..services import {service_cls}\n"
-            f"    return {service_cls}()\n"
-        )
+        return f"\n\ndef {func_name}():\n" f"    from ..services import {service_cls}\n" f"    return {service_cls}()\n"
 
     # ── 导入清理 ────────────────────────────────────────────
 
@@ -351,17 +345,11 @@ class ApiFileUpdater:
             if not isinstance(node, ast.ImportFrom):
                 continue
 
-            matching_aliases = [
-                alias for alias in node.names
-                if (alias.asname or alias.name) in names_to_remove
-            ]
+            matching_aliases = [alias for alias in node.names if (alias.asname or alias.name) in names_to_remove]
             if not matching_aliases:
                 continue
 
-            remaining = [
-                alias for alias in node.names
-                if (alias.asname or alias.name) not in names_to_remove
-            ]
+            remaining = [alias for alias in node.names if (alias.asname or alias.name) not in names_to_remove]
 
             start_line = node.lineno
             end_line = getattr(node, "end_lineno", start_line)
@@ -372,10 +360,7 @@ class ApiFileUpdater:
                     lines_to_remove.add(ln)
             else:
                 # 重建 import 语句
-                names_str = ", ".join(
-                    f"{a.name} as {a.asname}" if a.asname else a.name
-                    for a in remaining
-                )
+                names_str = ", ".join(f"{a.name} as {a.asname}" if a.asname else a.name for a in remaining)
                 new_import = f"from {node.module} import {names_str}\n"
                 replacements[start_line] = new_import
                 for ln in range(start_line + 1, end_line + 1):

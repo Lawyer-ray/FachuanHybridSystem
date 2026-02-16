@@ -2,13 +2,16 @@
 CaseService Property-Based Tests
 测试权限检查的通用属性
 """
-import pytest
-from hypothesis import given, strategies as st, assume
+
 from unittest.mock import Mock
 
-from apps.cases.services import CaseService
+import pytest
+from hypothesis import assume, given
+from hypothesis import strategies as st
+
 from apps.cases.models import Case
-from apps.core.exceptions import PermissionDenied, ForbiddenError
+from apps.cases.services import CaseService
+from apps.core.exceptions import ForbiddenError, PermissionDenied
 
 
 @pytest.mark.django_db
@@ -16,16 +19,9 @@ class TestCaseServicePermissionProperties:
     """案件服务权限检查属性测试"""
 
     @given(
-        case_name=st.text(min_size=1, max_size=100),
-        user_is_admin=st.booleans(),
-        user_is_authenticated=st.booleans()
+        case_name=st.text(min_size=1, max_size=100), user_is_admin=st.booleans(), user_is_authenticated=st.booleans()
     )
-    def test_permission_denied_for_unauthorized_users(
-        self,
-        case_name,
-        user_is_admin,
-        user_is_authenticated
-    ):
+    def test_permission_denied_for_unauthorized_users(self, case_name, user_is_admin, user_is_authenticated):
         """
         Property 7: 权限不足抛出异常
 
@@ -40,10 +36,7 @@ class TestCaseServicePermissionProperties:
         - 则应该抛出权限异常
         """
         # 创建测试案件
-        case = Case.objects.create(
-            name=case_name,
-            is_archived=False
-        )
+        case = Case.objects.create(name=case_name, is_archived=False)
 
         # 创建 Mock 用户
         mock_user = Mock()
@@ -58,25 +51,13 @@ class TestCaseServicePermissionProperties:
         if not user_is_authenticated or not user_is_admin:
             with pytest.raises((PermissionDenied, ForbiddenError)):
                 # 尝试获取案件（没有 org_access，不是 perm_open_access）
-                service.get_case(
-                    case_id=case.id,
-                    user=mock_user,
-                    org_access=None,
-                    perm_open_access=False
-                )
+                service.get_case(case_id=case.id, user=mock_user, org_access=None, perm_open_access=False)
         else:
             # 管理员应该能够访问
-            result = service.get_case(
-                case_id=case.id,
-                user=mock_user,
-                org_access=None,
-                perm_open_access=False
-            )
+            result = service.get_case(case_id=case.id, user=mock_user, org_access=None, perm_open_access=False)
             assert result.id == case.id
 
-    @given(
-        case_name=st.text(min_size=1, max_size=100)
-    )
+    @given(case_name=st.text(min_size=1, max_size=100))
     def test_open_access_bypasses_permission_check(self, case_name):
         """
         Property: 开放访问模式绕过权限检查
@@ -89,10 +70,7 @@ class TestCaseServicePermissionProperties:
         - 则不应该抛出权限异常
         """
         # 创建测试案件
-        case = Case.objects.create(
-            name=case_name,
-            is_archived=False
-        )
+        case = Case.objects.create(name=case_name, is_archived=False)
 
         # 创建未认证的 Mock 用户
         mock_user = Mock()
@@ -103,19 +81,11 @@ class TestCaseServicePermissionProperties:
         service = CaseService()
 
         # 使用开放访问模式应该能够访问
-        result = service.get_case(
-            case_id=case.id,
-            user=mock_user,
-            org_access=None,
-            perm_open_access=True  # 开放访问
-        )
+        result = service.get_case(case_id=case.id, user=mock_user, org_access=None, perm_open_access=True)  # 开放访问
 
         assert result.id == case.id
 
-    @given(
-        case_name=st.text(min_size=1, max_size=100),
-        user_id=st.integers(min_value=1, max_value=1000)
-    )
+    @given(case_name=st.text(min_size=1, max_size=100), user_id=st.integers(min_value=1, max_value=1000))
     def test_admin_users_can_access_all_cases(self, case_name, user_id):
         """
         Property: 管理员可以访问所有案件
@@ -128,10 +98,7 @@ class TestCaseServicePermissionProperties:
         - 不应该抛出权限异常
         """
         # 创建测试案件
-        case = Case.objects.create(
-            name=case_name,
-            is_archived=False
-        )
+        case = Case.objects.create(name=case_name, is_archived=False)
 
         # 创建管理员 Mock 用户
         mock_user = Mock()
@@ -143,18 +110,11 @@ class TestCaseServicePermissionProperties:
         service = CaseService()
 
         # 管理员应该能够访问
-        result = service.get_case(
-            case_id=case.id,
-            user=mock_user,
-            org_access=None,
-            perm_open_access=False
-        )
+        result = service.get_case(case_id=case.id, user=mock_user, org_access=None, perm_open_access=False)
 
         assert result.id == case.id
 
-    @given(
-        case_name=st.text(min_size=1, max_size=100)
-    )
+    @given(case_name=st.text(min_size=1, max_size=100))
     def test_unauthenticated_users_cannot_access_cases(self, case_name):
         """
         Property: 未认证用户无法访问案件
@@ -167,10 +127,7 @@ class TestCaseServicePermissionProperties:
         - 应该抛出权限异常
         """
         # 创建测试案件
-        case = Case.objects.create(
-            name=case_name,
-            is_archived=False
-        )
+        case = Case.objects.create(name=case_name, is_archived=False)
 
         # 创建未认证的 Mock 用户
         mock_user = Mock()
@@ -181,9 +138,4 @@ class TestCaseServicePermissionProperties:
 
         # 未认证用户应该无法访问
         with pytest.raises((PermissionDenied, ForbiddenError)):
-            service.get_case(
-                case_id=case.id,
-                user=mock_user,
-                org_access=None,
-                perm_open_access=False
-            )
+            service.get_case(case_id=case.id, user=mock_user, org_access=None, perm_open_access=False)

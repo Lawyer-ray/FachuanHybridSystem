@@ -1,19 +1,18 @@
 """Strategy pattern implementations."""
 
+import logging
 import traceback
 from datetime import datetime
-
-from apps.automation.utils.logging import AutomationLogger
+from typing import Any
 
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
-from typing import Any
-import logging
+from apps.automation.utils.logging import AutomationLogger
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentDeliveryApiStrategy:
-    def __init__(self, *,  token_service: Any, api_service: Any) -> None:
+    def __init__(self, *, token_service: Any, api_service: Any) -> None:
         self.token_service = token_service
         self.api_service = api_service
 

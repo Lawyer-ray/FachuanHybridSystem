@@ -5,10 +5,10 @@
 作为 InfoExtractor 的 Mixin 使用.
 """
 
-from typing import Any
 import logging
 import re
 from datetime import datetime
+from typing import Any
 
 from .extractor_patterns import (
     HEARING_HIGH_WEIGHT_KEYWORDS,
@@ -164,6 +164,7 @@ class ExtractorValidatorsMixin:
 
         def _score_work_hours(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list]:
             """评估是否在工作时间"""
+
         hour = dt.hour
         if 8 <= hour <= 18:
             score += 15
@@ -178,6 +179,7 @@ class ExtractorValidatorsMixin:
 
         def _score_weekday(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list]:
             """评估是否是工作日"""
+
         if dt.weekday() >= 5:
             score -= 10
             reasons.append("周末")
@@ -188,6 +190,7 @@ class ExtractorValidatorsMixin:
 
         def _score_minute(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list]:
             """评估分钟是否合理"""
+
         minute = dt.minute
         if minute in {0, 30}:
             score += 10

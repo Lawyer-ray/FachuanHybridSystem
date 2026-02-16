@@ -1,15 +1,15 @@
 """Business logic services."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import logging
 import time
+from typing import Any, Dict
 
 from apps.automation.exceptions import AutoTokenAcquisitionError, NoAvailableAccountError, TokenAcquisitionTimeoutError
+from apps.automation.services.token.trigger_reasons import TokenTriggerReason
 from apps.automation.utils.logging_mixins.common import mask_account, stable_hash
 from apps.core.exceptions import ValidationException
-from apps.automation.services.token.trigger_reasons import TokenTriggerReason
-from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +35,7 @@ class TokenAcquisitionOrchestrator:
             credential_id=credential_id,
             trigger_reason=TokenTriggerReason.TOKEN_NEEDED,
         )
-        logger.info(
-            "开始Token获取流程",
-            extra= {}
-        )
+        logger.info("开始Token获取流程", extra={})
 
         svc._acquisition_count += 1
         svc.performance_monitor.record_acquisition_start(acquisition_id, site_name, account_marker)
@@ -79,7 +76,7 @@ class TokenAcquisitionOrchestrator:
                         if existing_token:
                             logger.info(
                                 "使用现有Token(自动选择账号)",
-                                extra= {
+                                extra={
                                     "acquisition_id": acquisition_id,
                                     "site_name": site_name,
                                     "account": mask_account(credential.account),
@@ -155,7 +152,7 @@ class TokenAcquisitionOrchestrator:
 
                 logger.error(
                     "Token获取失败",
-                    extra= {
+                    extra={
                         "acquisition_id": acquisition_id,
                         "site_name": site_name,
                         "total_duration": total_duration,
@@ -183,7 +180,7 @@ class TokenAcquisitionOrchestrator:
             svc._failure_count += 1
             logger.error(
                 "Token获取过程中发生未预期错误",
-                extra= {
+                extra={
                     "acquisition_id": acquisition_id,
                     "site_name": site_name,
                     "error": str(e),
@@ -192,7 +189,5 @@ class TokenAcquisitionOrchestrator:
                 exc_info=True,
             )
             raise AutoTokenAcquisitionError(
-                message=f"Token获取过程中发生未预期错误: {e!s}",
-                code="TOKEN_ACQUISITION_ERROR",
-                errors={}
+                message=f"Token获取过程中发生未预期错误: {e!s}", code="TOKEN_ACQUISITION_ERROR", errors={}
             ) from e

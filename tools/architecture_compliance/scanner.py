@@ -3,6 +3,7 @@
 
 提供基于Python AST的代码扫描基础设施，子类实现具体的违规检测逻辑。
 """
+
 from __future__ import annotations
 
 import ast
@@ -16,17 +17,19 @@ from .models import Violation
 logger = get_logger("scanner")
 
 # 默认排除的目录名
-_DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset({
-    "__pycache__",
-    ".git",
-    ".tox",
-    ".mypy_cache",
-    ".pytest_cache",
-    "node_modules",
-    "migrations",
-    "venv",
-    ".venv",
-})
+_DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+        "node_modules",
+        "migrations",
+        "venv",
+        ".venv",
+    }
+)
 
 
 class ViolationScanner(ABC):

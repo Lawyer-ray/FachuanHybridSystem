@@ -3,8 +3,8 @@ import pytest
 
 @pytest.mark.django_db
 def test_template_bindings_response_matches_ninja_schema():
-    from apps.cases.models import Case, CaseTemplateBinding
     from apps.cases.api.template_binding_api import BindingsResponseSchema
+    from apps.cases.models import Case, CaseTemplateBinding
     from apps.cases.services.template.wiring import get_case_template_binding_service
     from apps.documents.models import DocumentTemplate
 
@@ -28,4 +28,3 @@ def test_template_bindings_response_matches_ninja_schema():
         for item in category["templates"]:
             assert "function_code" not in item
             assert isinstance(item.get("description", ""), str)
-

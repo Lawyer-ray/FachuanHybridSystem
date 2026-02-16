@@ -148,4 +148,3 @@ def test_extract_party_names_precedence(sms_parties: List[str], doc_parties: Lis
         assert result == doc_parties
     else:
         assert result == sms_parties
-

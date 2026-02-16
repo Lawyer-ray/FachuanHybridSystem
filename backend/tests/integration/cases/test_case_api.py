@@ -7,13 +7,15 @@
 - 权限控制
 - 异常场景
 """
+
 import pytest
 from django.test import Client
+
 from apps.cases.models import Case
+from apps.client.models import Client as ClientModel
 from apps.contracts.models import Contract
 from apps.contracts.services.contract.contract_service import ContractService
-from apps.organization.models import Lawyer, LawFirm
-from apps.client.models import Client as ClientModel
+from apps.organization.models import LawFirm, Lawyer
 
 
 @pytest.mark.django_db
@@ -23,27 +25,16 @@ class TestCaseAPI:
     def setup_method(self):
         """每个测试方法前执行"""
         from apps.contracts.models import ContractAssignment
-        
+
         # 创建测试数据
         self.law_firm = LawFirm.objects.create(name="测试律所")
-        self.lawyer = Lawyer.objects.create(
-            username="testlawyer",
-            real_name="测试律师",
-            law_firm=self.law_firm
-        )
+        self.lawyer = Lawyer.objects.create(username="testlawyer", real_name="测试律师", law_firm=self.law_firm)
 
         self.contract = Contract.objects.create(
-            name="测试合同",
-            case_type="civil",
-            status="active",
-            representation_stages=["first_trial", "second_trial"]
+            name="测试合同", case_type="civil", status="active", representation_stages=["first_trial", "second_trial"]
         )
         # 使用 ContractAssignment 关联律师
-        ContractAssignment.objects.create(
-            contract=self.contract,
-            lawyer=self.lawyer,
-            is_primary=True
-        )
+        ContractAssignment.objects.create(contract=self.contract, lawyer=self.lawyer, is_primary=True)
 
         # 创建测试客户端
         self.client = Client()
@@ -55,7 +46,7 @@ class TestCaseAPI:
             "name": "测试案件",
             "contract_id": self.contract.id,
             "current_stage": "first_trial",
-            "is_archived": False
+            "is_archived": False,
         }
 
         # 发送请求（注意：这里需要认证，实际测试中需要设置认证）
@@ -63,9 +54,10 @@ class TestCaseAPI:
 
         # 由于没有完整的认证设置，我们直接测试 Service 层
         # 这里只是示例，实际应该测试完整的 HTTP 请求流程
+        from unittest.mock import Mock
+
         from apps.cases.services import CaseService
         from apps.contracts.services import ContractServiceAdapter
-        from unittest.mock import Mock
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         user = Mock()
@@ -82,16 +74,8 @@ class TestCaseAPI:
     def test_list_cases(self):
         """测试列表查询"""
         # 创建测试案件
-        Case.objects.create(
-            name="案件1",
-            contract=self.contract,
-            is_archived=False
-        )
-        Case.objects.create(
-            name="案件2",
-            contract=self.contract,
-            is_archived=False
-        )
+        Case.objects.create(name="案件1", contract=self.contract, is_archived=False)
+        Case.objects.create(name="案件2", contract=self.contract, is_archived=False)
 
         # 测试列表查询
         from apps.cases.services import CaseService
@@ -99,11 +83,7 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         cases = service.list_cases(
-            case_type="civil",
-            status=None,
-            user=None,
-            org_access=None,
-            perm_open_access=True  # 开放访问用于测试
+            case_type="civil", status=None, user=None, org_access=None, perm_open_access=True  # 开放访问用于测试
         )
 
         # 断言结果
@@ -112,11 +92,7 @@ class TestCaseAPI:
     def test_get_case_success(self):
         """测试获取单个案件成功"""
         # 创建测试案件
-        case = Case.objects.create(
-            name="测试案件",
-            contract=self.contract,
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", contract=self.contract, is_archived=False)
 
         # 测试获取案件
         from apps.cases.services import CaseService
@@ -124,10 +100,7 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         result = service.get_case(
-            case_id=case.id,
-            user=None,
-            org_access=None,
-            perm_open_access=True  # 开放访问用于测试
+            case_id=case.id, user=None, org_access=None, perm_open_access=True  # 开放访问用于测试
         )
 
         # 断言结果
@@ -137,35 +110,28 @@ class TestCaseAPI:
     def test_get_case_not_found(self):
         """测试获取不存在的案件"""
         from apps.cases.services import CaseService
-        from apps.core.exceptions import NotFoundError
         from apps.contracts.services import ContractServiceAdapter
+        from apps.core.exceptions import NotFoundError
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
 
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            service.get_case(
-                case_id=999,
-                user=None,
-                org_access=None,
-                perm_open_access=True
-            )
+            service.get_case(case_id=999, user=None, org_access=None, perm_open_access=True)
 
     def test_update_case_success(self):
         """测试更新案件成功"""
         # 创建测试案件
-        case = Case.objects.create(
-            name="原名称",
-            contract=self.contract,
-            is_archived=False
-        )
+        case = Case.objects.create(name="原名称", contract=self.contract, is_archived=False)
         from apps.cases.models import CaseAssignment
+
         CaseAssignment.objects.create(case=case, lawyer=self.lawyer)
 
         # 测试更新案件
+        from unittest.mock import Mock
+
         from apps.cases.services import CaseService
         from apps.contracts.services import ContractServiceAdapter
-        from unittest.mock import Mock
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         user = Mock()
@@ -191,17 +157,15 @@ class TestCaseAPI:
     def test_delete_case_success(self):
         """测试删除案件成功"""
         # 创建测试案件
-        case = Case.objects.create(
-            name="测试案件",
-            contract=self.contract,
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", contract=self.contract, is_archived=False)
         from apps.cases.models import CaseAssignment
+
         CaseAssignment.objects.create(case=case, lawyer=self.lawyer)
 
         # 测试删除案件
-        from apps.cases.services import CaseService
         from unittest.mock import Mock
+
+        from apps.cases.services import CaseService
         from apps.contracts.services import ContractServiceAdapter
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
@@ -225,21 +189,14 @@ class TestCaseAPI:
     def test_search_by_case_number(self):
         """测试通过案号搜索"""
         # 创建测试案件和案号
-        case = Case.objects.create(
-            name="测试案件",
-            contract=self.contract,
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", contract=self.contract, is_archived=False)
 
         from apps.cases.models import CaseNumber
         from apps.cases.utils import normalize_case_number
 
         # 使用规范化的案号存储
         normalized_number = normalize_case_number("（2024）京0101民初12345号")
-        case_number_obj = CaseNumber.objects.create(
-            case=case,
-            number=normalized_number
-        )
+        case_number_obj = CaseNumber.objects.create(case=case, number=normalized_number)
 
         # 验证案号已创建
         assert CaseNumber.objects.filter(case=case).exists()
@@ -250,30 +207,26 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         results = service.search_by_case_number(
-            case_number="（2024）京0101民初12345号",  # 使用完整格式
-            user=None,
-            org_access=None,
-            perm_open_access=True
+            case_number="（2024）京0101民初12345号", user=None, org_access=None, perm_open_access=True  # 使用完整格式
         )
 
         # 断言结果
-        assert results.count() >= 1, f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
+        assert (
+            results.count() >= 1
+        ), f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
         assert case.id in [c.id for c in results]
 
     def test_permission_denied(self):
         """测试权限拒绝"""
         # 创建测试案件
-        case = Case.objects.create(
-            name="测试案件",
-            contract=self.contract,
-            is_archived=False
-        )
+        case = Case.objects.create(name="测试案件", contract=self.contract, is_archived=False)
 
         # 测试无权限访问
-        from apps.cases.services import CaseService
-        from apps.core.exceptions import ForbiddenError
         from unittest.mock import Mock
+
+        from apps.cases.services import CaseService
         from apps.contracts.services import ContractServiceAdapter
+        from apps.core.exceptions import ForbiddenError
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         user = Mock()
@@ -284,8 +237,5 @@ class TestCaseAPI:
         # 断言抛出权限异常
         with pytest.raises(ForbiddenError):
             service.get_case(
-                case_id=case.id,
-                user=user,
-                org_access={"lawyers": set(), "extra_cases": set()},
-                perm_open_access=False
+                case_id=case.id, user=user, org_access={"lawyers": set(), "extra_cases": set()}, perm_open_access=False
             )

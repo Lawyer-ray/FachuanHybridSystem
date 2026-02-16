@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
-from apps.core.services.system_config_service import SystemConfigService, _MISSING_SENTINEL
+from apps.core.services.system_config_service import _MISSING_SENTINEL, SystemConfigService
 
 
 class _FakeModel:

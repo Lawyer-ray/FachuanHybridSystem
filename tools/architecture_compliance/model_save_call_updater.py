@@ -13,6 +13,7 @@ Model.save() 调用点更新器
 
 采用行级正则替换，与 CallSiteUpdater 保持一致的风格。
 """
+
 from __future__ import annotations
 
 import ast
@@ -75,18 +76,25 @@ class ModelSaveUpdateReport:
 
 # ── 排除目录 ────────────────────────────────────────────────
 
-_EXCLUDE_DIRS: frozenset[str] = frozenset({
-    "__pycache__", ".git", ".tox", ".mypy_cache",
-    ".pytest_cache", "node_modules", "migrations",
-    "venv", ".venv", "venv312",
-})
+_EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+        "node_modules",
+        "migrations",
+        "venv",
+        ".venv",
+        "venv312",
+    }
+)
 
 
 # ── CamelCase → snake_case ──────────────────────────────────
 
-_CAMEL_RE: re.Pattern[str] = re.compile(
-    r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])"
-)
+_CAMEL_RE: re.Pattern[str] = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def _to_snake_case(name: str) -> str:
@@ -159,7 +167,10 @@ class ModelSaveCallUpdater:
                 continue
 
             sites = self._scan_file_save_calls(
-                py_file, source, model_name, snake_name,
+                py_file,
+                source,
+                model_name,
+                snake_name,
             )
             call_sites.extend(sites)
 
@@ -199,7 +210,9 @@ class ModelSaveCallUpdater:
         report = ModelSaveUpdateReport()
 
         call_sites = self.scan_save_call_sites(
-            root, model_name, exclude_file=exclude_file,
+            root,
+            model_name,
+            exclude_file=exclude_file,
         )
         report.total_call_sites_found = len(call_sites)
 
@@ -227,9 +240,7 @@ class ModelSaveCallUpdater:
                 success=not file_report.errors,
                 file_path=file_path_str,
                 changes_made=file_report.changes,
-                error_message=(
-                    "; ".join(file_report.errors) if file_report.errors else None
-                ),
+                error_message=("; ".join(file_report.errors) if file_report.errors else None),
             )
             report.results.append(result)
 
@@ -262,16 +273,14 @@ class ModelSaveCallUpdater:
         """
         # 检查 import 语句
         import_pattern = re.compile(
-            rf"\bimport\b.*\b{re.escape(model_name)}\b"
-            rf"|\bfrom\b.*\bimport\b.*\b{re.escape(model_name)}\b",
+            rf"\bimport\b.*\b{re.escape(model_name)}\b" rf"|\bfrom\b.*\bimport\b.*\b{re.escape(model_name)}\b",
         )
         if import_pattern.search(source):
             return True
 
         # 检查类名直接出现（如 Model 实例化）
         usage_pattern = re.compile(
-            rf"\b{re.escape(model_name)}\s*\("
-            rf"|\b{re.escape(model_name)}\.objects\b",
+            rf"\b{re.escape(model_name)}\s*\(" rf"|\b{re.escape(model_name)}\.objects\b",
         )
         return bool(usage_pattern.search(source))
 
@@ -303,7 +312,9 @@ class ModelSaveCallUpdater:
 
         # 收集已知的 Model 实例变量名
         instance_vars = self._find_model_instance_vars(
-            source, model_name, snake_name,
+            source,
+            model_name,
+            snake_name,
         )
 
         # 匹配 variable.save() 模式
@@ -334,13 +345,15 @@ class ModelSaveCallUpdater:
                 continue
 
             context = self._get_context_info(source, lineno)
-            call_sites.append(ModelSaveCallSite(
-                file_path=str(file_path),
-                line_number=lineno,
-                original_code=stripped,
-                model_name=model_name,
-                context_info=context,
-            ))
+            call_sites.append(
+                ModelSaveCallSite(
+                    file_path=str(file_path),
+                    line_number=lineno,
+                    original_code=stripped,
+                    model_name=model_name,
+                    context_info=context,
+                )
+            )
 
         return call_sites
 
@@ -372,8 +385,7 @@ class ModelSaveCallUpdater:
 
         # 模式1: var = ModelName(...) 或 var = ModelName.objects.xxx(...)
         assign_pattern = re.compile(
-            rf"(\w+)\s*=\s*{re.escape(model_name)}\s*\("
-            rf"|(\w+)\s*=\s*{re.escape(model_name)}\.objects\.\w+\s*\(",
+            rf"(\w+)\s*=\s*{re.escape(model_name)}\s*\(" rf"|(\w+)\s*=\s*{re.escape(model_name)}\.objects\.\w+\s*\(",
         )
         for m in assign_pattern.finditer(source):
             var = m.group(1) or m.group(2)
@@ -492,9 +504,7 @@ class ModelSaveCallUpdater:
             # 提取 save() 调用中的实例变量名
             save_match = re.search(r"\b(\w+)\.save\s*\(", save_line)
             if save_match is None:
-                file_report.errors.append(
-                    f"行 {site.line_number}: 无法匹配 .save() 模式"
-                )
+                file_report.errors.append(f"行 {site.line_number}: 无法匹配 .save() 模式")
                 continue
 
             instance_var = save_match.group(1)
@@ -515,19 +525,22 @@ class ModelSaveCallUpdater:
             updated_count += 1
             methods_str = ", ".join(service_methods)
             file_report.changes.append(
-                f"行 {site.line_number}: 在 {instance_var}.save() 后插入 "
-                f"Service 方法调用: {methods_str}"
+                f"行 {site.line_number}: 在 {instance_var}.save() 后插入 " f"Service 方法调用: {methods_str}"
             )
 
         # 添加 Service 导入和实例化
         if updated_count > 0:
             lines = self._ensure_service_import(
-                lines, file_path, service_class_name,
+                lines,
+                file_path,
+                service_class_name,
             )
             file_report.service_import_added = True
 
             lines = self._ensure_service_instantiation(
-                lines, service_class_name, service_var,
+                lines,
+                service_class_name,
+                service_var,
             )
 
         file_report.call_sites_updated = updated_count
@@ -537,9 +550,7 @@ class ModelSaveCallUpdater:
         try:
             ast.parse(new_source)
         except SyntaxError as exc:
-            file_report.errors.append(
-                f"更新后语法错误 (行 {exc.lineno}): {exc.msg}"
-            )
+            file_report.errors.append(f"更新后语法错误 (行 {exc.lineno}): {exc.msg}")
             return file_report
 
         if not dry_run and updated_count > 0:
@@ -575,9 +586,7 @@ class ModelSaveCallUpdater:
         """
         call_lines: list[str] = []
         for method_name in service_methods:
-            call_lines.append(
-                f"{indent}{service_var}.{method_name}({instance_var})\n"
-            )
+            call_lines.append(f"{indent}{service_var}.{method_name}({instance_var})\n")
         return call_lines
 
     @staticmethod
@@ -627,8 +636,7 @@ class ModelSaveCallUpdater:
         # 生成导入语句
         service_module = _to_snake_case(service_class_name)
         import_line = (
-            f"from .services import {service_class_name}  "
-            f"# noqa: E402 — auto-inserted by model_save_call_updater\n"
+            f"from .services import {service_class_name}  " f"# noqa: E402 — auto-inserted by model_save_call_updater\n"
         )
 
         # 在 import 区域末尾插入

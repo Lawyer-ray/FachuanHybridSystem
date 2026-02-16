@@ -13,6 +13,7 @@ Service层跨模块导入重构引擎
 对于复杂场景（如 Model 作为类型注解、参数传递等），
 标记为需要人工审查而非自动替换。
 """
+
 from __future__ import annotations
 
 import ast
@@ -67,9 +68,7 @@ _ORM_METHOD_MAP: dict[str, str] = {
 }
 
 # 匹配 from apps.<module>.models import ... 的正则
-_CROSS_MODULE_IMPORT_RE: re.Pattern[str] = re.compile(
-    r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models"
-)
+_CROSS_MODULE_IMPORT_RE: re.Pattern[str] = re.compile(r"^apps\.([a-zA-Z_][a-zA-Z0-9_]*)\.models")
 
 
 # ── 数据模型 ────────────────────────────────────────────────
@@ -80,10 +79,10 @@ class CrossModuleImport:
     """解析后的跨模块导入信息"""
 
     line_number: int
-    module_path: str          # e.g. "apps.cases.models"
-    target_module: str        # e.g. "cases"
-    imported_names: list[str] # e.g. ["Case", "CaseLog"]
-    import_statement: str     # 原始导入语句文本
+    module_path: str  # e.g. "apps.cases.models"
+    target_module: str  # e.g. "cases"
+    imported_names: list[str]  # e.g. ["Case", "CaseLog"]
+    import_statement: str  # 原始导入语句文本
 
 
 @dataclass
@@ -91,7 +90,7 @@ class ModelUsage:
     """Model 在代码中的使用信息"""
 
     model_name: str
-    usage_type: str           # "orm_call", "type_annotation", "argument", "other"
+    usage_type: str  # "orm_call", "type_annotation", "argument", "other"
     orm_method: Optional[str] = None  # e.g. "get", "filter"
     line_number: int = 0
     code_snippet: str = ""
@@ -103,8 +102,8 @@ class ReplacementSpec:
     """单个替换操作的规格"""
 
     model_name: str
-    getter_method: str        # e.g. "get_case_service"
-    service_method: str       # e.g. "get_case_internal"
+    getter_method: str  # e.g. "get_case_service"
+    service_method: str  # e.g. "get_case_internal"
     original_code: str
     replacement_code: str
     line_number: int
@@ -246,7 +245,9 @@ class ServiceRefactoringEngine:
 
         # 步骤1: 识别跨模块导入
         plan.cross_module_imports = self._find_cross_module_imports(
-            tree, source, file_path,
+            tree,
+            source,
+            file_path,
         )
         if not plan.cross_module_imports:
             logger.info("文件无跨模块导入: %s", file_path)
@@ -266,20 +267,19 @@ class ServiceRefactoringEngine:
 
         # 步骤2: 分析 Model 使用方式
         plan.model_usages = self._find_model_usages(
-            tree, source, all_imported_models,
+            tree,
+            source,
+            all_imported_models,
         )
 
         # 步骤3: 生成替换规格
         plan.replacements = self._generate_replacements(plan.model_usages)
 
         # 判断是否需要添加 ServiceLocator 导入
-        plan.needs_service_locator_import = any(
-            not r.needs_manual_review for r in plan.replacements
-        )
+        plan.needs_service_locator_import = any(not r.needs_manual_review for r in plan.replacements)
 
         logger.info(
-            "文件分析完成: %s — %d 个跨模块导入, %d 个 Model 使用, "
-            "%d 个可自动替换, %d 个需人工审查",
+            "文件分析完成: %s — %d 个跨模块导入, %d 个 Model 使用, " "%d 个可自动替换, %d 个需人工审查",
             file_path,
             len(plan.cross_module_imports),
             len(plan.model_usages),
@@ -335,18 +335,12 @@ class ServiceRefactoringEngine:
             )
 
         # 检查所有导入的 Model 是否都有 getter
-        models_without_getter = [
-            name for name in target_import.imported_names
-            if name not in _MODEL_GETTER_MAP
-        ]
+        models_without_getter = [name for name in target_import.imported_names if name not in _MODEL_GETTER_MAP]
         if models_without_getter:
             return RefactoringResult(
                 success=False,
                 file_path=violation.file_path,
-                error_message=(
-                    f"以下 Model 没有对应的 ServiceLocator getter: "
-                    f"{', '.join(models_without_getter)}"
-                ),
+                error_message=(f"以下 Model 没有对应的 ServiceLocator getter: " f"{', '.join(models_without_getter)}"),
             )
 
         # 分析 Model 使用方式
@@ -360,14 +354,9 @@ class ServiceRefactoringEngine:
 
         for repl in replacements:
             if repl.needs_manual_review:
-                manual_reviews.append(
-                    f"第 {repl.line_number} 行: {repl.review_reason}"
-                )
+                manual_reviews.append(f"第 {repl.line_number} 行: {repl.review_reason}")
             else:
-                changes.append(
-                    f"第 {repl.line_number} 行: {repl.original_code} → "
-                    f"{repl.replacement_code}"
-                )
+                changes.append(f"第 {repl.line_number} 行: {repl.original_code} → " f"{repl.replacement_code}")
 
         # 添加导入变更
         changes.insert(
@@ -431,13 +420,15 @@ class ServiceRefactoringEngine:
             imported_names = [alias.name for alias in (node.names or [])]
             import_stmt = _get_source_line(source, node.lineno)
 
-            imports.append(CrossModuleImport(
-                line_number=node.lineno,
-                module_path=node.module,
-                target_module=target_module,
-                imported_names=imported_names,
-                import_statement=import_stmt,
-            ))
+            imports.append(
+                CrossModuleImport(
+                    line_number=node.lineno,
+                    module_path=node.module,
+                    target_module=target_module,
+                    imported_names=imported_names,
+                    import_statement=import_stmt,
+                )
+            )
 
         return imports
 
@@ -489,12 +480,14 @@ class ServiceRefactoringEngine:
 
         # 添加类型注解使用
         for model_name, lineno in sorted(annotation_lines):
-            usages.append(ModelUsage(
-                model_name=model_name,
-                usage_type="type_annotation",
-                line_number=lineno,
-                code_snippet=_get_source_line(source, lineno),
-            ))
+            usages.append(
+                ModelUsage(
+                    model_name=model_name,
+                    usage_type="type_annotation",
+                    line_number=lineno,
+                    code_snippet=_get_source_line(source, lineno),
+                )
+            )
 
         return usages
 
@@ -653,17 +646,23 @@ class ServiceRefactoringEngine:
                 for arg in node.args.args + node.args.kwonlyargs:
                     if arg.annotation is not None:
                         self._check_annotation_node(
-                            arg.annotation, model_names, result,
+                            arg.annotation,
+                            model_names,
+                            result,
                         )
                 if node.returns is not None:
                     self._check_annotation_node(
-                        node.returns, model_names, result,
+                        node.returns,
+                        model_names,
+                        result,
                     )
 
             # 变量注解
             if isinstance(node, ast.AnnAssign) and node.annotation is not None:
                 self._check_annotation_node(
-                    node.annotation, model_names, result,
+                    node.annotation,
+                    model_names,
+                    result,
                 )
 
     def _check_annotation_node(
@@ -751,10 +750,7 @@ class ServiceRefactoringEngine:
                 replacement_code="",
                 line_number=usage.line_number,
                 needs_manual_review=True,
-                review_reason=(
-                    f"{usage.model_name} 用作类型注解，"
-                    f"建议替换为 Protocol 类型或保留"
-                ),
+                review_reason=(f"{usage.model_name} 用作类型注解，" f"建议替换为 Protocol 类型或保留"),
             )
 
         if usage.usage_type == "orm_call":
@@ -769,9 +765,7 @@ class ServiceRefactoringEngine:
             replacement_code="",
             line_number=usage.line_number,
             needs_manual_review=True,
-            review_reason=(
-                f"{usage.model_name} 的使用方式无法自动重构，需要人工审查"
-            ),
+            review_reason=(f"{usage.model_name} 的使用方式无法自动重构，需要人工审查"),
         )
 
     def _generate_orm_replacement(
@@ -799,8 +793,7 @@ class ServiceRefactoringEngine:
                 line_number=usage.line_number,
                 needs_manual_review=True,
                 review_reason=(
-                    f"{usage.model_name} 没有对应的 ServiceLocator getter，"
-                    f"需要先在 ServiceLocator 中注册"
+                    f"{usage.model_name} 没有对应的 ServiceLocator getter，" f"需要先在 ServiceLocator 中注册"
                 ),
             )
 
@@ -813,10 +806,7 @@ class ServiceRefactoringEngine:
                 replacement_code="",
                 line_number=usage.line_number,
                 needs_manual_review=True,
-                review_reason=(
-                    f"{usage.model_name} 的链式 ORM 调用需要人工审查，"
-                    f"查询优化应在 Service 层内部处理"
-                ),
+                review_reason=(f"{usage.model_name} 的链式 ORM 调用需要人工审查，" f"查询优化应在 Service 层内部处理"),
             )
 
         orm_method = usage.orm_method or "all"

@@ -39,4 +39,3 @@ def test_auth_none_is_only_used_for_register_endpoint():
                     violations.append(f"{py_file}:{fn_name}")
 
     assert not violations, "Unexpected auth=None usages:\n" + "\n".join(sorted(violations))
-

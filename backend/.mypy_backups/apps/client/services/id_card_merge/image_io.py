@@ -1,17 +1,17 @@
 """Business logic services."""
+
 from __future__ import annotations
 
+import logging
 import os
 import uuid
+from typing import Any, Optional
 
 import cv2
 import numpy as np
-from typing import Any, Optional
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.path import Path
-
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,12 @@
 """Business logic services."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from apps.cases.models import CaseLogVersion
 
 from .case_log_query_service import CaseLogQueryService
-from typing import Any
 
 
 class CaseLogVersionService:
@@ -16,7 +18,7 @@ class CaseLogVersionService:
         *,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:
         log = self.query_service.get_log_internal(log_id=log_id)

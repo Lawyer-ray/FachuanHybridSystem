@@ -6,7 +6,9 @@ def test_enhanced_opposing_party_uses_contract_opposing_party_ids():
     from apps.cases.models import Case, CaseParty
     from apps.client.models import Client
     from apps.contracts.models import Contract, ContractParty
-    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import EnhancedOpposingPartyService
+    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
+        EnhancedOpposingPartyService,
+    )
 
     our_client = Client.objects.create(name="我方公司", legal_representative="张三", is_our_client=True)
     opposing_client = Client.objects.create(name="对方公司", legal_representative="李四", is_our_client=False)
@@ -29,7 +31,9 @@ def test_enhanced_opposing_party_multiple_cases_formats_count():
     from apps.cases.models import Case, CaseParty
     from apps.client.models import Client
     from apps.contracts.models import Contract, ContractParty
-    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import EnhancedOpposingPartyService
+    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
+        EnhancedOpposingPartyService,
+    )
 
     our_client = Client.objects.create(name="我方公司", legal_representative="张三", is_our_client=True)
     opposing_client = Client.objects.create(name="对方公司", legal_representative="李四", is_our_client=False)
@@ -56,7 +60,9 @@ def test_enhanced_opposing_party_falls_back_to_non_our_clients_when_contract_has
     from apps.cases.models import Case, CaseParty
     from apps.client.models import Client
     from apps.contracts.models import Contract, ContractParty
-    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import EnhancedOpposingPartyService
+    from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
+        EnhancedOpposingPartyService,
+    )
 
     our_client = Client.objects.create(name="我方公司", legal_representative="张三", is_our_client=True)
     other_client = Client.objects.create(name="第三方", legal_representative="王五", is_our_client=False)
@@ -71,4 +77,3 @@ def test_enhanced_opposing_party_falls_back_to_non_our_clients_when_contract_has
     service = EnhancedOpposingPartyService()
     result = service.generate({"contract": contract})["对方当事人名称案由与案件数量"]
     assert result == "第三方合同纠纷一案"
-

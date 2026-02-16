@@ -28,4 +28,3 @@ def test_placeholder_context_service_complaint_keys(monkeypatch):
     assert blocks[LitigationPlaceholderKeys.COURT] == "北京市朝阳区人民法院"
     assert LitigationPlaceholderKeys.COMPLAINT_PARTY in blocks
     assert LitigationPlaceholderKeys.COMPLAINT_SIGNATURE in blocks
-

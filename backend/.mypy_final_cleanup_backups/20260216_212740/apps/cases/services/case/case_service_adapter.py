@@ -1,7 +1,6 @@
 """Business logic services."""
+
 from __future__ import annotations
-
-
 
 from typing import TYPE_CHECKING, Any, cast
 
@@ -51,13 +50,11 @@ class CaseServiceAdapter:
 
     def get_primary_lawyer_names_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self.service.internal_query_service.get_primary_lawyer_names_by_case_ids_internal(case_ids=case_ids)
-    def search_cases_for_binding_internal(
-        self, search_term: str = "", limit: int = 20
-    ) -> list[dict[str, Any]]:
+
+    def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
         return self.service.internal_query_service.search_cases_for_binding_internal(
             search_term=search_term, limit=limit
         )
-
 
     def get_primary_case_numbers_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self.service.internal_query_service.get_primary_case_numbers_by_case_ids_internal(case_ids=case_ids)
@@ -78,7 +75,7 @@ class CaseServiceAdapter:
         self,
         data: dict[str, Any],
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseDTO:
         if user is None and not perm_open_access:
@@ -122,7 +119,9 @@ class CaseServiceAdapter:
     def search_cases_by_case_number_internal(self, case_number: str) -> Any:
         return self.service.internal_query_service.search_cases_by_case_number_internal(case_number=case_number)
 
-    def list_cases_internal(self, status: str | None = None, limit: int | None = None, order_by: str = "-start_date") -> Any:
+    def list_cases_internal(
+        self, status: str | None = None, limit: int | None = None, order_by: str = "-start_date"
+    ) -> Any:
         return self.service.internal_query_service.list_cases_internal(status=status, limit=limit, order_by=order_by)
 
     def search_cases_internal(self, query: str, status: str | None = None, limit: int = 30) -> Any:
@@ -168,9 +167,7 @@ class CaseServiceAdapter:
     def get_case_parties_internal(self, case_id: int, legal_status: str | None = None) -> Any:
         return self.service.party_query_service.get_case_parties_internal(case_id=case_id, legal_status=legal_status)
 
-    def get_case_template_bindings_by_name_internal(
-        self, case_id: int, template_name: str
-    ) -> Any:
+    def get_case_template_bindings_by_name_internal(self, case_id: int, template_name: str) -> Any:
         return self.service.template_binding_query_service.get_case_template_bindings_by_name_internal(
             case_id=case_id, template_name=template_name
         )

@@ -1,13 +1,13 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 import random
 import string
 import time
+from typing import Any, Optional
 
 from apps.documents.models import FolderTemplate
-from typing import Optional
-from typing import Any
 
 
 class FolderTemplateIdService:

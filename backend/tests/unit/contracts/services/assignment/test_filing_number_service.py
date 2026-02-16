@@ -25,4 +25,3 @@ def test_generate_contract_filing_number_on_sqlite_does_not_fail():
         contract_id=contract2.id, case_type=contract2.case_type, created_year=created_year
     )
     assert filing_number2.endswith("_2")
-

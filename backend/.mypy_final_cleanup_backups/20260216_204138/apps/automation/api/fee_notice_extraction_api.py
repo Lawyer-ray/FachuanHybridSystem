@@ -1,4 +1,5 @@
 """API endpoints."""
+
 from __future__ import annotations
 
 """
@@ -11,12 +12,11 @@ Requirements: 1.1, 2.1, 5.1-5.5
 
 import logging
 import uuid
+from typing import Any, ClassVar, Dict, cast
 
 from django.http import HttpRequest
 from ninja import File, Router, Schema
 from ninja.files import UploadedFile
-from typing import ClassVar, Any, cast, Dict
-
 
 logger = logging.getLogger("apps.automation.api")
 
@@ -154,7 +154,9 @@ class FeeComparisonResponse(Schema):
 # ============================================================
 
 
-def extract_fee_notices(request: HttpRequest, files: list[UploadedFile] = File(...),
+def extract_fee_notices(
+    request: HttpRequest,
+    files: list[UploadedFile] = File(...),
     debug: bool = False,
 ) -> FeeNoticeExtractionResponse:
     """从上传的 PDF 文件中提取交费通知书信息"""
@@ -167,8 +169,12 @@ def extract_fee_notices(request: HttpRequest, files: list[UploadedFile] = File(.
 
     if not saved_files:
         return FeeNoticeExtractionResponse(  # type: ignore[call-arg]
-            success=False, notices=[], total_files=len(files), total_notices=0,
-            errors=file_errors, debug_logs=[] if debug else None,
+            success=False,
+            notices=[],
+            total_files=len(files),
+            total_notices=0,
+            errors=file_errors,
+            debug_logs=[] if debug else None,
         )
 
     result = service.extract_from_files(file_paths=[str(p) for p in saved_files], debug=debug)
@@ -177,16 +183,26 @@ def extract_fee_notices(request: HttpRequest, files: list[UploadedFile] = File(.
     all_errors = file_errors + result.errors
     notices: list[Any] = []
 
-    logger.info("交费通知书提取完成", extra={
-        "batch_id": batch_id, "total_files": len(files),
-        "total_notices": len(notices), "errors_count": len(all_errors),
-    })
+    logger.info(
+        "交费通知书提取完成",
+        extra={
+            "batch_id": batch_id,
+            "total_files": len(files),
+            "total_notices": len(notices),
+            "errors_count": len(all_errors),
+        },
+    )
 
     return FeeNoticeExtractionResponse(  # type: ignore[call-arg]
         success=len(all_errors) == 0 or len(notices) > 0,
-        notices=notices, total_files=len(files), total_notices=len(notices),
-        errors=all_errors, debug_logs=result.debug_logs if debug else None,
+        notices=notices,
+        total_files=len(files),
+        total_notices=len(notices),
+        errors=all_errors,
+        debug_logs=result.debug_logs if debug else None,
     )
+
+
 def _convert_notice_to_schema(notice: Any, debug: bool) -> FeeNoticeSchema:
     """将提取结果转换为响应 Schema"""
     return FeeNoticeSchema(
@@ -224,7 +240,7 @@ def search_cases(request: HttpRequest, keyword: str = "") -> CaseSearchResponse:
 
     logger.info(
         "案件搜索请求",
-        extra= {
+        extra={
             "keyword": keyword,
             "action": "search_cases",
         },
@@ -273,7 +289,7 @@ def compare_fee(request: HttpRequest, payload: FeeComparisonRequest) -> FeeCompa
 
     logger.info(
         "费用比对请求",
-        extra= {
+        extra={
             "case_id": cast(int, payload.case_id),
             "extracted_acceptance_fee": payload.extracted_acceptance_fee,
             "extracted_preservation_fee": payload.extracted_preservation_fee,

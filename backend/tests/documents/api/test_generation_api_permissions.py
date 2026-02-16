@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 

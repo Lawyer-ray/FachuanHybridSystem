@@ -14,6 +14,7 @@ import re
 from typing import NamedTuple
 
 import pytest
+
 from apps.core.path import Path
 
 
@@ -121,10 +122,6 @@ def test_api_layer_no_model_objects_calls() -> None:
             continue
         all_violations.extend(_scan_file_for_violations(file_path, backend_path))
 
-    assert not all_violations, (
-        f"API 层发现 {len(all_violations)} 处 Model.objects 直接调用违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} [{v.pattern}] {v.line_content}"
-            for v in all_violations
-        )
+    assert not all_violations, f"API 层发现 {len(all_violations)} 处 Model.objects 直接调用违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} [{v.pattern}] {v.line_content}" for v in all_violations
     )

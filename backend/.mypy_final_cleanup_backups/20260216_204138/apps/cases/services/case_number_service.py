@@ -2,14 +2,17 @@
 案件案号服务层
 处理案件案号相关的业务逻辑
 """
-from typing import Optional, Dict, Any
+
+import logging
+from typing import Any, Dict, Optional
+
 from django.db import transaction
 from django.db.models import QuerySet
-import logging
 
-from apps.core.exceptions import NotFoundError, ConflictError, ValidationException
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
-from ..models import CaseNumber, Case
+
+from ..models import Case, CaseNumber
 
 logger = logging.getLogger("apps.cases")
 
@@ -69,8 +72,8 @@ class CaseNumberService:
                 "action": "list_numbers",
                 "case_id": case_id,
                 "user_id": getattr(user, "id", None) if user else None,
-                "count": qs.count()
-            }
+                "count": qs.count(),
+            },
         )
 
         return qs
@@ -103,8 +106,8 @@ class CaseNumberService:
                     "number_id": number_id,
                     "case_id": case_number.case_id,
                     "number": case_number.number,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
 
             return case_number  # type: ignore[no-any-return]
@@ -114,13 +117,13 @@ class CaseNumberService:
                 extra={
                     "action": "get_number",
                     "number_id": number_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
-                errors={"number_id": f"ID 为 {number_id} 的案号不存在"}
+                errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             )
 
     @transaction.atomic
@@ -157,32 +160,24 @@ class CaseNumberService:
                     "action": "create_number",
                     "case_id": case_id,
                     "number": number,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
-                message="案件不存在",
-                code="CASE_NOT_FOUND",
-                errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         # 验证案号不能为空
         if not number or not number.strip():
             raise ValidationException(
-                message="案号不能为空",
-                code="INVALID_CASE_NUMBER",
-                errors={"number": "案号不能为空"}
+                message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
             )
 
         # 规范化案号
         normalized_number = self.normalize_case_number(number)
 
         # 创建案号
-        case_number = CaseNumber.objects.create(
-            case=case,
-            number=normalized_number,
-            remarks=remarks
-        )
+        case_number = CaseNumber.objects.create(case=case, number=normalized_number, remarks=remarks)
 
         logger.info(
             f"创建案号成功",
@@ -192,8 +187,8 @@ class CaseNumberService:
                 "case_id": case_id,
                 "original_number": number,
                 "normalized_number": normalized_number,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return case_number
@@ -228,13 +223,13 @@ class CaseNumberService:
                 extra={
                     "action": "update_number",
                     "number_id": number_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
-                errors={"number_id": f"ID 为 {number_id} 的案号不存在"}
+                errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             )
 
         # 验证案件是否存在（如果更新了 case_id）
@@ -244,9 +239,7 @@ class CaseNumberService:
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist:
                 raise NotFoundError(
-                    message="案件不存在",
-                    code="CASE_NOT_FOUND",
-                    errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 )
 
         # 规范化案号（如果更新了 number）
@@ -254,9 +247,7 @@ class CaseNumberService:
         if number is not None:
             if not number or not number.strip():
                 raise ValidationException(
-                    message="案号不能为空",
-                    code="INVALID_CASE_NUMBER",
-                    errors={"number": "案号不能为空"}
+                    message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
                 )
             data["number"] = self.normalize_case_number(number)
 
@@ -276,8 +267,8 @@ class CaseNumberService:
                 "case_id": case_number.case_id,
                 "original_number": original_number,
                 "new_number": case_number.number,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return case_number  # type: ignore[no-any-return]
@@ -309,13 +300,13 @@ class CaseNumberService:
                 extra={
                     "action": "delete_number",
                     "number_id": number_id,
-                    "user_id": getattr(user, "id", None) if user else None
-                }
+                    "user_id": getattr(user, "id", None) if user else None,
+                },
             )
             raise NotFoundError(
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
-                errors={"number_id": f"ID 为 {number_id} 的案号不存在"}
+                errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             )
 
         case_id = case_number.case_id
@@ -330,8 +321,8 @@ class CaseNumberService:
                 "number_id": number_id,
                 "case_id": case_id,
                 "number": number,
-                "user_id": getattr(user, "id", None) if user else None
-            }
+                "user_id": getattr(user, "id", None) if user else None,
+            },
         )
 
         return {"success": True}

@@ -4,6 +4,7 @@ business_logic_extractor 单元测试
 测试 BusinessLogicExtractor 从 save() 方法分析结果中
 提取业务逻辑、生成 Service 方法模板和清理后的 save()/clean() 方法。
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -14,18 +15,18 @@ from .business_logic_extractor import (
     BusinessLogicExtractor,
     ExtractedServiceMethod,
     SaveMethodRefactoring,
-    format_service_method_template,
     _derive_method_name_from_description,
     _rewrite_self_to_param,
     _to_snake_case,
+    format_service_method_template,
 )
 from .save_method_analyzer import (
     BLOCK_BUSINESS_LOGIC,
     BLOCK_DATA_VALIDATION,
     BLOCK_FIELD_ASSIGNMENT,
     BLOCK_SUPER_CALL,
-    SaveMethodAnalyzer,
     SaveMethodAnalysis,
+    SaveMethodAnalyzer,
 )
 
 
@@ -128,14 +129,16 @@ class TestExtractBusinessLogic:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """提取单个业务逻辑块"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Contract(models.Model):
                 def save(self, *args, **kwargs):
                     super().save(*args, **kwargs)
                     ContractFinanceLog.objects.create(contract=self, amount=100)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         assert len(analyses) == 1
 
@@ -158,7 +161,8 @@ class TestExtractBusinessLogic:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """提取多个业务逻辑块"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Order(models.Model):
@@ -166,7 +170,8 @@ class TestExtractBusinessLogic:
                     super().save(*args, **kwargs)
                     OrderLog.objects.create(order=self, action="saved")
                     self.notify("order_saved")
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -181,14 +186,16 @@ class TestExtractBusinessLogic:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """无业务逻辑时返回空的 service_methods"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class MyModel(models.Model):
                 def save(self, *args, **kwargs):
                     self.name = self.name.strip()
                     super().save(*args, **kwargs)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -204,7 +211,8 @@ class TestCleanedSaveGeneration:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """清理后的 save() 保留字段赋值和 super 调用"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Contract(models.Model):
@@ -212,7 +220,8 @@ class TestCleanedSaveGeneration:
                     self.status = "pending"
                     super().save(*args, **kwargs)
                     ContractLog.objects.create(contract=self)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -229,7 +238,8 @@ class TestCleanedSaveGeneration:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """清理后的 save() 移除所有业务逻辑"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Order(models.Model):
@@ -237,7 +247,8 @@ class TestCleanedSaveGeneration:
                     super().save(*args, **kwargs)
                     OrderLog.objects.create(order=self)
                     self.notify("saved")
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -256,7 +267,8 @@ class TestCleanMethodGeneration:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """验证逻辑应被提取到 clean() 方法"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
             from django.core.exceptions import ValidationError
 
@@ -266,7 +278,8 @@ class TestCleanMethodGeneration:
                         raise ValidationError("name required")
                     super().save(*args, **kwargs)
                     ContractLog.objects.create(contract=self)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -280,14 +293,16 @@ class TestCleanMethodGeneration:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """无验证逻辑时不生成 clean() 方法"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Contract(models.Model):
                 def save(self, *args, **kwargs):
                     super().save(*args, **kwargs)
                     ContractLog.objects.create(contract=self)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 
@@ -303,7 +318,8 @@ class TestExtractFromFile:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """跳过没有业务逻辑的 Model"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class SimpleModel(models.Model):
@@ -315,9 +331,11 @@ class TestExtractFromFile:
                 def save(self, *args, **kwargs):
                     super().save(*args, **kwargs)
                     AuditLog.objects.create(model=self)
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         from pathlib import Path
+
         results = extractor.extract_from_file(Path("<test>"), analyses)
 
         # 只有 ComplexModel 有业务逻辑
@@ -363,7 +381,8 @@ class TestDuplicateMethodNames:
         extractor: BusinessLogicExtractor,
     ) -> None:
         """相同描述的业务逻辑块应生成不同的方法名"""
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             from django.db import models
 
             class Order(models.Model):
@@ -371,7 +390,8 @@ class TestDuplicateMethodNames:
                     super().save(*args, **kwargs)
                     AuditLog.objects.create(order=self, action="a")
                     AuditLog.objects.create(order=self, action="b")
-        """)
+        """
+        )
         analyses = analyzer.analyze_source(source)
         result = extractor.extract(analyses[0])
 

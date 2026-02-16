@@ -100,14 +100,8 @@ def test_api_layer_no_try_except() -> None:
         rel: str = os.path.relpath(str(file_path), str(backend_path))
         if rel in ALLOWLIST:
             continue
-        all_violations.extend(
-            _scan_file_for_try_except(file_path, backend_path)
-        )
+        all_violations.extend(_scan_file_for_try_except(file_path, backend_path))
 
-    assert not all_violations, (
-        f"API 层发现 {len(all_violations)} 处 try/except 违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} {v.line_content}"
-            for v in all_violations
-        )
+    assert not all_violations, f"API 层发现 {len(all_violations)} 处 try/except 违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} {v.line_content}" for v in all_violations
     )

@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -8,9 +9,10 @@ from __future__ import annotations
 
 Requirements: 2.1, 2.2, 2.3, 2.5, 2.6, 2.7, 2.9, 2.10
 """
+import logging
 from typing import Any, Optional, cast
 
-import logging
+from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.exceptions import NotFoundError
 from apps.core.path import Path
@@ -21,7 +23,6 @@ from apps.documents.services.document_template.placeholder_extractor import (
 from apps.documents.services.document_template.repo import DocumentTemplateRepo
 from apps.documents.services.document_template.validation_service import DocumentTemplateValidationService
 from apps.documents.services.document_template.workflow import DocumentTemplateWorkflow
-from django.core.files.uploadedfile import UploadedFile
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,8 @@ class DocumentTemplateService:
                 return None
         except Exception:
             logger.exception(
-                "get_full_file_path_failed", extra={"template_id": cast(int, template.pk), "template_name": template.name}
+                "get_full_file_path_failed",
+                extra={"template_id": cast(int, template.pk), "template_name": template.name},
             )
             raise
 

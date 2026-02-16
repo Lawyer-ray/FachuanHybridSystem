@@ -8,14 +8,15 @@
 此命令用于预先下载模型以避免首次使用时的延迟.
 """
 
-from django.core.management.base import BaseCommand
 import logging
+
+from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help : str = "预下载 PP-OCRv5 Server 模型文件"
+    help: str = "预下载 PP-OCRv5 Server 模型文件"
 
     def handle(self, *args, **options) -> None:
         self.stdout.write("正在初始化 PP-OCRv5 Server 模型...")

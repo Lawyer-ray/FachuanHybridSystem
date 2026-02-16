@@ -1,4 +1,5 @@
 """API endpoints."""
+
 from __future__ import annotations
 
 """
@@ -15,8 +16,8 @@ from typing import Any, Dict
 from django.http import HttpRequest
 from ninja import File, Router, Schema
 from ninja.files import UploadedFile
-from apps.core.infrastructure.throttling import rate_limit_from_settings
 
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger("apps.automation.api")
 
@@ -98,7 +99,9 @@ class PreservationDateExtractionResponse(Schema):
 
 @router.post("/extract", response=PreservationDateExtractionResponse)
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def extract_preservation_dates(request: HttpRequest, file: UploadedFile = File(...),
+def extract_preservation_dates(
+    request: HttpRequest,
+    file: UploadedFile = File(...),
 ) -> PreservationDateExtractionResponse:
     """
     从上传的 PDF 文件中提取财产保全日期
@@ -120,7 +123,7 @@ def extract_preservation_dates(request: HttpRequest, file: UploadedFile = File(.
     if not file.name.lower().endswith(".pdf"):
         logger.warning(
             "不支持的文件格式",
-            extra= {
+            extra={
                 "file_name": file.name,
                 "action": "extract_preservation_dates",
             },
@@ -167,7 +170,7 @@ def extract_preservation_dates(request: HttpRequest, file: UploadedFile = File(.
 
     logger.info(
         "财产保全日期提取完成",
-        extra= {
+        extra={
             "measures_count": len(measures),
             "reminders_count": len(reminders),
             "model_used": result.model_used,

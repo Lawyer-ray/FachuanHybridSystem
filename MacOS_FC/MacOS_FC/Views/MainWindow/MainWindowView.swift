@@ -12,7 +12,7 @@ struct MainWindowView: View {
     @State private var isLoading = false
     @State private var canGoBack = false
     @State private var canGoForward = false
-    
+
     var body: some View {
         MainTabViewHost(
             isLoading: $isLoading,

@@ -9,6 +9,7 @@ Model层 save() 方法分析器
 
 分析结果包含分类后的代码块列表、业务逻辑摘要和提取建议。
 """
+
 from __future__ import annotations
 
 import ast
@@ -31,6 +32,7 @@ BLOCK_FIELD_ASSIGNMENT: str = "field_assignment"
 
 
 # ── 数据模型 ────────────────────────────────────────────────
+
 
 @dataclass
 class SaveMethodBlock:
@@ -58,53 +60,79 @@ class SaveMethodAnalysis:
 
 # ── Django Model基类名称 ────────────────────────────────────
 
-_DJANGO_MODEL_BASES: frozenset[str] = frozenset({
-    "Model",
-    "models.Model",
-    "AbstractBaseUser",
-    "AbstractUser",
-    "PermissionsMixin",
-})
+_DJANGO_MODEL_BASES: frozenset[str] = frozenset(
+    {
+        "Model",
+        "models.Model",
+        "AbstractBaseUser",
+        "AbstractUser",
+        "PermissionsMixin",
+    }
+)
 
 # ── 验证相关的方法/属性名 ──────────────────────────────────
 
-_VALIDATION_METHODS: frozenset[str] = frozenset({
-    "full_clean",
-    "clean",
-    "clean_fields",
-    "validate_unique",
-    "validate_constraints",
-})
+_VALIDATION_METHODS: frozenset[str] = frozenset(
+    {
+        "full_clean",
+        "clean",
+        "clean_fields",
+        "validate_unique",
+        "validate_constraints",
+    }
+)
 
 # ── 外部服务调用的属性名模式 ────────────────────────────────
 
-_EXTERNAL_SERVICE_ATTRS: frozenset[str] = frozenset({
-    "send",
-    "send_mail",
-    "send_email",
-    "notify",
-    "publish",
-    "dispatch",
-    "emit",
-    "request",
-    "post",
-    "put",
-    "call",
-})
+_EXTERNAL_SERVICE_ATTRS: frozenset[str] = frozenset(
+    {
+        "send",
+        "send_mail",
+        "send_email",
+        "notify",
+        "publish",
+        "dispatch",
+        "emit",
+        "request",
+        "post",
+        "put",
+        "call",
+    }
+)
 
 # ── 算术运算符 ─────────────────────────────────────────────
 
 _ARITHMETIC_OPS: tuple[type, ...] = (
-    ast.Add, ast.Sub, ast.Mult, ast.Div,
-    ast.FloorDiv, ast.Mod, ast.Pow,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
 )
 
 # ── 简单内置函数（用于字段赋值判断）──────────────────────────
 
-_SIMPLE_BUILTINS: frozenset[str] = frozenset({
-    "str", "int", "float", "bool", "len", "round", "abs",
-    "max", "min", "sum", "sorted", "list", "tuple", "dict", "set",
-})
+_SIMPLE_BUILTINS: frozenset[str] = frozenset(
+    {
+        "str",
+        "int",
+        "float",
+        "bool",
+        "len",
+        "round",
+        "abs",
+        "max",
+        "min",
+        "sum",
+        "sorted",
+        "list",
+        "tuple",
+        "dict",
+        "set",
+    }
+)
 
 
 class SaveMethodAnalyzer:
@@ -249,7 +277,8 @@ class SaveMethodAnalyzer:
         has_business_logic = len(biz_blocks) > 0
         business_logic_summary = [b.description for b in biz_blocks]
         extraction_recommendations = self._generate_recommendations(
-            blocks, model_name,
+            blocks,
+            model_name,
         )
 
         analysis = SaveMethodAnalysis(
@@ -394,20 +423,14 @@ class SaveMethodAnalyzer:
             return recommendations
 
         service_name = f"{model_name}Service"
-        recommendations.append(
-            f"将 {len(biz_blocks)} 个业务逻辑块提取到 {service_name}"
-        )
+        recommendations.append(f"将 {len(biz_blocks)} 个业务逻辑块提取到 {service_name}")
 
         for block in biz_blocks:
-            recommendations.append(
-                f"  - 行 {block.line_start}-{block.line_end}: {block.description}"
-            )
+            recommendations.append(f"  - 行 {block.line_start}-{block.line_end}: {block.description}")
 
         val_blocks = [b for b in blocks if b.block_type == BLOCK_DATA_VALIDATION]
         if val_blocks:
-            recommendations.append(
-                f"保留 {len(val_blocks)} 个数据验证块在 {model_name}.clean() 中"
-            )
+            recommendations.append(f"保留 {len(val_blocks)} 个数据验证块在 {model_name}.clean() 中")
 
         return recommendations
 
@@ -531,11 +554,7 @@ def _is_docstring(stmt: ast.stmt) -> bool:
     Returns:
         True 表示是文档字符串
     """
-    return (
-        isinstance(stmt, ast.Expr)
-        and isinstance(stmt.value, ast.Constant)
-        and isinstance(stmt.value.value, str)
-    )
+    return isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str)
 
 
 def _is_super_save_call(stmt: ast.stmt) -> bool:
@@ -719,8 +738,7 @@ def _rhs_contains_business_logic(
 
     # 检查复杂计算
     arith_count = sum(
-        1 for node in ast.walk(value)
-        if isinstance(node, ast.BinOp) and isinstance(node.op, _ARITHMETIC_OPS)
+        1 for node in ast.walk(value) if isinstance(node, ast.BinOp) and isinstance(node.op, _ARITHMETIC_OPS)
     )
     if arith_count >= 3:
         return True
@@ -768,8 +786,7 @@ def _detect_business_logic_pattern(
 
     # 复杂计算
     arith_count = sum(
-        1 for node in ast.walk(stmt)
-        if isinstance(node, ast.BinOp) and isinstance(node.op, _ARITHMETIC_OPS)
+        1 for node in ast.walk(stmt) if isinstance(node, ast.BinOp) and isinstance(node.op, _ARITHMETIC_OPS)
     )
     if arith_count >= 3:
         descriptions.append(f"复杂计算逻辑（{arith_count}个算术运算）")

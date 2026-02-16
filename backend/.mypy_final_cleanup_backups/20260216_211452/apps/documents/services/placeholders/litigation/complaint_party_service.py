@@ -6,12 +6,11 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 8.3, 9.1, 9.2
 
 import logging
 from collections import defaultdict
-
-from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
+from typing import Any, ClassVar
 
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
-from typing import ClassVar, Any
+from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +19,10 @@ logger = logging.getLogger(__name__)
 class ComplaintPartyService(BasePlaceholderService):
     """起诉状当事人信息服务"""
 
-    name : str = "litigation_complaint_party_service"
-    display_name : str = "诉讼文书-起诉状当事人信息"
-    description : str = "生成起诉状模板中的当事人信息占位符"
-    category : str = "litigation"
+    name: str = "litigation_complaint_party_service"
+    display_name: str = "诉讼文书-起诉状当事人信息"
+    description: str = "生成起诉状模板中的当事人信息占位符"
+    category: str = "litigation"
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.COMPLAINT_PARTY]
 
     def __init__(self) -> None:

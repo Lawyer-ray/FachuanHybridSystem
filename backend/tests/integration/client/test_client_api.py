@@ -1,9 +1,10 @@
 """
 客户 API 集成测试
 """
+
 import pytest
-from django.test import Client as HttpClient
 from django.contrib.auth import get_user_model
+from django.test import Client as HttpClient
 
 from apps.client.models import Client
 from apps.organization.models import LawFirm
@@ -52,9 +53,7 @@ class TestClientAPI:
         ClientFactory(client_type=Client.LEGAL, is_our_client=False)
 
         # 测试按类型过滤
-        response = self.http_client.get(
-            f"/api/v1/client/clients?client_type={Client.NATURAL}"
-        )
+        response = self.http_client.get(f"/api/v1/client/clients?client_type={Client.NATURAL}")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
@@ -106,11 +105,7 @@ class TestClientAPI:
         }
 
         # 执行请求
-        response = self.http_client.post(
-            "/api/v1/client/clients",
-            data=data,
-            content_type="application/json"
-        )
+        response = self.http_client.post("/api/v1/client/clients", data=data, content_type="application/json")
 
         # 断言结果
         assert response.status_code == 200
@@ -130,11 +125,7 @@ class TestClientAPI:
         }
 
         # 执行请求
-        response = self.http_client.post(
-            "/api/v1/client/clients",
-            data=data,
-            content_type="application/json"
-        )
+        response = self.http_client.post("/api/v1/client/clients", data=data, content_type="application/json")
 
         # 断言结果
         assert response.status_code == 400
@@ -148,9 +139,7 @@ class TestClientAPI:
 
         # 执行请求
         response = self.http_client.put(
-            f"/api/v1/client/clients/{client.id}",
-            data=data,
-            content_type="application/json"
+            f"/api/v1/client/clients/{client.id}", data=data, content_type="application/json"
         )
 
         # 断言结果
@@ -168,11 +157,7 @@ class TestClientAPI:
         data = {"name": "新名称"}
 
         # 执行请求
-        response = self.http_client.put(
-            "/api/v1/client/clients/99999",
-            data=data,
-            content_type="application/json"
-        )
+        response = self.http_client.put("/api/v1/client/clients/99999", data=data, content_type="application/json")
 
         # 断言结果
         assert response.status_code == 404

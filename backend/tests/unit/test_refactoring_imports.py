@@ -1,6 +1,7 @@
 """
 验证重构后的导入路径是否正常工作
 """
+
 import pytest
 
 
@@ -11,26 +12,27 @@ class TestRefactoringImports:
     def test_cases_models_imports(self):
         """测试 Cases 模块模型导入"""
         from apps.cases.models import (
+            BindingSource,
             Case,
-            CaseNumber,
-            SupervisingAuthority,
-            CaseParty,
-            CaseAssignment,
             CaseAccessGrant,
+            CaseAssignment,
+            CaseChat,
+            CaseFolderBinding,
             CaseLog,
             CaseLogAttachment,
             CaseLogVersion,
-            CaseChat,
-            ChatAuditLog,
+            CaseMaterial,
             CaseMaterialCategory,
+            CaseMaterialGroupOrder,
             CaseMaterialSide,
             CaseMaterialType,
-            CaseMaterial,
-            CaseMaterialGroupOrder,
-            CaseFolderBinding,
-            BindingSource,
+            CaseNumber,
+            CaseParty,
             CaseTemplateBinding,
+            ChatAuditLog,
+            SupervisingAuthority,
         )
+
         # 验证导入成功
         assert Case is not None
         assert CaseNumber is not None
@@ -42,18 +44,19 @@ class TestRefactoringImports:
     def test_cases_services_imports(self):
         """测试 Cases 模块服务导入"""
         from apps.cases.services import (
-            CaseService,
-            CaseAdminService,
             CaseAccessService,
-            CasePartyService,
+            CaseAdminService,
             CaseAssignmentService,
-            CaseNumberService,
-            CaseTemplateBindingService,
             CaseChatService,
             CaseLogService,
             CaseMaterialService,
+            CaseNumberService,
+            CasePartyService,
+            CaseService,
+            CaseTemplateBindingService,
             CauseCourtDataService,
         )
+
         # 验证导入成功
         assert CaseService is not None
         assert CaseAdminService is not None
@@ -64,18 +67,19 @@ class TestRefactoringImports:
         """测试 Contracts 模块模型导入"""
         from apps.contracts.models import (
             Contract,
-            FeeMode,
-            ContractParty,
-            PartyRole,
             ContractAssignment,
-            ContractPayment,
-            InvoiceStatus,
             ContractFinanceLog,
+            ContractFolderBinding,
+            ContractParty,
+            ContractPayment,
+            FeeMode,
+            InvoiceStatus,
             LogLevel,
+            PartyRole,
             SupplementaryAgreement,
             SupplementaryAgreementParty,
-            ContractFolderBinding,
         )
+
         # 验证导入成功
         assert Contract is not None
         assert FeeMode is not None
@@ -88,10 +92,11 @@ class TestRefactoringImports:
         from apps.client.models import (
             Client,
             ClientIdentityDoc,
-            client_identity_doc_upload_path,
             PropertyClue,
             PropertyClueAttachment,
+            client_identity_doc_upload_path,
         )
+
         # 验证导入成功
         assert Client is not None
         assert ClientIdentityDoc is not None
@@ -101,14 +106,15 @@ class TestRefactoringImports:
     def test_organization_models_imports(self):
         """测试 Organization 模块模型导入"""
         from apps.organization.models import (
+            AccountCredential,
             KeepOriginalNameStorage,
             LawFirm,
+            Lawyer,
             Team,
             TeamType,
-            Lawyer,
             lawyer_license_upload_path,
-            AccountCredential,
         )
+
         # 验证导入成功
         assert KeepOriginalNameStorage is not None
         assert LawFirm is not None
@@ -124,9 +130,10 @@ class TestRefactoringImports:
             CacheTimeout,
             HealthChecker,
             PerformanceMonitor,
-            ResourceMonitor,
             RateLimiter,
+            ResourceMonitor,
         )
+
         # 验证导入成功
         assert CacheKeys is not None
         assert CacheTimeout is not None
@@ -138,24 +145,24 @@ class TestRefactoringImports:
     def test_core_legacy_imports_still_work(self):
         """测试 Core 模块旧导入路径仍然有效（向后兼容）"""
         import warnings
-        
+
         # 捕获 deprecation warnings
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            
+
             from apps.core.cache import CacheKeys as CacheKeysLegacy
             from apps.core.health import HealthChecker as HealthCheckerLegacy
             from apps.core.monitoring import PerformanceMonitor as PerformanceMonitorLegacy
             from apps.core.resource_monitor import ResourceMonitor as ResourceMonitorLegacy
             from apps.core.throttling import RateLimiter as RateLimiterLegacy
-            
+
             # 验证导入成功
             assert CacheKeysLegacy is not None
             assert HealthCheckerLegacy is not None
             assert PerformanceMonitorLegacy is not None
             assert ResourceMonitorLegacy is not None
             assert RateLimiterLegacy is not None
-            
+
             # 验证产生了 deprecation warnings
             assert len(w) >= 5
             for warning in w:

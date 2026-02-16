@@ -1,9 +1,11 @@
 """Business logic services."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import (
@@ -14,7 +16,6 @@ from apps.documents.models import (
     GenerationStatus,
     GenerationTask,
 )
-from django.utils import timezone
 
 
 @dataclass

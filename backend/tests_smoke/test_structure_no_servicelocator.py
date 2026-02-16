@@ -1,7 +1,6 @@
 import pathlib
 import unittest
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
@@ -23,7 +22,9 @@ class NoServiceLocatorRegressionsTest(unittest.TestCase):
         )
 
     def test_contract_folder_binding_service_has_no_servicelocator(self):
-        self._assert_not_contains(path="apps/contracts/services/folder/folder_binding_service.py", needle="ServiceLocator")
+        self._assert_not_contains(
+            path="apps/contracts/services/folder/folder_binding_service.py", needle="ServiceLocator"
+        )
 
     def test_document_delivery_schedule_entrypoints_have_no_servicelocator(self):
         self._assert_not_contains(path="apps/automation/api/document_delivery_api.py", needle="ServiceLocator")
@@ -31,4 +32,3 @@ class NoServiceLocatorRegressionsTest(unittest.TestCase):
             path="apps/automation/admin/document_delivery/document_delivery_schedule_admin.py",
             needle="ServiceLocator",
         )
-

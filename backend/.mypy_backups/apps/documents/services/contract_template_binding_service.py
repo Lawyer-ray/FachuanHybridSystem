@@ -1,6 +1,7 @@
 """Business logic services."""
 
 from typing import Any, Optional
+
 from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
 
 

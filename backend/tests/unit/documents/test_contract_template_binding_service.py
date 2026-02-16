@@ -41,4 +41,3 @@ def test_get_contract_subdir_path_internal_returns_folder_node_path():
     service = DocumentTemplateBindingService()
     path = service.get_contract_subdir_path_internal(case_type="civil", contract_sub_type="contract")
     assert path == binding.folder_node_path
-

@@ -66,4 +66,3 @@ steering:
     finally:
         if os.path.exists(config_file):
             os.unlink(config_file)
-

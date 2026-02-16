@@ -1,11 +1,13 @@
 """
 CourtSMSRepository 单元测试
 """
-import pytest
+
 from unittest.mock import Mock
 
-from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
+import pytest
+
 from apps.automation.models import CourtSMS
+from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
 from apps.core.exceptions import NotFoundError
 
 
@@ -20,11 +22,7 @@ class TestCourtSMSRepository:
     def test_get_by_id_success(self):
         """测试根据 ID 获取短信成功"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试短信内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试短信内容", status="pending")
 
         # 执行测试
         result = self.repository.get_by_id(sms_id=sms.id)
@@ -47,11 +45,7 @@ class TestCourtSMSRepository:
     def test_save_success(self):
         """测试保存短信成功"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="原内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="原内容", status="pending")
 
         # 修改短信
         sms.content = "新内容"
@@ -68,11 +62,7 @@ class TestCourtSMSRepository:
     def test_refresh_success(self):
         """测试刷新短信数据成功"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="原内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="原内容", status="pending")
 
         # 直接在数据库中修改
         CourtSMS.objects.filter(id=sms.id).update(content="数据库中的新内容")
@@ -88,10 +78,7 @@ class TestCourtSMSRepository:
         """测试设置错误信息成功"""
         # 创建测试短信
         sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending",
-            error_message=None
+            phone_number="13800138000", content="测试内容", status="pending", error_message=None
         )
 
         # 执行测试
@@ -104,11 +91,7 @@ class TestCourtSMSRepository:
     def test_set_error_updates_timestamp(self):
         """测试设置错误信息会更新时间戳"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
         original_updated_at = sms.updated_at
 
         # 执行测试
@@ -122,10 +105,7 @@ class TestCourtSMSRepository:
         """测试清除错误信息成功"""
         # 创建带错误信息的测试短信
         sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="error",
-            error_message="之前的错误"
+            phone_number="13800138000", content="测试内容", status="error", error_message="之前的错误"
         )
 
         # 执行测试
@@ -138,11 +118,7 @@ class TestCourtSMSRepository:
     def test_reset_retry_fields_success(self):
         """测试重置重试字段成功"""
         # 创建测试短信（带有关联数据）
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="error"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="error")
         # 设置一些字段值
         sms.scraper_task = "task_123"
         sms.case_id = 1
@@ -164,11 +140,7 @@ class TestCourtSMSRepository:
     def test_set_status_success(self):
         """测试设置状态成功"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试
         self.repository.set_status(sms=sms, status="processed")
@@ -181,18 +153,10 @@ class TestCourtSMSRepository:
     def test_set_status_with_error_message(self):
         """测试设置状态并附带错误信息"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试
-        self.repository.set_status(
-            sms=sms,
-            status="error",
-            error_message="处理失败"
-        )
+        self.repository.set_status(sms=sms, status="error", error_message="处理失败")
 
         # 验证数据库
         sms.refresh_from_db()
@@ -203,10 +167,7 @@ class TestCourtSMSRepository:
         """测试设置状态可以清除错误信息"""
         # 创建带错误的测试短信
         sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="error",
-            error_message="之前的错误"
+            phone_number="13800138000", content="测试内容", status="error", error_message="之前的错误"
         )
 
         # 执行测试 - 设置为成功状态，不传错误信息
@@ -229,11 +190,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_save_partial_update(self):
         """测试保存时只更新特定字段"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="原内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="原内容", status="pending")
 
         # 修改多个字段
         sms.content = "新内容"
@@ -250,11 +207,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_set_error_with_long_message(self):
         """测试设置长错误信息"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试 - 设置很长的错误信息
         long_message = "错误" * 500
@@ -267,11 +220,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_set_error_with_empty_message(self):
         """测试设置空错误信息"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试
         self.repository.set_error(sms=sms, message="")
@@ -283,11 +232,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_reset_retry_fields_already_none(self):
         """测试重置已经为 None 的字段"""
         # 创建测试短信（字段已经是 None）
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试 - 不应该抛出异常
         self.repository.reset_retry_fields(sms=sms)
@@ -300,11 +245,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_set_status_multiple_times(self):
         """测试多次设置状态"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 第一次设置
         self.repository.set_status(sms=sms, status="processing")
@@ -325,17 +266,10 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_refresh_after_external_modification(self):
         """测试外部修改后刷新"""
         # 创建测试短信
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="原内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="原内容", status="pending")
 
         # 模拟外部修改（直接更新数据库）
-        CourtSMS.objects.filter(id=sms.id).update(
-            content="外部修改的内容",
-            status="external_status"
-        )
+        CourtSMS.objects.filter(id=sms.id).update(content="外部修改的内容", status="external_status")
 
         # 执行测试
         refreshed_sms = self.repository.refresh(sms=sms)
@@ -347,11 +281,7 @@ class TestCourtSMSRepositoryEdgeCases:
     def test_get_by_id_with_related_data(self):
         """测试获取带关联数据的短信"""
         # 创建测试短信（可能有外键关联）
-        sms = CourtSMS.objects.create(
-            phone_number="13800138000",
-            content="测试内容",
-            status="pending"
-        )
+        sms = CourtSMS.objects.create(phone_number="13800138000", content="测试内容", status="pending")
 
         # 执行测试
         result = self.repository.get_by_id(sms_id=sms.id)

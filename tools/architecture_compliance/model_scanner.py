@@ -7,6 +7,7 @@ Model层架构违规扫描器
 
 仅扫描 models/ 目录下的文件或名为 models.py 的文件。
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,45 +21,53 @@ from .scanner import ViolationScanner
 logger = get_logger("model_scanner")
 
 # Django Model基类名称集合，用于识别Model子类
-_DJANGO_MODEL_BASES: frozenset[str] = frozenset({
-    "Model",
-    "models.Model",
-    "AbstractBaseUser",
-    "AbstractUser",
-    "PermissionsMixin",
-})
+_DJANGO_MODEL_BASES: frozenset[str] = frozenset(
+    {
+        "Model",
+        "models.Model",
+        "AbstractBaseUser",
+        "AbstractUser",
+        "PermissionsMixin",
+    }
+)
 
 # 表示外部服务调用的属性名模式
-_EXTERNAL_SERVICE_ATTRS: frozenset[str] = frozenset({
-    "send",
-    "send_mail",
-    "send_email",
-    "notify",
-    "publish",
-    "dispatch",
-    "emit",
-    "request",
-    "post",
-    "put",
-    "call",
-})
+_EXTERNAL_SERVICE_ATTRS: frozenset[str] = frozenset(
+    {
+        "send",
+        "send_mail",
+        "send_email",
+        "notify",
+        "publish",
+        "dispatch",
+        "emit",
+        "request",
+        "post",
+        "put",
+        "call",
+    }
+)
 
 # 调用 delete() 时不算外部服务调用的对象名
-_CACHE_LIKE_NAMES: frozenset[str] = frozenset({
-    "cache",
-    "caches",
-    "redis",
-    "memcache",
-})
+_CACHE_LIKE_NAMES: frozenset[str] = frozenset(
+    {
+        "cache",
+        "caches",
+        "redis",
+        "memcache",
+    }
+)
 
 # 简单验证相关的方法/属性，不算业务逻辑
-_VALIDATION_PATTERNS: frozenset[str] = frozenset({
-    "full_clean",
-    "clean",
-    "clean_fields",
-    "validate_unique",
-    "validate_constraints",
-})
+_VALIDATION_PATTERNS: frozenset[str] = frozenset(
+    {
+        "full_clean",
+        "clean",
+        "clean_fields",
+        "validate_unique",
+        "validate_constraints",
+    }
+)
 
 # 算术运算符集合
 _ARITHMETIC_OPS: tuple[type, ...] = (
@@ -154,7 +163,9 @@ class ModelLayerScanner(ViolationScanner):
                 continue
 
             class_violations = self._check_save_method(
-                node, source, file_path,
+                node,
+                source,
+                file_path,
             )
             violations.extend(class_violations)
 
@@ -197,7 +208,8 @@ class ModelLayerScanner(ViolationScanner):
 
             # 找到 save() 覆写，检测业务逻辑
             logic_descriptions = self._detect_business_logic(
-                node, class_node.name,
+                node,
+                class_node.name,
             )
 
             for description in logic_descriptions:
@@ -210,10 +222,7 @@ class ModelLayerScanner(ViolationScanner):
                     code_snippet=code_snippet,
                     violation_type="model_business_logic_in_save",
                     severity="high",
-                    description=(
-                        f"Model {class_node.name}.save() 中包含业务逻辑: "
-                        f"{description}"
-                    ),
+                    description=(f"Model {class_node.name}.save() 中包含业务逻辑: " f"{description}"),
                     model_name=class_node.name,
                     method_name="save",
                     business_logic_description=description,
@@ -249,7 +258,8 @@ class ModelLayerScanner(ViolationScanner):
 
         # 规则1: 检测其他Model的ORM调用
         other_model_calls = self._detect_other_model_calls(
-            save_node, model_name,
+            save_node,
+            model_name,
         )
         descriptions.extend(other_model_calls)
 
@@ -313,9 +323,7 @@ class ModelLayerScanner(ViolationScanner):
                 continue
 
             orm_method: str = func.attr
-            descriptions.append(
-                f"调用其他Model: {other_model_name}.objects.{orm_method}()"
-            )
+            descriptions.append(f"调用其他Model: {other_model_name}.objects.{orm_method}()")
 
         return descriptions
 

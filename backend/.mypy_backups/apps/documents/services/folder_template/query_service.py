@@ -1,9 +1,9 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-from typing import Any
-
 from dataclasses import dataclass
+from typing import Any
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
@@ -20,7 +20,7 @@ class FolderTemplateQueryService:
     def get_duplicate_id_report(self) -> dict[str, Any]:
         return self.id_service.get_duplicate_id_report()
 
-    def get_template_for_case(self, *,  case_type: str, case_stage: str) -> Any:
+    def get_template_for_case(self, *, case_type: str, case_stage: str) -> Any:
         from apps.documents.models import FolderTemplateType
 
         templates = (
@@ -37,7 +37,7 @@ class FolderTemplateQueryService:
                 return template
         return None
 
-    def get_template_by_id(self, *,  template_id: int) -> FolderTemplate:
+    def get_template_by_id(self, *, template_id: int) -> FolderTemplate:
         try:
             return self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:

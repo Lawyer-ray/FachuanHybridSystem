@@ -1,10 +1,11 @@
 """
 律所 API 集成测试
 """
+
 import pytest
 from django.test import Client
 
-from tests.factories import LawyerFactory, LawFirmFactory
+from tests.factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -63,12 +64,8 @@ class TestLawFirmAPI:
         # 执行测试
         response = self.client.post(
             "/api/v1/organization/lawfirms",
-            data={
-                "name": "新律所",
-                "address": "测试地址",
-                "phone": "13800138000"
-            },
-            content_type="application/json"
+            data={"name": "新律所", "address": "测试地址", "phone": "13800138000"},
+            content_type="application/json",
         )
 
         # 断言结果
@@ -86,9 +83,7 @@ class TestLawFirmAPI:
 
         # 执行测试
         response = self.client.post(
-            "/api/v1/organization/lawfirms",
-            data={"name": "新律所"},
-            content_type="application/json"
+            "/api/v1/organization/lawfirms", data={"name": "新律所"}, content_type="application/json"
         )
 
         # 断言结果
@@ -106,9 +101,7 @@ class TestLawFirmAPI:
 
         # 执行测试
         response = self.client.put(
-            f"/api/v1/organization/lawfirms/{lawfirm.id}",
-            data={"name": "新名称"},
-            content_type="application/json"
+            f"/api/v1/organization/lawfirms/{lawfirm.id}", data={"name": "新名称"}, content_type="application/json"
         )
 
         # 断言结果
@@ -133,4 +126,5 @@ class TestLawFirmAPI:
 
         # 验证律所已删除
         from apps.organization.models import LawFirm
+
         assert not LawFirm.objects.filter(id=lawfirm.id).exists()

@@ -2,15 +2,17 @@
 客户 API 层
 只负责请求/响应处理，不包含业务逻辑
 """
-from typing import List, Optional
-from django.conf import settings
+
 import os
-from ninja import Router, File
+from typing import List, Optional
+
+from django.conf import settings
+from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
 from ..models import Client
-from ..schemas import ClientOut, ClientIn, ClientUpdateIn
+from ..schemas import ClientIn, ClientOut, ClientUpdateIn
 
 
 class ParseTextRequest(BaseModel):
@@ -24,12 +26,14 @@ router = Router(tags=["Client"])
 def _get_client_service():
     """工厂函数：创建 ClientService 实例"""
     from ..services import ClientService
+
     return ClientService()
 
 
 def _get_identity_doc_service():
     """工厂函数：创建 ClientIdentityDocService 实例"""
     from ..services import ClientIdentityDocService
+
     return ClientIdentityDocService()
 
 
@@ -54,14 +58,9 @@ def list_clients(
     service = _get_client_service()
 
     # 调用 Service 方法（传递用户，如果已认证）
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     clients = service.list_clients(
-        page=page,
-        page_size=page_size,
-        client_type=client_type,
-        is_our_client=is_our_client,
-        search=search,
-        user=user
+        page=page, page_size=page_size, client_type=client_type, is_our_client=is_our_client, search=search, user=user
     )
 
     # 返回响应
@@ -72,18 +71,19 @@ def list_clients(
 def parse_client_text(request, payload: ParseTextRequest):
     """
     解析客户文本信息
-    
+
     Args:
         payload: 包含文本和解析选项的请求体
-        
+
     Returns:
         解析后的客户数据
     """
     service = _get_client_service()
-    
+
     if payload.parse_multiple:
         # 解析多个客户
         from ..services.text_parser import parse_multiple_clients_text
+
         parsed_clients = parse_multiple_clients_text(payload.text)
         results = [c for c in parsed_clients if c.get("name")]
         return {"success": True, "clients": results}
@@ -107,7 +107,7 @@ def get_client(request, client_id: int):
     3. 返回结果
     """
     service = _get_client_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     client = service.get_client(client_id, user)
     return client
 
@@ -126,11 +126,8 @@ def create_client(request, payload: ClientIn):
     service = _get_client_service()
 
     # 调用 Service 创建客户
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    client = service.create_client(
-        data=payload.dict(),
-        user=user
-    )
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    client = service.create_client(data=payload.dict(), user=user)
 
     # 返回响应
     return client
@@ -156,11 +153,8 @@ def create_client_with_docs(
     service = _get_client_service()
 
     # 调用 Service 创建客户
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    client = service.create_client(
-        data=payload.dict(),
-        user=user
-    )
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    client = service.create_client(data=payload.dict(), user=user)
 
     # 处理文件上传（UI 相关逻辑，保留在 API 层）
     if doc_types and files:
@@ -176,10 +170,7 @@ def create_client_with_docs(
 
             # 委托给 ClientIdentityDocService
             identity_doc_service.add_identity_doc(
-                client_id=client.id,
-                doc_type=doc_type,
-                file_path=os.path.abspath(target_path),
-                user=user
+                client_id=client.id, doc_type=doc_type, file_path=os.path.abspath(target_path), user=user
             )
 
     # 返回响应
@@ -201,12 +192,8 @@ def update_client(request, client_id: int, payload: ClientUpdateIn):
     # 只传递非空字段
     data = payload.dict(exclude_unset=True)
 
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    client = service.update_client(
-        client_id=client_id,
-        data=data,
-        user=user
-    )
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    client = service.update_client(client_id=client_id, data=data, user=user)
 
     return client
 
@@ -223,13 +210,7 @@ def delete_client(request, client_id: int):
     """
     service = _get_client_service()
 
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    service.delete_client(
-        client_id=client_id,
-        user=user
-    )
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    service.delete_client(client_id=client_id, user=user)
 
     return 204, None
-
-
-

@@ -3,8 +3,10 @@
 
 测试短信通知服务与案件群聊服务的集成功能。
 """
-import pytest
+
 from unittest.mock import Mock
+
+import pytest
 from django.test import TestCase
 from django.utils import timezone
 
@@ -17,22 +19,19 @@ from apps.core.enums import ChatPlatform
 
 class CourtSMSChatIntegrationTest(TestCase):
     """法院短信群聊集成测试"""
-    
+
     def setUp(self):
         """设置测试数据"""
         # 创建测试案件
-        self.case = Case.objects.create(
-            name="张三诉李四合同纠纷案",
-            current_stage="FIRST_TRIAL"
-        )
-        
+        self.case = Case.objects.create(name="张三诉李四合同纠纷案", current_stage="FIRST_TRIAL")
+
         # 创建测试短信
         self.sms = CourtSMS.objects.create(
             content="您有新的法院文书，请及时查看。案件：张三诉李四合同纠纷案",
             received_at=timezone.now(),
             status=CourtSMSStatus.NOTIFYING,
             sms_type=CourtSMSType.DOCUMENT_DELIVERY,
-            case=self.case
+            case=self.case,
         )
 
         self.case_chat_service = Mock()
@@ -94,15 +93,12 @@ class CourtSMSChatIntegrationTest(TestCase):
         assert ok is False
         self.case_chat_service.get_or_create_chat.assert_called_once()
         self.case_chat_service.send_document_notification.assert_called_once()
-    
+
     def test_send_case_chat_notification_no_case(self):
         """测试短信未绑定案件的处理"""
         # 创建未绑定案件的短信
         sms_no_case = CourtSMS.objects.create(
-            content="测试短信",
-            received_at=timezone.now(),
-            status=CourtSMSStatus.NOTIFYING,
-            case=None
+            content="测试短信", received_at=timezone.now(), status=CourtSMSStatus.NOTIFYING, case=None
         )
 
         ok = self.notification_service.send_case_chat_notification(sms_no_case)

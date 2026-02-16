@@ -24,15 +24,24 @@ def test_match_policy_allows_empty_constraints():
 def test_match_policy_any_legal_status():
     policy = CaseTemplateMatchPolicy()
     t = DummyTemplate(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="any")
-    assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"defendant"})) is True
+    assert (
+        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"defendant"}))
+        is True
+    )
     assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses=set())) is True
-    assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"third_party"})) is False
+    assert (
+        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"third_party"}))
+        is False
+    )
 
 
 def test_match_policy_all_legal_status():
     policy = CaseTemplateMatchPolicy()
     t = DummyTemplate(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="all")
-    assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff"})) is False
+    assert (
+        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff"}))
+        is False
+    )
     assert (
         policy.is_match(
             t,
@@ -45,9 +54,17 @@ def test_match_policy_all_legal_status():
 def test_match_policy_exact_legal_status():
     policy = CaseTemplateMatchPolicy()
     t = DummyTemplate(legal_statuses=["plaintiff"], legal_status_match_mode="exact")
-    assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff"})) is True
-    assert policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"defendant"})) is False
     assert (
-        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff", "defendant"}))
+        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff"}))
+        is True
+    )
+    assert (
+        policy.is_match(t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"defendant"}))
+        is False
+    )
+    assert (
+        policy.is_match(
+            t, CaseTemplateMatchInput(case_type=None, case_stage=None, legal_statuses={"plaintiff", "defendant"})
+        )
         is False
     )

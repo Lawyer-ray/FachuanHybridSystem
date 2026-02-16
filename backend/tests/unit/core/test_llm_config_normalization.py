@@ -12,4 +12,3 @@ def test_normalize_api_key_strips_whitespace():
 
 def test_normalize_base_url_strips_trailing_slash():
     assert LLMConfig._normalize_base_url("https://api.siliconflow.cn/v1/") == "https://api.siliconflow.cn/v1"
-

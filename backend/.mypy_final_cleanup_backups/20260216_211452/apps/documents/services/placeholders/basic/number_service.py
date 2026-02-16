@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 class NumberPlaceholderService(BasePlaceholderService):
     """数字格式化服务"""
 
-    name : str = "number_service"
-    display_name : str = "数字格式化服务"
-    description : str = "将数字转换为中文大写金额"
-    category : str = "basic"
+    name: str = "number_service"
+    display_name: str = "数字格式化服务"
+    description: str = "将数字转换为中文大写金额"
+    category: str = "basic"
     placeholder_keys: ClassVar = ["金额大写", "固定金额大写"]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
@@ -78,6 +78,7 @@ class NumberPlaceholderService(BasePlaceholderService):
 
         def _convert_integer_part(integer_part: str) -> str:
             chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
+
         chinese_units = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿"]
 
         integer_part = integer_part.zfill(9)
@@ -93,6 +94,7 @@ class NumberPlaceholderService(BasePlaceholderService):
 
         def _convert_decimal_part(decimal_part: str) -> str:
             chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
+
         jiao = int(decimal_part[0])
         fen = int(decimal_part[1])
         if jiao == 0 and fen == 0:

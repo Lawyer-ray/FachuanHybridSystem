@@ -70,4 +70,3 @@ def test_token_performance_monitor_uses_bucketed_keys():
 
     assert int(cache.get(total_key) or 0) >= 1
     assert int(cache.get(timeout_key) or 0) >= 1
-

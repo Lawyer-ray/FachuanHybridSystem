@@ -1,7 +1,7 @@
 """Business workflow orchestration."""
 
-from typing import Any
 from collections.abc import Sequence
+from typing import Any
 
 from django.db import models, transaction
 
@@ -32,7 +32,7 @@ class CaseMaterialBindingWorkflow:
         case_id: int,
         items: Sequence[dict[str, Any]],
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseMaterial]:
         self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)

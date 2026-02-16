@@ -14,7 +14,12 @@ def test_moonshot_config_fallback_to_settings(monkeypatch):
     monkeypatch.setattr(
         settings,
         "MOONSHOT",
-        {"API_KEY": "Bearer test_key", "BASE_URL": "https://api.moonshot.cn/v1/", "DEFAULT_MODEL": "  m1 ", "TIMEOUT": "120"},
+        {
+            "API_KEY": "Bearer test_key",
+            "BASE_URL": "https://api.moonshot.cn/v1/",
+            "DEFAULT_MODEL": "  m1 ",
+            "TIMEOUT": "120",
+        },
         raising=False,
     )
 

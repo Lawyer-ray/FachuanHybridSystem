@@ -6,22 +6,16 @@
 
 Requirements: 5.1
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import Mock
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
-from apps.cases.api.case_api import (
-    create_case,
-    delete_case,
-    get_case,
-    list_cases,
-    search_cases,
-    update_case,
-)
+from apps.cases.api.case_api import create_case, delete_case, get_case, list_cases, search_cases, update_case
 from apps.cases.models import Case, CaseNumber
 from apps.cases.schemas import CaseIn, CaseUpdate
 from apps.core.exceptions import ForbiddenError, NotFoundError

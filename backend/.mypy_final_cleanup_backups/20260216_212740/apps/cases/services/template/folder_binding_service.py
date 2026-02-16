@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -10,7 +11,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
+from django.db import transaction
+
 from apps.cases.models import Case, CaseFolderBinding
+from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.exceptions import NotFoundError
 from apps.core.filesystem import (
     FolderBindingCrudService,
@@ -18,9 +22,6 @@ from apps.core.filesystem import (
     FolderFilesystemService,
     FolderPathValidator,
 )
-from django.db import transaction
-
-from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, IDocumentService
@@ -99,7 +100,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         self,
         case_id: int,
         user: Any | None,
-        org_access: dict[str, Any]| None,
+        org_access: dict[str, Any] | None,
         perm_open_access: bool,
     ) -> Case:
         case = self._get_case_internal(case_id)
@@ -140,11 +141,11 @@ class CaseFolderBindingService(FolderBindingCrudService):
 
     binding_model = CaseFolderBinding
     owner_model = Case
-    owner_rel_field : str = "case"
-    owner_id_field : str = "case_id"
-    owner_label : str = "案件"
+    owner_rel_field: str = "case"
+    owner_id_field: str = "case_id"
+    owner_label: str = "案件"
 
-    def _get_owner(self, *,  owner_id: int) -> Case:
+    def _get_owner(self, *, owner_id: int) -> Case:
         case = self._get_case_internal(owner_id)
         if not case:
             raise NotFoundError(
@@ -159,7 +160,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         *,
         owner_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         **kwargs,
     ) -> Case:
@@ -170,7 +171,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def _resolve_subdir_path(self, *,  owner_type: str, subdir_key: str) -> Optional[str | None]:
+    def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> Optional[str | None]:
         try:
             folder_node_path = self.document_service.get_folder_binding_path(owner_type, subdir_key)
             if not folder_node_path:
@@ -189,7 +190,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case_id: int,
         folder_path: str,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding:
         """
@@ -230,7 +231,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case_id: int,
         folder_path: str,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding:
         """
@@ -262,7 +263,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         self,
         case_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> bool:
         """
@@ -294,7 +295,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         self,
         case_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding | None:
         """
@@ -328,7 +329,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         file_name: str,
         subdir_key: str = "case_documents",
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> str | None:
         """
@@ -360,7 +361,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case_id: int,
         zip_content: bytes,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> str | None:
         """

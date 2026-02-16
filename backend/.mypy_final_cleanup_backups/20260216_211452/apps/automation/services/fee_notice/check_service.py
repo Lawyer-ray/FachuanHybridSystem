@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -13,8 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Optional, cast, Any
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -318,6 +318,7 @@ class FeeNoticeCheckService:
 
         def _format_preservation_fee_line(item: FeeCheckItem, lines: list[str]) -> None:
             """格式化保全费比对行"""
+
         if item.extracted_preservation_fee is not None and item.extracted_preservation_fee > 0:
             extracted = f"{item.extracted_preservation_fee:,.0f}"
             calculated = f"{item.calculated_preservation_fee:,.0f}" if item.calculated_preservation_fee else "-"

@@ -28,4 +28,3 @@ def test_case_assignment_service_locator_builds_with_deps():
     assert isinstance(service, CaseAssignmentService)
     assert service._case_service is case_service
     assert service._contract_assignment_query_service is contract_assignment_query_service
-

@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -11,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from functools import lru_cache
-from typing import TYPE_CHECKING, ClassVar, Any, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
@@ -103,7 +104,7 @@ class CauseCourtDataParser:
             if query in name:
                 matching_items.append(item)
 
-        def sort_key(item)  -> tuple[Any, ...]:
+        def sort_key(item) -> tuple[Any, ...]:
             name = item.get("name", "")
             if name == query:
                 return (0, name)
@@ -116,7 +117,7 @@ class CauseCourtDataParser:
 
 
 class CauseCourtDbProvider:
-    def __init__(self, *,  cause_court_query_service: "ICauseCourtQueryService") -> None:
+    def __init__(self, *, cause_court_query_service: "ICauseCourtQueryService") -> None:
         self.cause_court_query_service = cause_court_query_service
 
     def has_active_causes(self) -> bool:
@@ -430,4 +431,3 @@ class CauseCourtDataService:
 
         cause_court_query_service = ServiceLocator.get_cause_court_query_service()
         return cause_court_query_service.get_cause_by_id_internal(cause_id)
-

@@ -13,4 +13,3 @@ class TestDefaultFolderTemplates(TestCase):
             self.assertIn("structure", t)
             self.assertIn("is_default", t)
             self.assertIn("is_active", t)
-

@@ -38,7 +38,7 @@ Returning Any from function declared to return "str"  [no-any-return]
                 return text
                 ^~~~~~~~~~~
 apps/contracts/services/contract/contract_service_adapter.py:74:9: error:
-Returning Any from function declared to return "list[dict[str, Any]]" 
+Returning Any from function declared to return "list[dict[str, Any]]"
 [no-any-return]
             return self.contract_service.get_all_parties(contract_id)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

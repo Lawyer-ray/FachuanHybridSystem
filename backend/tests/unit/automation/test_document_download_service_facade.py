@@ -1,6 +1,6 @@
 import pytest
 
-from apps.automation.services.document_delivery.data_classes import DocumentRecord, DocumentProcessResult
+from apps.automation.services.document_delivery.data_classes import DocumentProcessResult, DocumentRecord
 from apps.automation.services.document_delivery.download_service import DocumentDownloadService
 
 

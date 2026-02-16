@@ -1,13 +1,15 @@
 """
 SessionMessageService 单元测试
 """
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime
 
+from datetime import datetime
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from apps.core.exceptions import NotFoundError
 from apps.litigation_ai.services.session_message_service import SessionMessageService
 from apps.litigation_ai.services.session_shared import MessageDTO
-from apps.core.exceptions import NotFoundError
 
 
 @pytest.mark.django_db
@@ -21,7 +23,7 @@ class TestSessionMessageService:
 
         self.lawyer = test_lawyer
         self.case = test_case
-        
+
         self.lifecycle_service = SessionLifecycleService()
         self.service = SessionMessageService()
 
@@ -32,10 +34,7 @@ class TestSessionMessageService:
 
         # 执行测试
         message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="user",
-            content="测试消息",
-            metadata={"key": "value"}
+            session_id=session_dto.session_id, role="user", content="测试消息", metadata={"key": "value"}
         )
 
         # 断言结果
@@ -48,11 +47,7 @@ class TestSessionMessageService:
         """测试添加消息时会话不存在"""
         # 断言抛出异常
         with pytest.raises(NotFoundError) as exc_info:
-            self.service.add_message(
-                session_id="00000000-0000-0000-0000-000000000000",
-                role="user",
-                content="测试消息"
-            )
+            self.service.add_message(session_id="00000000-0000-0000-0000-000000000000", role="user", content="测试消息")
 
         assert "会话不存在" in exc_info.value.message
         assert exc_info.value.code == "SESSION_NOT_FOUND"
@@ -63,11 +58,7 @@ class TestSessionMessageService:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 执行测试
-        message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="assistant",
-            content="回复消息"
-        )
+        message_dto = self.service.add_message(session_id=session_dto.session_id, role="assistant", content="回复消息")
 
         # 断言结果
         assert message_dto.metadata == {}
@@ -191,11 +182,7 @@ class TestSessionMessageService:
         msg3 = self.service.add_message(session_dto.session_id, "user", "消息3")
 
         # 执行测试（获取 msg3 之前的消息）
-        messages = self.service.get_messages_batch(
-            session_dto.session_id,
-            limit=10,
-            before_id=msg3.id
-        )
+        messages = self.service.get_messages_batch(session_dto.session_id, limit=10, before_id=msg3.id)
 
         # 断言结果
         assert len(messages) <= 2
@@ -214,10 +201,7 @@ class TestSessionMessageService:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 执行测试
-        self.service.save_conversation_summary(
-            session_id=session_dto.session_id,
-            summary="这是对话摘要"
-        )
+        self.service.save_conversation_summary(session_id=session_dto.session_id, summary="这是对话摘要")
 
         # 验证摘要已保存
         summary = self.service.get_conversation_summary(session_dto.session_id)
@@ -227,10 +211,7 @@ class TestSessionMessageService:
         """测试保存对话摘要时会话不存在"""
         # 断言抛出异常
         with pytest.raises(NotFoundError) as exc_info:
-            self.service.save_conversation_summary(
-                session_id="00000000-0000-0000-0000-000000000000",
-                summary="摘要"
-            )
+            self.service.save_conversation_summary(session_id="00000000-0000-0000-0000-000000000000", summary="摘要")
 
         assert "会话不存在" in exc_info.value.message
 
@@ -295,10 +276,7 @@ class TestSessionMessageService:
         ]
 
         # 执行测试
-        created_messages = self.service.add_messages_batch(
-            session_id=session_dto.session_id,
-            messages=messages
-        )
+        created_messages = self.service.add_messages_batch(session_id=session_dto.session_id, messages=messages)
 
         # 断言结果
         assert len(created_messages) == 3
@@ -315,10 +293,7 @@ class TestSessionMessageService:
 
         # 断言抛出异常
         with pytest.raises(NotFoundError) as exc_info:
-            self.service.add_messages_batch(
-                session_id="00000000-0000-0000-0000-000000000000",
-                messages=messages
-            )
+            self.service.add_messages_batch(session_id="00000000-0000-0000-0000-000000000000", messages=messages)
 
         assert "会话不存在" in exc_info.value.message
 
@@ -328,10 +303,7 @@ class TestSessionMessageService:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 执行测试
-        created_messages = self.service.add_messages_batch(
-            session_id=session_dto.session_id,
-            messages=[]
-        )
+        created_messages = self.service.add_messages_batch(session_id=session_dto.session_id, messages=[])
 
         # 断言结果
         assert len(created_messages) == 0
@@ -348,7 +320,7 @@ class TestSessionMessageServiceDTO:
 
         self.lawyer = test_lawyer
         self.case = test_case
-        
+
         self.lifecycle_service = SessionLifecycleService()
         self.service = SessionMessageService()
 
@@ -357,10 +329,7 @@ class TestSessionMessageServiceDTO:
         # 创建测试会话和消息
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
         message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="user",
-            content="测试消息",
-            metadata={"key": "value"}
+            session_id=session_dto.session_id, role="user", content="测试消息", metadata={"key": "value"}
         )
 
         # 断言结果
@@ -382,7 +351,7 @@ class TestSessionMessageServiceEdgeCases:
 
         self.lawyer = test_lawyer
         self.case = test_case
-        
+
         self.lifecycle_service = SessionLifecycleService()
         self.service = SessionMessageService()
 
@@ -393,10 +362,7 @@ class TestSessionMessageServiceEdgeCases:
 
         # 执行测试
         message_dto = self.service.add_message(
-            session_id=session_dto.session_id,
-            role="user",
-            content="测试消息",
-            metadata={"step": "evidence_collection"}
+            session_id=session_dto.session_id, role="user", content="测试消息", metadata={"step": "evidence_collection"}
         )
 
         # 断言结果
@@ -445,9 +411,7 @@ class TestSessionMessageServiceEdgeCases:
 
         # 更新会话元数据
         self.lifecycle_service.update_session_status(
-            session_id=session_dto.session_id,
-            status="active",
-            metadata_updates={"other_key": "other_value"}
+            session_id=session_dto.session_id, status="active", metadata_updates={"other_key": "other_value"}
         )
 
         # 保存摘要
@@ -472,10 +436,7 @@ class TestSessionMessageServiceEdgeCases:
         ]
 
         # 执行测试
-        created_messages = self.service.add_messages_batch(
-            session_id=session_dto.session_id,
-            messages=messages
-        )
+        created_messages = self.service.add_messages_batch(session_id=session_dto.session_id, messages=messages)
 
         # 断言结果（应该使用默认角色 "user"）
         assert created_messages[0].role == "user"
@@ -487,10 +448,7 @@ class TestSessionMessageServiceEdgeCases:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 批量添加消息
-        messages = [
-            {"role": "user", "content": f"消息{i}"}
-            for i in range(5)
-        ]
+        messages = [{"role": "user", "content": f"消息{i}"} for i in range(5)]
         self.service.add_messages_batch(session_dto.session_id, messages)
 
         # 执行测试

@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -9,12 +10,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db.models import QuerySet
+
 from apps.cases.models import Case, CaseAccessGrant
 from apps.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from apps.core.infrastructure import invalidate_user_access_context
 from apps.core.interfaces import ICaseService
 from apps.core.security import AccessContext, DjangoPermsMixin
-from django.db.models import QuerySet
 
 from .wiring import get_case_service
 

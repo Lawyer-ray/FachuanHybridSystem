@@ -5,28 +5,28 @@
       <stop offset="40%" style="stop-color:#1E1B4B"/>
       <stop offset="100%" style="stop-color:#3730A3"/>
     </linearGradient>
-    
+
     <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
       <stop offset="0%" style="stop-color:#A5B4FC;stop-opacity:0.6"/>
       <stop offset="40%" style="stop-color:#6366F1;stop-opacity:0.2"/>
       <stop offset="100%" style="stop-color:#1E1B4B;stop-opacity:0"/>
     </radialGradient>
-    
+
     <linearGradient id="ring1" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#E0E7FF"/>
       <stop offset="100%" style="stop-color:#818CF8"/>
     </linearGradient>
-    
+
     <linearGradient id="ring2" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#C7D2FE"/>
       <stop offset="100%" style="stop-color:#6366F1"/>
     </linearGradient>
-    
+
     <linearGradient id="hexFill" x1="50%" y1="0%" x2="50%" y2="100%">
       <stop offset="0%" style="stop-color:#818CF8;stop-opacity:0.15"/>
       <stop offset="100%" style="stop-color:#4338CA;stop-opacity:0.05"/>
     </linearGradient>
-    
+
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="8" result="blur"/>
       <feMerge>
@@ -34,7 +34,7 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    
+
     <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="4" result="blur"/>
       <feMerge>
@@ -43,34 +43,34 @@
       </feMerge>
     </filter>
   </defs>
-  
+
   <!-- 圆角背景 -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
-  
+
   <!-- 核心光晕 -->
   <circle cx="512" cy="512" r="320" fill="url(#coreGlow)"/>
-  
+
   <!-- 最外层虚线环 -->
   <circle cx="512" cy="512" r="300" stroke="#6366F1" stroke-width="1" stroke-dasharray="8 12" fill="none" opacity="0.3"/>
-  
+
   <!-- 外环 - 带光晕 -->
   <circle cx="512" cy="512" r="260" stroke="url(#ring1)" stroke-width="2" fill="none" opacity="0.5" filter="url(#softGlow)"/>
-  
+
   <!-- 中环 -->
   <circle cx="512" cy="512" r="200" stroke="url(#ring2)" stroke-width="2.5" fill="none" opacity="0.7"/>
-  
+
   <!-- 内环 -->
   <circle cx="512" cy="512" r="140" stroke="url(#ring1)" stroke-width="3" fill="none" opacity="0.9"/>
-  
+
   <!-- 六边形填充 -->
   <polygon points="512,372 633,442 633,582 512,652 391,582 391,442" fill="url(#hexFill)"/>
-  
+
   <!-- 六边形边框 - 带光晕 -->
   <polygon points="512,372 633,442 633,582 512,652 391,582 391,442" stroke="url(#ring1)" stroke-width="4" fill="none" filter="url(#glow)"/>
-  
+
   <!-- 内部小六边形 -->
   <polygon points="512,442 573,477 573,547 512,582 451,547 451,477" stroke="url(#ring2)" stroke-width="2" fill="none" opacity="0.6"/>
-  
+
   <!-- 六条主射线 -->
   <line x1="512" y1="372" x2="512" y2="212" stroke="url(#ring1)" stroke-width="2" opacity="0.6"/>
   <line x1="633" y1="442" x2="772" y2="302" stroke="url(#ring1)" stroke-width="2" opacity="0.6"/>
@@ -78,7 +78,7 @@
   <line x1="512" y1="652" x2="512" y2="812" stroke="url(#ring1)" stroke-width="2" opacity="0.6"/>
   <line x1="391" y1="582" x2="252" y2="722" stroke="url(#ring1)" stroke-width="2" opacity="0.6"/>
   <line x1="391" y1="442" x2="252" y2="302" stroke="url(#ring1)" stroke-width="2" opacity="0.6"/>
-  
+
   <!-- 次级连接线 -->
   <line x1="512" y1="212" x2="772" y2="302" stroke="#818CF8" stroke-width="1" opacity="0.3"/>
   <line x1="772" y1="302" x2="772" y2="722" stroke="#818CF8" stroke-width="1" opacity="0.3"/>
@@ -86,7 +86,7 @@
   <line x1="512" y1="812" x2="252" y2="722" stroke="#818CF8" stroke-width="1" opacity="0.3"/>
   <line x1="252" y1="722" x2="252" y2="302" stroke="#818CF8" stroke-width="1" opacity="0.3"/>
   <line x1="252" y1="302" x2="512" y2="212" stroke="#818CF8" stroke-width="1" opacity="0.3"/>
-  
+
   <!-- 外围主节点 - 带光晕 -->
   <circle cx="512" cy="212" r="14" fill="#E0E7FF" filter="url(#glow)"/>
   <circle cx="772" cy="302" r="14" fill="#E0E7FF" filter="url(#glow)"/>
@@ -94,7 +94,7 @@
   <circle cx="512" cy="812" r="14" fill="#E0E7FF" filter="url(#glow)"/>
   <circle cx="252" cy="722" r="14" fill="#E0E7FF" filter="url(#glow)"/>
   <circle cx="252" cy="302" r="14" fill="#E0E7FF" filter="url(#glow)"/>
-  
+
   <!-- 六边形顶点节点 -->
   <circle cx="512" cy="372" r="8" fill="#C7D2FE"/>
   <circle cx="633" cy="442" r="8" fill="#C7D2FE"/>
@@ -102,12 +102,12 @@
   <circle cx="512" cy="652" r="8" fill="#C7D2FE"/>
   <circle cx="391" cy="582" r="8" fill="#C7D2FE"/>
   <circle cx="391" cy="442" r="8" fill="#C7D2FE"/>
-  
+
   <!-- 核心中心点 - 多层 -->
   <circle cx="512" cy="512" r="32" fill="#312E81" opacity="0.8"/>
   <circle cx="512" cy="512" r="20" fill="#6366F1" filter="url(#glow)"/>
   <circle cx="512" cy="512" r="8" fill="#E0E7FF"/>
-  
+
   <!-- 装饰性小点 -->
   <circle cx="512" cy="140" r="4" fill="#818CF8" opacity="0.5"/>
   <circle cx="840" cy="400" r="4" fill="#818CF8" opacity="0.5"/>

@@ -119,7 +119,9 @@ def test_coordinator_retry_policy_is_bounded(failures: List[str], succeed: bool)
     ),
     invalid=st.lists(st.dictionaries(keys=st.text(min_size=0, max_size=5), values=st.integers()), max_size=10),
 )
-def test_parser_document_list_is_monotonic_under_invalid_additions(valid: List[Dict[str, Any]], invalid: List[Dict[str, Any]]):
+def test_parser_document_list_is_monotonic_under_invalid_additions(
+    valid: List[Dict[str, Any]], invalid: List[Dict[str, Any]]
+):
     parser = CourtDocumentResponseParser()
 
     base = {"code": 200, "data": {"total": len(valid), "data": valid}}

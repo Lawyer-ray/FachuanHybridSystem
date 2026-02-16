@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 class CaseDetailService(BasePlaceholderService):
     """案件详情服务"""
 
-    name : str = "case_detail_service"
-    display_name : str = "案件详情服务"
-    description : str = "生成案件详细信息列表"
-    category : str = "contract"
+    name: str = "case_detail_service"
+    display_name: str = "案件详情服务"
+    description: str = "生成案件详细信息列表"
+    category: str = "contract"
     placeholder_keys: ClassVar = ["案件详情"]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
@@ -219,7 +219,7 @@ class CaseDetailService(BasePlaceholderService):
             opposing_names: list[Any] = []
             for party in case.parties.all():
                 if party.legal_status not in our_statuses and hasattr(party.client, "name") and party.client.name:
-                        opposing_names.append(party.client.name)
+                    opposing_names.append(party.client.name)
 
             return opposing_names
 

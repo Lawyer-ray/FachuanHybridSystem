@@ -1,6 +1,7 @@
 """
 架构合规性工具的异常定义
 """
+
 from __future__ import annotations
 
 

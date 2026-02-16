@@ -1,12 +1,12 @@
 """Business logic services."""
 
-from typing import Any
 import logging
+from typing import Any
 
 from apps.core.enums import LegalStatus
-from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.wiring import get_case_service
+from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -26,7 +26,7 @@ class LitigationContextBuilder:
             return ""
         return text.replace("\r\n", "\a").replace("\n", "\a")
 
-    def _get_party_name_for_prompt(self, *,  case_id: int, legal_status: str) -> Any:
+    def _get_party_name_for_prompt(self, *, case_id: int, legal_status: str) -> Any:
         case_service = get_case_service()
         party_names = case_service.get_case_parties_by_legal_status_internal(case_id=case_id, legal_status=legal_status)
         if party_names:
@@ -57,7 +57,7 @@ class LitigationContextBuilder:
             "defense_reasons": "答辩理由待补充",
         }
 
-    def build_complaint_context(self, *,  case_dto: Any, llm_result) -> dict[str, Any]:
+    def build_complaint_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,
@@ -81,7 +81,7 @@ class LitigationContextBuilder:
         )
         return context
 
-    def build_defense_context(self, *,  case_dto: Any, llm_result) -> dict[str, Any]:
+    def build_defense_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,

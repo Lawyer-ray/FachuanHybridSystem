@@ -6,25 +6,24 @@
 
 修复了并发控制Mock配置问题，避免测试卡住。
 """
-import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, patch
-from hypothesis import given, strategies as st, settings
-from datetime import datetime, timedelta
 
-from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
-from apps.core.interfaces import (
-    AccountCredentialDTO, 
-    LoginAttemptResult, 
-    TokenAcquisitionResult
-)
+import asyncio
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from apps.automation.exceptions import (
     AutoTokenAcquisitionError,
     LoginFailedError,
     NoAvailableAccountError,
     TokenAcquisitionTimeoutError,
 )
+from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 from apps.core.exceptions import ValidationException
+from apps.core.interfaces import AccountCredentialDTO, LoginAttemptResult, TokenAcquisitionResult
 
 
 def create_test_credential(site_name: str, account_id: int = 1, account_suffix: str = "") -> AccountCredentialDTO:
@@ -39,7 +38,7 @@ def create_test_credential(site_name: str, account_id: int = 1, account_suffix: 
         last_login_success_at=datetime.now().isoformat(),
         login_success_count=5,
         login_failure_count=0,
-        is_preferred=True
+        is_preferred=True,
     )
 
 
@@ -48,14 +47,14 @@ def setup_common_mocks(mock_concurrency, mock_perf, mock_history, mock_cache):
     # 配置并发控制 - 确保返回值正确，避免测试卡住
     mock_concurrency.acquire_resource = AsyncMock(return_value=True)
     mock_concurrency.release_resource = AsyncMock(return_value=None)
-    
+
     # 配置性能监控
     mock_perf.record_acquisition_start = Mock()
     mock_perf.record_acquisition_end = Mock()
-    
+
     # 配置历史记录
     mock_history.record_acquisition_history = AsyncMock()
-    
+
     # 配置缓存默认值
     mock_cache.get_cached_token = Mock(return_value=None)
     mock_cache.cache_token = Mock()
@@ -79,7 +78,7 @@ class TestLoginSuccessContinuationProperties:
 
     @given(
         site_name=st.text(min_size=1, max_size=50).filter(lambda x: x.strip()),
-        login_delay=st.floats(min_value=0.1, max_value=2.0)
+        login_delay=st.floats(min_value=0.1, max_value=2.0),
     )
     @settings(max_examples=30, deadline=None)
     async def test_task_continuation_after_login(self, site_name: str, login_delay: float):
@@ -111,11 +110,14 @@ class TestLoginSuccessContinuationProperties:
         mock_login_service.login_and_get_token = AsyncMock(side_effect=mock_login_with_delay)
 
         # Mock cache_manager 和其他依赖
-        with patch('apps.automation.services.token.auto_token_acquisition_service.cache_manager') as mock_cache, \
-             patch('apps.automation.services.token.auto_token_acquisition_service.concurrency_optimizer') as mock_concurrency, \
-             patch('apps.automation.services.token.auto_token_acquisition_service.performance_monitor') as mock_perf, \
-             patch('apps.automation.services.token.auto_token_acquisition_service.history_recorder') as mock_history:
-            
+        with patch("apps.automation.services.token.auto_token_acquisition_service.cache_manager") as mock_cache, patch(
+            "apps.automation.services.token.auto_token_acquisition_service.concurrency_optimizer"
+        ) as mock_concurrency, patch(
+            "apps.automation.services.token.auto_token_acquisition_service.performance_monitor"
+        ) as mock_perf, patch(
+            "apps.automation.services.token.auto_token_acquisition_service.history_recorder"
+        ) as mock_history:
+
             # 使用通用Mock设置函数
             setup_common_mocks(mock_concurrency, mock_perf, mock_history, mock_cache)
 
@@ -123,7 +125,7 @@ class TestLoginSuccessContinuationProperties:
             service = AutoTokenAcquisitionService(
                 account_selection_strategy=mock_account_strategy,
                 auto_login_service=mock_login_service,
-                token_service=mock_token_service
+                token_service=mock_token_service,
             )
 
             # 记录开始时间
@@ -139,7 +141,7 @@ class TestLoginSuccessContinuationProperties:
             # 验证结果
             expected_token = f"token_after_{login_delay:.1f}s"
             assert result_token == expected_token, f"应该返回登录后的Token: {expected_token}"
-            
+
             # 验证执行时间合理（允许一定误差）
             assert actual_duration >= login_delay * 0.8, f"执行时间应该至少是登录延迟的80%"
             assert actual_duration <= login_delay + 5.0, f"执行时间不应该超过登录延迟+5秒"

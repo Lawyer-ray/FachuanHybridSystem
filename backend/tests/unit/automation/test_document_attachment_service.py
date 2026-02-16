@@ -6,9 +6,8 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from apps.core.path import Path
-
 from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+from apps.core.path import Path
 
 
 class TestDocumentAttachmentService:

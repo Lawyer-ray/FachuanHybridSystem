@@ -4,18 +4,20 @@
 Feature: litigation-fee-calculator
 测试费用计算的正确性属性
 """
-import pytest
+
 from decimal import Decimal
-from hypothesis import given, strategies as st, settings
+
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from apps.cases.services.data.litigation_fee_calculator_service import (
-    LitigationFeeCalculatorService,
-    PROPERTY_CASE_FEE_TIERS,
-    PRESERVATION_FEE_MAX,
     BANKRUPTCY_FEE_MAX,
+    PRESERVATION_FEE_MAX,
+    PROPERTY_CASE_FEE_TIERS,
     DiscountType,
+    LitigationFeeCalculatorService,
 )
-
 
 # 金额策略：0 到 1 亿，保留 2 位小数
 amount_strategy = st.decimals(
@@ -78,10 +80,8 @@ class TestPropertyCaseFeeProperties:
         service = LitigationFeeCalculatorService()
         calculated_fee = service.calculate_property_case_fee(amount)
         expected_fee = manual_calculate_property_case_fee(amount)
-        
-        assert calculated_fee == expected_fee, (
-            f"金额 {amount} 的计算结果 {calculated_fee} 与预期 {expected_fee} 不符"
-        )
+
+        assert calculated_fee == expected_fee, f"金额 {amount} 的计算结果 {calculated_fee} 与预期 {expected_fee} 不符"
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -121,15 +121,11 @@ class TestPropertyCaseFeeProperties:
         service = LitigationFeeCalculatorService()
         fee1 = service.calculate_property_case_fee(amount1)
         fee2 = service.calculate_property_case_fee(amount2)
-        
+
         if amount1 <= amount2:
-            assert fee1 <= fee2, (
-                f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
-            )
+            assert fee1 <= fee2, f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
         else:
-            assert fee1 >= fee2, (
-                f"金额 {amount1} 的费用 {fee1} 应不小于金额 {amount2} 的费用 {fee2}"
-            )
+            assert fee1 >= fee2, f"金额 {amount1} 的费用 {fee1} 应不小于金额 {amount2} 的费用 {fee2}"
 
 
 class TestPreservationFeeProperties:
@@ -148,10 +144,8 @@ class TestPreservationFeeProperties:
         """
         service = LitigationFeeCalculatorService()
         fee = service.calculate_preservation_fee(amount)
-        
-        assert fee <= PRESERVATION_FEE_MAX, (
-            f"财产保全费 {fee} 超过上限 {PRESERVATION_FEE_MAX}"
-        )
+
+        assert fee <= PRESERVATION_FEE_MAX, f"财产保全费 {fee} 超过上限 {PRESERVATION_FEE_MAX}"
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -179,12 +173,9 @@ class TestPreservationFeeProperties:
         service = LitigationFeeCalculatorService()
         fee1 = service.calculate_preservation_fee(amount1)
         fee2 = service.calculate_preservation_fee(amount2)
-        
-        if amount1 <= amount2:
-            assert fee1 <= fee2, (
-                f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
-            )
 
+        if amount1 <= amount2:
+            assert fee1 <= fee2, f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
 
 
 def manual_calculate_execution_fee(amount: Decimal) -> Decimal:
@@ -219,10 +210,8 @@ class TestExecutionFeeProperties:
         service = LitigationFeeCalculatorService()
         calculated_fee = service.calculate_execution_fee(amount)
         expected_fee = manual_calculate_execution_fee(amount)
-        
-        assert calculated_fee == expected_fee, (
-            f"金额 {amount} 的计算结果 {calculated_fee} 与预期 {expected_fee} 不符"
-        )
+
+        assert calculated_fee == expected_fee, f"金额 {amount} 的计算结果 {calculated_fee} 与预期 {expected_fee} 不符"
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -250,12 +239,9 @@ class TestExecutionFeeProperties:
         service = LitigationFeeCalculatorService()
         fee1 = service.calculate_execution_fee(amount1)
         fee2 = service.calculate_execution_fee(amount2)
-        
-        if amount1 <= amount2:
-            assert fee1 <= fee2, (
-                f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
-            )
 
+        if amount1 <= amount2:
+            assert fee1 <= fee2, f"金额 {amount1} 的费用 {fee1} 应不大于金额 {amount2} 的费用 {fee2}"
 
 
 class TestPaymentOrderFeeProperties:
@@ -276,12 +262,12 @@ class TestPaymentOrderFeeProperties:
         service = LitigationFeeCalculatorService()
         property_fee = service.calculate_property_case_fee(amount)
         payment_order_fee = service.calculate_payment_order_fee(amount)
-        
+
         expected_fee = property_fee / Decimal("3")
-        
-        assert payment_order_fee == expected_fee, (
-            f"支付令费用 {payment_order_fee} 应等于财产案件费用 {property_fee} / 3 = {expected_fee}"
-        )
+
+        assert (
+            payment_order_fee == expected_fee
+        ), f"支付令费用 {payment_order_fee} 应等于财产案件费用 {property_fee} / 3 = {expected_fee}"
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -296,12 +282,11 @@ class TestPaymentOrderFeeProperties:
         assert fee >= 0, f"费用不应为负数，但得到 {fee}"
 
 
-
 from apps.cases.services.data.litigation_fee_calculator_service import (
-    IP_CASE_FEE_DEFAULT,
-    DIVORCE_PROPERTY_THRESHOLD,
-    DIVORCE_PROPERTY_RATE,
     BANKRUPTCY_FEE_MAX,
+    DIVORCE_PROPERTY_RATE,
+    DIVORCE_PROPERTY_THRESHOLD,
+    IP_CASE_FEE_DEFAULT,
 )
 
 
@@ -322,10 +307,8 @@ class TestIPCaseFeeProperties:
         service = LitigationFeeCalculatorService()
         ip_fee = service.calculate_ip_case_fee(amount)
         property_fee = service.calculate_property_case_fee(amount)
-        
-        assert ip_fee == property_fee, (
-            f"知识产权案件费用 {ip_fee} 应等于财产案件费用 {property_fee}"
-        )
+
+        assert ip_fee == property_fee, f"知识产权案件费用 {ip_fee} 应等于财产案件费用 {property_fee}"
 
     def test_ip_case_fee_no_amount(self):
         """
@@ -363,13 +346,11 @@ class TestDivorceCaseFeeProperties:
         service = LitigationFeeCalculatorService()
         base_fee = Decimal("200")  # 使用中间值
         total_fee = service.calculate_divorce_case_fee(base_fee, property_amount)
-        
+
         expected_extra = (property_amount - DIVORCE_PROPERTY_THRESHOLD) * DIVORCE_PROPERTY_RATE
         expected_total = base_fee + expected_extra
-        
-        assert total_fee == expected_total, (
-            f"离婚案件费用 {total_fee} 应等于 {expected_total}"
-        )
+
+        assert total_fee == expected_total, f"离婚案件费用 {total_fee} 应等于 {expected_total}"
 
     @settings(max_examples=100)
     @given(
@@ -390,10 +371,10 @@ class TestDivorceCaseFeeProperties:
         service = LitigationFeeCalculatorService()
         base_fee = Decimal("200")
         total_fee = service.calculate_divorce_case_fee(base_fee, property_amount)
-        
-        assert total_fee == base_fee, (
-            f"财产 {property_amount} 不超过20万，费用应为基础费用 {base_fee}，但得到 {total_fee}"
-        )
+
+        assert (
+            total_fee == base_fee
+        ), f"财产 {property_amount} 不超过20万，费用应为基础费用 {base_fee}，但得到 {total_fee}"
 
 
 class TestPersonalityRightsFeeProperties:
@@ -422,7 +403,7 @@ class TestPersonalityRightsFeeProperties:
         service = LitigationFeeCalculatorService()
         base_fee = Decimal("300")  # 使用中间值
         total_fee = service.calculate_personality_rights_fee(base_fee, damage_amount)
-        
+
         # 手动计算预期额外费用
         if damage_amount <= 50000:
             expected_extra = Decimal("0")
@@ -430,12 +411,10 @@ class TestPersonalityRightsFeeProperties:
             expected_extra = (damage_amount - Decimal("50000")) * Decimal("0.01")
         else:
             expected_extra = Decimal("500") + (damage_amount - Decimal("100000")) * Decimal("0.005")
-        
+
         expected_total = base_fee + expected_extra
-        
-        assert total_fee == expected_total, (
-            f"人格权案件费用 {total_fee} 应等于 {expected_total}"
-        )
+
+        assert total_fee == expected_total, f"人格权案件费用 {total_fee} 应等于 {expected_total}"
 
 
 class TestBankruptcyFeeProperties:
@@ -456,12 +435,10 @@ class TestBankruptcyFeeProperties:
         service = LitigationFeeCalculatorService()
         property_fee = service.calculate_property_case_fee(amount)
         bankruptcy_fee = service.calculate_bankruptcy_fee(amount)
-        
+
         expected_fee = min(property_fee / Decimal("2"), BANKRUPTCY_FEE_MAX)
-        
-        assert bankruptcy_fee == expected_fee, (
-            f"破产案件费用 {bankruptcy_fee} 应等于 {expected_fee}"
-        )
+
+        assert bankruptcy_fee == expected_fee, f"破产案件费用 {bankruptcy_fee} 应等于 {expected_fee}"
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -476,11 +453,8 @@ class TestBankruptcyFeeProperties:
         """
         service = LitigationFeeCalculatorService()
         fee = service.calculate_bankruptcy_fee(amount)
-        
-        assert fee <= BANKRUPTCY_FEE_MAX, (
-            f"破产案件费用 {fee} 超过上限 {BANKRUPTCY_FEE_MAX}"
-        )
 
+        assert fee <= BANKRUPTCY_FEE_MAX, f"破产案件费用 {fee} 超过上限 {BANKRUPTCY_FEE_MAX}"
 
 
 class TestDiscountProperties:
@@ -495,12 +469,14 @@ class TestDiscountProperties:
             allow_nan=False,
             allow_infinity=False,
         ),
-        discount_type=st.sampled_from([
-            DiscountType.MEDIATION,
-            DiscountType.WITHDRAWAL,
-            DiscountType.SIMPLE_PROCEDURE,
-            DiscountType.COUNTERCLAIM,
-        ])
+        discount_type=st.sampled_from(
+            [
+                DiscountType.MEDIATION,
+                DiscountType.WITHDRAWAL,
+                DiscountType.SIMPLE_PROCEDURE,
+                DiscountType.COUNTERCLAIM,
+            ]
+        ),
     )
     def test_property_10_discount_transformation(self, fee: Decimal, discount_type: str):
         """
@@ -514,12 +490,10 @@ class TestDiscountProperties:
         """
         service = LitigationFeeCalculatorService()
         discounted_fee = service.apply_discount(fee, discount_type)
-        
+
         expected_fee = fee / Decimal("2")
-        
-        assert discounted_fee == expected_fee, (
-            f"减免后费用 {discounted_fee} 应等于原始费用 {fee} / 2 = {expected_fee}"
-        )
+
+        assert discounted_fee == expected_fee, f"减免后费用 {discounted_fee} 应等于原始费用 {fee} / 2 = {expected_fee}"
 
     @settings(max_examples=100)
     @given(
@@ -539,11 +513,8 @@ class TestDiscountProperties:
         """
         service = LitigationFeeCalculatorService()
         discounted_fee = service.apply_discount(fee, "invalid_type")
-        
-        assert discounted_fee == fee, (
-            f"无效减免类型应返回原始费用 {fee}，但得到 {discounted_fee}"
-        )
 
+        assert discounted_fee == fee, f"无效减免类型应返回原始费用 {fee}，但得到 {discounted_fee}"
 
 
 class TestAPIProperties:
@@ -574,17 +545,17 @@ class TestAPIProperties:
         对于任意有效的计算请求，API响应应包含所有必需的费用字段，且数值类型正确。
         """
         service = LitigationFeeCalculatorService()
-        
+
         target = Decimal(str(target_amount)) if target_amount is not None else None
         preservation = Decimal(str(preservation_amount)) if preservation_amount is not None else None
-        
+
         result = service.calculate_all_fees(
             target_amount=target,
             preservation_amount=preservation,
             case_type=None,
             cause_of_action=None,
         )
-        
+
         # 验证响应包含所有必需字段
         assert "acceptance_fee" in result
         assert "acceptance_fee_half" in result
@@ -593,15 +564,21 @@ class TestAPIProperties:
         assert "payment_order_fee" in result
         assert "bankruptcy_fee" in result
         assert "calculation_details" in result
-        
+
         # 验证数值类型正确
-        for key in ["acceptance_fee", "acceptance_fee_half", "preservation_fee", 
-                    "execution_fee", "payment_order_fee", "bankruptcy_fee"]:
+        for key in [
+            "acceptance_fee",
+            "acceptance_fee_half",
+            "preservation_fee",
+            "execution_fee",
+            "payment_order_fee",
+            "bankruptcy_fee",
+        ]:
             value = result[key]
-            assert value is None or isinstance(value, (int, float)), (
-                f"字段 {key} 应为 None 或数值类型，但得到 {type(value)}"
-            )
-        
+            assert value is None or isinstance(
+                value, (int, float)
+            ), f"字段 {key} 应为 None 或数值类型，但得到 {type(value)}"
+
         assert isinstance(result["calculation_details"], list)
 
     def test_property_12_api_input_validation_negative_target(self):
@@ -613,12 +590,12 @@ class TestAPIProperties:
 
         对于负数输入，API应返回验证错误而非计算结果。
         """
+        from apps.cases.api.litigation_fee_api import FeeCalculationRequest, calculate_fee
         from apps.core.exceptions import ValidationException
-        from apps.cases.api.litigation_fee_api import calculate_fee, FeeCalculationRequest
-        
+
         # 创建带负数的请求
         data = FeeCalculationRequest(target_amount=-100)
-        
+
         # 应该抛出验证异常
         try:
             calculate_fee(None, data)
@@ -635,12 +612,12 @@ class TestAPIProperties:
 
         对于负数输入，API应返回验证错误而非计算结果。
         """
+        from apps.cases.api.litigation_fee_api import FeeCalculationRequest, calculate_fee
         from apps.core.exceptions import ValidationException
-        from apps.cases.api.litigation_fee_api import calculate_fee, FeeCalculationRequest
-        
+
         # 创建带负数的请求
         data = FeeCalculationRequest(preservation_amount=-100)
-        
+
         # 应该抛出验证异常
         try:
             calculate_fee(None, data)

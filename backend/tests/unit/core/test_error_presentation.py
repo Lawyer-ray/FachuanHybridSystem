@@ -4,7 +4,9 @@ from apps.core.exceptions import BusinessError, ValidationException
 
 def test_present_validation_exception_http():
     presenter = ExceptionPresenter()
-    envelope, status = presenter.present(ValidationException(message="x", code="VALIDATION_ERROR"), channel="http", debug=True)
+    envelope, status = presenter.present(
+        ValidationException(message="x", code="VALIDATION_ERROR"), channel="http", debug=True
+    )
     assert status == 400
     payload = envelope.to_payload()
     assert payload["code"] == "VALIDATION_ERROR"

@@ -39,4 +39,3 @@ def test_validate_and_fix_structure_ids_returns_fixed_copy():
     assert fixed_structure["children"][0]["id"] == "new_id"
     assert id_service.replaced is True
     assert messages and "已自动修复" in messages[0]
-

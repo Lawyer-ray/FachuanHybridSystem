@@ -3,13 +3,16 @@
 
 测试合同 API 的端到端流程
 """
-import pytest
+
 from decimal import Decimal
+
+import pytest
 from django.test import Client
-from tests.factories.organization_factories import LawyerFactory, LawFirmFactory
-from tests.factories.contract_factories import ContractFactory
-from tests.factories.client_factories import ClientFactory
+
 from apps.contracts.models import Contract, ContractPayment, InvoiceStatus
+from tests.factories.client_factories import ClientFactory
+from tests.factories.contract_factories import ContractFactory
+from tests.factories.organization_factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -43,6 +46,7 @@ class TestContractAPI:
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
@@ -60,7 +64,7 @@ class TestContractAPI:
         assert contract.status == "active"
         assert contract.fee_mode == "fixed"
         assert float(contract.fixed_amount) == 10000.00
-        
+
         # 验证律师指派
         assert contract.primary_lawyer.id == lawyer.id
         assignments = contract.assignments.all()
@@ -86,24 +90,19 @@ class TestContractAPI:
                     "name": "测试案件1",
                     "case_type": "civil",
                     "target_amount": 50000.00,
-                    "parties": [
-                        {
-                            "client_id": client.id,
-                            "legal_status": "plaintiff"
-                        }
-                    ]
+                    "parties": [{"client_id": client.id, "legal_status": "plaintiff"}],
                 }
-            ]
+            ],
         }
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
         # 调用 API
-        from apps.contracts.api.contract_api import create_contract_with_cases
-        from apps.contracts.api.contract_api import ContractWithCasesIn
+        from apps.contracts.api.contract_api import ContractWithCasesIn, create_contract_with_cases
 
         payload = ContractWithCasesIn(**data)
         contract = create_contract_with_cases(request, payload)
@@ -129,21 +128,14 @@ class TestContractAPI:
     def test_update_contract_success(self):
         """测试更新合同成功"""
         # 创建合同
-        contract = ContractFactory(
-            name="旧名称",
-            status="draft",
-            fee_mode="fixed",
-            fixed_amount=Decimal("10000.00")
-        )
+        contract = ContractFactory(name="旧名称", status="draft", fee_mode="fixed", fixed_amount=Decimal("10000.00"))
 
         # 准备更新数据
-        update_data = {
-            "name": "新名称",
-            "status": "active"
-        }
+        update_data = {"name": "新名称", "status": "active"}
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
@@ -152,12 +144,7 @@ class TestContractAPI:
         from apps.contracts.schemas import ContractUpdate
 
         payload = ContractUpdate(**update_data)
-        updated_contract = update_contract(
-            request,
-            contract.id,
-            payload,
-            confirm_finance=False
-        )
+        updated_contract = update_contract(request, contract.id, payload, confirm_finance=False)
 
         # 验证结果
         assert updated_contract.name == "新名称"
@@ -171,18 +158,14 @@ class TestContractAPI:
     def test_update_contract_finance_requires_admin(self):
         """测试更新财务数据需要管理员权限"""
         # 创建合同
-        contract = ContractFactory(
-            fee_mode="fixed",
-            fixed_amount=Decimal("10000.00")
-        )
+        contract = ContractFactory(fee_mode="fixed", fixed_amount=Decimal("10000.00"))
 
         # 准备更新数据（包含财务字段）
-        update_data = {
-            "fixed_amount": 20000.00
-        }
+        update_data = {"fixed_amount": 20000.00}
 
         # 模拟请求（普通用户）
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.normal_user
 
@@ -195,48 +178,35 @@ class TestContractAPI:
 
         # 验证抛出权限异常（Service 层抛出 PermissionDenied，全局处理器转为 403）
         with pytest.raises(PermissionDenied) as exc_info:
-            update_contract(
-                request,
-                contract.id,
-                payload,
-                confirm_finance=True
-            )
+            update_contract(request, contract.id, payload, confirm_finance=True)
 
         assert "管理员权限" in str(exc_info.value)
 
     def test_update_contract_finance_requires_confirmation(self):
         """测试更新财务数据需要二次确认"""
         # 创建合同
-        contract = ContractFactory(
-            fee_mode="fixed",
-            fixed_amount=Decimal("10000.00")
-        )
+        contract = ContractFactory(fee_mode="fixed", fixed_amount=Decimal("10000.00"))
 
         # 准备更新数据（包含财务字段）
-        update_data = {
-            "fixed_amount": 20000.00
-        }
+        update_data = {"fixed_amount": 20000.00}
 
         # 模拟请求（管理员）
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
         # 调用 API（不确认）
+        from ninja.errors import HttpError
+
         from apps.contracts.api.contract_api import update_contract
         from apps.contracts.schemas import ContractUpdate
-        from ninja.errors import HttpError
 
         payload = ContractUpdate(**update_data)
 
         # 验证抛出异常
         with pytest.raises(HttpError) as exc_info:
-            update_contract(
-                request,
-                contract.id,
-                payload,
-                confirm_finance=False
-            )
+            update_contract(request, contract.id, payload, confirm_finance=False)
 
         assert exc_info.value.status_code == 400
         assert "二次确认" in str(exc_info.value)
@@ -244,10 +214,7 @@ class TestContractAPI:
     def test_add_payments_success(self):
         """测试添加收款记录成功"""
         # 创建合同
-        contract = ContractFactory(
-            fee_mode="fixed",
-            fixed_amount=Decimal("10000.00")
-        )
+        contract = ContractFactory(fee_mode="fixed", fixed_amount=Decimal("10000.00"))
 
         # 准备收款数据
         payments_data = [
@@ -256,29 +223,24 @@ class TestContractAPI:
                 "amount": 5000.00,
                 "received_at": "2024-01-01",
                 "invoiced_amount": 5000.00,
-                "note": "首期款"
+                "note": "首期款",
             }
         ]
 
         # 模拟请求（管理员）
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
         # 调用 API
         from apps.contracts.api.contract_api import update_contract
-        from apps.contracts.schemas import ContractUpdate, ContractPaymentIn
+        from apps.contracts.schemas import ContractPaymentIn, ContractUpdate
 
         payload = ContractUpdate()
         payments = [ContractPaymentIn(**p) for p in payments_data]
 
-        updated_contract = update_contract(
-            request,
-            contract.id,
-            payload,
-            confirm_finance=True,
-            new_payments=payments
-        )
+        updated_contract = update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)
 
         # 验证收款记录
         payments = ContractPayment.objects.filter(contract=contract)
@@ -289,10 +251,7 @@ class TestContractAPI:
     def test_add_payments_exceeds_fixed_amount(self):
         """测试添加收款超过固定金额"""
         # 创建合同
-        contract = ContractFactory(
-            fee_mode="fixed",
-            fixed_amount=Decimal("10000.00")
-        )
+        contract = ContractFactory(fee_mode="fixed", fixed_amount=Decimal("10000.00"))
 
         # 准备收款数据（超过固定金额）
         payments_data = [
@@ -301,18 +260,19 @@ class TestContractAPI:
                 "amount": 15000.00,
                 "received_at": "2024-01-01",
                 "invoiced_amount": 0,
-                "note": "超额款"
+                "note": "超额款",
             }
         ]
 
         # 模拟请求（管理员）
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
         # 调用 API
         from apps.contracts.api.contract_api import update_contract
-        from apps.contracts.schemas import ContractUpdate, ContractPaymentIn
+        from apps.contracts.schemas import ContractPaymentIn, ContractUpdate
         from apps.core.exceptions import ValidationException
 
         payload = ContractUpdate()
@@ -320,13 +280,7 @@ class TestContractAPI:
 
         # 验证抛出异常（Service 层抛出 ValidationException，全局处理器转为 400）
         with pytest.raises(ValidationException) as exc_info:
-            update_contract(
-                request,
-                contract.id,
-                payload,
-                confirm_finance=True,
-                new_payments=payments
-            )
+            update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)
 
         assert "超过" in str(exc_info.value)
 
@@ -338,6 +292,7 @@ class TestContractAPI:
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
 
@@ -359,6 +314,7 @@ class TestContractAPI:
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
         request.perm_open_access = True
@@ -380,6 +336,7 @@ class TestContractAPI:
 
         # 模拟请求
         from unittest.mock import Mock
+
         request = Mock()
         request.user = self.admin_user
         request.perm_open_access = True

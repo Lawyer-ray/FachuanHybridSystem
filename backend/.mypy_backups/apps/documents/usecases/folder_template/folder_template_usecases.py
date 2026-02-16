@@ -1,10 +1,9 @@
 """Module for folder template usecases."""
+
 from __future__ import annotations
 
-
-from typing import Any
-
 from dataclasses import dataclass
+from typing import Any
 
 from apps.documents.models import FolderTemplate
 from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
@@ -70,7 +69,9 @@ class FolderTemplateUsecases:
     def validate_structure(self, *, structure: dict[str, Any]) -> tuple[bool, str]:
         return self.validation_service.validate_structure(structure)
 
-    def validate_structure_ids(self, *, structure: dict[str, Any], template_id: int | None = None) -> tuple[bool, list[str]]:
+    def validate_structure_ids(
+        self, *, structure: dict[str, Any], template_id: int | None = None
+    ) -> tuple[bool, list[str]]:
         return self.structure_rules.validate_structure_ids(structure, template_id)
 
     def validate_and_fix_structure_ids(

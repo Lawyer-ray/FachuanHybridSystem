@@ -255,12 +255,12 @@ annotation for one or more arguments  [no-untyped-def]
         def log_api_error_detail(
         ^
 apps/automation/utils/logging.py:959:39: error: Incompatible types in
-assignment (expression has type "dict[str, Any]", target has type "str") 
+assignment (expression has type "dict[str, Any]", target has type "str")
 [assignment]
                 extra["request_params"] = safe_params
                                           ^~~~~~~~~~~
 apps/automation/utils/logging.py:961:38: error: Incompatible types in
-assignment (expression has type "dict[str, Any]", target has type "str") 
+assignment (expression has type "dict[str, Any]", target has type "str")
 [assignment]
                 extra["response_data"] = response_data
                                          ^~~~~~~~~~~~~
@@ -290,7 +290,7 @@ Unsupported operand types for - ("None" and "int")  [operator]
                                                         ^
 apps/automation/services/document/document_processing.py:217:53: note: Left operand is of type "int | None"
 apps/automation/schemas/preservation.py:89:16: error: Incompatible return value
-type (got "PreservationQuoteSchema", expected "PreservationQuoteCreateSchema") 
+type (got "PreservationQuoteSchema", expected "PreservationQuoteCreateSchema")
 [return-value]
             return cls(
                    ^
@@ -598,12 +598,12 @@ apps/contracts/services/contract/admin_workflows/clone_workflow.py:75:40: error:
                 for agreement in cast(Any, source_contract.supplementary_a...
                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/cases/services/material/case_material_query_service.py:28:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def list_bind_candidates(
         ^
 apps/cases/services/material/case_material_query_service.py:81:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def get_case_materials_view(
         ^
@@ -631,7 +631,7 @@ Argument 1 to "dict" has incompatible type "dict[int, dict[str, Any]]"; expected
             remaining = dict[str, Any](groups_by_type_id)
                                        ^~~~~~~~~~~~~~~~~
 apps/cases/services/material/case_material_query_service.py:197:17: error: No
-overload variant of "pop" of "dict" matches argument types "int", "None" 
+overload variant of "pop" of "dict" matches argument types "int", "None"
 [call-overload]
                 g = remaining.pop(tid, None)
                     ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -677,19 +677,19 @@ annotation for one or more arguments  [no-untyped-def]
         def render(cls, name: str, **variables) -> str:
         ^
 apps/contracts/services/contract/contract_validator.py:27:36: error: Argument 1
-to "get" of "dict" has incompatible type "Any | None"; expected "FeeMode" 
+to "get" of "dict" has incompatible type "Any | None"; expected "FeeMode"
 [arg-type]
             validator = validators.get(fee_mode)
                                        ^~~~~~~~
 apps/automation/services/court_document_recognition/info_extractor.py:203:9: error:
-Need type annotation for "results" (hint: "results: List[<type>] = ...") 
+Need type annotation for "results" (hint: "results: List[<type>] = ...")
 [var-annotated]
             results = []
             ^~~~~~~
 apps/automation/services/court_document_recognition/info_extractor.py:442:38: error:
 Argument "key" to "sort" of "list" has incompatible type
 "Callable[[dict[str, object]], object]"; expected
-"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"
 [arg-type]
             valid_regex_results.sort(key=lambda x: x['combined_score'], re...
                                          ^
@@ -701,7 +701,7 @@ Incompatible return value type (got "object", expected
 apps/automation/services/court_document_recognition/info_extractor.py:467:69: error:
 Argument "key" to "max" has incompatible type
 "Callable[[dict[str, object]], object]"; expected
-"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]" 
+"Callable[[dict[str, object]], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"
 [arg-type]
     ... best_invalid = max(validated_regex_results, key=lambda x: x['combined...
                                                         ^
@@ -798,22 +798,22 @@ Missing type parameters for generic type "dict"  [type-arg]
     ...def _extract_json_from_response(self, content: str) -> Optional[dict]:
                                                                        ^
 apps/automation/services/court_document_recognition/info_extractor.py:857:13: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                 return json.loads(content)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/info_extractor.py:868:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/info_extractor.py:878:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/info_extractor.py:887:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -822,22 +822,22 @@ Missing type parameters for generic type "dict"  [type-arg]
     ...def _extract_json_from_response(self, content: str) -> Optional[dict]:
                                                                        ^
 apps/automation/services/court_document_recognition/document_classifier.py:226:13: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                 return json.loads(content)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/document_classifier.py:238:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/document_classifier.py:248:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/document_classifier.py:257:17: error:
-Returning Any from function declared to return "dict[Any, Any] | None" 
+Returning Any from function declared to return "dict[Any, Any] | None"
 [no-any-return]
                     return json.loads(json_str)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -870,22 +870,22 @@ from function declared to return "int"  [no-any-return]
             return feishu_config.get('TIMEOUT', 30)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/sms/feishu_bot_service.py:208:31: error: Incompatible
-types in assignment (expression has type "str", target has type "bool | None") 
+types in assignment (expression has type "str", target has type "bool | None")
 [assignment]
                 result["error"] = error_msg
                                   ^~~~~~~~~
 apps/automation/services/sms/feishu_bot_service.py:218:35: error: Incompatible
-types in assignment (expression has type "str", target has type "bool | None") 
+types in assignment (expression has type "str", target has type "bool | None")
 [assignment]
                     result["error"] = "飞书消息发送失败"
                                       ^~~~~~~~~~
 apps/automation/services/sms/feishu_bot_service.py:259:31: error: Incompatible
-types in assignment (expression has type "str", target has type "bool | None") 
+types in assignment (expression has type "str", target has type "bool | None")
 [assignment]
                 result["error"] = error_msg
                                   ^~~~~~~~~
 apps/automation/services/sms/feishu_bot_service.py:265:31: error: Incompatible
-types in assignment (expression has type "str", target has type "bool | None") 
+types in assignment (expression has type "str", target has type "bool | None")
 [assignment]
                 result["error"] = error_msg
                                   ^~~~~~~~~
@@ -945,7 +945,7 @@ apps/automation/services/chat/retry_config.py:437:24: error: "object" not
 callable  [operator]
                 "success": Any(attempt.success for attempt in self.attempt...
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/automation/exceptions.py:54:16: error: Need type annotation for "errors" 
+apps/automation/exceptions.py:54:16: error: Need type annotation for "errors"
 [var-annotated]
             errors={},
                    ^~~
@@ -991,7 +991,7 @@ Any from function declared to return "ContractReminder"  [no-any-return]
                 return ContractReminder.objects.select_related("contract")...
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/contracts/services/contract_reminder_service.py:142:13: error:
-"ContractReminder" has no attribute "contract_id"; maybe "contract"? 
+"ContractReminder" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
                 reminder.contract_id = data["contract_id"]
                 ^~~~~~~~~~~~~~~~~~~~
@@ -1112,7 +1112,7 @@ is missing a type annotation for one or more arguments  [no-untyped-def]
         def get_credential(self, credential_id: int, user=None) -> Account...
         ^
 apps/organization/services/account_credential_service.py:169:9: error:
-Returning Any from function declared to return "AccountCredential" 
+Returning Any from function declared to return "AccountCredential"
 [no-any-return]
             return credential
             ^~~~~~~~~~~~~~~~~
@@ -1133,7 +1133,7 @@ is missing a type annotation for one or more arguments  [no-untyped-def]
         def delete_credential(self, credential_id: int, user=None) -> None...
         ^
 apps/organization/services/account_credential_service.py:321:9: error:
-Returning Any from function declared to return "AccountCredential" 
+Returning Any from function declared to return "AccountCredential"
 [no-any-return]
             return credential
             ^~~~~~~~~~~~~~~~~
@@ -1217,7 +1217,7 @@ parameters for generic type "Task"  [type-arg]
             self._queue_processors: Dict[str, asyncio.Task] = {}
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/concurrency_optimizer.py:271:9: error: Need type
-annotation for "deadlocks" (hint: "deadlocks: List[<type>] = ...") 
+annotation for "deadlocks" (hint: "deadlocks: List[<type>] = ...")
 [var-annotated]
             deadlocks = []
             ^~~~~~~~~
@@ -1286,7 +1286,7 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def update_payment(
         ^
 apps/contracts/services/contract_payment_service.py:244:53: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
     ...         total_except = self._get_total_received(obj.contract_id, excl...
                                                         ^~~~~~~~~~~~~~~
@@ -1295,17 +1295,17 @@ apps/contracts/services/contract_payment_service.py:244:81: error:
     ..._except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
                                                                       ^~~~~~
 apps/contracts/services/contract_payment_service.py:260:26: error: Incompatible
-types in assignment (expression has type "float", variable has type "Decimal") 
+types in assignment (expression has type "float", variable has type "Decimal")
 [assignment]
                 obj.amount = amount
                              ^~~~~~
 apps/contracts/services/contract_payment_service.py:277:35: error: Incompatible
-types in assignment (expression has type "float", variable has type "Decimal") 
+types in assignment (expression has type "float", variable has type "Decimal")
 [assignment]
                 obj.invoiced_amount = invoiced_amount
                                       ^~~~~~~~~~~~~~~
 apps/contracts/services/contract_payment_service.py:288:13: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
                 obj.contract_id,
                 ^~~~~~~~~~~~~~~
@@ -1318,7 +1318,7 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def delete_payment(
         ^
 apps/contracts/services/contract_payment_service.py:329:15: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
             cid = obj.contract_id
                   ^~~~~~~~~~~~~~~
@@ -1415,7 +1415,7 @@ annotation  [valid-type]
     ...ef get_manual_bound_template_ids(self, case_id: int) -> set[Any][int]:
                                                                ^
 apps/cases/services/party/case_party_query_service.py:50:31: error:
-"BusinessConfig" has no attribute "get_compatible_legal_statuses" 
+"BusinessConfig" has no attribute "get_compatible_legal_statuses"
 [attr-defined]
             compatible_statuses = business_config.get_compatible_legal_sta...
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -1424,7 +1424,7 @@ apps/cases/services/number/case_filing_number_service.py:10:1: error: Module
     from apps.cases.models import Case, CaseFilingNumberSequence
     ^
 apps/cases/services/number/case_filing_number_service.py:128:26: error: No
-overload variant of "get" of "dict" matches argument types "str", "str" 
+overload variant of "get" of "dict" matches argument types "str", "str"
 [call-overload]
             return cast(Any, case_type_map.get(case_type, case_type))
                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1433,7 +1433,7 @@ apps/cases/services/number/case_filing_number_service.py:128:26: note:     def g
 apps/cases/services/number/case_filing_number_service.py:128:26: note:     def get(self, SimpleCaseType, str, /) -> str
 apps/cases/services/number/case_filing_number_service.py:128:26: note:     def [_T] get(self, SimpleCaseType, _T, /) -> str | _T
 apps/cases/services/material/case_material_binding_workflow.py:30:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def bind_materials(
         ^
@@ -1524,11 +1524,11 @@ function declared to return "dict[str, Any]"  [no-any-return]
                 return resp.json()
                 ^~~~~~~~~~~~~~~~~~
 apps/automation/integrations/chat/message_sender.py:26:23: error: Argument
-"title" to "MessageContent" has incompatible type "None"; expected "str" 
+"title" to "MessageContent" has incompatible type "None"; expected "str"
 [arg-type]
                     title=None,
                           ^~~~
-apps/core/llm/config.py:184:25: error: Redundant cast to "str" 
+apps/core/llm/config.py:184:25: error: Redundant cast to "str"
 [redundant-cast]
                     value = cast(str, await get_value_sync())
                             ^
@@ -1553,7 +1553,7 @@ apps/contracts/services/contract/contract_access_policy.py:134:39: error:
         def filter_queryset_ctx(self, qs: QuerySet["Contract"], ctx: "Acce...
                                           ^
 apps/contracts/services/payment/contract_payment_service.py:250:53: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
     ...         total_except = self._get_total_received(obj.contract_id, excl...
                                                         ^~~~~~~~~~~~~~~
@@ -1562,17 +1562,17 @@ apps/contracts/services/payment/contract_payment_service.py:250:81: error:
     ..._except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
                                                                       ^~~~~~
 apps/contracts/services/payment/contract_payment_service.py:296:13: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
                 obj.contract_id,
                 ^~~~~~~~~~~~~~~
 apps/contracts/services/payment/contract_payment_service.py:338:15: error:
-"ContractPayment" has no attribute "contract_id"; maybe "contract"? 
+"ContractPayment" has no attribute "contract_id"; maybe "contract"?
 [attr-defined]
             cid = obj.contract_id
                   ^~~~~~~~~~~~~~~
 apps/contracts/services/contract/contract_service_query_mixin.py:20:9: error:
-Returning Any from function declared to return "QuerySet[Contract, Contract]" 
+Returning Any from function declared to return "QuerySet[Contract, Contract]"
 [no-any-return]
             return self.query_service.get_contract_queryset()
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1668,7 +1668,7 @@ apps/core/llm/backends/siliconflow.py:116:43: error: Argument 1 to "append" of
                     langchain_messages.append(AIMessage(content=content))
                                               ^~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/llm/backends/siliconflow.py:118:43: error: Argument 1 to "append" of
-"list" has incompatible type "HumanMessage"; expected "SystemMessage" 
+"list" has incompatible type "HumanMessage"; expected "SystemMessage"
 [arg-type]
                     langchain_messages.append(HumanMessage(content=content...
                                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1678,7 +1678,7 @@ argument "max_tokens" for "ChatOpenAI"  [call-arg]
                    ^
 apps/core/llm/backends/siliconflow.py:175:21: error: Argument "api_key" to
 "ChatOpenAI" has incompatible type "str"; expected
-"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
                 api_key=self.api_key,
                         ^~~~~~~~~~~~
@@ -1693,7 +1693,7 @@ argument "max_tokens" for "ChatOpenAI"  [call-arg]
                   ^
 apps/core/llm/backends/siliconflow.py:297:21: error: Argument "api_key" to
 "ChatOpenAI" has incompatible type "str"; expected
-"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
                 api_key=api_key,
                         ^~~~~~~
@@ -1708,7 +1708,7 @@ argument "max_tokens" for "ChatOpenAI"  [call-arg]
                   ^
 apps/core/llm/backends/siliconflow.py:419:21: error: Argument "api_key" to
 "ChatOpenAI" has incompatible type "str"; expected
-"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
                 api_key=api_key,
                         ^~~~~~~
@@ -1718,7 +1718,7 @@ argument "max_tokens" for "ChatOpenAI"  [call-arg]
                    ^
 apps/core/llm/backends/siliconflow.py:511:21: error: Argument "api_key" to
 "ChatOpenAI" has incompatible type "str"; expected
-"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None" 
+"SecretStr | Callable[[], str] | Callable[[], Awaitable[str]] | None"
 [arg-type]
                 api_key=self.api_key,
                         ^~~~~~~~~~~~
@@ -1838,7 +1838,7 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def delete_attachment(
         ^
 apps/automation/services/fee_notice/extraction_service.py:375:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _ocr_page(
         ^
@@ -1856,7 +1856,7 @@ apps/automation/services/fee_notice/extraction_service.py:558:13: error: No
 return value expected  [return-value]
                 return 0
                 ^~~~~~~~
-apps/core/llm/router.py:37:19: error: Too many arguments for "ILLMBackend" 
+apps/core/llm/router.py:37:19: error: Too many arguments for "ILLMBackend"
 [call-arg]
             backend = backend_cls(config)
                       ^~~~~~~~~~~~~~~~~~~
@@ -1893,7 +1893,7 @@ Any from function declared to return "str | None"  [no-any-return]
                     return test_owner
                     ^~~~~~~~~~~~~~~~~
 apps/automation/services/chat/owner_config_manager.py:289:16: error:
-Incompatible return value type (got "Match[str] | None", expected "bool") 
+Incompatible return value type (got "Match[str] | None", expected "bool")
 [return-value]
             return is_valid
                    ^~~~~~~~
@@ -1913,11 +1913,11 @@ apps/automation/services/chat/owner_config_manager.py:364:9: error: Returning
 Any from function declared to return "int"  [no-any-return]
             return self._config.get('OWNER_MAX_RETRIES', 3)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/llm/fallback_policy.py:66:5: error: Missing return statement 
+apps/core/llm/fallback_policy.py:66:5: error: Missing return statement
 [return]
         def execute(
         ^
-apps/core/llm/fallback_policy.py:95:5: error: Missing return statement 
+apps/core/llm/fallback_policy.py:95:5: error: Missing return statement
 [return]
         async def execute_async(
         ^
@@ -1950,7 +1950,7 @@ apps/cases/services/chat_name_config_service.py:117:26: error:
 "type[SystemConfig]" has no attribute "get_value"  [attr-defined]
             max_length_str = SystemConfig.get_value(
                              ^~~~~~~~~~~~~~~~~~~~~~
-apps/core/utils/typing_helpers.py:42:22: error: "Model" has no attribute "id" 
+apps/core/utils/typing_helpers.py:42:22: error: "Model" has no attribute "id"
 [attr-defined]
         return cast(int, model.id)
                          ^~~~~~~~
@@ -2002,7 +2002,7 @@ variable has type "str")  [assignment]
                 title = dict(ListType.choices).get(list_type, list_type)
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/documents/services/evidence/evidence_mutation_service.py:45:17: error: No
-overload variant of "get" of "dict" matches argument types "str", "int" 
+overload variant of "get" of "dict" matches argument types "str", "int"
 [call-overload]
             order = LIST_TYPE_ORDER.get(list_type, 1) if list_type else 1
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2031,7 +2031,7 @@ apps/documents/services/evidence/evidence_mutation_service.py:141:21: error:
             max_order = evidence_list.items.aggregate(max_order=Max("order...
                         ^~~~~~~~~~~~~~~~~~~
 apps/documents/services/evidence/evidence_mutation_service.py:178:29: error:
-"EvidenceItem" has no attribute "evidence_list_id"; maybe "evidence_list"? 
+"EvidenceItem" has no attribute "evidence_list_id"; maybe "evidence_list"?
 [attr-defined]
             list_id = cast(int, item.evidence_list_id)
                                 ^~~~~~~~~~~~~~~~~~~~~
@@ -2060,7 +2060,7 @@ type comment or annotation  [valid-type]
     ...: list[str], exclude_template_id: int | None = None) -> set[Any][str]:
                                                                ^
 apps/documents/services/folder_template/id_service.py:52:9: error: Need type
-annotation for "existing_ids" (hint: "existing_ids: Set[<type>] = ...") 
+annotation for "existing_ids" (hint: "existing_ids: Set[<type>] = ...")
 [var-annotated]
             existing_ids = set()
             ^~~~~~~~~~~~
@@ -2078,7 +2078,7 @@ right operand type for in ("list[str] | None")  [operator]
                     if id_val in template_ids:
                        ^~~~~~~~~~~~~~~~~~~~~~
 apps/documents/services/folder_template/id_service.py:102:31: error: Item
-"None" of "list[str] | None" has no attribute "__iter__" (not iterable) 
+"None" of "list[str] | None" has no attribute "__iter__" (not iterable)
 [union-attr]
                     for id_val in template_ids:
                                   ^~~~~~~~~~~~
@@ -2099,12 +2099,12 @@ return value type (got "str | None", expected "str")  [return-value]
                 return self._access_token
                        ^~~~~~~~~~~~~~~~~~
 apps/automation/services/chat/feishu_provider.py:354:51: error: Incompatible
-types in assignment (expression has type "list[str]", target has type "str") 
+types in assignment (expression has type "list[str]", target has type "str")
 [assignment]
                             payload["user_id_list"] = [open_id]
                                                       ^~~~~~~~~
 apps/automation/services/chat/feishu_provider.py:361:47: error: Incompatible
-types in assignment (expression has type "list[str]", target has type "str") 
+types in assignment (expression has type "list[str]", target has type "str")
 [assignment]
                         payload["user_id_list"] = [effective_owner_id]
                                                   ^~~~~~~~~~~~~~~~~~~~
@@ -2200,7 +2200,7 @@ defined  [name-defined]
     ....debug(f"生成群聊名称: {chat_name} (案件ID: {cast(int, cast(int, case.id))})")
                                                             ^
 apps/cases/services/case_chat_service.py:119:68: note: Did you forget to import it from "typing"? (Suggestion: "from typing import cast")
-apps/cases/services/case_chat_service.py:213:25: error: Return value expected 
+apps/cases/services/case_chat_service.py:213:25: error: Return value expected
 [return-value]
                             return
                             ^~~~~~
@@ -2287,7 +2287,7 @@ apps/automation/services/chat/__init__.py:52:1: error: Call to untyped function
     _register_providers()
     ^~~~~~~~~~~~~~~~~~~~~
 apps/documents/services/folder_template/command_service.py:25:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_template(
         ^
@@ -2332,17 +2332,17 @@ from function declared to return "list[DocumentTemplateDTO]"  [no-any-return]
             return self.template_query_service.get_templates_by_ids_intern...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/documents/usecases/folder_template/folder_template_usecases.py:26:9: error:
-Returning Any from function declared to return "list[FolderTemplate]" 
+Returning Any from function declared to return "list[FolderTemplate]"
 [no-any-return]
             return self.query_service.list_templates(case_type=case_type, ...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/documents/usecases/folder_template/folder_template_usecases.py:32:9: error:
-Returning Any from function declared to return "FolderTemplate | None" 
+Returning Any from function declared to return "FolderTemplate | None"
 [no-any-return]
             return self.query_service.get_template_for_case(case_type=case...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/documents/usecases/folder_template/folder_template_usecases.py:37:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_template(
         ^
@@ -2401,7 +2401,7 @@ apps/contracts/services/contract/contract_workflow_service.py:72:74: error:
     ..._lawyers = self.lawyer_assignment_service.get_all_lawyers(contract.id)
                                                                  ^~~~~~~~~~~
 apps/contracts/services/contract/contract_workflow_service.py:83:28: error:
-Unexpected keyword argument "user" for "create_case" of "ICaseService" 
+Unexpected keyword argument "user" for "create_case" of "ICaseService"
 [call-arg]
                     case_dto = self.case_service.create_case(case_create_d...
                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -2441,7 +2441,7 @@ to "dict" has incompatible type "dict[int, dict[str, Any]]"; expected
             remaining = dict[str, Any](groups_by_type_id)
                                        ^~~~~~~~~~~~~~~~~
 apps/cases/services/material/case_material_service.py:231:17: error: No
-overload variant of "pop" of "dict" matches argument types "int", "None" 
+overload variant of "pop" of "dict" matches argument types "int", "None"
 [call-overload]
                 g = remaining.pop(tid, None)
                     ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -2499,7 +2499,7 @@ expected "CaseDtoAssembler | None"  [arg-type]
     ...    self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kw...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
 apps/cases/services/case/case_internal_query_service.py:101:13: error: Value of
-type "Callable[[Any, Any, float | None, int | None], None]" is not indexable 
+type "Callable[[Any, Any, float | None, int | None], None]" is not indexable
 [index]
                 cache.set[Any](cache_key, result, timeout=CacheTimeout.get...
                 ^~~~~~~~~~~~~~
@@ -2508,7 +2508,7 @@ apps/contracts/services/contract/assemblers/contract_list_assembler.py:22:33: er
                 info = info_map.get(contract.id, {})
                                     ^~~~~~~~~~~
 apps/contracts/services/contract/assemblers/contract_list_assembler.py:23:13: error:
-"Contract" has no attribute "_computed_matched_document_template" 
+"Contract" has no attribute "_computed_matched_document_template"
 [attr-defined]
                 contract._computed_matched_document_template = info.get("d...
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2525,7 +2525,7 @@ apps/contracts/services/contract/assemblers/contract_list_assembler.py:33:17: er
                     contract.case_dtos = [CaseDTO.from_model(c) for c in c...
                     ^~~~~~~~~~~~~~~~~~
 apps/contracts/services/contract/assemblers/contract_list_assembler.py:36:17: error:
-"Contract" has no attribute "primary_lawyer_dto"; maybe "primary_lawyer"? 
+"Contract" has no attribute "primary_lawyer_dto"; maybe "primary_lawyer"?
 [attr-defined]
                     contract.primary_lawyer_dto = LawyerDTO.from_model(pri...
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2535,12 +2535,12 @@ types in assignment (expression has type "None", variable has type
             self.context: BrowserContext = None
                                            ^~~~
 apps/automation/services/scraper/scrapers/base.py:58:27: error: Incompatible
-types in assignment (expression has type "None", variable has type "Page") 
+types in assignment (expression has type "None", variable has type "Page")
 [assignment]
             self.page: Page = None
                               ^~~~
 apps/automation/services/scraper/scrapers/base.py:59:31: error: Incompatible
-types in assignment (expression has type "None", variable has type "str") 
+types in assignment (expression has type "None", variable has type "str")
 [assignment]
             self.site_name: str = None  # 子类应设置网站名称
                                   ^~~~
@@ -2634,7 +2634,7 @@ has no attribute "id"  [attr-defined]
     ...ogger.info(f"交费通知书检查完成: SMS ID={sms.id}, 发现 {len(result.items)} 份交费通知书...
                                                         ^~~~~~~
 apps/automation/services/fee_notice/check_service.py:298:13: error:
-"FeeNoticeCheckService" has no attribute "_format_preservation_fee_line" 
+"FeeNoticeCheckService" has no attribute "_format_preservation_fee_line"
 [attr-defined]
                 self._format_preservation_fee_line(item, lines)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2647,7 +2647,7 @@ apps/automation/services/sms/stages/sms_parsing_stage.py:112:53: error:
                     f"短信解析完成: ID={cast(int, sms.id)}, "
                                                        ^
 apps/contracts/services/assignment/filing_number_service.py:183:16: error: No
-overload variant of "get" of "dict" matches argument types "str", "str" 
+overload variant of "get" of "dict" matches argument types "str", "str"
 [call-overload]
             return case_type_map.get(case_type, case_type)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2687,7 +2687,7 @@ for one or more arguments  [no-untyped-def]
     def _send_recognition_notification(task, result) -> None:
     ^
 apps/automation/tasks.py:370:49: error: Argument 1 to "CourtInsuranceClient"
-has incompatible type "TokenService"; expected "ITokenService | None" 
+has incompatible type "TokenService"; expected "ITokenService | None"
 [arg-type]
             insurance_client = CourtInsuranceClient(token_service)
                                                     ^~~~~~~~~~~~~
@@ -2809,7 +2809,7 @@ apps/contracts/services/contract_service.py:74:44: error: Name
 apps/contracts/services/contract_service.py:115:32: error: Cannot instantiate
 abstract class "ClientServiceAdapter" with abstract attributes
 "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
                     client_service=ClientServiceAdapter()
                                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -2908,7 +2908,7 @@ is not defined  [name-defined]
         def get_contract(self, contract_id: int) -> "Optional[ContractDTO]...
                                                     ^
 apps/contracts/services/contract_service.py:1001:20: error: Incompatible return
-value type (got "dict[str, Any] | list[Never]", expected "list[str]") 
+value type (got "dict[str, Any] | list[Never]", expected "list[str]")
 [return-value]
                 return contract.representation_stages or []
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2981,7 +2981,7 @@ apps/client/services/property_clue_service.py:39:33: error: Name
         def client_service(self) -> "ClientService":
                                     ^
 apps/client/services/property_clue_service.py:51:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -2999,7 +2999,7 @@ apps/client/services/property_clue_service.py:102:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:109:53: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
     ... def get_clue(self, clue_id: int, user: Optional[User] = None) -> Prop...
                                                         ^
@@ -3009,13 +3009,13 @@ function declared to return "PropertyClue"  [no-any-return]
             return clue
             ^~~~~~~~~~~
 apps/client/services/property_clue_service.py:142:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
 apps/client/services/property_clue_service.py:142:24: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/client/services/property_clue_service.py:177:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -3033,7 +3033,7 @@ apps/client/services/property_clue_service.py:222:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:230:56: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
     ...f delete_clue(self, clue_id: int, user: Optional[User] = None) -> None...
                                                         ^
@@ -3047,7 +3047,7 @@ apps/client/services/property_clue_service.py:254:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:265:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -3065,7 +3065,7 @@ apps/client/services/property_clue_service.py:313:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:324:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -3093,12 +3093,12 @@ Incompatible types in assignment (expression has type
                 self._token_service = AutoTokenAcquisitionService(
                                       ^
 apps/organization/services/account_credential_admin_service.py:313:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _execute_single_login(
         ^
 apps/organization/services/account_credential_admin_service.py:415:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _record_login_history(
         ^
@@ -3107,14 +3107,14 @@ Missing type parameters for generic type "dict"  [type-arg]
             error_details: Optional[dict] = None,
                                     ^
 apps/automation/services/court_document_recognition/recognition_service.py:38:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def __init__(
         ^
 apps/automation/services/sms/sms_parser_service.py:72:29: error: Incompatible
 default for argument "ollama_model" (default has type "None", argument has type
 "str")  [assignment]
-            ollama_model: str = None, 
+            ollama_model: str = None,
                                 ^~~~
 apps/automation/services/sms/sms_parser_service.py:72:29: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/sms/sms_parser_service.py:72:29: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
@@ -3198,7 +3198,7 @@ instantiate abstract class "OrganizationServiceAdapter" with abstract attributes
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/dependencies/business_organization.py:32:12: note: The following methods were marked implicitly abstract because they have empty function bodies: "get_default_lawyer_id_internal" and "get_lawyer_by_id_internal". If they are not meant to be abstract, explicitly `return` or `return None`.
 apps/core/dependencies/business_contract.py:38:12: error: Incompatible return
-value type (got "ContractServiceAdapter", expected "IContractService") 
+value type (got "ContractServiceAdapter", expected "IContractService")
 [return-value]
         return ContractServiceAdapter(contract_service=contract_service)
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3225,19 +3225,19 @@ apps/core/dependencies/business_contract.py:58:12: note:         def save_file_t
 apps/core/dependencies/business_client.py:15:12: error: Cannot instantiate
 abstract class "ClientServiceAdapter" with abstract attributes
 "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
         return ClientServiceAdapter()
                ^~~~~~~~~~~~~~~~~~~~~~
 apps/core/dependencies/business_client.py:15:12: note: "get_client_internal" is implicitly abstract because it has an empty function body. If it is not meant to be abstract, explicitly `return` or `return None`.
 apps/core/dependencies/business_case.py:53:12: error: Unexpected keyword
-argument "contract_assignment_query_service" for "CaseAssignmentService" 
+argument "contract_assignment_query_service" for "CaseAssignmentService"
 [call-arg]
         return CaseAssignmentService(
                ^
 apps/cases/services/case_assignment_service.py:28:5: note: "CaseAssignmentService" defined here
 apps/core/dependencies/business_case.py:53:12: error: Incompatible return value
-type (got "CaseAssignmentService", expected "ICaseAssignmentService") 
+type (got "CaseAssignmentService", expected "ICaseAssignmentService")
 [return-value]
         return CaseAssignmentService(
                ^
@@ -3257,7 +3257,7 @@ function declared to return "ICaseLogService"  [no-any-return]
         return CaseLogServiceAdapter()
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/dependencies/automation_sms_wiring.py:53:31: error: Unexpected
-keyword argument "document_processing_service" for "DocumentParserService" 
+keyword argument "document_processing_service" for "DocumentParserService"
 [call-arg]
         document_parser_service = DocumentParserService(
                                   ^
@@ -3363,7 +3363,7 @@ keyword argument "submission_service" for "CourtSMSService"  [call-arg]
                ^
 apps/automation/services/sms/court_sms_service.py:29:5: note: "CourtSMSService" defined here
 apps/core/dependencies/automation_sms_wiring.py:116:12: error: Incompatible
-return value type (got "CourtSMSService", expected "ICourtSMSService") 
+return value type (got "CourtSMSService", expected "ICourtSMSService")
 [return-value]
         return CourtSMSService(
                ^
@@ -3375,12 +3375,12 @@ apps/core/dependencies/automation_sms_wiring.py:116:12: note:         def submit
 apps/core/dependencies/automation_sms_wiring.py:116:12: note:     Got:
 apps/core/dependencies/automation_sms_wiring.py:116:12: note:         def submit_sms(self, content: str, received_at: datetime = ...) -> CourtSMS
 apps/documents/services/evidence_list_placeholder_service.py:201:18: error:
-"EvidenceListPlaceholderService" has no attribute "_group_parties_by_status" 
+"EvidenceListPlaceholderService" has no attribute "_group_parties_by_status"
 [attr-defined]
             groups = self._group_parties_by_status(parties)
                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/documents/services/evidence_list_placeholder_service.py:205:17: error:
-"EvidenceListPlaceholderService" has no attribute "_format_ordered_groups" 
+"EvidenceListPlaceholderService" has no attribute "_format_ordered_groups"
 [attr-defined]
             lines = self._format_ordered_groups(groups)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3399,12 +3399,12 @@ Incompatible types in assignment (expression has type
                 self._service = CourtDocumentRecognitionService()
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/adapter.py:54:9: error:
-Returning Any from function declared to return "RecognitionResponse" 
+Returning Any from function declared to return "RecognitionResponse"
 [no-any-return]
             return self.service.recognize_document(file_path, user)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/court_document_recognition/adapter.py:69:9: error:
-Returning Any from function declared to return "RecognitionResult" 
+Returning Any from function declared to return "RecognitionResult"
 [no-any-return]
             return self.service.recognize_document_from_text(text)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3416,12 +3416,12 @@ apps/automation/services/token/auto_token_acquisition_service.py:64:5: note: "Au
 apps/core/dependencies/automation_token.py:48:22: error: Argument
 "retry_config" to "AutoLoginService" has incompatible type
 "apps.automation.usecases.token.auto_login_usecase.RetryConfig"; expected
-"apps.automation.services.token.auto_login_service.RetryConfig | None" 
+"apps.automation.services.token.auto_login_service.RetryConfig | None"
 [arg-type]
             retry_config=RetryConfig(),
                          ^~~~~~~~~~~~~
 apps/core/dependencies/automation_token.py:62:12: error: Incompatible return
-value type (got "CourtTokenStoreService", expected "ICourtTokenStoreService") 
+value type (got "CourtTokenStoreService", expected "ICourtTokenStoreService")
 [return-value]
         return CourtTokenStoreService()
                ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -3435,28 +3435,28 @@ abstract class "LawyerServiceAdapter" with abstract attributes
 apps/core/interfaces/service_locator.py:138:23: error: Cannot instantiate
 abstract class "ClientServiceAdapter" with abstract attributes
 "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
                 service = ClientServiceAdapter()
                           ^~~~~~~~~~~~~~~~~~~~~~
 apps/core/interfaces/service_locator.py:138:23: note: "get_client_internal" is implicitly abstract because it has an empty function body. If it is not meant to be abstract, explicitly `return` or `return None`.
 apps/core/interfaces/service_locator.py:150:16: error: Incompatible return
-value type (got "ContractServiceAdapter | Any", expected "IContractService") 
+value type (got "ContractServiceAdapter | Any", expected "IContractService")
 [return-value]
             return service
                    ^~~~~~~
 apps/core/interfaces/service_locator.py:166:16: error: Incompatible return
-value type (got "CaseServiceAdapter | Any", expected "ICaseService") 
+value type (got "CaseServiceAdapter | Any", expected "ICaseService")
 [return-value]
             return service
                    ^~~~~~~
 apps/core/interfaces/service_locator.py:470:16: error: Incompatible return
-value type (got "CourtSMSService | Any", expected "ICourtSMSService") 
+value type (got "CourtSMSService | Any", expected "ICourtSMSService")
 [return-value]
             return service
                    ^~~~~~~
 apps/core/interfaces/service_locator.py:486:16: error: Incompatible return
-value type (got "CaseChatService | Any", expected "ICaseChatService") 
+value type (got "CaseChatService | Any", expected "ICaseChatService")
 [return-value]
             return service
                    ^~~~~~~
@@ -3519,7 +3519,7 @@ apps/core/interfaces/service_locator.py:856:50: error: Function
         def subscribe(cls, event_type: str, handler: callable) -> None:
                                                      ^
 apps/core/interfaces/service_locator.py:856:50: note: Perhaps you meant "typing.Callable" instead of "callable"?
-apps/core/interfaces/service_locator.py:868:17: error: callable? not callable 
+apps/core/interfaces/service_locator.py:868:17: error: callable? not callable
 [misc]
                     handler(data)
                     ^~~~~~~~~~~~~
@@ -3533,7 +3533,7 @@ apps/core/dependencies/core.py:34:12: note:         def get_langchain_llm(self, 
 apps/core/dependencies/core.py:34:12: note:     Got:
 apps/core/dependencies/core.py:34:12: note:         def get_langchain_llm(self, backend: str | None = ..., model: str | None = ...) -> Any
 apps/core/dependencies/core.py:55:12: error: Incompatible return value type
-(got "CauseCourtQueryService", expected "ICauseCourtQueryService") 
+(got "CauseCourtQueryService", expected "ICauseCourtQueryService")
 [return-value]
         return CauseCourtQueryService()
                ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -3809,7 +3809,7 @@ apps/automation/services/sms/matching/document_parser_service.py:72:22: error:
                 result = doc_service.extract_document_content_by_path_inte...
                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/sms/matching/document_parser_service.py:147:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def get_all_document_paths(self, sms) -> List[str]:
         ^
@@ -4007,7 +4007,7 @@ apps/client/services/client_service.py:442:16: error: "Client" has no attribute
                    ^~~~~~~~~
 apps/organization/services/organization_service_adapter.py:62:5: error: Return
 type "list[AccountCredentialDTO]" of "get_lawyers_in_organization" incompatible
-with return type "list[LawyerDTO]" in supertype "IOrganizationService" 
+with return type "list[LawyerDTO]" in supertype "IOrganizationService"
 [override]
         def get_lawyers_in_organization(self, organization_id: int) -> Lis...
         ^
@@ -4145,7 +4145,7 @@ for argument "filters" (default has type "None", argument has type
 apps/organization/services/lawyer_service.py:85:35: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/organization/services/lawyer_service.py:85:35: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
 apps/organization/services/lawyer_service.py:86:24: error: Incompatible default
-for argument "user" (default has type "None", argument has type "Lawyer") 
+for argument "user" (default has type "None", argument has type "Lawyer")
 [assignment]
             user: Lawyer = None
                            ^~~~
@@ -4370,7 +4370,7 @@ type annotation for "document_paths" (hint:
             ^~~~~~~~~~~~~~
 apps/automation/services/sms/document_attachment_service.py:169:14: error: Name
 "CourtSMS" is not defined  [name-defined]
-            sms: "CourtSMS", 
+            sms: "CourtSMS",
                  ^
 apps/automation/services/sms/document_attachment_service.py:223:36: error: Name
 "CourtSMS" is not defined  [name-defined]
@@ -4394,7 +4394,7 @@ type annotation for one or more arguments  [no-untyped-def]
         def match(self, sms, document_path: str = None) -> Optional:
         ^
 apps/automation/services/sms/case_matcher.py:76:47: error: Incompatible default
-for argument "document_path" (default has type "None", argument has type "str") 
+for argument "document_path" (default has type "None", argument has type "str")
 [assignment]
         def match(self, sms, document_path: str = None) -> Optional:
                                                   ^~~~
@@ -4526,17 +4526,17 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def __init__(self, db_service=None) -> None:
         ^
 apps/automation/services/token/history_recorder.py:128:49: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                         started_at=timezone.now() - timezone.timedelta(sec...
                                                     ^~~~~~~~~~~~~~~~~~
 apps/automation/services/token/history_recorder.py:169:43: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 start_time = timezone.now() - timezone.timedelta(hours=hou...
                                               ^~~~~~~~~~~~~~~~~~
 apps/automation/services/token/history_recorder.py:230:44: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 cutoff_date = timezone.now() - timezone.timedelta(days=day...
                                                ^~~~~~~~~~~~~~~~~~
@@ -4545,7 +4545,7 @@ from function declared to return "int"  [no-any-return]
                 return deleted_count
                 ^~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/history_recorder.py:272:43: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 start_time = timezone.now() - timezone.timedelta(days=days...
                                               ^~~~~~~~~~~~~~~~~~
@@ -4592,32 +4592,32 @@ Module "apps.core.enums" has no attribute "PartyRole"  [attr-defined]
     from apps.core.enums import PartyRole
     ^
 apps/documents/services/generation/supplementary_agreement_generation_service.py:139:9: error:
-Returning Any from function declared to return "DocumentTemplate | None" 
+Returning Any from function declared to return "DocumentTemplate | None"
 [no-any-return]
             return TemplateMatcher().match_supplementary_agreement_templat...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/documents/services/generation/supplementary_agreement_generation_service.py:141:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def build_context(self, contract: Any, agreement) -> dict[str, Any...
         ^
 apps/documents/services/generation/supplementary_agreement_generation_service.py:162:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def generate_filename(self, contract: Any, agreement) -> str:
         ^
 apps/documents/services/generation/supplementary_agreement_generation_service.py:191:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _get_agreement_principals(self, agreement)  -> Any:
         ^
 apps/documents/services/generation/supplementary_agreement_generation_service.py:202:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _get_contract_principals(self, contract)  -> Any:
         ^
 apps/documents/services/generation/supplementary_agreement_generation_service.py:213:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _get_agreement_opposing(self, agreement)  -> Any:
         ^
@@ -4646,7 +4646,7 @@ apps/automation/services/ai/auto_namer_service_adapter.py:226:52: error: Name
     ...           if isinstance(e, (ValidationException, BusinessException)):
                                                          ^
 apps/automation/services/scraper/court_document_service.py:25:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def __init__(self, *args, **kwargs) -> None:
         ^
@@ -4655,7 +4655,7 @@ apps/automation/services/scraper/court_document_service.py:113:71: error:
                         f"文书记录已存在,更新关联: Document ID={document.id}, "
                                                                     ^
 apps/automation/services/scraper/court_document_service.py:114:35: error:
-"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"? 
+"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"?
 [attr-defined]
                         f"旧 Task ID={document.scraper_task_id}, 新 Task ID=...
                                       ^~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4672,7 +4672,7 @@ apps/automation/services/scraper/court_document_service.py:127:29: error:
                     document_id=document.id,
                                 ^~~~~~~~~~~
 apps/automation/services/scraper/court_document_service.py:258:13: error:
-Returning Any from function declared to return "CourtDocument | None" 
+Returning Any from function declared to return "CourtDocument | None"
 [no-any-return]
                 return document
                 ^~~~~~~~~~~~~~~
@@ -4694,7 +4694,7 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def _create_court_service(self, browser_context, site_name: str) -...
         ^
 apps/automation/services/scraper/core/validator_service.py:17:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def __init__(self, text_utils=None, file_utils=None) -> None:
         ^
@@ -4774,7 +4774,7 @@ expected "ProxySettings | None"  [arg-type]
     ...    self._browser = self._playwright.chromium.launch(**launch_options)
                                                               ^~~~~~~~~~~~~~
 apps/automation/services/scraper/core/browser_service.py:75:16: error:
-Incompatible return value type (got "Browser | None", expected "Browser") 
+Incompatible return value type (got "Browser | None", expected "Browser")
 [return-value]
             return self._browser
                    ^~~~~~~~~~~~~
@@ -4903,7 +4903,7 @@ apps/cases/services/case_service.py:18:10: error: Too many arguments for
 "getLogger"  [call-arg]
     logger = logging.getLogger("apps.cases", cast)
              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/cases/services/case_service.py:18:42: error: Name "cast" is not defined 
+apps/cases/services/case_service.py:18:42: error: Name "cast" is not defined
 [name-defined]
     logger = logging.getLogger("apps.cases", cast)
                                              ^
@@ -4912,7 +4912,7 @@ apps/cases/services/case_service.py:43:5: error: Returning Any from function
 declared to return "str"  [no-any-return]
         return result
         ^~~~~~~~~~~~~
-apps/cases/services/case_service.py:43:12: error: Name "result" is not defined 
+apps/cases/services/case_service.py:43:12: error: Name "result" is not defined
 [name-defined]
         return result
                ^
@@ -4960,7 +4960,7 @@ apps/cases/services/case_service.py:381:30: error: Missing type parameters for
 generic type "Dict"  [type-arg]
             org_access: Optional[Dict],
                                  ^
-apps/cases/services/case_service.py:402:12: error: Name "cast" is not defined 
+apps/cases/services/case_service.py:402:12: error: Name "cast" is not defined
 [name-defined]
             if cast(int, case.id) in extra_cases:
                ^
@@ -4989,7 +4989,7 @@ apps/cases/services/case_service.py:1216:27: error: Name "case_cast" is not
 defined  [name-defined]
                     "log_id": case_cast(int, log.id),
                               ^
-apps/cases/services/case_service.py:1216:42: error: Name "log" is not defined 
+apps/cases/services/case_service.py:1216:42: error: Name "log" is not defined
 [name-defined]
                     "log_id": case_cast(int, log.id),
                                              ^
@@ -5143,29 +5143,29 @@ apps/automation/services/scraper/scrapers/court_document/main.py:64:17: error:
                     self._scraper.browser = self.browser
                     ^~~~~~~~~~~~~~~~~~~~~
 apps/contracts/services/contract/contract_display_service.py:180:9: error: Need
-type annotation for "result" (hint: "result: Dict[<type>, <type>] = ...") 
+type annotation for "result" (hint: "result: Dict[<type>, <type>] = ...")
 [var-annotated]
             result = {}
             ^~~~~~
 apps/contracts/services/contract/contract_display_service.py:233:38: error: Too
-many arguments for "_format_doc_templates" of "ContractDisplayService" 
+many arguments for "_format_doc_templates" of "ContractDisplayService"
 [call-arg]
                     "document_template": self._format_doc_templates(doc_te...
                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/contracts/services/contract/contract_display_service.py:233:38: note: Looks like the first special argument in a method is not named "self", "cls", or "mcs", maybe it is missing?
 apps/contracts/services/contract/contract_display_service.py:234:36: error: Too
-many arguments for "_format_folder_templates" of "ContractDisplayService" 
+many arguments for "_format_folder_templates" of "ContractDisplayService"
 [call-arg]
                     "folder_template": self._format_folder_templates(folde...
                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/contracts/services/contract/contract_display_service.py:234:36: note: Looks like the first special argument in a method is not named "self", "cls", or "mcs", maybe it is missing?
 apps/contracts/services/contract/contract_display_service.py:245:18: error:
-"ContractDisplayService" has no attribute "__iter__" (not iterable) 
+"ContractDisplayService" has no attribute "__iter__" (not iterable)
 [attr-defined]
             for t in doc_templates:
                      ^~~~~~~~~~~~~
 apps/contracts/services/contract/contract_display_service.py:254:54: error:
-"ContractDisplayService" has no attribute "__iter__" (not iterable) 
+"ContractDisplayService" has no attribute "__iter__" (not iterable)
 [attr-defined]
             return "、".join(t.get("name", "") for t in folder_templates)
                                                          ^~~~~~~~~~~~~~~
@@ -5183,7 +5183,7 @@ variable has type "Manager[SupplementaryAgreement]")  [assignment]
                     qs = qs.select_related("contract").prefetch_related("p...
                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/insurance/preservation_quote_service.py:40:1: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
     def get_or_create_token(site_name="court_zxfw", account=None) -> None:
     ^
@@ -5235,7 +5235,7 @@ apps/automation/services/insurance/preservation_quote_service.py:366:33: error:
                         "quote_id": quote.id,
                                     ^~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:410:13: error:
-Returning Any from function declared to return "PreservationQuote" 
+Returning Any from function declared to return "PreservationQuote"
 [no-any-return]
                 return quote
                 ^~~~~~~~~~~~
@@ -5301,7 +5301,7 @@ Need type annotation for "rate_data" (hint:
                 rate_data = {}
                 ^~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:963:13: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
                 def clean_decimal(value) -> None:
                 ^
@@ -5310,32 +5310,32 @@ No return value expected  [return-value]
                         return Decimal(str(value))
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:980:29: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     min_premium=clean_decimal(rate_data.get("minPremium"))...
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:981:28: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     min_amount=clean_decimal(rate_data.get("minAmount")),
                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:982:28: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     max_amount=clean_decimal(rate_data.get("maxAmount")),
                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:983:26: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     min_rate=clean_decimal(rate_data.get("minRate")),
                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:984:26: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     max_rate=clean_decimal(rate_data.get("maxRate")),
                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service.py:985:34: error:
-"clean_decimal" does not return a value (it only ever returns None) 
+"clean_decimal" does not return a value (it only ever returns None)
 [func-returns-value]
                     max_apply_amount=clean_decimal(rate_data.get("maxApply...
                                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -5762,12 +5762,12 @@ missing a type annotation for one or more arguments  [no-untyped-def]
     ^
 apps/automation/services/token/account_selection_strategy.py:135:27: error:
 "IOrganizationService" has no attribute "get_credentials_by_site_internal";
-maybe "get_credential_internal" or "get_all_credentials_internal"? 
+maybe "get_credential_internal" or "get_all_credentials_internal"?
 [attr-defined]
                 credentials = organization_service.get_credentials_by_site...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/account_selection_strategy.py:145:9: error:
-Returning Any from function declared to return "list[AccountCredentialDTO]" 
+Returning Any from function declared to return "list[AccountCredentialDTO]"
 [no-any-return]
             return await get_credentials()
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5777,12 +5777,12 @@ maybe "get_credential_internal"?  [attr-defined]
                     cred = organization_service.get_credential_by_account_...
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/account_selection_strategy.py:259:21: error:
-"IOrganizationService" has no attribute "update_login_success_internal" 
+"IOrganizationService" has no attribute "update_login_success_internal"
 [attr-defined]
                         organization_service.update_login_success_internal...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/account_selection_strategy.py:264:21: error:
-"IOrganizationService" has no attribute "update_login_failure_internal" 
+"IOrganizationService" has no attribute "update_login_failure_internal"
 [attr-defined]
                         organization_service.update_login_failure_internal...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5809,7 +5809,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:196:52: error:
     ...                          existing_token = await self.token_service.ge...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:257:28: error:
-Incompatible return value type (got "str | None", expected "str") 
+Incompatible return value type (got "str | None", expected "str")
 [return-value]
                         return result.token
                                ^~~~~~~~~~~~
@@ -5844,7 +5844,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:482:23: error:
                     await self.token_service.save_token_internal(
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:493:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -5853,17 +5853,17 @@ apps/automation/services/token/auto_token_acquisition_service.py:531:37: error:
                     saved_token = await self.token_service.get_token_inter...
                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:551:27: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                         await self.account_selection_strategy.update_accou...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:582:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:623:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -5872,12 +5872,12 @@ apps/automation/services/token/auto_token_acquisition_service.py:666:37: error:
                     saved_token = await self.token_service.get_token_inter...
                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:686:27: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                         await self.account_selection_strategy.update_accou...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:711:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -5910,7 +5910,7 @@ type annotation for one or more arguments  [no-untyped-def]
         def delete_grant(
         ^
 apps/cases/services/case_access_service.py:214:55: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...ef get_grants_for_case(self, case_id: int, user: User | None = None) -...
                                                         ^
@@ -5920,7 +5920,7 @@ type arguments, but 1 given  [type-arg]
     ..._case(self, case_id: int, user: User | None = None) -> QuerySet[Case]:
                                                               ^
 apps/cases/services/case_access_service.py:227:55: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...ef get_grants_for_user(self, user_id: int, user: User | None = None) -...
                                                         ^
@@ -5930,25 +5930,25 @@ type arguments, but 1 given  [type-arg]
     ...r_user(self, user_id: int, user: User | None = None) -> QuerySet[Any]:
                                                                ^
 apps/cases/services/case_access_service.py:240:59: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...et_accessible_case_ids(self, user_id: int, user: User | None = None) -...
                                                         ^
 apps/cases/services/case_access_service.py:240:59: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/cases/services/case_access_service.py:257:65: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...ccess(self, case_id: int, grantee_id: int, user: User | None = None) -...
                                                         ^
 apps/cases/services/case_access_service.py:257:65: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/cases/services/case_access_service.py:275:66: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...ccess(self, case_id: int, grantee_id: int, user: User | None = None) -...
                                                         ^
 apps/cases/services/case_access_service.py:275:66: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/cases/services/case_access_service.py:302:56: error: Variable
-"apps.cases.services.case_access_service.User" is not valid as a type 
+"apps.cases.services.case_access_service.User" is not valid as a type
 [valid-type]
     ...f revoke_access_by_id(self, grant_id: int, user: User | None = None) -...
                                                         ^
@@ -5996,7 +5996,7 @@ apps/contracts/services/contract/contract_admin_mutation_service.py:178:67: erro
     ...rrors={"case_type": f"合同类型为 {cast(str, original.get_case_type_display(...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
 apps/contracts/services/contract/contract_admin_mutation_service.py:206:5: error:
-Self argument missing for a non-static method (or an invalid type for self) 
+Self argument missing for a non-static method (or an invalid type for self)
 [misc]
         def generate_advisor_contract_name(principal_names: list[str], sta...
         ^
@@ -6019,7 +6019,7 @@ Incompatible return value type (got "None", expected "PreservationQuoteService")
             return self._service
                    ^~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service_adapter.py:78:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote(
         ^
@@ -6040,7 +6040,7 @@ Incompatible return value type (got "Task[dict[Any, Any]]", expected
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/insurance/preservation_quote_service_adapter.py:138:20: note: Maybe you forgot to use "await"?
 apps/automation/services/insurance/preservation_quote_service_adapter.py:212:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote_internal(
         ^
@@ -6062,7 +6062,7 @@ argument has type "int")  [assignment]
 apps/automation/services/insurance/preservation_quote_service_adapter.py:277:59: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/insurance/preservation_quote_service_adapter.py:277:59: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
 apps/automation/services/insurance/preservation_quote_service_adapter.py:371:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote_internal(
         ^
@@ -6150,7 +6150,7 @@ Call to untyped function (unknown) in typed context  [no-untyped-call]
                         return parser(value).date()
                                ^~~~~~~~~~~~~
 apps/documents/services/generation/litigation_context_builder.py:60:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def build_complaint_context(self, *,  case_dto: Any, llm_result) -...
         ^
@@ -6160,7 +6160,7 @@ Argument 1 to "build_context" of "EnhancedContextBuilder" has incompatible type
     ...xt = self.enhanced_context_builder.build_context(context_data, require...
                                                         ^~~~~~~~~~~~
 apps/documents/services/generation/litigation_context_builder.py:84:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def build_defense_context(self, *,  case_dto: Any, llm_result) -> ...
         ^
@@ -6203,22 +6203,22 @@ Returning Any from function declared to return "None"  [no-any-return]
                         return matched_case
                         ^~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:249:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def rename_and_attach_documents(self, sms, case, extracted_files: ...
         ^
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:281:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _upload_attachments(self, case_log_service, log_id: int, file_...
         ^
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:300:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def send_notification(self, sms, document_paths: List[str]) -> boo...
         ^
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:374:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _sync_login_with_page(self, credential, page: Page) -> str:
         ^
@@ -6284,17 +6284,17 @@ Returning Any from function declared to return "None"  [no-any-return]
                             return matched_case
                             ^~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:1107:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(
         ^
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:1187:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: List[str]) -> bo...
         ^
 apps/documents/services/generation/folder_generation_service.py:86:9: error:
-Returning Any from function declared to return "FolderTemplate | None" 
+Returning Any from function declared to return "FolderTemplate | None"
 [no-any-return]
             return TemplateMatcher().match_folder_template(case_type)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -6321,7 +6321,7 @@ Any from function declared to return "dict[str, Any]"  [no-any-return]
                         return context
                         ^~~~~~~~~~~~~~
 apps/documents/services/generation/context_builder.py:241:49: error: Argument 1
-to "get_choice_display" has incompatible type "Any | None"; expected "str" 
+to "get_choice_display" has incompatible type "Any | None"; expected "str"
 [arg-type]
                 "contract_type": get_choice_display(contract_data.get("cas...
                                                     ^~~~~~~~~~~~~~~~~~~~~~...
@@ -6452,7 +6452,7 @@ is missing a type annotation for one or more arguments  [no-untyped-def]
         def _require_owner(
         ^
 apps/cases/services/template/folder_binding_service.py:187:5: error: Signature
-of "create_binding" incompatible with supertype "FolderBindingCrudService" 
+of "create_binding" incompatible with supertype "FolderBindingCrudService"
 [override]
         def create_binding(
         ^
@@ -6465,7 +6465,7 @@ Any from function declared to return "CaseFolderBinding"  [no-any-return]
             return super().create_binding(
             ^
 apps/cases/services/template/folder_binding_service.py:228:5: error: Signature
-of "update_binding" incompatible with supertype "FolderBindingCrudService" 
+of "update_binding" incompatible with supertype "FolderBindingCrudService"
 [override]
         def update_binding(
         ^
@@ -6474,7 +6474,7 @@ apps/cases/services/template/folder_binding_service.py:228:5: note:          def
 apps/cases/services/template/folder_binding_service.py:228:5: note:      Subclass:
 apps/cases/services/template/folder_binding_service.py:228:5: note:          def update_binding(self, case_id: int, folder_path: str, user: Any | None = ..., org_access: dict[str, Any] | None = ..., perm_open_access: bool = ...) -> CaseFolderBinding
 apps/cases/services/template/folder_binding_service.py:261:5: error: Signature
-of "delete_binding" incompatible with supertype "FolderBindingCrudService" 
+of "delete_binding" incompatible with supertype "FolderBindingCrudService"
 [override]
         def delete_binding(
         ^
@@ -6483,7 +6483,7 @@ apps/cases/services/template/folder_binding_service.py:261:5: note:          def
 apps/cases/services/template/folder_binding_service.py:261:5: note:      Subclass:
 apps/cases/services/template/folder_binding_service.py:261:5: note:          def delete_binding(self, case_id: int, user: Any | None = ..., org_access: dict[str, Any] | None = ..., perm_open_access: bool = ...) -> bool
 apps/cases/services/template/folder_binding_service.py:293:5: error: Signature
-of "get_binding" incompatible with supertype "FolderBindingCrudService" 
+of "get_binding" incompatible with supertype "FolderBindingCrudService"
 [override]
         def get_binding(
         ^
@@ -6575,7 +6575,7 @@ attribute "filing_number"  [attr-defined]
                        ^~~~~~~~~~~~~~~~~~
 apps/cases/services/case/case_admin_service.py:226:40: error: Argument
 "case_type" to "generate_case_filing_number_internal" of
-"ICaseFilingNumberService" has incompatible type "str | None"; expected "str" 
+"ICaseFilingNumberService" has incompatible type "str | None"; expected "str"
 [arg-type]
                 case_id=case_id, case_type=case.case_type, created_year=cr...
                                            ^~~~~~~~~~~~~~
@@ -6624,12 +6624,12 @@ missing a type annotation for one or more arguments  [no-untyped-def]
         def batch_grant_access(
         ^
 apps/cases/management/commands/sync_case_assignments_from_contracts.py:9:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def add_arguments(self, parser) -> None:
         ^
 apps/cases/management/commands/sync_case_assignments_from_contracts.py:14:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def handle(self, *args, **options) -> None:
         ^
@@ -6640,7 +6640,7 @@ Unexpected keyword argument "contract_assignment_query_service" for
                       ^
 apps/cases/services/case_assignment_service.py:28:5: note: "CaseAssignmentService" defined here
 apps/cases/management/commands/sync_case_assignments_from_contracts.py:47:21: error:
-"CaseAssignmentService" has no attribute "sync_assignments_from_contract" 
+"CaseAssignmentService" has no attribute "sync_assignments_from_contract"
 [attr-defined]
                 stats = service.sync_assignments_from_contract(
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -6806,7 +6806,7 @@ apps/cases/api/case_material_api.py:83:11: error: Unexpected keyword argument
         log = service.create_log(
               ^
 apps/cases/services/caselog_service.py:124:5: note: "create_log" of "CaseLogService" defined here
-apps/cases/api/case_material_api.py:97:50: error: "str" has no attribute "id" 
+apps/cases/api/case_material_api.py:97:50: error: "str" has no attribute "id"
 [attr-defined]
         return {"log_id": log.id, "attachment_ids": [x.id for x in created...
                                                      ^~~~
@@ -7009,7 +7009,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryApiService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                     documents=first_response.documents,
                               ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -7018,7 +7018,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryApiService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                             documents=page_response.documents,
                                       ^~~~~~~~~~~~~~~~~~~~~~~
@@ -7080,12 +7080,12 @@ Returning Any from function declared to return "None"  [no-any-return]
                             return matched_case
                             ^~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/api/document_delivery_api_service.py:714:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(
         ^
 apps/automation/services/document_delivery/api/document_delivery_api_service.py:787:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: List[str]) -> bo...
         ^
@@ -7105,7 +7105,7 @@ Need type annotation for "sub_type_display" (hint:
             sub_type_display = {}
             ^~~~~~~~~~~~~~~~
 apps/cases/services/template/case_document_template_admin_service.py:249:24: error:
-"CaseTemplateBinding" has no attribute "template"; maybe "template_id"? 
+"CaseTemplateBinding" has no attribute "template"; maybe "template_id"?
 [attr-defined]
                 template = binding.template
                            ^~~~~~~~~~~~~~~~
@@ -7150,7 +7150,7 @@ from function declared to return "CaseParty"  [no-any-return]
             return self.query_facade.get_party(
             ^
 apps/cases/services/party/case_party_service.py:346:16: error: "get_party" of
-"CasePartyQueryFacade" does not return a value (it only ever returns None) 
+"CasePartyQueryFacade" does not return a value (it only ever returns None)
 [func-returns-value]
             return self.query_facade.get_party(
                    ^
@@ -7235,7 +7235,7 @@ type annotation for one or more arguments  [no-untyped-def]
         def list_logs(
         ^
 apps/cases/services/log/caselog_service.py:122:16: error: Incompatible return
-value type (got "QuerySet[Case, Case]", expected "QuerySet[CaseLog, CaseLog]") 
+value type (got "QuerySet[Case, Case]", expected "QuerySet[CaseLog, CaseLog]")
 [return-value]
             return self.query_service.list_logs(
                    ^
@@ -7293,7 +7293,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                     documents=first_response.documents,
                               ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -7302,7 +7302,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                             documents=page_response.documents,
                                       ^~~~~~~~~~~~~~~~~~~~~~~
@@ -7315,7 +7315,7 @@ Returning Any from function declared to return "bool"  [no-any-return]
                 return result_queue.get()
                 ^~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/document_delivery_service.py:569:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _sync_login_with_page(self, browser_service, credential, page)...
         ^
@@ -7372,12 +7372,12 @@ Returning Any from function declared to return "dict[str, Any]"  [no-any-return]
                 return result_queue.get()
                 ^~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/document_delivery_service.py:1622:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(
         ^
 apps/automation/services/document_delivery/document_delivery_service.py:1695:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: List[str]) -> bo...
         ^
@@ -7387,12 +7387,12 @@ incompatible type "int | None"; expected "int"  [arg-type]
                 client = self._get_our_legal_client(case, client_id)
                                                           ^~~~~~~~~
 apps/cases/services/template/case_template_generation_service.py:136:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _get_our_client(self, case, client_id: int) -> Any:
         ^
 apps/cases/services/template/case_template_generation_service.py:171:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _get_our_legal_client(self, case, client_id: int) -> Any:
         ^
@@ -7401,12 +7401,12 @@ Returning Any from function declared to return "dict[str, Any]"  [no-any-return]
             return get_enhanced_context_builder().build_context(context_da...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/cases/api/template_binding_api.py:95:5: error: Module
-"apps.cases.services" has no attribute "CaseTemplateGenerationService" 
+"apps.cases.services" has no attribute "CaseTemplateGenerationService"
 [attr-defined]
         from apps.cases.services import CaseTemplateGenerationService
         ^
 apps/cases/api/template_binding_api.py:102:5: error: Module
-"apps.cases.services" has no attribute "UnifiedTemplateGenerationService" 
+"apps.cases.services" has no attribute "UnifiedTemplateGenerationService"
 [attr-defined]
         from apps.cases.services import UnifiedTemplateGenerationService
         ^
@@ -7420,7 +7420,7 @@ Argument 1 to "build_context" of "EnhancedContextBuilder" has incompatible type
             return EnhancedContextBuilder().build_context(context_data)
                                                           ^~~~~~~~~~~~
 apps/documents/services/generation/preservation_materials_generation_service.py:371:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _build_filename(self, template_name: str, case) -> str:
         ^
@@ -7429,7 +7429,7 @@ apps/automation/services/document_delivery/document_delivery_schedule_service.py
     ...      logger.info(f"定时任务创建成功: id={schedule.id}, next_run_at={next_run_...
                                                         ^~~~~~~~~~~~
 apps/automation/services/document_delivery/document_delivery_schedule_service.py:134:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def update_schedule(
         ^
@@ -7451,7 +7451,7 @@ apps/automation/services/document_delivery/document_delivery_schedule_service.py
                         credential_id=schedule.credential_id,
                                       ^~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/document_delivery_schedule_service.py:294:13: error:
-Returning Any from function declared to return "DocumentQueryResult" 
+Returning Any from function declared to return "DocumentQueryResult"
 [no-any-return]
                 return result
                 ^~~~~~~~~~~~~
@@ -7473,7 +7473,7 @@ Name "cast" is not defined  [name-defined]
                                                       ^
 apps/cases/services/template/unified_template_generation_service.py:17:51: note: Did you forget to import it from "typing"? (Suggestion: "from typing import cast")
 apps/cases/services/template/unified_template_generation_service.py:135:32: error:
-Item "ResolvedTemplate" of "Any | ResolvedTemplate" has no attribute "cast" 
+Item "ResolvedTemplate" of "Any | ResolvedTemplate" has no attribute "cast"
 [union-attr]
                     "template_id": resolved.cast(int, template.id),
                                    ^~~~~~~~~~~~~
@@ -7520,7 +7520,7 @@ in assignment (expression has type "SendNotificationUsecase", variable has type
                 self._send_notification_usecase = SendNotificationUsecase(
                                                   ^
 apps/cases/services/chat/case_chat_service.py:332:16: error: Incompatible
-return value type (got "None", expected "SendNotificationUsecase") 
+return value type (got "None", expected "SendNotificationUsecase")
 [return-value]
             return self._send_notification_usecase
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

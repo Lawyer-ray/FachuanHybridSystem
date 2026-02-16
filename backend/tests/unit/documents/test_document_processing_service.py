@@ -3,13 +3,13 @@ DocumentProcessingServiceAdapter 单元测试
 
 测试文档处理服务的核心功能
 """
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
 
-from apps.automation.services.document.document_processing_service_adapter import (
-    DocumentProcessingServiceAdapter
-)
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from apps.automation.services.document.document_processing_service_adapter import DocumentProcessingServiceAdapter
 from apps.core.exceptions import AutomationExceptions, ValidationException
 
 
@@ -27,10 +27,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process_pdf.return_value = (None, "这是PDF文本内容")
 
         # 执行测试
-        result = self.service.extract_text_from_pdf(
-            file_path="/path/to/test.pdf",
-            limit=1000
-        )
+        result = self.service.extract_text_from_pdf(file_path="/path/to/test.pdf", limit=1000)
 
         # 断言结果
         assert result["text"] == "这是PDF文本内容"
@@ -48,11 +45,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process_pdf.return_value = (None, "第二页内容")
 
         # 执行测试
-        result = self.service.extract_text_from_pdf(
-            file_path="/path/to/test.pdf",
-            limit=500,
-            preview_page=2
-        )
+        result = self.service.extract_text_from_pdf(file_path="/path/to/test.pdf", limit=500, preview_page=2)
 
         # 断言结果
         assert result["text"] == "第二页内容"
@@ -68,6 +61,7 @@ class TestDocumentProcessingServiceAdapter:
 
         # 断言抛出异常
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException) as exc_info:
             self.service.extract_text_from_pdf(file_path="/path/to/test.pdf")
 
@@ -81,10 +75,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract_docx.return_value = "这是DOCX文本内容"
 
         # 执行测试
-        result = self.service.extract_text_from_docx(
-            file_path="/path/to/test.docx",
-            limit=1000
-        )
+        result = self.service.extract_text_from_docx(file_path="/path/to/test.docx", limit=1000)
 
         # 断言结果
         assert result == "这是DOCX文本内容"
@@ -99,9 +90,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract_docx.return_value = "完整的DOCX内容"
 
         # 执行测试
-        result = self.service.extract_text_from_docx(
-            file_path="/path/to/test.docx"
-        )
+        result = self.service.extract_text_from_docx(file_path="/path/to/test.docx")
 
         # 断言结果
         assert result == "完整的DOCX内容"
@@ -117,6 +106,7 @@ class TestDocumentProcessingServiceAdapter:
 
         # 断言抛出异常
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException) as exc_info:
             self.service.extract_text_from_docx(file_path="/path/to/test.docx")
 
@@ -130,10 +120,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_ocr.return_value = "这是OCR识别的文本"
 
         # 执行测试
-        result = self.service.extract_text_from_image(
-            file_path="/path/to/test.jpg",
-            limit=500
-        )
+        result = self.service.extract_text_from_image(file_path="/path/to/test.jpg", limit=500)
 
         # 断言结果
         assert result == "这是OCR识别的文本"
@@ -148,10 +135,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_ocr.return_value = "这是一段很长的OCR识别文本内容" * 100
 
         # 执行测试
-        result = self.service.extract_text_from_image(
-            file_path="/path/to/test.jpg",
-            limit=50
-        )
+        result = self.service.extract_text_from_image(file_path="/path/to/test.jpg", limit=50)
 
         # 断言结果
         assert len(result) == 50
@@ -165,6 +149,7 @@ class TestDocumentProcessingServiceAdapter:
 
         # 断言抛出异常
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException) as exc_info:
             self.service.extract_text_from_image(file_path="/path/to/test.jpg")
 
@@ -186,10 +171,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process.return_value = mock_result
 
         # 执行测试
-        result = self.service.process_uploaded_document(
-            uploaded_file=mock_file,
-            limit=1000
-        )
+        result = self.service.process_uploaded_document(uploaded_file=mock_file, limit=1000)
 
         # 断言结果
         assert result["text"] == "文档内容"
@@ -215,11 +197,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process.return_value = mock_result
 
         # 执行测试
-        result = self.service.process_uploaded_document(
-            uploaded_file=mock_file,
-            limit=500,
-            preview_page=2
-        )
+        result = self.service.process_uploaded_document(uploaded_file=mock_file, limit=500, preview_page=2)
 
         # 断言结果
         assert result["text"] is None
@@ -240,6 +218,7 @@ class TestDocumentProcessingServiceAdapter:
 
         # 断言抛出异常
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException) as exc_info:
             self.service.process_uploaded_document(uploaded_file=mock_file)
 
@@ -256,10 +235,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract.return_value = mock_result
 
         # 执行测试
-        result = self.service.extract_document_content_by_path(
-            file_path="/path/to/test.pdf",
-            limit=1000
-        )
+        result = self.service.extract_document_content_by_path(file_path="/path/to/test.pdf", limit=1000)
 
         # 断言结果
         assert result["text"] == "文档内容"
@@ -279,11 +255,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract.return_value = mock_result
 
         # 执行测试
-        result = self.service.extract_document_content_by_path(
-            file_path="/path/to/test.pdf",
-            limit=500,
-            preview_page=3
-        )
+        result = self.service.extract_document_content_by_path(file_path="/path/to/test.pdf", limit=500, preview_page=3)
 
         # 断言结果
         assert result["text"] == "第三页内容"
@@ -310,10 +282,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process_pdf.return_value = (None, "内部接口文本")
 
         # 执行测试
-        result = self.service.extract_text_from_pdf_internal(
-            file_path="/path/to/test.pdf",
-            limit=1000
-        )
+        result = self.service.extract_text_from_pdf_internal(file_path="/path/to/test.pdf", limit=1000)
 
         # 断言结果
         assert result["text"] == "内部接口文本"
@@ -328,10 +297,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract_docx.return_value = "内部接口DOCX文本"
 
         # 执行测试
-        result = self.service.extract_text_from_docx_internal(
-            file_path="/path/to/test.docx",
-            limit=500
-        )
+        result = self.service.extract_text_from_docx_internal(file_path="/path/to/test.docx", limit=500)
 
         # 断言结果
         assert result == "内部接口DOCX文本"
@@ -346,10 +312,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_ocr.return_value = "内部接口OCR文本"
 
         # 执行测试
-        result = self.service.extract_text_from_image_internal(
-            file_path="/path/to/test.jpg",
-            limit=300
-        )
+        result = self.service.extract_text_from_image_internal(file_path="/path/to/test.jpg", limit=300)
 
         # 断言结果
         assert result == "内部接口OCR文本"
@@ -372,10 +335,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_process.return_value = mock_result
 
         # 执行测试
-        result = self.service.process_uploaded_document_internal(
-            uploaded_file=mock_file,
-            limit=800
-        )
+        result = self.service.process_uploaded_document_internal(uploaded_file=mock_file, limit=800)
 
         # 断言结果
         assert result["text"] == "内部接口文档内容"
@@ -394,10 +354,7 @@ class TestDocumentProcessingServiceAdapter:
         mock_extract.return_value = mock_result
 
         # 执行测试
-        result = self.service.extract_document_content_by_path_internal(
-            file_path="/path/to/internal.pdf",
-            limit=600
-        )
+        result = self.service.extract_document_content_by_path_internal(file_path="/path/to/internal.pdf", limit=600)
 
         # 断言结果
         assert result["text"] == "内部接口路径文档内容"
@@ -460,10 +417,7 @@ class TestDocumentProcessingServiceEdgeCases:
         mock_ocr.return_value = long_text
 
         # 执行测试
-        result = self.service.extract_text_from_image(
-            file_path="/path/to/test.jpg",
-            limit=None
-        )
+        result = self.service.extract_text_from_image(file_path="/path/to/test.jpg", limit=None)
 
         # 断言结果（无限制时返回完整文本）
         assert result == long_text
@@ -512,10 +466,7 @@ class TestDocumentProcessingServiceEdgeCases:
         mock_process_pdf.return_value = (None, "")
 
         # 执行测试
-        result = self.service.extract_text_from_pdf(
-            file_path="/path/to/test.pdf",
-            limit=0
-        )
+        result = self.service.extract_text_from_pdf(file_path="/path/to/test.pdf", limit=0)
 
         # 断言结果
         assert result["text"] == ""
@@ -530,10 +481,7 @@ class TestDocumentProcessingServiceEdgeCases:
         mock_ocr.return_value = "12345"
 
         # 执行测试
-        result = self.service.extract_text_from_image(
-            file_path="/path/to/test.jpg",
-            limit=5
-        )
+        result = self.service.extract_text_from_image(file_path="/path/to/test.jpg", limit=5)
 
         # 断言结果
         assert result == "12345"

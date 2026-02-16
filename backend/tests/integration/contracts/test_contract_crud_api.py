@@ -6,6 +6,7 @@
 
 Requirements: 5.2
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -218,9 +219,7 @@ class TestContractUpdateAPI:
 
         payload = ContractUpdate(fixed_amount=20000.00)
         with pytest.raises(PermissionDenied):
-            update_contract(
-                request, contract.id, payload, confirm_finance=True
-            )
+            update_contract(request, contract.id, payload, confirm_finance=True)
 
 
 @pytest.mark.django_db

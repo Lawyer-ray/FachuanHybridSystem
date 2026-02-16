@@ -7,6 +7,7 @@ API层架构违规扫描器
 
 仅扫描 api/ 目录下的文件。
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,27 +21,29 @@ from .scanner import ViolationScanner
 logger = get_logger("api_scanner")
 
 # 需要检测的ORM方法集合
-_ORM_METHODS: frozenset[str] = frozenset({
-    "filter",
-    "get",
-    "create",
-    "all",
-    "exclude",
-    "update",
-    "delete",
-    "annotate",
-    "aggregate",
-    "values",
-    "values_list",
-    "first",
-    "last",
-    "count",
-    "exists",
-    "bulk_create",
-    "bulk_update",
-    "get_or_create",
-    "update_or_create",
-})
+_ORM_METHODS: frozenset[str] = frozenset(
+    {
+        "filter",
+        "get",
+        "create",
+        "all",
+        "exclude",
+        "update",
+        "delete",
+        "annotate",
+        "aggregate",
+        "values",
+        "values_list",
+        "first",
+        "last",
+        "count",
+        "exists",
+        "bulk_create",
+        "bulk_update",
+        "get_or_create",
+        "update_or_create",
+    }
+)
 
 
 def _suggest_service_method(model_name: str, orm_method: str) -> str:
@@ -169,7 +172,9 @@ class ApiLayerScanner(ViolationScanner):
             if not isinstance(node, ast.Call):
                 continue
             violation, objects_node_id = self._check_call_node(
-                node, source, file_path,
+                node,
+                source,
+                file_path,
             )
             if violation is not None:
                 violations.append(violation)
@@ -252,9 +257,7 @@ class ApiLayerScanner(ViolationScanner):
             code_snippet=code_snippet,
             violation_type="api_direct_orm_access",
             severity="high",
-            description=(
-                f"API层直接使用ORM: {model_name}.objects.{orm_method}()"
-            ),
+            description=(f"API层直接使用ORM: {model_name}.objects.{orm_method}()"),
             model_name=model_name,
             orm_method=f"objects.{orm_method}",
             suggested_service_method=_suggest_service_method(model_name, orm_method),
@@ -300,9 +303,7 @@ class ApiLayerScanner(ViolationScanner):
             code_snippet=code_snippet,
             violation_type="api_direct_orm_access",
             severity="high",
-            description=(
-                f"API层直接访问ORM manager: {model_name}.objects"
-            ),
+            description=(f"API层直接访问ORM manager: {model_name}.objects"),
             model_name=model_name,
             orm_method="objects",
             suggested_service_method=f"使用对应的Service方法替代直接访问 {model_name}.objects",

@@ -2,28 +2,30 @@
 合同服务层
 处理合同相关的业务逻辑
 """
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+
+import logging
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from django.db import transaction
 from django.db.models import QuerySet, Sum
-import logging
 
-from apps.core.exceptions import NotFoundError, ValidationException, PermissionDenied
 from apps.core import business_config
 from apps.core.business_config import BusinessConfig
-from ..models import Contract, ContractParty, ContractAssignment, FeeMode
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 
-from typing import TYPE_CHECKING
+from ..models import Contract, ContractAssignment, ContractParty, FeeMode
 
 if TYPE_CHECKING:
     from apps.contracts.dtos import ContractDTO
     from apps.contracts.models import ContractPayment
-    from apps.lawyer.services import LawyerAssignmentService
     from apps.lawyer.dtos import LawyerDTO
+    from apps.lawyer.services import LawyerAssignmentService
 
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
+
     from .contract_payment_service import ContractPaymentService
     from .supplementary_agreement_service import SupplementaryAgreementService
 
@@ -76,6 +78,7 @@ class ContractService:
         """
         if self._case_service is None:
             from apps.core.interfaces import ServiceLocator
+
             self._case_service = ServiceLocator.get_case_service()
         return self._case_service
 
@@ -89,7 +92,9 @@ class ContractService:
         """
         if self._lawyer_assignment_service is None:
             from apps.core.interfaces import ServiceLocator
+
             from .lawyer_assignment_service import LawyerAssignmentService
+
             # 通过 ServiceLocator 获取 lawyer_service 并注入
             self._lawyer_assignment_service = LawyerAssignmentService(
                 lawyer_service=ServiceLocator.get_lawyer_service()
@@ -106,6 +111,7 @@ class ContractService:
         """
         if self._payment_service is None:
             from .contract_payment_service import ContractPaymentService
+
             self._payment_service = ContractPaymentService()
         return self._payment_service
 
@@ -118,11 +124,11 @@ class ContractService:
             SupplementaryAgreementService 实例
         """
         if self._supplementary_agreement_service is None:
-            from .supplementary_agreement_service import SupplementaryAgreementService
             from apps.client.services import ClientServiceAdapter
-            self._supplementary_agreement_service = SupplementaryAgreementService(
-                client_service=ClientServiceAdapter()
-            )
+
+            from .supplementary_agreement_service import SupplementaryAgreementService
+
+            self._supplementary_agreement_service = SupplementaryAgreementService(client_service=ClientServiceAdapter())
         return self._supplementary_agreement_service
 
     def get_contract_queryset(self) -> QuerySet:
@@ -181,13 +187,14 @@ class ContractService:
         # 权限过滤逻辑
         if perm_open_access:
             return qs
-        
+
         if user and getattr(user, "is_authenticated", False):
             if getattr(user, "is_admin", False):
                 return qs
-            
+
             if org_access:
                 from django.db.models import Q
+
                 user_id = getattr(user, "id", None)
                 qs = qs.filter(
                     (
@@ -196,7 +203,7 @@ class ContractService:
                         | Q(cases__assignments__lawyer_id=user_id)
                     )
                 ).distinct()
-        
+
         return qs
 
     def _get_contract_internal(self, contract_id: int) -> Contract:
@@ -218,7 +225,7 @@ class ContractService:
             raise NotFoundError(f"合同 {contract_id} 不存在")
 
     def get_contract(
-        self, 
+        self,
         contract_id: int,
         user: Optional[Any] = None,
         org_access: Optional[Dict[str, Any]] = None,
@@ -245,27 +252,28 @@ class ContractService:
         # 权限检查逻辑
         if perm_open_access:
             return contract
-        
+
         if user and getattr(user, "is_authenticated", False):
             if getattr(user, "is_admin", False):
                 return contract
-            
+
             # 团队成员可见，或被明确指派到合同/合同关联的案件
             user_id = getattr(user, "id", None)
             has_access = False
-            
+
             if org_access:
                 # 检查是否指派给该律师（通过 ContractAssignment）
-                has_access = contract.assignments.filter(
-                    lawyer_id__in=org_access.get("lawyers", set())
-                ).exists() or contract.assignments.filter(lawyer_id=user_id).exists()
-                
+                has_access = (
+                    contract.assignments.filter(lawyer_id__in=org_access.get("lawyers", set())).exists()
+                    or contract.assignments.filter(lawyer_id=user_id).exists()
+                )
+
                 if not has_access:
                     has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()
-            
+
             if has_access:
                 return contract
-        
+
         raise PermissionDenied("无权限访问该合同")
 
     @transaction.atomic
@@ -292,26 +300,16 @@ class ContractService:
         case_type = data.get("case_type")
         representation_stages = data.get("representation_stages", [])
         if representation_stages:
-            data["representation_stages"] = self._validate_stages(
-                representation_stages, case_type
-            )
+            data["representation_stages"] = self._validate_stages(representation_stages, case_type)
 
         contract = Contract.objects.create(**data)
 
         # 处理律师指派
         if lawyer_ids:
-            self.lawyer_assignment_service.set_contract_lawyers(
-                contract.id,
-                lawyer_ids
-            )
+            self.lawyer_assignment_service.set_contract_lawyers(contract.id, lawyer_ids)
 
         logger.info(
-            f"合同创建成功",
-            extra={
-                "contract_id": contract.id,
-                "lawyer_ids": lawyer_ids,
-                "action": "create_contract"
-            }
+            f"合同创建成功", extra={"contract_id": contract.id, "lawyer_ids": lawyer_ids, "action": "create_contract"}
         )
 
         return contract
@@ -345,22 +343,14 @@ class ContractService:
         # 验证代理阶段
         if "representation_stages" in data:
             case_type = data.get("case_type", contract.case_type)
-            data["representation_stages"] = self._validate_stages(
-                data["representation_stages"], case_type
-            )
+            data["representation_stages"] = self._validate_stages(data["representation_stages"], case_type)
 
         for key, value in data.items():
             setattr(contract, key, value)
 
         contract.save()
 
-        logger.info(
-            f"合同更新成功",
-            extra={
-                "contract_id": contract_id,
-                "action": "update_contract"
-            }
-        )
+        logger.info(f"合同更新成功", extra={"contract_id": contract_id, "action": "update_contract"})
 
         return contract
 
@@ -385,13 +375,7 @@ class ContractService:
 
         contract.delete()
 
-        logger.info(
-            f"合同删除成功",
-            extra={
-                "contract_id": contract_id,
-                "action": "delete_contract"
-            }
-        )
+        logger.info(f"合同删除成功", extra={"contract_id": contract_id, "action": "delete_contract"})
 
         return True
 
@@ -465,11 +449,7 @@ class ContractService:
         return deleted > 0
 
     @transaction.atomic
-    def update_contract_lawyers(
-        self,
-        contract_id: int,
-        lawyer_ids: List[int]
-    ) -> List[ContractAssignment]:
+    def update_contract_lawyers(self, contract_id: int, lawyer_ids: List[int]) -> List[ContractAssignment]:
         """
         更新合同律师指派
 
@@ -487,24 +467,15 @@ class ContractService:
         # 验证 lawyer_ids 非空
         if not lawyer_ids:
             raise ValidationException(
-                "至少需要指派一个律师",
-                code="EMPTY_LAWYER_IDS",
-                errors={"lawyer_ids": "至少需要指派一个律师"}
+                "至少需要指派一个律师", code="EMPTY_LAWYER_IDS", errors={"lawyer_ids": "至少需要指派一个律师"}
             )
 
         # 调用 LawyerAssignmentService 处理指派逻辑
-        assignments = self.lawyer_assignment_service.set_contract_lawyers(
-            contract_id,
-            lawyer_ids
-        )
+        assignments = self.lawyer_assignment_service.set_contract_lawyers(contract_id, lawyer_ids)
 
         logger.info(
             f"合同律师指派更新成功",
-            extra={
-                "contract_id": contract_id,
-                "lawyer_ids": lawyer_ids,
-                "action": "update_contract_lawyers"
-            }
+            extra={"contract_id": contract_id, "lawyer_ids": lawyer_ids, "action": "update_contract_lawyers"},
         )
 
         return assignments  # type: ignore[no-any-return]
@@ -544,22 +515,20 @@ class ContractService:
 
         # 提取补充协议数据
         supplementary_agreements_data = contract_data.pop("supplementary_agreements", None)
-        
+
         # 提取 lawyer_ids（优先使用 contract_data 中的，回退到 assigned_lawyer_ids）
         lawyer_ids = contract_data.get("lawyer_ids") or assigned_lawyer_ids
         if lawyer_ids:
             contract_data["lawyer_ids"] = lawyer_ids
-        
+
         # 创建合同（会自动处理 lawyer_ids）
         contract = self.create_contract(contract_data)
-        
+
         # 创建补充协议（使用注入的服务实例）
         if supplementary_agreements_data:
             for sa_data in supplementary_agreements_data:
                 self.supplementary_agreement_service.create_supplementary_agreement(
-                    contract_id=contract.id,
-                    name=sa_data.get("name"),
-                    party_ids=sa_data.get("party_ids")
+                    contract_id=contract.id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
                 )
 
         # 添加收款记录
@@ -607,8 +576,8 @@ class ContractService:
                 "contract_id": contract.id,
                 "cases_count": len(cases_data) if cases_data else 0,
                 "payments_count": len(payments_data) if payments_data else 0,
-                "action": "create_contract_with_cases"
-            }
+                "action": "create_contract_with_cases",
+            },
         )
 
         return contract
@@ -671,27 +640,22 @@ class ContractService:
                 raise PermissionDenied("修改财务数据需要管理员权限")
 
             # 记录旧的财务数据
-            old_finance = {
-                k: getattr(contract, k)
-                for k in finance_keys
-            }
+            old_finance = {k: getattr(contract, k) for k in finance_keys}
 
         # 更新合同
         contract = self.update_contract(contract_id, update_data)
-        
+
         # 更新补充协议（完全替换，使用注入的服务实例）
         if supplementary_agreements_data is not None:
             from ..models import SupplementaryAgreement
-            
+
             # 删除现有的所有补充协议
             SupplementaryAgreement.objects.filter(contract_id=contract_id).delete()
-            
+
             # 创建新的补充协议
             for sa_data in supplementary_agreements_data:
                 self.supplementary_agreement_service.create_supplementary_agreement(
-                    contract_id=contract.id,
-                    name=sa_data.get("name"),
-                    party_ids=sa_data.get("party_ids")
+                    contract_id=contract.id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
                 )
 
         # 添加收款记录
@@ -705,10 +669,7 @@ class ContractService:
 
         # 记录财务变更日志
         if touch_finance:
-            new_finance = {
-                k: getattr(contract, k)
-                for k in finance_keys
-            }
+            new_finance = {k: getattr(contract, k) for k in finance_keys}
             changes = {
                 k: {"old": old_finance.get(k), "new": new_finance.get(k)}
                 for k in finance_keys
@@ -720,7 +681,7 @@ class ContractService:
                     contract_id=contract.id,
                     user_id=user_id,  # type: ignore[arg-type]
                     action="update_contract_finance",
-                    changes=changes
+                    changes=changes,
                 )
 
         return contract
@@ -765,9 +726,11 @@ class ContractService:
                 amount=Decimal(str(payment_data.get("amount", 0))),
                 received_at=received_at,
                 invoice_status=payment_data.get("invoice_status"),
-                invoiced_amount=Decimal(str(payment_data.get("invoiced_amount", 0)))
+                invoiced_amount=(
+                    Decimal(str(payment_data.get("invoiced_amount", 0)))
                     if payment_data.get("invoiced_amount") is not None
-                    else None,
+                    else None
+                ),
                 note=payment_data.get("note"),
                 user=user,
                 confirm=confirm,
@@ -776,11 +739,7 @@ class ContractService:
 
         logger.info(
             f"添加收款记录成功",
-            extra={
-                "contract_id": contract_id,
-                "payment_count": len(created_payments),
-                "action": "add_payments"
-            }
+            extra={"contract_id": contract_id, "payment_count": len(created_payments), "action": "add_payments"},
         )
 
         return created_payments
@@ -788,12 +747,7 @@ class ContractService:
     # ========== 私有方法（业务逻辑封装） ==========
 
     def _log_finance_change(
-        self,
-        contract_id: int,
-        user_id: int,
-        action: str,
-        changes: Dict[str, Any],
-        level: str = "INFO"
+        self, contract_id: int, user_id: int, action: str, changes: Dict[str, Any], level: str = "INFO"
     ) -> None:
         """
         记录财务变更日志（私有方法）
@@ -807,6 +761,7 @@ class ContractService:
         """
         try:
             from ..models import ContractFinanceLog
+
             ContractFinanceLog.objects.create(
                 contract_id=contract_id,
                 action=action,
@@ -815,13 +770,7 @@ class ContractService:
                 payload=changes,
             )
         except Exception as e:
-            logger.error(
-                f"记录财务日志失败: {e}",
-                extra={
-                    "contract_id": contract_id,
-                    "action": action
-                }
-            )
+            logger.error(f"记录财务日志失败: {e}", extra={"contract_id": contract_id, "action": action})
 
     def _validate_fee_mode(self, data: Dict[str, Any]) -> None:
         """
@@ -883,8 +832,7 @@ class ContractService:
 
         if invalid:
             raise ValidationException(
-                "无效的代理阶段",
-                errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
+                "无效的代理阶段", errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
             )
 
         return stages
@@ -977,6 +925,7 @@ class ContractServiceAdapter:
             ContractDTO 实例
         """
         from apps.core.interfaces import ContractDTO
+
         return ContractDTO.from_model(contract)
 
     def get_contract(self, contract_id: int) -> "Optional[ContractDTO]":
@@ -1071,10 +1020,10 @@ class ContractServiceAdapter:
             NotFoundError: 合同不存在
         """
         from apps.core.interfaces import LawyerDTO
-        
+
         contract = self.contract_service._get_contract_internal(contract_id)
         all_lawyers = contract.all_lawyers
-        
+
         return [LawyerDTO.from_model(lawyer) for lawyer in all_lawyers]
 
     def get_all_parties(self, contract_id: int) -> List[Dict[str, Any]]:

@@ -1,13 +1,15 @@
 """
 SessionLifecycleService 单元测试
 """
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime
 
+from datetime import datetime
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.litigation_ai.services.session_lifecycle_service import SessionLifecycleService
 from apps.litigation_ai.services.session_shared import SessionDTO
-from apps.core.exceptions import NotFoundError, ValidationException
 
 
 @pytest.mark.django_db
@@ -76,9 +78,7 @@ class TestSessionLifecycleService:
 
         # 执行测试
         updated_dto = self.service.update_session_status(
-            session_id=session_dto.session_id,
-            status="completed",
-            metadata_updates={"result": "success"}
+            session_id=session_dto.session_id, status="completed", metadata_updates={"result": "success"}
         )
 
         # 断言结果
@@ -92,10 +92,7 @@ class TestSessionLifecycleService:
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
-            self.service.update_session_status(
-                session_id=session_dto.session_id,
-                status="invalid_status"
-            )
+            self.service.update_session_status(session_id=session_dto.session_id, status="invalid_status")
 
         assert "无效的状态" in exc_info.value.message
         assert exc_info.value.code == "INVALID_STATUS"
@@ -104,10 +101,7 @@ class TestSessionLifecycleService:
         """测试更新不存在的会话状态"""
         # 断言抛出异常
         with pytest.raises(NotFoundError) as exc_info:
-            self.service.update_session_status(
-                session_id="non-existent-session-id",
-                status="completed"
-            )
+            self.service.update_session_status(session_id="non-existent-session-id", status="completed")
 
         assert "会话不存在" in exc_info.value.message
 
@@ -246,8 +240,8 @@ class TestSessionLifecycleService:
         with pytest.raises(NotFoundError):
             self.service.get_session(session_dto.session_id)
 
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_case_service')
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service')
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_case_service")
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service")
     def test_get_recommended_document_types_plaintiff(self, mock_signals_service, mock_case_service):
         """测试获取推荐文书类型（原告方）"""
         from apps.core.enums import LegalStatus
@@ -273,8 +267,8 @@ class TestSessionLifecycleService:
         assert DocumentType.COMPLAINT in result
         assert DocumentType.COUNTERCLAIM_DEFENSE not in result
 
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_case_service')
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service')
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_case_service")
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_court_pleading_signals_service")
     def test_get_recommended_document_types_defendant(self, mock_signals_service, mock_case_service):
         """测试获取推荐文书类型（被告方）"""
         from apps.core.enums import LegalStatus
@@ -300,7 +294,7 @@ class TestSessionLifecycleService:
         assert DocumentType.DEFENSE in result
         assert DocumentType.COUNTERCLAIM in result
 
-    @patch('apps.litigation_ai.services.session_lifecycle_service.get_case_service')
+    @patch("apps.litigation_ai.services.session_lifecycle_service.get_case_service")
     def test_get_recommended_document_types_case_not_found(self, mock_case_service):
         """测试获取推荐文书类型时案件不存在"""
         # 配置 Mock
@@ -327,12 +321,7 @@ class TestSessionLifecycleServiceDTO:
         from apps.litigation_ai.models import LitigationSession
 
         # 创建测试会话
-        session = LitigationSession.objects.create(
-            case_id=1,
-            user_id=100,
-            status="active",
-            metadata={"key": "value"}
-        )
+        session = LitigationSession.objects.create(case_id=1, user_id=100, status="active", metadata={"key": "value"})
 
         # 执行转换
         dto = SessionLifecycleService._to_session_dto(session)
@@ -348,20 +337,15 @@ class TestSessionLifecycleServiceDTO:
 
     def test_to_session_dto_with_case(self):
         """测试 _to_session_dto 转换（包含案件信息）"""
-        from apps.litigation_ai.models import LitigationSession
         from apps.cases.models import Case
+        from apps.litigation_ai.models import LitigationSession
 
         # 创建测试案件和会话
         case = Case.objects.create(name="测试案件", is_archived=False)
-        session = LitigationSession.objects.create(
-            case_id=case.id,
-            user_id=100,
-            status="active",
-            metadata={}
-        )
+        session = LitigationSession.objects.create(case_id=case.id, user_id=100, status="active", metadata={})
 
         # 预加载案件信息
-        session = LitigationSession.objects.select_related('case').get(id=session.id)
+        session = LitigationSession.objects.select_related("case").get(id=session.id)
 
         # 执行转换
         dto = SessionLifecycleService._to_session_dto(session)
@@ -385,16 +369,12 @@ class TestSessionLifecycleServiceEdgeCases:
 
         # 第一次更新
         self.service.update_session_status(
-            session_id=session_dto.session_id,
-            status="active",
-            metadata_updates={"key1": "value1"}
+            session_id=session_dto.session_id, status="active", metadata_updates={"key1": "value1"}
         )
 
         # 第二次更新
         updated_dto = self.service.update_session_status(
-            session_id=session_dto.session_id,
-            status="active",
-            metadata_updates={"key2": "value2"}
+            session_id=session_dto.session_id, status="active", metadata_updates={"key2": "value2"}
         )
 
         # 断言结果（元数据应该合并）

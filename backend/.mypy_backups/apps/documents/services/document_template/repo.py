@@ -1,8 +1,10 @@
 """Data repository layer."""
+
 from __future__ import annotations
 
-from apps.documents.models import DocumentTemplate
 from typing import Any, Optional
+
+from apps.documents.models import DocumentTemplate
 
 
 class DocumentTemplateRepo:
@@ -18,8 +20,8 @@ class DocumentTemplateRepo:
         except DocumentTemplate.DoesNotExist:
             return None
 
-    def all(self)  -> Any:
+    def all(self) -> Any:
         return DocumentTemplate.objects.all()
 
-    def filter(self, **kwargs)  -> Any:
+    def filter(self, **kwargs) -> Any:
         return DocumentTemplate.objects.filter(**kwargs)

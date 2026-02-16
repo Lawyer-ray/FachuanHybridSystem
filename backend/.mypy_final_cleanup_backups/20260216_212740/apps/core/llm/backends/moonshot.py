@@ -1,4 +1,5 @@
 """Module for moonshot."""
+
 from __future__ import annotations
 
 """
@@ -12,10 +13,11 @@ Requirements: 3.1, 3.2, 3.3
 
 import logging
 import time
-from typing import Any, cast
 from collections.abc import AsyncIterator, Iterator
+from typing import Any, cast
 
 import httpx
+
 from apps.core.httpx_clients import get_async_http_client, get_sync_http_client
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError

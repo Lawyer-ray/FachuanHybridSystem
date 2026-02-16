@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -8,14 +9,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast, Set
+from typing import TYPE_CHECKING, Any, Set, cast
+
+from django.db import transaction
+from django.db.models import QuerySet
 
 from apps.cases.models import Case
 from apps.core.business_config import business_config
 from apps.core.exceptions import ValidationException
 from apps.core.interfaces import IContractService
-from django.db import transaction
-from django.db.models import QuerySet
 
 from .case_access_policy import CaseAccessPolicy
 from .case_details_query_service import CaseDetailsQueryService
@@ -150,7 +152,7 @@ class CaseService:
         self,
         case_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> Case:
         return self.query_facade.get_case(
@@ -165,10 +167,10 @@ class CaseService:
         case_type: str | None = None,
         status: str | None = None,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Case, Case]:
-        queryset: QuerySet[Case, Case]= self.query_facade.list_cases(
+        queryset: QuerySet[Case, Case] = self.query_facade.list_cases(
             case_type=case_type,
             status=status,
             user=user,
@@ -181,11 +183,11 @@ class CaseService:
         self,
         case_number: str,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
     ) -> QuerySet[Case, Case]:
-        queryset: QuerySet[Case, Case]= self.query_facade.search_by_case_number(
+        queryset: QuerySet[Case, Case] = self.query_facade.search_by_case_number(
             case_number=case_number,
             user=user,
             org_access=org_access,
@@ -198,7 +200,7 @@ class CaseService:
         self,
         data: dict[str, Any],
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> Case:
         return self.mutation_service.create_case(
@@ -213,7 +215,7 @@ class CaseService:
         case_id: int,
         data: dict[str, Any],
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> Case:
         return self.mutation_service.update_case(
@@ -229,7 +231,7 @@ class CaseService:
         self,
         case_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> bool:
         return bool(

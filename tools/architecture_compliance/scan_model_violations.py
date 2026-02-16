@@ -9,6 +9,7 @@ Model层违规扫描与风险评估
 - 中风险：有 1-2 个业务逻辑块
 - 高风险：有 3+ 个业务逻辑块或包含外部服务调用
 """
+
 from __future__ import annotations
 
 import json
@@ -18,11 +19,7 @@ from pathlib import Path
 from .logging_config import get_logger, setup_logging
 from .model_scanner import ModelLayerScanner
 from .models import ModelViolation, Violation
-from .save_method_analyzer import (
-    BLOCK_BUSINESS_LOGIC,
-    SaveMethodAnalysis,
-    SaveMethodAnalyzer,
-)
+from .save_method_analyzer import BLOCK_BUSINESS_LOGIC, SaveMethodAnalysis, SaveMethodAnalyzer
 
 logger = get_logger("scan_model_violations")
 
@@ -38,13 +35,16 @@ RISK_MEDIUM: str = "中风险"
 RISK_HIGH: str = "高风险"
 
 # 外部服务调用关键词（出现即升级为高风险）
-_EXTERNAL_SERVICE_KEYWORDS: frozenset[str] = frozenset({
-    "外部服务调用",
-    "实例化服务",
-})
+_EXTERNAL_SERVICE_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "外部服务调用",
+        "实例化服务",
+    }
+)
 
 
 # ── 数据模型 ────────────────────────────────────────────────
+
 
 @dataclass
 class ModelRiskAssessment:
@@ -79,11 +79,13 @@ class ModelViolationReport:
 
     total_models_with_save: int = 0
     total_violations: int = 0
-    risk_counts: dict[str, int] = field(default_factory=lambda: {
-        RISK_LOW: 0,
-        RISK_MEDIUM: 0,
-        RISK_HIGH: 0,
-    })
+    risk_counts: dict[str, int] = field(
+        default_factory=lambda: {
+            RISK_LOW: 0,
+            RISK_MEDIUM: 0,
+            RISK_HIGH: 0,
+        }
+    )
     assessments: list[ModelRiskAssessment] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -131,10 +133,7 @@ def assess_risk(analysis: SaveMethodAnalysis) -> ModelRiskAssessment:
     Returns:
         ModelRiskAssessment 风险评估
     """
-    biz_blocks = [
-        b for b in analysis.blocks
-        if b.block_type == BLOCK_BUSINESS_LOGIC
-    ]
+    biz_blocks = [b for b in analysis.blocks if b.block_type == BLOCK_BUSINESS_LOGIC]
     biz_count: int = len(biz_blocks)
     has_ext_svc: bool = _has_external_service_call(analysis)
 
@@ -176,11 +175,19 @@ def _collect_model_files(target_dir: Path) -> list[Path]:
     Returns:
         排序后的 Model 文件路径列表
     """
-    exclude_dirs: frozenset[str] = frozenset({
-        "__pycache__", ".git", ".tox", ".mypy_cache",
-        ".pytest_cache", "node_modules", "migrations",
-        "venv", ".venv",
-    })
+    exclude_dirs: frozenset[str] = frozenset(
+        {
+            "__pycache__",
+            ".git",
+            ".tox",
+            ".mypy_cache",
+            ".pytest_cache",
+            "node_modules",
+            "migrations",
+            "venv",
+            ".venv",
+        }
+    )
 
     model_files: list[Path] = []
     for py_file in sorted(target_dir.rglob("*.py")):
@@ -242,9 +249,7 @@ def scan_model_violations(target_dir: Path) -> ModelViolationReport:
     for analysis in all_analyses:
         # 将绝对路径转为相对路径
         try:
-            analysis.file_path = str(
-                Path(analysis.file_path).relative_to(project_root)
-            )
+            analysis.file_path = str(Path(analysis.file_path).relative_to(project_root))
         except ValueError:
             pass  # 保留原路径
         assessment = assess_risk(analysis)

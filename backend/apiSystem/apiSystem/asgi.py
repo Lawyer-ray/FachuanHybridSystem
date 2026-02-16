@@ -37,10 +37,11 @@ except Exception:
     if (os.environ.get("DJANGO_LLM_WARMUP_STRICT", "") or "").lower().strip() in ("true", "1", "yes"):
         raise
 
-# Import routing after Django is initialized
-from apps.litigation_ai.routing import websocket_urlpatterns
 from apps.core.asgi_lifespan import LifespanApp
 from apps.core.httpx_clients import aclose_http_clients
+
+# Import routing after Django is initialized
+from apps.litigation_ai.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {

@@ -6,6 +6,7 @@
 
 Requirements: 5.4
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -13,13 +14,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from apps.client.api.client_api import (
-    create_client,
-    delete_client,
-    get_client,
-    list_clients,
-    update_client,
-)
+from apps.client.api.client_api import create_client, delete_client, get_client, list_clients, update_client
 from apps.client.models import Client
 from apps.client.schemas import ClientIn, ClientUpdateIn
 from apps.core.exceptions import NotFoundError, ValidationException

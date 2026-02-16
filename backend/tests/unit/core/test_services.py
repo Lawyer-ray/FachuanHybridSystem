@@ -1,12 +1,14 @@
 """
 Service 层单元测试
 """
-from django.test import TestCase
-from unittest.mock import patch, MagicMock
 
+from unittest.mock import MagicMock, patch
+
+from django.test import TestCase
+
+from apps.core.business_config import BusinessConfig, CaseTypeCode, business_config
 from apps.core.health import HealthChecker, HealthStatus
 from apps.core.throttling import RateLimiter
-from apps.core.business_config import BusinessConfig, business_config, CaseTypeCode
 
 
 class HealthCheckerTest(TestCase):
@@ -54,6 +56,7 @@ class RateLimiterTest(TestCase):
     def test_rate_limiter_allows_requests(self):
         """测试限流器允许请求"""
         import uuid
+
         limiter = RateLimiter(requests=10, window=60, key_prefix=f"test_{uuid.uuid4().hex[:8]}")
 
         # 创建模拟请求
@@ -69,6 +72,7 @@ class RateLimiterTest(TestCase):
     def test_rate_limiter_blocks_excess_requests(self):
         """测试限流器阻止超额请求"""
         import uuid
+
         limiter = RateLimiter(requests=5, window=60, key_prefix=f"test_{uuid.uuid4().hex[:8]}")
 
         mock_request = MagicMock()
@@ -99,10 +103,7 @@ class RateLimiterTest(TestCase):
         limiter = RateLimiter()
 
         mock_request = MagicMock()
-        mock_request.META = {
-            "HTTP_X_FORWARDED_FOR": "203.0.113.1, 70.41.3.18",
-            "REMOTE_ADDR": "127.0.0.1"
-        }
+        mock_request.META = {"HTTP_X_FORWARDED_FOR": "203.0.113.1, 70.41.3.18", "REMOTE_ADDR": "127.0.0.1"}
 
         with patch.dict(
             "os.environ",
@@ -162,11 +163,7 @@ class BusinessConfigTest(TestCase):
     def test_is_stage_valid_for_case_type(self):
         """测试阶段有效性检查"""
         # 一审对民事案件有效
-        self.assertTrue(
-            business_config.is_stage_valid_for_case_type("first_trial", CaseTypeCode.CIVIL)
-        )
+        self.assertTrue(business_config.is_stage_valid_for_case_type("first_trial", CaseTypeCode.CIVIL))
 
         # 劳动仲裁对民事案件无效
-        self.assertFalse(
-            business_config.is_stage_valid_for_case_type("labor_arbitration", CaseTypeCode.CIVIL)
-        )
+        self.assertFalse(business_config.is_stage_valid_for_case_type("labor_arbitration", CaseTypeCode.CIVIL))

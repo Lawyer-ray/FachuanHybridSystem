@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 from apps.automation.services.token.auto_login_service import AutoLoginService
 from apps.automation.usecases.token.auto_login_usecase import AutoLoginUsecase, RetryConfig

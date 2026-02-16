@@ -3,10 +3,10 @@
 import logging
 import re
 import time
-from typing import Any, TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-from apps.core.path import Path
 from apps.automation.utils.logging_mixins.common import sanitize_url
+from apps.core.path import Path
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     class _ZxfwHost(Protocol):
         page: Page
         _logger: logging.Logger
+
         def navigate_to_url(self, timeout: int = ...) -> None: ...
         def random_wait(self, min_sec: float = ..., max_sec: float = ...) -> None: ...
         def _save_page_state(self, name: str) -> Any: ...
@@ -22,8 +23,13 @@ if TYPE_CHECKING:
         def _extract_url_params(self, url: str) -> dict[str, str] | None: ...
         def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]: ...
         def _intercept_api_response_with_navigation(self, timeout: int = ...) -> dict[str, Any] | None: ...
-        def _process_api_data_and_download(self, api_data: dict[str, Any] | None, download_dir: Path) -> dict[str, Any]: ...
-        def _save_documents_batch(self, documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]) -> dict[str, Any]: ...
+        def _process_api_data_and_download(
+            self, api_data: dict[str, Any] | None, download_dir: Path
+        ) -> dict[str, Any]: ...
+        def _save_documents_batch(
+            self, documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]
+        ) -> dict[str, Any]: ...
+
 
 logger = logging.getLogger("apps.automation")
 
@@ -362,7 +368,9 @@ class CourtDocumentZxfwDownloadMixin:
 
         return self._zxfw_download_from_frame_fallback(frame, doc_index, download_dir)
 
-    def _zxfw_download_from_frame_fallback(self: "_ZxfwHost", frame: Any, doc_index: int, download_dir: Path) -> str | None:
+    def _zxfw_download_from_frame_fallback(
+        self: "_ZxfwHost", frame: Any, doc_index: int, download_dir: Path
+    ) -> str | None:
         """备用 XPath 方式下载"""
         try:
             download_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"

@@ -15,4 +15,3 @@ class TestCompatibleSettingsHasSetting(TestCase):
         manager = ConfigManager()
         settings = CompatibleSettings(manager)
         self.assertFalse(settings.has_setting("SOME_UNKNOWN_SETTING_12345"))
-

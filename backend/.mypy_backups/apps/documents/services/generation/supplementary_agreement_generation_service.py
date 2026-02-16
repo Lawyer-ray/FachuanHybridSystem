@@ -5,15 +5,19 @@
 
 Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5, 9.4
 """
+
 import logging
-from typing import TYPE_CHECKING, Optional, Any, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
+
 from apps.core.enums import PartyRole
 from apps.core.interfaces import IContractService
 from apps.core.path import Path
+
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractFolderBindingService
     from apps.documents.models import DocumentTemplate
 logger = logging.getLogger(__name__)
+
 
 class SupplementaryAgreementGenerationService:
     """
@@ -22,7 +26,11 @@ class SupplementaryAgreementGenerationService:
     负责查找补充协议模板、构建上下文、替换关键词、生成文件.
     """
 
-    def __init__(self, contract_service: IContractService | None=None, folder_binding_service: Optional['IContractFolderBindingService']=None) -> None:
+    def __init__(
+        self,
+        contract_service: IContractService | None = None,
+        folder_binding_service: Optional["IContractFolderBindingService"] = None,
+    ) -> None:
         """
         初始化服务
 
@@ -38,14 +46,17 @@ class SupplementaryAgreementGenerationService:
         """延迟加载合同服务"""
         if self._contract_service is None:
             from apps.documents.services.wiring import get_contract_service
+
             self._contract_service = get_contract_service()
         return self._contract_service
 
     @property
-    def folder_binding_service(self) -> Optional['IContractFolderBindingService']:
+    def folder_binding_service(self) -> Optional["IContractFolderBindingService"]:
         return self._folder_binding_service
 
-    def generate_supplementary_agreement(self, contract_id: int, agreement_id: int) -> tuple[bytes | None, str | None, str | None]:
+    def generate_supplementary_agreement(
+        self, contract_id: int, agreement_id: int
+    ) -> tuple[bytes | None, str | None, str | None]:
         """
         生成补充协议文档
 
@@ -60,36 +71,42 @@ class SupplementaryAgreementGenerationService:
         """
         contract_data = self.contract_service.get_contract_with_details_internal(contract_id)
         if not contract_data:
-            return (None, None, '合同不存在')
+            return (None, None, "合同不存在")
         contract = self.contract_service.get_contract_model_internal(contract_id)
         if not contract:
-            return (None, None, '合同不存在')
+            return (None, None, "合同不存在")
         agreement = self.contract_service.get_supplementary_agreement_model_internal(contract_id, agreement_id)
         if not agreement:
-            return (None, None, '补充协议不存在')
+            return (None, None, "补充协议不存在")
         from .pipeline import TemplateMatcher
-        template = TemplateMatcher().match_supplementary_agreement_template(contract_data.get('case_type') or '')
+
+        template = TemplateMatcher().match_supplementary_agreement_template(contract_data.get("case_type") or "")
         if not template:
-            return (None, None, '请先添加补充协议模板')
+            return (None, None, "请先添加补充协议模板")
         file_location = template.get_file_location()
         if not file_location or not Path(file_location).exists():
-            return (None, None, '模板文件不存在')
+            return (None, None, "模板文件不存在")
         context = self.build_context(contract, agreement)
         try:
             from .pipeline import DocxRenderer
+
             content = DocxRenderer().render(file_location, context)
         except Exception as e:
-            logger.exception('渲染补充协议模板失败')
-            return (None, None, f'生成补充协议失败: {e!s}')
+            logger.exception("渲染补充协议模板失败")
+            return (None, None, f"生成补充协议失败: {e!s}")
         filename = self.generate_filename(contract, agreement)
-        self._last_saved_path = self._save_to_bound_folder_if_exists(contract_id, content, filename, 'supplementary_agreements')
+        self._last_saved_path = self._save_to_bound_folder_if_exists(
+            contract_id, content, filename, "supplementary_agreements"
+        )
         return (content, filename, None)
 
-    def generate_supplementary_agreement_result(self, contract_id: int, agreement_id: int) -> tuple[bytes | None, str | None, str | None, str | None]:
+    def generate_supplementary_agreement_result(
+        self, contract_id: int, agreement_id: int
+    ) -> tuple[bytes | None, str | None, str | None, str | None]:
         content, filename, error = self.generate_supplementary_agreement(contract_id, agreement_id)
         return (content, filename, self._last_saved_path, error)
 
-    def find_supplementary_agreement_template(self, case_type: str) -> Optional['DocumentTemplate']:
+    def find_supplementary_agreement_template(self, case_type: str) -> Optional["DocumentTemplate"]:
         """
         查找补充协议模板
 
@@ -100,6 +117,7 @@ class SupplementaryAgreementGenerationService:
             匹配的 DocumentTemplate 或 None
         """
         from .pipeline import TemplateMatcher
+
         return TemplateMatcher().match_supplementary_agreement_template(case_type)
 
     def build_context(self, contract: Any, agreement: Any) -> dict[str, Any]:
@@ -114,7 +132,14 @@ class SupplementaryAgreementGenerationService:
             包含所有替换词的字典
         """
         from .pipeline import PipelineContextBuilder
-        return PipelineContextBuilder().build_supplementary_agreement_context(contract=contract, supplementary_agreement=agreement, agreement_principals=self._get_agreement_principals(agreement), contract_principals=self._get_contract_principals(contract), agreement_opposing=self._get_agreement_opposing(agreement))
+
+        return PipelineContextBuilder().build_supplementary_agreement_context(
+            contract=contract,
+            supplementary_agreement=agreement,
+            agreement_principals=self._get_agreement_principals(agreement),
+            contract_principals=self._get_contract_principals(contract),
+            agreement_opposing=self._get_agreement_opposing(agreement),
+        )
 
     def generate_filename(self, contract: Any, agreement: Any) -> str:
         """
@@ -131,10 +156,16 @@ class SupplementaryAgreementGenerationService:
             格式化的文件名
         """
         from .pipeline.naming import supplementary_agreement_docx_filename
-        agreement_name = agreement.name or '补充协议'
-        contract_name = contract.name or '未命名合同'
-        filename = supplementary_agreement_docx_filename(agreement_name=agreement_name, contract_name=contract_name, version='V1')
-        logger.info('生成补充协议文件名', extra={'agreement': agreement_name, 'contract': contract_name, 'doc_filename': filename})
+
+        agreement_name = agreement.name or "补充协议"
+        contract_name = contract.name or "未命名合同"
+        filename = supplementary_agreement_docx_filename(
+            agreement_name=agreement_name, contract_name=contract_name, version="V1"
+        )
+        logger.info(
+            "生成补充协议文件名",
+            extra={"agreement": agreement_name, "contract": contract_name, "doc_filename": filename},
+        )
         return filename
 
     def _get_agreement_principals(self, agreement: Any) -> Any:
@@ -170,7 +201,9 @@ class SupplementaryAgreementGenerationService:
         """
         return [party.client for party in agreement.parties.filter(role=PartyRole.OPPOSING)]
 
-    def _save_to_bound_folder_if_exists(self, contract_id: int, file_content: bytes, file_name: str, subdir_key: str) -> str | None:
+    def _save_to_bound_folder_if_exists(
+        self, contract_id: int, file_content: bytes, file_name: str, subdir_key: str
+    ) -> str | None:
         """
         如果合同有绑定文件夹,将文件保存到绑定文件夹
 
@@ -183,10 +216,18 @@ class SupplementaryAgreementGenerationService:
         if self.folder_binding_service is None:
             return None
         try:
-            saved_path = self.folder_binding_service.save_file_to_bound_folder(contract_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key)
+            saved_path = self.folder_binding_service.save_file_to_bound_folder(
+                contract_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key
+            )
             if saved_path:
-                logger.info(f'文件已保存到绑定文件夹: {saved_path}', extra={'contract_id': contract_id, 'file_name': file_name, 'saved_path': saved_path})
+                logger.info(
+                    f"文件已保存到绑定文件夹: {saved_path}",
+                    extra={"contract_id": contract_id, "file_name": file_name, "saved_path": saved_path},
+                )
         except Exception as e:
-            logger.warning(f'保存到绑定文件夹失败: {e}', extra={'contract_id': contract_id, 'file_name': file_name, 'error': str(e)})
+            logger.warning(
+                f"保存到绑定文件夹失败: {e}",
+                extra={"contract_id": contract_id, "file_name": file_name, "error": str(e)},
+            )
             return None
         return saved_path

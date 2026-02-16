@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -84,7 +85,7 @@ class OCRService:
         self._ocr = None
 
     @property
-    def ocr(self)  -> Any:
+    def ocr(self) -> Any:
         """懒加载 OCR 引擎"""
         if self._ocr is None:
             self._ocr = get_ocr_engine(self.use_v5)
@@ -205,6 +206,7 @@ class OCRService:
 
         def _to_list(x) -> list[Any]:
             """将 OCR 结果转换为列表"""
+
         if x is None:
             return []
         try:
@@ -224,12 +226,13 @@ class OCRService:
 
         def _get_position_key(box) -> tuple[Any, ...]:
             """
-        获取文本框的位置排序键
+            获取文本框的位置排序键
 
-        按 y 坐标分行(每 12 像素一行),再按 x 坐标排序(每 8 像素一列)
-        """
+            按 y 坐标分行(每 12 像素一行),再按 x 坐标排序(每 8 像素一列)
+            """
+
         if not box:
-            return (0.0, 0.0) (0, 0)
+            return (0.0, 0.0)(0, 0)
         ys: list[Any] = []
         xs: list[Any] = []
         y = min(ys) if ys else 0
@@ -238,13 +241,14 @@ class OCRService:
 
         def _is_timestamp_text(text: str) -> bool:
             """
-        判断是否为时间戳文本
+            判断是否为时间戳文本
 
-        过滤以下格式:
-        - HH:MM(如 12:30)
-        - YYYY-MM-DD 或 YYYY/MM/DD
-        - MM月DD日
-        """
+            过滤以下格式:
+            - HH:MM(如 12:30)
+            - YYYY-MM-DD 或 YYYY/MM/DD
+            - MM月DD日
+            """
+
         if re.match(r"^\d{1,2}:\d{2}$", text):
             return True
         if re.match(r"^\d{1,4}[-/]\d{1,2}[-/]\d{1,2}$", text):

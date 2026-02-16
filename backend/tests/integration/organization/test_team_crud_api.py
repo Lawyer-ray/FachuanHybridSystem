@@ -6,6 +6,7 @@
 
 Requirements: 5.6
 """
+
 from __future__ import annotations
 
 import json
@@ -15,11 +16,7 @@ import pytest
 from django.test import Client as TestClient
 
 from apps.organization.models import Team, TeamType
-from tests.factories.organization_factories import (
-    LawFirmFactory,
-    LawyerFactory,
-    TeamFactory,
-)
+from tests.factories.organization_factories import LawFirmFactory, LawyerFactory, TeamFactory
 
 
 @pytest.mark.django_db
@@ -52,9 +49,7 @@ class TestTeamListAPI:
         superuser = LawyerFactory(is_superuser=True)
         self.client.force_login(superuser)
 
-        response = self.client.get(
-            f"/api/v1/organization/teams?law_firm_id={firm_a.id}"
-        )
+        response = self.client.get(f"/api/v1/organization/teams?law_firm_id={firm_a.id}")
 
         assert response.status_code == 200
         data: Any = response.json()
@@ -68,9 +63,7 @@ class TestTeamListAPI:
         superuser = LawyerFactory(is_superuser=True)
         self.client.force_login(superuser)
 
-        response = self.client.get(
-            "/api/v1/organization/teams?team_type=lawyer"
-        )
+        response = self.client.get("/api/v1/organization/teams?team_type=lawyer")
 
         assert response.status_code == 200
         data: Any = response.json()
@@ -158,9 +151,7 @@ class TestTeamCreateAPI:
     def test_create_team_permission_denied(self) -> None:
         """普通用户无权创建团队"""
         firm = LawFirmFactory()
-        normal_user = LawyerFactory(
-            law_firm=firm, is_admin=False, is_superuser=False
-        )
+        normal_user = LawyerFactory(law_firm=firm, is_admin=False, is_superuser=False)
         self.client.force_login(normal_user)
 
         payload = {
@@ -284,14 +275,10 @@ class TestTeamDeleteAPI:
         """普通用户无权删除团队"""
         firm = LawFirmFactory()
         team = TeamFactory(law_firm=firm)
-        normal_user = LawyerFactory(
-            law_firm=firm, is_admin=False, is_superuser=False
-        )
+        normal_user = LawyerFactory(law_firm=firm, is_admin=False, is_superuser=False)
         self.client.force_login(normal_user)
 
-        response = self.client.delete(
-            f"/api/v1/organization/teams/{team.id}"
-        )
+        response = self.client.delete(f"/api/v1/organization/teams/{team.id}")
 
         # PermissionDenied 由全局异常处理器捕获
         assert response.status_code in (403, 500)

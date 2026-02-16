@@ -1277,7 +1277,7 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 嵌套结构的配置字典
         """
-        nested = {}
+        nested: dict[str, Any] = {}
 
         for key, value in flat_config.items():
             keys = key.split(".")
@@ -1640,7 +1640,7 @@ class ConfigManager:
         Returns:
             List[Dict[str, Any]]: 快照信息列表
         """
-        snapshots = []
+        snapshots: list[Any] = []
         snapshot_dir = self._get_snapshot_directory()
 
         if not os.path.exists(snapshot_dir):

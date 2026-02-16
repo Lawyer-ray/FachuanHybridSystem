@@ -1,4 +1,5 @@
 """API endpoints."""
+
 from __future__ import annotations
 
 """
@@ -10,11 +11,12 @@ LLM Ninja API
 import logging
 from typing import Any, ClassVar
 
+from ninja import Router
+from ninja.schema import Schema
+
 from apps.core.auth import JWTOrSessionAuth
 from apps.core.exceptions import PermissionDenied
 from apps.core.infrastructure.throttling import rate_limit_from_settings
-from ninja import Router
-from ninja.schema import Schema
 
 from .llm_common import achat_with_context as achat_with_context_impl
 from .llm_common import get_conversation_history as get_conversation_history_impl
@@ -106,9 +108,10 @@ async def chat_with_context(request: Any, payload: ChatRequest) -> Any:
 @llm_router.post("/chat/stream")
 @rate_limit_from_settings("LLM", by_user=True)
 async def chat_with_context_stream(request: Any, payload: ChatRequest) -> Any:
+    from django.http import StreamingHttpResponse
+
     from apps.core.interfaces import ServiceLocator
     from apps.core.services.llm_stream_service import build_chat_stream
-    from django.http import StreamingHttpResponse
 
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):

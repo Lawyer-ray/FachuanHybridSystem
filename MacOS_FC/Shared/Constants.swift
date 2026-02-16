@@ -23,7 +23,7 @@ enum FolderTemplateType: String, Codable, CaseIterable {
     case civilCase = "civil_case"
     case criminalCase = "criminal_case"
     case administrativeCase = "administrative_case"
-    
+
     var displayName: String {
         switch self {
         case .contract: return "合同"
@@ -32,7 +32,7 @@ enum FolderTemplateType: String, Codable, CaseIterable {
         case .administrativeCase: return "行政案件"
         }
     }
-    
+
     var subfolders: [String] {
         switch self {
         case .contract:
@@ -80,7 +80,7 @@ enum CaseStageType: String, Codable {
     case secondInstance = "second_instance"
     case retrial = "retrial"
     case execution = "execution"
-    
+
     var displayName: String {
         switch self {
         case .investigation: return "侦查阶段"

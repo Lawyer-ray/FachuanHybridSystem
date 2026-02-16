@@ -1,7 +1,9 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 from typing import Any
+
 """
 文件夹模板服务
 
@@ -27,7 +29,7 @@ class FolderTemplateService:
     INVALID_CHARS = r'[/\\:*?"<>|]'
     INVALID_CHARS_PATTERN = re.compile(INVALID_CHARS)
 
-    def __init__(self, *,  usecases: FolderTemplateUsecases) -> None:
+    def __init__(self, *, usecases: FolderTemplateUsecases) -> None:
         self.usecases = usecases
 
     def validate_and_fix_structure_ids(
@@ -45,7 +47,9 @@ class FolderTemplateService:
         """
         return self.usecases.validate_and_fix_structure_ids(structure=structure, template_id=template_id)
 
-    def validate_structure_ids(self, structure: dict[str, Any], template_id: int | None = None) -> tuple[bool, list[str]]:
+    def validate_structure_ids(
+        self, structure: dict[str, Any], template_id: int | None = None
+    ) -> tuple[bool, list[str]]:
         """
         验证文件夹结构中的ID唯一性
 

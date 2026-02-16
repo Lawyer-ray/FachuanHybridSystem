@@ -2,12 +2,15 @@
 缓存配置模块
 提供 Redis 缓存配置
 """
+
 import os
+
 
 def _safe_get_config(key, default=None):
     """安全获取配置，避免循环导入"""
     try:
         from .config import get_config
+
         return get_config(key, default)
     except Exception:
         return default
@@ -29,7 +32,7 @@ def get_cache_config() -> dict:
     """
     # 优先使用完整的 Redis URL
     redis_url = _safe_get_config("performance.cache.redis_url")
-    
+
     if redis_url and redis_url != "redis://localhost:6379/0":
         # 如果配置了非默认的 Redis URL，直接使用
         location = redis_url
@@ -49,7 +52,7 @@ def get_cache_config() -> dict:
     default_timeout = _safe_get_config("performance.cache.default_timeout", 300)
     max_connections = _safe_get_config("performance.cache.max_connections", 50)
     socket_timeout = _safe_get_config("performance.cache.socket_timeout", 5)
-    
+
     return {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
@@ -107,27 +110,27 @@ class CacheKeys:
 # 缓存超时时间（秒）
 class CacheTimeout:
     """缓存超时时间定义"""
-    
+
     @staticmethod
     def get_short() -> int:
         """短期缓存（1分钟）"""
         return _safe_get_config("performance.cache.timeout_short", 60)
-    
+
     @staticmethod
     def get_medium() -> int:
         """中期缓存（5分钟）"""
         return _safe_get_config("performance.cache.timeout_medium", 300)
-    
+
     @staticmethod
     def get_long() -> int:
         """长期缓存（1小时）"""
         return _safe_get_config("performance.cache.timeout_long", 3600)
-    
+
     @staticmethod
     def get_day() -> int:
         """日缓存（1天）"""
         return _safe_get_config("performance.cache.timeout_day", 86400)
-    
+
     # 保持向后兼容的常量
     SHORT = 60
     MEDIUM = 300

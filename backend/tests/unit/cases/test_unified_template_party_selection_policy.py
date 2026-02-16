@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import Mock
 from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
 
 from apps.cases.services.template.unified.party_selection import PartySelectionPolicy
 from apps.core.exceptions import ValidationException

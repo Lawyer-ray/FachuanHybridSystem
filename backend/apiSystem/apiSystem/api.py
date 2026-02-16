@@ -51,6 +51,7 @@ api_v1 = NinjaAPI(
 # 注册全局异常处理器
 register_exception_handlers(api_v1)
 
+
 def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
     from apps.cases.api import router as cases_router

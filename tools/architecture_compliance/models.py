@@ -3,10 +3,11 @@
 
 定义违规、重构结果、报告等核心数据结构。
 """
+
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Optional
 

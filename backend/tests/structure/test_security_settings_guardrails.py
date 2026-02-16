@@ -59,4 +59,4 @@ def test_deployment_artifacts_explicitly_disable_debug():
     compose_text = compose.read_text(encoding="utf-8")
 
     assert "DJANGO_DEBUG=0" in dockerfile_text
-    assert "DJANGO_DEBUG" in compose_text and "\"0\"" in compose_text
+    assert "DJANGO_DEBUG" in compose_text and '"0"' in compose_text

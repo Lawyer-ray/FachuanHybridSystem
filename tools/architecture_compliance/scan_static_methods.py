@@ -8,6 +8,7 @@ Service层静态方法扫描与分类脚本
 用法:
     python -m tools.architecture_compliance.scan_static_methods
 """
+
 from __future__ import annotations
 
 import json
@@ -78,17 +79,17 @@ def _build_priority_list(
         if not m.should_convert:
             continue
         priority = _compute_priority(m)
-        convert_items.append({
-            "class_name": m.class_name,
-            "method_name": m.method_name,
-            "file_path": m.file_path,
-            "line_number": m.line_number,
-            "priority_score": priority,
-            "reasons": [
-                {"rule": r.rule, "detail": r.detail} for r in m.reasons
-            ],
-            "code_snippet": m.code_snippet,
-        })
+        convert_items.append(
+            {
+                "class_name": m.class_name,
+                "method_name": m.method_name,
+                "file_path": m.file_path,
+                "line_number": m.line_number,
+                "priority_score": priority,
+                "reasons": [{"rule": r.rule, "detail": r.detail} for r in m.reasons],
+                "code_snippet": m.code_snippet,
+            }
+        )
     convert_items.sort(key=lambda x: x["priority_score"], reverse=True)
     return convert_items
 
@@ -109,16 +110,16 @@ def _build_keep_list(
     for m in methods:
         if m.should_convert:
             continue
-        keep_items.append({
-            "class_name": m.class_name,
-            "method_name": m.method_name,
-            "file_path": m.file_path,
-            "line_number": m.line_number,
-            "reasons": [
-                {"rule": r.rule, "detail": r.detail} for r in m.reasons
-            ],
-            "code_snippet": m.code_snippet,
-        })
+        keep_items.append(
+            {
+                "class_name": m.class_name,
+                "method_name": m.method_name,
+                "file_path": m.file_path,
+                "line_number": m.line_number,
+                "reasons": [{"rule": r.rule, "detail": r.detail} for r in m.reasons],
+                "code_snippet": m.code_snippet,
+            }
+        )
     return keep_items
 
 
@@ -205,9 +206,7 @@ def _log_summary(report: StaticMethodAnalysisReport) -> None:
 
     if report.convert_methods:
         logger.info("--- 需要转换的方法 (按优先级) ---")
-        scored = [
-            (_compute_priority(m), m) for m in report.convert_methods
-        ]
+        scored = [(_compute_priority(m), m) for m in report.convert_methods]
         scored.sort(key=lambda x: x[0], reverse=True)
         for score, m in scored:
             logger.info(

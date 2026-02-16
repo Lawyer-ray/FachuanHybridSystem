@@ -6,13 +6,12 @@
 
 import logging
 import time
+from typing import Any, ClassVar
 
 from apps.core.path import Path
-
 from apps.documents.services.generation.base_generator import BaseGenerator
 from apps.documents.services.generation.registry import GeneratorRegistry
 from apps.documents.services.generation.result import GenerationResult
-from typing import ClassVar, Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +20,11 @@ logger = logging.getLogger(__name__)
 class ContractGenerator(BaseGenerator):
     """合同文书生成器"""
 
-    name : str = "contract_generator"
-    display_name : str = "合同文书生成器"
-    description : str = "生成合同相关的法律文书"
-    category : str = "general"
-    template_type : str = "contract"
+    name: str = "contract_generator"
+    display_name: str = "合同文书生成器"
+    description: str = "生成合同相关的法律文书"
+    category: str = "general"
+    template_type: str = "contract"
 
     # 必需的占位符
     REQUIRED_PLACEHOLDERS: ClassVar = [

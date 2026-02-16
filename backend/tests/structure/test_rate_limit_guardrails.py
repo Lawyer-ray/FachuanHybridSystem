@@ -150,7 +150,9 @@ def test_high_risk_endpoints_are_rate_limited_systematically():
 
                 actual = _rate_limit_kinds(node)
                 if not (actual & expected):
-                    missing.append(f"{path.relative_to(backend_root)}:{node.name} expected={sorted(expected)} actual={sorted(actual)}")
+                    missing.append(
+                        f"{path.relative_to(backend_root)}:{node.name} expected={sorted(expected)} actual={sorted(actual)}"
+                    )
 
     assert not missing, "以下高风险端点缺少 rate_limit_from_settings：\n" + "\n".join(sorted(missing))
 

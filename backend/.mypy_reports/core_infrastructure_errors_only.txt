@@ -4,7 +4,7 @@ apps/core/infrastructure/resource_monitor.py:244:13: error: Dict entry 0 has
 apps/core/infrastructure/resource_monitor.py:245:13: error: Dict entry 1 has
 apps/core/infrastructure/resource_monitor.py:266:35: error: Incompatible types
 apps/core/infrastructure/resource_monitor.py:269:9: error: "None" has no
-apps/core/infrastructure/cache.py:217: error: Unused "type: ignore" comment 
+apps/core/infrastructure/cache.py:217: error: Unused "type: ignore" comment
 apps/core/infrastructure/health.py:502:43: error: Module "os" does not
 apps/core/infrastructure/health.py:593:24: error: No overload variant of "list"
 apps/core/infrastructure/health.py:593:24: note: Possible overload variants:

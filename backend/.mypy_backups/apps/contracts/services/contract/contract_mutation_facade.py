@@ -1,18 +1,17 @@
 """Business logic services."""
+
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
 
-from typing import Any, TYPE_CHECKING, cast
-
+from apps.contracts.models import Contract
 from apps.core.exceptions import PermissionDenied
 from apps.core.security.access_context import AccessContext
 
-from apps.contracts.models import Contract
-
 if TYPE_CHECKING:
+    from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
     from apps.core.interfaces import CaseDTO
 
-    from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
     from .contract_access_policy import ContractAccessPolicy
     from .contract_admin_mutation_service import ContractAdminMutationService
     from .contract_workflow_service import ContractWorkflowService
@@ -231,7 +230,7 @@ class ContractMutationFacade:
         )
         return self.mutation_service.delete_contract(contract_id)
 
-    def delete_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> bool:
+    def delete_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> bool:
         return self.delete_contract(
             contract_id=contract_id,
             user=ctx.user,
@@ -255,7 +254,7 @@ class ContractMutationFacade:
         )
         return self.admin_mutation_service.duplicate_contract(contract_id)
 
-    def duplicate_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> Contract:
+    def duplicate_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Contract:
         return self.duplicate_contract(
             contract_id=contract_id,
             user=ctx.user,
@@ -279,7 +278,7 @@ class ContractMutationFacade:
         )
         return self.admin_mutation_service.renew_advisor_contract(contract_id)
 
-    def renew_advisor_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> Contract:
+    def renew_advisor_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Contract:
         return self.renew_advisor_contract(
             contract_id=contract_id,
             user=ctx.user,
@@ -308,7 +307,7 @@ class ContractMutationFacade:
             perm_open_access=perm_open_access,
         )
 
-    def create_case_from_contract_ctx(self, *,  contract_id: int, ctx: AccessContext) -> CaseDTO:
+    def create_case_from_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> CaseDTO:
         return self.create_case_from_contract(
             contract_id=contract_id,
             user=ctx.user,

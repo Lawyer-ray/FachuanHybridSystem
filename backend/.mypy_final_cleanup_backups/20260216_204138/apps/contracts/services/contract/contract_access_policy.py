@@ -1,6 +1,6 @@
 """Business logic services."""
 
-from typing import Any, Optional, TYPE_CHECKING, cast, Set
+from typing import TYPE_CHECKING, Any, Optional, Set, cast
 
 from django.db.models import Q, QuerySet
 
@@ -10,8 +10,8 @@ from apps.core.security import OrgAllowedLawyersMixin
 from .repos.contract_access_repo import ContractAccessRepo
 
 if TYPE_CHECKING:
-    from apps.core.security.access_context import AccessContext
     from apps.contracts.models import Contract
+    from apps.core.security.access_context import AccessContext
 
 
 class ContractAccessPolicy(OrgAllowedLawyersMixin):
@@ -105,7 +105,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             Q(assignments__lawyer_id__in=list(allowed_lawyers)) | Q(cases__assignments__lawyer_id=user_id)
         ).distinct()
 
-    def has_access_ctx(self, *,  contract_id: int, ctx: "AccessContext", contract: Optional["Contract"] = None) -> bool:
+    def has_access_ctx(self, *, contract_id: int, ctx: "AccessContext", contract: Optional["Contract"] = None) -> bool:
         return self.has_access(
             contract_id=contract_id,
             user=ctx.user,

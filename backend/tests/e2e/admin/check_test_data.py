@@ -3,22 +3,24 @@
 
 检查数据库中是否有测试所需的数据
 """
+
 import os
 import sys
+
 import django
 
 # 设置 Django 环境
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../apiSystem'))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'apiSystem.settings')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../apiSystem"))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
 
+from apps.client.models import Client
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
-from apps.client.models import Client
 
-print("="*80)
+print("=" * 80)
 print("检查测试数据")
-print("="*80)
+print("=" * 80)
 
 # 检查合同
 print(f"\n合同数量: {Contract.objects.count()}")
@@ -38,4 +40,4 @@ if Client.objects.exists():
     for client in Client.objects.all()[:5]:
         print(f"  - ID={client.id}, 姓名={client.name}")
 
-print("\n" + "="*80)
+print("\n" + "=" * 80)

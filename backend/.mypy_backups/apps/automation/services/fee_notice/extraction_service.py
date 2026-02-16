@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -13,7 +14,7 @@ Requirements: 2.1, 4.1-4.4, 6.1-6.3, 7.1-7.6
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Dict
 
 from .detector import FeeNoticeDetector
 from .extractor import FeeAmountExtractor
@@ -108,10 +109,7 @@ class FeeNoticeExtractionService:
 
         if debug:
             debug_logs.append(f"开始处理 {len(file_paths)} 个文件")
-            logger.info(
-                "开始批量提取交费通知书",
-                extra= {}
-            )
+            logger.info("开始批量提取交费通知书", extra={})
 
         for file_path in file_paths:
             try:
@@ -169,10 +167,7 @@ class FeeNoticeExtractionService:
                 )
                 if debug:
                     debug_logs.append(error_msg)
-                logger.warning(
-                    "处理文件失败",
-                    extra= {}
-                )
+                logger.warning("处理文件失败", extra={})
 
         # 汇总结果
         result = FeeNoticeExtractionResult(
@@ -185,7 +180,7 @@ class FeeNoticeExtractionService:
 
         logger.info(
             "批量提取完成",
-            extra= {
+            extra={
                 "total_files": len(file_paths),
                 "total_pages": total_pages,
                 "notices_found": len(notices),
@@ -219,19 +214,13 @@ class FeeNoticeExtractionService:
         file_name = Path(file_path).name
 
         if debug:
-            logger.info(
-                "开始处理单个文件",
-                extra= {}
-            )
+            logger.info("开始处理单个文件", extra={})
 
         # 提取每页文本
         pages_text = self._extract_pages_text(file_path, debug=debug)
 
         if not pages_text:
-            logger.warning(
-                "无法提取文本",
-                extra= {}
-            )
+            logger.warning("无法提取文本", extra={})
             return notices
 
         # 检测每页是否为交费通知书
@@ -243,7 +232,7 @@ class FeeNoticeExtractionService:
             if debug:
                 logger.info(
                     "页面检测结果",
-                    extra= {
+                    extra={
                         "file": file_name,
                         "page": page_num,
                         "is_fee_notice": detection.is_fee_notice,
@@ -265,7 +254,7 @@ class FeeNoticeExtractionService:
                 if debug:
                     logger.warning(
                         "金额提取失败,保留原始文本",
-                        extra= {
+                        extra={
                             "file": file_name,
                             "page": page_num,
                             "raw_text_preview": text[:200] if text else "",
@@ -290,7 +279,7 @@ class FeeNoticeExtractionService:
             if debug:
                 logger.info(
                     "识别到交费通知书",
-                    extra= {
+                    extra={
                         "file": file_name,
                         "page": page_num,
                         "acceptance_fee": str(amounts.acceptance_fee) if amounts.acceptance_fee else None,
@@ -346,7 +335,7 @@ class FeeNoticeExtractionService:
                         if debug:
                             logger.info(
                                 "页面文本提取完成",
-                                extra= {
+                                extra={
                                     "file": Path(file_path).name,
                                     "page": page_num,
                                     "method": extraction_method,
@@ -357,17 +346,14 @@ class FeeNoticeExtractionService:
                         if debug:
                             logger.warning(
                                 "页面文本提取失败",
-                                extra= {
+                                extra={
                                     "file": Path(file_path).name,
                                     "page": page_num,
                                 },
                             )
 
         except Exception as e:
-            logger.error(
-                "PDF文件读取失败",
-                extra= {}
-            )
+            logger.error("PDF文件读取失败", extra={})
             raise
 
         return pages_text
@@ -429,7 +415,7 @@ class FeeNoticeExtractionService:
         except Exception as e:
             logger.warning(
                 "OCR识别失败",
-                extra= {
+                extra={
                     "file": file_path,
                     "page": page_idx + 1,
                     "error": str(e),
@@ -501,11 +487,13 @@ class FeeNoticeExtractionService:
 
         for uploaded_file in files:
             if not uploaded_file.name.lower().endswith(".pdf"):
-                file_errors.append({
-                    "file": uploaded_file.name,
-                    "error": "不支持的文件格式,仅支持 PDF 文件",
-                    "code": "UNSUPPORTED_FORMAT",
-                })
+                file_errors.append(
+                    {
+                        "file": uploaded_file.name,
+                        "error": "不支持的文件格式,仅支持 PDF 文件",
+                        "code": "UNSUPPORTED_FORMAT",
+                    }
+                )
                 continue
 
             validator = FolderPathValidator()
@@ -513,11 +501,13 @@ class FeeNoticeExtractionService:
                 original_name: str = validator.sanitize_file_name(uploaded_file.name)
             except Exception:
                 logger.exception("文件名不合法")
-                file_errors.append({
-                    "file": str(uploaded_file.name or ""),
-                    "error": "文件名不合法",
-                    "code": "INVALID_FILE_NAME",
-                })
+                file_errors.append(
+                    {
+                        "file": str(uploaded_file.name or ""),
+                        "error": "文件名不合法",
+                        "code": "INVALID_FILE_NAME",
+                    }
+                )
                 continue
 
             safe_name = f"{batch_id}_{uuid.uuid4().hex[:8]}_{original_name}"
@@ -531,11 +521,13 @@ class FeeNoticeExtractionService:
                 saved_files.append(temp_path)
             except Exception as e:
                 logger.warning("保存上传文件失败", extra={"file": uploaded_file.name, "error": str(e)})
-                file_errors.append({
-                    "file": uploaded_file.name,
-                    "error": f"保存文件失败: {e!s}",
-                    "code": "FILE_SAVE_ERROR",
-                })
+                file_errors.append(
+                    {
+                        "file": uploaded_file.name,
+                        "error": f"保存文件失败: {e!s}",
+                        "code": "FILE_SAVE_ERROR",
+                    }
+                )
 
         return saved_files, file_errors
 
@@ -550,9 +542,6 @@ class FeeNoticeExtractionService:
                 if temp_path.exists():
                     temp_path.unlink()
             except Exception as e:
-                logger.warning(
-                    "清理临时文件失败",
-                    extra= {}
-                )
+                logger.warning("清理临时文件失败", extra={})
 
             return 0

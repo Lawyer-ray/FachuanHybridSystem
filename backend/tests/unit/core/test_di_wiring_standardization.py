@@ -20,4 +20,3 @@ def test_contract_wiring_uses_service_locator_contract_service(monkeypatch):
     monkeypatch.setattr(wiring.ServiceLocator, "get_contract_service", lambda: adapter)
 
     assert wiring.get_contract_domain_service() is adapter.contract_service
-

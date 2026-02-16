@@ -4,6 +4,7 @@
 按类型和严重程度统计违规，生成JSON和Markdown格式报告。
 包含文件路径、行号、代码片段等详细信息。
 """
+
 from __future__ import annotations
 
 from collections import Counter
@@ -141,9 +142,7 @@ class ReportGenerator:
 
         return "\n".join(lines)
 
-    def write_json(
-        self, report: ViolationReport, output_path: Path
-    ) -> Path:
+    def write_json(self, report: ViolationReport, output_path: Path) -> Path:
         """
         将JSON报告写入文件。
 
@@ -161,9 +160,7 @@ class ReportGenerator:
         logger.info("JSON报告已写入: %s", output_path)
         return output_path
 
-    def write_markdown(
-        self, report: ViolationReport, output_path: Path
-    ) -> Path:
+    def write_markdown(self, report: ViolationReport, output_path: Path) -> Path:
         """
         将Markdown报告写入文件。
 

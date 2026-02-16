@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
 
-
 _SK_TOKEN = re.compile(r"\bsk-[a-zA-Z0-9]{16,}\b")
 
 

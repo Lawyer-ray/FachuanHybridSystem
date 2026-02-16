@@ -3,6 +3,7 @@
 
 测试 IdCardMergeService 的透视变换功能
 """
+
 import numpy as np
 import pytest
 
@@ -58,8 +59,7 @@ class TestPerspectiveTransform:
         max_ratio = self.expected_ratio * (1 + self.tolerance)
 
         assert min_ratio <= actual_ratio <= max_ratio, (
-            f"宽高比 {actual_ratio:.4f} 不在允许范围 "
-            f"[{min_ratio:.4f}, {max_ratio:.4f}] 内"
+            f"宽高比 {actual_ratio:.4f} 不在允许范围 " f"[{min_ratio:.4f}, {max_ratio:.4f}] 内"
         )
 
     def test_perspective_transform_standard_rectangle(self):
@@ -414,12 +414,8 @@ class TestGeneratePdf:
         expected_width, expected_height = A4
 
         # 允许 1 point 的误差
-        assert abs(page_width - expected_width) < 1, (
-            f"PDF 宽度 {page_width} 不等于 A4 宽度 {expected_width}"
-        )
-        assert abs(page_height - expected_height) < 1, (
-            f"PDF 高度 {page_height} 不等于 A4 高度 {expected_height}"
-        )
+        assert abs(page_width - expected_width) < 1, f"PDF 宽度 {page_width} 不等于 A4 宽度 {expected_width}"
+        assert abs(page_height - expected_height) < 1, f"PDF 高度 {page_height} 不等于 A4 高度 {expected_height}"
 
     def test_generate_pdf_cleans_temp_files(self, tmp_path, settings):
         """测试临时文件清理
@@ -440,9 +436,7 @@ class TestGeneratePdf:
         temp_dir = tmp_path / "temp"
         if temp_dir.exists():
             temp_files = list(temp_dir.glob("*_pdf_*.jpg"))
-            assert len(temp_files) == 0, (
-                f"临时文件未清理: {[f.name for f in temp_files]}"
-            )
+            assert len(temp_files) == 0, f"临时文件未清理: {[f.name for f in temp_files]}"
 
     def test_generate_pdf_unique_filenames(self, tmp_path, settings):
         """测试生成唯一文件名
@@ -584,7 +578,7 @@ class TestValidateCorners:
         注意：由于 _validate_corners 会先调用 _order_corners 对点进行排序，
         蝴蝶结形状的点会被重新排序为凸四边形，因此这个测试验证的是
         排序后仍然是自相交的情况（实际上很难构造）。
-        
+
         这里我们测试一个更明确的凹四边形案例。
         """
         # 凹四边形 - 一个点明显凹进去
@@ -607,39 +601,29 @@ class TestIsConvexQuadrilateral:
 
     def test_is_convex_rectangle(self):
         """测试矩形是凸四边形"""
-        corners = np.array(
-            [[100, 100], [500, 100], [500, 400], [100, 400]], dtype=np.float32
-        )
+        corners = np.array([[100, 100], [500, 100], [500, 400], [100, 400]], dtype=np.float32)
         assert self.service._is_convex_quadrilateral(corners) is True
 
     def test_is_convex_parallelogram(self):
         """测试平行四边形是凸四边形"""
-        corners = np.array(
-            [[150, 100], [550, 100], [500, 400], [100, 400]], dtype=np.float32
-        )
+        corners = np.array([[150, 100], [550, 100], [500, 400], [100, 400]], dtype=np.float32)
         assert self.service._is_convex_quadrilateral(corners) is True
 
     def test_is_convex_trapezoid(self):
         """测试梯形是凸四边形"""
-        corners = np.array(
-            [[200, 100], [400, 100], [500, 400], [100, 400]], dtype=np.float32
-        )
+        corners = np.array([[200, 100], [400, 100], [500, 400], [100, 400]], dtype=np.float32)
         assert self.service._is_convex_quadrilateral(corners) is True
 
     def test_is_not_convex_concave(self):
         """测试凹四边形不是凸四边形"""
         # 凹四边形 - 第三个点凹进去
-        corners = np.array(
-            [[100, 100], [500, 100], [300, 250], [100, 400]], dtype=np.float32
-        )
+        corners = np.array([[100, 100], [500, 100], [300, 250], [100, 400]], dtype=np.float32)
         assert self.service._is_convex_quadrilateral(corners) is False
 
     def test_is_not_convex_self_intersecting(self):
         """测试自相交四边形不是凸四边形"""
         # 蝴蝶结形状
-        corners = np.array(
-            [[100, 100], [500, 400], [500, 100], [100, 400]], dtype=np.float32
-        )
+        corners = np.array([[100, 100], [500, 400], [500, 100], [100, 400]], dtype=np.float32)
         assert self.service._is_convex_quadrilateral(corners) is False
 
     def test_is_not_convex_wrong_point_count(self):

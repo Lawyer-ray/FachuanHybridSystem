@@ -21,24 +21,27 @@
 from .base import ChatProvider, ChatResult, MessageContent
 from .factory import ChatProviderFactory
 
+
 # 自动注册群聊提供者
 def _register_providers():
     """自动注册所有可用的群聊提供者"""
     from apps.core.enums import ChatPlatform
-    
+
     # 避免重复注册：检查是否已经注册过
     if ChatProviderFactory.is_platform_registered(ChatPlatform.FEISHU):
         return
-    
+
     # 注册飞书提供者
     try:
         from .feishu_provider import FeishuChatProvider
+
         ChatProviderFactory.register(ChatPlatform.FEISHU, FeishuChatProvider)
     except ImportError as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(f"无法导入飞书群聊提供者: {str(e)}")
-    
+
     # 未来可以在这里注册其他平台提供者
     # 例如：
     # try:
@@ -48,12 +51,13 @@ def _register_providers():
     # except ImportError:
     #     pass
 
+
 # 模块导入时自动注册提供者（避免重复注册）
 _register_providers()
 
 __all__ = [
-    'ChatProvider',
-    'ChatResult', 
-    'MessageContent',
-    'ChatProviderFactory',
+    "ChatProvider",
+    "ChatResult",
+    "MessageContent",
+    "ChatProviderFactory",
 ]

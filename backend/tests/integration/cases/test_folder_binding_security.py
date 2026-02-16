@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from apps.core.exceptions import ValidationException
 from apps.cases.services import CaseFolderBindingService
+from apps.core.exceptions import ValidationException
 
 
 class TestCaseFolderBindingSecurity:
@@ -74,7 +74,8 @@ class TestCaseFolderBindingSecurity:
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("nested/ok.txt", b"ok")
 
-        out = service.extract_zip_to_bound_folder(case_id=1, zip_content=buf.getvalue(), user=None, perm_open_access=True)
+        out = service.extract_zip_to_bound_folder(
+            case_id=1, zip_content=buf.getvalue(), user=None, perm_open_access=True
+        )
         assert out == str(tmp_path)
         assert (tmp_path / "nested" / "ok.txt").read_bytes() == b"ok"
-

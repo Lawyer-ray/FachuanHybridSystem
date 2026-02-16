@@ -2,8 +2,8 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from django.test import AsyncClient
 from django.contrib.auth import get_user_model
+from django.test import AsyncClient
 
 
 @pytest.mark.django_db
@@ -123,16 +123,16 @@ def test_llm_chat_stream_sse_smoke(client, monkeypatch):
         body = b""
         async for chunk in resp.streaming_content:
             body += chunk
-            if b"\"type\": \"done\"" in body:
+            if b'"type": "done"' in body:
                 break
         return body
 
     body = async_to_sync(_collect)()
 
     text = body.decode("utf-8")
-    assert "\"type\": \"meta\"" in text
-    assert "\"session_id\": \"s-stream\"" in text
-    assert "\"type\": \"delta\"" in text
-    assert "\"content\": \"a\"" in text
-    assert "\"content\": \"b\"" in text
-    assert "\"type\": \"done\"" in text
+    assert '"type": "meta"' in text
+    assert '"session_id": "s-stream"' in text
+    assert '"type": "delta"' in text
+    assert '"content": "a"' in text
+    assert '"content": "b"' in text
+    assert '"type": "done"' in text

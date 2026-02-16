@@ -13,4 +13,3 @@ def test_folder_template_service_delegates_to_usecases():
 
     assert result == []
     usecases.list_templates.assert_called_once_with(case_type="x", case_stage=None, is_active=True)
-

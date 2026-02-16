@@ -1,13 +1,15 @@
 """
 合同服务 Property-Based Testing
 """
+
 import pytest
-from hypothesis import given, strategies as st, settings
 from django.db import connection
 from django.test.utils import override_settings
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-from apps.contracts.services import ContractService
 from apps.contracts.models import ContractAssignment
+from apps.contracts.services import ContractService
 from tests.factories import ContractFactory, ContractPaymentFactory, LawyerFactory
 
 
@@ -34,6 +36,7 @@ class TestContractServiceProperties:
         """
         # 重置查询计数
         from django.db import reset_queries
+
         reset_queries()
 
         # 创建测试数据：每个合同有多个收款记录
@@ -42,12 +45,7 @@ class TestContractServiceProperties:
             contract = ContractFactory()
             # 为每个合同创建主办律师
             lawyer = LawyerFactory()
-            ContractAssignment.objects.create(
-                contract=contract,
-                lawyer=lawyer,
-                is_primary=True,
-                order=0
-            )
+            ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
             # 为每个合同创建 2-3 个收款记录
             ContractPaymentFactory.create_batch(2, contract=contract)
             contracts.append(contract)
@@ -76,8 +74,7 @@ class TestContractServiceProperties:
         # 验证：应该只有少量查询（不超过 10 次）
         # 1 次主查询 + select_related 的 JOIN + prefetch_related 的额外查询
         assert query_count <= 10, (
-            f"查询次数过多: {query_count} 次，可能存在 N+1 问题。"
-            f"查询详情: {[q['sql'] for q in connection.queries]}"
+            f"查询次数过多: {query_count} 次，可能存在 N+1 问题。" f"查询详情: {[q['sql'] for q in connection.queries]}"
         )
 
     @given(st.integers(min_value=1, max_value=10))
@@ -95,16 +92,12 @@ class TestContractServiceProperties:
         # 创建测试数据
         contract = ContractFactory()
         lawyer = LawyerFactory()
-        ContractAssignment.objects.create(
-            contract=contract,
-            lawyer=lawyer,
-            is_primary=True,
-            order=0
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
         ContractPaymentFactory.create_batch(payment_count, contract=contract)
 
         # 重置查询计数
         from django.db import reset_queries
+
         reset_queries()
 
         # 执行查询（使用 perm_open_access=True 绕过权限检查）
@@ -121,14 +114,9 @@ class TestContractServiceProperties:
         query_count = len(connection.queries)
 
         # 验证：应该只有少量查询
-        assert query_count <= 10, (
-            f"查询次数过多: {query_count} 次，可能存在 N+1 问题"
-        )
+        assert query_count <= 10, f"查询次数过多: {query_count} 次，可能存在 N+1 问题"
 
-    @given(
-        st.integers(min_value=1, max_value=10),
-        st.integers(min_value=1, max_value=5)
-    )
+    @given(st.integers(min_value=1, max_value=10), st.integers(min_value=1, max_value=5))
     @settings(max_examples=50, deadline=None)
     @override_settings(DEBUG=True)
     def test_get_finance_summary_efficient(self, contract_count, payment_per_contract):
@@ -149,6 +137,7 @@ class TestContractServiceProperties:
 
         # 重置查询计数
         from django.db import reset_queries
+
         reset_queries()
 
         # 对每个合同获取财务汇总
@@ -164,6 +153,6 @@ class TestContractServiceProperties:
         # 验证：查询次数应该是线性的，不应该是 O(n²)
         # 每个合同大约 5-6 次查询（获取合同 + 获取收款记录 + 聚合查询）
         max_expected_queries = contract_count * 6 + 2
-        assert query_count <= max_expected_queries, (
-            f"查询次数过多: {query_count} 次，预期不超过 {max_expected_queries} 次"
-        )
+        assert (
+            query_count <= max_expected_queries
+        ), f"查询次数过多: {query_count} 次，预期不超过 {max_expected_queries} 次"

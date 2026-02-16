@@ -4,6 +4,7 @@
 协调各个重构引擎（API层、Service层、Model层），实现批量重构逻辑，
 集成 RollbackManager 进行回滚管理，每个违规重构后进行语法验证。
 """
+
 from __future__ import annotations
 
 import ast

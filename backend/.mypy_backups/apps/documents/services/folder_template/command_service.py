@@ -1,8 +1,9 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
 from dataclasses import dataclass
+from typing import Any
 
 from django.db import transaction
 
@@ -12,7 +13,6 @@ from apps.documents.models import FolderTemplate
 from .repo import FolderTemplateRepo
 from .structure_rules import FolderTemplateStructureRules
 from .validation_service import FolderTemplateValidationService
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -64,7 +64,7 @@ class FolderTemplateCommandService:
         )
 
     @transaction.atomic
-    def update_structure(self, *,  template_id: int, structure: dict[str, Any]) -> FolderTemplate:
+    def update_structure(self, *, template_id: int, structure: dict[str, Any]) -> FolderTemplate:
         try:
             template = self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
@@ -98,10 +98,11 @@ class FolderTemplateCommandService:
     def _clear_folder_template_cache(self) -> None:
         """清除文件夹模板缓存"""
         from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
+
         bump_cache_version(CacheKeys.documents_matching_version_folder_templates(), timeout=CacheTimeout.get_day())
 
     @transaction.atomic
-    def delete_template(self, *,  template_id: int) -> bool:
+    def delete_template(self, *, template_id: int) -> bool:
         try:
             template = self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
@@ -116,7 +117,7 @@ class FolderTemplateCommandService:
         self._clear_folder_template_cache()
         return True
 
-    def create_template_from_dict(self, *,  data: dict[str, Any]) -> FolderTemplate:
+    def create_template_from_dict(self, *, data: dict[str, Any]) -> FolderTemplate:
         name = data.get("name", "")
         case_type = data.get("case_type", "")
         case_stage = data.get("case_stage", "")
@@ -139,7 +140,7 @@ class FolderTemplateCommandService:
             **extra,
         )
 
-    def update_template_from_dict(self, *,  template_id: int, data: dict[str, Any]) -> FolderTemplate:
+    def update_template_from_dict(self, *, template_id: int, data: dict[str, Any]) -> FolderTemplate:
         template = self.get_template_or_404(template_id)
 
         new_structure = data.get("structure")

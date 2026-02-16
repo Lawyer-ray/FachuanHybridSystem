@@ -1,7 +1,8 @@
 from datetime import datetime
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from apps.automation.services.court_document_recognition import InfoExtractor
 
@@ -83,4 +84,3 @@ def test_extract_datetime_by_regex_never_crash(prefix: str, suffix: str):
         assert 1 <= dt.day <= 31
         assert 0 <= dt.hour <= 23
         assert 0 <= dt.minute <= 59
-

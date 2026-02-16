@@ -1,14 +1,15 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 from typing import Any
+
 from django.db.models import QuerySet
 
+from apps.cases.models import Case, CaseLog
+from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.exceptions import NotFoundError
 
-from apps.cases.models import Case, CaseLog
-
-from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from .case_log_query_repo import CaseLogQueryRepo
 
 
@@ -26,7 +27,7 @@ class CaseLogQueryService:
         *,
         case_id: int | None = None,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Case, Case]:
         qs = CaseLog.objects.all().order_by("-created_at").select_related("actor").prefetch_related("attachments")
@@ -50,7 +51,7 @@ class CaseLogQueryService:
         *,
         log_id: int,
         user=None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         log = self.get_log_internal(log_id=log_id)
@@ -68,7 +69,7 @@ class CaseLogQueryService:
         )
         return log
 
-    def get_log_internal(self, *,  log_id: int) -> Any:
+    def get_log_internal(self, *, log_id: int) -> Any:
         try:
             return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
         except CaseLog.DoesNotExist:

@@ -28,4 +28,3 @@ def test_rename_uploaded_file_uses_doc_type_then_client_name(settings, tmp_path)
 
     assert doc.file_path.endswith("营业执照（广东润知信息科技有限公司）.pdf")
     assert (tmp_path / doc.file_path).exists()
-

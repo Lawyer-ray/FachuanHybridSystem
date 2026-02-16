@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -7,17 +8,18 @@ from __future__ import annotations
 """
 
 import logging
-from typing import Any, cast, Set
+from typing import Any, Set, cast
+
+from django.db import transaction
+from django.db.models import QuerySet
 
 from apps.cases.models import Case, CaseNumber
+from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.cases.utils import normalize_case_number as normalize_case_number_util
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService
 from apps.core.security import DjangoPermsMixin
-from django.db import transaction
-from django.db.models import QuerySet
 
-from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from .wiring import get_case_service
 
 logger = logging.getLogger("apps.cases", cast)  # type: ignore[call-arg]
@@ -59,7 +61,7 @@ class CaseNumberService(DjangoPermsMixin):
         return self._access_policy
 
     def _require_case_access(
-        self, case_id: int, user: Any | None, org_access: dict[str, Any]| None, perm_open_access: bool
+        self, case_id: int, user: Any | None, org_access: dict[str, Any] | None, perm_open_access: bool
     ) -> None:
         self.access_policy.ensure_access(
             case_id=case_id,
@@ -73,7 +75,7 @@ class CaseNumberService(DjangoPermsMixin):
         self,
         case_id: int | None = None,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Case, Case]:
         """
@@ -120,7 +122,7 @@ class CaseNumberService(DjangoPermsMixin):
         self,
         number_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseNumber:
         """
@@ -176,7 +178,7 @@ class CaseNumberService(DjangoPermsMixin):
         number: str,
         remarks: str | None = None,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseNumber:
         """
@@ -246,7 +248,7 @@ class CaseNumberService(DjangoPermsMixin):
         number_id: int,
         data: dict[str, Any],
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseNumber:
         """
@@ -332,7 +334,7 @@ class CaseNumberService(DjangoPermsMixin):
         self,
         number_id: int,
         user: Any | None = None,
-        org_access: dict[str, Any]| None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         """

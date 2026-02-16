@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
 
-
 _LOGGER_LINE = re.compile(r"\blogger\.\w+\(")
 _SENSITIVE_MARKERS = [
     re.compile(r"\bauthorization\b", re.IGNORECASE),

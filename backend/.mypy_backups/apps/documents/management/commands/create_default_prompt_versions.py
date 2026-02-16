@@ -6,12 +6,13 @@
 Requirements: 6.2.1
 """
 
-from apps.documents.models import PromptVersion
 from django.core.management.base import BaseCommand
+
+from apps.documents.models import PromptVersion
 
 
 class Command(BaseCommand):
-    help : str = "创建 AI 诉状生成的默认提示词版本"
+    help: str = "创建 AI 诉状生成的默认提示词版本"
 
     def handle(self, *args, **options) -> None:
         self.stdout.write("开始创建默认提示词版本...")

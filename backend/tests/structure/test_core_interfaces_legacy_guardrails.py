@@ -7,19 +7,19 @@ def test_interfaces_does_not_define_legacy_or_event_bus_inline():
     """
     root = Path(__file__).resolve().parents[2]
     interfaces_dir = root / "apps" / "core" / "interfaces"
-    
+
     # 确认 interfaces 是一个包（目录）
     assert interfaces_dir.is_dir(), "interfaces 应该是一个包（目录）"
-    
+
     # 确认 service_locator.py 存在
     service_locator_py = interfaces_dir / "service_locator.py"
     assert service_locator_py.exists(), "service_locator.py 应该存在"
-    
+
     # 确认 __init__.py 不包含这些类的定义（只应该 re-export）
     init_py = interfaces_dir / "__init__.py"
     assert init_py.exists()
     init_content = init_py.read_text(encoding="utf-8")
-    
+
     # __init__.py 应该只包含 import 和 __all__，不应该定义这些类
     assert "class LegacyServiceLocator" not in init_content, "__init__.py 不应该定义 LegacyServiceLocator"
     assert "class EventBus:" not in init_content, "__init__.py 不应该定义 EventBus"

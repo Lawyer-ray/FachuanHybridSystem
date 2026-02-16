@@ -1,10 +1,10 @@
 import datetime
 
 import pytest
+from django.db import connection, transaction
 
 from apps.documents.models import EvidenceItem, EvidenceList, ListType, MergeStatus
 from apps.documents.services.evidence.evidence_merge_usecase import EvidenceMergeUseCase, MergeProgressReporter
-from django.db import connection, transaction
 
 
 @pytest.mark.django_db(transaction=True)

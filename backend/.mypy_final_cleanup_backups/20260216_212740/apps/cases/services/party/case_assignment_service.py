@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -7,15 +8,16 @@ from __future__ import annotations
 """
 
 import logging
-from typing import Any, cast, Set
+from typing import Any, Set, cast
+
+from django.db import transaction
+from django.db.models import QuerySet
 
 from apps.cases.models import Case, CaseAssignment
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService
 from apps.core.protocols import IContractAssignmentQueryService
 from apps.core.security import DjangoPermsMixin
-from django.db import transaction
-from django.db.models import QuerySet
 
 logger = logging.getLogger("apps.cases", cast)  # type: ignore[call-arg]
 

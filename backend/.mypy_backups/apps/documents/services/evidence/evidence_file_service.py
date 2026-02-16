@@ -1,14 +1,14 @@
 """Business logic services."""
+
 from __future__ import annotations
 
-
+import contextlib
 import os
-from typing import TYPE_CHECKING, ClassVar, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
 
 from apps.core.exceptions import ValidationException
-import contextlib
 
 if TYPE_CHECKING:
     from apps.documents.models import EvidenceItem
@@ -19,7 +19,7 @@ class EvidenceFileService:
     MAX_FILE_SIZE = 50 * 1024 * 1024
 
     @transaction.atomic
-    def upload_file(self, *,  item: EvidenceItem, file) -> EvidenceItem:
+    def upload_file(self, *, item: EvidenceItem, file) -> EvidenceItem:
         file_name = getattr(file, "name", "")
         file_size = getattr(file, "size", 0)
 
@@ -57,7 +57,7 @@ class EvidenceFileService:
         return item
 
     @transaction.atomic
-    def delete_file(self, *,  item: EvidenceItem) -> bool:
+    def delete_file(self, *, item: EvidenceItem) -> bool:
         if item.file:
             with contextlib.suppress(Exception):
                 item.file.delete(save=False)
@@ -71,7 +71,7 @@ class EvidenceFileService:
         item.save()
         return True
 
-    def _get_page_count(self, *,  ext: str, file) -> int:
+    def _get_page_count(self, *, ext: str, file) -> int:
         if ext == ".pdf":
             from apps.documents.services.pdf_utils import get_pdf_page_count
 

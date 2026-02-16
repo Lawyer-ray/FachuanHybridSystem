@@ -22,4 +22,3 @@ def test_retry_download_task_delegates_to_workers(monkeypatch):
     assert court_sms_service.retry_download_task("456", foo="bar") == "ok"
     assert captured["sms_id"] == "456"
     assert captured["kwargs"] == {"foo": "bar"}
-

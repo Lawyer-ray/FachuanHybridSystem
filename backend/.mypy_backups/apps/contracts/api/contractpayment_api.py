@@ -2,9 +2,11 @@
 合同收款 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
+
 from typing import Optional
-from ninja import Router
+
 from django.utils.dateparse import parse_date
+from ninja import Router
 
 from ..schemas import ContractPaymentIn, ContractPaymentOut, ContractPaymentUpdate
 from ..services.contract_payment_service import ContractPaymentService
@@ -29,11 +31,11 @@ def list_payments(
     service = _get_payment_service()
     user = getattr(request, "user", None)
     perm_open_access = getattr(request, "perm_open_access", False)
-    
+
     # 解析日期参数
     d1 = parse_date(start_date) if start_date else None
     d2 = parse_date(end_date) if end_date else None
-    
+
     return service.list_payments(
         contract_id=contract_id,
         invoice_status=invoice_status,
@@ -49,10 +51,10 @@ def create_payment(request, payload: ContractPaymentIn):
     """创建收款记录"""
     service = _get_payment_service()
     user = getattr(request, "user", None)
-    
+
     # 解析日期
     received_at = parse_date(payload.received_at) if payload.received_at else None
-    
+
     return service.create_payment(
         contract_id=payload.contract_id,
         amount=payload.amount,
@@ -70,17 +72,17 @@ def update_payment(request, payment_id: int, payload: ContractPaymentUpdate):
     """更新收款记录"""
     service = _get_payment_service()
     user = getattr(request, "user", None)
-    
+
     # 构建更新数据
     data = payload.dict(exclude_unset=True)
-    
+
     # 解析日期
     if "received_at" in data and data["received_at"]:
         data["received_at"] = parse_date(data["received_at"])
-    
+
     # 提取 confirm 参数
     confirm = data.pop("confirm", False)
-    
+
     return service.update_payment(
         payment_id=payment_id,
         data=data,
@@ -95,7 +97,7 @@ def delete_payment(request, payment_id: int):
     service = _get_payment_service()
     user = getattr(request, "user", None)
     confirm = request.GET.get("confirm") == "true"
-    
+
     return service.delete_payment(
         payment_id=payment_id,
         user=user,

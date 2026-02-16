@@ -8,18 +8,15 @@ API 层职责：
 
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
+
 from typing import List, Optional
+
 from ninja import Router
 
-from ..schemas import (
-    CaseIn,
-    CaseOut,
-    CaseUpdate,
-    CaseCreateFull,
-    CaseFullOut,
-)
-from ..services import CaseService
 from apps.core.interfaces import ServiceLocator
+
+from ..schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
+from ..services import CaseService
 
 router = Router()
 
@@ -32,9 +29,7 @@ def _get_case_service() -> CaseService:
         CaseService 实例
     """
     contract_service = ServiceLocator.get_contract_service()
-    return CaseService(
-        contract_service=contract_service
-    )
+    return CaseService(contract_service=contract_service)
 
 
 @router.get("/cases/search", response=List[CaseOut])
@@ -45,18 +40,18 @@ def search_cases(
 ):
     """
     搜索案件
-    
+
     Args:
         q: 搜索关键词（案号、案件名称、当事人姓名）
         limit: 返回结果数量限制
     """
     service = _get_case_service()
-    
+
     # 提取用户和权限信息
     user = getattr(request, "user", None)
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
-    
+
     # 调用搜索服务
     return service.search_cases(
         query=q,
@@ -226,7 +221,9 @@ def create_case_full(request, payload: CaseCreateFull):
         "parties": [p.dict() for p in payload.parties] if payload.parties else [],
         "assignments": [a.dict() for a in payload.assignments] if payload.assignments else [],
         "logs": [log.dict() for log in payload.logs] if payload.logs else [],
-        "supervising_authorities": [s.dict() for s in payload.supervising_authorities] if payload.supervising_authorities else [],
+        "supervising_authorities": (
+            [s.dict() for s in payload.supervising_authorities] if payload.supervising_authorities else []
+        ),
     }
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）

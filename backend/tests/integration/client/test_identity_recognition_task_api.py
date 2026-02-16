@@ -39,4 +39,3 @@ def test_identity_recognize_task_status_success(client, monkeypatch):
     data = resp.json()
     assert data["status"] == "success"
     assert data["result"]["doc_type"] == "id_card"
-

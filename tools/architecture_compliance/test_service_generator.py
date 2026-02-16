@@ -1,6 +1,7 @@
 """
 ServiceGenerator 单元测试
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -8,15 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from .business_logic_extractor import (
-    ExtractedServiceMethod,
-    SaveMethodRefactoring,
-)
-from .service_generator import (
-    ServiceGenerationResult,
-    ServiceGenerator,
-    _to_snake_case,
-)
+from .business_logic_extractor import ExtractedServiceMethod, SaveMethodRefactoring
+from .service_generator import ServiceGenerationResult, ServiceGenerator, _to_snake_case
 
 
 @pytest.fixture
@@ -82,7 +76,9 @@ class TestResolveServicePath:
 
 class TestCreateNewFile:
     def test_generates_valid_python(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "contract_service.py"
         refactoring = _make_refactoring(
@@ -92,14 +88,15 @@ class TestCreateNewFile:
                 _make_method(
                     "create_finance_log",
                     ["contract: Contract"],
-                    'ContractFinanceLog.objects.create(contract=contract, amount=contract.fixed_amount)',
+                    "ContractFinanceLog.objects.create(contract=contract, amount=contract.fixed_amount)",
                     "创建财务记录",
                 ),
             ],
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.file_created is True
@@ -112,7 +109,9 @@ class TestCreateNewFile:
         compile(result.file_content, "<test>", "exec")
 
     def test_multiple_methods(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "order_service.py"
         refactoring = _make_refactoring(
@@ -125,7 +124,8 @@ class TestCreateNewFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.file_created is True
@@ -134,7 +134,9 @@ class TestCreateNewFile:
         assert "def notify_user(self, order: Order)" in result.file_content
 
     def test_empty_methods_returns_early(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "empty_service.py"
         refactoring = _make_refactoring(
@@ -144,7 +146,8 @@ class TestCreateNewFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.methods_added == []
@@ -152,7 +155,9 @@ class TestCreateNewFile:
         assert result.file_created is False
 
     def test_includes_future_annotations(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "contract_service.py"
         refactoring = _make_refactoring(
@@ -162,7 +167,8 @@ class TestCreateNewFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert "from __future__ import annotations" in result.file_content
@@ -173,10 +179,13 @@ class TestCreateNewFile:
 
 class TestUpdateExistingFile:
     def test_adds_method_to_existing_class(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "contract_service.py"
-        existing_code = textwrap.dedent("""\
+        existing_code = textwrap.dedent(
+            """\
             from apps.contracts.models import Contract
 
 
@@ -187,7 +196,8 @@ class TestUpdateExistingFile:
 
                 def existing_method(self) -> None:
                     pass
-        """)
+        """
+        )
         service_path.write_text(existing_code, encoding="utf-8")
 
         refactoring = _make_refactoring(
@@ -204,7 +214,8 @@ class TestUpdateExistingFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.file_created is False
@@ -214,10 +225,13 @@ class TestUpdateExistingFile:
         compile(result.file_content, "<test>", "exec")
 
     def test_skips_duplicate_methods(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "contract_service.py"
-        existing_code = textwrap.dedent("""\
+        existing_code = textwrap.dedent(
+            """\
             from apps.contracts.models import Contract
 
 
@@ -228,7 +242,8 @@ class TestUpdateExistingFile:
 
                 def create_finance_log(self, contract: Contract) -> None:
                     pass
-        """)
+        """
+        )
         service_path.write_text(existing_code, encoding="utf-8")
 
         refactoring = _make_refactoring(
@@ -245,22 +260,27 @@ class TestUpdateExistingFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.methods_added == []
         assert result.methods_skipped == ["create_finance_log"]
 
     def test_adds_model_import_if_missing(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         service_path = tmp_path / "contract_service.py"
-        existing_code = textwrap.dedent("""\
+        existing_code = textwrap.dedent(
+            """\
             class ContractService:
 
                 def __init__(self) -> None:
                     pass
-        """)
+        """
+        )
         service_path.write_text(existing_code, encoding="utf-8")
 
         refactoring = _make_refactoring(
@@ -272,22 +292,27 @@ class TestUpdateExistingFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert "from apps.contracts.models import Contract" in result.file_content
 
     def test_finds_service_class_by_suffix(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         """当类名不完全匹配时，查找以 Service 结尾的类"""
         service_path = tmp_path / "contract_service.py"
-        existing_code = textwrap.dedent("""\
+        existing_code = textwrap.dedent(
+            """\
             class MyContractService:
 
                 def __init__(self) -> None:
                     pass
-        """)
+        """
+        )
         service_path.write_text(existing_code, encoding="utf-8")
 
         refactoring = _make_refactoring(
@@ -299,22 +324,27 @@ class TestUpdateExistingFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert result.service_class_name == "MyContractService"
         assert result.methods_added == ["do_stuff"]
 
     def test_appends_class_when_no_service_class_found(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         """文件存在但无 Service 类时，追加新类"""
         service_path = tmp_path / "contract_service.py"
-        existing_code = textwrap.dedent("""\
+        existing_code = textwrap.dedent(
+            """\
             # Some utility code
             def helper():
                 pass
-        """)
+        """
+        )
         service_path.write_text(existing_code, encoding="utf-8")
 
         refactoring = _make_refactoring(
@@ -326,7 +356,8 @@ class TestUpdateExistingFile:
         )
 
         result = generator.generate(
-            refactoring, target_service_path=service_path,
+            refactoring,
+            target_service_path=service_path,
         )
 
         assert "class ContractService:" in result.file_content
@@ -339,7 +370,9 @@ class TestUpdateExistingFile:
 
 class TestGenerateBatch:
     def test_batch_generates_multiple(
-        self, generator: ServiceGenerator, tmp_path: Path,
+        self,
+        generator: ServiceGenerator,
+        tmp_path: Path,
     ) -> None:
         refactorings = [
             _make_refactoring(
@@ -374,7 +407,8 @@ class TestImportManagement:
         assert generator._has_import(source, "Contract") is False
 
     def test_add_import_line_after_last_import(
-        self, generator: ServiceGenerator,
+        self,
+        generator: ServiceGenerator,
     ) -> None:
         source = "import os\nfrom pathlib import Path\n\nx = 1\n"
         result = generator._add_import_line(source, "from apps.x import Y")
@@ -385,15 +419,18 @@ class TestImportManagement:
         assert idx == 2
 
     def test_build_model_import_with_app(
-        self, generator: ServiceGenerator,
+        self,
+        generator: ServiceGenerator,
     ) -> None:
         result = generator._build_model_import(
-            "Contract", "backend/apps/contracts/models/contract.py",
+            "Contract",
+            "backend/apps/contracts/models/contract.py",
         )
         assert result == "from apps.contracts.models import Contract"
 
     def test_build_model_import_fallback(
-        self, generator: ServiceGenerator,
+        self,
+        generator: ServiceGenerator,
     ) -> None:
         result = generator._build_model_import("Widget", "src/widget.py")
         assert result == "from ..models import Widget"

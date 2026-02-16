@@ -9,7 +9,11 @@ def _backend_root() -> Path:
 def _uses_csrf_exempt(decorator: ast.expr) -> bool:
     if isinstance(decorator, ast.Name) and decorator.id == "csrf_exempt":
         return True
-    if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name) and decorator.func.id == "method_decorator":
+    if (
+        isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Name)
+        and decorator.func.id == "method_decorator"
+    ):
         for arg in decorator.args or []:
             if isinstance(arg, ast.Name) and arg.id == "csrf_exempt":
                 return True

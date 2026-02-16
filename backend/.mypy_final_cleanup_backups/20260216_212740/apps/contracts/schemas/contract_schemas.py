@@ -1,4 +1,5 @@
 """API schemas and serializers."""
+
 from __future__ import annotations
 
 """
@@ -9,19 +10,22 @@ Contract Schemas - Contract
 
 import logging
 from typing import Any, ClassVar, cast
+
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
 
-from apps.core.enums import CaseStage
-
 from apps.contracts.models import Contract, FeeMode
-from .lawyer_schemas import CaseOut, LawyerOut
+from apps.core.enums import CaseStage
 from apps.reminders.schemas import ReminderOut
+
+from .lawyer_schemas import CaseOut, LawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut
 from .payment_schemas import ContractPaymentOut
 from .supplementary_schemas import SupplementaryAgreementInput, SupplementaryAgreementOut
 
 logger = logging.getLogger(__name__)
+
+
 class UpdateLawyersIn(Schema):
     """更新合同律师指派输入 Schema"""
 

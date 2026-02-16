@@ -1,4 +1,4 @@
-apps/cases/services/case/case_service_adapter.py:24:6: error: invalid syntax 
+apps/cases/services/case/case_service_adapter.py:24:6: error: invalid syntax
 [syntax]
         , cast) -> None:
          ^

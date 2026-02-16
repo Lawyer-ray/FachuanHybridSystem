@@ -4,11 +4,7 @@ import pytest
 from asgiref.sync import async_to_sync
 
 from apps.litigation_ai.models import LitigationSession
-from apps.litigation_ai.services.conversation_flow_service import (
-    ConversationFlowService,
-    ConversationStep,
-    FlowContext,
-)
+from apps.litigation_ai.services.conversation_flow_service import ConversationFlowService, ConversationStep, FlowContext
 from tests.factories.case_factories import CaseFactory
 from tests.factories.organization_factories import LawyerFactory
 
@@ -35,7 +31,9 @@ def test_flow_init_auto_sets_document_type_and_asks_goal(monkeypatch):
     async def send_cb(payload):
         sent.append(payload)
 
-    ctx = FlowContext(session_id=str(session.session_id), case_id=case.id, user_id=lawyer.id, current_step=ConversationStep.INIT)
+    ctx = FlowContext(
+        session_id=str(session.session_id), case_id=case.id, user_id=lawyer.id, current_step=ConversationStep.INIT
+    )
     async_to_sync(flow.handle_init)(ctx, send_cb)
 
     session.refresh_from_db()
@@ -66,7 +64,9 @@ def test_flow_init_enters_doc_plan_when_counterclaim_defense_optional(monkeypatc
     async def send_cb(payload):
         sent.append(payload)
 
-    ctx = FlowContext(session_id=str(session.session_id), case_id=case.id, user_id=lawyer.id, current_step=ConversationStep.INIT)
+    ctx = FlowContext(
+        session_id=str(session.session_id), case_id=case.id, user_id=lawyer.id, current_step=ConversationStep.INIT
+    )
     async_to_sync(flow.handle_init)(ctx, send_cb)
 
     session.refresh_from_db()
@@ -90,7 +90,12 @@ def test_goal_intake_can_request_clarification(monkeypatch):
         requests = []
 
         def model_dump(self):
-            return {"goal_text": self.goal_text, "need_clarification": True, "clarifying_question": self.clarifying_question, "requests": []}
+            return {
+                "goal_text": self.goal_text,
+                "need_clarification": True,
+                "clarifying_question": self.clarifying_question,
+                "requests": [],
+            }
 
     async def _fake_arun(self, *, case_info, document_type, user_input):
         return _FakeGoal()
@@ -102,7 +107,9 @@ def test_goal_intake_can_request_clarification(monkeypatch):
 
     case = CaseFactory()
     lawyer = LawyerFactory()
-    session = LitigationSession.objects.create(case=case, user=lawyer, status="active", document_type="complaint", metadata={})
+    session = LitigationSession.objects.create(
+        case=case, user=lawyer, status="active", document_type="complaint", metadata={}
+    )
 
     flow = ConversationFlowService()
     sent = []
@@ -110,7 +117,12 @@ def test_goal_intake_can_request_clarification(monkeypatch):
     async def send_cb(payload):
         sent.append(payload)
 
-    ctx = FlowContext(session_id=str(session.session_id), case_id=case.id, user_id=lawyer.id, current_step=ConversationStep.LITIGATION_GOAL)
+    ctx = FlowContext(
+        session_id=str(session.session_id),
+        case_id=case.id,
+        user_id=lawyer.id,
+        current_step=ConversationStep.LITIGATION_GOAL,
+    )
     async_to_sync(flow.handle_litigation_goal_collection)(ctx, "我要追回欠款", send_cb)
 
     session.refresh_from_db()

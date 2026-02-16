@@ -23,21 +23,21 @@ struct Case: Codable, Identifiable {
     let assignments: [CaseAssignment]?
     let caseNumbers: [CaseNumber]?
     let contractId: Int?
-    
+
     // MARK: - 计算属性
-    
+
     var displayName: String {
         name.isEmpty ? "未命名案件" : name
     }
-    
+
     var folderName: String {
         "\(displayName)_\(id)"
     }
-    
+
     var isActive: Bool {
         status != "closed" && !isArchived
     }
-    
+
     /// 根据案件阶段返回文件夹结构
     var stageFolderStructure: [String] {
         switch currentStage {

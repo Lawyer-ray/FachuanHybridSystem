@@ -1,8 +1,10 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 import logging
 import os
+from typing import Any, ClassVar
 
 import cv2
 import numpy as np
@@ -10,7 +12,6 @@ from django.core.files.uploadedfile import UploadedFile
 
 from . import detection, image_io, pdf, validation
 from .paths import ensure_output_dir, ensure_temp_dir, get_media_root
-from typing import Any, ClassVar
 
 logger = logging.getLogger("apps.client")
 

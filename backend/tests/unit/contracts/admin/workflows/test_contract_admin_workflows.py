@@ -6,7 +6,13 @@ import pytest
 from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 
-from apps.contracts.models import ContractAssignment, ContractParty, PartyRole, SupplementaryAgreement, SupplementaryAgreementParty
+from apps.contracts.models import (
+    ContractAssignment,
+    ContractParty,
+    PartyRole,
+    SupplementaryAgreement,
+    SupplementaryAgreementParty,
+)
 from apps.contracts.services.contract.admin_workflows import (
     ContractCaseCreationWorkflow,
     ContractCloneWorkflow,
@@ -34,7 +40,9 @@ def test_contract_clone_workflow_clones_related_data():
     )
 
     agreement = SupplementaryAgreement.objects.create(contract=original_contract, name="补充协议")
-    SupplementaryAgreementParty.objects.create(supplementary_agreement=agreement, client=client, role=PartyRole.PRINCIPAL)
+    SupplementaryAgreementParty.objects.create(
+        supplementary_agreement=agreement, client=client, role=PartyRole.PRINCIPAL
+    )
 
     target_contract = ContractFactory(name="目标合同")
 

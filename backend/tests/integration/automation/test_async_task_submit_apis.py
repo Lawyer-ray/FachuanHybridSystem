@@ -40,12 +40,9 @@ def test_auto_namer_submit_by_path_returns_task(client, monkeypatch):
     )
     resp = client.post(
         "/api/v1/automation/auto-namer/process-by-path/submit",
-        data=json.dumps(
-            {"file_path": "/tmp/a.pdf", "prompt": "p", "model": "m", "limit": None, "preview_page": None}
-        ),
+        data=json.dumps({"file_path": "/tmp/a.pdf", "prompt": "p", "model": "m", "limit": None, "preview_page": None}),
         content_type="application/json",
         HTTP_HOST="localhost",
     )
     assert resp.status_code == 200
     assert resp.json()["task_id"] == "t-namer"
-

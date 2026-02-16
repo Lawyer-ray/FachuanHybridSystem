@@ -2,26 +2,28 @@
 测试异常处理器的集成测试
 测试 API 层捕获异常并转换为 HTTP 响应
 """
+
 import pytest
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
-from django.test import Client
 from django.http import Http404
+from django.test import Client
 from ninja import NinjaAPI, Router
-from ninja.errors import HttpError, ValidationError as NinjaValidationError
+from ninja.errors import HttpError
+from ninja.errors import ValidationError as NinjaValidationError
+
 from apps.core.exceptions import (
-    BusinessException,
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError,
     AuthenticationError,
-    RateLimitError,
+    BusinessException,
+    ConflictError,
     ExternalServiceError,
+    NotFoundError,
+    PermissionDenied,
+    RateLimitError,
+    ValidationException,
 )
 from apps.core.exceptions_handlers import register_exception_handlers
 from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
-
 
 # 创建测试用的 API 实例
 test_api = NinjaAPI()
@@ -35,64 +37,45 @@ test_router = Router()
 def raise_validation_error(request):
     """抛出 ValidationException"""
     raise ValidationException(
-        message="数据验证失败",
-        code="VALIDATION_ERROR",
-        errors={"field1": "错误1", "field2": "错误2"}
+        message="数据验证失败", code="VALIDATION_ERROR", errors={"field1": "错误1", "field2": "错误2"}
     )
 
 
 @test_router.get("/permission-denied")
 def raise_permission_denied(request):
     """抛出 PermissionDenied"""
-    raise PermissionDenied(
-        message="无权限访问该资源",
-        code="PERMISSION_DENIED"
-    )
+    raise PermissionDenied(message="无权限访问该资源", code="PERMISSION_DENIED")
 
 
 @test_router.get("/not-found")
 def raise_not_found(request):
     """抛出 NotFoundError"""
-    raise NotFoundError(
-        message="资源不存在",
-        code="NOT_FOUND"
-    )
+    raise NotFoundError(message="资源不存在", code="NOT_FOUND")
 
 
 @test_router.get("/conflict")
 def raise_conflict(request):
     """抛出 ConflictError"""
-    raise ConflictError(
-        message="资源已存在",
-        code="CONFLICT"
-    )
+    raise ConflictError(message="资源已存在", code="CONFLICT")
 
 
 @test_router.get("/authentication-error")
 def raise_authentication_error(request):
     """抛出 AuthenticationError"""
-    raise AuthenticationError(
-        message="Token 已过期",
-        code="AUTHENTICATION_ERROR"
-    )
+    raise AuthenticationError(message="Token 已过期", code="AUTHENTICATION_ERROR")
 
 
 @test_router.get("/rate-limit")
 def raise_rate_limit(request):
     """抛出 RateLimitError"""
-    raise RateLimitError(
-        message="请求过于频繁",
-        code="RATE_LIMIT_ERROR"
-    )
+    raise RateLimitError(message="请求过于频繁", code="RATE_LIMIT_ERROR")
 
 
 @test_router.get("/external-service-error")
 def raise_external_service_error(request):
     """抛出 ExternalServiceError"""
-    raise ExternalServiceError(
-        message="第三方 API 调用失败",
-        code="EXTERNAL_SERVICE_ERROR"
-    )
+    raise ExternalServiceError(message="第三方 API 调用失败", code="EXTERNAL_SERVICE_ERROR")
+
 
 @test_router.get("/llm-timeout")
 def raise_llm_timeout_error(request):
@@ -112,10 +95,7 @@ def raise_llm_rate_limit_error(request):
 @test_router.get("/business-exception")
 def raise_business_exception(request):
     """抛出通用 BusinessException"""
-    raise BusinessException(
-        message="业务错误",
-        code="BUSINESS_ERROR"
-    )
+    raise BusinessException(message="业务错误", code="BUSINESS_ERROR")
 
 
 # 注册测试路由
@@ -125,12 +105,12 @@ test_api.add_router("/test", test_router)
 @pytest.fixture
 def api_client():
     """创建测试客户端"""
-    from django.urls import path
     from django.conf import settings
+    from django.urls import path
 
     # 临时添加测试路由
-    if not hasattr(settings, 'ROOT_URLCONF'):
-        settings.ROOT_URLCONF = 'apiSystem.urls'
+    if not hasattr(settings, "ROOT_URLCONF"):
+        settings.ROOT_URLCONF = "apiSystem.urls"
 
     # 创建测试客户端
     client = Client()
@@ -142,11 +122,12 @@ class TestExceptionHandlers:
 
     def test_validation_exception_returns_400(self):
         """测试 ValidationException 返回 400 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/validation-error')
+        request = factory.get("/test/validation-error")
 
         try:
             raise_validation_error(request)
@@ -155,18 +136,19 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 400
-            assert data['error'] == "数据验证失败"
-            assert data['code'] == "VALIDATION_ERROR"
-            assert 'errors' in data
-            assert data['errors'] == {"field1": "错误1", "field2": "错误2"}
+            assert data["error"] == "数据验证失败"
+            assert data["code"] == "VALIDATION_ERROR"
+            assert "errors" in data
+            assert data["errors"] == {"field1": "错误1", "field2": "错误2"}
 
     def test_permission_denied_returns_403(self):
         """测试 PermissionDenied 返回 403 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/permission-denied')
+        request = factory.get("/test/permission-denied")
 
         try:
             raise_permission_denied(request)
@@ -175,17 +157,18 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 403
-            assert data['error'] == "无权限访问该资源"
-            assert data['code'] == "PERMISSION_DENIED"
-            assert 'errors' in data
+            assert data["error"] == "无权限访问该资源"
+            assert data["code"] == "PERMISSION_DENIED"
+            assert "errors" in data
 
     def test_not_found_returns_404(self):
         """测试 NotFoundError 返回 404 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/not-found')
+        request = factory.get("/test/not-found")
 
         try:
             raise_not_found(request)
@@ -194,17 +177,18 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 404
-            assert data['error'] == "资源不存在"
-            assert data['code'] == "NOT_FOUND"
-            assert 'errors' in data
+            assert data["error"] == "资源不存在"
+            assert data["code"] == "NOT_FOUND"
+            assert "errors" in data
 
     def test_conflict_returns_409(self):
         """测试 ConflictError 返回 409 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/conflict')
+        request = factory.get("/test/conflict")
 
         try:
             raise_conflict(request)
@@ -213,17 +197,18 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 409
-            assert data['error'] == "资源已存在"
-            assert data['code'] == "CONFLICT"
-            assert 'errors' in data
+            assert data["error"] == "资源已存在"
+            assert data["code"] == "CONFLICT"
+            assert "errors" in data
 
     def test_authentication_error_returns_401(self):
         """测试 AuthenticationError 返回 401 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/authentication-error')
+        request = factory.get("/test/authentication-error")
 
         try:
             raise_authentication_error(request)
@@ -232,17 +217,18 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 401
-            assert data['error'] == "Token 已过期"
-            assert data['code'] == "AUTHENTICATION_ERROR"
-            assert 'errors' in data
+            assert data["error"] == "Token 已过期"
+            assert data["code"] == "AUTHENTICATION_ERROR"
+            assert "errors" in data
 
     def test_rate_limit_returns_429(self):
         """测试 RateLimitError 返回 429 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/rate-limit')
+        request = factory.get("/test/rate-limit")
 
         try:
             raise_rate_limit(request)
@@ -251,9 +237,9 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 429
-            assert data['error'] == "请求过于频繁"
-            assert data['code'] == "RATE_LIMIT_ERROR"
-            assert 'errors' in data
+            assert data["error"] == "请求过于频繁"
+            assert data["code"] == "RATE_LIMIT_ERROR"
+            assert "errors" in data
 
     def test_rate_limit_sets_retry_after_header_when_present(self):
         from django.test import RequestFactory
@@ -267,8 +253,9 @@ class TestExceptionHandlers:
         assert response.headers.get("Retry-After") == "7"
 
     def test_http404_object_does_not_exist_and_permission_denied(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/missing", HTTP_X_REQUEST_ID="rid-404")
@@ -294,8 +281,9 @@ class TestExceptionHandlers:
         assert data["code"] == "PERMISSION_DENIED"
 
     def test_ninja_validation_error_maps_to_422(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/validation", HTTP_X_REQUEST_ID="rid-422")
@@ -309,8 +297,9 @@ class TestExceptionHandlers:
         assert data["request_id"] == "rid-422"
 
     def test_http_error_429_and_non_429(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/http-error", HTTP_X_REQUEST_ID="rid-http")
@@ -326,8 +315,9 @@ class TestExceptionHandlers:
         assert data["code"] == "HTTP_ERROR"
 
     def test_unexpected_exception_hides_message_in_production(self, settings):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/boom", HTTP_X_REQUEST_ID="rid-500")
@@ -345,8 +335,9 @@ class TestExceptionHandlers:
         assert data["message"] != "boom"
 
     def test_invalid_token_detail_variants(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         try:
             from ninja_jwt.exceptions import InvalidToken
@@ -370,8 +361,9 @@ class TestExceptionHandlers:
         assert data["code"] == "INVALID_TOKEN"
 
     def test_llm_exception_handlers(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
 
@@ -395,8 +387,9 @@ class TestExceptionHandlers:
         assert response.status_code == 503
 
     def test_llm_timeout_returns_504(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/llm-timeout")
@@ -411,8 +404,9 @@ class TestExceptionHandlers:
             assert data["code"] == "LLM_TIMEOUT"
 
     def test_llm_backend_unavailable_returns_503(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/llm-backend-unavailable")
@@ -427,8 +421,9 @@ class TestExceptionHandlers:
             assert data["code"] == "LLM_ALL_BACKENDS_UNAVAILABLE"
 
     def test_llm_api_rate_limit_returns_429(self):
-        from django.test import RequestFactory
         import json
+
+        from django.test import RequestFactory
 
         factory = RequestFactory()
         request = factory.get("/test/llm-rate-limit")
@@ -444,11 +439,12 @@ class TestExceptionHandlers:
 
     def test_external_service_error_returns_502(self):
         """测试 ExternalServiceError 返回 502 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/external-service-error')
+        request = factory.get("/test/external-service-error")
 
         try:
             raise_external_service_error(request)
@@ -457,17 +453,18 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 502
-            assert data['error'] == "第三方 API 调用失败"
-            assert data['code'] == "EXTERNAL_SERVICE_ERROR"
-            assert 'errors' in data
+            assert data["error"] == "第三方 API 调用失败"
+            assert data["code"] == "EXTERNAL_SERVICE_ERROR"
+            assert "errors" in data
 
     def test_business_exception_returns_400(self):
         """测试通用 BusinessException 返回 400 状态码"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/business-exception')
+        request = factory.get("/test/business-exception")
 
         try:
             raise_business_exception(request)
@@ -476,9 +473,9 @@ class TestExceptionHandlers:
             data = json.loads(response.content)
 
             assert response.status_code == 400
-            assert data['error'] == "业务错误"
-            assert data['code'] == "BUSINESS_ERROR"
-            assert 'errors' in data
+            assert data["error"] == "业务错误"
+            assert data["code"] == "BUSINESS_ERROR"
+            assert "errors" in data
 
 
 class TestResponseStructure:
@@ -486,11 +483,12 @@ class TestResponseStructure:
 
     def test_response_has_required_fields(self):
         """测试响应体包含必需的字段"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/validation-error')
+        request = factory.get("/test/validation-error")
 
         try:
             raise_validation_error(request)
@@ -499,22 +497,23 @@ class TestResponseStructure:
             data = json.loads(response.content)
 
             # 验证响应体包含 error、code、errors 字段
-            assert 'error' in data
-            assert 'code' in data
-            assert 'errors' in data
+            assert "error" in data
+            assert "code" in data
+            assert "errors" in data
 
             # 验证字段类型
-            assert isinstance(data['error'], str)
-            assert isinstance(data['code'], str)
-            assert isinstance(data['errors'], dict)
+            assert isinstance(data["error"], str)
+            assert isinstance(data["code"], str)
+            assert isinstance(data["errors"], dict)
 
     def test_response_errors_field_is_dict(self):
         """测试响应体的 errors 字段是字典类型"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/not-found')
+        request = factory.get("/test/not-found")
 
         try:
             raise_not_found(request)
@@ -523,15 +522,16 @@ class TestResponseStructure:
             data = json.loads(response.content)
 
             # 即使没有错误详情，errors 也应该是空字典
-            assert isinstance(data['errors'], dict)
+            assert isinstance(data["errors"], dict)
 
     def test_response_with_structured_errors(self):
         """测试响应体包含结构化错误信息"""
-        from django.test import RequestFactory
         import json
 
+        from django.test import RequestFactory
+
         factory = RequestFactory()
-        request = factory.get('/test/validation-error')
+        request = factory.get("/test/validation-error")
 
         try:
             raise_validation_error(request)
@@ -540,7 +540,7 @@ class TestResponseStructure:
             data = json.loads(response.content)
 
             # 验证结构化错误信息
-            assert data['errors'] == {"field1": "错误1", "field2": "错误2"}
+            assert data["errors"] == {"field1": "错误1", "field2": "错误2"}
 
 
 class TestExceptionMapping:
@@ -565,10 +565,11 @@ class TestExceptionMapping:
         ]
 
         for exc, expected_status in exception_mapping:
-            request = factory.get('/test')
+            request = factory.get("/test")
             handler = test_api._exception_handlers.get(type(exc))
 
             if handler:
                 response = handler(request, exc)
-                assert response.status_code == expected_status, \
-                    f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"
+                assert (
+                    response.status_code == expected_status
+                ), f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"

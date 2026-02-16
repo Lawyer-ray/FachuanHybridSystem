@@ -1,13 +1,13 @@
 """Strategy pattern implementations."""
 
 from datetime import datetime
+from typing import Any
 
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
-from typing import Any
 
 
 class DocumentDeliveryPlaywrightStrategy:
-    def __init__(self, *,  playwright_service: Any) -> None:
+    def __init__(self, *, playwright_service: Any) -> None:
         self.playwright_service = playwright_service
 
     def query_and_download(

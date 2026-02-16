@@ -21,4 +21,3 @@ def test_document_service_adapter_should_not_import_models() -> None:
     adapter = root / "apps" / "documents" / "services" / "document_service_adapter.py"
     assert adapter.exists()
     assert not _has_models_import(adapter)
-

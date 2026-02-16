@@ -1,4 +1,5 @@
 """Business logic services."""
+
 from __future__ import annotations
 
 """
@@ -21,7 +22,7 @@ from apps.automation.utils.logging_mixins.common import sanitize_url
 from apps.core.path import Path
 
 if TYPE_CHECKING:
-    from apps.core.protocols import ICaseService, ILawyerService, ICaseChatService
+    from apps.core.protocols import ICaseChatService, ICaseService, ILawyerService
 
     class _SMSHelperHost(Protocol):
         @property
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
         def case_number_extractor(self) -> Any: ...
         @property
         def matcher(self) -> Any: ...
+
 
 logger = logging.getLogger("apps.automation")
 
@@ -78,10 +80,7 @@ class CourtSMSHelpersMixin:
             download_url = sms.download_links[0]
 
             task = ScraperTask.objects.create(
-                task_type=ScraperTaskType.COURT_DOCUMENT,
-                url=download_url,
-                case=sms.case,
-                config={}
+                task_type=ScraperTaskType.COURT_DOCUMENT, url=download_url, case=sms.case, config={}
             )
 
             task_id = cast(int, task.pk)
@@ -256,7 +255,9 @@ class CourtSMSHelpersMixin:
             sms.party_names = list(dict.fromkeys(extracted_party_names))
             sms.save()
 
-    def _extract_from_single_doc(self: "_SMSHelperHost", doc_path: Any, case_numbers: list[Any], party_names: list[Any]) -> bool:
+    def _extract_from_single_doc(
+        self: "_SMSHelperHost", doc_path: Any, case_numbers: list[Any], party_names: list[Any]
+    ) -> bool:
         """从单个文书提取信息,返回是否有更新"""
         updated = False
         try:

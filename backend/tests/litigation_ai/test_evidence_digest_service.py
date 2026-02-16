@@ -1,8 +1,8 @@
 import pytest
 
-from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
 from apps.documents.models import EvidenceItem, EvidenceList
 from apps.documents.models.evidence import ListType
+from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
 from tests.factories.case_factories import CaseFactory
 
 

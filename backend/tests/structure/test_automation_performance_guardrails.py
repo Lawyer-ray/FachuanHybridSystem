@@ -44,14 +44,7 @@ def test_automation_performance_endpoints_require_admin():
 
 def test_document_recognition_upload_validates_uploaded_file():
     backend_root = Path(__file__).parent.parent.parent
-    admin_py = (
-        backend_root
-        / "apps"
-        / "automation"
-        / "admin"
-        / "document_recognition"
-        / "document_recognition_admin.py"
-    )
+    admin_py = backend_root / "apps" / "automation" / "admin" / "document_recognition" / "document_recognition_admin.py"
     tree = ast.parse(admin_py.read_text(encoding="utf-8"))
 
     upload_view = None

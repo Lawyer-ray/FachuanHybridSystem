@@ -46,7 +46,9 @@ async def test_llm_service_uses_default_backend_for_async(monkeypatch):
             backend=backend,
         )
 
-    monkeypatch.setattr(service, "_fallback_policy", type("X", (), {"execute_async": staticmethod(fake_execute_async)})())
+    monkeypatch.setattr(
+        service, "_fallback_policy", type("X", (), {"execute_async": staticmethod(fake_execute_async)})()
+    )
     resp = await service.achat(messages=[{"role": "user", "content": "hi"}])
     assert resp.backend == "moonshot"
     assert called["backend"] == "moonshot"

@@ -17,24 +17,38 @@
 - 管理群聊绑定关系
 - 支持多平台群聊
 """
-from typing import Any, TYPE_CHECKING
+
 from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
+
 from apps.cases.exceptions import ChatCreationException, MessageSendException
+from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import ValidationException
 from apps.core.security import AccessContext
-from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
 from .naming import ChatNameBuilder
 from .notification_usecase import SendNotificationUsecase
 from .provider_facade import ChatProviderFacade
 from .recreate_policy import ChatRecreatePolicy
 from .repo import CaseChatRepository
+
 logger = logging.getLogger(__name__)
+
 
 class CaseChatService:
 
-    def __init__(self, *, repo: CaseChatRepository | None=None, name_builder: ChatNameBuilder | None=None, provider_facade: ChatProviderFacade | None=None, recreate_policy: ChatRecreatePolicy | None=None, access_policy: CaseAccessPolicy | None=None) -> None:
+    def __init__(
+        self,
+        *,
+        repo: CaseChatRepository | None = None,
+        name_builder: ChatNameBuilder | None = None,
+        provider_facade: ChatProviderFacade | None = None,
+        recreate_policy: ChatRecreatePolicy | None = None,
+        access_policy: CaseAccessPolicy | None = None,
+    ) -> None:
         self.repo = repo or CaseChatRepository()
         self.name_builder = name_builder or ChatNameBuilder()
         self.provider_facade = provider_facade or ChatProviderFacade()
@@ -48,20 +62,43 @@ class CaseChatService:
             self._access_policy = CaseAccessPolicy()
         return self._access_policy
 
-    def _resolve_access(self, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None) -> tuple[Any, ...]:
+    def _resolve_access(
+        self, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
+    ) -> tuple[Any, ...]:
         if ctx is not None:
             return (ctx.user, ctx.org_access, ctx.perm_open_access)
         return (user, org_access, perm_open_access)
 
-    def _require_case_access(self, case: Any, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None) -> None:
-        user, org_access, perm_open_access = self._resolve_access(user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
-        self.access_policy.ensure_access(case_id=case.id, user=user, org_access=org_access, perm_open_access=perm_open_access, case=case, message='无权限访问此案件')
+    def _require_case_access(
+        self, case: Any, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
+    ) -> None:
+        user, org_access, perm_open_access = self._resolve_access(
+            user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
+        )
+        self.access_policy.ensure_access(
+            case_id=case.id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+            case=case,
+            message="无权限访问此案件",
+        )
 
     def _resolve_owner_id(self) -> Any:
         from apps.core.config import get_config
-        return get_config('features.case_chat.default_owner_id', None)
 
-    def create_chat_for_case(self, case_id: int, platform: ChatPlatform=ChatPlatform.FEISHU, owner_id: str | None=None, user: Any=None, org_access: dict[str, Any] | None=None, perm_open_access: bool=False, ctx: AccessContext | None=None) -> Any:
+        return get_config("features.case_chat.default_owner_id", None)
+
+    def create_chat_for_case(
+        self,
+        case_id: int,
+        platform: ChatPlatform = ChatPlatform.FEISHU,
+        owner_id: str | None = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        ctx: AccessContext | None = None,
+    ) -> Any:
         """为案件创建群聊
 
         通过群聊提供者工厂获取对应平台的提供者,创建群聊并保存记录.
@@ -90,7 +127,7 @@ class CaseChatService:
             )
             print(f"创建群聊成功: {chat.name}")
         """
-        logger.info(f'开始为案件创建群聊: case_id={case_id}, platform={platform.value}')
+        logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
         chat_name = self.name_builder.build(case=case)
@@ -99,16 +136,40 @@ class CaseChatService:
         try:
             result = self.provider_facade.create_chat(provider=provider, chat_name=chat_name, owner_id=owner_id)
             if not result.success:
-                raise ChatCreationException(message=result.message or '群聊创建失败', code='CHAT_CREATION_FAILED', platform=platform.value, error_code=result.error_code, errors={'provider_response': result.raw_response, 'chat_name': chat_name})
-            case_chat = self.repo.create_binding(case=case, platform=platform, chat_id=result.chat_id, name=result.chat_name or chat_name, is_active=True)
-            logger.info(f'群聊创建成功: case_id={case_id}, chat_id={result.chat_id}, platform={platform.value}, name={case_chat.name}')
+                raise ChatCreationException(
+                    message=result.message or "群聊创建失败",
+                    code="CHAT_CREATION_FAILED",
+                    platform=platform.value,
+                    error_code=result.error_code,
+                    errors={"provider_response": result.raw_response, "chat_name": chat_name},
+                )
+            case_chat = self.repo.create_binding(
+                case=case, platform=platform, chat_id=result.chat_id, name=result.chat_name or chat_name, is_active=True
+            )
+            logger.info(
+                f"群聊创建成功: case_id={case_id}, chat_id={result.chat_id}, platform={platform.value}, name={case_chat.name}"
+            )
             return case_chat
         except ChatCreationException:
             raise
         except Exception as e:
-            raise ChatCreationException(message='创建群聊时发生系统错误', code='SYSTEM_ERROR', platform=platform.value, errors={'case_id': case_id, 'original_error': str(e)}) from e
+            raise ChatCreationException(
+                message="创建群聊时发生系统错误",
+                code="SYSTEM_ERROR",
+                platform=platform.value,
+                errors={"case_id": case_id, "original_error": str(e)},
+            ) from e
 
-    def get_or_create_chat(self, case_id: int, platform: ChatPlatform=ChatPlatform.FEISHU, owner_id: str | None=None, user: Any=None, org_access: dict[str, Any] | None=None, perm_open_access: bool=False, ctx: AccessContext | None=None) -> None:
+    def get_or_create_chat(
+        self,
+        case_id: int,
+        platform: ChatPlatform = ChatPlatform.FEISHU,
+        owner_id: str | None = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        ctx: AccessContext | None = None,
+    ) -> None:
         """获取或创建案件群聊
 
         检查指定案件和平台是否已存在活跃的群聊记录.
@@ -137,17 +198,30 @@ class CaseChatService:
             chat2 = service.get_or_create_chat(case_id=123)
             assert chat1.id == chat2.id
         """
-        logger.debug(f'获取或创建群聊: case_id={case_id}, platform={platform.value}')
+        logger.debug(f"获取或创建群聊: case_id={case_id}, platform={platform.value}")
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
         existing_chat = self.repo.get_active_chat(case_id=case_id, platform=platform)
         if existing_chat:
-            logger.debug(f'找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}')
+            logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
             return existing_chat
-        logger.info(f'未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}')
-        return self.create_chat_for_case(case_id, platform, owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
+        logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
+        return self.create_chat_for_case(
+            case_id, platform, owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
+        )
 
-    def send_document_notification(self, case_id: int, sms_content: str, document_paths: list[Any] | None=None, platform: ChatPlatform=ChatPlatform.FEISHU, title: str='📋 法院文书通知', user: Any=None, org_access: dict[str, Any] | None=None, perm_open_access: bool=False, ctx: AccessContext | None=None) -> Any:
+    def send_document_notification(
+        self,
+        case_id: int,
+        sms_content: str,
+        document_paths: list[Any] | None = None,
+        platform: ChatPlatform = ChatPlatform.FEISHU,
+        title: str = "📋 法院文书通知",
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        ctx: AccessContext | None = None,
+    ) -> Any:
         """发送文书通知到群聊
 
         获取或创建指定案件的群聊,然后发送文书通知消息.
@@ -181,28 +255,48 @@ class CaseChatService:
             if result.success:
                 print("通知发送成功")
         """
-        logger.info(f'发送文书通知: case_id={case_id}, platform={platform.value}, file_count={(len(document_paths) if document_paths else 0)}')
+        logger.info(
+            f"发送文书通知: case_id={case_id}, platform={platform.value}, file_count={(len(document_paths) if document_paths else 0)}"
+        )
         if not sms_content or not sms_content.strip():
-            raise ValidationException(message='短信内容不能为空', code='INVALID_SMS_CONTENT', errors={'sms_content': '短信内容为必填项'})
+            raise ValidationException(
+                message="短信内容不能为空", code="INVALID_SMS_CONTENT", errors={"sms_content": "短信内容为必填项"}
+            )
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
         chat = None
         try:
-            chat = self.get_or_create_chat(case_id, platform, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
+            chat = self.get_or_create_chat(
+                case_id, platform, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
+            )
             from apps.cases.dependencies import create_message_content
+
             content = create_message_content(title=title, text=sms_content.strip(), file_path=None)
             usecase = self._get_send_notification_usecase()
-            result = usecase.execute(case_id=case_id, platform=platform, chat=chat, content=content, document_paths=document_paths)
-            logger.info(f'文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}')
+            result = usecase.execute(
+                case_id=case_id, platform=platform, chat=chat, content=content, document_paths=document_paths
+            )
+            logger.info(f"文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}")
             return result
         except MessageSendException:
             raise
         except Exception as e:
-            raise MessageSendException(message='发送文书通知时发生系统错误', code='SYSTEM_ERROR', platform=platform.value, chat_id=getattr(chat, 'chat_id', '') if chat else '', errors={'case_id': case_id, 'original_error': str(e)}) from e
+            raise MessageSendException(
+                message="发送文书通知时发生系统错误",
+                code="SYSTEM_ERROR",
+                platform=platform.value,
+                chat_id=getattr(chat, "chat_id", "") if chat else "",
+                errors={"case_id": case_id, "original_error": str(e)},
+            ) from e
 
     def _get_send_notification_usecase(self) -> SendNotificationUsecase:
         if self._send_notification_usecase is None:
-            self._send_notification_usecase = SendNotificationUsecase(repo=self.repo, provider_facade=self.provider_facade, recreate_policy=self.recreate_policy, chat_creator=lambda case_id, platform: self.create_chat_for_case(case_id, platform))
+            self._send_notification_usecase = SendNotificationUsecase(
+                repo=self.repo,
+                provider_facade=self.provider_facade,
+                recreate_policy=self.recreate_policy,
+                chat_creator=lambda case_id, platform: self.create_chat_for_case(case_id, platform),
+            )
         return self._send_notification_usecase
 
     def unbind_chat(self, chat_id: int) -> bool:
@@ -233,9 +327,23 @@ class CaseChatService:
         except ValidationException:
             raise
         except Exception as e:
-            raise ValidationException(message='解除群聊绑定时发生系统错误', code='SYSTEM_ERROR', errors={'chat_id': chat_id, 'original_error': str(e)}) from e
+            raise ValidationException(
+                message="解除群聊绑定时发生系统错误",
+                code="SYSTEM_ERROR",
+                errors={"chat_id": chat_id, "original_error": str(e)},
+            ) from e
 
-    def bind_existing_chat(self, case_id: int, platform: ChatPlatform, chat_id: str, chat_name: str | None=None, user: Any=None, org_access: dict[str, Any] | None=None, perm_open_access: bool=False, ctx: AccessContext | None=None) -> None:
+    def bind_existing_chat(
+        self,
+        case_id: int,
+        platform: ChatPlatform,
+        chat_id: str,
+        chat_name: str | None = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        ctx: AccessContext | None = None,
+    ) -> None:
         """手动绑定已存在的群聊
 
         将已存在的群聊(通过chat_id标识)绑定到指定案件.
@@ -266,9 +374,11 @@ class CaseChatService:
                 chat_name="【一审】张三诉李四合同纠纷案"
             )
         """
-        logger.info(f'绑定已存在的群聊: case_id={case_id}, platform={platform.value}, chat_id={chat_id}')
+        logger.info(f"绑定已存在的群聊: case_id={case_id}, platform={platform.value}, chat_id={chat_id}")
         if not chat_id or not chat_id.strip():
-            raise ValidationException(message='群聊ID不能为空', code='INVALID_CHAT_ID', errors={'chat_id': '群聊ID为必填项'})
+            raise ValidationException(
+                message="群聊ID不能为空", code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
+            )
         chat_id = chat_id.strip()
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
@@ -278,10 +388,18 @@ class CaseChatService:
         if not chat_name:
             chat_name = self.name_builder.build(case=case)
         try:
-            case_chat = self.repo.create_binding(case=case, platform=platform, chat_id=chat_id, name=chat_name, is_active=True)
-            logger.info(f'群聊绑定成功: case_id={case_id}, chat_id={chat_id}, platform={platform.value}, name={chat_name}')
+            case_chat = self.repo.create_binding(
+                case=case, platform=platform, chat_id=chat_id, name=chat_name, is_active=True
+            )
+            logger.info(
+                f"群聊绑定成功: case_id={case_id}, chat_id={chat_id}, platform={platform.value}, name={chat_name}"
+            )
             return case_chat
         except ValidationException:
             raise
         except Exception as e:
-            raise ValidationException(message='创建群聊绑定记录失败', code='BINDING_CREATION_ERROR', errors={'case_id': case_id, 'chat_id': chat_id, 'original_error': str(e)}) from e
+            raise ValidationException(
+                message="创建群聊绑定记录失败",
+                code="BINDING_CREATION_ERROR",
+                errors={"case_id": case_id, "chat_id": chat_id, "original_error": str(e)},
+            ) from e

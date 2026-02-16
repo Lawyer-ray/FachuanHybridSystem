@@ -2,7 +2,9 @@
 认证 API 模块
 提供用户登录和登出接口
 """
+
 from ninja import Router
+
 from ..schemas import LoginIn, LoginOut
 
 router = Router()
@@ -11,6 +13,7 @@ router = Router()
 def _get_auth_service():
     """工厂函数：创建 AuthService 实例"""
     from ..services import AuthService
+
     return AuthService()
 
 

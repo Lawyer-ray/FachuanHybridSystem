@@ -72,14 +72,14 @@
    2 apps/automation/services/insurance/preservation_quote_service_adapter.py:406:16: error:
    2 apps/automation/services/insurance/preservation_quote_service_adapter.py:391:16: error:
    2 _ST? has
-   2 Unused "type: ignore" comment 
+   2 Unused "type: ignore" comment
    2 Unsupported target for indexed
    2 Too many
    2 Too
    2 Return
    2 No overload variant of "list"
    2 Name "ClientService"
-   2 Missing return statement 
+   2 Missing return statement
    2 Invalid type comment or
    2 Invalid self
    2 Incompatible types in assignment
@@ -91,7 +91,7 @@
    2 Argument 4 of
    2 Argument 1 to "append" of
    2 Argument "content" to
-   2 "ScraperTask" has no attribute "id" 
+   2 "ScraperTask" has no attribute "id"
    2 "QuerySet" expects
    2 "QuerySet"
    2 "PropertyClue" has
@@ -100,7 +100,7 @@
    2 "DocumentRecognitionTask" has no
    2 "Client" has no
    2 "BusinessConfig"
-   1 callable? not callable 
+   1 callable? not callable
    1 apps/organization/services/account_credential_service.py:35:37: error:
    1 apps/organization/services/account_credential_service.py:321:9: error:
    1 apps/organization/services/account_credential_service.py:225:34: error:
@@ -726,13 +726,13 @@
    1 apps/automation/services/automation_service_adapter.py:93:35: error:
    1 apps/automation/services/ai/auto_namer_service_adapter.py:102:17: error:
    1 Value of type
-   1 Too many arguments for "ILLMBackend" 
+   1 Too many arguments for "ILLMBackend"
    1 The return type of a
    1 The return type of "__init__"
    1 Self argument
    1 Self
-   1 Return value expected 
-   1 Redundant cast to "str" 
+   1 Return value expected
+   1 Redundant cast to "str"
    1 Non-overlapping
    1 Need type annotation for "snapshots"
    1 Need type annotation for "nested"
@@ -742,7 +742,7 @@
    1 Module "os" does not
    1 Item "str" of
    1 Incompatible default for
-   1 Function is missing a type annotation 
+   1 Function is missing a type annotation
    1 Function is missing a return
    1 Dict entry 2 has
    1 Dict entry 1 has

@@ -125,14 +125,8 @@ def test_no_print_calls_in_apps() -> None:
     all_violations: list[Violation] = []
 
     for file_path in py_files:
-        all_violations.extend(
-            _scan_file_for_print_calls(file_path, backend_path)
-        )
+        all_violations.extend(_scan_file_for_print_calls(file_path, backend_path))
 
-    assert not all_violations, (
-        f"发现 {len(all_violations)} 处 print() 调用违规：\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} {v.line_content}"
-            for v in all_violations
-        )
+    assert not all_violations, f"发现 {len(all_violations)} 处 print() 调用违规：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} {v.line_content}" for v in all_violations
     )

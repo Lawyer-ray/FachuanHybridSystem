@@ -3,6 +3,7 @@
 
 提供重构过程的实时进度跟踪、阶段性报告生成和详细日志记录。
 """
+
 from __future__ import annotations
 
 import time
@@ -135,8 +136,11 @@ class ProgressTracker:
         self._current_phase = None
         logger.info(
             "阶段完成: %s — 处理 %d, 成功 %d, 失败 %d, 跳过 %d, 耗时 %.2f 秒",
-            phase.phase_name, phase.violations_processed,
-            phase.successful, phase.failed, phase.skipped,
+            phase.phase_name,
+            phase.violations_processed,
+            phase.successful,
+            phase.failed,
+            phase.skipped,
             phase.duration_seconds,
         )
         return phase
@@ -144,11 +148,7 @@ class ProgressTracker:
     def record_result(self, violation: Violation, result: RefactoringResult) -> None:
         """记录单个违规的处理结果。"""
         self._processed += 1
-        is_skipped = (
-            not result.success
-            and result.error_message is not None
-            and "跳过" in result.error_message
-        )
+        is_skipped = not result.success and result.error_message is not None and "跳过" in result.error_message
         if result.success:
             self._successful += 1
             status_label = "成功"
@@ -170,9 +170,13 @@ class ProgressTracker:
 
         logger.info(
             "[%d/%d] %s — %s:%d (%s) %s",
-            self._processed, self._total, status_label,
-            violation.file_path, violation.line_number,
-            violation.violation_type, result.error_message or "",
+            self._processed,
+            self._total,
+            status_label,
+            violation.file_path,
+            violation.line_number,
+            violation.violation_type,
+            result.error_message or "",
         )
         if self._callback is not None:
             self._callback(self.get_progress())
@@ -185,9 +189,7 @@ class ProgressTracker:
             successful=self._successful,
             failed=self._failed,
             skipped=self._skipped,
-            current_phase=(
-                self._current_phase.phase_name if self._current_phase else None
-            ),
+            current_phase=(self._current_phase.phase_name if self._current_phase else None),
             phases=list(self._phases),
         )
 

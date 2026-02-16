@@ -21,13 +21,13 @@ def main():
     """主函数"""
     backend_dir = Path(__file__).parent
     apps_dir = backend_dir / "apps"
-    
+
     errors = []
     for py_file in sorted(apps_dir.rglob("*.py")):
         success, error_msg = check_file(py_file)
         if not success:
             errors.append(error_msg)
-    
+
     if errors:
         print(f"发现 {len(errors)} 个文件有语法错误:\n")
         for error in errors:

@@ -1,13 +1,14 @@
 """API schemas and serializers."""
+
 from __future__ import annotations
 
 """法院短信处理 Schemas"""
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, ClassVar, cast
 
 from pydantic import BaseModel, Field, field_validator
-from typing import ClassVar, Any, cast
 
 
 @dataclass
@@ -24,12 +25,7 @@ class SMSParseResult:
 class CourtSMSSubmitIn(BaseModel):
     """提交法院短信请求"""
 
-    content: str = Field(
-        ...,
-        min_length=1,
-        description="短信内容",
-        json_schema_extra={}
-    )
+    content: str = Field(..., min_length=1, description="短信内容", json_schema_extra={})
     received_at: datetime | None = Field(
         None, description="收到时间,默认为当前时间", json_schema_extra={"example": "2025-12-14T10:30:00Z"}
     )
@@ -119,7 +115,7 @@ class CourtSMSDetailOut(BaseModel):
         )
 
     class Config:
-        from_attributes : bool = True
+        from_attributes: bool = True
         json_encoders: ClassVar = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
@@ -152,7 +148,7 @@ class CourtSMSListOut(BaseModel):
         )
 
     class Config:
-        from_attributes : bool = True
+        from_attributes: bool = True
         json_encoders: ClassVar = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 

@@ -1,10 +1,11 @@
 """
 律师 API 集成测试
 """
+
 import pytest
 from django.test import Client
 
-from tests.factories import LawyerFactory, LawFirmFactory
+from tests.factories import LawFirmFactory, LawyerFactory
 
 
 @pytest.mark.django_db
@@ -65,8 +66,10 @@ class TestLawyerAPI:
         response = self.client.post(
             "/api/v1/organization/lawyers",
             data={
-                "payload": '{"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "phone": "13800138001", "law_firm_id": ' + str(lawfirm.id) + ', "is_admin": false}'
-            }
+                "payload": '{"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "phone": "13800138001", "law_firm_id": '
+                + str(lawfirm.id)
+                + ', "is_admin": false}'
+            },
         )
 
         # 断言结果
@@ -84,10 +87,7 @@ class TestLawyerAPI:
 
         # 执行测试 - 使用 multipart form data
         response = self.client.post(
-            "/api/v1/organization/lawyers",
-            data={
-                "payload": '{"username": "newlawyer", "password": "testpass123"}'
-            }
+            "/api/v1/organization/lawyers", data={"payload": '{"username": "newlawyer", "password": "testpass123"}'}
         )
 
         # 断言结果
@@ -109,7 +109,7 @@ class TestLawyerAPI:
             "PUT",
             f"/api/v1/organization/lawyers/{lawyer.id}",
             data='payload={"real_name": "新名称"}',
-            content_type="application/x-www-form-urlencoded"
+            content_type="application/x-www-form-urlencoded",
         )
 
         # 断言结果
@@ -135,4 +135,5 @@ class TestLawyerAPI:
 
         # 验证律师已删除
         from apps.organization.models import Lawyer
+
         assert not Lawyer.objects.filter(id=lawyer.id).exists()
