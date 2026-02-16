@@ -6,9 +6,9 @@
     mypy apps/ --strict 2>&1 | python scripts/analyze_mypy_final_errors.py
 """
 
-import sys
 import re
-from collections import defaultdict, Counter
+import sys
+from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
 
 
@@ -17,10 +17,10 @@ def parse_mypy_output(lines: List[str]) -> List[Dict[str, str]]:
     errors = []
     # 匹配格式: file.py:123:45: error: message  [code]
     error_pattern = re.compile(
-        r'^(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+):\s+'
-        r'(?P<severity>\w+):\s+(?P<message>.+?)\s+\[(?P<code>[^\]]+)\]'
+        r"^(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+):\s+"
+        r"(?P<severity>\w+):\s+(?P<message>.+?)\s+\[(?P<code>[^\]]+)\]"
     )
-    
+
     for line in lines:
         line = line.strip()
         if not line:
@@ -28,49 +28,49 @@ def parse_mypy_output(lines: List[str]) -> List[Dict[str, str]]:
         match = error_pattern.match(line)
         if match:
             errors.append(match.groupdict())
-    
+
     return errors
 
 
 def analyze_errors(errors: List[Dict[str, str]]) -> None:
     """分析错误并生成统计报告"""
-    
+
     # 按错误代码统计
-    error_codes = Counter(e['code'] for e in errors)
-    
+    error_codes = Counter(e["code"] for e in errors)
+
     # 按文件统计
-    files = Counter(e['file'] for e in errors)
-    
+    files = Counter(e["file"] for e in errors)
+
     # 按模块统计
     modules = defaultdict(int)
     for error in errors:
-        file_path = error['file']
-        if file_path.startswith('apps/'):
-            parts = file_path.split('/')
+        file_path = error["file"]
+        if file_path.startswith("apps/"):
+            parts = file_path.split("/")
             if len(parts) >= 2:
                 module = parts[1]
                 modules[module] += 1
-    
+
     # 按错误代码和模块统计
     module_error_codes = defaultdict(lambda: defaultdict(int))
     for error in errors:
-        file_path = error['file']
-        if file_path.startswith('apps/'):
-            parts = file_path.split('/')
+        file_path = error["file"]
+        if file_path.startswith("apps/"):
+            parts = file_path.split("/")
             if len(parts) >= 2:
                 module = parts[1]
-                module_error_codes[module][error['code']] += 1
-    
+                module_error_codes[module][error["code"]] += 1
+
     # 打印报告
     print("=" * 80)
     print("MYPY 最终验证错误分析报告")
     print("=" * 80)
     print()
-    
+
     print(f"总错误数: {len(errors)}")
     print(f"涉及文件数: {len(files)}")
     print()
-    
+
     # 错误代码统计
     print("-" * 80)
     print("错误代码统计 (Top 20)")
@@ -79,7 +79,7 @@ def analyze_errors(errors: List[Dict[str, str]]) -> None:
         percentage = (count / len(errors)) * 100
         print(f"{code:30s} {count:5d} ({percentage:5.1f}%)")
     print()
-    
+
     # 模块统计
     print("-" * 80)
     print("模块错误统计")
@@ -89,7 +89,7 @@ def analyze_errors(errors: List[Dict[str, str]]) -> None:
         percentage = (count / len(errors)) * 100
         print(f"{module:30s} {count:5d} ({percentage:5.1f}%)")
     print()
-    
+
     # 文件统计 (Top 20)
     print("-" * 80)
     print("错误最多的文件 (Top 20)")
@@ -97,7 +97,7 @@ def analyze_errors(errors: List[Dict[str, str]]) -> None:
     for file_path, count in files.most_common(20):
         print(f"{file_path:70s} {count:4d}")
     print()
-    
+
     # 每个模块的主要错误类型
     print("-" * 80)
     print("各模块主要错误类型 (Top 5)")
@@ -111,22 +111,22 @@ def analyze_errors(errors: List[Dict[str, str]]) -> None:
             percentage = (count / modules[module]) * 100
             print(f"  {code:28s} {count:4d} ({percentage:5.1f}%)")
     print()
-    
+
     # 错误严重程度分析
     print("-" * 80)
     print("错误严重程度分析")
     print("-" * 80)
-    
+
     # 定义错误严重程度
-    critical_errors = ['name-defined', 'attr-defined', 'call-arg']
-    high_priority = ['no-untyped-def', 'no-untyped-call', 'arg-type', 'return-value']
-    medium_priority = ['type-arg', 'no-any-return', 'assignment']
-    
+    critical_errors = ["name-defined", "attr-defined", "call-arg"]
+    high_priority = ["no-untyped-def", "no-untyped-call", "arg-type", "return-value"]
+    medium_priority = ["type-arg", "no-any-return", "assignment"]
+
     critical_count = sum(error_codes[code] for code in critical_errors)
     high_count = sum(error_codes[code] for code in high_priority)
     medium_count = sum(error_codes[code] for code in medium_priority)
     low_count = len(errors) - critical_count - high_count - medium_count
-    
+
     print(f"严重错误 (Critical):  {critical_count:5d} ({(critical_count/len(errors)*100):5.1f}%)")
     print(f"  - 变量未定义、属性不存在、参数错误等")
     print()
@@ -139,7 +139,7 @@ def analyze_errors(errors: List[Dict[str, str]]) -> None:
     print(f"低优先级 (Low):       {low_count:5d} ({(low_count/len(errors)*100):5.1f}%)")
     print(f"  - 其他类型问题")
     print()
-    
+
     # 修复建议
     print("=" * 80)
     print("修复建议")
@@ -159,16 +159,16 @@ def main():
         print("用法: mypy apps/ --strict 2>&1 | python scripts/analyze_mypy_final_errors.py")
         print("或者: python scripts/analyze_mypy_final_errors.py < mypy_output.txt")
         sys.exit(1)
-    
+
     lines = sys.stdin.readlines()
     errors = parse_mypy_output(lines)
-    
+
     if not errors:
         print("未检测到 mypy 错误！")
         sys.exit(0)
-    
+
     analyze_errors(errors)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

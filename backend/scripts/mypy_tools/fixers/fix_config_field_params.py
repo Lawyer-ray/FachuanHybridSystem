@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """修复 ConfigField 参数名"""
-from pathlib import Path
 import re
+from pathlib import Path
 
 file_path = Path("apps/core/config/migrator_schema_registry.py")
 content = file_path.read_text()

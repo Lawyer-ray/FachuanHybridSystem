@@ -10,7 +10,7 @@
 
 import logging
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from django.core.paginator import Paginator
 from django.db import transaction

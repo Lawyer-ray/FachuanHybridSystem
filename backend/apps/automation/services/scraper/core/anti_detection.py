@@ -4,6 +4,7 @@
 
 import random
 import time
+from typing import Any
 
 
 class AntiDetection:

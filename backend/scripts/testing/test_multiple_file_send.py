@@ -9,6 +9,7 @@ import os
 import sys
 
 import django
+
 from apps.core.path import Path
 
 project_root = Path(__file__).parent.parent.parent
