@@ -125,7 +125,7 @@ class ClientService:
                 code="CLIENT_NOT_FOUND"
             )
 
-        return client
+        return client  # type: ignore[no-any-return]
 
     def get_clients_by_ids(self, client_ids: List[int]) -> List[Client]:
         """
@@ -339,7 +339,7 @@ class ClientService:
 
     def _check_create_permission(self, user: User) -> bool:
         """检查创建权限（私有方法）"""
-        return user.is_authenticated and (
+        return user.is_authenticated and (  # type: ignore[no-any-return]
             user.has_perm('client.add_client') or
             user.is_admin or
             user.is_superuser
@@ -347,7 +347,7 @@ class ClientService:
 
     def _check_update_permission(self, user: User, client: Client) -> bool:
         """检查更新权限（私有方法）"""
-        return user.is_authenticated and (
+        return user.is_authenticated and (  # type: ignore[no-any-return]
             user.has_perm('client.change_client') or
             user.is_admin or
             user.is_superuser
@@ -355,7 +355,7 @@ class ClientService:
 
     def _check_delete_permission(self, user: User, client: Client) -> bool:
         """检查删除权限（私有方法）"""
-        return user.is_authenticated and (
+        return user.is_authenticated and (  # type: ignore[no-any-return]
             user.has_perm('client.delete_client') or
             user.is_admin or
             user.is_superuser

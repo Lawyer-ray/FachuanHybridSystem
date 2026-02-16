@@ -21,7 +21,7 @@ class OllamaConfig:
         优先从 Django settings.OLLAMA['MODEL'] 读取
         """
         ollama_config = getattr(settings, 'OLLAMA', {})
-        return ollama_config.get('MODEL', cls.DEFAULT_MODEL)
+        return ollama_config.get('MODEL', cls.DEFAULT_MODEL)  # type: ignore[no-any-return]
     
     @classmethod
     def get_base_url(cls) -> str:
@@ -31,7 +31,7 @@ class OllamaConfig:
         优先从 Django settings.OLLAMA['BASE_URL'] 读取
         """
         ollama_config = getattr(settings, 'OLLAMA', {})
-        return ollama_config.get('BASE_URL', cls.DEFAULT_BASE_URL)
+        return ollama_config.get('BASE_URL', cls.DEFAULT_BASE_URL)  # type: ignore[no-any-return]
 
 
 # 便捷函数

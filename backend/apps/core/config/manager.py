@@ -727,25 +727,25 @@ class ConfigManager:
             # 先从缓存查找
             cached_value = self._cache.get(key)
             if cached_value is not None:
-                return cached_value
+                return cached_value  # type: ignore[no-any-return]
 
             # 从原始配置查找
             if key in self._raw_config:
                 value = self._raw_config[key]
                 self._cache.set(key, value)
-                return value
+                return value  # type: ignore[no-any-return]
 
             # 尝试嵌套查找
             value = self._get_nested_value(key)
             if value is not None:
                 self._cache.set(key, value)
-                return value
+                return value  # type: ignore[no-any-return]
 
             # 检查模式中是否有默认值
             if self._schema:
                 field = self._schema.get_field(key)
                 if field and field.default is not None:
-                    return field.default
+                    return field.default  # type: ignore[no-any-return]
 
             # 返回传入的默认值
             if default is not None:
@@ -804,7 +804,7 @@ class ConfigManager:
 
         # 尝试类型转换
         try:
-            return self._convert_type(value, type_)
+            return self._convert_type(value, type_)  # type: ignore[no-any-return]
         except (ValueError, TypeError) as e:
             raise ConfigTypeError(key, type_, type(value)) from e
 
@@ -1794,5 +1794,5 @@ class ConfigManager:
         """为指定文件加载 Steering 规范"""
         integration = self.get_steering_integration()
         if integration:
-            return integration.load_specifications_for_file(target_file_path)
+            return integration.load_specifications_for_file(target_file_path)  # type: ignore[no-any-return]
         return []

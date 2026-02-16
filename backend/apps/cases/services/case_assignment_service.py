@@ -117,7 +117,7 @@ class CaseAssignmentService:
                 }
             )
 
-            return assignment
+            return assignment  # type: ignore[no-any-return]
         except CaseAssignment.DoesNotExist:
             logger.warning(
                 f"指派不存在",
@@ -295,7 +295,7 @@ class CaseAssignmentService:
             }
         )
 
-        return assignment
+        return assignment  # type: ignore[no-any-return]
 
     @transaction.atomic
     def delete_assignment(

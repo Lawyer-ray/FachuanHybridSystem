@@ -197,7 +197,7 @@ class CaseMatcher:
         """
         # 1. 先尝试从短信提取（至少需要2个当事人才算有效）
         if sms.party_names and len(sms.party_names) >= 2:
-            return sms.party_names
+            return sms.party_names  # type: ignore[no-any-return]
 
         if sms.party_names and len(sms.party_names) == 1:
             logger.debug("短信只提取到1个当事人，视为提取失败，尝试从文书提取")
@@ -218,7 +218,7 @@ class CaseMatcher:
         # 3. 如果文书也提取失败，返回短信中的单个当事人（总比没有好）
         if sms.party_names:
             logger.debug(f"文书提取失败，使用短信中的当事人: {sms.party_names}")
-            return sms.party_names
+            return sms.party_names  # type: ignore[no-any-return]
 
         return []
 

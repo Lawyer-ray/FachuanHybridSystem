@@ -142,7 +142,7 @@ class AccountSelectionStrategy:
             # 直接返回DTO列表（organization服务已经返回DTO）
             return credentials
         
-        return await get_credentials()
+        return await get_credentials()  # type: ignore[no-any-return]
     
     def _select_best_account(self, accounts: List[AccountCredentialDTO]) -> AccountCredentialDTO:
         """

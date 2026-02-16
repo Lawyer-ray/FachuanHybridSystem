@@ -67,7 +67,7 @@ class SMSRenamingStage(BaseSMSStage):
         return "重命名"
     
     def can_process(self, sms: CourtSMS) -> bool:
-        return sms.status == CourtSMSStatus.RENAMING
+        return sms.status == CourtSMSStatus.RENAMING  # type: ignore[no-any-return]
     
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理文书重命名阶段"""

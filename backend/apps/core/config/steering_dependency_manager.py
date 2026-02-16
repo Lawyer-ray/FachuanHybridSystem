@@ -331,7 +331,7 @@ class DependencyGraph:
             
             def calculate_level(spec: str, visited: Set[str]) -> int:
                 if spec in levels:
-                    return levels[spec]
+                    return levels[spec]  # type: ignore[no-any-return]
                 
                 if spec in visited:
                     # 循环依赖，返回默认层级

@@ -127,7 +127,7 @@ class CaseChatServiceAdapter(ICaseChatService):
                         "chat_id": case_chat.chat_id
                     }
                 )
-                return case_chat.chat_id
+                return case_chat.chat_id  # type: ignore[no-any-return]
             else:
                 logger.debug(
                     f"案件未配置群聊",

@@ -255,7 +255,7 @@ class CourtDocumentApiClient:
                         errors={"status_code": response.status_code},
                     )
 
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
 
             except httpx.TimeoutException as e:
                 last_error = e

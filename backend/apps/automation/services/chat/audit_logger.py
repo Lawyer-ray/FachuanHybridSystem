@@ -51,7 +51,7 @@ class ChatAuditLogger:
             bool: 审计日志是否启用
         """
         feishu_config = getattr(settings, 'FEISHU', {})
-        return feishu_config.get('AUDIT_ENABLED', True)
+        return feishu_config.get('AUDIT_ENABLED', True)  # type: ignore[no-any-return]
     
     def _get_audit_level(self) -> str:
         """获取审计日志级别
@@ -60,7 +60,7 @@ class ChatAuditLogger:
             str: 日志级别（INFO, DEBUG, WARNING等）
         """
         feishu_config = getattr(settings, 'FEISHU', {})
-        return feishu_config.get('AUDIT_LEVEL', 'INFO')
+        return feishu_config.get('AUDIT_LEVEL', 'INFO')  # type: ignore[no-any-return]
     
     def _create_audit_entry(
         self, 

@@ -66,7 +66,7 @@ class LawFirmService:
         if not self._check_read_permission(user, lawfirm):
             raise PermissionDenied(message="无权限访问该律所", code="PERMISSION_DENIED")
 
-        return lawfirm
+        return lawfirm  # type: ignore[no-any-return]
 
     def list_lawfirms(
         self, page: int = 1, page_size: int = 20, filters: dict[str, Any] = None, user: Lawyer = None
@@ -236,7 +236,7 @@ class LawFirmService:
 
     def _check_create_permission(self, user: Lawyer) -> bool:
         """检查创建权限（私有方法）"""
-        return user.is_authenticated and (user.is_superuser or user.is_admin)
+        return user.is_authenticated and (user.is_superuser or user.is_admin)  # type: ignore[no-any-return]
 
     def _check_read_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查读取权限（私有方法）"""
@@ -245,17 +245,17 @@ class LawFirmService:
             return True
 
         # 用户可以访问自己所属的律所
-        return user.law_firm_id == lawfirm.id
+        return user.law_firm_id == lawfirm.id  # type: ignore[no-any-return]
 
     def _check_update_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查更新权限（私有方法）"""
         # 超级管理员或律所管理员可以更新
-        return user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id)
+        return user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id)  # type: ignore[no-any-return]
 
     def _check_delete_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查删除权限（私有方法）"""
         # 只有超级管理员可以删除律所
-        return user.is_superuser
+        return user.is_superuser  # type: ignore[no-any-return]
 
     def _validate_create_data(self, data: LawFirmIn) -> None:
         """验证创建数据（私有方法）"""

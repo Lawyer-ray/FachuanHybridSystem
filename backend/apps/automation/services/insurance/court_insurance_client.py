@@ -131,7 +131,7 @@ class CourtInsuranceClient:
     @property
     def insurance_list_url(self) -> str:
         """获取保险公司列表 API URL"""
-        return get_config(
+        return get_config(  # type: ignore[no-any-return]
             "services.insurance.list_url",
             "https://baoquan.court.gov.cn/wsbq/ssbq/api/commoncodepz"
         )
@@ -139,7 +139,7 @@ class CourtInsuranceClient:
     @property
     def premium_query_url(self) -> str:
         """获取保险费率查询 API URL"""
-        return get_config(
+        return get_config(  # type: ignore[no-any-return]
             "services.insurance.premium_query_url",
             "https://baoquan.court.gov.cn/wsbq/commonapi/api/policy/premium"
         )
@@ -147,12 +147,12 @@ class CourtInsuranceClient:
     @property
     def default_timeout(self) -> float:
         """获取默认超时时间"""
-        return get_config("services.insurance.default_timeout", 60.0)
+        return get_config("services.insurance.default_timeout", 60.0)  # type: ignore[no-any-return]
     
     @property
     def max_connections(self) -> int:
         """获取最大连接数"""
-        return get_config("services.insurance.max_connections", 100)
+        return get_config("services.insurance.max_connections", 100)  # type: ignore[no-any-return]
     
     async def close(self):
         """

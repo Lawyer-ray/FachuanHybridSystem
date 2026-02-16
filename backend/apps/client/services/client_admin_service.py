@@ -393,7 +393,7 @@ class ClientAdminService:
         """
         # 如果已有文件路径，直接使用
         if form_data.get('file_path'):
-            return form_data['file_path']
+            return form_data['file_path']  # type: ignore[no-any-return]
         
         # 如果有上传的文件，处理文件存储
         uploaded_file = form_data.get('uploaded_file')
@@ -564,4 +564,4 @@ class ClientAdminService:
             解析后的客户数据列表
         """
         from .text_parser import parse_multiple_clients_text
-        return parse_multiple_clients_text(text)
+        return parse_multiple_clients_text(text)  # type: ignore[no-any-return]

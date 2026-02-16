@@ -22,7 +22,7 @@ def upload_file(file_path: str) -> dict[str, Any]:
         with httpx.Client(timeout=60) as client:
             resp = client.post(url, headers=_headers(), files=files)
             resp.raise_for_status()
-            return resp.json()
+            return resp.json()  # type: ignore[no-any-return]
 
 
 def list_files() -> dict[str, Any]:
@@ -30,7 +30,7 @@ def list_files() -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 def retrieve_file(file_id: str) -> dict[str, Any]:
@@ -38,7 +38,7 @@ def retrieve_file(file_id: str) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 def extract_result(file_id: str) -> dict[str, Any]:
@@ -46,7 +46,7 @@ def extract_result(file_id: str) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 def chat(model: str, messages: list[dict]) -> dict[str, Any]:
@@ -55,4 +55,4 @@ def chat(model: str, messages: list[dict]) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.post(url, headers={"Authorization": _headers()["Authorization"]}, json=payload)
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

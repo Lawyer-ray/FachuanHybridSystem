@@ -51,7 +51,7 @@ class CourtDocumentRecognitionServiceAdapter:
         Returns:
             RecognitionResponse 对象
         """
-        return self.service.recognize_document(file_path, user)
+        return self.service.recognize_document(file_path, user)  # type: ignore[no-any-return]
     
     def recognize_document_from_text(
         self,
@@ -66,4 +66,4 @@ class CourtDocumentRecognitionServiceAdapter:
         Returns:
             RecognitionResult 对象
         """
-        return self.service.recognize_document_from_text(text)
+        return self.service.recognize_document_from_text(text)  # type: ignore[no-any-return]

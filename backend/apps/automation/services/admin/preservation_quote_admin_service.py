@@ -128,7 +128,7 @@ class PreservationQuoteAdminService:
                 }
             )
             
-            return result
+            return result  # type: ignore[no-any-return]
             
         except Exception as e:
             self.logger.error(

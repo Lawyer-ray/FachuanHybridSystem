@@ -244,7 +244,7 @@ class CasePartyService:
                 }
             )
 
-            return party
+            return party  # type: ignore[no-any-return]
         except CaseParty.DoesNotExist:
             logger.warning(
                 f"当事人不存在",
@@ -457,7 +457,7 @@ class CasePartyService:
             }
         )
 
-        return party
+        return party  # type: ignore[no-any-return]
 
     @transaction.atomic
     def delete_party(

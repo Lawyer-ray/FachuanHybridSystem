@@ -38,7 +38,7 @@ class CaptchaService:
         try:
             result = self.ocr.classification(image_bytes)
             logger.info(f"验证码识别结果: {result}")
-            return result
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"验证码识别失败: {e}")
             return None

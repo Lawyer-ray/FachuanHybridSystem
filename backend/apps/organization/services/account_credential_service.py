@@ -166,7 +166,7 @@ class AccountCredentialService:
                 code="CREDENTIAL_ACCESS_DENIED"
             )
 
-        return credential
+        return credential  # type: ignore[no-any-return]
 
     @transaction.atomic
     def create_credential(
@@ -318,7 +318,7 @@ class AccountCredentialService:
                 message="凭证不存在",
                 code="CREDENTIAL_NOT_FOUND"
             )
-        return credential
+        return credential  # type: ignore[no-any-return]
 
     @transaction.atomic
     def update_login_success(self, credential_id: int) -> None:

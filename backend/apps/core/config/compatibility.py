@@ -272,7 +272,7 @@ class CompatibleSettings:
         
         # 回退到 Django settings
         if self._fallback_to_django and hasattr(django_settings, 'is_overridden'):
-            return django_settings.is_overridden(setting)
+            return django_settings.is_overridden(setting)  # type: ignore[no-any-return]
         
         return False
     

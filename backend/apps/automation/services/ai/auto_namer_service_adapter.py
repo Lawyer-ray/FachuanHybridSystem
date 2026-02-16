@@ -99,7 +99,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     }
                 )
                 
-                return filename
+                return filename  # type: ignore[no-any-return]
             else:
                 raise Exception("AI服务返回格式异常")
                 

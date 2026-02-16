@@ -113,22 +113,22 @@ class CacheTimeout:
     @staticmethod
     def get_short() -> int:
         """短期缓存（1分钟）"""
-        return _safe_get_config("performance.cache.timeout_short", 60)
+        return _safe_get_config("performance.cache.timeout_short", 60)  # type: ignore[no-any-return]
 
     @staticmethod
     def get_medium() -> int:
         """中期缓存（5分钟）"""
-        return _safe_get_config("performance.cache.timeout_medium", 300)
+        return _safe_get_config("performance.cache.timeout_medium", 300)  # type: ignore[no-any-return]
 
     @staticmethod
     def get_long() -> int:
         """长期缓存（1小时）"""
-        return _safe_get_config("performance.cache.timeout_long", 3600)
+        return _safe_get_config("performance.cache.timeout_long", 3600)  # type: ignore[no-any-return]
 
     @staticmethod
     def get_day() -> int:
         """日缓存（1天）"""
-        return _safe_get_config("performance.cache.timeout_day", 86400)
+        return _safe_get_config("performance.cache.timeout_day", 86400)  # type: ignore[no-any-return]
 
     # 保持向后兼容的常量
     SHORT = 60

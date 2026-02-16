@@ -41,7 +41,7 @@ def parse_client_text(text: str) -> dict[str, Any]:
         # 如果角色标签匹配失败，尝试直接提取字段
         return _parse_fields_directly(text)
 
-    return parties[0]
+    return parties[0]  # type: ignore[no-any-return]
 
 
 def parse_multiple_clients_text(text: str) -> list[Any][dict]:

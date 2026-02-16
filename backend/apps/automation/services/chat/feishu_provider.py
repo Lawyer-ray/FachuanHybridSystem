@@ -805,7 +805,7 @@ class FeishuChatProvider(ChatProvider):
                 )
             
             logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")
-            return file_key
+            return file_key  # type: ignore[no-any-return]
             
         except MessageSendException:
             raise
@@ -1136,7 +1136,7 @@ class FeishuChatProvider(ChatProvider):
             else:
                 logger.warning(f"群主设置验证失败: {chat_id}, 期望: {expected_owner_id}, 实际: {actual_owner_id}")
             
-            return is_match
+            return is_match  # type: ignore[no-any-return]
             
         except Exception as e:
             logger.error(f"验证群主设置时发生错误: {chat_id}, 错误: {str(e)}")
@@ -1427,7 +1427,7 @@ class FeishuChatProvider(ChatProvider):
                 
                 if open_id:
                     logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
-                    return open_id
+                    return open_id  # type: ignore[no-any-return]
                 else:
                     logger.warning(f"API响应中缺少open_id: {union_id}")
                     return None

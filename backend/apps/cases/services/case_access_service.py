@@ -99,7 +99,7 @@ class CaseAccessService:
             NotFoundError: 授权不存在
         """
         try:
-            return CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id)
+            return CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id)  # type: ignore[no-any-return]
         except CaseAccessGrant.DoesNotExist:
             raise NotFoundError(f"授权 {grant_id} 不存在")
 

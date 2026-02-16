@@ -358,7 +358,7 @@ class AutoTokenAcquisitionService:
                     "site_name": site_name,
                     "account": available_accounts.account
                 })
-                return token
+                return token  # type: ignore[no-any-return]
             
             return None
             

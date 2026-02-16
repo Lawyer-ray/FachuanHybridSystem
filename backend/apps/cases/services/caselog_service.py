@@ -298,7 +298,7 @@ class CaseLogService:
             NotFoundError: 日志不存在
         """
         try:
-            return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
+            return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)  # type: ignore[no-any-return]
         except CaseLog.DoesNotExist:
             raise NotFoundError(f"日志 {log_id} 不存在")
 

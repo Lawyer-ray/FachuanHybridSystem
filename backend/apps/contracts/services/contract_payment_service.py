@@ -91,7 +91,7 @@ class ContractPaymentService:
             NotFoundError: 收款不存在
         """
         try:
-            return ContractPayment.objects.select_related("contract").get(id=payment_id)
+            return ContractPayment.objects.select_related("contract").get(id=payment_id)  # type: ignore[no-any-return]
         except ContractPayment.DoesNotExist:
             raise NotFoundError(f"收款记录 {payment_id} 不存在")
 

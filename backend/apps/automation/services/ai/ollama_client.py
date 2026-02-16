@@ -29,7 +29,7 @@ def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict[
 
             # 尝试解析JSON响应
             try:
-                return resp.json()
+                return resp.json()  # type: ignore[no-any-return]
             except json.JSONDecodeError as e:
                 # 如果JSON解析失败，可能是流式响应，尝试读取最后一行
                 text = resp.text.strip()
@@ -48,7 +48,7 @@ def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict[
                                 continue
 
                     if last_valid_json:
-                        return last_valid_json
+                        return last_valid_json  # type: ignore[no-any-return]
 
                 raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}")
     except httpx.HTTPStatusError as e:

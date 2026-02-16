@@ -376,7 +376,7 @@ class AutoLoginService:
             if not token:
                 raise Exception("登录成功但未获取到token")
             
-            return token
+            return token  # type: ignore[no-any-return]
             
         except Exception as e:
             raise e

@@ -66,7 +66,7 @@ class LawyerService:
         if not self._check_read_permission(user, lawyer):
             raise PermissionDenied(message="无权限访问该律师信息", code="PERMISSION_DENIED")
 
-        return lawyer
+        return lawyer  # type: ignore[no-any-return]
 
     def list_lawyers(
         self, page: int = 1, page_size: int = 20, filters: dict[str, Any] | None = None, user: Lawyer | None = None
@@ -323,7 +323,7 @@ class LawyerService:
 
     def _check_create_permission(self, user: Lawyer) -> bool:
         """检查创建权限（私有方法）"""
-        return user.is_authenticated and (user.is_superuser or user.is_admin)
+        return user.is_authenticated and (user.is_superuser or user.is_admin)  # type: ignore[no-any-return]
 
     def _check_read_permission(self, user: Lawyer, lawyer: Lawyer) -> bool:
         """检查读取权限（私有方法）"""
@@ -332,7 +332,7 @@ class LawyerService:
             return True
 
         # 用户可以访问同律所的律师
-        return user.law_firm_id == lawyer.law_firm_id
+        return user.law_firm_id == lawyer.law_firm_id  # type: ignore[no-any-return]
 
     def _check_update_permission(self, user: Lawyer, lawyer: Lawyer) -> bool:
         """检查更新权限（私有方法）"""
@@ -345,12 +345,12 @@ class LawyerService:
             return True
 
         # 用户可以更新自己的信息
-        return user.id == lawyer.id
+        return user.id == lawyer.id  # type: ignore[no-any-return]
 
     def _check_delete_permission(self, user: Lawyer, lawyer: Lawyer) -> bool:
         """检查删除权限（私有方法）"""
         # 只有超级管理员或律所管理员可以删除律师
-        return user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id)
+        return user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id)  # type: ignore[no-any-return]
 
     def _validate_create_data(self, data: LawyerCreateIn, user: Lawyer) -> None:
         """验证创建数据（私有方法）"""
