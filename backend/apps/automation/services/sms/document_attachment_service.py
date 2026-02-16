@@ -8,11 +8,16 @@ import os
 import re
 import shutil
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 from django.conf import settings
 
 from apps.core.exceptions import ValidationException, NotFoundError
 from apps.core.interfaces import ServiceLocator
+
+if TYPE_CHECKING:
+    from apps.core.interfaces import ICaseService
+    from .document_renamer import DocumentRenamer
+    from apps.automation.models import CourtSMS
 
 logger = logging.getLogger("apps.automation")
 
