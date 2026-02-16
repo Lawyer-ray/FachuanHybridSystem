@@ -11,6 +11,7 @@ from django.db.models import QuerySet
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from ..models import Contract, ContractReminder
+from typing import Any
 
 
 class ContractReminderService:
