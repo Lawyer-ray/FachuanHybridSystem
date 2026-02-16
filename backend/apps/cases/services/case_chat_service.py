@@ -29,6 +29,7 @@ from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

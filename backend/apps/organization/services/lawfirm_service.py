@@ -13,6 +13,7 @@ from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from ..models import LawFirm, Lawyer
 from ..schemas import LawFirmIn, LawFirmUpdateIn
+from typing import Any
 
 logger = logging.getLogger("apps.organization")
 

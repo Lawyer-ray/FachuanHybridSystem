@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand
+from typing import Any
 
 
 class Command(BaseCommand):

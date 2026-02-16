@@ -3,6 +3,7 @@ import json
 import httpx
 
 from apps.automation.services.ai import get_ollama_base_url
+from typing import Any
 
 
 def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict[str, Any]:
