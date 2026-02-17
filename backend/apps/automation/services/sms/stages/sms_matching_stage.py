@@ -257,9 +257,9 @@ class SMSMatchingStage(BaseSMSStage):
                 self._add_case_numbers_to_case(sms)
 
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,
+                case_id=sms.case.id,  # type: ignore[attr-defined]
                 content=f"收到法院短信：{sms.content}",
-                user=user,  # type: ignore[attr-defined]
+                user=user,
             )
             sms.case_log = case_log
             sms.save()
@@ -292,9 +292,9 @@ class SMSMatchingStage(BaseSMSStage):
 
             for num in valid_nums:
                 self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,
+                    case_id=sms.case.id,  # type: ignore[attr-defined]
                     case_number=num,
-                    user_id=user_id,  # type: ignore[attr-defined]
+                    user_id=user_id,
                 )
         except Exception as e:
             logger.warning(f"写入案号失败: SMS={sms.id}, 错误: {e}")

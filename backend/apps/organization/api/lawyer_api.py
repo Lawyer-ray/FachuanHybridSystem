@@ -65,8 +65,8 @@ def update_lawyer(
     lawyer = service.update_lawyer(
         lawyer_id=lawyer_id,
         data=payload,
-        user=user,
-        license_pdf=license_pdf,  # type: ignore[arg-type]
+        user=user,  # type: ignore[arg-type]
+        license_pdf=license_pdf,
     )
     return lawyer
 

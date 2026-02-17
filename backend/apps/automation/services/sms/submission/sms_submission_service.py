@@ -329,9 +329,9 @@ class SMSSubmissionService:
             added_count = 0
             for case_number in valid_case_numbers:
                 success = self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,
+                    case_id=sms.case.id,  # type: ignore[attr-defined]
                     case_number=case_number,
-                    user_id=user_id,  # type: ignore[attr-defined]
+                    user_id=user_id,
                 )
                 if success:
                     added_count += 1

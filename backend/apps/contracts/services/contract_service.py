@@ -264,8 +264,8 @@ class ContractService:
                     contract.assignments.filter(  # type: ignore[attr-defined]
                         lawyer_id__in=org_access.get("lawyers", set())
                     ).exists()
-                    or contract.assignments.filter(lawyer_id=user_id).exists()
-                )  # type: ignore[attr-defined]
+                    or contract.assignments.filter(lawyer_id=user_id).exists()  # type: ignore[attr-defined]
+                )
 
                 if not has_access:
                     has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined]

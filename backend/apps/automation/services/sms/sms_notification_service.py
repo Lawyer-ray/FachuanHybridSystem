@@ -101,8 +101,8 @@ class SMSNotificationService:
             # Requirements 3.2: 检查群聊是否存在，不存在则自动创建
             try:
                 chat = chat_service.get_or_create_chat(  # type: ignore[attr-defined]
-                    case_id=sms.case.id,
-                    platform=platform,  # type: ignore[attr-defined]
+                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                    platform=platform,
                 )
                 logger.info(f"获取或创建群聊成功: SMS ID={sms.id}, Chat ID={chat.chat_id}")
 

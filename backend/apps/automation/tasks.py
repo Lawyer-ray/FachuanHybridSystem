@@ -372,8 +372,8 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         token_service = TokenService()
         insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
         quote_service = PreservationQuoteService(
-            token_service=token_service,
-            insurance_client=insurance_client,  # type: ignore[arg-type]
+            token_service=token_service,  # type: ignore[arg-type]
+            insurance_client=insurance_client,
         )
 
         # 执行询价任务（异步）

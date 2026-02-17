@@ -56,8 +56,8 @@ class CourtDocumentDownloadMixin(
             download_dir = (
                 media_root_path
                 / "case_logs"
-                / str(self.cast(int | None, self.cast(int, self.task.case_id)))
-                / "documents"  # type: ignore[attr-defined]
+                / str(self.cast(int | None, self.cast(int, self.task.case_id)))  # type: ignore[attr-defined]
+                / "documents"
             )
         else:
             download_dir = media_root_path / "automation" / "downloads" / f"task_{cast(int, self.task.pk)}"
