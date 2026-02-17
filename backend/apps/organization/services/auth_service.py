@@ -2,6 +2,7 @@
 认证服务模块
 封装用户认证相关的业务逻辑
 """
+from typing import Any
 from django.contrib.auth import authenticate, login, logout
 from apps.core.exceptions import AuthenticationError
 from ..models import Lawyer
@@ -17,7 +18,7 @@ class AuthService:
     - 认证失败时抛出 AuthenticationError
     """
     
-    def login(self, request, username: str, password: str) -> Lawyer:
+    def login(self, request: Any, username: str, password: str) -> Lawyer:
         """
         用户登录
         
@@ -41,7 +42,7 @@ class AuthService:
         login(request, user)
         return user
     
-    def logout(self, request) -> None:
+    def logout(self, request: Any) -> None:
         """
         用户登出
         

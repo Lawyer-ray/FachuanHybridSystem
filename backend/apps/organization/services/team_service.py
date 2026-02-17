@@ -29,7 +29,7 @@ class TeamService:
     4. 验证业务规则
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化服务"""
         pass
 
