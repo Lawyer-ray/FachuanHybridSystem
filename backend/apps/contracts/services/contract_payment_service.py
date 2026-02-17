@@ -25,7 +25,7 @@ class ContractPaymentService:
     - 财务日志记录
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """构造函数，预留依赖注入扩展"""
         pass
 
@@ -35,9 +35,9 @@ class ContractPaymentService:
         invoice_status: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        user=None,
+        user: Any = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> QuerySet[ContractPayment]:
         """
         获取收款列表
         
@@ -73,7 +73,7 @@ class ContractPaymentService:
     def get_payment(
         self,
         payment_id: int,
-        user=None,
+        user: Any = None,
         perm_open_access: bool = False,
     ) -> ContractPayment:
         """
@@ -104,7 +104,7 @@ class ContractPaymentService:
         invoice_status: Optional[str] = None,
         invoiced_amount: Optional[Decimal] = None,
         note: Optional[str] = None,
-        user=None,
+        user: Any = None,
         confirm: bool = False,
     ) -> ContractPayment:
         """
@@ -195,7 +195,7 @@ class ContractPaymentService:
         self,
         payment_id: int,
         data: Dict[str, Any],
-        user=None,
+        user: Any = None,
         confirm: bool = False,
     ) -> ContractPayment:
         """
@@ -298,7 +298,7 @@ class ContractPaymentService:
     def delete_payment(
         self,
         payment_id: int,
-        user=None,
+        user: Any = None,
         confirm: bool = False,
     ) -> Dict[str, bool]:
         """
@@ -344,7 +344,7 @@ class ContractPaymentService:
 
     # ==================== 内部方法 ====================
 
-    def _require_admin(self, user) -> None:
+    def _require_admin(self, user: Any) -> None:
         """
         检查管理员权限
         
