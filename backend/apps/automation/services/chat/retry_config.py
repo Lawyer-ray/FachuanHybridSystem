@@ -276,7 +276,7 @@ class RetryManager:
             ValidationException,
             NetworkError
         )
-        import requests
+        import requests  # type: ignore[import-untyped]
         
         # 根据异常类型分类
         if isinstance(exception, (OwnerPermissionException, PermissionDenied)):

@@ -2,6 +2,7 @@
 合同收款 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
+from decimal import Decimal
 from typing import Optional, Any
 from ninja import Router
 from django.http import HttpRequest
@@ -35,14 +36,14 @@ def list_payments(
     d1 = parse_date(start_date) if start_date else None
     d2 = parse_date(end_date) if end_date else None
     
-    return service.list_payments(
+    return list(service.list_payments(
         contract_id=contract_id,
         invoice_status=invoice_status,
         start_date=d1,
         end_date=d2,
         user=user,
         perm_open_access=perm_open_access,
-    )
+    ))
 
 
 @router.post("/finance/payments", response=ContractPaymentOut)
@@ -56,10 +57,10 @@ def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:
     
     return service.create_payment(
         contract_id=payload.contract_id,
-        amount=payload.amount,
+        amount=Decimal(str(payload.amount)),
         received_at=received_at,
         invoice_status=payload.invoice_status,
-        invoiced_amount=payload.invoiced_amount,
+        invoiced_amount=Decimal(str(payload.invoiced_amount)) if payload.invoiced_amount else None,
         note=payload.note,
         user=user,
         confirm=payload.confirm,

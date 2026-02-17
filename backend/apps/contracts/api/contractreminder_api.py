@@ -32,11 +32,11 @@ def list_contract_reminders(request: HttpRequest, contract_id: Optional[int] = N
     user = getattr(request, "user", None)
     perm_open_access = getattr(request, "perm_open_access", False)
     
-    return service.list_reminders(
+    return list(service.list_reminders(
         contract_id=contract_id,
         user=user,
         perm_open_access=perm_open_access,
-    )
+    ))
 
 
 @router.post("/reminders", response=ContractReminderOut)
@@ -54,6 +54,12 @@ def create_contract_reminder(request: HttpRequest, payload: ContractReminderIn) 
     
     # 解析日期
     due_date = parse_date(payload.due_date) if payload.due_date else None
+    if due_date is None:
+        from apps.core.exceptions import ValidationException
+        raise ValidationException(
+            message="到期日期不能为空",
+            code="INVALID_DUE_DATE"
+        )
     
     return service.create_reminder(
         contract_id=payload.contract_id,
