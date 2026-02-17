@@ -25,11 +25,11 @@ class CourtDocumentRecognitionServiceAdapter:
     实际实现委托给 CourtDocumentRecognitionService。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._service = None
     
     @property
-    def service(self):
+    def service(self) -> Any:
         """延迟加载实际服务"""
         if self._service is None:
             from .recognition_service import CourtDocumentRecognitionService
