@@ -136,7 +136,7 @@ class AccountCredentialService:
 
         return qs
 
-    def get_credential(self, credential_id: int, user=None) -> AccountCredential:
+    def get_credential(self, credential_id: int, user: Any = None) -> AccountCredential:
         """
         获取单个凭证
 
@@ -176,7 +176,7 @@ class AccountCredentialService:
         account: str,
         password: str,
         url: Optional[str] = None,
-        user=None,
+        user: Any = None,
     ) -> AccountCredential:
         """
         创建凭证
@@ -236,7 +236,7 @@ class AccountCredentialService:
         self,
         credential_id: int,
         data: Dict[str, Any],
-        user=None,
+        user: Any = None,
     ) -> AccountCredential:
         """
         更新凭证
@@ -273,7 +273,7 @@ class AccountCredentialService:
         return credential
 
     @transaction.atomic
-    def delete_credential(self, credential_id: int, user=None) -> None:
+    def delete_credential(self, credential_id: int, user: Any = None) -> None:
         """
         删除凭证
 
