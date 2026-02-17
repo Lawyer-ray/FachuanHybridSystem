@@ -2,7 +2,7 @@
 合同财务统计 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import Optional
+from typing import Optional, Any
 from ninja import Router
 from django.utils.dateparse import parse_date
 
@@ -19,11 +19,11 @@ def _get_finance_service() -> ContractFinanceService:
 
 @router.get("/finance/stats", response=FinanceStatsOut)
 def finance_stats(
-    request,
+    request: Any,
     contract_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-):
+) -> FinanceStatsOut:
     """
     获取财务统计数据
     

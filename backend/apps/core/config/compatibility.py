@@ -184,7 +184,7 @@ class CompatibleSettings:
             if self._fallback_to_django:
                 setattr(django_settings, name, value)
     
-    def __hasattr__(self, name: str) -> bool:
+    def __contains__(self, name: str) -> bool:
         """
         检查配置项是否存在
         
@@ -427,9 +427,9 @@ class SettingsProxy:
         else:
             setattr(self._compatible_settings, name, value)
     
-    def __hasattr__(self, name: str) -> bool:
+    def __contains__(self, name: str) -> bool:
         """代理属性检查"""
-        return hasattr(self._compatible_settings, name)
+        return name in self._compatible_settings
     
     def __dir__(self) -> List[str]:
         """代理目录列表"""
