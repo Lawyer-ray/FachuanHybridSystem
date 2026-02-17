@@ -2,7 +2,7 @@
 验证码识别服务
 """
 import logging
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
 
 logger = logging.getLogger("apps.automation")
@@ -11,7 +11,7 @@ logger = logging.getLogger("apps.automation")
 class CaptchaService:
     """验证码识别服务"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化 ddddocr"""
         try:
             import ddddocr
@@ -61,7 +61,7 @@ class CaptchaService:
             logger.error(f"读取验证码文件失败: {e}")
             return None
     
-    def recognize_from_element(self, page, selector: str) -> Optional[str]:
+    def recognize_from_element(self, page: Any, selector: str) -> Optional[str]:
         """
         从页面元素识别验证码
         

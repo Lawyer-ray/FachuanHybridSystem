@@ -201,7 +201,7 @@ class DocumentListResponse:
 class DocumentDeliveryRecord:
     """文书送达记录"""
     case_number: str           # 案号
-    send_time: datetime        # 发送时间
+    send_time: datetime | None # 发送时间
     element_index: int         # 页面元素索引（用于定位下载按钮）
     document_name: str = ""    # 文书名称（可选）
     court_name: str = ""       # 法院名称（可选）

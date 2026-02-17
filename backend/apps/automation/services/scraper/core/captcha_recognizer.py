@@ -5,7 +5,7 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 
 logger = logging.getLogger("apps.automation")
 
@@ -44,7 +44,7 @@ class CaptchaRecognizer(ABC):
         pass
     
     @abstractmethod
-    def recognize_from_element(self, page, selector: str) -> Optional[str]:
+    def recognize_from_element(self, page: Any, selector: str) -> Optional[str]:
         """
         从页面元素识别验证码
         
@@ -125,7 +125,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
             logger.error(f"❌ 验证码识别失败: {e}", exc_info=True)
             return None
     
-    def recognize_from_element(self, page, selector: str) -> Optional[str]:
+    def recognize_from_element(self, page: Any, selector: str) -> Optional[str]:
         """
         从页面元素识别验证码
         
