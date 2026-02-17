@@ -54,7 +54,7 @@ class OwnerConfigManager:
     OPEN_ID_PATTERN = re.compile(r"^ou_[a-fA-F0-9]{32}$")
     UNION_ID_PATTERN = re.compile(r"^on_[a-fA-F0-9]{32}$")
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化群主配置管理器
 
         加载配置并进行基本验证。
@@ -88,7 +88,7 @@ class OwnerConfigManager:
             try:
                 from apps.core.models import SystemConfig
 
-                db_configs = SystemConfig.get_category_configs("feishu")
+                db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
 
                 if db_configs:
                     # 映射数据库配置键到内部配置键
@@ -286,7 +286,7 @@ class OwnerConfigManager:
         if not is_valid:
             logger.debug(f"群主ID格式验证失败: {owner_id}")
 
-        return is_valid
+        return is_valid is not None
 
     def validate_owner_id_strict(self, owner_id: str) -> None:
         """严格验证群主ID格式

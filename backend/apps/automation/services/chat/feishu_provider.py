@@ -20,7 +20,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import requests
+import requests  # type: ignore[import-untyped]
 
 from django.conf import settings
 
@@ -68,7 +68,7 @@ class FeishuChatProvider(ChatProvider):
         "get_chat": "/im/v1/chats/{chat_id}",
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化飞书群聊提供者"""
         self.config = self._load_config()
         self._access_token: Optional[str] = None

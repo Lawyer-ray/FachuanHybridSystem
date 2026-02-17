@@ -197,7 +197,6 @@ class CaseChatService:
                         if default_owner:
                             owner_id = default_owner
                             logger.debug(f"使用默认群主（统一配置）: {owner_id}")
-                        return None
             except Exception as e:
                 logger.debug(f"从统一配置获取默认群主失败: {e}")
 
