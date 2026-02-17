@@ -1,3 +1,4 @@
+from typing import Any
 from django.conf import settings
 import os
 from ninja import Router, File, Form
@@ -7,20 +8,20 @@ from ..models import ClientIdentityDoc, Client
 router = Router()
 
 
-def _get_identity_doc_service():
+def _get_identity_doc_service() -> Any:
     """工厂函数：创建 ClientIdentityDocService 实例"""
     from ..services import ClientIdentityDocService
     return ClientIdentityDocService()
 
 
-def _get_client_service():
+def _get_client_service() -> Any:
     """工厂函数：创建 ClientService 实例"""
     from ..services import ClientService
     return ClientService()
 
 
 @router.post("/clients/{client_id}/identity-docs")
-def add_identity_doc(request, client_id: int, doc_type: str, file: UploadedFile = File[UploadedFile](...)):
+def add_identity_doc(request: Any, client_id: int, doc_type: str, file: UploadedFile = File[UploadedFile](...)) -> dict[str, Any]:
     """
     添加证件文档
     
@@ -59,7 +60,7 @@ def add_identity_doc(request, client_id: int, doc_type: str, file: UploadedFile 
 
 
 @router.get("/identity-docs/{doc_id}")
-def get_identity_doc(request, doc_id: int):
+def get_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     """
     获取证件文档
     
@@ -84,7 +85,7 @@ def get_identity_doc(request, doc_id: int):
 
 
 @router.delete("/identity-docs/{doc_id}")
-def delete_identity_doc(request, doc_id: int):
+def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     """
     删除证件文档
     
@@ -108,7 +109,7 @@ def delete_identity_doc(request, doc_id: int):
 
 
 @router.api_operation(["GET", "POST"], "/parse-text")
-def parse_text_any(request):
+def parse_text_any(request: Any) -> dict[str, Any]:
     """
     解析客户文本
     

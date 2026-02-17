@@ -1099,7 +1099,7 @@ class CourtSMSService:
 
 
 # 异步任务函数（需要在模块级别定义以便 Django Q 调用）
-def process_sms_async(sms_id: int):
+def process_sms_async(sms_id: int) -> Any:
     """
     异步处理短信的入口函数
 
@@ -1110,7 +1110,7 @@ def process_sms_async(sms_id: int):
     return service.process_sms(sms_id)
 
 
-def process_sms_from_matching(sms_id: int):
+def process_sms_from_matching(sms_id: int) -> Any:
     """
     从匹配阶段开始处理短信（用于手动指定案件后的处理）
 
@@ -1121,7 +1121,7 @@ def process_sms_from_matching(sms_id: int):
     return service._process_from_matching(sms_id)
 
 
-def process_sms_from_renaming(sms_id: int):
+def process_sms_from_renaming(sms_id: int) -> Any:
     """
     从重命名阶段开始处理短信（用于手动指定案件后的处理）
 
@@ -1132,7 +1132,7 @@ def process_sms_from_renaming(sms_id: int):
     return service._process_from_renaming(sms_id)
 
 
-def retry_download_task(sms_id, **kwargs):
+def retry_download_task(sms_id: Any, **kwargs: Any) -> Any:
     """
     重试下载任务
 

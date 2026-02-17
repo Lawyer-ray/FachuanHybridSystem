@@ -2,6 +2,7 @@
 自动命名工具API
 独立的API模块
 """
+from typing import Any
 from ninja import Router, File
 from ninja.files import UploadedFile
 from django.conf import settings
@@ -14,7 +15,7 @@ from ..schemas import AutoToolProcessIn, AutoToolProcessOut
 router = Router(tags=["Auto Namer"])
 
 
-def _get_auto_namer_service():
+def _get_auto_namer_service() -> Any:
     """
     工厂函数：创建自动命名服务实例
     
@@ -29,13 +30,13 @@ def _get_auto_namer_service():
 
 @router.post("/process", response=AutoToolProcessOut)
 def auto_namer_process(
-    request,
+    request: Any,
     file: UploadedFile = File[UploadedFile](...),
     prompt: str = DEFAULT_FILENAME_PROMPT,
     model: str = "qwen3:0.6b",
     limit: int | None = None,
     preview_page: int | None = None
-):
+) -> AutoToolProcessOut:
     """自动命名工具API"""
     # 使用工厂函数获取服务
     service = _get_auto_namer_service()
@@ -57,7 +58,7 @@ def auto_namer_process(
 
 
 @router.post("/process-by-path", response=AutoToolProcessOut)
-def auto_namer_process_by_path(request, payload: AutoToolProcessIn):
+def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:
     """通过路径处理自动命名工具"""
     # 使用工厂函数获取服务
     service = _get_auto_namer_service()

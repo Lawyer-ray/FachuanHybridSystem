@@ -218,7 +218,7 @@ def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
 
 
 @router.get("/property-clues/content-template", response=ContentTemplateOut)
-def get_content_template(request, clue_type: str):
+def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
     """
     获取内容模板
     

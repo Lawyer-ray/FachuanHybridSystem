@@ -2,7 +2,7 @@
 客户 API 层
 只负责请求/响应处理，不包含业务逻辑
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from django.conf import settings
 import os
 from ninja import Router, File
@@ -21,13 +21,13 @@ class ParseTextRequest(BaseModel):
 router = Router(tags=["Client"])
 
 
-def _get_client_service():
+def _get_client_service() -> Any:
     """工厂函数：创建 ClientService 实例"""
     from ..services import ClientService
     return ClientService()
 
 
-def _get_identity_doc_service():
+def _get_identity_doc_service() -> Any:
     """工厂函数：创建 ClientIdentityDocService 实例"""
     from ..services import ClientIdentityDocService
     return ClientIdentityDocService()
@@ -35,13 +35,13 @@ def _get_identity_doc_service():
 
 @router.get("/clients", response=List[ClientOut])
 def list_clients(
-    request,
+    request: Any,
     page: int = 1,
     page_size: Optional[int] = None,
     client_type: Optional[str] = None,
     is_our_client: Optional[bool] = None,
     search: Optional[str] = None,
-):
+) -> List[ClientOut]:
     """
     获取客户列表
 
@@ -69,7 +69,7 @@ def list_clients(
 
 
 @router.post("/clients/parse-text")
-def parse_client_text(request, payload: ParseTextRequest):
+def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:
     """
     解析客户文本信息
     
@@ -97,7 +97,7 @@ def parse_client_text(request, payload: ParseTextRequest):
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
-def get_client(request, client_id: int):
+def get_client(request: Any, client_id: int) -> ClientOut:
     """
     获取单个客户
 
@@ -113,7 +113,7 @@ def get_client(request, client_id: int):
 
 
 @router.post("/clients", response=ClientOut)
-def create_client(request, payload: ClientIn):
+def create_client(request: Any, payload: ClientIn) -> ClientOut:
     """
     创建客户
 
@@ -138,11 +138,11 @@ def create_client(request, payload: ClientIn):
 
 @router.post("/clients-with-docs", response=ClientOut)
 def create_client_with_docs(
-    request,
+    request: Any,
     payload: ClientIn,
     doc_types: List[str],
     files: List[UploadedFile] = File[List[UploadedFile]](...),
-):
+) -> ClientOut:
     """
     创建客户并上传文档
 
