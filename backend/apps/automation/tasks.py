@@ -298,7 +298,7 @@ def execute_document_recognition_task(task_id: int) -> None:
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
 
-def _send_recognition_notification(task, result):
+def _send_recognition_notification(task: Any, result: Any) -> None:
     """
     发送文书识别通知（内部辅助函数）
     
