@@ -70,7 +70,7 @@ class SMSNotificationService:
     def send_case_chat_notification(
         self, 
         sms: CourtSMS, 
-        document_paths: List[str] = None
+        document_paths: List[str] | None = None
     ) -> bool:
         """发送案件群聊通知
         

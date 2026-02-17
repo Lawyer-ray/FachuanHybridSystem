@@ -30,9 +30,9 @@ class TokenService:
         site_name: str,
         account: str,
         token: str,
-        expires_in: int = None,
+        expires_in: int | None = None,
         token_type: str = "Bearer",
-        credential_id: int = None
+        credential_id: int | None = None
     ) -> None:
         """
         保存 Token 到 Redis + 数据库
