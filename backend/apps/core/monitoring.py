@@ -8,11 +8,11 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, Generator
 from collections.abc import Callable as CallableABC
+from contextlib import _GeneratorContextManager
 
 F = TypeVar('F', bound=Callable[..., Any])
-from typing import Any
 from collections.abc import Callable
 
 from django.conf import settings
@@ -49,9 +49,9 @@ class PerformanceMonitor:
                 ...
         """
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: F) -> F:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 # 重置查询计数
                 if settings.DEBUG:
                     reset_queries()
@@ -91,13 +91,13 @@ class PerformanceMonitor:
 
                     raise
 
-            return wrapper
+            return wrapper  # type: ignore[return-value]
 
         return decorator
 
     @staticmethod
     @contextmanager
-    def monitor_operation(operation_name: str):
+    def monitor_operation(operation_name: str) -> Generator[None, None, None]:
         """
         操作性能监控上下文管理器
 
@@ -271,7 +271,7 @@ class PerformanceMonitor:
 
 
 # 便捷函数
-def monitor_api(endpoint: str):
+def monitor_api(endpoint: str) -> Callable[[F], F]:
     """
     API 性能监控装饰器（便捷函数）
 
@@ -281,7 +281,7 @@ def monitor_api(endpoint: str):
     return PerformanceMonitor.monitor_api(endpoint)
 
 
-def monitor_operation(operation_name: str):
+def monitor_operation(operation_name: str) -> _GeneratorContextManager[None]:
     """
     操作性能监控上下文管理器（便捷函数）
 
