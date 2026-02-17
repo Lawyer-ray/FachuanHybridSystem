@@ -60,9 +60,9 @@ def submit_sms(request, payload: CourtSMSSubmitIn):
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
 def submit_sms_form(
     request,
-    content: str = Form(...),
-    received_at: Optional[datetime] = Form(None),
-    sender: Optional[str] = Form(None)
+    content: str = Form[str](...),
+    received_at: Optional[datetime] = Form[Optional[datetime]](None),
+    sender: Optional[str] = Form[Optional[str]](None)
 ):
     """
     提交法院短信（表单格式）

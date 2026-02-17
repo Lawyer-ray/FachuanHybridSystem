@@ -42,7 +42,7 @@ class CaseAccessService:
         self,
         case_id: Optional[int] = None,
         grantee_id: Optional[int] = None,
-        user=None,
+        user: Any = None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
     ) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
@@ -79,7 +79,7 @@ class CaseAccessService:
     def get_grant(
         self,
         grant_id: int,
-        user=None,
+        user: Any = None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
@@ -107,7 +107,7 @@ class CaseAccessService:
         self,
         case_id: int,
         grantee_id: int,
-        user=None,
+        user: Any = None,
     ) -> CaseAccessGrant:
         """
         创建授权（授予用户案件访问权限）
@@ -146,7 +146,7 @@ class CaseAccessService:
         self,
         grant_id: int,
         data: Dict[str, Any],
-        user=None,
+        user: Any = None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
@@ -180,7 +180,7 @@ class CaseAccessService:
     def delete_grant(
         self,
         grant_id: int,
-        user=None,
+        user: Any = None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
     ) -> Dict[str, bool]:
@@ -208,7 +208,7 @@ class CaseAccessService:
 
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user=None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
+    def get_grants_for_case(self, case_id: int, user: Any = None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
         获取案件的所有访问授权
 
@@ -221,7 +221,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
 
-    def get_grants_for_user(self, user_id: int, user=None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
+    def get_grants_for_user(self, user_id: int, user: Any = None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
         获取用户的所有案件访问授权
 
@@ -234,7 +234,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
-    def get_accessible_case_ids(self, user_id: int, user=None) -> Set[int]:
+    def get_accessible_case_ids(self, user_id: int, user: Any = None) -> Set[int]:
         """
         获取用户可访问的案件 ID 集合
 
@@ -251,7 +251,7 @@ class CaseAccessService:
             .values_list("case_id", flat=True)
         )
 
-    def grant_access(self, case_id: int, grantee_id: int, user=None) -> CaseAccessGrant:
+    def grant_access(self, case_id: int, grantee_id: int, user: Any = None) -> CaseAccessGrant:
         """
         授予用户案件访问权限（别名方法，保持向后兼容）
 
@@ -269,7 +269,7 @@ class CaseAccessService:
         """
         return self.create_grant(case_id=case_id, grantee_id=grantee_id, user=user)
 
-    def revoke_access(self, case_id: int, grantee_id: int, user=None) -> bool:
+    def revoke_access(self, case_id: int, grantee_id: int, user: Any = None) -> bool:
         """
         撤销用户案件访问权限
 
@@ -296,7 +296,7 @@ class CaseAccessService:
 
         return True
 
-    def revoke_access_by_id(self, grant_id: int, user=None) -> bool:
+    def revoke_access_by_id(self, grant_id: int, user: Any = None) -> bool:
         """
         通过授权 ID 撤销访问权限（别名方法，保持向后兼容）
 
@@ -317,7 +317,7 @@ class CaseAccessService:
         self,
         case_id: int,
         grantee_ids: List[int],
-        user=None,
+        user: Any = None,
     ) -> List[CaseAccessGrant]:
         """
         批量授予案件访问权限

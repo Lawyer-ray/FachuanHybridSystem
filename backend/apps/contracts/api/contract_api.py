@@ -80,7 +80,7 @@ def get_contract(request, contract_id: int):
 
 
 class ContractWithCasesIn(ContractIn):
-    cases: Optional[list[dict]] = None
+    cases: Optional[list[dict[str, Any]]] = None
 
 
 @router.post("/contracts/full", response=ContractOut)

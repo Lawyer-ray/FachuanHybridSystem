@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from .models import Lawyer
 
 
-class LawyerRegistrationForm(UserCreationForm):
+class LawyerRegistrationForm(UserCreationForm[Lawyer]):
     """律师注册表单"""
 
     class Meta:

@@ -141,7 +141,7 @@ def create_client_with_docs(
     request,
     payload: ClientIn,
     doc_types: List[str],
-    files: List[UploadedFile] = File(...),
+    files: List[UploadedFile] = File[List[UploadedFile]](...),
 ):
     """
     创建客户并上传文档

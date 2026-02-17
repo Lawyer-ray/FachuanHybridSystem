@@ -9,6 +9,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.path import Path
@@ -16,7 +17,7 @@ from apps.core.path import Path
 logger = logging.getLogger(__name__)
 
 
-def read_uploaded_image(image: UploadedFile, *, logger: Any) -> np.ndarray | None | None:
+def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8] | None:
     try:
         image.seek(0)
         file_bytes = image.read()
@@ -32,7 +33,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> np.ndarray | Non
         return None
 
 
-def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger) -> str:  # type: ignore[no-untyped-def]
+def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:
     filename = getattr(image, "name", "image.jpg")
     _, ext = os.path.splitext(filename)
     if not ext:

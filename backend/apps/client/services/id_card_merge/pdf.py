@@ -7,6 +7,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
@@ -17,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_a4_pdf(
-    front_image: np.ndarray,
-    back_image: np.ndarray,
+    front_image: NDArray[np.uint8],
+    back_image: NDArray[np.uint8],
     *,
     id_card_aspect_ratio: float,
     output_dir: Path,

@@ -5,18 +5,19 @@ from typing import Any
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
 
 def perspective_transform(
-    image: np.ndarray,
-    corners: np.ndarray,
+    image: NDArray[np.uint8],
+    corners: NDArray[np.float32],
     *,
     id_card_aspect_ratio: float,
     min_output_width: int,
     logger: Any,
-) -> np.ndarray:
+) -> NDArray[np.uint8]:
     src_pts = corners.astype(np.float32)
 
     width_top = np.linalg.norm(corners[1] - corners[0])

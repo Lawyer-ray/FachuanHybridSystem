@@ -20,7 +20,7 @@ def _get_client_service():
 
 
 @router.post("/clients/{client_id}/identity-docs")
-def add_identity_doc(request, client_id: int, doc_type: str, file: UploadedFile = File(...)):
+def add_identity_doc(request, client_id: int, doc_type: str, file: UploadedFile = File[UploadedFile](...)):
     """
     添加证件文档
     

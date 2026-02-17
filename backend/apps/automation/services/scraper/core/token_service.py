@@ -171,7 +171,7 @@ class TokenService:
             logger.error(f"删除 Token 失败: {e}", exc_info=True)
             raise
     
-    def get_token_info(self, site_name: str, account: str) -> Optional[dict]:
+    def get_token_info(self, site_name: str, account: str) -> Optional[dict[str, Any]]:
         """
         获取 Token 详细信息
         
