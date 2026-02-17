@@ -19,7 +19,7 @@ class ContractFinanceService:
     - 收款/开票数据聚合
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """构造函数，预留依赖注入扩展"""
         pass
 

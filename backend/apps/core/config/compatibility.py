@@ -245,7 +245,7 @@ class CompatibleSettings:
         except AttributeError:
             return default
     
-    def configure(self, **options) -> None:
+    def configure(self, **options: Any) -> None:
         """
         配置设置（兼容 Django settings.configure()）
         
@@ -435,7 +435,7 @@ class SettingsProxy:
         """代理目录列表"""
         return dir(self._compatible_settings)
     
-    def configure(self, **options) -> None:
+    def configure(self, **options: Any) -> None:
         """代理配置方法"""
         return self._compatible_settings.configure(**options)
     
@@ -466,7 +466,7 @@ class SettingsProxy:
         """
         self._compatible_settings.enable_fallback(not enabled)
     
-    def get_original_settings(self):
+    def get_original_settings(self) -> Any:
         """
         获取原始 Django settings
         
