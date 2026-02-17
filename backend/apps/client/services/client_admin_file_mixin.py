@@ -74,7 +74,7 @@ class ClientAdminFileMixin:
             if doc:
                 from .client_identity_doc_service import ClientIdentityDocService
 
-                ClientIdentityDocService().rename_uploaded_file(doc)  # type: ignore[no-untyped-call]
+                ClientIdentityDocService().rename_uploaded_file(doc)
             logger.info(
                 "证件文件保存成功",
                 extra={

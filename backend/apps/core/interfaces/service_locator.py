@@ -366,7 +366,7 @@ class ServiceLocator:
             # 延迟导入,避免循环依赖
             from apps.contracts.services.contract_payment_service import ContractPaymentService
 
-            service = ContractPaymentService()  # type: ignore[no-untyped-call]
+            service = ContractPaymentService()
             cls.register("contract_payment_service", service)
         return service
 
@@ -508,7 +508,7 @@ class ServiceLocator:
             # 延迟导入,避免循环依赖
             from apps.cases.services.case_chat_service import CaseChatService
 
-            service = CaseChatService()  # type: ignore[no-untyped-call]
+            service = CaseChatService()
             cls.register("case_chat_service", service)
         return service  # type: ignore[return-value]
 

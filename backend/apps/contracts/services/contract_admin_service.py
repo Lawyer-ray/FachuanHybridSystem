@@ -139,7 +139,7 @@ class ContractAdminService:
         case = Case.objects.create(
             contract=contract,
             name=f"{contract.name} - 案件",
-            case_type=case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),  # type: ignore[arg-type, call-overload]
+            case_type=case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
             is_archived=False,
         )
         

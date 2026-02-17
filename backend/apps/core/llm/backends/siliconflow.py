@@ -107,9 +107,9 @@ class SiliconFlowBackend:
             if role == "system":
                 langchain_messages.append(SystemMessage(content=content))
             elif role == "assistant":
-                langchain_messages.append(AIMessage(content=content))  # type: ignore[arg-type]
+                langchain_messages.append(AIMessage(content=content))
             else:
-                langchain_messages.append(HumanMessage(content=content))  # type: ignore[arg-type]
+                langchain_messages.append(HumanMessage(content=content))
         return langchain_messages
 
     def _extract_token_usage(self, response_metadata: dict[str, Any]) -> tuple[Any, ...]:
@@ -162,7 +162,7 @@ class SiliconFlowBackend:
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=self.timeout,
-        )  # type: ignore[arg-type, call-arg]
+        )
 
     def chat(
         self,
@@ -224,7 +224,7 @@ class SiliconFlowBackend:
             total_tokens=total_tokens,
             duration_ms=duration_ms,
             backend=self.BACKEND_NAME,
-        )  # type: ignore[arg-type]
+        )
 
     async def achat(
         self,
@@ -271,7 +271,7 @@ class SiliconFlowBackend:
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=timeout,
-        )  # type: ignore[arg-type, call-arg]
+        )
         langchain_messages = self._convert_messages(messages)
         start_time = time.time()
         try:
@@ -301,7 +301,7 @@ class SiliconFlowBackend:
             total_tokens=total_tokens,
             duration_ms=duration_ms,
             backend=self.BACKEND_NAME,
-        )  # type: ignore[arg-type]
+        )
 
     def stream(
         self,
@@ -363,7 +363,7 @@ class SiliconFlowBackend:
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=timeout,
-        )  # type: ignore[arg-type, call-arg]
+        )
         langchain_messages = self._convert_messages(messages)
         try:
             async for chunk in llm.astream(langchain_messages):
@@ -433,7 +433,7 @@ class SiliconFlowBackend:
             temperature=temperature if temperature is not None else LLMConfig.get_temperature(),
             max_tokens=max_tokens if max_tokens is not None else LLMConfig.get_max_tokens(),
             timeout=self.timeout,
-        )  # type: ignore[arg-type, call-arg]
+        )
 
     def get_structured_llm(self, schema: type, model: str | None = None, method: str = "json_mode") -> Any:
         """
@@ -448,7 +448,7 @@ class SiliconFlowBackend:
             绑定了结构化输出的 Runnable 实例
         """
         llm = self.get_langchain_llm(model=model)
-        return llm.with_structured_output(schema, method=method)  # type: ignore[arg-type]
+        return llm.with_structured_output(schema, method=method)
 
 
 if TYPE_CHECKING:
