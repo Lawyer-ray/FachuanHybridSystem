@@ -19,7 +19,7 @@ class ChatNameBuilder:
         if self._config_service is None:
             from apps.cases.services.chat_name_config_service import ChatNameConfigService
 
-            self._config_service = ChatNameConfigService()  # type: ignore[no-untyped-call]
+            self._config_service = ChatNameConfigService()
         return self._config_service
 
     def build(self, *, case: Any) -> str:
