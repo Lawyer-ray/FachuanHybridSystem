@@ -40,7 +40,7 @@ class AuthService:
                 code="INVALID_CREDENTIALS"
             )
         login(request, user)
-        return user
+        return user  # type: ignore[return-value]
     
     def logout(self, request: Any) -> None:
         """
