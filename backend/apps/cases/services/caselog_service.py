@@ -46,10 +46,10 @@ class CaseLogService:
     def list_logs(
         self,
         case_id: int | None = None,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> QuerySet[CaseLog]:
         """
         获取日志列表
 
@@ -89,7 +89,7 @@ class CaseLogService:
     def get_log(
         self,
         log_id: int,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
@@ -125,7 +125,7 @@ class CaseLogService:
         self,
         case_id: int,
         content: str,
-        user=None,
+        user: Any = None,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
     ) -> CaseLog:
@@ -164,7 +164,7 @@ class CaseLogService:
         self,
         log_id: int,
         data: dict[str, Any],
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
@@ -212,7 +212,7 @@ class CaseLogService:
     def delete_log(
         self,
         log_id: int,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
@@ -426,7 +426,7 @@ class CaseLogService:
     def delete_attachment(
         self,
         attachment_id: int,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:

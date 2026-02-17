@@ -112,7 +112,7 @@ class LawyerService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawyer(self, data: LawyerCreateIn, user: Lawyer, license_pdf=None) -> Lawyer:
+    def create_lawyer(self, data: LawyerCreateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
         """
         创建律师
 
@@ -177,7 +177,7 @@ class LawyerService:
         return lawyer
 
     @transaction.atomic
-    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf=None) -> Lawyer:
+    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
         """
         更新律师
 
