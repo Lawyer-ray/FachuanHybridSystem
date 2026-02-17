@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Optional, Dict, Any, List
 from django.db import transaction
-from django.db.models import Count, Q, Sum, Avg
+from django.db.models import Count, Q, Sum, Avg, QuerySet
 from django.utils import timezone
 from django.http import HttpResponse
 from django.conf import settings
@@ -26,7 +26,7 @@ class CourtDocumentAdminService:
     - 文件管理操作
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
     
     @transaction.atomic
@@ -204,7 +204,7 @@ class CourtDocumentAdminService:
                 errors={"error": str(e)}
             )
     
-    def get_document_statistics(self, queryset=None) -> Dict[str, Any]:
+    def get_document_statistics(self, queryset: Optional[QuerySet[Any]] = None) -> Dict[str, Any]:
         """
         获取文书统计数据
         
@@ -260,10 +260,11 @@ class CourtDocumentAdminService:
             )
             
             # 按日期统计（最近30天）
+            from datetime import timedelta
             now = timezone.now()
             date_stats = []
             for i in range(30):
-                date = (now - timezone.timedelta(days=i)).date()
+                date = (now - timedelta(days=i)).date()
                 day_count = queryset.filter(created_at__date=date).count()
                 day_success = queryset.filter(
                     created_at__date=date,

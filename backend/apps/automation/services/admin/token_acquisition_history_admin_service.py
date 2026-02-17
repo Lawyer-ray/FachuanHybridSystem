@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Count, Avg, Q
+from django.db.models import Count, Avg, Q, QuerySet
 
 from apps.core.exceptions import ValidationException, BusinessException
 from ...models import TokenAcquisitionHistory, TokenAcquisitionStatus
@@ -25,7 +25,7 @@ class TokenAcquisitionHistoryAdminService:
     - 重新分析性能数据
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
     
     @transaction.atomic
@@ -100,7 +100,7 @@ class TokenAcquisitionHistoryAdminService:
             from apps.core.exceptions import AutomationExceptions
             raise AutomationExceptions.cleanup_records_failed()
     
-    def export_to_csv(self, queryset) -> HttpResponse:
+    def export_to_csv(self, queryset: QuerySet[Any]) -> HttpResponse:
         """
         导出选中记录为CSV文件
         
@@ -186,7 +186,7 @@ class TokenAcquisitionHistoryAdminService:
             from apps.core.exceptions import AutomationExceptions
             raise AutomationExceptions.export_csv_failed()
     
-    def reanalyze_performance(self, queryset) -> Dict[str, Any]:
+    def reanalyze_performance(self, queryset: QuerySet[Any]) -> Dict[str, Any]:
         """
         重新分析性能数据
         
@@ -226,7 +226,7 @@ class TokenAcquisitionHistoryAdminService:
                 avg_duration = avg_duration_result['avg_duration'] or 0
             
             # 分析错误类型
-            error_stats = {}
+            error_stats: Dict[str, int] = {}
             failed_records = queryset.exclude(status=TokenAcquisitionStatus.SUCCESS)
             for record in failed_records:
                 status = record.get_status_display()

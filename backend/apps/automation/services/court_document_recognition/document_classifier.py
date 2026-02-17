@@ -208,7 +208,7 @@ class DocumentClassifier:
             logger.warning(f"解析分类响应失败: {str(e)}")
             return DocumentType.OTHER, 0.0
     
-    def _extract_json_from_response(self, content: str) -> Optional[dict]:
+    def _extract_json_from_response(self, content: str) -> Optional[Dict[str, Any]]:
         """
         从响应内容中提取 JSON
         

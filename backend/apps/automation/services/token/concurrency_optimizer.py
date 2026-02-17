@@ -69,8 +69,8 @@ class ConcurrencyOptimizer:
         self._locks: Dict[str, asyncio.Lock] = {}
         self._lock_creation_lock = asyncio.Lock()
         self._resource_usage = ResourceUsage()
-        self._acquisition_queue: asyncio.Queue = asyncio.Queue()
-        self._queue_processors: Dict[str, asyncio.Task] = {}
+        self._acquisition_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+        self._queue_processors: Dict[str, asyncio.Task[Any]] = {}
     
     async def acquire_resource(
         self, 
@@ -268,7 +268,7 @@ class ConcurrencyOptimizer:
         Returns:
             检测到的死锁列表
         """
-        deadlocks = []
+        deadlocks: List[Dict[str, Any]] = []
         
         # 检查长时间持有的锁
         current_time = time.time()
