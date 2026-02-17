@@ -47,7 +47,7 @@ class CaseChatService:
     - 数据持久化和事务管理
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化案件群聊服务"""
         self.factory = ChatProviderFactory
         logger.debug("CaseChatService 初始化完成")

@@ -18,7 +18,7 @@ class CoreConfig(AppConfig):
     name = 'apps.core'
     verbose_name = '核心系统'
     
-    def ready(self):
+    def ready(self) -> None:
         """应用就绪时的初始化操作"""
         # 导入 admin 模块以注册 Admin 类
         from . import admin  # noqa: F401
@@ -39,7 +39,7 @@ class CoreConfig(AppConfig):
             if getattr(settings, 'DEBUG', False):
                 raise
     
-    def _initialize_config_manager(self):
+    def _initialize_config_manager(self) -> None:
         """初始化配置管理器"""
         try:
             # 检查配置管理器是否可用
