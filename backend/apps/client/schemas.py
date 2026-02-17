@@ -41,7 +41,7 @@ class ClientOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_identity_docs(obj: Client) -> List[ClientIdentityDocOut]:
-        items: List[ClientIdentityDoc] = list(obj.identity_docs.all())
+        items: List[ClientIdentityDoc] = list(obj.identity_docs.all())  # type: ignore[attr-defined]
         return [
             ClientIdentityDocOut(
                 doc_type=item.doc_type,

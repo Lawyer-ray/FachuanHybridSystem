@@ -65,7 +65,7 @@ class RateLimiter:
         key_hash = hashlib.md5(identifier.encode()).hexdigest()[:16]
         return f"{self.key_prefix}:{key_hash}"
 
-    def is_allowed(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> Tuple[bool, dict]:
+    def is_allowed(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> Tuple[bool, dict[str, Any]]:
         """
         检查请求是否被允许
 
