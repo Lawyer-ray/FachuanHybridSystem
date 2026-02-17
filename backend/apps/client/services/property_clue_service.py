@@ -2,7 +2,7 @@
 财产线索服务层
 处理财产线索相关的业务逻辑
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from django.db.models import QuerySet
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -10,6 +10,9 @@ from django.contrib.auth import get_user_model
 from apps.core.exceptions import NotFoundError, ValidationException
 from ..models import PropertyClue, PropertyClueAttachment
 import logging
+
+if TYPE_CHECKING:
+    from .client_service import ClientService
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")

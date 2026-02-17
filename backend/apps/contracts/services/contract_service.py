@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
     from .contract_payment_service import ContractPaymentService
     from .supplementary_agreement_service import SupplementaryAgreementService
+    from .lawyer_assignment_service import LawyerAssignmentService
+    from ..models import ContractPayment
 
 logger = logging.getLogger("apps.contracts")
 
