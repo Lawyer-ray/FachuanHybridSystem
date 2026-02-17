@@ -16,7 +16,7 @@ logger = logging.getLogger("apps.automation")
 class MonitorService:
     """任务监控服务"""
     
-    def __init__(self, task_service=None, alert_service=None):
+    def __init__(self, task_service: Any = None, alert_service: Any = None) -> None:
         """
         初始化监控服务
         
@@ -28,7 +28,7 @@ class MonitorService:
         self._alert_service = alert_service
     
     @property
-    def task_service(self):
+    def task_service(self) -> Any:
         """延迟加载任务服务"""
         if self._task_service is None:
             # 通过ServiceLocator获取任务服务
@@ -42,7 +42,7 @@ class MonitorService:
         return self._task_service
     
     @property
-    def alert_service(self):
+    def alert_service(self) -> Any:
         """延迟加载告警服务"""
         if self._alert_service is None:
             # 使用logger作为默认告警服务
@@ -174,7 +174,7 @@ class MonitorService:
         
         return high_failure
     
-    def send_alert(self, title: str, message: str, level: str = "warning"):
+    def send_alert(self, title: str, message: str, level: str = "warning") -> None:
         """
         发送告警（预留接口）
         

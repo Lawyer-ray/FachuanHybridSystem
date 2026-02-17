@@ -22,7 +22,7 @@ class CourtDocumentService:
     负责文书记录的业务逻辑处理
     """
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         初始化服务（支持依赖注入）
         

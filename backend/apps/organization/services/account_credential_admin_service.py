@@ -5,7 +5,7 @@ AccountCredentialAdminService - 账号凭证管理服务
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -50,7 +50,7 @@ class AccountCredentialAdminService:
         self._token_service = None
 
     @property
-    def auto_login_service(self) -> Any:
+    def auto_login_service(self) -> "Any":
         """延迟加载 AutoLoginService"""
         if self._auto_login_service is None:
             from apps.automation.services.token.auto_login_service import AutoLoginService
@@ -58,7 +58,7 @@ class AccountCredentialAdminService:
         return self._auto_login_service
     
     @property
-    def token_service(self) -> Any:
+    def token_service(self) -> "Any":
         """延迟加载 AutoTokenAcquisitionService"""
         if self._token_service is None:
             from apps.automation.services.token.auto_token_acquisition_service import (
@@ -312,7 +312,7 @@ class AccountCredentialAdminService:
     
     def _execute_single_login(
         self,
-        credential,
+        credential: Any,
         admin_user: str,
         trigger_reason: str,
     ) -> LoginResult:
@@ -414,12 +414,12 @@ class AccountCredentialAdminService:
 
     def _record_login_history(
         self,
-        credential,
+        credential: Any,
         success: bool,
         duration: float,
         trigger_reason: str,
-        start_time,
-        end_time,
+        start_time: Any,
+        end_time: Any,
         token: Optional[str] = None,
         error_message: Optional[str] = None,
         error_details: Optional[dict] = None,

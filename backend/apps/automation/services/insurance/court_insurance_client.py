@@ -154,7 +154,7 @@ class CourtInsuranceClient:
         """获取最大连接数"""
         return get_config("services.insurance.max_connections", 100)  # type: ignore[no-any-return]
     
-    async def close(self):
+    async def close(self) -> None:
         """
         关闭客户端，释放连接池资源
         
@@ -163,11 +163,11 @@ class CourtInsuranceClient:
         await self._client.aclose()
         logger.info("httpx 客户端已关闭")
     
-    async def __aenter__(self):
+    async def __aenter__(self) -> "CourtInsuranceClient":
         """支持异步上下文管理器"""
         return self
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """支持异步上下文管理器"""
         await self.close()
     

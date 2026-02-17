@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.automation")
 class SecurityService:
     """安全服务"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化加密密钥"""
         # 从配置获取密钥，如果没有则生成一个
         key = getattr(settings, "SCRAPER_ENCRYPTION_KEY", None)

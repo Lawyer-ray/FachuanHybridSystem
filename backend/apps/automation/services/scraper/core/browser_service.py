@@ -20,12 +20,12 @@ class BrowserService:
     _playwright: Optional[Playwright] = None
     _browser: Optional[Browser] = None
     
-    def __new__(cls):
+    def __new__(cls) -> "BrowserService":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 避免重复初始化
         if not hasattr(self, "_initialized"):
             self._initialized = True
@@ -105,7 +105,7 @@ class BrowserService:
         logger.info("创建新的浏览器上下文（反检测: %s）", use_anti_detection)
         return context
     
-    def close(self):
+    def close(self) -> None:
         """关闭浏览器和 Playwright"""
         if self._browser:
             logger.info("关闭浏览器...")
@@ -118,7 +118,7 @@ class BrowserService:
         
         logger.info("浏览器已关闭")
     
-    def __del__(self):
+    def __del__(self) -> None:
         """析构时自动关闭"""
         self.close()
 

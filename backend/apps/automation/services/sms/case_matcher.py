@@ -72,7 +72,7 @@ class CaseMatcher:
         """
         return self.document_parser_service.extract_parties_from_document(document_path)
 
-    def match(self, sms, document_path: str | None = None) -> Optional:
+    def match(self, sms: Any, document_path: str | None = None) -> Any:
         """
         匹配案件
 
@@ -133,7 +133,7 @@ class CaseMatcher:
                 message=f"案件匹配失败: {e!s}", code="CASE_MATCH_FAILED", errors={"error": str(e)}
             )
 
-    def _match_by_case_number_exact(self, case_numbers: list[str]) -> Optional:
+    def _match_by_case_number_exact(self, case_numbers: list[str]) -> Any:
         """
         第一优先级：案号精确匹配
 
@@ -189,7 +189,7 @@ class CaseMatcher:
         logger.warning(f"案号匹配到多个在办案件，需人工决断: {', '.join(case_names)}")
         return None
 
-    def _extract_party_names(self, sms) -> list[str]:
+    def _extract_party_names(self, sms: Any) -> list[str]:
         """
         提取当事人名称
 
@@ -246,7 +246,7 @@ class CaseMatcher:
 
         return self._find_all_matching_cases(matched_clients)
 
-    def _narrow_down_by_case_number_features(self, cases: List[Any], case_numbers: list[str]) -> Optional:
+    def _narrow_down_by_case_number_features(self, cases: List[Any], case_numbers: list[str]) -> Any:
         """
         第三优先级：通过案号特征缩小案件范围
 
@@ -433,7 +433,7 @@ class CaseMatcher:
 
         return None
 
-    def match_by_case_number(self, case_numbers: list[str]) -> Optional:
+    def match_by_case_number(self, case_numbers: list[str]) -> Any:
         """
         通过案号匹配案件（兼容旧接口）
 
@@ -441,7 +441,7 @@ class CaseMatcher:
         """
         return self._match_by_case_number_exact(case_numbers)
 
-    def _select_latest_case(self, cases: List[Any]) -> Optional:
+    def _select_latest_case(self, cases: List[Any]) -> Any:
         """从案件列表中选择最新的案件（按 ID 降序，ID 越大越新）"""
         if not cases:
             return None
@@ -459,7 +459,7 @@ class CaseMatcher:
 
         return selected_case
 
-    def match_by_party_names(self, party_names: list[str]) -> Optional:
+    def match_by_party_names(self, party_names: list[str]) -> Any:
         """
         通过当事人名称匹配案件（兼容旧接口）
 
@@ -476,7 +476,7 @@ class CaseMatcher:
         # 多个匹配，选择最新的（ID最大）
         return self._select_latest_case(matched_cases)
 
-    def _check_and_log_closed_cases(self, sms) -> None:
+    def _check_and_log_closed_cases(self, sms: Any) -> None:
         """检查是否有匹配的案件但状态为已结案"""
         from apps.core.enums import CaseStatus
 
