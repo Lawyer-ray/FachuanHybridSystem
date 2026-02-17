@@ -36,7 +36,7 @@ class ChatAuditLogger:
         audit_logger.log_chat_creation_success(case_id=123, chat_id="oc_def456", owner_info={...})
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化审计日志器"""
         self.logger = logging.getLogger(f"{__name__}.ChatAuditLogger")
         self.audit_enabled = self._is_audit_enabled()
@@ -97,7 +97,7 @@ class ChatAuditLogger:
         
         return entry
     
-    def _log_audit_entry(self, entry: Dict[str, Any], level: str = 'INFO'):
+    def _log_audit_entry(self, entry: Dict[str, Any], level: str = 'INFO') -> None:
         """记录审计日志条目
         
         Args:
@@ -158,7 +158,7 @@ class ChatAuditLogger:
         owner_id: Optional[str] = None,
         platform: str = "feishu",
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群聊创建开始
         
         Args:
@@ -197,7 +197,7 @@ class ChatAuditLogger:
         chat_name: Optional[str] = None,
         platform: str = "feishu",
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群聊创建成功
         
         Args:
@@ -240,7 +240,7 @@ class ChatAuditLogger:
         platform: str = "feishu",
         error_code: Optional[str] = None,
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群聊创建失败
         
         Args:
@@ -284,7 +284,7 @@ class ChatAuditLogger:
         case_id: Optional[int] = None,
         error_code: Optional[str] = None,
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群主设置失败
         
         Args:
@@ -327,7 +327,7 @@ class ChatAuditLogger:
         success: bool,
         case_id: Optional[int] = None,
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群主验证结果
         
         Args:
@@ -373,7 +373,7 @@ class ChatAuditLogger:
         delay: float = 0.0,
         case_id: Optional[int] = None,
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录群主设置重试尝试
         
         Args:
@@ -414,7 +414,7 @@ class ChatAuditLogger:
         missing_config: Optional[str] = None,
         platform: str = "feishu",
         additional_details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """记录配置错误
         
         Args:
