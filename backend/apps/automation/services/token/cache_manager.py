@@ -28,7 +28,7 @@ class TokenCacheManager:
     4. 智能缓存失效
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化缓存管理器"""
         self.cache_prefix = "auto_token"
     

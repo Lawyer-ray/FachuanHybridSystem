@@ -25,7 +25,7 @@ class TokenHistoryRecorder:
     3. 性能数据持久化
     """
     
-    def __init__(self, db_service=None):
+    def __init__(self, db_service: Any = None) -> None:
         """
         初始化历史记录器
         
@@ -35,7 +35,7 @@ class TokenHistoryRecorder:
         self._db_service = db_service
     
     @property
-    def db_service(self):
+    def db_service(self) -> Any:
         """延迟加载数据库服务"""
         if self._db_service is None:
             # 使用Django ORM作为默认数据库服务
@@ -110,7 +110,7 @@ class TokenHistoryRecorder:
             
             # 创建历史记录
             @sync_to_async
-            def create_history():
+            def create_history() -> Any:
                 return TokenAcquisitionHistory.objects.create(
                     site_name=site_name,
                     account=account,
@@ -169,7 +169,7 @@ class TokenHistoryRecorder:
             start_time = timezone.now() - timezone.timedelta(hours=hours)
             
             @sync_to_async
-            def get_stats():
+            def get_stats() -> dict[str, Any]:
                 queryset = TokenAcquisitionHistory.objects.filter(
                     created_at__gte=start_time
                 )
@@ -230,7 +230,7 @@ class TokenHistoryRecorder:
             cutoff_date = timezone.now() - timezone.timedelta(days=days)
             
             @sync_to_async
-            def delete_old_records():
+            def delete_old_records() -> int:
                 deleted_count, _ = TokenAcquisitionHistory.objects.filter(
                     created_at__lt=cutoff_date
                 ).delete()
@@ -272,7 +272,7 @@ class TokenHistoryRecorder:
             start_time = timezone.now() - timezone.timedelta(days=days)
             
             @sync_to_async
-            def get_account_stats():
+            def get_account_stats() -> dict[str, Any]:
                 queryset = TokenAcquisitionHistory.objects.filter(
                     account=account,
                     site_name=site_name,
