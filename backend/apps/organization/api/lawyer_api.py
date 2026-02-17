@@ -2,11 +2,13 @@
 律师 API
 只负责请求/响应处理，业务逻辑在 Service 层
 """
-from typing import Any, List
-from ninja import Router, File
+
+from typing import Any
+
+from ninja import File, Router
 from ninja.files import UploadedFile
 
-from ..schemas import LawyerOut, LawyerCreateIn, LawyerUpdateIn
+from ..schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
 from ..services import LawyerService
 
 router = Router()
@@ -15,14 +17,15 @@ router = Router()
 def _get_lawyer_service() -> LawyerService:
     """工厂函数：创建 LawyerService 实例"""
     from ..services import LawyerService
+
     return LawyerService()
 
 
-@router.get("/lawyers", response=List[LawyerOut])
+@router.get("/lawyers", response=list[LawyerOut])
 def list_lawyers(request: Any) -> Any:
     """列表查询律师"""
     service = _get_lawyer_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     lawyers = service.list_lawyers(user=user)
     return list(lawyers)
 
@@ -31,8 +34,8 @@ def list_lawyers(request: Any) -> Any:
 def get_lawyer(request: Any, lawyer_id: int) -> Any:
     """获取律师详情"""
     service = _get_lawyer_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    lawyer = service.get_lawyer(lawyer_id, user)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    lawyer = service.get_lawyer(lawyer_id, user)  # type: ignore[arg-type]
     return lawyer
 
 
@@ -40,16 +43,12 @@ def get_lawyer(request: Any, lawyer_id: int) -> Any:
 def create_lawyer(
     request: Any,
     payload: LawyerCreateIn,
-    license_pdf: UploadedFile | None = File[UploadedFile | None](None)
+    license_pdf: UploadedFile | None = File[UploadedFile | None](None),  # type: ignore[misc]
 ) -> Any:
     """创建律师"""
     service = _get_lawyer_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    lawyer = service.create_lawyer(
-        data=payload,
-        user=user,
-        license_pdf=license_pdf
-    )
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    lawyer = service.create_lawyer(data=payload, user=user, license_pdf=license_pdf)  # type: ignore[arg-type]
     return lawyer
 
 
@@ -58,16 +57,16 @@ def update_lawyer(
     request: Any,
     lawyer_id: int,
     payload: LawyerUpdateIn,
-    license_pdf: UploadedFile | None = File[UploadedFile | None](None)
+    license_pdf: UploadedFile | None = File[UploadedFile | None](None),  # type: ignore[misc]
 ) -> Any:
     """更新律师"""
     service = _get_lawyer_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     lawyer = service.update_lawyer(
         lawyer_id=lawyer_id,
         data=payload,
         user=user,
-        license_pdf=license_pdf
+        license_pdf=license_pdf,  # type: ignore[arg-type]
     )
     return lawyer
 
@@ -76,6 +75,6 @@ def update_lawyer(
 def delete_lawyer(request: Any, lawyer_id: int) -> dict[str, bool]:
     """删除律师"""
     service = _get_lawyer_service()
-    user = getattr(request, 'auth', None) or getattr(request, 'user', None)
-    service.delete_lawyer(lawyer_id, user)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    service.delete_lawyer(lawyer_id, user)  # type: ignore[arg-type]
     return {"success": True}

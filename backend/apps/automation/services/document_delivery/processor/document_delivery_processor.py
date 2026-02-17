@@ -14,7 +14,7 @@ import tempfile
 import threading
 import zipfile
 from datetime import date
-from typing import Any, Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from apps.automation.models import DocumentQueryHistory
 from apps.core.interfaces import ServiceLocator
@@ -150,7 +150,7 @@ class DocumentDeliveryProcessor:
                     matched_case = self.match_case_by_document_parties(extracted_files)
 
                 if matched_case:
-                    sms.case_id = matched_case.id
+                    sms.case_id = matched_case.id  # type: ignore[attr-defined]
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
                     result["case_id"] = matched_case.id
@@ -167,7 +167,7 @@ class DocumentDeliveryProcessor:
                         result["renamed_path"] = renamed_files[0]
                     if case_log_id:
                         result["case_log_id"] = case_log_id
-                        sms.case_log_id = case_log_id
+                        sms.case_log_id = case_log_id  # type: ignore[attr-defined]
 
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()
@@ -261,7 +261,7 @@ class DocumentDeliveryProcessor:
             logger.warning(f"从文书提取当事人匹配失败: {e!s}")
             return None
 
-    def rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         renamed_files = []
         case_log_id = None

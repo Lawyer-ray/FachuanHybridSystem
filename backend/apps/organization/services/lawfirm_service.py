@@ -4,6 +4,7 @@
 """
 
 import logging
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Count, QuerySet
@@ -13,7 +14,6 @@ from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from ..models import LawFirm, Lawyer
 from ..schemas import LawFirmIn, LawFirmUpdateIn
-from typing import Any
 
 logger = logging.getLogger("apps.organization")
 
@@ -69,7 +69,11 @@ class LawFirmService:
         return lawfirm
 
     def list_lawfirms(
-        self, page: int = 1, page_size: int = 20, filters: dict[str, Any] = None, user: Lawyer = None
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        filters: dict[str, Any] = None,
+        user: Lawyer = None,  # type: ignore[assignment]
     ) -> "QuerySet[LawFirm, LawFirm]":
         """
         列表查询
@@ -91,7 +95,7 @@ class LawFirmService:
         # 应用权限过滤
         if user and not user.is_superuser:
             # 普通用户只能看到自己所属的律所
-            queryset = queryset.filter(id=user.law_firm_id)
+            queryset = queryset.filter(id=user.law_firm_id)  # type: ignore[attr-defined]
 
         # 应用业务过滤
         if filters.get("name"):
@@ -125,7 +129,8 @@ class LawFirmService:
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
-                f"用户 {user.id} 尝试创建律所但权限不足", extra={"user_id": user.id, "action": "create_lawfirm"}
+                f"用户 {user.id} 尝试创建律所但权限不足",
+                extra={"user_id": user.id, "action": "create_lawfirm"},  # type: ignore[attr-defined]
             )
             raise PermissionDenied(message="无权限创建律所", code="PERMISSION_DENIED")
 
@@ -141,7 +146,7 @@ class LawFirmService:
         )
 
         # 4. 记录日志
-        logger.info("律所创建成功", extra={"lawfirm_id": lawfirm.id, "user_id": user.id, "action": "create_lawfirm"})
+        logger.info("律所创建成功", extra={"lawfirm_id": lawfirm.id, "user_id": user.id, "action": "create_lawfirm"})  # type: ignore[attr-defined]
 
         return lawfirm
 
@@ -169,8 +174,8 @@ class LawFirmService:
         # 2. 权限检查
         if not self._check_update_permission(user, lawfirm):
             logger.warning(
-                f"用户 {user.id} 尝试更新律所 {lawfirm_id} 但权限不足",
-                extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "update_lawfirm"},
+                f"用户 {user.id} 尝试更新律所 {lawfirm_id} 但权限不足",  # type: ignore[attr-defined]
+                extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "update_lawfirm"},  # type: ignore[attr-defined]
             )
             raise PermissionDenied(message="无权限更新该律所", code="PERMISSION_DENIED")
 
@@ -190,7 +195,7 @@ class LawFirmService:
         lawfirm.save()
 
         # 5. 记录日志
-        logger.info("律所更新成功", extra={"lawfirm_id": lawfirm.id, "user_id": user.id, "action": "update_lawfirm"})
+        logger.info("律所更新成功", extra={"lawfirm_id": lawfirm.id, "user_id": user.id, "action": "update_lawfirm"})  # type: ignore[attr-defined]
 
         return lawfirm
 
@@ -214,23 +219,23 @@ class LawFirmService:
         # 2. 权限检查
         if not self._check_delete_permission(user, lawfirm):
             logger.warning(
-                f"用户 {user.id} 尝试删除律所 {lawfirm_id} 但权限不足",
-                extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "delete_lawfirm"},
+                f"用户 {user.id} 尝试删除律所 {lawfirm_id} 但权限不足",  # type: ignore[attr-defined]
+                extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "delete_lawfirm"},  # type: ignore[attr-defined]
             )
             raise PermissionDenied(message="无权限删除该律所", code="PERMISSION_DENIED")
 
         # 3. 业务验证（检查是否可以删除）
-        if lawfirm.lawyers.exists():
+        if lawfirm.lawyers.exists():  # type: ignore[attr-defined]
             raise ConflictError(message="律所下还有律师，无法删除", code="LAWFIRM_HAS_LAWYERS")
 
-        if lawfirm.teams.exists():
+        if lawfirm.teams.exists():  # type: ignore[attr-defined]
             raise ConflictError(message="律所下还有团队，无法删除", code="LAWFIRM_HAS_TEAMS")
 
         # 4. 删除律所
         lawfirm.delete()
 
         # 5. 记录日志
-        logger.info("律所删除成功", extra={"lawfirm_id": lawfirm_id, "user_id": user.id, "action": "delete_lawfirm"})
+        logger.info("律所删除成功", extra={"lawfirm_id": lawfirm_id, "user_id": user.id, "action": "delete_lawfirm"})  # type: ignore[attr-defined]
 
     # ========== 私有方法（业务逻辑封装） ==========
 
@@ -245,12 +250,12 @@ class LawFirmService:
             return True
 
         # 用户可以访问自己所属的律所
-        return user.law_firm_id == lawfirm.id  # type: ignore[no-any-return]
+        return user.law_firm_id == lawfirm.id  # type: ignore[no-any-return, attr-defined]
 
     def _check_update_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查更新权限（私有方法）"""
         # 超级管理员或律所管理员可以更新
-        return user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id)  # type: ignore[no-any-return]
+        return user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id)  # type: ignore[no-any-return, attr-defined]
 
     def _check_delete_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查删除权限（私有方法）"""

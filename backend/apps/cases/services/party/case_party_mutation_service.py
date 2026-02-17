@@ -73,7 +73,7 @@ class CasePartyMutationService:
             .exclude(legal_status="")
             .values_list("legal_status", flat=True)
         )
-        is_compatible = business_config.is_legal_status_compatible(
+        is_compatible = business_config.is_legal_status_compatible(  # type: ignore[attr-defined]
             new_status=legal_status, existing_statuses=existing_statuses
         )
         if not is_compatible:

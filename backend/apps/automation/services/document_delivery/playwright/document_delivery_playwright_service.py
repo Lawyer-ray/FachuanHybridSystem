@@ -13,7 +13,7 @@ import threading
 import traceback
 import zipfile
 from datetime import date, datetime
-from typing import Any, Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from playwright.sync_api import Page
 
@@ -224,14 +224,14 @@ class DocumentDeliveryPlaywrightService:
                                 )
 
                             # 如果文书时间晚于截止时间，需要继续翻页
-                            if entry.send_time > cutoff_time:
+                            if entry.send_time > cutoff_time:  # type: ignore[operator]
                                 should_continue = True
                         else:
                             result.skipped_count += 1
                             logger.info(f"⏭️ 跳过文书: {entry.case_number} - {entry.send_time}")
 
                             # 如果文书时间早于或等于截止时间，停止翻页
-                            if entry.send_time <= cutoff_time:
+                            if entry.send_time <= cutoff_time:  # type: ignore[operator]
                                 logger.info(f"文书时间 {entry.send_time} 早于截止时间 {cutoff_time}，停止翻页")
                                 should_continue = False
                                 break
@@ -335,11 +335,11 @@ class DocumentDeliveryPlaywrightService:
                             if process_result.error_message:
                                 result.errors.append(process_result.error_message)
 
-                        if entry.send_time > cutoff_time:
+                        if entry.send_time > cutoff_time:  # type: ignore[operator]
                             should_continue = True
                     else:
                         result.skipped_count += 1
-                        if entry.send_time <= cutoff_time:
+                        if entry.send_time <= cutoff_time:  # type: ignore[operator]
                             should_continue = False
                             break
 
@@ -553,7 +553,7 @@ class DocumentDeliveryPlaywrightService:
 
         return None
 
-    def _parse_document_text(self, text: str) -> Tuple[Any, ...]:
+    def _parse_document_text(self, text: str) -> tuple[Any, ...]:
         """
         从文书条目文本中解析案号和时间
 
@@ -610,7 +610,7 @@ class DocumentDeliveryPlaywrightService:
             是否需要处理
         """
         # 检查时间过滤
-        if record.send_time <= cutoff_time:
+        if record.send_time <= cutoff_time:  # type: ignore[operator]
             logger.info(f"⏰ 文书时间 {record.send_time} 早于截止时间 {cutoff_time}，跳过")
             return False
 
@@ -904,7 +904,7 @@ class DocumentDeliveryPlaywrightService:
 
                 if matched_case:
                     # 直接设置外键 ID，避免跨模块 Model 导入
-                    sms.case_id = matched_case.id
+                    sms.case_id = matched_case.id  # type: ignore[attr-defined]
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
                     result["case_id"] = matched_case.id
@@ -922,7 +922,7 @@ class DocumentDeliveryPlaywrightService:
                         result["renamed_path"] = renamed_files[0] if renamed_files else file_path
                     if case_log_id:
                         result["case_log_id"] = case_log_id
-                        sms.case_log_id = case_log_id
+                        sms.case_log_id = case_log_id  # type: ignore[attr-defined]
 
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()
@@ -1054,7 +1054,7 @@ class DocumentDeliveryPlaywrightService:
             logger.warning(f"案号同步失败: Case ID={case_id}, 案号={case_number}, 错误: {e!s}")
             return False
 
-    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
         """
         重命名文书并添加到案件日志
 

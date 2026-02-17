@@ -2,17 +2,15 @@
 补充协议服务层
 处理补充协议相关的业务逻辑
 """
-from typing import List, Optional, Dict, Any
-from django.db import transaction, IntegrityError
+
 import logging
+
+from django.db import IntegrityError, transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, ServiceLocator
-from ..models import (
-    Contract,
-    SupplementaryAgreement,
-    SupplementaryAgreementParty,
-)
+
+from ..models import Contract, SupplementaryAgreement, SupplementaryAgreementParty
 
 logger = logging.getLogger("apps.contracts")
 
@@ -33,7 +31,7 @@ class SupplementaryAgreementService:
     - 抛出自定义异常（NotFoundError, ValidationException）
     """
 
-    def __init__(self, client_service: Optional[IClientService] = None):
+    def __init__(self, client_service: IClientService | None = None):
         """
         初始化服务
 
@@ -51,10 +49,7 @@ class SupplementaryAgreementService:
 
     @transaction.atomic
     def create_supplementary_agreement(
-        self,
-        contract_id: int,
-        name: Optional[str],
-        party_ids: Optional[List[int]]
+        self, contract_id: int, name: str | None, party_ids: list[int] | None
     ) -> SupplementaryAgreement:
         """
         创建补充协议
@@ -78,10 +73,7 @@ class SupplementaryAgreementService:
             raise NotFoundError("合同不存在")
 
         # 2. 创建补充协议
-        agreement = SupplementaryAgreement.objects.create(
-            contract=contract,
-            name=name
-        )
+        agreement = SupplementaryAgreement.objects.create(contract=contract, name=name)
 
         # 3. 添加当事人关联
         if party_ids:
@@ -94,18 +86,15 @@ class SupplementaryAgreementService:
                 "agreement_id": agreement.id,
                 "contract_id": contract_id,
                 "party_count": len(party_ids) if party_ids else 0,
-                "action": "create_supplementary_agreement"
-            }
+                "action": "create_supplementary_agreement",
+            },
         )
 
         return agreement
 
     @transaction.atomic
     def update_supplementary_agreement(
-        self,
-        agreement_id: int,
-        name: Optional[str] = None,
-        party_ids: Optional[List[int]] = None
+        self, agreement_id: int, name: str | None = None, party_ids: list[int] | None = None
     ) -> SupplementaryAgreement:
         """
         更新补充协议
@@ -136,7 +125,7 @@ class SupplementaryAgreementService:
         # 3. 更新当事人（如果提供）
         if party_ids is not None:
             # 删除现有当事人
-            agreement.parties.all().delete()
+            agreement.parties.all().delete()  # type: ignore[attr-defined]
             # 添加新当事人
             if party_ids:
                 self._add_parties(agreement, party_ids)
@@ -146,21 +135,14 @@ class SupplementaryAgreementService:
             "补充协议更新成功",
             extra={
                 "agreement_id": agreement_id,
-                "updated_fields": {
-                    "name": name is not None,
-                    "parties": party_ids is not None
-                },
-                "action": "update_supplementary_agreement"
-            }
+                "updated_fields": {"name": name is not None, "parties": party_ids is not None},
+                "action": "update_supplementary_agreement",
+            },
         )
 
         return agreement
 
-    def get_supplementary_agreement(
-        self,
-        agreement_id: int,
-        prefetch: bool = True
-    ) -> SupplementaryAgreement:
+    def get_supplementary_agreement(self, agreement_id: int, prefetch: bool = True) -> SupplementaryAgreement:
         """
         获取补充协议
 
@@ -177,18 +159,12 @@ class SupplementaryAgreementService:
         try:
             qs = SupplementaryAgreement.objects
             if prefetch:
-                qs = qs.select_related("contract").prefetch_related(
-                    "parties__client"
-                )
+                qs = qs.select_related("contract").prefetch_related("parties__client")  # type: ignore[assignment]
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist:
             raise NotFoundError("补充协议不存在")
 
-    def list_by_contract(
-        self,
-        contract_id: int,
-        prefetch: bool = True
-    ) -> List[SupplementaryAgreement]:
+    def list_by_contract(self, contract_id: int, prefetch: bool = True) -> list[SupplementaryAgreement]:
         """
         获取合同的所有补充协议
 
@@ -220,20 +196,12 @@ class SupplementaryAgreementService:
             agreement.delete()
 
             logger.info(
-                "补充协议删除成功",
-                extra={
-                    "agreement_id": agreement_id,
-                    "action": "delete_supplementary_agreement"
-                }
+                "补充协议删除成功", extra={"agreement_id": agreement_id, "action": "delete_supplementary_agreement"}
             )
         except SupplementaryAgreement.DoesNotExist:
             raise NotFoundError("补充协议不存在")
 
-    def _add_parties(
-        self,
-        agreement: SupplementaryAgreement,
-        party_ids: List[int]
-    ) -> None:
+    def _add_parties(self, agreement: SupplementaryAgreement, party_ids: list[int]) -> None:
         """
         添加当事人关联（内部方法）
 
@@ -252,17 +220,11 @@ class SupplementaryAgreementService:
 
         # 批量创建当事人关联
         parties = [
-            SupplementaryAgreementParty(
-                supplementary_agreement=agreement,
-                client_id=client_id
-            )
+            SupplementaryAgreementParty(supplementary_agreement=agreement, client_id=client_id)
             for client_id in party_ids
         ]
 
         try:
-            SupplementaryAgreementParty.objects.bulk_create(
-                parties,
-                batch_size=100
-            )
+            SupplementaryAgreementParty.objects.bulk_create(parties, batch_size=100)
         except IntegrityError:
             raise ValidationException("不能重复添加同一客户")

@@ -13,7 +13,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
 
@@ -32,14 +32,16 @@ logger = logging.getLogger("apps.automation")
 class CourtApiError(ExternalServiceError):
     """法院 API 调用错误"""
 
-    def __init__(self, message: str = "法院 API 调用错误", code: str | None = None, errors: Dict[str, Any] | None = None):
+    def __init__(
+        self, message: str = "法院 API 调用错误", code: str | None = None, errors: dict[str, Any] | None = None
+    ):
         super().__init__(message=message, code=code or "COURT_API_ERROR", errors=errors or {})
 
 
 class TokenExpiredError(TokenError):
     """Token 过期错误"""
 
-    def __init__(self, message: str = "Token 已过期", code: str | None = None, errors: Dict[str, Any] | None = None):
+    def __init__(self, message: str = "Token 已过期", code: str | None = None, errors: dict[str, Any] | None = None):
         super().__init__(message=message, code=code or "TOKEN_EXPIRED", errors=errors or {})
 
 
@@ -50,7 +52,7 @@ class ApiResponseError(CourtApiError):
         self,
         message: str = "API 响应错误",
         code: str | None = None,
-        errors: Dict[str, Any] | None = None,
+        errors: dict[str, Any] | None = None,
         response_code: int | None = None,
     ):
         super().__init__(message=message, code=code or "API_RESPONSE_ERROR", errors=errors or {})
@@ -97,7 +99,7 @@ class DocumentRecord:
             return None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DocumentRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "DocumentRecord":
         """从 API 响应字典创建实例"""
         return cls(
             ah=data.get("ah", ""),
@@ -139,7 +141,7 @@ class DocumentDetail:
     dt_cjsj: str  # 创建时间（ISO格式）
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DocumentDetail":
+    def from_dict(cls, data: dict[str, Any]) -> "DocumentDetail":
         """从 API 响应字典创建实例"""
         return cls(
             c_sdbh=data.get("c_sdbh", ""),
@@ -212,7 +214,9 @@ class CourtDocumentApiClient:
             self._auto_login_service = ServiceLocator.get_auto_login_service()
         return self._auto_login_service
 
-    def _make_request(self, url: str, token: str, data: Dict[str, Any], retry_count: int = DEFAULT_RETRY_COUNT) -> dict[str, Any]:
+    def _make_request(
+        self, url: str, token: str, data: dict[str, Any], retry_count: int = DEFAULT_RETRY_COUNT
+    ) -> dict[str, Any]:
         """
         发送 HTTP POST 请求（带重试）
 
@@ -265,7 +269,7 @@ class CourtDocumentApiClient:
                 raise NetworkError(message=f"请求超时: {e!s}", errors={"url": url, "timeout": self._timeout})
 
             except httpx.RequestError as e:
-                last_error = e
+                last_error = e  # type: ignore[assignment]
                 logger.warning(f"网络错误: {url}, attempt={attempt + 1}, error={e!s}")
                 if attempt < retry_count:
                     continue
@@ -276,7 +280,7 @@ class CourtDocumentApiClient:
                 raise
 
             except Exception as e:
-                last_error = e
+                last_error = e  # type: ignore[assignment]
                 logger.error(f"未知错误: {url}, error={e!s}")
                 raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": url})
 

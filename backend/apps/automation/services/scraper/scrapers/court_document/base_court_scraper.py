@@ -211,9 +211,12 @@ class BaseCourtDocumentScraper(BaseScraper):
             下载目录路径
         """
         # 如果任务关联了案件,使用案件 ID 作为目录名
-        if self.cast(int, self.task.case_id):
+        if self.cast(int, self.task.case_id):  # type: ignore[attr-defined]
             download_dir = (
-                Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, self.task.case_id))) / "documents"
+                Path(settings.MEDIA_ROOT)
+                / "case_logs"
+                / str(cast(int, self.cast(int, self.task.case_id)))
+                / "documents"  # type: ignore[attr-defined]
             )
         else:
             download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{self.task.id}"
@@ -246,7 +249,7 @@ class BaseCourtDocumentScraper(BaseScraper):
             success, filepath, error = download_result
 
             # 先创建文书记录
-            task_id_value = cast(int, self.task.id)
+            task_id_value = cast(int, self.task.id)  # type: ignore[redundant-cast]
             task_case_id = cast(int | None, self.cast(int, task.case_id)) if self.task.case else None  # type: ignore[name-defined, attr-defined]
             document = self.document_service.create_document_from_api_data(
                 scraper_task_id=task_id_value, api_data=document_data, case_id=task_case_id

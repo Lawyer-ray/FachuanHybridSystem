@@ -24,7 +24,7 @@ class FolderTemplateQueryService:
         from apps.documents.models import FolderTemplateType
 
         templates = (
-            self.repo.filter(is_active=True, template_type=FolderTemplateType.CASE).order_by("-updated_at").all()
+            self.repo.filter(is_active=True, template_type=FolderTemplateType.CASE).order_by("-updated_at").all()  # type: ignore[attr-defined]
         )
         for template in templates:
             case_types = template.case_types or []

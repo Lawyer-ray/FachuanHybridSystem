@@ -16,7 +16,7 @@ def process_sms(sms_id: int) -> None:
 def process_sms_from_matching(sms_id: int) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsFromMatchingUsecase
 
-    return ProcessSmsFromMatchingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(
+    return ProcessSmsFromMatchingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(  # type: ignore[no-any-return]
         sms_id=sms_id
     )
 
@@ -24,7 +24,7 @@ def process_sms_from_matching(sms_id: int) -> None:
 def process_sms_from_renaming(sms_id: int) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsFromRenamingUsecase
 
-    return ProcessSmsFromRenamingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(
+    return ProcessSmsFromRenamingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(  # type: ignore[no-any-return]
         sms_id=sms_id
     )
 

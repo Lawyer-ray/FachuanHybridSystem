@@ -106,7 +106,7 @@ async def _resolve_credential(
                 "credential_id": credential_id,
             },
         )
-        return credential
+        return credential  # type: ignore[no-any-return]
     if selected_credential:
         tried_accounts.add(selected_credential.account)
         logger.info(

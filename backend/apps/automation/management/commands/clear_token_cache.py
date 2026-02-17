@@ -21,7 +21,7 @@ class Command(BaseCommand):
         parser.add_argument("--all", action="store_true", default=False, help="全量清理(高风险)")
         parser.add_argument("--execute", action="store_true", default=False, help="实际执行;不传则仅输出计划")
 
-    def handle(self, *args, **options: Any) -> None:
+    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]
         manager = TokenCacheManager()
         site = options.get("site") or None
         accounts: list[Any] = []

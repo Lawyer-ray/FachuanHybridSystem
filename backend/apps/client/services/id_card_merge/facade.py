@@ -8,8 +8,8 @@ from typing import Any, ClassVar
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 from django.core.files.uploadedfile import UploadedFile
+from numpy.typing import NDArray
 
 from . import detection, image_io, pdf, validation
 from .paths import ensure_output_dir, ensure_temp_dir, get_media_root
@@ -113,8 +113,8 @@ class IdCardMergeService:
         assert back_cv_image is not None
         front_corners_ordered = self._order_corners(np.array(front_corners, dtype=np.float32))
         back_corners_ordered = self._order_corners(np.array(back_corners, dtype=np.float32))
-        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered)
-        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered)
+        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered)  # type: ignore[arg-type]
+        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered)  # type: ignore[arg-type]
         pdf_path = self._generate_pdf(front_transformed, back_transformed)
         self._cleanup_temp_file(front_rel_path, front_full_path)
         self._cleanup_temp_file(back_rel_path, back_full_path)

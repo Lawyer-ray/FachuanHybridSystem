@@ -12,7 +12,7 @@ logger = logging.getLogger("apps.automation")
 def periodic_recovery_task() -> None:
     from apps.automation.services.sms.task_recovery_service import TaskRecoveryService
 
-    service = TaskRecoveryService(
+    service = TaskRecoveryService(  # type: ignore[call-arg]
         task_submission_service=build_task_submission_service(),
         task_scheduler=build_task_scheduler(),
     )

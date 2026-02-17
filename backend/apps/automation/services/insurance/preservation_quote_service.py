@@ -22,12 +22,7 @@ from apps.automation.services.insurance.court_insurance_client import (
     InsuranceCompany,
     PremiumResult,
 )
-from apps.automation.services.insurance.exceptions import (
-    APIError,
-    CompanyListEmptyError,
-    TokenError,
-    ValidationError,
-)
+from apps.automation.services.insurance.exceptions import APIError, CompanyListEmptyError, TokenError, ValidationError
 from apps.core.config import get_config
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService
@@ -35,10 +30,7 @@ from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService
 logger = logging.getLogger("apps.automation")
 
 
-from typing import Any, Optional
-
-
-def get_or_create_token(site_name: str = "court_zxfw", account: Optional[Any] = None) -> Optional[str]:
+def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = None) -> str | None:
     """
     获取或创建 Token
 
@@ -74,8 +66,8 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Optional[Any] = 
 
         if valid_tokens.exists():
             token_obj = valid_tokens.first()
-            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")
-            return token_obj.token
+            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")  # type: ignore[union-attr]
+            return token_obj.token  # type: ignore[no-any-return, union-attr]
 
     except Exception as e:
         logger.error(f"查找 Token 失败: {e}", exc_info=True)
@@ -155,7 +147,10 @@ class PreservationQuoteService:
         # 数据验证
         try:
             self._validate_create_params(
-                preserve_amount=preserve_amount, corp_id=corp_id, category_id=category_id, credential_id=credential_id
+                preserve_amount=preserve_amount,
+                corp_id=corp_id,
+                category_id=category_id,
+                credential_id=credential_id,  # type: ignore[arg-type]
             )
         except ValidationError as e:
             # 记录验证失败日志
@@ -457,8 +452,8 @@ class PreservationQuoteService:
                     "current_status": quote.status,
                 },
             )
-            raise ValidationError(
-                message=f"任务状态为 {quote.get_status_display()}，不允许重试。只有失败或部分成功的任务可以重试。",
+            raise ValidationError(  # type: ignore[call-arg]
+                message=f"任务状态为 {quote.get_status_display()}，不允许重试。只有失败或部分成功的任务可以重试。",  # type: ignore[attr-defined]
                 code="INVALID_QUOTE_STATUS",
                 errors={"status": quote.status},
             )
@@ -543,7 +538,7 @@ class PreservationQuoteService:
             errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
 
         if errors:
-            raise ValidationError(message="参数验证失败", code="INVALID_PARAMETERS", errors=errors)
+            raise ValidationError(message="参数验证失败", code="INVALID_PARAMETERS", errors=errors)  # type: ignore[call-arg]
 
         logger.info(
             "查询询价任务列表",
@@ -633,7 +628,7 @@ class PreservationQuoteService:
             errors["credential_id"] = "凭证 ID 必须为正整数"
 
         if errors:
-            raise ValidationError(message="数据验证失败", code="INVALID_CREATE_PARAMS", errors=errors)
+            raise ValidationError(message="数据验证失败", code="INVALID_CREATE_PARAMS", errors=errors)  # type: ignore[call-arg]
 
     async def _get_valid_token(self, credential_id: int | None = None) -> str:
         """
@@ -674,7 +669,7 @@ class PreservationQuoteService:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential_internal(credential_id)
+                    credential = await organization_service.get_credential_internal(credential_id)  # type: ignore[misc]
                     account = credential.account
 
                     logger.info(f"检查指定账号 {account} 的现有Token")
@@ -924,7 +919,7 @@ class PreservationQuoteService:
             status = QuoteItemStatus.SUCCESS if result.status == "success" else QuoteItemStatus.FAILED
 
             # 从 response_data 中提取费率信息
-            rate_data = {}
+            rate_data = {}  # type: ignore[var-annotated]
             if result.response_data and isinstance(result.response_data, dict):
                 rate_data = result.response_data.get("data") or {}
 

@@ -11,7 +11,7 @@ import tempfile
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.utils import timezone
 
@@ -147,7 +147,7 @@ class DocumentDeliveryApiService:
 
             # 处理第一页的文书
             self._process_document_page(
-                documents=first_response.documents,
+                documents=first_response.documents,  # type: ignore[arg-type]
                 token=token,
                 cutoff_time=cutoff_time,
                 credential_id=credential_id,
@@ -164,7 +164,7 @@ class DocumentDeliveryApiService:
                     )
 
                     self._process_document_page(
-                        documents=page_response.documents,
+                        documents=page_response.documents,  # type: ignore[arg-type]
                         token=token,
                         cutoff_time=cutoff_time,
                         credential_id=credential_id,
@@ -513,7 +513,7 @@ class DocumentDeliveryApiService:
 
                 if matched_case:
                     # 直接设置外键 ID，避免跨模块 Model 导入
-                    sms.case_id = matched_case.id
+                    sms.case_id = matched_case.id  # type: ignore[attr-defined]
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
                     result["case_id"] = matched_case.id
@@ -531,7 +531,7 @@ class DocumentDeliveryApiService:
                         result["renamed_path"] = renamed_files[0] if renamed_files else file_path
                     if case_log_id:
                         result["case_log_id"] = case_log_id
-                        sms.case_log_id = case_log_id
+                        sms.case_log_id = case_log_id  # type: ignore[attr-defined]
 
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()
@@ -663,7 +663,7 @@ class DocumentDeliveryApiService:
             logger.warning(f"案号同步失败: Case ID={case_id}, 案号={case_number}, 错误: {e!s}")
             return False
 
-    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         from datetime import date
 

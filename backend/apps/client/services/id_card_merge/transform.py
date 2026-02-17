@@ -62,4 +62,4 @@ def perspective_transform(
         "透视变换完成",
         extra={"output_size": f"{output_width}x{output_height}"},
     )
-    return warped
+    return warped  # type: ignore[return-value]
