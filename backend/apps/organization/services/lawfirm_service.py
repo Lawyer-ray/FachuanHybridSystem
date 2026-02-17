@@ -29,7 +29,7 @@ class LawFirmService:
     4. 协调多个 Model 操作
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化服务"""
         pass
 

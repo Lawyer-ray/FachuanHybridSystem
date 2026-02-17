@@ -19,7 +19,7 @@ class CaseNumberServiceAdapter(ICaseNumberService):
         self._case_number_service = case_number_service
     
     @property
-    def case_number_service(self):
+    def case_number_service(self) -> Any:
         """延迟加载 CaseNumberService"""
         if self._case_number_service is None:
             from .case_number_service import CaseNumberService
