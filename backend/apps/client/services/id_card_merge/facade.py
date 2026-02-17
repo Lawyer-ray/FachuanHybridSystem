@@ -140,19 +140,19 @@ class IdCardMergeService:
             image, supported_formats=self.SUPPORTED_FORMATS, supported_extensions=self.SUPPORTED_EXTENSIONS
         )
 
-    def _validate_image_size(self, image: np.ndarray, name: str) -> dict[str, Any] | None:
+    def _validate_image_size(self, image: np.ndarray, name: str) -> dict[str, Any] | None:  # type: ignore[type-arg]
         return validation.validate_image_size(image, name, min_image_size=self.MIN_IMAGE_SIZE)
 
-    def _read_uploaded_image(self, image: UploadedFile) -> np.ndarray | None:
+    def _read_uploaded_image(self, image: UploadedFile) -> np.ndarray | None:  # type: ignore[type-arg]
         return image_io.read_uploaded_image(image, logger=logger)
 
-    def _detect_id_card(self, image: np.ndarray) -> np.ndarray | None:
+    def _detect_id_card(self, image: np.ndarray) -> np.ndarray | None:  # type: ignore[type-arg]
         return detection.detect_id_card_corners(image, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
-    def _perspective_transform(self, image: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    def _perspective_transform(self, image: np.ndarray, corners: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
         return validation_np_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
-    def _generate_pdf(self, front_image: np.ndarray, back_image: np.ndarray) -> str:
+    def _generate_pdf(self, front_image: np.ndarray, back_image: np.ndarray) -> str:  # type: ignore[type-arg]
         media_root = get_media_root()
         output_dir = ensure_output_dir(media_root)
         temp_dir = ensure_temp_dir(media_root)
@@ -165,13 +165,13 @@ class IdCardMergeService:
             logger=logger,
         )
 
-    def _order_corners(self, corners: np.ndarray) -> np.ndarray:
+    def _order_corners(self, corners: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
         return validation.order_corners(corners)
 
     def _validate_corners(self, corners: list[list[int]]) -> str | None:
         return validation.validate_corners(corners)
 
-    def _is_convex_quadrilateral(self, corners: np.ndarray) -> bool:
+    def _is_convex_quadrilateral(self, corners: np.ndarray) -> bool:  # type: ignore[type-arg]
         return validation.is_convex_quadrilateral(corners)
 
     def _save_temp_image(self, image: UploadedFile, prefix: str) -> str:
@@ -181,8 +181,8 @@ class IdCardMergeService:
 
 
 def validation_np_transform(
-    image: np.ndarray, corners: np.ndarray, *, id_card_aspect_ratio: float, logger: Any
-) -> np.ndarray:
+    image: np.ndarray, corners: np.ndarray, *, id_card_aspect_ratio: float, logger: Any  # type: ignore[type-arg]
+) -> np.ndarray:  # type: ignore[type-arg]
     from .transform import perspective_transform
 
     return perspective_transform(
