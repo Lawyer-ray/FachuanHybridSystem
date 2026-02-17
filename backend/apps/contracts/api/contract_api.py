@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from ninja import Router
 from ..schemas import ContractIn, ContractOut, ContractUpdate, ContractPaymentIn, UpdateLawyersIn, ContractPartySourceOut
 from ..services.contract_service import ContractService
@@ -41,7 +41,7 @@ def _get_contract_service() -> ContractService:
 
 
 @router.get("/contracts", response=List[ContractOut])
-def list_contracts(request, case_type: Optional[str] = None, status: Optional[str] = None):
+def list_contracts(request: Any, case_type: Optional[str] = None, status: Optional[str] = None) -> Any:
     """
     获取合同列表
     
@@ -61,7 +61,7 @@ def list_contracts(request, case_type: Optional[str] = None, status: Optional[st
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)
-def get_contract(request, contract_id: int):
+def get_contract(request: Any, contract_id: int) -> Any:
     """
     获取合同详情
     
@@ -84,7 +84,7 @@ class ContractWithCasesIn(ContractIn):
 
 
 @router.post("/contracts/full", response=ContractOut)
-def create_contract_with_cases(request, payload: ContractWithCasesIn):
+def create_contract_with_cases(request: Any, payload: ContractWithCasesIn) -> Any:
     """
     创建合同并关联案件
 
@@ -115,13 +115,13 @@ def create_contract_with_cases(request, payload: ContractWithCasesIn):
 
 @router.put("/contracts/{contract_id}", response=ContractOut)
 def update_contract(
-    request,
+    request: Any,
     contract_id: int,
     payload: ContractUpdate,
     sync_cases: Optional[bool] = False,
     confirm_finance: Optional[bool] = False,
     new_payments: Optional[list[ContractPaymentIn]] = None
-):
+) -> Any:
     """
     更新合同
 
@@ -157,11 +157,11 @@ def update_contract(
 
 @router.post("/contracts", response=ContractOut)
 def create_contract(
-    request,
+    request: Any,
     payload: ContractIn,
     payments: Optional[list[ContractPaymentIn]] = None,
     confirm_finance: Optional[bool] = False
-):
+) -> Any:
     """
     创建合同
 
@@ -198,7 +198,7 @@ def create_contract(
 
 
 @router.put("/contracts/{contract_id}/lawyers", response=ContractOut)
-def update_contract_lawyers(request, contract_id: int, payload: UpdateLawyersIn):
+def update_contract_lawyers(request: Any, contract_id: int, payload: UpdateLawyersIn) -> Any:
     """
     更新合同律师指派
     
@@ -221,7 +221,7 @@ def update_contract_lawyers(request, contract_id: int, payload: UpdateLawyersIn)
 
 
 @router.delete("/contracts/{contract_id}")
-def delete_contract(request, contract_id: int):
+def delete_contract(request: Any, contract_id: int) -> dict[str, bool]:
     """
     删除合同
 
@@ -238,7 +238,7 @@ def delete_contract(request, contract_id: int):
 
 
 @router.get("/contracts/{contract_id}/all-parties", response=List[ContractPartySourceOut])
-def get_contract_all_parties(request, contract_id: int):
+def get_contract_all_parties(request: Any, contract_id: int) -> Any:
     """
     获取合同及补充协议的所有当事人
     

@@ -2,7 +2,7 @@
 财产线索 API 层
 只负责请求/响应处理，不包含业务逻辑
 """
-from typing import List
+from typing import Any, List
 from ninja import Router, File
 from ninja.files import UploadedFile
 from django.conf import settings
@@ -33,7 +33,7 @@ def _get_property_clue_service() -> PropertyClueService:
 
 
 @router.post("/clients/{client_id}/property-clues", response=PropertyClueOut)
-def create_property_clue(request, client_id: int, payload: PropertyClueIn):
+def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:
     """
     创建财产线索
     
@@ -57,7 +57,7 @@ def create_property_clue(request, client_id: int, payload: PropertyClueIn):
 
 
 @router.get("/clients/{client_id}/property-clues", response=List[PropertyClueOut])
-def list_property_clues(request, client_id: int):
+def list_property_clues(request: Any, client_id: int) -> Any:
     """
     获取当事人的所有财产线索
     
@@ -80,7 +80,7 @@ def list_property_clues(request, client_id: int):
 
 
 @router.get("/property-clues/{clue_id}", response=PropertyClueOut)
-def get_property_clue(request, clue_id: int):
+def get_property_clue(request: Any, clue_id: int) -> Any:
     """
     获取单个财产线索详情
     
@@ -103,7 +103,7 @@ def get_property_clue(request, clue_id: int):
 
 
 @router.put("/property-clues/{clue_id}", response=PropertyClueOut)
-def update_property_clue(request, clue_id: int, payload: PropertyClueUpdateIn):
+def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdateIn) -> Any:
     """
     更新财产线索
     
@@ -130,7 +130,7 @@ def update_property_clue(request, clue_id: int, payload: PropertyClueUpdateIn):
 
 
 @router.delete("/property-clues/{clue_id}", response={204: None})
-def delete_property_clue(request, clue_id: int):
+def delete_property_clue(request: Any, clue_id: int) -> tuple[int, None]:
     """
     删除财产线索
     
@@ -155,10 +155,10 @@ def delete_property_clue(request, clue_id: int):
 
 @router.post("/property-clues/{clue_id}/attachments", response=PropertyClueAttachmentOut)
 def upload_attachment(
-    request,
+    request: Any,
     clue_id: int,
     file: UploadedFile = File[UploadedFile](...)
-):
+) -> Any:
     """
     为财产线索上传附件
     
@@ -194,7 +194,7 @@ def upload_attachment(
 
 
 @router.delete("/property-clue-attachments/{attachment_id}", response={204: None})
-def delete_attachment(request, attachment_id: int):
+def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
     """
     删除财产线索附件
     
