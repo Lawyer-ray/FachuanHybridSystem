@@ -310,7 +310,7 @@ class SteeringConditionalLoader:
         """根据规范模式获取对应的文件模式"""
         with self._lock:
             if spec_pattern in self._file_pattern_cache:
-                return self._file_pattern_cache[spec_pattern]  # type: ignore[no-any-return]
+                return self._file_pattern_cache[spec_pattern]
             
             patterns = []
             
