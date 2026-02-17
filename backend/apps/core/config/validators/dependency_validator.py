@@ -241,7 +241,7 @@ class CircularDependencyValidator(ConfigValidator):
         cycles = []
         visited = set()
         rec_stack = set()
-        path = []
+        path: list[str] = []
 
         def dfs(node: str) -> bool:
             if node in rec_stack:

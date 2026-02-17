@@ -27,7 +27,7 @@ class FileUtils:
         Returns:
             校验结果 {valid: bool, error: str, info: dict}
         """
-        result = {"valid": True, "error": None, "info": {}}
+        result: dict[str, Any] = {"valid": True, "error": None, "info": {}}
 
         # 检查文件是否存在
         if not os.path.exists(file_path):

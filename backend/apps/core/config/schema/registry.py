@@ -1016,7 +1016,7 @@ def validate_registry_consistency():
     Raises:
         ValueError: 配置注册表不一致
     """
-    env_vars = {}
+    env_vars: dict[str, str] = {}
     errors = []
     
     for key, field in CONFIG_REGISTRY.items():
