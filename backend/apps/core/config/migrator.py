@@ -1040,17 +1040,18 @@ class ConfigMigrator:
             )
             
             # 恢复配置状态
-            config_state = rollback_point.get('config_state', {})
-            if config_state:
-                # 清空当前配置
-                self.config_manager.clear_cache()
+            if rollback_point is not None:
+                config_state = rollback_point.get('config_state', {})
+                if config_state:
+                    # 清空当前配置
+                    self.config_manager.clear_cache()
+                    
+                    # 恢复配置
+                    for key, value in config_state.items():
+                        self.config_manager.set(key, value)
                 
-                # 恢复配置
-                for key, value in config_state.items():
-                    self.config_manager.set(key, value)
-            
-            # 恢复回滚栈
-            self._rollback_stack = rollback_point.get('rollback_stack', [])
+                # 恢复回滚栈
+                self._rollback_stack = rollback_point.get('rollback_stack', [])
             
             # 记录回滚完成
             self.tracker.record_config_migration(
@@ -1448,7 +1449,7 @@ class ConfigMigrator:
         Returns:
             Dict[str, Any]: 回滚选项
         """
-        options = {
+        options: dict[str, Any] = {
             'migration_id': migration_id,
             'available_strategies': [],
             'rollback_points': [],
