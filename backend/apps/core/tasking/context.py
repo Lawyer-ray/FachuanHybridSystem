@@ -21,7 +21,7 @@ def set_current_request_id(request_id: str | None) -> str | None:
     from apps.core.infrastructure.request_context import clear_request_context, set_request_context
 
     if request_id:
-        threading.current_thread().request_id = request_id
+        threading.current_thread().request_id = request_id  # type: ignore[attr-defined]
         set_request_context(request_id=request_id, trace_id=request_id)
         return request_id
     if hasattr(threading.current_thread(), "request_id"):
