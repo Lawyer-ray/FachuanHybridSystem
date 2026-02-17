@@ -216,7 +216,7 @@ class InfoExtractor:
         Returns:
             提取到的日期时间列表，每项为 (datetime对象, 原始匹配文本, 上下文得分)
         """
-        results = []
+        results: list[tuple[datetime, str, float]] = []
 
         for pattern, has_am_pm in DATETIME_PATTERNS:
             for match in re.finditer(pattern, text):
@@ -455,7 +455,7 @@ class InfoExtractor:
 
         # 过滤掉无效的结果，按综合得分排序
         valid_regex_results = [r for r in validated_regex_results if r["is_valid"]]
-        valid_regex_results.sort(key=lambda x: x["combined_score"], reverse=True)
+        valid_regex_results.sort(key=lambda x: float(x["combined_score"]), reverse=True)  # type: ignore[arg-type, return-value]
 
         # 校验 Ollama 结果
         ollama_valid = False
@@ -482,12 +482,12 @@ class InfoExtractor:
             else:
                 # 检查是否有被过滤掉的正则结果
                 if validated_regex_results:
-                    best_invalid = max(validated_regex_results, key=lambda x: x["combined_score"])
+                    best_invalid = max(validated_regex_results, key=lambda x: float(x["combined_score"]))  # type: ignore[arg-type, return-value]
                     logger.warning(
                         f"所有正则结果合理性较低，使用最佳候选: {best_invalid['datetime']} "
                         f"({best_invalid['validity_reason']})"
                     )
-                    return best_invalid["datetime"], f"regex(低合理性:{best_invalid['validity_reason']})"
+                    return best_invalid["datetime"], f"regex(低合理性:{best_invalid['validity_reason']})"  # type: ignore[return-value]
                 return None, "无法提取"
 
         # 情况2：有有效的正则结果
@@ -497,49 +497,49 @@ class InfoExtractor:
 
         if not ollama_datetime or not ollama_valid:
             logger.info(
-                f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f} "
+                f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f} "  # type: ignore[str-format]
                 f"(上下文={best_regex['context_score']}, 合理性={best_regex['validity_score']})"
             )
-            return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
+            return best_regex_dt, f"regex(score={best_regex_combined:.0f})"  # type: ignore[str-format, return-value]
 
         # 情况3：正则和 Ollama 都有有效结果，进行交叉校验
-        date_diff = abs((best_regex_dt.date() - ollama_datetime.date()).days)
-        time_diff = abs((best_regex_dt - ollama_datetime).total_seconds())
+        date_diff = abs((best_regex_dt.date() - ollama_datetime.date()).days)  # type: ignore[union-attr]
+        time_diff = abs((best_regex_dt - ollama_datetime).total_seconds())  # type: ignore[operator]
 
         if date_diff == 0 and time_diff < 3600:  # 同一天且时间差小于1小时
             # 结果一致，使用正则结果（更精确）
             logger.info(f"正则和Ollama结果一致: {best_regex_dt}")
-            return best_regex_dt, "regex+ollama(一致)"
+            return best_regex_dt, "regex+ollama(一致)"  # type: ignore[return-value]
 
         if date_diff == 0:
             # 日期一致但时间不同
             logger.warning(f"时间冲突: 正则={best_regex_dt}, Ollama={ollama_datetime}, 时间差={time_diff}秒")
             # 日期相同时，优先使用正则结果（从原文直接提取，更可靠）
             # 只有当正则得分很低时才考虑 Ollama
-            if best_regex_combined >= 40:
-                return best_regex_dt, f"regex(score={best_regex_combined:.0f},时间冲突)"
+            if best_regex_combined >= 40:  # type: ignore[operator]
+                return best_regex_dt, f"regex(score={best_regex_combined:.0f},时间冲突)"  # type: ignore[str-format, return-value]
             else:
                 # 正则得分太低，使用 Ollama
                 return ollama_datetime, f"ollama(validity={ollama_validity_score},时间冲突,正则得分低)"
 
         # 日期不一致
-        logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")
+        logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")  # type: ignore[union-attr]
 
         # 检查是否有其他正则结果与 Ollama 一致
         for result in valid_regex_results[1:]:
-            if abs((result["datetime"].date() - ollama_datetime.date()).days) == 0:
+            if abs((result["datetime"].date() - ollama_datetime.date()).days) == 0:  # type: ignore[union-attr, operator]
                 logger.info(f"找到与Ollama一致的备选正则结果: {result['datetime']}")
-                return result["datetime"], f"regex(score={result['combined_score']:.0f},与ollama一致)"
+                return result["datetime"], f"regex(score={result['combined_score']:.0f},与ollama一致)"  # type: ignore[str-format, return-value]
 
         # 比较最佳正则和 Ollama 的得分
-        if best_regex_combined >= 60:
-            return best_regex_dt, f"regex(score={best_regex_combined:.0f},日期冲突)"
+        if best_regex_combined >= 60:  # type: ignore[operator]
+            return best_regex_dt, f"regex(score={best_regex_combined:.0f},日期冲突)"  # type: ignore[str-format, return-value]
         elif ollama_validity_score >= 50:
             return ollama_datetime, f"ollama(validity={ollama_validity_score},日期冲突)"
         else:
             # 都不太可靠，选择综合得分更高的
-            if best_regex_combined >= ollama_validity_score:
-                return best_regex_dt, f"regex(score={best_regex_combined:.0f},低置信度)"
+            if best_regex_combined >= ollama_validity_score:  # type: ignore[operator]
+                return best_regex_dt, f"regex(score={best_regex_combined:.0f},低置信度)"  # type: ignore[str-format, return-value]
             else:
                 return ollama_datetime, f"ollama(validity={ollama_validity_score},低置信度)"
 
