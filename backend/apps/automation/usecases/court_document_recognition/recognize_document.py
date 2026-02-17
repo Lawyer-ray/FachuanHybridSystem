@@ -31,9 +31,9 @@ class RecognizeCourtDocumentUsecase:
         try:
             extraction_result = self.text_extraction.extract_text(file_path)
             if not extraction_result.success or not extraction_result.text.strip():
-                return self._empty_response(file_path, extraction_result)  # type: ignore[no-any-return, func-returns-value]
+                return self._empty_response(file_path, extraction_result)  # type: ignore[no-any-return]
             doc_type, confidence = self.classifier.classify(extraction_result.text)
-            case_number, key_time = self._extract_key_info(doc_type, extraction_result.text)  # type: ignore[func-returns-value]
+            case_number, key_time = self._extract_key_info(doc_type, extraction_result.text)
             recognition = RecognitionResult(
                 document_type=doc_type,
                 case_number=case_number,
@@ -44,7 +44,7 @@ class RecognizeCourtDocumentUsecase:
             )
             binding, renamed_file_path = self._bind_document(
                 doc_type, case_number, key_time, extraction_result.text, file_path, user
-            )  # type: ignore[func-returns-value]
+            )
             logger.info(
                 "文书识别完成",
                 extra={"action": "recognize_document", "document_type": doc_type.value, "case_number": case_number},
@@ -56,7 +56,7 @@ class RecognizeCourtDocumentUsecase:
             logger.error("文书识别失败", extra={"action": "recognize_document", "file_path": file_path}, exc_info=True)
             raise
 
-    def _empty_response(self, file_path: Any, extraction_result: Any) -> None:
+    def _empty_response(self, file_path: Any, extraction_result: Any) -> RecognitionResponse:  # type: ignore[misc]
         """文本提取失败时返回空结果"""
         return RecognitionResponse(
             recognition=RecognitionResult(
@@ -69,21 +69,21 @@ class RecognizeCourtDocumentUsecase:
             ),
             binding=BindingResult.failure_result(message="无法从文书中提取文字", error_code="TEXT_EXTRACTION_FAILED"),
             file_path=file_path,
-        )  # type: ignore[return-value]
+        )
 
-    def _extract_key_info(self, doc_type: Any, text: Any) -> None:
+    def _extract_key_info(self, doc_type: Any, text: Any) -> tuple[Any, Any]:  # type: ignore[misc]
         """根据文书类型提取案号和关键时间"""
         if doc_type == DocumentType.SUMMONS:
             info = self.extractor.extract_summons_info(text)
-            return (info.get("case_number"), info.get("court_time"))  # type: ignore[return-value]
+            return (info.get("case_number"), info.get("court_time"))
         if doc_type == DocumentType.EXECUTION_RULING:
             info = self.extractor.extract_execution_info(text)
-            return (info.get("case_number"), info.get("preservation_deadline"))  # type: ignore[return-value]
-        return (None, None)  # type: ignore[return-value]
+            return (info.get("case_number"), info.get("preservation_deadline"))
+        return (None, None)
 
     def _bind_document(
         self, doc_type: Any, case_number: Any, key_time: Any, raw_text: Any, file_path: Any, user: Any
-    ) -> None:
+    ) -> tuple[Any, Any]:  # type: ignore[misc]
         """绑定文书到案件,返回 (binding, renamed_file_path)"""
         _UNSUPPORTED = {
             DocumentType.OTHER: ("暂时只支持传票识别,其他文书类型敬请期待", "UNSUPPORTED_DOCUMENT_TYPE"),
@@ -96,9 +96,9 @@ class RecognizeCourtDocumentUsecase:
                         message="未识别到案号,无法绑定案件", error_code="CASE_NUMBER_NOT_FOUND"
                     ),
                     file_path,
-                )  # type: ignore[return-value]
+                )
             msg, code = _UNSUPPORTED.get(doc_type, ("不支持的文书类型", "UNSUPPORTED"))
-            return (BindingResult.failure_result(message=msg, error_code=code), file_path)  # type: ignore[return-value]
+            return (BindingResult.failure_result(message=msg, error_code=code), file_path)
         case_id = self.binding_service.find_case_by_number(case_number)
         case_name = None
         renamed_file_path = file_path

@@ -206,7 +206,7 @@ class InfoExtractor:
         logger.debug("正则未能提取到案号")
         return None
 
-    def _extract_datetime_by_regex(self, text: str) -> list[tuple[datetime, str, int]]:
+    def _extract_datetime_by_regex(self, text: str) -> list[tuple[datetime, str, float]]:
         """
         使用正则表达式从文本中提取日期时间
 
@@ -523,11 +523,11 @@ class InfoExtractor:
                 return ollama_datetime, f"ollama(validity={ollama_validity_score},时间冲突,正则得分低)"
 
         # 日期不一致
-        logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")  # type: ignore[union-attr]
+        logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")
 
         # 检查是否有其他正则结果与 Ollama 一致
         for result in valid_regex_results[1:]:
-            if abs((result["datetime"].date() - ollama_datetime.date()).days) == 0:  # type: ignore[union-attr, operator]
+            if abs((result["datetime"].date() - ollama_datetime.date()).days) == 0:  # type: ignore[union-attr, operator, attr-defined]
                 logger.info(f"找到与Ollama一致的备选正则结果: {result['datetime']}")
                 return result["datetime"], f"regex(score={result['combined_score']:.0f},与ollama一致)"  # type: ignore[str-format, return-value]
 
