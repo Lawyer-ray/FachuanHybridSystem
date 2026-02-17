@@ -2,14 +2,15 @@
 团队 API
 负责请求/响应处理，所有业务逻辑委托给 TeamService
 """
-from typing import List, Optional
+from typing import Any, List, Optional
 from ninja import Router
 from ..schemas import TeamOut, TeamIn
+from ..services import TeamService
 
 router = Router()
 
 
-def _get_team_service():
+def _get_team_service() -> TeamService:
     """工厂函数：创建 TeamService 实例"""
     from ..services import TeamService
     return TeamService()
@@ -17,10 +18,10 @@ def _get_team_service():
 
 @router.get("/teams", response=List[TeamOut])
 def list_teams(
-    request,
+    request: Any,
     law_firm_id: Optional[int] = None,
     team_type: Optional[str] = None
-):
+) -> Any:
     """列表查询团队"""
     service = _get_team_service()
     user = getattr(request, "user", None)
@@ -32,7 +33,7 @@ def list_teams(
 
 
 @router.post("/teams", response=TeamOut)
-def create_team(request, payload: TeamIn):
+def create_team(request: Any, payload: TeamIn) -> Any:
     """创建团队"""
     service = _get_team_service()
     user = getattr(request, "user", None)
@@ -40,7 +41,7 @@ def create_team(request, payload: TeamIn):
 
 
 @router.get("/teams/{team_id}", response=TeamOut)
-def get_team(request, team_id: int):
+def get_team(request: Any, team_id: int) -> Any:
     """获取团队详情"""
     service = _get_team_service()
     user = getattr(request, "user", None)
@@ -48,7 +49,7 @@ def get_team(request, team_id: int):
 
 
 @router.put("/teams/{team_id}", response=TeamOut)
-def update_team(request, team_id: int, payload: TeamIn):
+def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
     """更新团队"""
     service = _get_team_service()
     user = getattr(request, "user", None)
@@ -56,7 +57,7 @@ def update_team(request, team_id: int, payload: TeamIn):
 
 
 @router.delete("/teams/{team_id}")
-def delete_team(request, team_id: int):
+def delete_team(request: Any, team_id: int) -> dict[str, bool]:
     """删除团队"""
     service = _get_team_service()
     user = getattr(request, "user", None)

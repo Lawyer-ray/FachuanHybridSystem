@@ -5,6 +5,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 
 from .validation import order_corners
 
@@ -12,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def detect_id_card_corners(
-    image: np.ndarray,
+    image: NDArray[np.uint8],
     *,
     id_card_aspect_ratio: float,
     logger: Any,
-) -> np.ndarray | None:
+) -> NDArray[np.float32] | None:
     if image is None or image.size == 0:
         logger.warning("输入图像为空")
         return None
@@ -46,7 +47,7 @@ def detect_id_card_corners(
     return ordered_corners
 
 
-def _compute_edges(image: np.ndarray) -> np.ndarray:
+def _compute_edges(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     median_val = np.median(blurred)

@@ -57,8 +57,8 @@ def get_performance_metrics(request: HttpRequest):
 @router.get("/statistics", response=StatisticsReportOut, summary="获取统计报告")
 def get_statistics_report(
     request: HttpRequest,
-    days: int = Query(7, description="统计天数", ge=1, le=90),
-    site_name: Optional[str] = Query(None, description="网站名称过滤")
+    days: int = Query[int](7, description="统计天数", ge=1, le=90),
+    site_name: Optional[str] = Query[Optional[str]](None, description="网站名称过滤")
 ):
     """
     获取Token获取服务的统计报告
@@ -153,7 +153,7 @@ def get_cache_statistics(request: HttpRequest):
 @router.post("/cache/warm-up", summary="预热缓存")
 def warm_up_cache(
     request: HttpRequest,
-    site_name: str = Query(..., description="网站名称")
+    site_name: str = Query[str](..., description="网站名称")
 ):
     """
     预热指定网站的缓存

@@ -2,23 +2,24 @@
 律师 API
 只负责请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List
+from typing import Any, List
 from ninja import Router, File
 from ninja.files import UploadedFile
 
 from ..schemas import LawyerOut, LawyerCreateIn, LawyerUpdateIn
+from ..services import LawyerService
 
 router = Router()
 
 
-def _get_lawyer_service():
+def _get_lawyer_service() -> LawyerService:
     """工厂函数：创建 LawyerService 实例"""
     from ..services import LawyerService
     return LawyerService()
 
 
 @router.get("/lawyers", response=List[LawyerOut])
-def list_lawyers(request):
+def list_lawyers(request: Any) -> Any:
     """列表查询律师"""
     service = _get_lawyer_service()
     user = getattr(request, 'auth', None) or getattr(request, 'user', None)
@@ -27,7 +28,7 @@ def list_lawyers(request):
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
-def get_lawyer(request, lawyer_id: int):
+def get_lawyer(request: Any, lawyer_id: int) -> Any:
     """获取律师详情"""
     service = _get_lawyer_service()
     user = getattr(request, 'auth', None) or getattr(request, 'user', None)
@@ -37,10 +38,10 @@ def get_lawyer(request, lawyer_id: int):
 
 @router.post("/lawyers", response=LawyerOut)
 def create_lawyer(
-    request,
+    request: Any,
     payload: LawyerCreateIn,
-    license_pdf: UploadedFile | None = File(None)
-):
+    license_pdf: UploadedFile | None = File[UploadedFile | None](None)
+) -> Any:
     """创建律师"""
     service = _get_lawyer_service()
     user = getattr(request, 'auth', None) or getattr(request, 'user', None)
@@ -54,11 +55,11 @@ def create_lawyer(
 
 @router.put("/lawyers/{lawyer_id}", response=LawyerOut)
 def update_lawyer(
-    request,
+    request: Any,
     lawyer_id: int,
     payload: LawyerUpdateIn,
-    license_pdf: UploadedFile | None = File(None)
-):
+    license_pdf: UploadedFile | None = File[UploadedFile | None](None)
+) -> Any:
     """更新律师"""
     service = _get_lawyer_service()
     user = getattr(request, 'auth', None) or getattr(request, 'user', None)
@@ -72,7 +73,7 @@ def update_lawyer(
 
 
 @router.delete("/lawyers/{lawyer_id}")
-def delete_lawyer(request, lawyer_id: int):
+def delete_lawyer(request: Any, lawyer_id: int) -> dict[str, bool]:
     """删除律师"""
     service = _get_lawyer_service()
     user = getattr(request, 'auth', None) or getattr(request, 'user', None)

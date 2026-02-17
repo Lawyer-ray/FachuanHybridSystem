@@ -157,7 +157,7 @@ def delete_property_clue(request, clue_id: int):
 def upload_attachment(
     request,
     clue_id: int,
-    file: UploadedFile = File(...)
+    file: UploadedFile = File[UploadedFile](...)
 ):
     """
     为财产线索上传附件

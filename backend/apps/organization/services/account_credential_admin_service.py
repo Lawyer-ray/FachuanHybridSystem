@@ -422,7 +422,7 @@ class AccountCredentialAdminService:
         end_time: Any,
         token: Optional[str] = None,
         error_message: Optional[str] = None,
-        error_details: Optional[dict] = None,
+        error_details: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         记录登录历史
