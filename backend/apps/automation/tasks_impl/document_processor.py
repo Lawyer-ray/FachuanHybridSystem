@@ -45,7 +45,7 @@ def execute_auto_namer_by_path(
         return {"text": None, "ollama_response": None, "error": f"文件不存在: {file_path}"}
 
     try:
-        extraction = extract_document_content(str(p), limit=limit, preview_page=preview_page)  # type: ignore
+        extraction = extract_document_content(str(p), limit=limit, preview_page=preview_page)
         text_value = (extraction.text or "").strip()
         if not text_value:
             return {"text": None, "ollama_response": None, "error": "文档中没有提取到文字内容,无法生成命名"}

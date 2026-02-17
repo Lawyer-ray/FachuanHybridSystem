@@ -227,7 +227,7 @@ class CaseAdminService:
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
             case_id=case_id,
             case_type=case.case_type,
-            created_year=created_year,  # type: ignore[arg-type]
+            created_year=created_year,
         )
 
         # 保存编号到数据库

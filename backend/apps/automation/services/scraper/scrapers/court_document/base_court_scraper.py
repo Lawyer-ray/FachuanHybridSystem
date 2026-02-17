@@ -214,7 +214,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         if self.cast(int, task.case_id):  # type: ignore[name-defined, attr-defined]
             download_dir = (
                 Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, task.case_id))) / "documents"
-            )  # type: ignore[name-defined, attr-defined]
+            )
         else:
             download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{self.task.id}"
 
