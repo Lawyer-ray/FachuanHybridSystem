@@ -67,7 +67,7 @@ class CourtZxfwService:
             logger.info(f"使用注入的 Token 服务: {type(token_service).__name__}")
     
     @property
-    def token_service(self):
+    def token_service(self) -> Any:
         """获取 Token 服务（延迟加载）"""
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
@@ -108,7 +108,7 @@ class CourtZxfwService:
         
         try:
             # 使用响应监听器捕获登录接口的 token（更可靠的方式）
-            def handle_response(response):
+            def handle_response(response: Any) -> None:
                 """监听响应，提取 token"""
                 try:
                     url = response.url.lower()
@@ -372,7 +372,7 @@ class CourtZxfwService:
             logger.error(f"获取验证码图片失败: {e}")
             return None
     
-    def _refresh_captcha(self):
+    def _refresh_captcha(self) -> None:
         """刷新验证码（点击验证码图片）"""
         try:
             captcha_img_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[2]/uni-image/img"
@@ -445,7 +445,7 @@ class CourtZxfwService:
             logger.warning(f"检查登录状态失败: {e}")
             return False
     
-    def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0):
+    def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0) -> None:
         """随机等待"""
         import random
         wait_time = random.uniform(min_sec, max_sec)

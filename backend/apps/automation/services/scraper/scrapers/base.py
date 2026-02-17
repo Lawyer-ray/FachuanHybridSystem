@@ -14,7 +14,7 @@ from ....models import ScraperTask, ScraperTaskStatus
 logger = logging.getLogger("apps.automation")
 
 
-def _safe_save_task(task: ScraperTask):
+def _safe_save_task(task: ScraperTask) -> None:
     """
     安全地保存任务状态
     
@@ -120,7 +120,7 @@ class BaseScraper:
         """
         raise NotImplementedError("子类必须实现 _run 方法")
     
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """清理资源"""
         try:
             if self.page:
@@ -131,7 +131,7 @@ class BaseScraper:
         except Exception as e:
             logger.warning(f"清理资源时出错: {e}")
     
-    def navigate_to_url(self, timeout: int = 30000):
+    def navigate_to_url(self, timeout: int = 30000) -> None:
         """
         导航到任务指定的 URL
         
@@ -141,7 +141,7 @@ class BaseScraper:
         logger.info(f"导航到: {self.task.url}")
         self.page.goto(self.task.url, timeout=timeout, wait_until="domcontentloaded")
     
-    def wait_for_selector(self, selector: str, timeout: int = 10000):
+    def wait_for_selector(self, selector: str, timeout: int = 10000) -> None:
         """
         等待元素出现
         

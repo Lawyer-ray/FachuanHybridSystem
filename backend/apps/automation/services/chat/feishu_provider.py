@@ -1097,7 +1097,7 @@ class FeishuChatProvider(ChatProvider):
         retry_manager = RetryManager()
 
         # 定义重试操作
-        def verify_operation():
+        def verify_operation() -> None:
             """验证群主设置的操作"""
             if not self.verify_owner_setting(chat_id, owner_id):
                 # 如果验证失败，抛出异常触发重试
@@ -1132,7 +1132,7 @@ class FeishuChatProvider(ChatProvider):
 
             return False
 
-    def _classify_feishu_error(self, error_code: str, error_msg: str):
+    def _classify_feishu_error(self, error_code: str, error_msg: str) -> type[Exception]:
         """分类飞书API错误
 
         根据飞书API返回的错误代码和错误消息，分类为相应的异常类型。

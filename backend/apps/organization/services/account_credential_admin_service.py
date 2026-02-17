@@ -45,12 +45,12 @@ class AccountCredentialAdminService:
     
     SUPPORTED_SITE = "court_zxfw"
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._auto_login_service = None
         self._token_service = None
 
     @property
-    def auto_login_service(self):
+    def auto_login_service(self) -> Any:
         """延迟加载 AutoLoginService"""
         if self._auto_login_service is None:
             from apps.automation.services.token.auto_login_service import AutoLoginService
@@ -58,7 +58,7 @@ class AccountCredentialAdminService:
         return self._auto_login_service
     
     @property
-    def token_service(self):
+    def token_service(self) -> Any:
         """延迟加载 AutoTokenAcquisitionService"""
         if self._token_service is None:
             from apps.automation.services.token.auto_token_acquisition_service import (
