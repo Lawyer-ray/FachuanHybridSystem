@@ -12,11 +12,13 @@ import weakref
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar
 
 import yaml
 from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+
+if TYPE_CHECKING:
+    from watchdog.observers import Observer
 
 from .exceptions import ConfigException, ConfigFileError, ConfigNotFoundError, ConfigTypeError, ConfigValidationError
 from .providers.base import ConfigProvider
@@ -439,7 +441,7 @@ class HotReloadManager:
             config_manager: 配置管理器实例
         """
         self.config_manager = config_manager
-        self.observer: Observer | None = None
+        self.observer: "Observer | None" = None
         self.watched_files: list[str] = []
         self.enabled = False
         self._lock = threading.Lock()
@@ -483,6 +485,8 @@ class HotReloadManager:
                 return
 
             try:
+                from watchdog.observers import Observer
+                
                 self.observer = Observer()
                 event_handler = ConfigFileWatcher(self.config_manager, self.watched_files)
 
@@ -562,7 +566,7 @@ class ConfigManager:
         self._auto_reload_enabled = False
 
         # Steering 集成管理器（延迟初始化）
-        self._steering_integration = None
+        self._steering_integration: Any = None
 
     def add_provider(self, provider: ConfigProvider) -> None:
         """
@@ -1246,7 +1250,7 @@ class ConfigManager:
         key_lower = key.lower()
         return any(keyword in key_lower for keyword in sensitive_keywords)
 
-    def _mask_sensitive_value(self, value: Any) -> str:
+    def _mask_sensitive_value(self, value: Any) -> str | None:
         """
         对敏感值进行脱敏处理
 
