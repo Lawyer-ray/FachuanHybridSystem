@@ -106,7 +106,7 @@ class FeishuChatProvider(ChatProvider):
                 from apps.core.models import SystemConfig
                 
                 # 获取飞书分类下的所有配置
-                db_configs = SystemConfig.get_category_configs('feishu')
+                db_configs = SystemConfig.get_category_configs('feishu')  # type: ignore[attr-defined]
                 
                 if db_configs:
                     # 映射数据库配置键到内部配置键
@@ -247,6 +247,7 @@ class FeishuChatProvider(ChatProvider):
             self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
             
             logger.debug("已获取飞书访问令牌")
+            assert self._access_token is not None
             return self._access_token
             
         except requests.RequestException as e:
@@ -321,7 +322,7 @@ class FeishuChatProvider(ChatProvider):
             }
             
             # 根据飞书官方API文档构建请求体
-            payload = {
+            payload: Dict[str, Any] = {
                 "name": chat_name,
                 "chat_mode": "group",  # 群聊模式
                 "chat_type": "private",  # 私有群聊
