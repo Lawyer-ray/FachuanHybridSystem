@@ -53,7 +53,7 @@ class ChatNameConfigService:
     # 支持的占位符
     VALID_PLACEHOLDERS = {'stage', 'case_name', 'case_type'}
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化群聊名称配置服务"""
         logger.debug("ChatNameConfigService 初始化完成")
     
@@ -68,7 +68,7 @@ class ChatNameConfigService:
             
         Requirements: 1.1, 1.2
         """
-        template = SystemConfig.get_value(
+        template = SystemConfig.get_value(  # type: ignore[attr-defined]
             self.CONFIG_KEY_TEMPLATE,
             default=self.DEFAULT_TEMPLATE
         )
@@ -91,7 +91,7 @@ class ChatNameConfigService:
             
         Requirements: 2.1, 2.3
         """
-        default_stage = SystemConfig.get_value(
+        default_stage = SystemConfig.get_value(  # type: ignore[attr-defined]
             self.CONFIG_KEY_DEFAULT_STAGE,
             default=self.DEFAULT_STAGE
         )
@@ -114,7 +114,7 @@ class ChatNameConfigService:
             
         Requirements: 3.1, 3.3
         """
-        max_length_str = SystemConfig.get_value(
+        max_length_str = SystemConfig.get_value(  # type: ignore[attr-defined]
             self.CONFIG_KEY_MAX_LENGTH,
             default=str(self.DEFAULT_MAX_LENGTH)
         )

@@ -86,7 +86,7 @@ class CaseChatService:
         # 使用配置服务渲染群名
         from apps.cases.services.chat_name_config_service import ChatNameConfigService
 
-        config_service = ChatNameConfigService()
+        config_service = ChatNameConfigService()  # type: ignore[no-untyped-call]
 
         # 获取阶段显示名称
         stage_display = None
@@ -102,7 +102,7 @@ class CaseChatService:
         case_type_display = None
         if hasattr(case, "case_type") and case.case_type:
             try:
-                case_type_display = case.get_case_type_display()
+                case_type_display = case.get_case_type_display()  # type: ignore[attr-defined]
             except (AttributeError, ValueError):
                 case_type_display = case.case_type
                 logger.warning(f"无法获取案件类型显示名称: {case.case_type}, 使用原始值")
@@ -197,7 +197,7 @@ class CaseChatService:
                         if default_owner:
                             owner_id = default_owner
                             logger.debug(f"使用默认群主（统一配置）: {owner_id}")
-                        return
+                        return None
             except Exception as e:
                 logger.debug(f"从统一配置获取默认群主失败: {e}")
 
