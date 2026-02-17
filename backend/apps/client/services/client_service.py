@@ -2,7 +2,7 @@
 客户服务层
 处理客户相关的业务逻辑
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from django.db.models import QuerySet, Q
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -12,6 +12,9 @@ from apps.core.interfaces import ClientDTO, IClientService
 from apps.core.config import get_config
 from ..models import Client
 import logging
+
+if TYPE_CHECKING:
+    from .client_identity_doc_service import ClientIdentityDocService
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")

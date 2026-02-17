@@ -17,11 +17,14 @@
 """
 
 import logging
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
 from apps.core.enums import ChatPlatform
 from apps.core.interfaces import ServiceLocator, ICaseChatService
 from apps.automation.models import CourtSMS
+
+if TYPE_CHECKING:
+    from apps.cases.models import CaseChat
 
 logger = logging.getLogger(__name__)
 
