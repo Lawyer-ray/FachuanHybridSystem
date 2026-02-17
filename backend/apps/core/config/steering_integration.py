@@ -88,7 +88,7 @@ class SteeringConfigProvider:
             rules: List[SteeringLoadingRule] = []
             
             # 从配置中读取规则
-            rules_config = self.config_manager.get("steering.conditional_loading.rules", [])
+            rules_config: List[Any] = self.config_manager.get("steering.conditional_loading.rules", [])
             
             for rule_config in rules_config:
                 rule = SteeringLoadingRule(
