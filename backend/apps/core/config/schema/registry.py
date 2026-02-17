@@ -1007,7 +1007,7 @@ def get_required_config_fields() -> Dict[str, ConfigField]:
     }
 
 
-def validate_registry_consistency():
+def validate_registry_consistency() -> None:
     """
     验证配置注册表的一致性
     

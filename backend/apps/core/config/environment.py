@@ -391,7 +391,7 @@ class EnvironmentConfig:
         Returns:
             Dict[str, Any]: 合规性检查结果
         """
-        result = {
+        result: dict[str, Any] = {
             'compliant': True,
             'errors': [],
             'warnings': [],

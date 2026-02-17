@@ -41,10 +41,10 @@ def parse_client_text(text: str) -> dict[str, Any]:
         # 如果角色标签匹配失败，尝试直接提取字段
         return _parse_fields_directly(text)
 
-    return parties[0]  # type: ignore[no-any-return]
+    return parties[0]
 
 
-def parse_multiple_clients_text(text: str) -> list[Any][dict]:
+def parse_multiple_clients_text(text: str) -> list[dict[str, Any]]:
     """解析包含多个当事人的文本"""
     if not text or not text.strip():
         return []
@@ -125,7 +125,7 @@ def _extract_name_smart(text: str) -> str | None:
     return None
 
 
-def _extract_parties(text: str) -> list[Any][dict]:
+def _extract_parties(text: str) -> list[dict[str, Any]]:
     """提取所有当事人信息"""
     parties = []
 
