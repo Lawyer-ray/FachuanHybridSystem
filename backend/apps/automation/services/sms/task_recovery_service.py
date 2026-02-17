@@ -34,7 +34,7 @@ class TaskRecoveryService:
         """
         logger.info(f"开始任务恢复 (dry_run={dry_run})")
         
-        result = {
+        result: Dict[str, Any] = {
             "recovered_count": 0,
             "reset_count": 0,
             "failed_count": 0,
@@ -229,7 +229,7 @@ class TaskRecoveryService:
         elif sms.status == CourtSMSStatus.DOWNLOADING:
             # 下载中状态，检查关联的 ScraperTask
             if sms.scraper_task:
-                if sms.scraper_task.status == ScraperTaskStatus.SUCCESS:
+                if sms.scraper_task.status == ScraperTaskStatus.SUCCESS:  # type: ignore[attr-defined]
                     # 下载已完成，继续后续处理
                     sms.status = CourtSMSStatus.MATCHING
                     sms.save()
@@ -239,7 +239,7 @@ class TaskRecoveryService:
                         sms.id,
                         task_name=f"court_sms_download_complete_recovery_{sms.id}"
                     )
-                elif sms.scraper_task.status == ScraperTaskStatus.FAILED:
+                elif sms.scraper_task.status == ScraperTaskStatus.FAILED:  # type: ignore[attr-defined]
                     # 下载失败，触发重试逻辑
                     sms.status = CourtSMSStatus.DOWNLOAD_FAILED
                     sms.save()
