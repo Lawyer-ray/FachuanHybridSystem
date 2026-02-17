@@ -164,7 +164,7 @@ class Validators:
         # 检查精度
         sign, digits, exponent = decimal_value.as_tuple()
         total_digits = len(digits)
-        decimal_digits = -exponent if isinstance(exponent, int) and exponent < 0 else 0  # type: ignore[operator]
+        decimal_digits = -exponent if isinstance(exponent, int) and exponent < 0 else 0
         integer_digits = total_digits - decimal_digits
 
         if integer_digits + decimal_places > max_digits:

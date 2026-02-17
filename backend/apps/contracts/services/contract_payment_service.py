@@ -241,7 +241,7 @@ class ContractPaymentService:
                 raise ValidationException("收款金额需大于0")
             
             # 合规校验：替换后累计不超过固定金额
-            total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
+            total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)  # type: ignore[attr-defined]
             contract = obj.contract
             if contract.fixed_amount is not None:
                 if amount + float(total_except) - float(contract.fixed_amount) > 1e-6:
@@ -257,7 +257,7 @@ class ContractPaymentService:
                         },
                     )
                     raise ValidationException("累计收款超过合同固定金额")
-            obj.amount = amount
+            obj.amount = Decimal(str(amount))
         
         # 更新收款日期
         if "received_at" in data and data["received_at"]:
@@ -274,7 +274,7 @@ class ContractPaymentService:
                 float(obj.amount),
                 data.get("invoice_status", obj.invoice_status),
             )
-            obj.invoiced_amount = invoiced_amount
+            obj.invoiced_amount = Decimal(str(invoiced_amount))
             obj.invoice_status = inv_status
         
         # 更新备注
@@ -285,7 +285,7 @@ class ContractPaymentService:
         
         # 记录财务日志
         self._log_finance(
-            obj.contract_id,
+            obj.contract_id,  # type: ignore[attr-defined]
             self._get_user_id(user),
             "update_payment",
             "INFO",
@@ -326,7 +326,7 @@ class ContractPaymentService:
         
         # 获取收款记录
         obj = self.get_payment(payment_id)
-        cid = obj.contract_id
+        cid = obj.contract_id  # type: ignore[attr-defined]
         pid = obj.id
         
         obj.delete()
@@ -421,7 +421,7 @@ class ContractPaymentService:
         else:
             return InvoiceStatus.INVOICED_FULL
 
-    def _get_user_id(self, user) -> Optional[int]:
+    def _get_user_id(self, user: Any) -> Optional[int]:
         """
         获取用户 ID
         
