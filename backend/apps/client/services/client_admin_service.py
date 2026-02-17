@@ -3,13 +3,17 @@
 封装 Admin 层的复杂业务逻辑
 """
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
 from apps.core.exceptions import ValidationException
 from ..models import Client, ClientIdentityDoc
 import logging
+
+if TYPE_CHECKING:
+    from .client_service import ClientService
+    from .clientidentitydoc_service import ClientIdentityDocService
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")
