@@ -221,7 +221,7 @@ class SteeringConfigProvider:
             )
         ]
     
-    def invalidate_cache(self, key: Optional[str] = None):
+    def invalidate_cache(self, key: Optional[str] = None) -> None:
         """使缓存失效"""
         with self._lock:
             if key:
@@ -388,7 +388,7 @@ class SteeringCacheManager:
             
             return data
     
-    def invalidate_cache(self, spec_path: Optional[str] = None):
+    def invalidate_cache(self, spec_path: Optional[str] = None) -> None:
         """使缓存失效"""
         with self._lock:
             if spec_path:
@@ -408,7 +408,7 @@ class SteeringCacheManager:
                 "newest_entry": max(self._access_times.values()) if self._access_times else None
             }
     
-    def _cleanup_if_needed(self, cache_config: SteeringCacheConfig):
+    def _cleanup_if_needed(self, cache_config: SteeringCacheConfig) -> None:
         """根据需要清理缓存"""
         # 检查条目数量限制
         if len(self._cache) > cache_config.max_entries:
@@ -419,7 +419,7 @@ class SteeringCacheManager:
         if memory_usage_mb > cache_config.memory_limit_mb:
             self._cleanup_by_lru(len(self._cache) // 2)
     
-    def _cleanup_by_lru(self, target_size: int):
+    def _cleanup_by_lru(self, target_size: int) -> None:
         """按 LRU 策略清理缓存"""
         if len(self._cache) <= target_size:
             return
@@ -439,7 +439,7 @@ class SteeringCacheManager:
         # 简单估算：每个缓存条目约 1KB
         return len(self._cache) * 1024
     
-    def _start_cleanup_timer(self):
+    def _start_cleanup_timer(self) -> None:
         """启动清理定时器"""
         cache_config = self.config_provider.get_cache_config()
         
@@ -451,7 +451,7 @@ class SteeringCacheManager:
             self._cleanup_timer.daemon = True
             self._cleanup_timer.start()
     
-    def _periodic_cleanup(self):
+    def _periodic_cleanup(self) -> None:
         """定期清理"""
         try:
             cache_config = self.config_provider.get_cache_config()
@@ -480,7 +480,7 @@ class SteeringCacheManager:
             # 重新启动定时器
             self._start_cleanup_timer()
     
-    def shutdown(self):
+    def shutdown(self) -> None:
         """关闭缓存管理器"""
         if self._cleanup_timer:
             self._cleanup_timer.cancel()
@@ -523,7 +523,7 @@ class SteeringPerformanceMonitor:
             logger.error(f"规范加载失败 {spec_path}: {e}")
             raise
     
-    def _record_metric(self, spec_path: str, load_time_ms: float, success: bool):
+    def _record_metric(self, spec_path: str, load_time_ms: float, success: bool) -> None:
         """记录性能指标"""
         with self._lock:
             if spec_path not in self._metrics:
@@ -551,7 +551,7 @@ class SteeringPerformanceMonitor:
             metrics["avg_time_ms"] = metrics["total_time_ms"] / metrics["total_loads"]
     
     def _check_performance_thresholds(self, spec_path: str, load_time_ms: float, 
-                                    perf_config: SteeringPerformanceConfig):
+                                    perf_config: SteeringPerformanceConfig) -> None:
         """检查性能阈值"""
         if load_time_ms > perf_config.error_threshold_ms:
             logger.error(f"规范加载性能严重超标 {spec_path}: {load_time_ms:.2f}ms "
@@ -571,7 +571,7 @@ class SteeringPerformanceMonitor:
                 "metrics": dict(self._metrics)
             }
     
-    def reset_metrics(self):
+    def reset_metrics(self) -> None:
         """重置性能指标"""
         with self._lock:
             self._metrics.clear()
@@ -611,7 +611,7 @@ class SteeringDependencyResolver:
         else:  # priority
             return self._sort_by_priority(spec_paths)
     
-    def _build_dependency_graph(self, spec_paths: List[str]):
+    def _build_dependency_graph(self, spec_paths: List[str]) -> None:
         """构建依赖关系图"""
         with self._lock:
             self._dependency_graph.clear()
@@ -660,7 +660,7 @@ class SteeringDependencyResolver:
         visited = set()
         visiting = set()
         
-        def visit(spec_path: str, depth: int = 0):
+        def visit(spec_path: str, depth: int = 0) -> None:
             if depth > dep_config.max_depth:
                 logger.warning(f"依赖深度超过限制 {spec_path}: {depth}")
                 return
@@ -775,7 +775,7 @@ class SteeringIntegrationManager:
         )
         config_manager.add_listener(self.config_listener, prefix_filter="steering.")
     
-    def _init_advanced_components(self):
+    def _init_advanced_components(self) -> None:
         """初始化高级组件"""
         # 缓存策略管理器
         cache_config = self.config_manager.get("steering.cache", {})
@@ -865,7 +865,7 @@ class SteeringIntegrationManager:
             "config_provider_cache_size": len(self.config_provider._cache)
         }
     
-    def export_integration_report(self, output_path: str):
+    def export_integration_report(self, output_path: str) -> None:
         """导出集成报告"""
         try:
             report = {
@@ -887,7 +887,7 @@ class SteeringIntegrationManager:
         except Exception as e:
             logger.error(f"导出集成报告失败: {e}")
     
-    def refresh_all_caches(self):
+    def refresh_all_caches(self) -> None:
         """刷新所有缓存"""
         self.cache_manager.invalidate_cache()
         self.cache_strategy_manager.invalidate()
@@ -895,7 +895,7 @@ class SteeringIntegrationManager:
         self.dependency_manager.refresh_metadata()
         logger.info("所有 Steering 缓存已刷新")
     
-    def shutdown(self):
+    def shutdown(self) -> None:
         """关闭集成管理器"""
         self.config_manager.remove_listener(self.config_listener)
         self.cache_manager.shutdown()
