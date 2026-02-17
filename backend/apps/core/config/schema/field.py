@@ -65,7 +65,7 @@ class ConfigField:
     transformer: Callable[[Any], Any] | None = None
     """值转换函数，用于在设置配置值时进行转换"""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         # 如果没有设置 depends_on，初始化为空列表
         if self.depends_on is None:
@@ -78,7 +78,7 @@ class ConfigField:
         # 验证字段定义的一致性
         self._validate_field_definition()
 
-    def _validate_field_definition(self):
+    def _validate_field_definition(self) -> None:
         """验证字段定义的一致性"""
         # 检查数值范围设置是否合理
         if self.min_value is not None and self.max_value is not None:
