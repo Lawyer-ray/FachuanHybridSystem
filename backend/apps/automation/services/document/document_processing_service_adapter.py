@@ -21,7 +21,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
     实现 IDocumentProcessingService 接口，提供文档处理的核心功能
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """
         初始化文档处理服务适配器
         

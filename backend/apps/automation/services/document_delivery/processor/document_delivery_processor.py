@@ -115,9 +115,9 @@ class DocumentDeliveryProcessor:
         self, record: DocumentDeliveryRecord, file_path: str, extracted_files: list[str], credential_id: int
     ) -> dict[str, Any]:
         """在独立线程中执行 SMS 处理流程"""
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process():
+        def do_process() -> None:
             try:
                 from django.db import connection
                 from django.utils import timezone
@@ -206,7 +206,7 @@ class DocumentDeliveryProcessor:
     def record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
         """在独立线程中记录查询历史"""
 
-        def do_record():
+        def do_record() -> None:
             try:
                 from django.db import connection, transaction
                 from django.utils import timezone
@@ -226,7 +226,7 @@ class DocumentDeliveryProcessor:
         thread.start()
         thread.join(timeout=10)
 
-    def match_case_by_number(self, case_number: str):
+    def match_case_by_number(self, case_number: str) -> Any:
         """
         通过案号匹配案件
 
@@ -235,7 +235,7 @@ class DocumentDeliveryProcessor:
         """
         return self.case_matcher.match_by_case_number([case_number])
 
-    def match_case_by_document_parties(self, document_paths: list[str]):
+    def match_case_by_document_parties(self, document_paths: list[str]) -> Any:
         """
         从文书中提取当事人进行案件匹配
 
@@ -261,7 +261,7 @@ class DocumentDeliveryProcessor:
             logger.warning(f"从文书提取当事人匹配失败: {e!s}")
             return None
 
-    def rename_and_attach_documents(self, sms, case, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         renamed_files = []
         case_log_id = None
@@ -291,7 +291,7 @@ class DocumentDeliveryProcessor:
 
         return renamed_files, case_log_id
 
-    def _upload_attachments(self, case_log_service, log_id: int, file_paths: list[str]) -> None:
+    def _upload_attachments(self, case_log_service: Any, log_id: int, file_paths: list[str]) -> None:
         """上传附件到案件日志"""
         from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -309,7 +309,7 @@ class DocumentDeliveryProcessor:
             except Exception as e:
                 logger.warning(f"添加附件失败: {file_path}, 错误: {e!s}")
 
-    def send_notification(self, sms, document_paths: list[str]) -> bool:
+    def send_notification(self, sms: Any, document_paths: list[str]) -> bool:
         """发送通知"""
         try:
             if not sms.case:

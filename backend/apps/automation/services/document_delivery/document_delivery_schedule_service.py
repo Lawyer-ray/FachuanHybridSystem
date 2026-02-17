@@ -245,10 +245,10 @@ class DocumentDeliveryScheduleService:
         import threading
         import queue
         
-        result_queue = queue.Queue()
-        exception_queue = queue.Queue()
+        result_queue: queue.Queue[Any] = queue.Queue()
+        exception_queue: queue.Queue[Any] = queue.Queue()
         
-        def run_in_thread():
+        def run_in_thread() -> None:
             """在独立线程中执行任务"""
             try:
                 # 计算截止时间
