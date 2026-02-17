@@ -218,7 +218,7 @@ class PreservationQuoteAdminService:
             from apps.core.exceptions import AutomationExceptions
             raise AutomationExceptions.retry_failed_quotes_failed()
     
-    def get_quote_statistics(self, queryset=None) -> Dict[str, Any]:
+    def get_quote_statistics(self, queryset: Any = None) -> Dict[str, Any]:
         """
         获取询价统计数据
         
