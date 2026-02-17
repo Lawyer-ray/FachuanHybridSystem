@@ -33,7 +33,7 @@ class TeamService:
 
     def list_teams(
         self, law_firm_id: int | None = None, team_type: str | None = None, user: Lawyer | None = None
-    ) -> QuerySet:
+    ) -> "QuerySet[Team, Team]":
         """
         列表查询团队
 
