@@ -45,7 +45,7 @@ class CacheEntry:
     size_bytes: int = 0
     priority: int = 0
     
-    def touch(self):
+    def touch(self) -> None:
         """更新访问时间和次数"""
         self.last_accessed = time.time()
         self.access_count += 1
@@ -311,7 +311,7 @@ class LayeredCacheStrategy(CacheStrategyInterface):
 class AdaptiveCacheStrategy(CacheStrategyInterface):
     """自适应缓存策略"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.hit_rate_window = 100  # 命中率计算窗口
         self.recent_hits = []
         self.current_strategy = "lru"
@@ -356,13 +356,13 @@ class AdaptiveCacheStrategy(CacheStrategyInterface):
         if len(self.recent_hits) >= self.hit_rate_window:
             self._evaluate_and_adapt()
     
-    def record_miss(self):
+    def record_miss(self) -> None:
         """记录缓存未命中"""
         self.recent_hits.append(False)
         if len(self.recent_hits) > self.hit_rate_window:
             self.recent_hits.pop(0)
     
-    def _evaluate_and_adapt(self):
+    def _evaluate_and_adapt(self) -> None:
         """评估并调整策略"""
         current_hit_rate = sum(self.recent_hits) / len(self.recent_hits)
         
