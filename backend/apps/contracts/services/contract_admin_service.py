@@ -1,5 +1,5 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from django.db import transaction
 
 from ..models import (
@@ -7,6 +7,9 @@ from ..models import (
     ContractReminder, SupplementaryAgreement, SupplementaryAgreementParty
 )
 from apps.core.enums import CaseType
+
+if TYPE_CHECKING:
+    from apps.cases.models import Case
 
 
 class ContractAdminService:

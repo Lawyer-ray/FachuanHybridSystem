@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from .supplementary_agreement_service import SupplementaryAgreementService
     from .lawyer_assignment_service import LawyerAssignmentService
     from ..models import ContractPayment
+    from apps.contracts.dtos import ContractDTO
+    from apps.core.dtos import LawyerDTO
 
 logger = logging.getLogger("apps.contracts")
 
