@@ -236,7 +236,7 @@ def analyze_django_settings(
 
 def create_config_schema(config_manager: ConfigManager) -> None:
     """创建配置模式"""
-    schema = ConfigSchema()  # type: ignore[no-untyped-call]
+    schema = ConfigSchema()
 
     # 注册 Django 核心配置字段
     _register_django_core_fields(schema)
