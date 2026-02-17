@@ -35,7 +35,7 @@ class CompatibleSettings:
         self._fallback_to_django = True
         
         # 缓存 Django 原始设置
-        self._django_settings_cache = {}
+        self._django_settings_cache: dict[str, Any] = {}
         self._cache_django_settings()
     
     def _build_django_mapping(self) -> Dict[str, str]:
@@ -213,7 +213,7 @@ class CompatibleSettings:
         Returns:
             List[str]: 配置项名称列表
         """
-        attrs = set()
+        attrs: set[str] = set()
         
         # 添加映射的配置项
         attrs.update(self._django_to_config_mapping.keys())
@@ -349,7 +349,7 @@ class CompatibleSettings:
         Returns:
             Dict[str, Any]: 所有设置的字典
         """
-        settings_dict = {}
+        settings_dict: dict[str, Any] = {}
         
         # 获取统一配置中的设置
         for django_key, config_key in self._django_to_config_mapping.items():
