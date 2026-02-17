@@ -24,16 +24,16 @@ class ContractReminderService:
     - 业务逻辑封装
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """构造函数，预留依赖注入扩展"""
         pass
 
     def list_reminders(
         self,
         contract_id: int | None = None,
-        user=None,
+        user: Any = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> QuerySet[ContractReminder]:
         """
         获取提醒列表
 
