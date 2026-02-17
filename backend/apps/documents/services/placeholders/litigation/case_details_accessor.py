@@ -52,7 +52,7 @@ class LitigationCaseDetailsAccessor:
         if isinstance(value, str):
             for parser in (datetime.fromisoformat, lambda s: datetime.strptime(s, "%Y-%m-%d")):
                 try:
-                    return parser(value).date()  # type: ignore[no-untyped-call]
+                    return parser(value).date()
                 except ValueError:
                     continue
         return None

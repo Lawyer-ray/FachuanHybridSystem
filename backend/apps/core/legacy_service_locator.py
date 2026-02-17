@@ -209,7 +209,7 @@ class LegacyServiceLocator:
         if service is None:
             from apps.contracts.services.contract_payment_service import ContractPaymentService
 
-            service = ContractPaymentService()  # type: ignore[no-untyped-call]
+            service = ContractPaymentService()
             cls.register("contract_payment_service", service)
         return service
 
@@ -243,7 +243,7 @@ class LegacyServiceLocator:
                 DocumentProcessingServiceAdapter,
             )
 
-            service = DocumentProcessingServiceAdapter()  # type: ignore[no-untyped-call]
+            service = DocumentProcessingServiceAdapter()
             cls.register("document_processing_service", service)
         return service
 
@@ -287,7 +287,7 @@ class LegacyServiceLocator:
 
             service = CourtSMSService()
             cls.register("court_sms_service", service)
-        return service  # type: ignore[return-value]
+        return service
 
     @classmethod
     def get_case_chat_service(cls) -> ICaseChatService:
@@ -295,9 +295,9 @@ class LegacyServiceLocator:
         if service is None:
             from apps.cases.services.case_chat_service import CaseChatService
 
-            service = CaseChatService()  # type: ignore[no-untyped-call]
+            service = CaseChatService()
             cls.register("case_chat_service", service)
-        return service  # type: ignore[return-value]
+        return service
 
     @classmethod
     def get_organization_service(cls) -> IOrganizationService:
@@ -327,6 +327,6 @@ class LegacyServiceLocator:
                 CourtDocumentRecognitionServiceAdapter,
             )
 
-            service = CourtDocumentRecognitionServiceAdapter()  # type: ignore[no-untyped-call]
+            service = CourtDocumentRecognitionServiceAdapter()
             cls.register("court_document_recognition_service", service)
         return service
