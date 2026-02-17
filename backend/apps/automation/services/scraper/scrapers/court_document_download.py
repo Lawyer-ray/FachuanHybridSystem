@@ -52,9 +52,9 @@ class CourtDocumentDownloadMixin(
             raise RuntimeError("django.media_root 未配置")
         media_root_path = Path(str(media_root))
 
-        if self.cast(int | None, self.cast(int, task.case_id)):  # type: ignore[name-defined, attr-defined]
+        if self.cast(int | None, self.cast(int, self.task.case_id)):
             download_dir = (
-                media_root_path / "case_logs" / str(self.cast(int | None, self.cast(int, task.case_id))) / "documents"
+                media_root_path / "case_logs" / str(self.cast(int | None, self.cast(int, self.task.case_id))) / "documents"
             )
         else:
             download_dir = media_root_path / "automation" / "downloads" / f"task_{cast(int, self.task.pk)}"

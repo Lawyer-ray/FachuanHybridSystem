@@ -9,6 +9,7 @@
     python manage.py recover_court_sms_tasks --reset   # 重置卡住的任务
 """
 import logging
+from typing import Any
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta

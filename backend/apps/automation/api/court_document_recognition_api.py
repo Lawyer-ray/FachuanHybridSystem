@@ -10,7 +10,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from ninja import Router, File
 from ninja.files import UploadedFile

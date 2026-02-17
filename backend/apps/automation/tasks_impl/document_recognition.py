@@ -68,7 +68,7 @@ def _send_recognition_notification(task: Any, result: Any) -> None:
         notification_service = DocumentRecognitionNotificationService()
         file_path = task.renamed_file_path or task.file_path
         notification_result = notification_service.send_notification(
-            case_id=result.cast(int, binding.case_id),
+            case_id=result.cast(int, result.binding.case_id),
             document_type=task.document_type,
             case_number=task.case_number,
             key_time=task.key_time,
