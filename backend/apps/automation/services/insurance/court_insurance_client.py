@@ -176,7 +176,7 @@ class CourtInsuranceClient:
         bearer_token: str,
         c_pid: str,
         fy_id: str,
-        timeout: float = None,
+        timeout: float | None = None,
         max_retries: int = 3
     ) -> List[InsuranceCompany]:
         """
@@ -559,7 +559,7 @@ class CourtInsuranceClient:
         preserve_amount: Decimal,
         institution: str,
         corp_id: str,
-        timeout: float = None
+        timeout: float | None = None
     ) -> PremiumResult:
         """
         查询单个保险公司报价
@@ -972,7 +972,7 @@ class CourtInsuranceClient:
         preserve_amount: Decimal,
         corp_id: str,
         companies: List[InsuranceCompany],
-        timeout: float = None
+        timeout: float | None = None
     ) -> List[PremiumResult]:
         """
         并发查询所有保险公司报价

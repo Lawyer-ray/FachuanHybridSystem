@@ -274,7 +274,7 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
             insurance_client=insurance_client
         )
     
-    async def _get_valid_token(self, credential_id: int = None) -> str:
+    async def _get_valid_token(self, credential_id: int | None = None) -> str:
         """
         获取有效的Token（集成自动获取功能）
         
