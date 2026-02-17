@@ -26,8 +26,8 @@ class YamlProvider(ConfigProvider):
         """
         self.config_path = Path(config_path)
         self.watch_file = watch_file
-        self._last_modified = None
-        self._cached_config = None
+        self._last_modified: float | None = None
+        self._cached_config: dict[str, Any] | None = None
         
         # 变量替换模式：${VAR:default}
         self._var_pattern = re.compile(r'\$\{([^}:]+)(?::([^}]*))?\}')

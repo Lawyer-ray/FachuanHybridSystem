@@ -938,4 +938,4 @@ class MigrationStateTracker:
             
             conn.commit()
             
-            return event_count + progress_count  # type: ignore[no-any-return]
+            return event_count + progress_count
