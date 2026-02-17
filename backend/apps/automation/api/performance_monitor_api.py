@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = Router(tags=["性能监控"])
 
 
-def _get_performance_monitor_service():
+def _get_performance_monitor_service() -> any:
     """
     工厂函数：创建性能监控服务实例
     
@@ -37,7 +37,7 @@ def _get_performance_monitor_service():
 
 
 @router.get("/metrics", response=PerformanceMetricsOut, summary="获取实时性能指标")
-def get_performance_metrics(request: HttpRequest):
+def get_performance_metrics(request: HttpRequest) -> dict[str, any]:
     """
     获取Token获取服务的实时性能指标
     
@@ -59,7 +59,7 @@ def get_statistics_report(
     request: HttpRequest,
     days: int = Query[int](7, description="统计天数", ge=1, le=90),
     site_name: Optional[str] = Query[Optional[str]](None, description="网站名称过滤")
-):
+) -> dict[str, any]:
     """
     获取Token获取服务的统计报告
     
@@ -83,7 +83,7 @@ def get_statistics_report(
 
 
 @router.get("/health", response=HealthCheckOut, summary="健康检查")
-def health_check(request: HttpRequest):
+def health_check(request: HttpRequest) -> dict[str, any]:
     """
     检查Token获取服务的健康状态
     
@@ -101,7 +101,7 @@ def health_check(request: HttpRequest):
 
 
 @router.get("/resource-usage", response=ResourceUsageOut, summary="获取资源使用情况")
-def get_resource_usage(request: HttpRequest):
+def get_resource_usage(request: HttpRequest) -> dict[str, any]:
     """
     获取并发资源使用情况
     
@@ -119,7 +119,7 @@ def get_resource_usage(request: HttpRequest):
 
 
 @router.post("/optimize-concurrency", summary="优化并发配置")
-def optimize_concurrency(request: HttpRequest):
+def optimize_concurrency(request: HttpRequest) -> dict[str, any]:
     """
     分析当前使用情况并提供并发优化建议
     
@@ -135,7 +135,7 @@ def optimize_concurrency(request: HttpRequest):
 
 
 @router.get("/cache-stats", summary="获取缓存统计")
-def get_cache_statistics(request: HttpRequest):
+def get_cache_statistics(request: HttpRequest) -> dict[str, any]:
     """
     获取缓存使用统计信息
     
@@ -154,7 +154,7 @@ def get_cache_statistics(request: HttpRequest):
 def warm_up_cache(
     request: HttpRequest,
     site_name: str = Query[str](..., description="网站名称")
-):
+) -> dict[str, any]:
     """
     预热指定网站的缓存
     
@@ -180,7 +180,7 @@ def warm_up_cache(
 
 
 @router.delete("/cache/clear", summary="清除缓存")
-def clear_cache(request: HttpRequest):
+def clear_cache(request: HttpRequest) -> dict[str, any]:
     """
     清除所有Token相关缓存
     
@@ -200,7 +200,7 @@ def clear_cache(request: HttpRequest):
 
 
 @router.post("/metrics/reset", summary="重置性能指标")
-def reset_performance_metrics(request: HttpRequest):
+def reset_performance_metrics(request: HttpRequest) -> dict[str, any]:
     """
     重置所有性能监控指标
     
@@ -220,7 +220,7 @@ def reset_performance_metrics(request: HttpRequest):
 
 
 @router.post("/resources/cleanup", summary="清理资源")
-def cleanup_resources(request: HttpRequest):
+def cleanup_resources(request: HttpRequest) -> dict[str, any]:
     """
     清理并发资源和过期锁
     

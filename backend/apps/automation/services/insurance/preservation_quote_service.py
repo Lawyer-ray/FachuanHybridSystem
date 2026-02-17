@@ -35,7 +35,10 @@ from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService
 logger = logging.getLogger("apps.automation")
 
 
-def get_or_create_token(site_name="court_zxfw", account=None):
+from typing import Any, Optional
+
+
+def get_or_create_token(site_name: str = "court_zxfw", account: Optional[Any] = None) -> Optional[str]:
     """
     获取或创建 Token
 

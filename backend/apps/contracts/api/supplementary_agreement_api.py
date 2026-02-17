@@ -3,7 +3,7 @@
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 异常处理依赖全局异常处理器，API 层不包含 try/except
 """
-from typing import List
+from typing import List, Any
 from ninja import Router
 
 from ..schemas import (
@@ -25,11 +25,11 @@ def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
 
 
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
-def create_supplementary_agreement(request, payload: SupplementaryAgreementIn):
+def create_supplementary_agreement(request: Any, payload: SupplementaryAgreementIn) -> SupplementaryAgreementOut:
     """
     创建补充协议
 
-    API 层职责：
+    API 层职责:
     1. 接收请求数据
     2. 调用 Service
     3. 返回结果
@@ -46,7 +46,7 @@ def create_supplementary_agreement(request, payload: SupplementaryAgreementIn):
 
 
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
-def get_supplementary_agreement(request, agreement_id: int):
+def get_supplementary_agreement(request: Any, agreement_id: int) -> SupplementaryAgreementOut:
     """
     获取补充协议
 
@@ -62,7 +62,7 @@ def get_supplementary_agreement(request, agreement_id: int):
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=List[SupplementaryAgreementOut])
-def list_supplementary_agreements(request, contract_id: int):
+def list_supplementary_agreements(request: Any, contract_id: int) -> List[SupplementaryAgreementOut]:
     """
     获取合同的所有补充协议
 
@@ -77,10 +77,10 @@ def list_supplementary_agreements(request, contract_id: int):
 
 @router.put("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 def update_supplementary_agreement(
-    request,
+    request: Any,
     agreement_id: int,
     payload: SupplementaryAgreementUpdate
-):
+) -> SupplementaryAgreementOut:
     """
     更新补充协议
 
@@ -104,7 +104,7 @@ def update_supplementary_agreement(
 
 
 @router.delete("/supplementary-agreements/{agreement_id}")
-def delete_supplementary_agreement(request, agreement_id: int):
+def delete_supplementary_agreement(request: Any, agreement_id: int) -> dict[str, bool]:
     """
     删除补充协议
 

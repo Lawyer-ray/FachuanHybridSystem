@@ -9,7 +9,10 @@ from ..schemas import DocumentProcessIn, DocumentProcessOut
 router = Router(tags=["Document Processor"])
 
 
-def _get_document_processor_service():
+from typing import Any
+
+
+def _get_document_processor_service() -> Any:
     """
     工厂函数：创建文档处理服务实例
     
@@ -23,7 +26,7 @@ def _get_document_processor_service():
 
 
 @router.post("/process", response=DocumentProcessOut)
-def process_document(request, payload: DocumentProcessIn):
+def process_document(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:
     """文档处理API"""
     # 使用工厂函数获取服务
     service = _get_document_processor_service()
@@ -43,7 +46,7 @@ def process_document(request, payload: DocumentProcessIn):
 
 
 @router.post("/process-by-path", response=DocumentProcessOut)
-def process_document_by_path(request, payload: DocumentProcessIn):
+def process_document_by_path(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:
     """通过路径处理文档"""
     # 使用工厂函数获取服务
     service = _get_document_processor_service()

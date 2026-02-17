@@ -3,7 +3,7 @@
 """
 from ninja import Router, Form
 from ninja.pagination import paginate, PageNumberPagination
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 
 from ..schemas import (
@@ -15,7 +15,7 @@ from ..schemas import (
 router = Router(tags=["法院短信处理"])
 
 
-def _get_court_sms_service():
+def _get_court_sms_service() -> Any:
     """
     工厂函数：创建法院短信服务实例
     
@@ -33,7 +33,7 @@ def _get_court_sms_service():
 # ============================================================================
 
 @router.post("/court-sms", response=CourtSMSSubmitOut)
-def submit_sms(request, payload: CourtSMSSubmitIn):
+def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
     """
     提交法院短信
     
@@ -59,11 +59,11 @@ def submit_sms(request, payload: CourtSMSSubmitIn):
 
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
 def submit_sms_form(
-    request,
+    request: Any,
     content: str = Form[str](...),
     received_at: Optional[datetime] = Form[Optional[datetime]](None),
     sender: Optional[str] = Form[Optional[str]](None)
-):
+) -> CourtSMSSubmitOut:
     """
     提交法院短信（表单格式）
     
@@ -92,7 +92,7 @@ def submit_sms_form(
 # ============================================================================
 
 @router.get("/court-sms/{sms_id}", response=CourtSMSDetailOut)
-def get_sms_detail(request, sms_id: int):
+def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
     """
     查询短信处理详情
     
@@ -108,13 +108,13 @@ def get_sms_detail(request, sms_id: int):
 @router.get("/court-sms", response=List[CourtSMSListOut])
 @paginate(PageNumberPagination, page_size=20)
 def list_sms(
-    request,
+    request: Any,
     status: Optional[str] = None,
     sms_type: Optional[str] = None,
     has_case: Optional[bool] = None,
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None
-):
+) -> List[CourtSMSListOut]:
     """
     查询短信列表
     
@@ -138,7 +138,7 @@ def list_sms(
 # ============================================================================
 
 @router.post("/court-sms/{sms_id}/assign-case", response=CourtSMSAssignCaseOut)
-def assign_case(request, sms_id: int, payload: CourtSMSAssignCaseIn):
+def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:
     """
     手动指定案件
     
@@ -166,7 +166,7 @@ def assign_case(request, sms_id: int, payload: CourtSMSAssignCaseIn):
 # ============================================================================
 
 @router.post("/court-sms/{sms_id}/retry", response=CourtSMSSubmitOut)
-def retry_processing(request, sms_id: int):
+def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
     """
     重新处理短信
     

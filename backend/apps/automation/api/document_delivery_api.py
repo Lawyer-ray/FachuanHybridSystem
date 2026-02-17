@@ -13,7 +13,10 @@ from pydantic import BaseModel, Field
 router = Router(tags=["文书送达自动下载"])
 
 
-def _get_document_delivery_service():
+from typing import Any
+
+
+def _get_document_delivery_service() -> Any:
     """
     工厂函数：创建文书送达服务实例
 
@@ -27,7 +30,7 @@ def _get_document_delivery_service():
     return DocumentDeliveryService()
 
 
-def _get_document_delivery_schedule_service():
+def _get_document_delivery_schedule_service() -> Any:
     """
     工厂函数：创建文书送达定时任务服务实例
 
@@ -151,7 +154,7 @@ class DocumentDeliveryScheduleOut(BaseModel):
     updated_at: datetime = Field(..., description="更新时间")
 
     @classmethod
-    def from_model(cls, obj):
+    def from_model(cls, obj: Any) -> "DocumentDeliveryScheduleOut":
         """从 Django Model 创建 Schema"""
         return cls(
             id=obj.id,
@@ -177,7 +180,7 @@ class DocumentDeliveryScheduleOut(BaseModel):
 
 
 @router.post("/document-delivery/query", response=DocumentDeliveryQueryOut)
-def manual_query(request, payload: DocumentDeliveryQueryIn):
+def manual_query(request: Any, payload: DocumentDeliveryQueryIn) -> DocumentDeliveryQueryOut:
     """
     手动触发文书查询
 
@@ -212,7 +215,7 @@ def manual_query(request, payload: DocumentDeliveryQueryIn):
 
 @router.get("/document-delivery/schedules", response=list[DocumentDeliveryScheduleOut])
 @paginate(PageNumberPagination, page_size=20)
-def list_schedules(request, credential_id: int | None = None, is_active: bool | None = None):
+def list_schedules(request: Any, credential_id: int | None = None, is_active: bool | None = None) -> list[DocumentDeliveryScheduleOut]:
     """
     查询定时任务列表
 
@@ -225,7 +228,7 @@ def list_schedules(request, credential_id: int | None = None, is_active: bool | 
 
 
 @router.post("/document-delivery/schedules", response=DocumentDeliveryScheduleOut)
-def create_schedule(request, payload: DocumentDeliveryScheduleCreateIn):
+def create_schedule(request: Any, payload: DocumentDeliveryScheduleCreateIn) -> DocumentDeliveryScheduleOut:
     """
     创建定时任务
 
@@ -245,7 +248,7 @@ def create_schedule(request, payload: DocumentDeliveryScheduleCreateIn):
 
 
 @router.put("/document-delivery/schedules/{schedule_id}", response=DocumentDeliveryScheduleOut)
-def update_schedule(request, schedule_id: int, payload: DocumentDeliveryScheduleUpdateIn):
+def update_schedule(request: Any, schedule_id: int, payload: DocumentDeliveryScheduleUpdateIn) -> DocumentDeliveryScheduleOut:
     """
     更新定时任务
 
@@ -270,7 +273,7 @@ def update_schedule(request, schedule_id: int, payload: DocumentDeliverySchedule
 
 
 @router.delete("/document-delivery/schedules/{schedule_id}")
-def delete_schedule(request, schedule_id: int):
+def delete_schedule(request: Any, schedule_id: int) -> dict[str, Any]:
     """
     删除定时任务
 
@@ -283,7 +286,7 @@ def delete_schedule(request, schedule_id: int):
 
 
 @router.get("/document-delivery/schedules/{schedule_id}", response=DocumentDeliveryScheduleOut)
-def get_schedule(request, schedule_id: int):
+def get_schedule(request: Any, schedule_id: int) -> DocumentDeliveryScheduleOut:
     """
     查询单个定时任务详情
 

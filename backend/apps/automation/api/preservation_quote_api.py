@@ -30,7 +30,7 @@ logger = logging.getLogger("apps.automation")
 router = Router(tags=["财产保全询价"], auth=JWTAuth())
 
 
-def _get_preservation_quote_service():
+def _get_preservation_quote_service() -> any:
     """
     工厂函数：创建财产保险询价服务实例
     
@@ -47,7 +47,7 @@ def _get_preservation_quote_service():
 def create_preservation_quote(
     request: HttpRequest,
     data: PreservationQuoteCreateSchema
-):
+) -> PreservationQuoteSchema:
     """
     创建询价任务
     
@@ -87,7 +87,7 @@ def list_preservation_quotes(
     page: int = 1,
     page_size: Optional[int] = None,
     status: Optional[str] = None
-):
+) -> QuoteListSchema:
     """
     列表查询询价任务
     
@@ -136,7 +136,7 @@ def list_preservation_quotes(
 def get_preservation_quote(
     request: HttpRequest,
     quote_id: int
-):
+) -> PreservationQuoteSchema:
     """
     获取询价任务详情
     
@@ -165,7 +165,7 @@ def get_preservation_quote(
 async def execute_preservation_quote(
     request: HttpRequest,
     quote_id: int
-):
+) -> QuoteExecuteResponseSchema:
     """
     执行询价任务
     
@@ -212,7 +212,7 @@ async def execute_preservation_quote(
 async def retry_preservation_quote(
     request: HttpRequest,
     quote_id: int
-):
+) -> QuoteExecuteResponseSchema:
     """
     重试询价任务
     
