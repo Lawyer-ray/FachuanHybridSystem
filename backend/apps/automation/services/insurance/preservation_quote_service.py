@@ -135,7 +135,7 @@ class PreservationQuoteService:
 
     @transaction.atomic
     def create_quote(
-        self, preserve_amount: Decimal, corp_id: str, category_id: str, credential_id: int = None
+        self, preserve_amount: Decimal, corp_id: str, category_id: str, credential_id: int | None = None
     ) -> PreservationQuote:
         """
         创建询价任务
@@ -635,7 +635,7 @@ class PreservationQuoteService:
         if errors:
             raise ValidationError(message="数据验证失败", code="INVALID_CREATE_PARAMS", errors=errors)
 
-    async def _get_valid_token(self, credential_id: int = None) -> str:
+    async def _get_valid_token(self, credential_id: int | None = None) -> str:
         """
         获取有效的 Token（集成自动获取功能）
 

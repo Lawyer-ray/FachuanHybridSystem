@@ -69,7 +69,7 @@ class SMSParserService:
     
     def __init__(
         self, 
-        ollama_model: str = None, 
+        ollama_model: str | None = None, 
         ollama_base_url: Optional[str] = None,
         client_service: Optional["IClientService"] = None
     ):
