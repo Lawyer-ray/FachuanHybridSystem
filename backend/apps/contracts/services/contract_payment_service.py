@@ -40,7 +40,7 @@ class ContractPaymentService:
         end_date: date | None = None,
         user: Any = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet[ContractPayment, ContractPayment]":
         """
         获取收款列表
 

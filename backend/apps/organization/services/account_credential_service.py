@@ -30,7 +30,7 @@ class AccountCredentialService:
         """初始化服务"""
         pass
 
-    def _get_base_queryset(self) -> QuerySet:
+    def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":
         """获取带预加载的基础查询集"""
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
@@ -99,7 +99,7 @@ class AccountCredentialService:
         lawyer_id: int | None = None,
         lawyer_name: str | None = None,
         user: Any = None,
-    ) -> QuerySet:
+    ) -> "QuerySet[AccountCredential, AccountCredential]":
         """
         获取凭证列表
 
