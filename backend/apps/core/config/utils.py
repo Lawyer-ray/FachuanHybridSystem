@@ -192,7 +192,7 @@ def is_config_manager_available() -> bool:
     return getattr(settings, "CONFIG_MANAGER_AVAILABLE", False)
 
 
-def get_config_manager():
+def get_config_manager() -> Any:
     """
     获取配置管理器实例
 
@@ -204,7 +204,7 @@ def get_config_manager():
     return None
 
 
-def register_config_change_listener(listener, key_filter: str | None = None, prefix_filter: str | None = None):
+def register_config_change_listener(listener: Any, key_filter: str | None = None, prefix_filter: str | None = None) -> None:
     """
     注册配置变更监听器
 

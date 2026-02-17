@@ -1,14 +1,15 @@
 """
 系统检查 - 确保爬虫依赖正确配置
 """
-from django.core.checks import Error, Warning, register
+from typing import Any
+from django.core.checks import Error, Warning, register, CheckMessage
 from django.conf import settings
 
 
 @register()
-def check_scraper_dependencies(app_configs, **kwargs):
+def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     """检查爬虫依赖"""
-    errors = []
+    errors: list[CheckMessage] = []
     
     # 检查 Playwright
     try:
