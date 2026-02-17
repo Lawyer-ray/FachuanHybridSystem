@@ -37,7 +37,7 @@ class ContractPaymentService:
         end_date: Optional[date] = None,
         user: Any = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[ContractPayment]:
+    ) -> QuerySet:  # type: ignore[type-arg]
         """
         获取收款列表
         

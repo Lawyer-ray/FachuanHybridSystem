@@ -38,7 +38,7 @@ class TeamService:
         law_firm_id: Optional[int] = None,
         team_type: Optional[str] = None,
         user: Optional[Lawyer] = None
-    ) -> "QuerySet[Team]":
+    ) -> QuerySet:  # type: ignore[type-arg]
         """
         列表查询团队
 
@@ -303,7 +303,7 @@ class TeamService:
             return True
 
         # 用户可以访问同律所的团队
-        return user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined]
+        return user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
 
     def _check_create_permission(self, user: Optional[Lawyer]) -> bool:
         """检查创建权限"""
@@ -325,7 +325,7 @@ class TeamService:
             return True
 
         # 律所管理员可以更新同律所的团队
-        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined]
+        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
 
     def _check_delete_permission(
         self,
@@ -341,4 +341,4 @@ class TeamService:
             return True
 
         # 律所管理员可以删除同律所的团队
-        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined]
+        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
