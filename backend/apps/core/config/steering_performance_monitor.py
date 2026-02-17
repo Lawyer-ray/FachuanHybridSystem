@@ -367,7 +367,7 @@ class PerformanceAnalyzer:
     
     def _identify_slow_specifications(self, history: List[LoadingPerformanceData]) -> List[Dict[str, Any]]:
         """识别慢规范"""
-        spec_stats = defaultdict(List[Any])
+        spec_stats: dict[str, list[float]] = defaultdict(list)
         
         for h in history:
             spec_stats[h.spec_path].append(h.duration_ms)
@@ -399,7 +399,7 @@ class PerformanceAnalyzer:
             return {"total_errors": 0}
         
         # 按错误消息分组
-        error_groups = defaultdict(List[Any])
+        error_groups: dict[str, list[LoadingPerformanceData]] = defaultdict(list)
         for h in failed_loads:
             error_key = h.error_message or "unknown_error"
             error_groups[error_key].append(h)
