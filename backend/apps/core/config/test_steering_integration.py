@@ -11,7 +11,7 @@ from .manager import ConfigManager
 from .providers.yaml import YamlProvider
 
 
-def test_steering_integration():
+def test_steering_integration() -> None:
     """测试 Steering 集成功能"""
     
     # 创建临时配置文件

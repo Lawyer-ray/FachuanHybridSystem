@@ -402,7 +402,7 @@ class ConfigFileWatcher(FileSystemEventHandler):
         self.last_reload_time = 0.0
         self.reload_debounce = 1.0  # 防抖时间（秒）
 
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: Any) -> None:
         """文件修改事件处理"""
         if event.is_directory:
             return
