@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+from typing import Any
 from django.conf import settings
 from django.db import transaction
 from apps.core.exceptions import ValidationException, NotFoundError
@@ -12,7 +13,7 @@ class ClientIdentityDocService:
     """当事人证件服务"""
 
     @transaction.atomic
-    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user=None):
+    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> Any:
         """添加当事人证件"""
         from ..models import ClientIdentityDoc, Client
         
@@ -37,7 +38,7 @@ class ClientIdentityDocService:
         
         return doc
 
-    def rename_uploaded_file(self, doc_instance):
+    def rename_uploaded_file(self, doc_instance: Any) -> None:
         """重命名上传的文件"""
         if not doc_instance.file_path or not doc_instance.client:
             return
@@ -76,7 +77,7 @@ class ClientIdentityDocService:
             except Exception as e:
                 raise ValidationException(f"文件重命名失败: {str(e)}", code="FILE_RENAME_ERROR")
     
-    def _sanitize_filename(self, filename):
+    def _sanitize_filename(self, filename: str) -> str:
         """清理文件名中的非法字符"""
         # 替换文件名中的非法字符
         invalid_chars = '<>:"/\\|?*'
