@@ -136,10 +136,14 @@ class ContractAdminService:
         }
         
         # 创建案件
+        case_type_key = CaseType(contract.case_type) if contract.case_type else CaseType.CIVIL
+        case_type_value = case_type_mapping.get(case_type_key)
+        if case_type_value is None:
+            case_type_value = SimpleCaseType.CIVIL
         case = Case.objects.create(
             contract=contract,
             name=f"{contract.name} - 案件",
-            case_type=case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
+            case_type=case_type_value,
             is_archived=False,
         )
         

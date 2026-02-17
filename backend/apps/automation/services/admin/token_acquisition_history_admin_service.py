@@ -100,7 +100,7 @@ class TokenAcquisitionHistoryAdminService:
             from apps.core.exceptions import AutomationExceptions
             raise AutomationExceptions.cleanup_records_failed()
     
-    def export_to_csv(self, queryset: QuerySet[Any]) -> HttpResponse:
+    def export_to_csv(self, queryset: QuerySet[Any, Any]) -> HttpResponse:
         """
         导出选中记录为CSV文件
         
@@ -186,7 +186,7 @@ class TokenAcquisitionHistoryAdminService:
             from apps.core.exceptions import AutomationExceptions
             raise AutomationExceptions.export_csv_failed()
     
-    def reanalyze_performance(self, queryset: QuerySet[Any]) -> Dict[str, Any]:
+    def reanalyze_performance(self, queryset: QuerySet[Any, Any]) -> Dict[str, Any]:
         """
         重新分析性能数据
         

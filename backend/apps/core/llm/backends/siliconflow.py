@@ -6,12 +6,13 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 import openai
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
@@ -100,7 +101,7 @@ class SiliconFlowBackend:
         Returns:
             LangChain 消息对象列表
         """
-        langchain_messages = []
+        langchain_messages: list[Any] = []
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
@@ -155,8 +156,8 @@ class SiliconFlowBackend:
         Returns:
             ChatOpenAI 实例
         """
-        return ChatOpenAI(
-            api_key=self.api_key,
+        return ChatOpenAI(  # type: ignore[call-arg]
+            api_key=SecretStr(self.api_key),
             base_url=self.base_url,
             model=model or self.default_model,
             temperature=temperature,
@@ -216,8 +217,9 @@ class SiliconFlowBackend:
             ) from e
         duration_ms = (time.time() - start_time) * 1000
         prompt_tokens, completion_tokens, total_tokens = self._extract_token_usage(response.response_metadata)
+        content_str = response.content if isinstance(response.content, str) else str(response.content)
         return LLMResponse(
-            content=response.content,
+            content=content_str,
             model=used_model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -264,8 +266,8 @@ class SiliconFlowBackend:
         )
         timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
         used_model = model or default_model
-        llm = ChatOpenAI(
-            api_key=api_key,
+        llm = ChatOpenAI(  # type: ignore[call-arg]
+            api_key=SecretStr(api_key),
             base_url=base_url,
             model=used_model,
             temperature=temperature,
@@ -293,8 +295,9 @@ class SiliconFlowBackend:
             ) from e
         duration_ms = (time.time() - start_time) * 1000
         prompt_tokens, completion_tokens, total_tokens = self._extract_token_usage(response.response_metadata)
+        content_str = response.content if isinstance(response.content, str) else str(response.content)
         return LLMResponse(
-            content=response.content,
+            content=content_str,
             model=used_model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -356,8 +359,8 @@ class SiliconFlowBackend:
         )
         timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
         used_model = model or default_model
-        llm = ChatOpenAI(
-            api_key=api_key,
+        llm = ChatOpenAI(  # type: ignore[call-arg]
+            api_key=SecretStr(api_key),
             base_url=base_url,
             model=used_model,
             temperature=temperature,
@@ -426,8 +429,8 @@ class SiliconFlowBackend:
         Returns:
             ChatOpenAI 实例
         """
-        return ChatOpenAI(
-            api_key=self.api_key,
+        return ChatOpenAI(  # type: ignore[call-arg]
+            api_key=SecretStr(self.api_key),
             base_url=self.base_url,
             model=model or self.default_model,
             temperature=temperature if temperature is not None else LLMConfig.get_temperature(),
@@ -435,7 +438,12 @@ class SiliconFlowBackend:
             timeout=self.timeout,
         )
 
-    def get_structured_llm(self, schema: type, model: str | None = None, method: str = "json_mode") -> Any:
+    def get_structured_llm(
+        self, 
+        schema: type, 
+        model: str | None = None, 
+        method: Literal["function_calling", "json_mode", "json_schema"] = "json_mode"
+    ) -> Any:
         """
         获取支持结构化输出的 LLM 实例
 

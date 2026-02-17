@@ -204,7 +204,7 @@ class CourtDocumentAdminService:
                 errors={"error": str(e)}
             )
     
-    def get_document_statistics(self, queryset: Optional[QuerySet[Any]] = None) -> Dict[str, Any]:
+    def get_document_statistics(self, queryset: Optional[QuerySet[Any, Any]] = None) -> Dict[str, Any]:
         """
         获取文书统计数据
         
