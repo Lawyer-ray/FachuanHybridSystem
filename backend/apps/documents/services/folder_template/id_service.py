@@ -88,7 +88,7 @@ class FolderTemplateIdService:
         for template in all_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
-                if id_val in template_ids:  # type: ignore[str, operator]
+                if id_val in template_ids:  # type: ignore[operator]
                     return True
         return False
 
@@ -99,7 +99,7 @@ class FolderTemplateIdService:
         for template in all_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
-                for id_val in template_ids:  # type: ignore[str, union-attr]
+                for id_val in template_ids:  # type: ignore[union-attr]
                     if id_val not in global_ids:
                         global_ids[id_val] = []
                     global_ids[id_val].append(template.name)

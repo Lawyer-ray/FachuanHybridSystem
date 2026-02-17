@@ -181,7 +181,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_representation_stages(obj: Contract) -> list[str]:
         label_map = {m.value: m.label for m in CaseStage}
-        return [label_map.get(code, code) for code in (obj.representation_stages or [])]  # type: ignore[str, misc]
+        return [label_map.get(code, code) for code in (obj.representation_stages or [])]  # type: ignore[misc]
 
     @staticmethod
     def resolve_case_type_label(obj: Contract) -> str | None:
