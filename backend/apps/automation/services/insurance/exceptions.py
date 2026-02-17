@@ -37,7 +37,7 @@ class APIError(PreservationQuoteError):
     当调用外部 API 失败时抛出此异常。
     """
 
-    def __init__(self, message: str, status_code: int = None):
+    def __init__(self, message: str, status_code: int | None = None):
         code = "API_ERROR"
         if status_code:
             code = f"API_ERROR_{status_code}"
@@ -63,7 +63,7 @@ class ValidationError(PreservationQuoteError):
     当输入数据不符合要求时抛出此异常。
     """
 
-    def __init__(self, message: str, errors: dict[str, Any] = None):
+    def __init__(self, message: str, errors: dict[str, Any] | None = None):
         super().__init__(message=message, code="VALIDATION_ERROR", status=400)  # Bad Request
         self.errors = errors or {}
 
@@ -86,7 +86,7 @@ class QuoteExecutionError(PreservationQuoteError):
     当询价任务执行过程中发生错误时抛出此异常。
     """
 
-    def __init__(self, message: str, quote_id: int = None):
+    def __init__(self, message: str, quote_id: int | None = None):
         super().__init__(message=message, code="QUOTE_EXECUTION_ERROR", status=500)  # Internal Server Error
         self.quote_id = quote_id
 
@@ -98,6 +98,6 @@ class RetryLimitExceededError(PreservationQuoteError):
     当任务重试次数超过最大限制时抛出此异常。
     """
 
-    def __init__(self, message: str, max_retries: int = None):
+    def __init__(self, message: str, max_retries: int | None = None):
         super().__init__(message=message, code="RETRY_LIMIT_EXCEEDED", status=429)  # Too Many Requests
         self.max_retries = max_retries

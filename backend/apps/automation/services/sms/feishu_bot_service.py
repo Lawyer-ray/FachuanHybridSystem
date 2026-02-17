@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class FeishuBotService:
     """飞书机器人服务"""
     
-    def __init__(self, webhook_url: str = None, timeout: int = None):
+    def __init__(self, webhook_url: str | None = None, timeout: int | None = None):
         """
         初始化飞书机器人服务
         
@@ -195,7 +195,7 @@ class FeishuBotService:
         Returns:
             发送结果字典，包含 success、message_sent、file_sent、error 字段
         """
-        result = {
+        result: Dict[str, Any] = {
             "success": False,
             "message_sent": False,
             "file_sent": False,

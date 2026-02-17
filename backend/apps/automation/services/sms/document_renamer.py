@@ -36,7 +36,7 @@ class DocumentRenamer:
 {content}
 """
     
-    def __init__(self, ollama_model: str = None, ollama_base_url: str = None):
+    def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None):
         """
         初始化文书重命名服务
         
@@ -417,7 +417,7 @@ class DocumentRenamer:
         document_path: str, 
         case_name: str, 
         received_date: date,
-        original_name: str = None
+        original_name: str | None = None
     ) -> str:
         """
         带降级方案的重命名

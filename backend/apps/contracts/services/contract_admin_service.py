@@ -144,7 +144,7 @@ class ContractAdminService:
         )
         
         # 复制合同当事人到案件当事人
-        for party in contract.contract_parties.all():
+        for party in contract.contract_parties.all():  # type: ignore[attr-defined]
             CaseParty.objects.create(
                 case=case,
                 client=party.client,
@@ -152,7 +152,7 @@ class ContractAdminService:
             )
         
         # 复制合同律师指派到案件律师指派
-        for assignment in contract.assignments.all():
+        for assignment in contract.assignments.all():  # type: ignore[attr-defined]
             CaseAssignment.objects.create(
                 case=case,
                 lawyer=assignment.lawyer,
