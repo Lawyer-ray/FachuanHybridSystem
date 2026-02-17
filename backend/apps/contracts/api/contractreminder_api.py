@@ -2,8 +2,9 @@
 合同提醒 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import Optional
+from typing import Optional, Any
 from ninja import Router
+from django.http import HttpRequest
 from django.utils.dateparse import parse_date
 
 from ..schemas import ContractReminderIn, ContractReminderOut, ContractReminderUpdate
@@ -18,7 +19,7 @@ def _get_reminder_service() -> ContractReminderService:
 
 
 @router.get("/reminders", response=list[ContractReminderOut])
-def list_contract_reminders(request, contract_id: Optional[int] = None):
+def list_contract_reminders(request: HttpRequest, contract_id: Optional[int] = None) -> list[Any]:
     """
     获取提醒列表
     
@@ -39,7 +40,7 @@ def list_contract_reminders(request, contract_id: Optional[int] = None):
 
 
 @router.post("/reminders", response=ContractReminderOut)
-def create_contract_reminder(request, payload: ContractReminderIn):
+def create_contract_reminder(request: HttpRequest, payload: ContractReminderIn) -> Any:
     """
     创建提醒记录
     
@@ -63,7 +64,7 @@ def create_contract_reminder(request, payload: ContractReminderIn):
 
 
 @router.get("/reminders/{reminder_id}", response=ContractReminderOut)
-def get_contract_reminder(request, reminder_id: int):
+def get_contract_reminder(request: HttpRequest, reminder_id: int) -> Any:
     """
     获取单个提醒记录
     
