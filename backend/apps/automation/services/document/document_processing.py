@@ -142,7 +142,7 @@ def extract_pdf_text(file_path: str, limit: int | None = None) -> str:
     return text
 
 
-def process_pdf(file_path: str, limit: int | None = None, preview_page: int = None) -> tuple[str | None, str | None]:
+def process_pdf(file_path: str, limit: int | None = None, preview_page: int | None = None) -> tuple[str | None, str | None]:
     """
     处理PDF文件：
     1. 先尝试直接提取文字
@@ -235,7 +235,7 @@ def save_uploaded_document(upload: UploadedFile) -> Path:
     return dest
 
 
-def extract_document_content(file_path: str, limit: int | None = None, preview_page: int = None) -> DocumentExtraction:
+def extract_document_content(file_path: str, limit: int | None = None, preview_page: int | None = None) -> DocumentExtraction:
     """
     提取文档内容
     
@@ -278,7 +278,7 @@ def extract_document_content(file_path: str, limit: int | None = None, preview_p
     )
 
 
-def process_uploaded_document(upload: UploadedFile, limit: int | None = None, preview_page: int = None) -> DocumentExtraction:
+def process_uploaded_document(upload: UploadedFile, limit: int | None = None, preview_page: int | None = None) -> DocumentExtraction:
     """
     统一的上传文件处理接口：
     1. 保存上传文件

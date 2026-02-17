@@ -31,7 +31,7 @@ class BrowserService:
             self._initialized = True
             logger.info("BrowserService 初始化")
     
-    def start_browser(self, headless: bool = None) -> Browser:
+    def start_browser(self, headless: bool | None = None) -> Browser:
         """
         启动浏览器（如果尚未启动）
         

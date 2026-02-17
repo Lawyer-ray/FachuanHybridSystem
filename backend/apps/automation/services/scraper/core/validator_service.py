@@ -75,7 +75,7 @@ class ValidatorService:
         """
         return self.text_utils.normalize_case_number(case_number)  # type: ignore[no-any-return]
 
-    def validate_file(self, file_path: str, expected_extensions: list[Any] = None) -> dict[str, Any][str, Any]:
+    def validate_file(self, file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any]:
         """
         校验文件
 
@@ -138,7 +138,7 @@ class ValidatorServiceAdapter(IValidatorService):
         """规范化案号"""
         return self.service.normalize_case_number(case_number)
 
-    def validate_file(self, file_path: str, expected_extensions: list[Any] = None) -> dict[str, Any][str, Any]:
+    def validate_file(self, file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any]:
         """校验文件"""
         return self.service.validate_file(file_path, expected_extensions)
 
@@ -159,7 +159,7 @@ class ValidatorServiceAdapter(IValidatorService):
         """规范化案号（内部接口，无权限检查）"""
         return self.service.normalize_case_number(case_number)
 
-    def validate_file_internal(self, file_path: str, expected_extensions: list[Any] = None) -> dict[str, Any][str, Any]:
+    def validate_file_internal(self, file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any]:
         """校验文件（内部接口，无权限检查）"""
         return self.service.validate_file(file_path, expected_extensions)
 

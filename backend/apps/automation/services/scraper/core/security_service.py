@@ -74,7 +74,7 @@ class SecurityService:
             raise
 
     @staticmethod
-    def mask_sensitive_data(data: Dict[str, Any], keys: list[Any] = None) -> dict[str, Any][str, Any]:
+    def mask_sensitive_data(data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """
         脱敏敏感数据（用于日志）
 
@@ -173,7 +173,7 @@ class SecurityServiceAdapter(ISecurityService):
         """解密文本"""
         return self.service.decrypt(encrypted_text)
 
-    def mask_sensitive_data(self, data: Dict[str, Any], keys: list[Any] = None) -> dict[str, Any][str, Any]:
+    def mask_sensitive_data(self, data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """脱敏敏感数据"""
         return self.service.mask_sensitive_data(data, keys)
 
@@ -194,7 +194,7 @@ class SecurityServiceAdapter(ISecurityService):
         """解密文本（内部接口，无权限检查）"""
         return self.service.decrypt(encrypted_text)
 
-    def mask_sensitive_data_internal(self, data: Dict[str, Any], keys: list[Any] = None) -> dict[str, Any][str, Any]:
+    def mask_sensitive_data_internal(self, data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """脱敏敏感数据（内部接口，无权限检查）"""
         return self.service.mask_sensitive_data(data, keys)
 
