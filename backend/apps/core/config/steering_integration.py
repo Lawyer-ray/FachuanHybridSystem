@@ -75,7 +75,7 @@ class SteeringConfigProvider:
     
     def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager
-        self._cache = {}
+        self._cache: Dict[str, Any] = {}
         self._lock = threading.RLock()
     
     def get_loading_rules(self) -> List[SteeringLoadingRule]:
@@ -85,7 +85,7 @@ class SteeringConfigProvider:
             if cache_key in self._cache:
                 return self._cache[cache_key]  # type: ignore[no-any-return]
             
-            rules = []
+            rules: List[SteeringLoadingRule] = []
             
             # 从配置中读取规则
             rules_config = self.config_manager.get("steering.conditional_loading.rules", [])
@@ -235,7 +235,7 @@ class SteeringConditionalLoader:
     
     def __init__(self, config_provider: SteeringConfigProvider):
         self.config_provider = config_provider
-        self._file_pattern_cache = {}
+        self._file_pattern_cache: Dict[str, List[str]] = {}
         self._lock = threading.RLock()
     
     def should_load_specification(self, spec_file_path: str, target_file_path: str) -> bool:
@@ -272,7 +272,7 @@ class SteeringConditionalLoader:
         Returns:
             List[str]: 规范文件路径列表
         """
-        applicable_specs = []
+        applicable_specs: List[str] = []
         rules = self.config_provider.get_loading_rules()
         
         # 扫描所有规范文件
@@ -347,10 +347,10 @@ class SteeringCacheManager:
     
     def __init__(self, config_provider: SteeringConfigProvider):
         self.config_provider = config_provider
-        self._cache = {}
-        self._access_times = {}
+        self._cache: Dict[str, Any] = {}
+        self._access_times: Dict[str, float] = {}
         self._lock = threading.RLock()
-        self._cleanup_timer = None
+        self._cleanup_timer: Optional[threading.Timer] = None
         self._start_cleanup_timer()
     
     def get_cached_specification(self, spec_path: str, loader_func: Callable) -> Any:
@@ -491,7 +491,7 @@ class SteeringPerformanceMonitor:
     
     def __init__(self, config_provider: SteeringConfigProvider):
         self.config_provider = config_provider
-        self._metrics = {}
+        self._metrics: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.RLock()
     
     def monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
@@ -582,7 +582,7 @@ class SteeringDependencyResolver:
     
     def __init__(self, config_provider: SteeringConfigProvider):
         self.config_provider = config_provider
-        self._dependency_graph = {}
+        self._dependency_graph: Dict[str, List[str]] = {}
         self._lock = threading.RLock()
     
     def resolve_load_order(self, spec_paths: List[str]) -> List[str]:
@@ -778,17 +778,17 @@ class SteeringIntegrationManager:
     def _init_advanced_components(self) -> None:
         """初始化高级组件"""
         # 缓存策略管理器
-        cache_config = self.config_manager.get("steering.cache", {})
+        cache_config: Dict[str, Any] = self.config_manager.get("steering.cache", {})
         self.cache_strategy_manager = SteeringCacheStrategyManager(
             CacheStrategy(cache_config.get("strategy", "smart"))
         )
         
         # 性能监控器
-        perf_config = self.config_manager.get("steering.performance", {})
+        perf_config: Dict[str, Any] = self.config_manager.get("steering.performance", {})
         self.performance_monitor = SteeringPerformanceMonitor(perf_config)
         
         # 依赖管理器
-        dep_config = self.config_manager.get("steering.dependencies", {})
+        dep_config: Dict[str, Any] = self.config_manager.get("steering.dependencies", {})
         self.dependency_manager = SteeringDependencyManager(dep_config)
     
     def load_specifications_for_file(self, target_file_path: str) -> List[Any]:
