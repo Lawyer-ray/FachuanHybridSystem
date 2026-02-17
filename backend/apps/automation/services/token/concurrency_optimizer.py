@@ -34,11 +34,11 @@ class ConcurrencyConfig:
 class ResourceUsage:
     """资源使用情况"""
     total_acquisitions: int = 0
-    site_acquisitions: Dict[str, int] = None
-    account_acquisitions: Dict[str, int] = None
-    active_locks: Set[str] = None
+    site_acquisitions: Optional[Dict[str, int]] = None
+    account_acquisitions: Optional[Dict[str, int]] = None
+    active_locks: Optional[Set[str]] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.site_acquisitions is None:
             self.site_acquisitions = {}
         if self.account_acquisitions is None:

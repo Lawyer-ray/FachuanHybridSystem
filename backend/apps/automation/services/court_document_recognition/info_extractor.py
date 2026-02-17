@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List, cast
 
 from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
 from apps.automation.services.ai.ollama_client import chat
@@ -432,7 +432,7 @@ class InfoExtractor:
             return None, "无法提取"
 
         # 对正则结果进行合理性校验和综合评分
-        validated_regex_results = []
+        validated_regex_results: List[Dict[str, Any]] = []
         for dt, matched_text, context_score in regex_results:
             is_valid, validity_score, validity_reason = self._validate_hearing_datetime(dt)
             # 综合得分 = 上下文得分 * 0.6 + 合理性得分 * 0.4
@@ -487,12 +487,12 @@ class InfoExtractor:
                         f"所有正则结果合理性较低，使用最佳候选: {best_invalid['datetime']} "
                         f"({best_invalid['validity_reason']})"
                     )
-                    return best_invalid["datetime"], f"regex(低合理性:{best_invalid['validity_reason']})"
+                    return cast(datetime, best_invalid["datetime"]), f"regex(低合理性:{best_invalid['validity_reason']})"
                 return None, "无法提取"
 
         # 情况2：有有效的正则结果
         best_regex = valid_regex_results[0]
-        best_regex_dt = best_regex["datetime"]
+        best_regex_dt = cast(datetime, best_regex["datetime"])
         best_regex_combined = best_regex["combined_score"]
 
         if not ollama_datetime or not ollama_valid:
@@ -531,10 +531,10 @@ class InfoExtractor:
 
         # 检查是否有其他正则结果与 Ollama 一致
         for result in valid_regex_results[1:]:
-            result_dt = result["datetime"]
+            result_dt = cast(datetime, result["datetime"])
             if isinstance(result_dt, dt_type) and abs((result_dt.date() - ollama_datetime.date()).days) == 0:
                 logger.info(f"找到与Ollama一致的备选正则结果: {result['datetime']}")
-                return result["datetime"], f"regex(score={result['combined_score']:.0f},与ollama一致)"
+                return result_dt, f"regex(score={result['combined_score']:.0f},与ollama一致)"
 
         # 比较最佳正则和 Ollama 的得分
         if best_regex_combined >= 60:
