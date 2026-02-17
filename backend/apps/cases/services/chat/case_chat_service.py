@@ -62,14 +62,14 @@ class CaseChatService:
         return self._access_policy
 
     def _resolve_access(
-        self, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
+        self, *, user: Any, org_access: Any, perm_open_access: bool, ctx: AccessContext | None
     ) -> tuple[Any, ...]:
         if ctx is not None:
             return (ctx.user, ctx.org_access, ctx.perm_open_access)
         return (user, org_access, perm_open_access)
 
     def _require_case_access(
-        self, case: Any, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
+        self, case: Any, *, user: Any, org_access: Any, perm_open_access: bool, ctx: AccessContext | None
     ) -> None:
         user, org_access, perm_open_access = self._resolve_access(
             user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx

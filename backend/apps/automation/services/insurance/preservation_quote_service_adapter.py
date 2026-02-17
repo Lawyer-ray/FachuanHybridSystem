@@ -83,7 +83,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
         respondent_name: str,
         court_name: str,
         case_type: str = "财产保全",
-        **kwargs
+        **kwargs: Any
     ) -> Any:
         """
         创建询价任务
@@ -204,7 +204,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
         }
     
     # 保留原有的方法以保持向后兼容性
-    async def retry_quote(self, quote_id: int):
+    async def retry_quote(self, quote_id: int) -> Any:
         """重试失败的询价任务"""
         return await self.service.retry_quote(quote_id)
     
@@ -217,7 +217,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
         respondent_name: str,
         court_name: str,
         case_type: str = "财产保全",
-        **kwargs
+        **kwargs: Any
     ) -> Any:
         """创建询价任务（内部接口，无权限检查）"""
         return self.create_quote(case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs)
@@ -376,7 +376,7 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
         respondent_name: str,
         court_name: str,
         case_type: str = "财产保全",
-        **kwargs
+        **kwargs: Any
     ) -> Any:
         """创建询价任务（内部接口，无权限检查）"""
         return self.create_quote(case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs)

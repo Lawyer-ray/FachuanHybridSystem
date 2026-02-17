@@ -126,7 +126,7 @@ class AccountSelectionStrategy:
         
         # 使用sync_to_async包装同步的数据库查询
         @sync_to_async
-        def get_credentials():
+        def get_credentials() -> Any:
             # 通过ServiceLocator获取organization服务
             from apps.core.interfaces import ServiceLocator
             organization_service = ServiceLocator.get_organization_service()
@@ -159,7 +159,7 @@ class AccountSelectionStrategy:
             raise ValidationException("没有可用账号")
         
         # 按优先级排序
-        def sort_key(account: AccountCredentialDTO):
+        def sort_key(account: AccountCredentialDTO) -> tuple[int, int, int]:
             # 1. 优先使用preferred账号
             preferred_score = 1000 if account.is_preferred else 0
             
@@ -246,7 +246,7 @@ class AccountSelectionStrategy:
             from asgiref.sync import sync_to_async
             
             @sync_to_async
-            def update_credential():
+            def update_credential() -> None:
                 # 通过ServiceLocator获取organization服务
                 from apps.core.interfaces import ServiceLocator
                 organization_service = ServiceLocator.get_organization_service()

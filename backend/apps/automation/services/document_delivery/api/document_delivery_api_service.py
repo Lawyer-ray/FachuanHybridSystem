@@ -407,9 +407,9 @@ class DocumentDeliveryApiService:
         Returns:
             是否需要处理（True=需要处理，False=已处理完成）
         """
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[bool] = queue.Queue()
 
-        def do_check():
+        def do_check() -> None:
             try:
                 from django.db import connection
 
@@ -471,9 +471,9 @@ class DocumentDeliveryApiService:
 
         流程：创建 CourtSMS -> 案件匹配 -> 重命名文书 -> 发送通知
         """
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process():
+        def do_process() -> None:
             try:
                 from django.db import connection
 
@@ -577,7 +577,7 @@ class DocumentDeliveryApiService:
 
         return {"success": False, "error_message": "SMS 处理超时"}
 
-    def _match_case_by_number(self, case_number: str):
+    def _match_case_by_number(self, case_number: str) -> Any:
         """
         通过案号匹配案件
 
@@ -586,7 +586,7 @@ class DocumentDeliveryApiService:
         """
         return self.case_matcher.match_by_case_number([case_number])
 
-    def _match_case_by_document_parties(self, document_paths: list[str]):
+    def _match_case_by_document_parties(self, document_paths: list[str]) -> Any:
         """
         从文书中提取当事人进行案件匹配
 
@@ -743,7 +743,7 @@ class DocumentDeliveryApiService:
     def _record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
         """在独立线程中记录查询历史，避免异步上下文问题"""
 
-        def do_record():
+        def do_record() -> None:
             try:
                 from django.db import connection, transaction
 

@@ -26,11 +26,11 @@ class PreservationQuoteAdminService:
     - 批量操作管理
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
     
     @property
-    def preservation_quote_service(self):
+    def preservation_quote_service(self) -> Any:
         """延迟加载财产保全询价服务"""
         if not hasattr(self, '_preservation_quote_service'):
             self._preservation_quote_service = ServiceLocator.get_preservation_quote_service()

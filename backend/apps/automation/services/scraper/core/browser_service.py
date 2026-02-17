@@ -74,7 +74,7 @@ class BrowserService:
             self.start_browser()
         return self._browser
     
-    def create_context(self, use_anti_detection: bool = True, **kwargs) -> BrowserContext:
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
         """
         创建新的浏览器上下文
         
@@ -161,7 +161,7 @@ class BrowserServiceAdapter(IBrowserService):
         """
         self.service.close()
     
-    def create_context(self, use_anti_detection: bool = True, **kwargs) -> BrowserContext:
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
         """
         创建新的浏览器上下文
         

@@ -366,7 +366,7 @@ class CaptchaServiceAdapter(ICaptchaService):
             else:
                 raise
     
-    def recognize_from_base64(self, image_base64: str):
+    def recognize_from_base64(self, image_base64: str) -> Any:
         """
         从 Base64 编码的图片识别验证码（适配器方法）
         

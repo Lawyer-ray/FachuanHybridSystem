@@ -933,7 +933,7 @@ class PreservationQuoteService:
                 rate_data = {}
 
             # 辅助函数：清洗数值，将空字符串和无效值转换为 None
-            def clean_decimal(value):
+            def clean_decimal(value: Any) -> Any:
                 """清洗 Decimal 字段的值"""
                 if value is None or value == "" or value == "null":
                     return None

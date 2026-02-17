@@ -23,10 +23,10 @@ class TestService:
     
     def __init__(
         self,
-        organization_service=None,
-        browser_manager=None,
-        config=None
-    ):
+        organization_service: Any = None,
+        browser_manager: Any = None,
+        config: Any = None
+    ) -> None:
         """
         初始化测试服务
         
@@ -40,7 +40,7 @@ class TestService:
         self._config = config
     
     @property
-    def organization_service(self):
+    def organization_service(self) -> Any:
         """延迟加载组织服务"""
         if self._organization_service is None:
             from apps.core.interfaces import ServiceLocator
@@ -48,7 +48,7 @@ class TestService:
         return self._organization_service
     
     @property
-    def browser_manager(self):
+    def browser_manager(self) -> Any:
         """延迟加载浏览器管理器"""
         if self._browser_manager is None:
             from apps.automation.services.scraper.core.browser_manager import BrowserManager
@@ -56,7 +56,7 @@ class TestService:
         return self._browser_manager
     
     @property
-    def browser_config(self):
+    def browser_config(self) -> Any:
         """延迟加载浏览器配置"""
         if self._config is None:
             from apps.automation.services.scraper.config.browser_config import BrowserConfig
