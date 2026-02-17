@@ -1,7 +1,7 @@
 """Business logic services."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -62,4 +62,4 @@ def perspective_transform(
         "透视变换完成",
         extra={"output_size": f"{output_width}x{output_height}"},
     )
-    return warped  # type: ignore[return-value]
+    return cast(NDArray[np.uint8], warped)

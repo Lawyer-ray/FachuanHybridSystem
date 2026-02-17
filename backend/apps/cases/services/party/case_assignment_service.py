@@ -136,7 +136,7 @@ class CaseAssignmentService(DjangoPermsMixin):
                 },
             )
 
-            return assignment  # type: ignore[no-any-return]
+            return cast(CaseAssignment, assignment)
         except CaseAssignment.DoesNotExist:
             logger.warning(
                 "指派不存在",

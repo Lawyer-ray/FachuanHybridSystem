@@ -11,7 +11,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -136,26 +136,29 @@ class CourtInsuranceClient:
     @property
     def insurance_list_url(self) -> str:
         """获取保险公司列表 API URL"""
-        return get_config(  # type: ignore[no-any-return]
-            "services.insurance.list_url", "https://baoquan.court.gov.cn/wsbq/ssbq/api/commoncodepz"
+        return cast(
+            str, get_config("services.insurance.list_url", "https://baoquan.court.gov.cn/wsbq/ssbq/api/commoncodepz")
         )
 
     @property
     def premium_query_url(self) -> str:
         """获取保险费率查询 API URL"""
-        return get_config(  # type: ignore[no-any-return]
-            "services.insurance.premium_query_url", "https://baoquan.court.gov.cn/wsbq/commonapi/api/policy/premium"
+        return cast(
+            str,
+            get_config(
+                "services.insurance.premium_query_url", "https://baoquan.court.gov.cn/wsbq/commonapi/api/policy/premium"
+            ),
         )
 
     @property
     def default_timeout(self) -> float:
         """获取默认超时时间"""
-        return get_config("services.insurance.default_timeout", 60.0)  # type: ignore[no-any-return]
+        return cast(float, get_config("services.insurance.default_timeout", 60.0))
 
     @property
     def max_connections(self) -> int:
         """获取最大连接数"""
-        return get_config("services.insurance.max_connections", 100)  # type: ignore[no-any-return]
+        return cast(int, get_config("services.insurance.max_connections", 100))
 
     async def close(self) -> None:
         """

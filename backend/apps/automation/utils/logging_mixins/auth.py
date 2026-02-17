@@ -20,7 +20,7 @@ class AutomationAuthLoggerMixin:
             extra["image_size"] = image_size  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().info("开始验证码识别", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始验证码识别", extra=extra)
 
     @staticmethod
     def log_captcha_recognition_success(
@@ -37,7 +37,7 @@ class AutomationAuthLoggerMixin:
             extra["image_size"] = image_size
         extra.update(kwargs)
 
-        get_logger().info("验证码识别成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("验证码识别成功", extra=extra)
 
     @staticmethod
     def log_captcha_recognition_failed(
@@ -54,7 +54,7 @@ class AutomationAuthLoggerMixin:
             extra["image_size"] = image_size
         extra.update(kwargs)
 
-        get_logger().error("验证码识别失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error("验证码识别失败", extra=extra)
 
     @staticmethod
     def log_token_acquisition_start(
@@ -71,7 +71,7 @@ class AutomationAuthLoggerMixin:
             extra["account_hash"] = stable_hash(account)
         extra.update(kwargs)
 
-        get_logger().info("开始Token获取流程", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始Token获取流程", extra=extra)
 
     @staticmethod
     def log_token_acquisition_success(
@@ -89,7 +89,7 @@ class AutomationAuthLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("Token获取成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("Token获取成功", extra=extra)
 
     @staticmethod
     def log_token_acquisition_failed(
@@ -115,7 +115,7 @@ class AutomationAuthLoggerMixin:
             extra["total_duration"] = total_duration
         extra.update(kwargs)
 
-        get_logger().error("Token获取失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error("Token获取失败", extra=extra)
 
     @staticmethod
     def log_existing_token_used(
@@ -133,7 +133,7 @@ class AutomationAuthLoggerMixin:
             extra["token_expires_at"] = token_expires_at
         extra.update(kwargs)
 
-        get_logger().info("使用现有Token", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("使用现有Token", extra=extra)
 
     @staticmethod
     def log_auto_login_start(acquisition_id: str, site_name: str, account: str, **kwargs: Any) -> None:
@@ -147,7 +147,7 @@ class AutomationAuthLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("开始自动登录", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始自动登录", extra=extra)
 
     @staticmethod
     def log_auto_login_success(
@@ -165,7 +165,7 @@ class AutomationAuthLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("自动登录成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("自动登录成功", extra=extra)
 
     @staticmethod
     def log_auto_login_timeout(
@@ -184,7 +184,7 @@ class AutomationAuthLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().error("自动登录超时", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error("自动登录超时", extra=extra)
 
     @staticmethod
     def log_login_retry(
@@ -206,4 +206,4 @@ class AutomationAuthLoggerMixin:
             extra["max_captcha_retries"] = max_captcha_retries
         extra.update(kwargs)
 
-        get_logger().info(f"登录重试 {network_attempt}/{max_network_retries}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"登录重试 {network_attempt}/{max_network_retries}", extra=extra)

@@ -12,11 +12,11 @@ Requirements: 3.3, 3.4
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
-from collections.abc import Callable
+from typing import Any, cast
 
 from django.conf import settings
 
@@ -142,7 +142,7 @@ class RetryConfig:
 
     def is_enabled(self) -> bool:
         """检查重试机制是否启用"""
-        return self.enabled  # type: ignore[no-any-return]
+        return cast(bool, self.enabled)
 
     def get_max_retries(self, error_type: RetryErrorType | None = None) -> int:
         """获取最大重试次数
@@ -154,8 +154,8 @@ class RetryConfig:
             int: 最大重试次数
         """
         if error_type and error_type in self.error_strategies:
-            return self.error_strategies[error_type]["max_retries"]  # type: ignore[no-any-return]
-        return self.max_retries  # type: ignore[no-any-return]
+            return cast(int, self.error_strategies[error_type]["max_retries"])
+        return cast(int, self.max_retries)
 
     def get_strategy(self, error_type: RetryErrorType) -> RetryStrategy:
         """获取指定错误类型的重试策略
@@ -168,7 +168,7 @@ class RetryConfig:
         """
         if error_type in self.error_strategies:
             strategy_name = self.error_strategies[error_type]["strategy"]
-            return strategy_name  # type: ignore[no-any-return]
+            return cast(RetryStrategy, strategy_name)
         return RetryStrategy.EXPONENTIAL_BACKOFF
 
     def should_retry(self, error_type: RetryErrorType, attempt_count: int) -> bool:
@@ -216,21 +216,21 @@ class RetryConfig:
         if strategy == RetryStrategy.NO_RETRY:
             return 0.0
         elif strategy == RetryStrategy.FIXED_DELAY:
-            return min(base_delay, max_delay)  # type: ignore[no-any-return]
+            return cast(float, min(base_delay, max_delay))
         elif strategy == RetryStrategy.LINEAR_BACKOFF:
             delay = base_delay + (attempt_number * backoff_factor)
-            return min(delay, max_delay)  # type: ignore[no-any-return]
+            return cast(float, min(delay, max_delay))
         elif strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
             delay = base_delay * (backoff_factor**attempt_number)
-            return min(delay, max_delay)  # type: ignore[no-any-return]
+            return cast(float, min(delay, max_delay))
         else:
             # 默认使用指数退避
             delay = base_delay * (backoff_factor**attempt_number)
-            return min(delay, max_delay)  # type: ignore[no-any-return]
+            return cast(float, min(delay, max_delay))
 
     def get_timeout_seconds(self) -> float:
         """获取总超时时间"""
-        return self.timeout_seconds  # type: ignore[no-any-return]
+        return cast(float, self.timeout_seconds)
 
 
 class RetryManager:

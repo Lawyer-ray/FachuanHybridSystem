@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwright
 
@@ -76,7 +76,7 @@ class BrowserService:
         """获取浏览器实例（自动启动）"""
         if self._browser is None:
             self.start_browser()
-        return self._browser  # type: ignore[return-value]
+        return cast(Browser, self._browser)
 
     def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
         """

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -31,7 +31,7 @@ def build_ollama_chat_payload(
 
 def parse_ollama_chat_response(*, resp: httpx.Response, model: str) -> dict[str, Any]:
     try:
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
     except json.JSONDecodeError as e:
         text = resp.text.strip()
         if text:
@@ -49,7 +49,7 @@ def parse_ollama_chat_response(*, resp: httpx.Response, model: str) -> dict[str,
                     last_valid_json = data
 
             if last_valid_json:
-                return last_valid_json  # type: ignore[no-any-return]
+                return cast(dict[str, Any], last_valid_json)
 
         logger.warning("Ollama 响应解析失败", extra={"error": str(e), "response_len": len(text)})
         raise LLMAPIError(message=f"无法解析 Ollama 响应: {e!s}", errors={"response_len": len(text)}) from None

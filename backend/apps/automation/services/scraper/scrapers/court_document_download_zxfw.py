@@ -3,7 +3,7 @@
 import logging
 import re
 import time
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from apps.automation.utils.logging_mixins.common import sanitize_url
 from apps.core.path import Path
@@ -218,7 +218,7 @@ class CourtDocumentZxfwDownloadMixin:
         return self._process_api_data_and_download(api_data, download_dir)
 
     def _download_via_api_intercept(self: "_ZxfwHost", download_dir: Path) -> dict[str, Any]:
-        return self._download_via_api_intercept_with_navigation(download_dir)  # type: ignore[no-any-return, attr-defined]
+        return cast(dict[str, Any], self._download_via_api_intercept_with_navigation(download_dir))  # type: ignore[attr-defined]
 
     def _download_via_fallback(self: "_ZxfwHost", download_dir: Path) -> dict[str, Any]:
         downloaded_files: list[str] = []

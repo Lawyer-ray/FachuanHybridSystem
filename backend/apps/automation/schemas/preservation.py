@@ -85,9 +85,9 @@ class PreservationQuoteSchema(BaseModel):
     quotes: list[InsuranceQuoteSchema] = Field(default_factory=list, description="保险公司报价列表")
 
     @classmethod
-    def from_model(cls, obj: Any) -> PreservationQuoteCreateSchema:
+    def from_model(cls, obj: Any) -> PreservationQuoteSchema:
         """从 Django Model 创建 Schema,处理关联查询"""
-        return cls(  # type: ignore[return-value]
+        return cls(
             id=cast(int, obj.id),
             preserve_amount=obj.preserve_amount,
             corp_id=obj.corp_id,
@@ -129,9 +129,9 @@ class QuoteListItemSchema(BaseModel):
     finished_at: datetime | None = Field(None, description="完成时间")
 
     @classmethod
-    def from_model(cls, obj: Any) -> PreservationQuoteCreateSchema:
+    def from_model(cls, obj: Any) -> QuoteListItemSchema:
         """从 Django Model 创建 Schema,计算 success_rate"""
-        return cls(  # type: ignore[return-value]
+        return cls(
             id=cast(int, obj.id),
             preserve_amount=obj.preserve_amount,
             corp_id=obj.corp_id,

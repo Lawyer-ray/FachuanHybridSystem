@@ -7,7 +7,7 @@
 import logging
 import traceback
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from playwright.sync_api import Page
 
@@ -570,7 +570,7 @@ class DocumentDeliveryService:
                 if login_result.get("success"):
                     token = login_result.get("token")
                     if token:
-                        return token  # type: ignore[no-any-return]
+                        return cast(str, token)
                     else:
                         raise Exception("登录成功但未获取到token")
                 else:

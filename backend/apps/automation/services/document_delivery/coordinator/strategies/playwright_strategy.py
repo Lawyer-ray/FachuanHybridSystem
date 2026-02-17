@@ -1,7 +1,7 @@
 """Strategy pattern implementations."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
 
@@ -18,6 +18,9 @@ class DocumentDeliveryPlaywrightStrategy:
         tab: str = "pending",
         debug_mode: bool = True,
     ) -> DocumentQueryResult:
-        return self.playwright_service.query_documents(  # type: ignore[no-any-return]
-            credential_id=credential_id, cutoff_time=cutoff_time, tab=tab, debug_mode=debug_mode
+        return cast(
+            DocumentQueryResult,
+            self.playwright_service.query_documents(
+                credential_id=credential_id, cutoff_time=cutoff_time, tab=tab, debug_mode=debug_mode
+            ),
         )

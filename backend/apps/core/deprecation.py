@@ -19,7 +19,7 @@ Usage:
 import functools
 import warnings
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -62,7 +62,7 @@ def deprecated(reason: str, replacement: str | None = None, version: str = "v6")
             warnings.warn(message, DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

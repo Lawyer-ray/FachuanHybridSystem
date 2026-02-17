@@ -1,7 +1,7 @@
 """API endpoints."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -31,7 +31,7 @@ class CourtDocumentHttpClient:
                     message=f"HTTP 错误: {response.status_code}", response_code=response.status_code, errors={}
                 )
 
-            return response.json()  # type: ignore[no-any-return]
+            return cast(dict[str, Any], response.json())
 
         except httpx.TimeoutException as e:
             raise NetworkError(

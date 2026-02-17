@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from apps.core.protocols import (
     IAccountSelectionStrategy,
@@ -91,7 +91,7 @@ class LegacyServiceLocator:
 
             service = CaseServiceAdapter()
             cls.register("case_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICaseService, service)
 
     @classmethod
     def get_lawfirm_service(cls) -> ILawFirmService:
@@ -287,7 +287,7 @@ class LegacyServiceLocator:
 
             service = CourtSMSService()
             cls.register("court_sms_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICourtSMSService, service)
 
     @classmethod
     def get_case_chat_service(cls) -> ICaseChatService:
@@ -297,7 +297,7 @@ class LegacyServiceLocator:
 
             service = CaseChatService()
             cls.register("case_chat_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICaseChatService, service)
 
     @classmethod
     def get_organization_service(cls) -> IOrganizationService:

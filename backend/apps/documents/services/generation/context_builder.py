@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.enums import PartyRole  # type: ignore[attr-defined]
 from apps.documents.utils.formatters import format_currency, format_date, format_percentage, get_choice_display
@@ -92,7 +92,7 @@ class ContextBuilder:
                 context = self.enhanced_builder.build_contract_context(contract_id)
                 if context:
                     logger.debug(f"使用 EnhancedContextBuilder 构建合同上下文成功,合同ID: {contract_id}")
-                    return context  # type: ignore[no-any-return]
+                    return cast(dict[str, Any], context)
             except Exception as e:
                 logger.warning(
                     f"EnhancedContextBuilder 构建失败,回退到直接构建模式: {e}",

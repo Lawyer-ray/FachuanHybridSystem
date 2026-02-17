@@ -4,6 +4,7 @@
 """
 
 import logging
+from typing import cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -83,7 +84,7 @@ class TeamService:
         if not self._check_read_permission(user, team):
             raise PermissionDenied(message="无权限访问该团队", code="PERMISSION_DENIED")
 
-        return team  # type: ignore[no-any-return]
+        return cast(Team, team)
 
     @transaction.atomic
     def create_team(self, data: TeamIn, user: Lawyer | None = None) -> Team:
@@ -241,13 +242,13 @@ class TeamService:
             return True
 
         # 用户可以访问同律所的团队
-        return user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
+        return cast(bool, user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]
 
     def _check_create_permission(self, user: Lawyer | None) -> bool:
         """检查创建权限"""
         if user is None:
             return False
-        return user.is_authenticated and (user.is_superuser or user.is_admin)  # type: ignore[no-any-return]
+        return cast(bool, user.is_authenticated and (user.is_superuser or user.is_admin))
 
     def _check_update_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查更新权限"""
@@ -259,7 +260,7 @@ class TeamService:
             return True
 
         # 律所管理员可以更新同律所的团队
-        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
+        return cast(bool, user.is_admin and user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]
 
     def _check_delete_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查删除权限"""
@@ -271,4 +272,4 @@ class TeamService:
             return True
 
         # 律所管理员可以删除同律所的团队
-        return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
+        return cast(bool, user.is_admin and user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]

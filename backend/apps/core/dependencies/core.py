@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -31,9 +31,12 @@ def build_llm_service() -> ILLMService:
     from apps.core.llm.config import LLMConfig
     from apps.core.llm.service import LLMService
 
-    return LLMService(  # type: ignore[return-value]
-        backend_configs=LLMConfig.get_backend_configs(),
-        default_backend=LLMConfig.get_default_backend(),
+    return cast(
+        ILLMService,
+        LLMService(
+            backend_configs=LLMConfig.get_backend_configs(),
+            default_backend=LLMConfig.get_default_backend(),
+        ),
     )
 
 
@@ -52,7 +55,7 @@ def build_conversation_history_service() -> IConversationHistoryService:
 def build_cause_court_query_service() -> ICauseCourtQueryService:
     from apps.core.services.cause_court_query_service import CauseCourtQueryService
 
-    return CauseCourtQueryService()  # type: ignore[return-value]
+    return cast(ICauseCourtQueryService, CauseCourtQueryService())
 
 
 def build_baoquan_token_service() -> IBaoquanTokenService:

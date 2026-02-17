@@ -4,7 +4,7 @@
 验证配置项之间的依赖关系，确保依赖的配置项存在且有效。
 """
 
-from typing import Any
+from typing import Any, cast
 
 from .base import ConfigValidator, ValidationResult, ValidationType
 
@@ -177,7 +177,7 @@ class DependencyValidator(ConfigValidator):
                 "None": None,
             }
 
-            return eval(condition, allowed_names)  # type: ignore[no-any-return]
+            return cast(bool, eval(condition, allowed_names))
 
         except Exception:
             # 条件评估失败时返回False

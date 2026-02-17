@@ -2,8 +2,10 @@
 Schema 基类和 Mixin
 提供通用的字段解析方法，减少重复代码
 """
-from typing import Any, Optional
+
 from datetime import datetime
+from typing import Any, cast
+
 from django.utils import timezone
 
 
@@ -14,7 +16,7 @@ class TimestampMixin:
     """
 
     @staticmethod
-    def _resolve_datetime(value: Any) -> Optional[datetime]:
+    def _resolve_datetime(value: Any) -> datetime | None:
         """
         统一处理 datetime 字段，转换为本地时间
 
@@ -29,10 +31,10 @@ class TimestampMixin:
         try:
             return timezone.localtime(value)
         except Exception:
-            return value  # type: ignore[no-any-return]
+            return cast(datetime | None, value)
 
     @staticmethod
-    def _resolve_datetime_iso(value: Any) -> Optional[str]:
+    def _resolve_datetime_iso(value: Any) -> str | None:
         """
         统一处理 datetime 字段，转换为 ISO 格式字符串
 
@@ -48,7 +50,7 @@ class TimestampMixin:
             local_time = timezone.localtime(value)
             return local_time.isoformat()
         except Exception:
-            return value.isoformat() if hasattr(value, 'isoformat') else str(value)
+            return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
 class DisplayLabelMixin:
@@ -58,7 +60,7 @@ class DisplayLabelMixin:
     """
 
     @staticmethod
-    def _get_display(obj: Any, field_name: str) -> Optional[str]:
+    def _get_display(obj: Any, field_name: str) -> str | None:
         """
         获取 choices 字段的显示值
 
@@ -72,7 +74,7 @@ class DisplayLabelMixin:
         try:
             getter = getattr(obj, f"get_{field_name}_display", None)
             if getter:
-                return getter()  # type: ignore[no-any-return]
+                return cast(str | None, getter())
             return getattr(obj, field_name, None)
         except Exception:
             return None
@@ -85,7 +87,7 @@ class FileFieldMixin:
     """
 
     @staticmethod
-    def _get_file_url(file_field: Any) -> Optional[str]:
+    def _get_file_url(file_field: Any) -> str | None:
         """
         获取文件的 URL
 
@@ -98,12 +100,12 @@ class FileFieldMixin:
         if not file_field:
             return None
         try:
-            return file_field.url  # type: ignore[no-any-return]
+            return cast(str | None, file_field.url)
         except Exception:
             return None
 
     @staticmethod
-    def _get_file_path(file_field: Any) -> Optional[str]:
+    def _get_file_path(file_field: Any) -> str | None:
         """
         获取文件的路径
 
@@ -116,7 +118,7 @@ class FileFieldMixin:
         if not file_field:
             return None
         try:
-            return file_field.path  # type: ignore[no-any-return]
+            return cast(str | None, file_field.path)
         except Exception:
             return None
 
@@ -127,4 +129,5 @@ class SchemaMixin(TimestampMixin, DisplayLabelMixin, FileFieldMixin):
     Schema 通用 Mixin
     组合所有常用的字段解析方法
     """
+
     pass

@@ -73,7 +73,7 @@ class PDFMergeWorkflow:
             file_name = self._generate_merged_filename(evidence_list)
             self._save_merged_pdf(evidence_list, file_name, pdf_with_pages)
             self._cleanup_temp_files(temp_files)  # type: ignore[attr-defined]
-            return evidence_list.merged_pdf.path  # type: ignore[no-any-return]
+            return cast(str, evidence_list.merged_pdf.path)
         except (ValidationException, BusinessException):
             raise
         except Exception as e:

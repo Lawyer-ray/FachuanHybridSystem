@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.contracts.models import Contract
 from apps.core.exceptions import PermissionDenied
@@ -197,7 +197,7 @@ class ContractMutationFacade:
             perm_open_access=perm_open_access,
         )
         self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids)
-        return self.query_service.get_contract_internal(contract_id)  # type: ignore[no-any-return]
+        return cast(Contract, self.query_service.get_contract_internal(contract_id))
 
     def update_contract_lawyers_ctx(
         self,

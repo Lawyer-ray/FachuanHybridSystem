@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 
 class TemplateContextBuilder:
@@ -23,4 +23,4 @@ class TemplateContextBuilder:
             context_data["client"] = client
         if clients:
             context_data["clients"] = clients
-        return self.enhanced_builder.build_context(context_data)  # type: ignore[no-any-return]
+        return cast(dict[str, Any], self.enhanced_builder.build_context(context_data))

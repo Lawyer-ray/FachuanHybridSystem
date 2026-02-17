@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.exceptions import AutoTokenAcquisitionError, NoAvailableAccountError, TokenAcquisitionTimeoutError
 from apps.automation.services.token.trigger_reasons import TokenTriggerReason
@@ -62,7 +62,7 @@ class TokenAcquisitionOrchestrator:
                             account=credential.account,
                             acquisition_method="existing",
                         )
-                        return existing_token  # type: ignore[no-any-return]
+                        return cast(str, existing_token)
                 else:
                     credential = await svc.account_selection_strategy.select_account(site_name)
                     if credential:

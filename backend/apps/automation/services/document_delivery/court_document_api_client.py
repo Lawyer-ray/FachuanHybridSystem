@@ -13,7 +13,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import httpx
 
@@ -259,7 +259,7 @@ class CourtDocumentApiClient:
                         errors={"status_code": response.status_code},
                     )
 
-                return response.json()  # type: ignore[no-any-return]
+                return cast(dict[str, Any], response.json())
 
             except httpx.TimeoutException as e:
                 last_error = e

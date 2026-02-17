@@ -10,7 +10,7 @@
 
 import logging
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -399,7 +399,7 @@ class PreservationQuoteService:
                 },
             )
 
-            return quote  # type: ignore[no-any-return]
+            return cast(PreservationQuote, quote)
         except PreservationQuote.DoesNotExist:
             logger.error(
                 "询价任务不存在",

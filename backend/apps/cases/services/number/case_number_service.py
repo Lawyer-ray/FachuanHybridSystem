@@ -155,7 +155,7 @@ class CaseNumberService(DjangoPermsMixin):
                 },
             )
 
-            return case_number  # type: ignore[no-any-return]
+            return cast(CaseNumber, case_number)
         except CaseNumber.DoesNotExist:
             logger.warning(
                 "案号不存在",

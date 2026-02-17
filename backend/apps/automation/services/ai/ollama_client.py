@@ -1,9 +1,9 @@
 import json
+from typing import Any, cast
 
 import httpx
 
 from apps.automation.services.ai import get_ollama_base_url
-from typing import Any
 
 
 def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None) -> dict[str, Any]:
@@ -29,7 +29,7 @@ def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None
 
             # 尝试解析JSON响应
             try:
-                return resp.json()  # type: ignore[no-any-return]
+                return cast(dict[str, Any], resp.json())
             except json.JSONDecodeError as e:
                 # 如果JSON解析失败，可能是流式响应，尝试读取最后一行
                 text = resp.text.strip()
@@ -48,7 +48,7 @@ def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None
                                 continue
 
                     if last_valid_json:
-                        return last_valid_json  # type: ignore[no-any-return]
+                        return cast(dict[str, Any], last_valid_json)
 
                 raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}")
     except httpx.HTTPStatusError as e:

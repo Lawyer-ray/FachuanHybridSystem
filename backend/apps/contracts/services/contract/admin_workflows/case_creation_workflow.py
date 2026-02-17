@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from apps.contracts.models import Contract
 from apps.core.interfaces import CaseDTO
@@ -41,4 +41,4 @@ class ContractCaseCreationWorkflow:
                 lawyer_id=assignment.lawyer_id,
             )
 
-        return case_dto  # type: ignore[no-any-return]
+        return cast(CaseDTO, case_dto)

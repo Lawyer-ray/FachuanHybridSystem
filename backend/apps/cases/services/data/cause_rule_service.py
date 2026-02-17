@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 """案由规则服务 - 判断案由类型并返回适用的计算规则
 
@@ -150,7 +150,7 @@ class CauseRuleService:
 
         codes = get_cause_court_query_service().get_cause_ancestor_codes_internal(cause_id)
         logger.info("获取案由祖先链编码", extra={"cause_id": cause_id, "codes": codes})
-        return codes  # type: ignore[no-any-return]
+        return cast(list[str], codes)
 
     def get_ancestor_names(self, cause_id: int) -> list[str]:
         """
@@ -171,7 +171,7 @@ class CauseRuleService:
 
         names = get_cause_court_query_service().get_cause_ancestor_names_internal(cause_id)
         logger.info("获取案由祖先链名称", extra={"cause_id": cause_id, "names": names})
-        return names  # type: ignore[no-any-return]
+        return cast(list[str], names)
 
     def detect_special_case_type(self, cause_id: int) -> str | None | None:
         """

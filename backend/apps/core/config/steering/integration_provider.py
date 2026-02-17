@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .integration_types import (
     SteeringCacheConfig,
@@ -26,7 +26,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.loading_rules"
             if cache_key in self._cache:
-                return self._cache[cache_key]  # type: ignore[no-any-return]
+                return cast(list[SteeringLoadingRule], self._cache[cache_key])
 
             rules = []
             rules_config: Any = self.config_manager.get("steering.conditional_loading.rules", [])
@@ -53,7 +53,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.cache_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]  # type: ignore[no-any-return]
+                return cast(SteeringCacheConfig, self._cache[cache_key])
 
             config = SteeringCacheConfig(
                 enabled=self.config_manager.get("steering.cache.enabled", True) or True,
@@ -71,7 +71,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.performance_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]  # type: ignore[no-any-return]
+                return cast(SteeringPerformanceConfig, self._cache[cache_key])
 
             config = SteeringPerformanceConfig(
                 load_threshold_ms=self.config_manager.get("steering.performance.load_threshold_ms", 100.0) or 100.0,
@@ -89,7 +89,7 @@ class SteeringConfigProvider:
         with self._lock:
             cache_key = "steering.dependency_config"
             if cache_key in self._cache:
-                return self._cache[cache_key]  # type: ignore[no-any-return]
+                return cast(SteeringDependencyConfig, self._cache[cache_key])
 
             config = SteeringDependencyConfig(
                 auto_resolve=self.config_manager.get("steering.dependencies.auto_resolve", True) or True,

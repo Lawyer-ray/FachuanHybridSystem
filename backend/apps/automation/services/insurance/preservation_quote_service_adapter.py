@@ -4,7 +4,7 @@
 提供依赖注入支持的服务适配器，遵循现有的架构模式
 """
 
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.services.insurance.court_insurance_client import CourtInsuranceClient
 from apps.automation.services.insurance.preservation_quote_service import PreservationQuoteService
@@ -72,7 +72,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
                 insurance_client=self.insurance_client,
                 auto_token_service=self.auto_token_service,
             )
-        return self._service  # type: ignore[return-value]
+        return cast(PreservationQuoteService, self._service)
 
     # 实现 IPreservationQuoteService 接口方法
     def create_quote(
@@ -132,7 +132,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
             # 如果已经在事件循环中，创建新的任务
             import asyncio
 
-            return asyncio.create_task(self.service.execute_quote(quote_id))  # type: ignore[return-value]
+            return cast(dict[str, Any], asyncio.create_task(self.service.execute_quote(quote_id)))
         else:
             # 如果不在事件循环中，直接运行
             return loop.run_until_complete(self.service.execute_quote(quote_id))
@@ -369,7 +369,13 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
     ) -> Any:
         """创建询价任务（内部接口，无权限检查）"""
         return self.create_quote(
-            case_name, target_amount, applicant_name, respondent_name, court_name, case_type, **kwargs  # type: ignore[arg-type, call-arg]
+            case_name,
+            target_amount,
+            applicant_name,
+            respondent_name,
+            court_name,
+            case_type,
+            **kwargs,  # type: ignore[arg-type, call-arg]
         )
 
     def execute_quote_internal(self, quote_id: int, force_refresh_token: bool = False) -> dict[str, Any]:

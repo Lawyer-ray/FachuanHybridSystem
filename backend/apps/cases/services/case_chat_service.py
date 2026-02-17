@@ -19,6 +19,7 @@
 """
 
 import logging
+from typing import Any, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
@@ -29,7 +30,6 @@ from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +314,7 @@ class CaseChatService:
 
         if existing_chat:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
-            return existing_chat  # type: ignore[no-any-return]
+            return cast(CaseChat, existing_chat)
 
         # 不存在则创建新群聊
         logger.info(f"未找到现有群聊，开始创建新群聊: case_id={case_id}, platform={platform.value}")

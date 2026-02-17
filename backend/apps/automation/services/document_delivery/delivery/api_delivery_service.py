@@ -9,8 +9,7 @@ import math
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
+from typing import TYPE_CHECKING, Any, cast
 
 from ..data_classes import DocumentDeliveryRecord, DocumentQueryResult, DocumentRecord
 
@@ -113,7 +112,7 @@ class ApiDeliveryService:
         """
         try:
             response = self.api_client.fetch_document_list(token=token, page_num=page_num, page_size=page_size)
-            return response.documents  # type: ignore[return-value]
+            return cast(list[DocumentRecord], response.documents)
         except Exception as e:
             logger.error(f"获取第 {page_num} 页失败: {e!s}")
             return []

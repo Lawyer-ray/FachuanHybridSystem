@@ -9,7 +9,7 @@ from __future__ import annotations
 
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
 
@@ -207,12 +207,15 @@ class CaseFolderBindingService(FolderBindingCrudService):
             ValidationException: 路径无效
             NotFoundError: 案件不存在
         """
-        return super().create_binding(  # type: ignore[no-any-return]
-            owner_id=case_id,
-            folder_path=folder_path,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            CaseFolderBinding,
+            super().create_binding(
+                owner_id=case_id,
+                folder_path=folder_path,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     @transaction.atomic

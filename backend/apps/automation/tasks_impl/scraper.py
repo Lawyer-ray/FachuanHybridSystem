@@ -48,7 +48,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> Any:
             logger.error(f"任务 {task_id} 执行异常: {e}", exc_info=True)
 
 
-def process_pending_tasks() -> None:
+def process_pending_tasks() -> int:
     from django_q.tasks import async_task
 
     from apps.automation.models import ScraperTask, ScraperTaskStatus
@@ -58,7 +58,7 @@ def process_pending_tasks() -> None:
     count = pending_tasks.count()
     if count == 0:
         logger.info("没有待处理的任务")
-        return 0  # type: ignore[return-value]
+        return 0
 
     logger.info(f"发现 {count} 个待处理任务,开始提交到队列...")
 
@@ -75,10 +75,10 @@ def process_pending_tasks() -> None:
             logger.error(f"提交任务 {task.id} 失败: {e}")
 
     logger.info(f"共提交 {submitted}/{count} 个任务到队列")
-    return submitted  # type: ignore[return-value]
+    return submitted
 
 
-def reset_running_tasks() -> None:
+def reset_running_tasks() -> int:
     from apps.automation.models import ScraperTask, ScraperTaskStatus
 
     running_tasks = ScraperTask.objects.filter(status=ScraperTaskStatus.RUNNING)
@@ -86,24 +86,24 @@ def reset_running_tasks() -> None:
     count = running_tasks.count()
     if count == 0:
         logger.info("没有卡住的 running 任务")
-        return 0  # type: ignore[return-value]
+        return 0
 
     logger.warning(f"发现 {count} 个卡住的 running 任务,重置为 pending...")
     running_tasks.update(status=ScraperTaskStatus.PENDING)
     logger.info(f"已重置 {count} 个任务")
-    return count  # type: ignore[return-value]
+    return count
 
 
-def startup_check() -> None:
+def startup_check() -> dict[str, int]:
     logger.info("=" * 60)
     logger.info("执行启动检查...")
     logger.info("=" * 60)
 
-    reset_count = reset_running_tasks()  # type: ignore[func-returns-value]
-    pending_count = process_pending_tasks()  # type: ignore[func-returns-value]
+    reset_count = reset_running_tasks()
+    pending_count = process_pending_tasks()
 
     logger.info("=" * 60)
     logger.info(f"启动检查完成: 重置 {reset_count} 个卡住任务, 提交 {pending_count} 个待处理任务")
     logger.info("=" * 60)
 
-    return {"reset_count": reset_count, "pending_count": pending_count}  # type: ignore[return-value]
+    return {"reset_count": reset_count, "pending_count": pending_count}

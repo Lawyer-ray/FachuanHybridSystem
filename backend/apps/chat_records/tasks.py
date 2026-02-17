@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 from django.utils import timezone
 
@@ -351,7 +351,7 @@ def _run_ffmpeg_phase(
     output_pattern = os.path.join(tmpdir, "frame_%010d.jpg" if not params.interval_based else "frame_%06d.jpg")
 
     def should_cancel() -> bool:
-        return cancel_token.is_cancelled()  # type: ignore[no-any-return]
+        return cast(bool, cancel_token.is_cancelled())
 
     for kv in service.iter_ffmpeg_progress(
         video_path=recording.video.path,

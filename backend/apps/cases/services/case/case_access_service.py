@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 "\n案件访问授权服务层\n处理案件访问权限相关的业务逻辑\n符合四层架构规范:业务逻辑、权限检查、依赖注入\n"
-from typing import Any
+from typing import Any, cast
 
 from django.db.models import QuerySet
 
@@ -109,13 +109,13 @@ class CaseAccessService(DjangoPermsMixin):
             raise NotFoundError(f"授权 {grant_id} 不存在") from None
         ctx = access_ctx or AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if ctx.perm_open_access:
-            return grant  # type: ignore[no-any-return]
+            return cast(CaseAccessGrant, grant)
         self.ensure_authenticated(ctx.user)
         if self.is_admin(ctx.user) or self.is_superuser(ctx.user):
-            return grant  # type: ignore[no-any-return]
+            return cast(CaseAccessGrant, grant)
         if grant.grantee_id != self.get_user_id(ctx.user):
             raise ForbiddenError("无权限查看该授权记录")
-        return grant  # type: ignore[no-any-return]
+        return cast(CaseAccessGrant, grant)
 
     def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:
         """

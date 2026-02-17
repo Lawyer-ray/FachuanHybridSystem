@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import QuerySet
 
@@ -51,7 +51,7 @@ class CasePartyQueryFacade(DjangoPermsMixin):
     ) -> QuerySet[Case, Case]:
         qs = self.query_service.list_parties(case_id=case_id)
         if perm_open_access:
-            return qs  # type: ignore[return-value]
+            return cast(QuerySet[Case, Case], qs)
 
         if case_id:
             self.access_policy.ensure_access(
@@ -60,11 +60,11 @@ class CasePartyQueryFacade(DjangoPermsMixin):
                 org_access=org_access,
                 perm_open_access=perm_open_access,
             )
-            return qs  # type: ignore[return-value]
+            return cast(QuerySet[Case, Case], qs)
 
         self.ensure_authenticated(user)
         if self.is_admin(user) or self.is_superuser(user):
-            return qs  # type: ignore[return-value]
+            return cast(QuerySet[Case, Case], qs)
 
         allowed_case_ids = self.access_policy.filter_queryset(
             Case.objects.all(),
@@ -72,7 +72,7 @@ class CasePartyQueryFacade(DjangoPermsMixin):
             org_access=org_access,
             perm_open_access=perm_open_access,
         ).values_list("id", flat=True)
-        return qs.filter(case_id__in=list(allowed_case_ids))  # type: ignore[return-value]
+        return cast(QuerySet[Case, Case], qs.filter(case_id__in=list(allowed_case_ids)))
 
     def get_party(
         self,

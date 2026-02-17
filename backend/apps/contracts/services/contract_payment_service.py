@@ -5,7 +5,7 @@
 
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Q, QuerySet, Sum
@@ -94,7 +94,7 @@ class ContractPaymentService:
             NotFoundError: 收款不存在
         """
         try:
-            return ContractPayment.objects.select_related("contract").get(id=payment_id)  # type: ignore[no-any-return]
+            return cast(ContractPayment, ContractPayment.objects.select_related("contract").get(id=payment_id))
         except ContractPayment.DoesNotExist:
             raise NotFoundError(f"收款记录 {payment_id} 不存在")
 

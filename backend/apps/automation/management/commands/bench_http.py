@@ -7,7 +7,7 @@ import json
 import logging
 import statistics
 import time
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from django.core.management.base import BaseCommand, CommandError
@@ -26,12 +26,12 @@ def _parse_headers(headers_kv: list[str]) -> dict[str, str]:
     return headers
 
 
-def _parse_json_body(json_body: str | None) -> None:
+def _parse_json_body(json_body: str | None) -> Any:
     """解析 JSON 请求体"""
     if not json_body:
         return None
     try:
-        return json.loads(json_body)  # type: ignore[no-any-return]
+        return json.loads(json_body)
     except Exception:
         raise CommandError("--json 必须是合法 JSON 字符串") from None
 
@@ -55,7 +55,7 @@ class Command(BaseCommand):
         if total <= 0 or concurrency <= 0:
             raise CommandError("requests/concurrency 必须为正整数")
         headers = _parse_headers(options["header"] or [])
-        data = _parse_json_body(options["json_body"])  # type: ignore[func-returns-value]
+        data = _parse_json_body(options["json_body"])
 
         async def run() -> None:
             sem = asyncio.Semaphore(concurrency)
@@ -93,7 +93,7 @@ def _build_report(url: Any, method: Any, total: Any, concurrency: Any, statuses:
         if not timings:
             return 0.0
         idx = min(len(timings) - 1, max(0, round(p / 100.0 * (len(timings) - 1))))
-        return timings[idx]  # type: ignore[no-any-return]
+        return cast(float, timings[idx])
 
     return {
         "url": url,

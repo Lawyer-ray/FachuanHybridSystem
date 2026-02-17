@@ -1,7 +1,7 @@
 """Business logic services."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -55,7 +55,7 @@ def _compute_edges(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     upper_threshold = int(min(255, 1.3 * median_val))
     edges = cv2.Canny(blurred, lower_threshold, upper_threshold)
     kernel = np.ones((3, 3), np.uint8)
-    return cv2.dilate(edges, kernel, iterations=1)  # type: ignore[return-value]
+    return cast(NDArray[np.uint8], cv2.dilate(edges, kernel, iterations=1))
 
 
 def _find_best_contour(contours: Any, image_area: int, id_card_aspect_ratio: float) -> Any:

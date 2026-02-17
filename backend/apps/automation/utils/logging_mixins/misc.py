@@ -21,7 +21,7 @@ class AutomationMiscLoggerMixin:
             extra["user_id"] = user_id  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().info(f"开始Admin操作: {operation}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"开始Admin操作: {operation}", extra=extra)
 
     @staticmethod
     def log_admin_operation_success(
@@ -39,7 +39,7 @@ class AutomationMiscLoggerMixin:
             extra["user_id"] = user_id
         extra.update(kwargs)
 
-        get_logger().info(f"Admin操作成功: {operation}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"Admin操作成功: {operation}", extra=extra)
 
     @staticmethod
     def log_admin_operation_failed(
@@ -57,7 +57,7 @@ class AutomationMiscLoggerMixin:
             extra["user_id"] = user_id
         extra.update(kwargs)
 
-        get_logger().error(f"Admin操作失败: {operation}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"Admin操作失败: {operation}", extra=extra)
 
     @staticmethod
     def log_business_operation(
@@ -81,7 +81,7 @@ class AutomationMiscLoggerMixin:
             extra["user_id"] = user_id
         extra.update(kwargs)
 
-        log_level = get_logger().info if success else get_logger().error  # type: ignore[func-returns-value]
+        log_level = get_logger().info if success else get_logger().error
         log_level(f"业务操作: {operation} {resource_type}", extra=extra)
 
     @staticmethod
@@ -98,7 +98,7 @@ class AutomationMiscLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().debug(f"跨模块调用: {source_module} -> {target_module}.{service_name}.{method_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().debug(f"跨模块调用: {source_module} -> {target_module}.{service_name}.{method_name}", extra=extra)
 
     @staticmethod
     def log_fallback_triggered(
@@ -122,7 +122,7 @@ class AutomationMiscLoggerMixin:
             extra["credential_id"] = credential_id  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().warning(f"降级触发: {from_method} -> {to_method}, 原因: {reason}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().warning(f"降级触发: {from_method} -> {to_method}, 原因: {reason}", extra=extra)
 
     @staticmethod
     def log_api_error_detail(
@@ -150,4 +150,4 @@ class AutomationMiscLoggerMixin:
             extra["response_data"] = response_data  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().error(f"API错误详情: {api_name} - {error_type}: {error_message}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"API错误详情: {api_name} - {error_type}: {error_message}", extra=extra)

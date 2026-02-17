@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import cast
 
 from .backends import ILLMBackend, LLMResponse
 
@@ -51,7 +52,7 @@ class LLMClient:
             return b.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
 
         backend_name = backend or self._default_backend
-        return fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback)  # type: ignore[no-any-return]
+        return cast(LLMResponse, fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback))
 
     async def achat(  # type: ignore[no-untyped-def]
         self,
@@ -68,4 +69,7 @@ class LLMClient:
             return await b.achat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
 
         backend_name = backend or self._default_backend
-        return await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback)  # type: ignore[no-any-return]
+        return cast(
+            LLMResponse,
+            await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),
+        )

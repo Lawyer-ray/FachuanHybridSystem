@@ -6,7 +6,7 @@
 
 import logging
 import time
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from apps.core.path import Path
 from apps.documents.services.generation.base_generator import BaseGenerator
@@ -33,7 +33,7 @@ class ContractGenerator(BaseGenerator):
     ]
 
     def get_required_placeholders(self) -> list[str]:
-        return self.REQUIRED_PLACEHOLDERS  # type: ignore[no-any-return]
+        return cast(list[str], self.REQUIRED_PLACEHOLDERS)
 
     def generate(self, context: dict[str, Any], template_path: str, output_dir: str) -> GenerationResult:
         """

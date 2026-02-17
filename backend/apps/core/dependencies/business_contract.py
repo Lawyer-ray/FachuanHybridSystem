@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -53,4 +53,7 @@ def build_contract_folder_binding_service() -> IContractFolderBindingService:
 
     from .documents_query import build_document_template_binding_service
 
-    return FolderBindingService(document_template_binding_service=build_document_template_binding_service())  # type: ignore[return-value]
+    return cast(
+        IContractFolderBindingService,
+        FolderBindingService(document_template_binding_service=build_document_template_binding_service()),
+    )

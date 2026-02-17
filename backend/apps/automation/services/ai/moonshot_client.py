@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
-from typing import Any
 
 
 def _base_url() -> str:
@@ -22,7 +22,7 @@ def upload_file(file_path: str) -> dict[str, Any]:
         with httpx.Client(timeout=60) as client:
             resp = client.post(url, headers=_headers(), files=files)
             resp.raise_for_status()
-            return resp.json()  # type: ignore[no-any-return]
+            return cast(dict[str, Any], resp.json())
 
 
 def list_files() -> dict[str, Any]:
@@ -30,7 +30,7 @@ def list_files() -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
 
 def retrieve_file(file_id: str) -> dict[str, Any]:
@@ -38,7 +38,7 @@ def retrieve_file(file_id: str) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
 
 def extract_result(file_id: str) -> dict[str, Any]:
@@ -46,7 +46,7 @@ def extract_result(file_id: str) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.get(url, headers=_headers())
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
 
 def chat(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -55,4 +55,4 @@ def chat(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
     with httpx.Client(timeout=60) as client:
         resp = client.post(url, headers={"Authorization": _headers()["Authorization"]}, json=payload)
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())

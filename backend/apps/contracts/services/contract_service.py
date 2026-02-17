@@ -5,7 +5,7 @@
 
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -955,7 +955,7 @@ class ContractServiceAdapter:
         """
         try:
             contract = self.contract_service._get_contract_internal(contract_id)
-            return contract.representation_stages or []  # type: ignore[return-value]
+            return cast(list[str], contract.representation_stages or [])
         except NotFoundError:
             return []
 
@@ -971,7 +971,7 @@ class ContractServiceAdapter:
         """
         try:
             contract = self.contract_service._get_contract_internal(contract_id)
-            return contract.status == "active"  # type: ignore[no-any-return]
+            return cast(bool, contract.status == "active")
         except NotFoundError:
             return False
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -317,11 +317,14 @@ class CasePartyService:
         Returns:
             当事人查询集
         """
-        return self.query_facade.list_parties(  # type: ignore[return-value]
-            case_id=case_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            QuerySet[CaseParty, CaseParty],
+            self.query_facade.list_parties(
+                case_id=case_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     def get_party(
@@ -344,11 +347,14 @@ class CasePartyService:
         Raises:
             NotFoundError: 当事人不存在
         """
-        return self.query_facade.get_party(  # type: ignore[no-any-return, func-returns-value]
-            party_id=party_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            CaseParty,
+            self.query_facade.get_party(
+                party_id=party_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     @transaction.atomic
@@ -378,13 +384,16 @@ class CasePartyService:
             ConflictError: 当事人已存在
             ValidationException: 数据验证失败
         """
-        return self.mutation_facade.create_party(  # type: ignore[no-any-return, func-returns-value]
-            case_id=case_id,
-            client_id=client_id,
-            legal_status=legal_status,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            CaseParty,
+            self.mutation_facade.create_party(
+                case_id=case_id,
+                client_id=client_id,
+                legal_status=legal_status,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     @transaction.atomic
@@ -411,12 +420,15 @@ class CasePartyService:
             NotFoundError: 当事人不存在
             ValidationException: 数据验证失败
         """
-        return self.mutation_facade.update_party(  # type: ignore[no-any-return, func-returns-value]
-            party_id=party_id,
-            data=data,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            CaseParty,
+            self.mutation_facade.update_party(
+                party_id=party_id,
+                data=data,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     @transaction.atomic
@@ -440,11 +452,14 @@ class CasePartyService:
         Raises:
             NotFoundError: 当事人不存在
         """
-        return self.mutation_facade.delete_party(  # type: ignore[no-any-return, func-returns-value]
-            party_id=party_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            dict[str, bool],
+            self.mutation_facade.delete_party(
+                party_id=party_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     @transaction.atomic

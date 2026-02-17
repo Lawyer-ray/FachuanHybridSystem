@@ -59,7 +59,7 @@ class ClientService:
         client_type: str | None = None,
         is_our_client: bool | None = None,
         search: str | None = None,
-        user: User | None = None,  # type: ignore[valid-type]
+        user: Any = None,
     ) -> "QuerySet[Client, Client]":
         """
         获取客户列表
@@ -84,6 +84,8 @@ class ClientService:
         if page_size > max_page_size:
             page_size = max_page_size
 
+        assert isinstance(page_size, int)
+
         # 1. 构建基础查询（使用 prefetch_related 优化）
         queryset = Client.objects.prefetch_related("identity_docs").order_by("-id")
 
@@ -100,12 +102,12 @@ class ClientService:
             )
 
         # 3. 分页
-        start = (page - 1) * page_size  # type: ignore[operator]
-        end = start + page_size  # type: ignore[operator]
+        start = (page - 1) * page_size
+        end = start + page_size
 
         return queryset[start:end]
 
-    def get_client(self, client_id: int, user: User | None = None) -> Client:  # type: ignore[valid-type]
+    def get_client(self, client_id: int, user: Any = None) -> Client:
         """
         获取客户
 
@@ -120,12 +122,12 @@ class ClientService:
             NotFoundError: 客户不存在
         """
         # 1. 查询客户（使用 prefetch_related 优化）
-        client = Client.objects.prefetch_related("identity_docs").filter(id=client_id).first()
+        client: Client | None = Client.objects.prefetch_related("identity_docs").filter(id=client_id).first()
 
         if not client:
             raise NotFoundError(message="客户不存在", code="CLIENT_NOT_FOUND")
 
-        return client  # type: ignore[no-any-return]
+        return client
 
     def get_clients_by_ids(self, client_ids: list[int]) -> list[Client]:
         """
@@ -179,7 +181,7 @@ class ClientService:
         return parse_client_text(text)
 
     @transaction.atomic
-    def create_client(self, data: dict[str, Any], user: User | None = None) -> Client:  # type: ignore[valid-type]
+    def create_client(self, data: dict[str, Any], user: Any = None) -> Client:
         """
         创建客户
 
@@ -212,7 +214,7 @@ class ClientService:
             "客户创建成功",
             extra={
                 "client_id": client.id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "create_client",
             },
         )
@@ -224,7 +226,7 @@ class ClientService:
         self,
         client_id: int,
         data: dict[str, Any],
-        user: User | None = None,  # type: ignore[valid-type]
+        user: Any = None,
     ) -> Client:
         """
         更新客户
@@ -268,7 +270,7 @@ class ClientService:
             "客户更新成功",
             extra={
                 "client_id": client.id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "update_client",
             },
         )
@@ -276,7 +278,7 @@ class ClientService:
         return client
 
     @transaction.atomic
-    def delete_client(self, client_id: int, user: User | None = None) -> None:  # type: ignore[valid-type]
+    def delete_client(self, client_id: int, user: Any = None) -> None:
         """
         删除客户
 
@@ -307,35 +309,32 @@ class ClientService:
             "客户删除成功",
             extra={
                 "client_id": client_id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "delete_client",
             },
         )
 
     # ========== 私有方法（业务逻辑封装） ==========
 
-    def _check_create_permission(self, user: User) -> bool:  # type: ignore[valid-type]
+    def _check_create_permission(self, user: Any) -> bool:
         """检查创建权限（私有方法）"""
-        return user.is_authenticated and (  # type: ignore[no-any-return, attr-defined]
-            user.has_perm("client.add_client")  # type: ignore[attr-defined]
-            or user.is_admin  # type: ignore[attr-defined]
-            or user.is_superuser  # type: ignore[attr-defined]
+        return bool(
+            user.is_authenticated
+            and (user.has_perm("client.add_client") or getattr(user, "is_admin", False) or user.is_superuser)
         )
 
-    def _check_update_permission(self, user: User, client: Client) -> bool:  # type: ignore[valid-type]
+    def _check_update_permission(self, user: Any, client: Client) -> bool:
         """检查更新权限（私有方法）"""
-        return user.is_authenticated and (  # type: ignore[no-any-return, attr-defined]
-            user.has_perm("client.change_client")  # type: ignore[attr-defined]
-            or user.is_admin  # type: ignore[attr-defined]
-            or user.is_superuser  # type: ignore[attr-defined]
+        return bool(
+            user.is_authenticated
+            and (user.has_perm("client.change_client") or getattr(user, "is_admin", False) or user.is_superuser)
         )
 
-    def _check_delete_permission(self, user: User, client: Client) -> bool:  # type: ignore[valid-type]
+    def _check_delete_permission(self, user: Any, client: Client) -> bool:
         """检查删除权限（私有方法）"""
-        return user.is_authenticated and (  # type: ignore[no-any-return, attr-defined]
-            user.has_perm("client.delete_client")  # type: ignore[attr-defined]
-            or user.is_admin  # type: ignore[attr-defined]
-            or user.is_superuser  # type: ignore[attr-defined]
+        return bool(
+            user.is_authenticated
+            and (user.has_perm("client.delete_client") or getattr(user, "is_admin", False) or user.is_superuser)
         )
 
     def _validate_create_data(self, data: dict[str, Any]) -> None:

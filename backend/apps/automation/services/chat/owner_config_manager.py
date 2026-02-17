@@ -21,11 +21,11 @@
 import logging
 import os
 import re
+from typing import Any, cast
 
 from django.conf import settings
 
 from apps.core.exceptions import ConfigurationException, ValidationException
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +334,7 @@ class OwnerConfigManager:
             if manager.is_test_environment():
                 print("当前运行在测试环境")
         """
-        return self._config.get("TEST_MODE", False)  # type: ignore[no-any-return]
+        return cast(bool, self._config.get("TEST_MODE", False))
 
     def is_validation_enabled(self) -> bool:
         """检查是否启用了群主ID验证
@@ -342,7 +342,7 @@ class OwnerConfigManager:
         Returns:
             bool: 是否启用验证
         """
-        return self._config.get("OWNER_VALIDATION_ENABLED", True)  # type: ignore[no-any-return]
+        return cast(bool, self._config.get("OWNER_VALIDATION_ENABLED", True))
 
     def is_retry_enabled(self) -> bool:
         """检查是否启用了重试机制
@@ -350,7 +350,7 @@ class OwnerConfigManager:
         Returns:
             bool: 是否启用重试
         """
-        return self._config.get("OWNER_RETRY_ENABLED", True)  # type: ignore[no-any-return]
+        return cast(bool, self._config.get("OWNER_RETRY_ENABLED", True))
 
     def get_max_retries(self) -> int:
         """获取最大重试次数
@@ -358,7 +358,7 @@ class OwnerConfigManager:
         Returns:
             int: 最大重试次数
         """
-        return self._config.get("OWNER_MAX_RETRIES", 3)  # type: ignore[no-any-return]
+        return cast(int, self._config.get("OWNER_MAX_RETRIES", 3))
 
     def handle_empty_owner_id(self, owner_id: str | None) -> str | None:
         """处理空的群主ID

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from apps.documents.models import FolderTemplate
 from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
@@ -22,7 +22,10 @@ class FolderTemplateUsecases:
     def list_templates(
         self, *, case_type: str | None = None, case_stage: str | None = None, is_active: bool | None = None
     ) -> list[FolderTemplate]:
-        return self.query_service.list_templates(case_type=case_type, case_stage=case_stage, is_active=is_active)  # type: ignore[no-any-return]
+        return cast(
+            list[FolderTemplate],
+            self.query_service.list_templates(case_type=case_type, case_stage=case_stage, is_active=is_active),
+        )
 
     def get_template_by_id(self, *, template_id: int) -> FolderTemplate:
         return self.query_service.get_template_by_id(template_id=template_id)

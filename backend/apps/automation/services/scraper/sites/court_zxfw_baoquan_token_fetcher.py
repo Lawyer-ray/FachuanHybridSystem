@@ -39,7 +39,7 @@ class BaoquanTokenFetcher:
 
         captured_token: dict[str, str | None] = {"value": None}
 
-        handler = self._make_response_handler(captured_token)  # type: ignore[func-returns-value]
+        handler = self._make_response_handler(captured_token)
 
         try:
             self.page.on("response", handler)
@@ -74,10 +74,10 @@ class BaoquanTokenFetcher:
                 self._save_screenshot("baoquan_error")
             raise
 
-    def _make_response_handler(self, captured_token: dict[str, str | None]) -> None:
+    def _make_response_handler(self, captured_token: dict[str, str | None]) -> Any:
         """创建 Playwright 响应事件处理器"""
 
-        def handle_response(response) -> None:  # type: ignore
+        def handle_response(response: Any) -> None:
             try:
                 url = response.url
 
@@ -95,7 +95,7 @@ class BaoquanTokenFetcher:
             except Exception:
                 logger.exception("处理保全响应失败")
 
-        return handle_response  # type: ignore[return-value]
+        return handle_response
 
     def _try_capture_authorization_token(self, response: Any, captured_token: dict[str, str | None]) -> None:
         """尝试从 getauthorization 接口捕获 Token"""

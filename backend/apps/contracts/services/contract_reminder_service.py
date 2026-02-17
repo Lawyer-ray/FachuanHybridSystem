@@ -4,7 +4,7 @@
 """
 
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -66,7 +66,7 @@ class ContractReminderService:
             NotFoundError: 提醒不存在
         """
         try:
-            return ContractReminder.objects.select_related("contract").get(id=reminder_id)  # type: ignore[no-any-return]
+            return cast(ContractReminder, ContractReminder.objects.select_related("contract").get(id=reminder_id))
         except ContractReminder.DoesNotExist:
             raise NotFoundError(f"提醒记录 {reminder_id} 不存在")
 

@@ -3,7 +3,7 @@
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -23,15 +23,18 @@ def _get_case_party_service() -> Any:
 def list_parties(request: Any, case_id: int | None = None) -> list[CasePartyOut]:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.list_parties(case_id=case_id, user=user)  # type: ignore[no-any-return]
+    return cast(list[CasePartyOut], service.list_parties(case_id=case_id, user=user))
 
 
 @router.post("/parties", response=CasePartyOut)
 def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.create_party(  # type: ignore[no-any-return]
-        case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status, user=user
+    return cast(
+        CasePartyOut,
+        service.create_party(
+            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status, user=user
+        ),
     )
 
 
@@ -39,7 +42,7 @@ def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
 def get_party(request: Any, party_id: int) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.get_party(party_id=party_id, user=user)  # type: ignore[no-any-return]
+    return cast(CasePartyOut, service.get_party(party_id=party_id, user=user))
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
@@ -47,7 +50,7 @@ def update_party(request: Any, party_id: int, payload: CasePartyUpdate) -> CaseP
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     data = payload.dict(exclude_unset=True)
-    return service.update_party(party_id=party_id, data=data, user=user)  # type: ignore[no-any-return]
+    return cast(CasePartyOut, service.update_party(party_id=party_id, data=data, user=user))
 
 
 @router.delete("/parties/{party_id}")

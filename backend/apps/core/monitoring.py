@@ -6,13 +6,12 @@
 
 import logging
 import time
-from contextlib import contextmanager
+from contextlib import _GeneratorContextManager, contextmanager
 from functools import wraps
-from typing import Any, Callable, TypeVar, Generator
-from collections.abc import Callable as CallableABC
-from contextlib import _GeneratorContextManager
+from typing import Any, TypeVar, cast
+from collections.abc import Callable, Generator
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 from collections.abc import Callable
 
 from django.conf import settings
@@ -91,7 +90,7 @@ class PerformanceMonitor:
 
                     raise
 
-            return wrapper  # type: ignore[return-value]
+            return cast(F, wrapper)
 
         return decorator
 

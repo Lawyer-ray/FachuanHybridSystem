@@ -13,7 +13,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTaskStatus
 from apps.core.interfaces import ServiceLocator
@@ -80,7 +80,7 @@ class SMSMatchingStage(BaseSMSStage):
         return "匹配"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return sms.status == CourtSMSStatus.MATCHING  # type: ignore[no-any-return]
+        return cast(bool, sms.status == CourtSMSStatus.MATCHING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理案件匹配阶段"""

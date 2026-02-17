@@ -6,7 +6,7 @@
 
 import logging
 from decimal import Decimal
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
@@ -70,7 +70,7 @@ class NumberPlaceholderService(BasePlaceholderService):
             result += "元"
             result += self._convert_decimal_part(decimal_part)  # type: ignore
 
-            return result  # type: ignore[no-any-return]
+            return cast(str, result)
 
         except (ValueError, TypeError, ArithmeticError) as e:
             logger.warning(f"数字转换失败: {e}", extra={"amount": amount})
