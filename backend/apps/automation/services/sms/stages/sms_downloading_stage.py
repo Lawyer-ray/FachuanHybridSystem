@@ -36,7 +36,7 @@ class SMSDownloadingStage(BaseSMSStage):
         无外部依赖，使用 Django ORM 和 Django Q
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """
         初始化下载阶段处理器
         

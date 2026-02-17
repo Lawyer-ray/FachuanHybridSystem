@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.automation")
 class TaskRecoveryService:
     """任务恢复服务"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.stuck_timeout_minutes = 30  # 任务卡住超时时间（分钟）
         self.max_retry_count = 3  # 最大重试次数
         self.recovery_max_age_hours = 24  # 恢复任务的最大年龄（小时）
@@ -279,7 +279,7 @@ class TaskRecoveryService:
         
         return True
     
-    def schedule_periodic_recovery(self, interval_minutes: int = 60):
+    def schedule_periodic_recovery(self, interval_minutes: int = 60) -> None:
         """
         安排定期恢复任务
         
@@ -305,7 +305,7 @@ class TaskRecoveryService:
         logger.info(f"已安排定期恢复任务，间隔 {interval_minutes} 分钟")
 
 
-def periodic_recovery_task():
+def periodic_recovery_task() -> Dict[str, Any]:
     """定期恢复任务的入口函数"""
     service = TaskRecoveryService()
     result = service.recover_all_tasks(dry_run=False)
