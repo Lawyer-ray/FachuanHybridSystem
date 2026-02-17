@@ -4,7 +4,7 @@
 import re
 from typing import Any
 from django import forms
-from django.contrib.auth.forms import UserCreationForm  # type: ignore[type-arg]
+from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from .models import Lawyer
 

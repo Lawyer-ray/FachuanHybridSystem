@@ -6,7 +6,7 @@ from apps.automation.services.ai import get_ollama_base_url
 from typing import Any
 
 
-def chat(model: str, messages: list[dict], base_url: str | None = None) -> dict[str, Any]:
+def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None) -> dict[str, Any]:
     """
     调用Ollama API进行聊天
 

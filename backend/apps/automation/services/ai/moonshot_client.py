@@ -49,7 +49,7 @@ def extract_result(file_id: str) -> dict[str, Any]:
         return resp.json()  # type: ignore[no-any-return]
 
 
-def chat(model: str, messages: list[dict]) -> dict[str, Any]:
+def chat(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
     url = _base_url() + "/chat/completions"
     payload = {"model": model, "messages": messages}
     with httpx.Client(timeout=60) as client:
