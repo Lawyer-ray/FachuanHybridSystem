@@ -100,13 +100,13 @@ class LoadOrderResult:
 class DependencyGraph:
     """依赖图"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: Dict[str, SpecificationMetadata] = {}
         self.edges: Dict[str, List[DependencyInfo]] = defaultdict(list)
         self.reverse_edges: Dict[str, List[DependencyInfo]] = defaultdict(list)
         self._lock = threading.RLock()
     
-    def add_specification(self, metadata: SpecificationMetadata):
+    def add_specification(self, metadata: SpecificationMetadata) -> None:
         """添加规范"""
         with self._lock:
             self.nodes[metadata.path] = metadata
@@ -114,7 +114,7 @@ class DependencyGraph:
             # 添加依赖边
             self._add_dependencies(metadata)
     
-    def _add_dependencies(self, metadata: SpecificationMetadata):
+    def _add_dependencies(self, metadata: SpecificationMetadata) -> None:
         """添加依赖关系"""
         spec_path = metadata.path
         
@@ -327,7 +327,7 @@ class DependencyGraph:
     def get_dependency_levels(self, specs: List[str]) -> Dict[str, int]:
         """计算依赖层级"""
         with self._lock:
-            levels = {}
+            levels: dict[str, int] = {}
             
             def calculate_level(spec: str, visited: Set[str]) -> int:
                 if spec in levels:
@@ -382,7 +382,7 @@ class SteeringDependencyManager:
         # 加载所有规范元数据
         self._load_all_metadata()
     
-    def _load_all_metadata(self):
+    def _load_all_metadata(self) -> None:
         """加载所有规范元数据"""
         if not self.steering_root.exists():
             logger.warning(f"Steering 根目录不存在: {self.steering_root}")
@@ -413,7 +413,7 @@ class SteeringDependencyManager:
                 content = f.read()
             
             # 解析 front-matter
-            metadata_dict = {}
+            metadata_dict: dict[str, Any] = {}
             if content.startswith('---'):
                 parts = content.split('---', 2)
                 if len(parts) >= 3:
