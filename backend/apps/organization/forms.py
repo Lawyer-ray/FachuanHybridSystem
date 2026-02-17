@@ -68,4 +68,4 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
 
         if commit:
             user.save()
-        return user  # type: ignore[no-any-return]
+        return user

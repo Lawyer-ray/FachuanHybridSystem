@@ -155,7 +155,7 @@ class AccountCredentialService:
         if not self._check_credential_access(user, credential):
             raise PermissionDenied(message="无权限访问该凭证", code="CREDENTIAL_ACCESS_DENIED")
 
-        return credential  # type: ignore[no-any-return]
+        return credential
 
     @transaction.atomic
     def create_credential(
@@ -286,7 +286,7 @@ class AccountCredentialService:
         credential = self._get_base_queryset().filter(id=credential_id).first()
         if not credential:
             raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
-        return credential  # type: ignore[no-any-return]
+        return credential
 
     @transaction.atomic
     def update_login_success(self, credential_id: int) -> None:

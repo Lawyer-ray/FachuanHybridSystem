@@ -3,7 +3,7 @@ Token 管理服务
 提供 Token 的保存、获取、删除等功能
 """
 import logging
-from typing import Optional
+from typing import Any, Optional
 from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
@@ -130,7 +130,7 @@ class TokenService:
                     cache.set(cache_key, token_obj.token, timeout=remaining_seconds)
                     logger.info(f"✅ 从数据库获取 Token 并回填到 Redis: {site_name} - {account}")
                 
-                return token_obj.token  # type: ignore[no-any-return]
+                return token_obj.token
             
             except CourtToken.DoesNotExist:
                 logger.info(f"Token 不存在: {site_name} - {account}")

@@ -532,7 +532,7 @@ class DocumentDeliveryService:
         thread.join(timeout=10)  # 最多等待10秒
 
         if not result_queue.empty():
-            return result_queue.get()  # type: ignore[no-any-return]
+            return result_queue.get()
 
         # 超时时默认处理
         logger.warning("检查文书处理历史超时，默认处理")
@@ -1213,7 +1213,7 @@ class DocumentDeliveryService:
         thread.join(timeout=10)  # 最多等待10秒
 
         if not result_queue.empty():
-            return result_queue.get()  # type: ignore[no-any-return]
+            return result_queue.get()
 
         # 超时时默认处理
         logger.warning("检查文书处理历史超时，默认处理")
@@ -1459,7 +1459,7 @@ class DocumentDeliveryService:
 
                     # 4. 重命名文书并添加到案件日志
                     renamed_files, case_log_id = self._rename_and_attach_documents(
-                        sms=sms, case=case, extracted_files=extracted_files
+                        sms=sms, case=matched_case, extracted_files=extracted_files
                     )
 
                     if renamed_files:
@@ -1508,7 +1508,7 @@ class DocumentDeliveryService:
         thread.join(timeout=60)  # 最多等待60秒
 
         if not result_queue.empty():
-            return result_queue.get()  # type: ignore[no-any-return]
+            return result_queue.get()
 
         return {"success": False, "error_message": "SMS 处理超时"}
 

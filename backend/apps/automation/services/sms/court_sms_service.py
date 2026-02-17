@@ -6,7 +6,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from django.db import transaction
 from django.utils import timezone
@@ -17,6 +17,12 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 from .case_matcher import CaseMatcher
 from .sms_parser_service import SMSParserService
+
+if TYPE_CHECKING:
+    from apps.automation.services.sms.matching.case_number_extractor_service import CaseNumberExtractorService
+    from apps.automation.services.sms.matching.document_attachment_service import DocumentAttachmentService
+    from apps.automation.services.sms.matching.sms_notification_service import SMSNotificationService
+    from apps.core.interfaces import ICaseService, IClientService, ILawyerService, ICaseChatService
 
 # from .feishu_bot_service import FeishuBotService  # 已弃用 webhook 方式
 

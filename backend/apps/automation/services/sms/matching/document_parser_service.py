@@ -5,7 +5,7 @@
 """
 import logging
 import os
-from typing import Optional, List, TYPE_CHECKING
+from typing import Any, Optional, List, TYPE_CHECKING
 
 from apps.core.interfaces import ServiceLocator
 

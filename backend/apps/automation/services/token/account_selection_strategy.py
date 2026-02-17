@@ -6,7 +6,7 @@
 集成缓存管理和性能监控。
 """
 import logging
-from typing import Optional, List
+from typing import Any, Optional, List
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta

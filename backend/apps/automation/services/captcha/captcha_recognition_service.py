@@ -7,7 +7,7 @@ import base64
 import logging
 import time
 from io import BytesIO
-from typing import Optional, Dict
+from typing import Any, Optional, Dict
 
 from PIL import Image
 

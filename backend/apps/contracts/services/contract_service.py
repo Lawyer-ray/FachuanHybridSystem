@@ -208,7 +208,7 @@ class ContractService:
             NotFoundError: 合同不存在
         """
         try:
-            return self.get_contract_queryset().get(id=contract_id)  # type: ignore[no-any-return]
+            return self.get_contract_queryset().get(id=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(f"合同 {contract_id} 不存在")
 

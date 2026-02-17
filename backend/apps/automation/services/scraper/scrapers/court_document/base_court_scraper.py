@@ -211,9 +211,9 @@ class BaseCourtDocumentScraper(BaseScraper):
             下载目录路径
         """
         # 如果任务关联了案件,使用案件 ID 作为目录名
-        if self.cast(int, task.case_id):  # type: ignore[name-defined, attr-defined]
+        if self.cast(int, self.task.case_id):
             download_dir = (
-                Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, task.case_id))) / "documents"
+                Path(settings.MEDIA_ROOT) / "case_logs" / str(cast(int, self.cast(int, self.task.case_id))) / "documents"
             )
         else:
             download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{self.task.id}"
