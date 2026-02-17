@@ -63,7 +63,7 @@ class BrowserConfig:
     disable_automation_detection: bool = True
     no_sandbox: bool = True
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         # 转换 screenshot_dir 为 Path 对象
         if self.screenshot_dir is not None and not isinstance(self.screenshot_dir, Path):

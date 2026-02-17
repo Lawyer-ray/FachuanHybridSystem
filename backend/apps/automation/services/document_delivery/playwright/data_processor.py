@@ -22,7 +22,7 @@ class DataProcessorMixin:
     def _should_process(
         self: "_DataProcessorHost", record: "DocumentDeliveryRecord", cutoff_time: datetime, credential_id: int
     ) -> Any:
-        if record.send_time <= cutoff_time:
+        if record.send_time is None or record.send_time <= cutoff_time:
             return False
 
         return self.history_repo.should_process(credential_id, record.case_number, record.send_time)

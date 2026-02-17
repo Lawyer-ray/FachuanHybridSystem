@@ -313,7 +313,7 @@ class AdaptiveCacheStrategy(CacheStrategyInterface):
     
     def __init__(self) -> None:
         self.hit_rate_window = 100  # 命中率计算窗口
-        self.recent_hits = []
+        self.recent_hits: list[bool] = []
         self.current_strategy = "lru"
         self.strategy_performance = {
             "lru": {"hits": 0, "misses": 0},
@@ -500,7 +500,7 @@ class SteeringCacheStrategyManager:
             
             return True
     
-    def invalidate(self, key: Optional[str] = None):
+    def invalidate(self, key: Optional[str] = None) -> None:
         """使缓存失效"""
         with self._lock:
             if key:

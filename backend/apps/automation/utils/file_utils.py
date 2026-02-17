@@ -16,7 +16,7 @@ class FileUtils:
     """文件处理相关工具方法"""
 
     @staticmethod
-    def validate_file_basic(file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any][str, Any]:
+    def validate_file_basic(file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any]:
         """
         基础文件校验
 
