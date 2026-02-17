@@ -480,9 +480,9 @@ class DocumentDeliveryService:
         import queue
         import threading
 
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[bool] = queue.Queue()
 
-        def do_check():
+        def do_check() -> None:
             try:
                 from django.db import connection
 
@@ -1167,9 +1167,9 @@ class DocumentDeliveryService:
         import queue
         import threading
 
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[bool] = queue.Queue()
 
-        def do_check():
+        def do_check() -> None:
             try:
                 from django.db import connection
 
@@ -1269,7 +1269,7 @@ class DocumentDeliveryService:
         """在独立线程中记录查询历史，避免异步上下文问题"""
         import threading
 
-        def do_record():
+        def do_record() -> None:
             try:
                 from django.db import connection, transaction
                 from django.utils import timezone
@@ -1405,9 +1405,9 @@ class DocumentDeliveryService:
         import queue
         import threading
 
-        result_queue = queue.Queue()
+        result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process():
+        def do_process() -> None:
             try:
                 from django.db import connection
                 from django.utils import timezone
@@ -1512,7 +1512,7 @@ class DocumentDeliveryService:
 
         return {"success": False, "error_message": "SMS 处理超时"}
 
-    def _match_case_by_number(self, case_number: str):
+    def _match_case_by_number(self, case_number: str) -> Any:
         """
         通过案号匹配案件
 
@@ -1521,7 +1521,7 @@ class DocumentDeliveryService:
         """
         return self.case_matcher.match_by_case_number([case_number])
 
-    def _rename_and_attach_documents(self, sms, case, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         from datetime import date
 
@@ -1586,7 +1586,7 @@ class DocumentDeliveryService:
 
         return renamed_files, case_log_id
 
-    def _send_notification(self, sms, document_paths: list[str]) -> bool:
+    def _send_notification(self, sms: Any, document_paths: list[str]) -> bool:
         """发送通知"""
         try:
             if not sms.case:
@@ -1659,7 +1659,7 @@ class DocumentDeliveryService:
         except Exception as e:
             logger.error(f"翻页失败: {e!s}")
 
-    def _match_case_by_document_parties(self, document_paths: list[str]):
+    def _match_case_by_document_parties(self, document_paths: list[str]) -> Any:
         """
         从文书中提取当事人进行案件匹配
 
