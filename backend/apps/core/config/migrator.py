@@ -430,6 +430,9 @@ class ConfigMigrator:
     
     def _backup_current_config(self) -> None:
         """备份当前配置"""
+        if self._current_migration is None:
+            raise ConfigException("没有正在进行的迁移")
+            
         backup_data = {
             'backup_time': datetime.now().isoformat(),
             'django_settings': self.compatibility_layer.get_all_django_configs(),
@@ -446,11 +449,14 @@ class ConfigMigrator:
     
     def _analyze_django_settings(self) -> None:
         """分析 Django Settings"""
+        if self._current_migration is None:
+            raise ConfigException("没有正在进行的迁移")
+            
         django_configs = self.compatibility_layer.get_all_django_configs()
         self._current_migration.total_configs = len(django_configs)
         
         # 分析配置类型和结构
-        analysis = {
+        analysis: dict[str, Any] = {
             'total_configs': len(django_configs),
             'config_types': {},
             'sensitive_configs': [],
@@ -642,6 +648,9 @@ class ConfigMigrator:
     
     def _migrate_core_configs(self) -> None:
         """迁移核心配置"""
+        if self._current_migration is None:
+            raise ConfigException("没有正在进行的迁移")
+            
         django_configs = self.compatibility_layer.get_all_django_configs()
         migrated_count = 0
         
@@ -702,6 +711,9 @@ class ConfigMigrator:
     
     def _migrate_service_configs(self) -> None:
         """迁移服务配置"""
+        if self._current_migration is None:
+            raise ConfigException("没有正在进行的迁移")
+            
         django_configs = self.compatibility_layer.get_all_django_configs()
         migrated_count = 0
         
@@ -746,6 +758,8 @@ class ConfigMigrator:
     
     def _migrate_business_configs(self) -> None:
         """迁移业务配置"""
+        if self._current_migration is None:
+            raise ConfigException("没有正在进行的迁移")
         django_configs = self.compatibility_layer.get_all_django_configs()
         migrated_count = 0
         

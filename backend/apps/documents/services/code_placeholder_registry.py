@@ -69,7 +69,7 @@ def expose_placeholders(
                 )
             )
 
-        target.__code_placeholder_definitions__ = defs
+        target.__code_placeholder_definitions__ = defs  # type: ignore[attr-defined]
         CodePlaceholderRegistry().register(defs)
         return target
 
