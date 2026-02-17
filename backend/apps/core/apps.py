@@ -69,7 +69,7 @@ class CoreConfig(AppConfig):
             logger.error(f"配置管理器初始化失败: {e}")
             raise
     
-    def _validate_configuration(self):
+    def _validate_configuration(self) -> None:
         """验证配置完整性"""
         try:
             # 检查配置管理器是否可用
@@ -109,7 +109,7 @@ class CoreConfig(AppConfig):
             logger.error(f"配置验证失败: {e}")
             raise
     
-    def _validate_production_config(self, config_manager):
+    def _validate_production_config(self, config_manager: Any) -> None:
         """验证生产环境配置"""
         try:
             # 检查敏感配置是否从环境变量加载
@@ -140,7 +140,7 @@ class CoreConfig(AppConfig):
             logger.error(f"生产环境配置验证失败: {e}")
             raise
     
-    def _setup_config_monitoring(self):
+    def _setup_config_monitoring(self) -> None:
         """设置配置监控"""
         try:
             # 检查配置管理器是否可用

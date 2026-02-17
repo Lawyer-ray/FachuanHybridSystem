@@ -1,4 +1,4 @@
-venv312/bin/vba_extract.py:17:1: error: Function is missing a type annotation 
+venv312/bin/vba_extract.py:17:1: error: Function is missing a type annotation
 [no-untyped-def]
     def extract_file(xlsm_zip, filename):
     ^
@@ -15,7 +15,7 @@ scripts/test_error_parsing.py:39:1: error: Need type annotation for
     error_types = {}
     ^~~~~~~~~~~
 scripts/scan_automation_errors_detailed.py:18:5: error: Need type annotation
-for "file_errors" (hint: "file_errors: Dict[<type>, <type>] = ...") 
+for "file_errors" (hint: "file_errors: Dict[<type>, <type>] = ...")
 [var-annotated]
         file_errors = {}
         ^~~~~~~~~~~
@@ -74,7 +74,7 @@ typed context  [no-untyped-call]
         main()
         ^~~~~~
 scripts/fix_type_checking_imports.py:36:5: error: Need type annotation for
-"file_missing" (hint: "file_missing: Dict[<type>, <type>] = ...") 
+"file_missing" (hint: "file_missing: Dict[<type>, <type>] = ...")
 [var-annotated]
         file_missing = {}
         ^~~~~~~~~~~~
@@ -180,11 +180,11 @@ scripts/fix_name_defined.py:17:1: error: Function is missing a return type
 annotation  [no-untyped-def]
     def parse_name_defined_errors(output: str):
     ^
-scripts/fix_name_defined.py:47:1: error: Function is missing a type annotation 
+scripts/fix_name_defined.py:47:1: error: Function is missing a type annotation
 [no-untyped-def]
     def analyze_errors(errors):
     ^
-scripts/fix_name_defined.py:94:1: error: Function is missing a type annotation 
+scripts/fix_name_defined.py:94:1: error: Function is missing a type annotation
 [no-untyped-def]
     def fix_missing_imports(errors, name_counter):
     ^
@@ -482,7 +482,7 @@ is missing a return type annotation  [no-untyped-def]
     ^
 devtools/_archive/mypy_fix_20260210/fix_syntax_errors.py:37:1: note: Use "-> None" if function does not return a value
 devtools/_archive/mypy_fix_20260210/fix_syntax_errors.py:45:5: error: Need type
-annotation for "py_files" (hint: "py_files: List[<type>] = ...") 
+annotation for "py_files" (hint: "py_files: List[<type>] = ...")
 [var-annotated]
         py_files = []
         ^~~~~~~~
@@ -538,7 +538,7 @@ Function is missing a return type annotation  [no-untyped-def]
     def main():
     ^
 devtools/_archive/mypy_fix_20260210/fix_services_phase2.py:337:5: error: Need
-type annotation for "service_files" (hint: "service_files: List[<type>] = ...") 
+type annotation for "service_files" (hint: "service_files: List[<type>] = ...")
 [var-annotated]
         service_files = []
         ^~~~~~~~~~~~~
@@ -555,7 +555,7 @@ Function is missing a type annotation  [no-untyped-def]
     def parse_errors(errors_text):
     ^
 devtools/_archive/mypy_fix_20260210/fix_remaining_types.py:48:5: error: Need
-type annotation for "types_needed" (hint: "types_needed: Set[<type>] = ...") 
+type annotation for "types_needed" (hint: "types_needed: Set[<type>] = ...")
 [var-annotated]
         types_needed = set()
         ^~~~~~~~~~~~
@@ -590,7 +590,7 @@ Function is missing a return type annotation  [no-untyped-def]
     def get_errors_by_file():
     ^
 devtools/_archive/mypy_fix_20260210/fix_remaining_errors.py:21:5: error: Need
-type annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...") 
+type annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...")
 [var-annotated]
         errors = {}
         ^~~~~~
@@ -669,7 +669,7 @@ is missing a return type annotation  [no-untyped-def]
     def get_mypy_errors():
     ^
 devtools/_archive/mypy_fix_20260210/fix_mypy_precise.py:21:5: error: Need type
-annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...") 
+annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...")
 [var-annotated]
         errors = {}
         ^~~~~~
@@ -728,7 +728,7 @@ to untyped function "run_mypy" in typed context  [no-untyped-call]
         errors = run_mypy()
                  ^~~~~~~~~~
 devtools/_archive/mypy_fix_20260210/fix_mypy_iterative.py:178:13: error: Call
-to untyped function "fix_missing_return_type_batch" in typed context 
+to untyped function "fix_missing_return_type_batch" in typed context
 [no-untyped-call]
         fixed = fix_missing_return_type_batch(errors, limit=100)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -737,7 +737,7 @@ to untyped function "run_mypy" in typed context  [no-untyped-call]
         errors = run_mypy()
                  ^~~~~~~~~~
 devtools/_archive/mypy_fix_20260210/fix_mypy_iterative.py:192:13: error: Call
-to untyped function "fix_returning_any_batch" in typed context 
+to untyped function "fix_returning_any_batch" in typed context
 [no-untyped-call]
         fixed = fix_returning_any_batch(errors, limit=100)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -841,7 +841,7 @@ Function is missing a type annotation  [no-untyped-def]
     def get_incompatible_default_errors(output):
     ^
 devtools/_archive/mypy_fix_20260210/fix_incompatible_defaults.py:22:5: error:
-Need type annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...") 
+Need type annotation for "errors" (hint: "errors: Dict[<type>, <type>] = ...")
 [var-annotated]
         errors = {}
         ^~~~~~
@@ -859,7 +859,7 @@ Call to untyped function "run_mypy" in typed context  [no-untyped-call]
         output = run_mypy()
                  ^~~~~~~~~~
 devtools/_archive/mypy_fix_20260210/fix_incompatible_defaults.py:85:14: error:
-Call to untyped function "get_incompatible_default_errors" in typed context 
+Call to untyped function "get_incompatible_default_errors" in typed context
 [no-untyped-call]
         errors = get_incompatible_default_errors(output)
                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -881,7 +881,7 @@ to untyped function "main" in typed context  [no-untyped-call]
         main()
         ^~~~~~
 devtools/_archive/mypy_fix_20260210/fix_import_in_parentheses.py:21:9: error:
-Need type annotation for "new_lines" (hint: "new_lines: List[<type>] = ...") 
+Need type annotation for "new_lines" (hint: "new_lines: List[<type>] = ...")
 [var-annotated]
             new_lines = []
             ^~~~~~~~~
@@ -982,7 +982,7 @@ Call to untyped function "run_mypy" in typed context  [no-untyped-call]
         output = run_mypy()
                  ^~~~~~~~~~
 devtools/_archive/mypy_fix_20260210/fix_batch_comprehensive.py:118:22: error:
-Call to untyped function "get_errors_by_file" in typed context 
+Call to untyped function "get_errors_by_file" in typed context
 [no-untyped-call]
         errors_by_file = get_errors_by_file(output)
                          ^~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1046,7 +1046,7 @@ Missing type parameters for generic type "Dict"  [type-arg]
     def parse_error(error_line: str) -> Dict:
                                         ^
 devtools/_archive/mypy_fix_20260210/fix_all_mypy_errors.py:36:16: error:
-Incompatible return value type (got "None", expected "dict[Any, Any]") 
+Incompatible return value type (got "None", expected "dict[Any, Any]")
 [return-value]
             return None
                    ^~~~
@@ -1202,7 +1202,7 @@ has no attribute "value"  [attr-defined]
     ...eturned.values[success_index], ast.Constant) and returned.values[succe...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
 tests/structure/test_error_response_contract_properties.py:81:5: error: Need
-type annotation for "handler_types" (hint: "handler_types: List[<type>] = ...") 
+type annotation for "handler_types" (hint: "handler_types: List[<type>] = ...")
 [var-annotated]
         handler_types = []
         ^~~~~~~~~~~~~
@@ -1218,7 +1218,7 @@ scripts/test_batch_fixer.py:24:9: error: Returning Any from function declared
 to return "bool"  [no-any-return]
             return error.error_code == "type-arg"
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-scripts/smart_fix_mypy.py:34:9: error: Function is missing a type annotation 
+scripts/smart_fix_mypy.py:34:9: error: Function is missing a type annotation
 [no-untyped-def]
             def replace_func(match):
             ^
@@ -1325,7 +1325,7 @@ scripts/final_batch_fix.py:240:5: error: Call to untyped function "main" in
 typed context  [no-untyped-call]
         main()
         ^~~~~~
-scripts/analyze_arg_type.py:31:20: error: Module has no attribute "os" 
+scripts/analyze_arg_type.py:31:20: error: Module has no attribute "os"
 [attr-defined]
                 env={**subprocess.os.environ, "COLUMNS": "200"},  # 设置终端宽度...
                        ^~~~~~~~~~~~~
@@ -1520,7 +1520,7 @@ apps/client/services/id_card_merge/image_io.py:19: error: Missing type
 parameters for generic type "ndarray"  [type-arg]
     def read_uploaded_image(image: UploadedFile, *, logger: Any) -> np.nda...
     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
-apiSystem/manage.py:14:1: error: Function is missing a return type annotation 
+apiSystem/manage.py:14:1: error: Function is missing a return type annotation
 [no-untyped-def]
     def main():
     ^
@@ -1529,7 +1529,7 @@ apiSystem/manage.py:29:5: error: Call to untyped function "main" in typed
 context  [no-untyped-call]
         main()
         ^~~~~~
-venv312/bin/dumppdf.py:67: error: Unused "type: ignore" comment 
+venv312/bin/dumppdf.py:67: error: Unused "type: ignore" comment
 [unused-ignore]
                 out.write(obj.get_rawdata())  # type: ignore [arg-type]
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1540,7 +1540,7 @@ matches argument type "bytes | None"  [call-overload]
 venv312/bin/dumppdf.py:67:13: note: Error code "call-overload" not covered by "type: ignore" comment
 venv312/bin/dumppdf.py:67:13: note: Possible overload variants:
 venv312/bin/dumppdf.py:67:13: note:     def write(self, str, /) -> int
-venv312/bin/dumppdf.py:70: error: Unused "type: ignore" comment 
+venv312/bin/dumppdf.py:70: error: Unused "type: ignore" comment
 [unused-ignore]
                 out.write(obj.get_data())  # type: ignore [arg-type]
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1669,7 +1669,7 @@ callable  [misc]
             assert BaseServiceLocator.get("func")() == "result"
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/core/test_security_headers_middleware.py:5:1: error: Module
-"apps.core.middleware" has no attribute "SecurityHeadersMiddleware" 
+"apps.core.middleware" has no attribute "SecurityHeadersMiddleware"
 [attr-defined]
     from apps.core.middleware import SecurityHeadersMiddleware
     ^
@@ -1994,7 +1994,7 @@ type parameters for generic type "list"  [type-arg]
     def get_all_doc_files(root_path: Path) -> list:
                                               ^
 tests/structure/test_cross_module_import_properties.py:608:9: error: Need type
-annotation for "by_module" (hint: "by_module: Dict[<type>, <type>] = ...") 
+annotation for "by_module" (hint: "by_module: Dict[<type>, <type>] = ...")
 [var-annotated]
             by_module = {}
             ^~~~~~~~~
@@ -2481,7 +2481,7 @@ Argument 1 to "APIInterceptResponseSchema" has incompatible type
                 APIInterceptResponseSchema(**api_response)
                                              ^~~~~~~~~~~~
 tests/unit/core/test_request_metrics_middleware.py:5:1: error: Module
-"apps.core.middleware" has no attribute "RequestMetricsMiddleware" 
+"apps.core.middleware" has no attribute "RequestMetricsMiddleware"
 [attr-defined]
     from apps.core.middleware import RequestMetricsMiddleware
     ^
@@ -2629,7 +2629,7 @@ tests/unit/automation/test_preservation_quote_schemas_integration.py:130:16: err
             assert schema.id == quote.id
                    ^~~~~~~~~
 tests/unit/automation/test_preservation_quote_schemas_integration.py:132:16: error:
-"PreservationQuoteCreateSchema" has no attribute "total_companies" 
+"PreservationQuoteCreateSchema" has no attribute "total_companies"
 [attr-defined]
             assert schema.total_companies == 10
                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -2849,7 +2849,7 @@ tests/unit/core/test_court_api_client.py:188:47: error: Argument 1 to
             assert self.client._is_valid_response("not a dict") is False
                                                   ^~~~~~~~~~~~
 tests/unit/core/infrastructure/test_throttling_rate_limit.py:20:9: error: Need
-type annotation for "headers" (hint: "headers: Dict[<type>, <type>] = ...") 
+type annotation for "headers" (hint: "headers: Dict[<type>, <type>] = ...")
 [var-annotated]
             self.headers = {}
             ^~~~~~~~~~~~
@@ -3610,13 +3610,13 @@ function "has_change_permission" in typed context  [no-untyped-call]
             self.assertFalse(admin_instance.has_change_permission(None))
                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_admin_basic.py:72:68: error: Argument 2 to
-"AccountCredentialAdmin" has incompatible type "None"; expected "AdminSite" 
+"AccountCredentialAdmin" has incompatible type "None"; expected "AdminSite"
 [arg-type]
     ...      admin_instance = AccountCredentialAdmin(AccountCredential, None)
                                                                         ^~~~
 tests/core/test_throttling_exports.py:5:12: error: Non-overlapping identity
 check (left operand type: "type[apps.core.throttling.RateLimiter]", right
-operand type: "type[apps.core.infrastructure.throttling.RateLimiter]") 
+operand type: "type[apps.core.infrastructure.throttling.RateLimiter]")
 [comparison-overlap]
         assert throttling.RateLimiter is infra_throttling.RateLimiter
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3632,7 +3632,7 @@ apiSystem/apiSystem/settings.py:222:1: error: Function is missing a type
 annotation  [no-untyped-def]
     def activate_foreign_keys(sender, connection, **kwargs):
     ^
-apiSystem/apiSystem/settings.py:423:28: error: "object" has no attribute "get" 
+apiSystem/apiSystem/settings.py:423:28: error: "object" has no attribute "get"
 [attr-defined]
             _channel_backend = ((CHANNEL_LAYERS or {}).get("default", {}) ...
                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -3688,7 +3688,7 @@ function "raise_llm_timeout_error" in typed context  [no-untyped-call]
                 raise_llm_timeout_error(request)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/core/test_exception_handlers.py:415:13: error: Call to untyped
-function "raise_llm_backend_unavailable_error" in typed context 
+function "raise_llm_backend_unavailable_error" in typed context
 [no-untyped-call]
                 raise_llm_backend_unavailable_error(request)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3917,7 +3917,7 @@ untyped function "verify_migration" in typed context  [no-untyped-call]
         exit_code = verify_migration()
                     ^~~~~~~~~~~~~~~~~~
 apps/core/management/commands/init_system_config.py:93:58: error: Argument 2 to
-"SystemConfigAdmin" has incompatible type "None"; expected "AdminSite" 
+"SystemConfigAdmin" has incompatible type "None"; expected "AdminSite"
 [arg-type]
             admin_instance = SystemConfigAdmin(SystemConfig, None)
                                                              ^~~~
@@ -3965,7 +3965,7 @@ missing a return type annotation  [no-untyped-def]
         def _classify_feishu_error(self, error_code: str, error_msg: str):
         ^
 tests/unit/documents/test_contract_template_binding_service.py:30:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
         doc_template = DocumentTemplateFactory(contract_types=["civil"])
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4248,7 +4248,7 @@ apps/core/apps.py:34:13: error: Call to untyped function
 "_setup_config_monitoring" in typed context  [no-untyped-call]
                 self._setup_config_monitoring()
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/apps.py:72:5: error: Function is missing a return type annotation 
+apps/core/apps.py:72:5: error: Function is missing a return type annotation
 [no-untyped-def]
         def _validate_configuration(self):
         ^
@@ -4257,11 +4257,11 @@ apps/core/apps.py:106:17: error: Call to untyped function
 "_validate_production_config" in typed context  [no-untyped-call]
                     self._validate_production_config(config_manager)
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-apps/core/apps.py:112:5: error: Function is missing a type annotation 
+apps/core/apps.py:112:5: error: Function is missing a type annotation
 [no-untyped-def]
         def _validate_production_config(self, config_manager):
         ^
-apps/core/apps.py:143:5: error: Function is missing a return type annotation 
+apps/core/apps.py:143:5: error: Function is missing a return type annotation
 [no-untyped-def]
         def _setup_config_monitoring(self):
         ^
@@ -4395,52 +4395,52 @@ has no attribute "id"  [attr-defined]
     ...ice.generate_case_filing_number_internal(case_id=case.id, case_type=Si...
                                                         ^~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:71:23: error: Too
-many positional arguments for "create_binding" of "FolderBindingCrudService" 
+many positional arguments for "create_binding" of "FolderBindingCrudService"
 [misc]
                 binding = self.service.create_binding(contract.id, folder_...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/property/contracts/test_folder_binding_properties.py:76:33: error: Too
-many positional arguments for "get_binding" of "FolderBindingCrudService" 
+many positional arguments for "get_binding" of "FolderBindingCrudService"
 [misc]
                 retrieved_binding = self.service.get_binding(contract.id)
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:82:31: error: Too
-many positional arguments for "update_binding" of "FolderBindingCrudService" 
+many positional arguments for "update_binding" of "FolderBindingCrudService"
 [misc]
                 updated_binding = self.service.update_binding(contract.id,...
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/property/contracts/test_folder_binding_properties.py:86:33: error: Too
-many positional arguments for "get_binding" of "FolderBindingCrudService" 
+many positional arguments for "get_binding" of "FolderBindingCrudService"
 [misc]
                 retrieved_updated = self.service.get_binding(contract.id)
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:91:29: error: Too
-many positional arguments for "delete_binding" of "FolderBindingCrudService" 
+many positional arguments for "delete_binding" of "FolderBindingCrudService"
 [misc]
                 delete_result = self.service.delete_binding(contract.id)
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:95:31: error: Too
-many positional arguments for "get_binding" of "FolderBindingCrudService" 
+many positional arguments for "get_binding" of "FolderBindingCrudService"
 [misc]
                 deleted_binding = self.service.get_binding(contract.id)
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:123:23: error: Too
-many positional arguments for "get_binding" of "FolderBindingCrudService" 
+many positional arguments for "get_binding" of "FolderBindingCrudService"
 [misc]
                 binding = self.service.get_binding(contract.id)
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:127:31: error: Too
-many positional arguments for "create_binding" of "FolderBindingCrudService" 
+many positional arguments for "create_binding" of "FolderBindingCrudService"
 [misc]
                 created_binding = self.service.create_binding(contract.id,...
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/property/contracts/test_folder_binding_properties.py:128:33: error: Too
-many positional arguments for "get_binding" of "FolderBindingCrudService" 
+many positional arguments for "get_binding" of "FolderBindingCrudService"
 [misc]
                 retrieved_binding = self.service.get_binding(contract.id)
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/contracts/test_folder_binding_properties.py:161:13: error: Too
-many positional arguments for "create_binding" of "FolderBindingCrudService" 
+many positional arguments for "create_binding" of "FolderBindingCrudService"
 [misc]
                 self.service.create_binding(contract.id, folder_path)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4455,7 +4455,7 @@ many positional arguments for "save_file_to_bound_folder" of
                 result_supplement = self.service.save_file_to_bound_folder...
                                     ^
 tests/property/contracts/test_folder_binding_properties.py:202:13: error: Too
-many positional arguments for "create_binding" of "FolderBindingCrudService" 
+many positional arguments for "create_binding" of "FolderBindingCrudService"
 [misc]
                 self.service.create_binding(contract.id, folder_path)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4495,17 +4495,17 @@ tests/integration/contracts/test_folder_binding_security.py:21:13: error:
                 service._sanitize_file_name("C:\\evil.txt")
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/contracts/test_folder_binding_security.py:26:13: error:
-"FolderBindingService" has no attribute "_normalize_relative_path" 
+"FolderBindingService" has no attribute "_normalize_relative_path"
 [attr-defined]
                 service._normalize_relative_path("../evil.txt")
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/contracts/test_folder_binding_security.py:29:13: error:
-"FolderBindingService" has no attribute "_normalize_relative_path" 
+"FolderBindingService" has no attribute "_normalize_relative_path"
 [attr-defined]
                 service._normalize_relative_path("/abs/evil.txt")
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/contracts/test_folder_binding_security.py:32:13: error:
-"FolderBindingService" has no attribute "_normalize_relative_path" 
+"FolderBindingService" has no attribute "_normalize_relative_path"
 [attr-defined]
                 service._normalize_relative_path("C:/evil.txt")
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4606,7 +4606,7 @@ tests/utils.py:29:16: error: Call to untyped function "LawyerFactory" in typed
 context  [no-untyped-call]
             user = LawyerFactory(**user_kwargs)
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
-tests/utils.py:81:34: error: Missing type parameters for generic type "Dict" 
+tests/utils.py:81:34: error: Missing type parameters for generic type "Dict"
 [type-arg]
     def assert_dict_contains(actual: Dict, expected: Dict):
                                      ^
@@ -4838,17 +4838,17 @@ tests/unit/contracts/test_contract_admin_service.py:166:60: error:
     ...w_contract = self.service.renew_advisor_contract(original_contract.id)
                                                         ^~~~~~~~~~~~~~~~~~~~
 tests/unit/contracts/test_contract_admin_service.py:178:16: error:
-"type[ContractAdminService]" has no attribute "generate_advisor_contract_name" 
+"type[ContractAdminService]" has no attribute "generate_advisor_contract_name"
 [attr-defined]
             name = ContractAdminService.generate_advisor_contract_name(pri...
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/contracts/test_contract_admin_service.py:189:16: error:
-"type[ContractAdminService]" has no attribute "generate_advisor_contract_name" 
+"type[ContractAdminService]" has no attribute "generate_advisor_contract_name"
 [attr-defined]
             name = ContractAdminService.generate_advisor_contract_name(pri...
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/contracts/test_contract_admin_service.py:200:16: error:
-"type[ContractAdminService]" has no attribute "generate_advisor_contract_name" 
+"type[ContractAdminService]" has no attribute "generate_advisor_contract_name"
 [attr-defined]
             name = ContractAdminService.generate_advisor_contract_name(pri...
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5212,7 +5212,7 @@ tests/integration/documents/test_document_template_crud_api.py:95:20: note: Poss
 tests/integration/documents/test_document_template_crud_api.py:95:20: note:     def [_T] list(self) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:95:20: note:     def [_T] list(self, Iterable[_T], /) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:100:9: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             DocumentTemplateFactory(template_type=DocumentTemplateType.CAS...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5228,7 +5228,7 @@ tests/integration/documents/test_document_template_crud_api.py:105:20: note: Pos
 tests/integration/documents/test_document_template_crud_api.py:105:20: note:     def [_T] list(self) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:105:20: note:     def [_T] list(self, Iterable[_T], /) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:110:9: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             DocumentTemplateFactory(is_active=False)
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5244,7 +5244,7 @@ tests/integration/documents/test_document_template_crud_api.py:115:20: note: Pos
 tests/integration/documents/test_document_template_crud_api.py:115:20: note:     def [_T] list(self) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:115:20: note:     def [_T] list(self, Iterable[_T], /) -> list[_T]
 tests/integration/documents/test_document_template_crud_api.py:125:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(name="详情测试模板")
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5265,7 +5265,7 @@ Call to untyped function "LawyerFactory" in typed context  [no-untyped-call]
             lawyer = LawyerFactory(is_admin=True)
                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_document_template_crud_api.py:150:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(name="旧名称")
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5287,7 +5287,7 @@ type: "Literal['新名称']")  [comparison-overlap]
             assert template.name == "新名称"
                    ^~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_document_template_crud_api.py:163:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(name="原名称", description="原描...
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5304,7 +5304,7 @@ Call to untyped function "LawyerFactory" in typed context  [no-untyped-call]
             lawyer = LawyerFactory(is_admin=True)
                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_document_template_crud_api.py:190:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory()
                        ^~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5347,12 +5347,12 @@ Function is missing a return type annotation  [no-untyped-def]
         def token_service(self):
         ^
 apps/organization/services/account_credential_admin_service.py:313:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _execute_single_login(
         ^
 apps/organization/services/account_credential_admin_service.py:415:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _record_login_history(
         ^
@@ -5373,14 +5373,14 @@ function "DocumentProcessingServiceAdapter" in typed context  [no-untyped-call]
         return DocumentProcessingServiceAdapter()
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/core/dependencies/automation_adapters.py:45:12: error: Call to untyped
-function "CourtDocumentRecognitionServiceAdapter" in typed context 
+function "CourtDocumentRecognitionServiceAdapter" in typed context
 [no-untyped-call]
         return CourtDocumentRecognitionServiceAdapter()
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/contracts/services/contract_service.py:119:32: error: Cannot instantiate
 abstract class "ClientServiceAdapter" with abstract attributes
 "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
                     client_service=ClientServiceAdapter()
                                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -5423,7 +5423,7 @@ attribute "supplementary_agreements"  [attr-defined]
             for sa in contract.supplementary_agreements.prefetch_related("...
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/contracts/services/contract_service.py:1005:20: error: Incompatible return
-value type (got "dict[str, Any] | list[Never]", expected "list[str]") 
+value type (got "dict[str, Any] | list[Never]", expected "list[str]")
 [return-value]
                 return contract.representation_stages or []
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5440,7 +5440,7 @@ attribute "supplementary_agreements"  [attr-defined]
             for sa in contract.supplementary_agreements.prefetch_related("...
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/client/services/property_clue_service.py:54:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -5454,19 +5454,19 @@ apps/client/services/property_clue_service.py:105:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:112:53: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
     ... def get_clue(self, clue_id: int, user: Optional[User] = None) -> Prop...
                                                         ^
 apps/client/services/property_clue_service.py:112:53: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/client/services/property_clue_service.py:145:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
 apps/client/services/property_clue_service.py:145:24: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 apps/client/services/property_clue_service.py:180:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -5480,7 +5480,7 @@ apps/client/services/property_clue_service.py:225:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:233:56: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
     ...f delete_clue(self, clue_id: int, user: Optional[User] = None) -> None...
                                                         ^
@@ -5494,7 +5494,7 @@ apps/client/services/property_clue_service.py:257:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:268:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -5508,7 +5508,7 @@ apps/client/services/property_clue_service.py:316:28: error: Item "None" of
                     "user_id": user.id if user else None,
                                ^~~~~~~
 apps/client/services/property_clue_service.py:327:24: error: Variable
-"apps.client.services.property_clue_service.User" is not valid as a type 
+"apps.client.services.property_clue_service.User" is not valid as a type
 [valid-type]
             user: Optional[User] = None
                            ^
@@ -5540,7 +5540,7 @@ apps/automation/tasks.py:298:9: error: No return value expected  [return-value]
             return {"task_id": task_id, "status": "failed", "error": str(e...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/tasks.py:386:49: error: Argument 1 to "CourtInsuranceClient"
-has incompatible type "TokenService"; expected "ITokenService | None" 
+has incompatible type "TokenService"; expected "ITokenService | None"
 [arg-type]
             insurance_client = CourtInsuranceClient(token_service)
                                                     ^~~~~~~~~~~~~
@@ -5570,7 +5570,7 @@ apps/automation/tasks.py:388:27: note:         def get_token(self, site_name: st
 apps/automation/services/sms/sms_parser_service.py:72:29: error: Incompatible
 default for argument "ollama_model" (default has type "None", argument has type
 "str")  [assignment]
-            ollama_model: str = None, 
+            ollama_model: str = None,
                                 ^~~~
 apps/automation/services/sms/sms_parser_service.py:72:29: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/sms/sms_parser_service.py:72:29: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
@@ -5645,12 +5645,12 @@ types in assignment (expression has type "None", variable has type
             self.context: BrowserContext = None
                                            ^~~~
 apps/automation/services/scraper/scrapers/base.py:58:27: error: Incompatible
-types in assignment (expression has type "None", variable has type "Page") 
+types in assignment (expression has type "None", variable has type "Page")
 [assignment]
             self.page: Page = None
                               ^~~~
 apps/automation/services/scraper/scrapers/base.py:59:31: error: Incompatible
-types in assignment (expression has type "None", variable has type "str") 
+types in assignment (expression has type "None", variable has type "str")
 [assignment]
             self.site_name: str = None  # 子类应设置网站名称
                                   ^~~~
@@ -5718,7 +5718,7 @@ Function is missing a return type annotation  [no-untyped-def]
         def service(self):
         ^
 apps/automation/services/court_document_recognition/adapter.py:36:29: error:
-Call to untyped function "CourtDocumentRecognitionService" in typed context 
+Call to untyped function "CourtDocumentRecognitionService" in typed context
 [no-untyped-call]
                 self._service = CourtDocumentRecognitionService()
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5773,7 +5773,7 @@ apps/organization/middleware.py:36:9: error: "HttpRequest" has no attribute
             ^~~~~~~~~~~~~~~~~~~~~~~~
 apps/organization/services/organization_service_adapter.py:62:5: error: Return
 type "list[AccountCredentialDTO]" of "get_lawyers_in_organization" incompatible
-with return type "list[LawyerDTO]" in supertype "IOrganizationService" 
+with return type "list[LawyerDTO]" in supertype "IOrganizationService"
 [override]
         def get_lawyers_in_organization(self, organization_id: int) -> Lis...
         ^
@@ -6179,12 +6179,12 @@ missing a return type annotation  [no-untyped-def]
                 def create_history():
                 ^
 apps/automation/services/token/history_recorder.py:128:49: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                         started_at=timezone.now() - timezone.timedelta(sec...
                                                     ^~~~~~~~~~~~~~~~~~
 apps/automation/services/token/history_recorder.py:169:43: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 start_time = timezone.now() - timezone.timedelta(hours=hou...
                                               ^~~~~~~~~~~~~~~~~~
@@ -6193,7 +6193,7 @@ missing a return type annotation  [no-untyped-def]
                 def get_stats():
                 ^
 apps/automation/services/token/history_recorder.py:230:44: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 cutoff_date = timezone.now() - timezone.timedelta(days=day...
                                                ^~~~~~~~~~~~~~~~~~
@@ -6202,7 +6202,7 @@ missing a return type annotation  [no-untyped-def]
                 def delete_old_records():
                 ^
 apps/automation/services/token/history_recorder.py:272:43: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                 start_time = timezone.now() - timezone.timedelta(days=days...
                                               ^~~~~~~~~~~~~~~~~~
@@ -6421,7 +6421,7 @@ apps/automation/services/sms/matching/document_parser_service.py:72:22: error:
                 result = doc_service.extract_document_content_by_path_inte...
                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/sms/matching/document_parser_service.py:147:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def get_all_document_paths(self, sms) -> List[str]:
         ^
@@ -6430,7 +6430,7 @@ Function is missing a type annotation  [no-untyped-def]
         def __init__(self, *args, **kwargs):
         ^
 apps/automation/services/scraper/court_document_service.py:114:35: error:
-"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"? 
+"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"?
 [attr-defined]
                         f"旧 Task ID={document.scraper_task_id}, 新 Task ID=...
                                       ^~~~~~~~~~~~~~~~~~~~~~~~~
@@ -6536,7 +6536,7 @@ apps/automation/services/scraper/core/browser_service.py:67:64: error: Argument
                                                               ^~~~~~~~~~~~~~
 apps/automation/services/scraper/core/browser_service.py:67:64: error: Argument
 1 to "launch" of "BrowserType" has incompatible type
-"**dict[str, list[str] | Any | bool]"; expected "Sequence[str] | None" 
+"**dict[str, list[str] | Any | bool]"; expected "Sequence[str] | None"
 [arg-type]
     ...    self._browser = self._playwright.chromium.launch(**launch_options)
                                                               ^~~~~~~~~~~~~~
@@ -6558,12 +6558,12 @@ apps/automation/services/scraper/core/browser_service.py:67:64: error: Argument
                                                               ^~~~~~~~~~~~~~
 apps/automation/services/scraper/core/browser_service.py:67:64: error: Argument
 1 to "launch" of "BrowserType" has incompatible type
-"**dict[str, list[str] | Any | bool]"; expected "ProxySettings | None" 
+"**dict[str, list[str] | Any | bool]"; expected "ProxySettings | None"
 [arg-type]
     ...    self._browser = self._playwright.chromium.launch(**launch_options)
                                                               ^~~~~~~~~~~~~~
 apps/automation/services/scraper/core/browser_service.py:75:16: error:
-Incompatible return value type (got "Browser | None", expected "Browser") 
+Incompatible return value type (got "Browser | None", expected "Browser")
 [return-value]
             return self._browser
                    ^~~~~~~~~~~~~
@@ -6777,7 +6777,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:196:52: error:
     ...                          existing_token = await self.token_service.ge...
                                                         ^~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:257:28: error:
-Incompatible return value type (got "str | None", expected "str") 
+Incompatible return value type (got "str | None", expected "str")
 [return-value]
                         return result.token
                                ^~~~~~~~~~~~
@@ -6808,7 +6808,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:482:23: error:
                     await self.token_service.save_token_internal(
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:493:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -6817,17 +6817,17 @@ apps/automation/services/token/auto_token_acquisition_service.py:531:37: error:
                     saved_token = await self.token_service.get_token_inter...
                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:551:27: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                         await self.account_selection_strategy.update_accou...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:582:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:623:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -6836,12 +6836,12 @@ apps/automation/services/token/auto_token_acquisition_service.py:666:37: error:
                     saved_token = await self.token_service.get_token_inter...
                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/auto_token_acquisition_service.py:686:27: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                         await self.account_selection_strategy.update_accou...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/auto_token_acquisition_service.py:711:23: error:
-"IAccountSelectionStrategy" has no attribute "update_account_statistics" 
+"IAccountSelectionStrategy" has no attribute "update_account_statistics"
 [attr-defined]
                     await self.account_selection_strategy.update_account_s...
                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -6851,7 +6851,7 @@ Function is missing a return type annotation  [no-untyped-def]
             ^
 apps/automation/services/token/account_selection_strategy.py:135:27: error:
 "IOrganizationService" has no attribute "get_credentials_by_site_internal";
-maybe "get_credential_internal" or "get_all_credentials_internal"? 
+maybe "get_credential_internal" or "get_all_credentials_internal"?
 [attr-defined]
                 credentials = organization_service.get_credentials_by_site...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -6869,12 +6869,12 @@ maybe "get_credential_internal"?  [attr-defined]
                     cred = organization_service.get_credential_by_account_...
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/token/account_selection_strategy.py:259:21: error:
-"IOrganizationService" has no attribute "update_login_success_internal" 
+"IOrganizationService" has no attribute "update_login_success_internal"
 [attr-defined]
                         organization_service.update_login_success_internal...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/token/account_selection_strategy.py:264:21: error:
-"IOrganizationService" has no attribute "update_login_failure_internal" 
+"IOrganizationService" has no attribute "update_login_failure_internal"
 [attr-defined]
                         organization_service.update_login_failure_internal...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -7119,7 +7119,7 @@ Incompatible return value type (got "None", expected "PreservationQuoteService")
             return self._service
                    ^~~~~~~~~~~~~
 apps/automation/services/insurance/preservation_quote_service_adapter.py:78:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote(
         ^
@@ -7144,7 +7144,7 @@ Function is missing a return type annotation  [no-untyped-def]
         async def retry_quote(self, quote_id: int):
         ^
 apps/automation/services/insurance/preservation_quote_service_adapter.py:212:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote_internal(
         ^
@@ -7166,7 +7166,7 @@ argument has type "int")  [assignment]
 apps/automation/services/insurance/preservation_quote_service_adapter.py:277:59: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
 apps/automation/services/insurance/preservation_quote_service_adapter.py:277:59: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
 apps/automation/services/insurance/preservation_quote_service_adapter.py:371:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def create_quote_internal(
         ^
@@ -7233,7 +7233,7 @@ tests/unit/test_refactoring_imports.py:46:9: error: Module
             from apps.cases.services import (
             ^
 tests/unit/test_refactoring_imports.py:46:9: error: Module
-"apps.cases.services" has no attribute "CaseTemplateBindingService" 
+"apps.cases.services" has no attribute "CaseTemplateBindingService"
 [attr-defined]
             from apps.cases.services import (
             ^
@@ -7768,12 +7768,12 @@ expected "Lawyer"  [arg-type]
                 self.service.delete_lawfirm(lawfirm.id, admin_user)
                                                         ^~~~~~~~~~
 tests/unit/documents/test_document_processing_service.py:21:24: error: Call to
-untyped function "DocumentProcessingServiceAdapter" in typed context 
+untyped function "DocumentProcessingServiceAdapter" in typed context
 [no-untyped-call]
             self.service = DocumentProcessingServiceAdapter()
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/documents/test_document_processing_service.py:372:24: error: Call to
-untyped function "DocumentProcessingServiceAdapter" in typed context 
+untyped function "DocumentProcessingServiceAdapter" in typed context
 [no-untyped-call]
             self.service = DocumentProcessingServiceAdapter()
                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -7835,7 +7835,7 @@ has no attribute "id"  [attr-defined]
             assert result.id == contract.id
                                 ^~~~~~~~~~~
 tests/unit/contracts/test_contract_service.py:154:16: error: Non-overlapping
-equality check (left operand type: "str", right operand type: "Sequence") 
+equality check (left operand type: "str", right operand type: "Sequence")
 [comparison-overlap]
             assert result.name == contract.name
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -8627,19 +8627,19 @@ untyped function "_FakePartyMatchingService" in typed context  [no-untyped-call]
         fake = _FakePartyMatchingService(clients=[_Client("佛山市升平百货有限公司")])
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_sms_parser_party_matching.py:29:11: error:
-Unexpected keyword argument "party_matching_service" for "SMSParserService" 
+Unexpected keyword argument "party_matching_service" for "SMSParserService"
 [call-arg]
         svc = SMSParserService(party_matching_service=fake, party_candidat...
               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/sms/sms_parser_service.py:70:5: note: "SMSParserService" defined here
 tests/unit/automation/test_sms_parser_party_matching.py:29:11: error:
-Unexpected keyword argument "party_candidate_extractor" for "SMSParserService" 
+Unexpected keyword argument "party_candidate_extractor" for "SMSParserService"
 [call-arg]
         svc = SMSParserService(party_matching_service=fake, party_candidat...
               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/services/sms/sms_parser_service.py:70:5: note: "SMSParserService" defined here
 tests/unit/automation/test_performance_optimization.py:71:39: error: Module
-"django.utils.timezone" does not explicitly export attribute "timedelta" 
+"django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
             start_date = timezone.now() - timezone.timedelta(days=1)
                                           ^~~~~~~~~~~~~~~~~~
@@ -8747,7 +8747,7 @@ function "MockCookieService" in typed context  [no-untyped-call]
             mock_cookie_service = MockCookieService()
                                   ^~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_court_zxfw_di.py:103:19: error: Unexpected keyword
-argument "cookie_service" for "CourtZxfwService"; did you mean "token_service"? 
+argument "cookie_service" for "CourtZxfwService"; did you mean "token_service"?
 [call-arg]
             service = CourtZxfwService(mock_page, mock_context, cookie_ser...
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -8762,7 +8762,7 @@ tests/unit/automation/test_court_zxfw_di.py:103:47: error: Argument 2 to
             service = CourtZxfwService(mock_page, mock_context, cookie_ser...
                                                   ^~~~~~~~~~~~
 tests/unit/automation/test_court_zxfw_di.py:105:16: error: "CourtZxfwService"
-has no attribute "cookie_service"; maybe "token_service" or "_token_service"? 
+has no attribute "cookie_service"; maybe "token_service" or "_token_service"?
 [attr-defined]
             assert service.cookie_service is mock_cookie_service
                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -8771,7 +8771,7 @@ function "MockCookieService" in typed context  [no-untyped-call]
             mock_cookie_service = MockCookieService()
                                   ^~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_court_zxfw_di.py:114:19: error: Unexpected keyword
-argument "cookie_service" for "CourtZxfwService"; did you mean "token_service"? 
+argument "cookie_service" for "CourtZxfwService"; did you mean "token_service"?
 [call-arg]
             service = CourtZxfwService(
                       ^
@@ -8791,7 +8791,7 @@ identity check (left operand type: "DdddocrRecognizer", right operand type:
             assert service.captcha_recognizer is mock_recognizer
                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_court_zxfw_di.py:119:16: error: "CourtZxfwService"
-has no attribute "cookie_service"; maybe "token_service" or "_token_service"? 
+has no attribute "cookie_service"; maybe "token_service" or "_token_service"?
 [attr-defined]
             assert service.cookie_service is mock_cookie_service
                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -8955,7 +8955,7 @@ untyped function "CourtDocumentService" in typed context  [no-untyped-call]
             self.service = CourtDocumentService()
                            ^~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_court_document_service.py:49:16: error:
-"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"? 
+"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"?
 [attr-defined]
             assert document.scraper_task_id == self.scraper_task.id
                    ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -8968,7 +8968,7 @@ tests/unit/automation/test_court_document_service.py:91:16: error:
             assert document.case_id == case.id
                    ^~~~~~~~~~~~~~~~
 tests/unit/automation/test_court_document_service.py:242:20: error:
-"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"? 
+"CourtDocument" has no attribute "scraper_task_id"; maybe "scraper_task"?
 [attr-defined]
             assert all(doc.scraper_task_id == self.scraper_task.id for doc...
                        ^~~~~~~~~~~~~~~~~~~
@@ -9271,22 +9271,22 @@ Call to untyped function "SecurityService" in typed context  [no-untyped-call]
             service = SecurityService()
                       ^~~~~~~~~~~~~~~~~
 tests/property/documents/test_contract_generation_properties.py:44:13: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
                 DocumentTemplateFactory(
                 ^
 tests/property/documents/test_contract_generation_properties.py:53:13: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
                 DocumentTemplateFactory(
                 ^
 tests/property/documents/test_contract_generation_properties.py:65:13: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
                 DocumentTemplateFactory(
                 ^
 tests/property/documents/test_contract_generation_properties.py:111:24: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
                 template = DocumentTemplateFactory(
                            ^
@@ -9296,12 +9296,12 @@ item type: "DocumentTemplateFactory")  [comparison-overlap]
             assert result in templates, "返回的模板应该是创建的模板之一"
                    ^~~~~~~~~~~~~~~~~~~
 tests/property/documents/test_contract_generation_properties.py:145:9: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             DocumentTemplateFactory(
             ^
 tests/property/documents/test_contract_generation_properties.py:172:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(
                        ^
@@ -9375,7 +9375,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
 tests/property/client/test_client_service_adapter_properties.py:46:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9395,7 +9395,7 @@ tests/property/client/test_client_service_adapter_properties.py:53:34: error:
 tests/property/client/test_client_service_adapter_properties.py:74:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9410,7 +9410,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
 tests/property/client/test_client_service_adapter_properties.py:114:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9429,7 +9429,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
 tests/property/client/test_client_service_adapter_properties.py:141:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9444,7 +9444,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
 tests/property/client/test_client_service_adapter_properties.py:164:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9472,7 +9472,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
 tests/property/client/test_client_service_adapter_properties.py:203:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9492,7 +9492,7 @@ tests/property/client/test_client_service_adapter_properties.py:213:26: error:
 tests/property/client/test_client_service_adapter_properties.py:227:19: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             adapter = ClientServiceAdapter()
                       ^~~~~~~~~~~~~~~~~~~~~~
@@ -9686,7 +9686,7 @@ Argument "whitelist_categories" to "characters" has incompatible type
     ...=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))...
                                                         ^~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_service_properties.py:49:24: error:
-Call to untyped function "CourtDocumentService" in typed context 
+Call to untyped function "CourtDocumentService" in typed context
 [no-untyped-call]
             self.service = CourtDocumentService()
                            ^~~~~~~~~~~~~~~~~~~~~~
@@ -9754,12 +9754,12 @@ Argument "whitelist_categories" to "characters" has incompatible type
     ...e=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")))
                                                          ^~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:116:18: error:
-"CourtDocumentScraper" has no attribute "_intercept_api_response" 
+"CourtDocumentScraper" has no attribute "_intercept_api_response"
 [attr-defined]
             result = scraper._intercept_api_response(timeout=5000)
                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:173:22: error:
-"CourtDocumentScraper" has no attribute "_intercept_api_response" 
+"CourtDocumentScraper" has no attribute "_intercept_api_response"
 [attr-defined]
                 result = scraper._intercept_api_response(timeout=timeout_m...
                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9768,12 +9768,12 @@ Value of type "Collection[Any]" is not indexable  [index]
                         extra = log_call["kwargs"]["extra"]
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:241:9: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
             scraper._download_document_directly = mock_download
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:246:13: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
                 scraper._download_document_directly(doc, download_dir)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9782,17 +9782,17 @@ Call to untyped function "mock_download" in typed context  [no-untyped-call]
                 scraper._download_document_directly(doc, download_dir)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:337:40: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
                 success, filepath, error = scraper._download_document_dire...
                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/property/automation/test_court_document_scraper_properties.py:387:44: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
                     success, filepath, error = scraper._download_document_...
                                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/property/automation/test_court_document_scraper_properties.py:453:9: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
             scraper._download_document_directly = mock_download
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9801,7 +9801,7 @@ tests/property/automation/test_court_document_scraper_properties.py:460:9: error
             scraper.random_wait = mock_random_wait
             ^~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:482:13: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
                 scraper._download_document_directly(doc, download_dir)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9814,7 +9814,7 @@ tests/property/automation/test_court_document_scraper_properties.py:486:17: erro
                     scraper.random_wait(min_delay, max_delay)
                     ^~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:581:9: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
             scraper._download_document_directly = mock_download
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9823,7 +9823,7 @@ Cannot assign to a method  [method-assign]
             scraper._save_document_to_db = mock_save_to_db
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:599:31: error:
-"CourtDocumentScraper" has no attribute "_download_document_directly" 
+"CourtDocumentScraper" has no attribute "_download_document_directly"
 [attr-defined]
                 download_result = scraper._download_document_directly(doc,...
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9844,7 +9844,7 @@ Cannot assign to a method  [method-assign]
             scraper._prepare_download_dir = MagicMock(return_value=Path("/...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:700:9: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
             scraper._download_via_api_intercept = mock_api_intercept
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9888,7 +9888,7 @@ Cannot assign to a method  [method-assign]
             scraper._prepare_download_dir = MagicMock(return_value=Path("/...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:858:9: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
             scraper._download_via_api_intercept = mock_api_intercept
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9927,7 +9927,7 @@ Cannot assign to a method  [method-assign]
             scraper._prepare_download_dir = MagicMock(return_value=Path("/...
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/property/automation/test_court_document_scraper_properties.py:974:9: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
             scraper._download_via_api_intercept = mock_api_intercept
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10014,7 +10014,7 @@ Incompatible types in assignment (expression has type
                 with pytest.raises(AutoTokenAcquisitionError) as exc_info:
                      ^
 tests/property/automation/test_auto_token_acquisition_properties_fixed.py:122:13: error:
-Call to untyped function "setup_common_mocks" in typed context 
+Call to untyped function "setup_common_mocks" in typed context
 [no-untyped-call]
                 setup_common_mocks(mock_concurrency, mock_perf, mock_histo...
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -10115,22 +10115,22 @@ Call to untyped function "ContractFactory" in typed context  [no-untyped-call]
             self.contract = ContractFactory(
                             ^
 tests/integration/documents/test_supplementary_agreement_generation.py:64:9: error:
-Call to untyped function "ContractAssignmentFactory" in typed context 
+Call to untyped function "ContractAssignmentFactory" in typed context
 [no-untyped-call]
             ContractAssignmentFactory(contract=self.contract, lawyer=self....
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/integration/documents/test_supplementary_agreement_generation.py:93:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(
                        ^
 tests/integration/documents/test_supplementary_agreement_generation.py:127:36: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template, temp_file_path = self._create_test_template()
                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:131:25: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
                 agreement = self._create_supplementary_agreement(
                             ^
@@ -10139,12 +10139,12 @@ tests/integration/documents/test_supplementary_agreement_generation.py:136:86: e
     ... = self.service.generate_supplementary_agreement(self.contract.id, agr...
                                                         ^~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:160:36: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template, temp_file_path = self._create_test_template()
                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:164:25: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
                 agreement = self._create_supplementary_agreement(
                             ^
@@ -10153,12 +10153,12 @@ tests/integration/documents/test_supplementary_agreement_generation.py:171:86: e
     ... = self.service.generate_supplementary_agreement(self.contract.id, agr...
                                                         ^~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:189:36: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template, temp_file_path = self._create_test_template()
                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:193:25: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
                 agreement = self._create_supplementary_agreement(name="补充协...
                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -10171,7 +10171,7 @@ tests/integration/documents/test_supplementary_agreement_generation.py:221:82: e
     ... = self.service.generate_supplementary_agreement(self.contract.id, 999...
                                                         ^~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:231:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(name="测试补充协议"...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -10180,12 +10180,12 @@ tests/integration/documents/test_supplementary_agreement_generation.py:234:82: e
     ... = self.service.generate_supplementary_agreement(self.contract.id, agr...
                                                         ^~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:244:20: error:
-Call to untyped function "DocumentTemplateFactory" in typed context 
+Call to untyped function "DocumentTemplateFactory" in typed context
 [no-untyped-call]
             template = DocumentTemplateFactory(
                        ^
 tests/integration/documents/test_supplementary_agreement_generation.py:254:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(name="测试补充协议"...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -10194,22 +10194,22 @@ tests/integration/documents/test_supplementary_agreement_generation.py:257:82: e
     ... = self.service.generate_supplementary_agreement(self.contract.id, agr...
                                                         ^~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:267:33: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template1, temp_file1 = self._create_test_template("civil")
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:268:33: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template2, temp_file2 = self._create_test_template("criminal")
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:269:33: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template3, temp_file3 = self._create_test_template("all")
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:297:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(name="测试补充协议名...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -10218,27 +10218,27 @@ Call to untyped function "ContractFactory" in typed context  [no-untyped-call]
             contract_no_name = ContractFactory(name="")
                                ^~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:333:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(
                         ^
 tests/integration/documents/test_supplementary_agreement_generation.py:358:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(name="测试补充协议"...
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 tests/integration/documents/test_supplementary_agreement_generation.py:374:21: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
             agreement = self._create_supplementary_agreement(
                         ^
 tests/integration/documents/test_supplementary_agreement_generation.py:386:36: error:
-Call to untyped function "_create_test_template" in typed context 
+Call to untyped function "_create_test_template" in typed context
 [no-untyped-call]
             template, temp_file_path = self._create_test_template()
                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/documents/test_supplementary_agreement_generation.py:390:25: error:
-Call to untyped function "_create_supplementary_agreement" in typed context 
+Call to untyped function "_create_supplementary_agreement" in typed context
 [no-untyped-call]
                 agreement = self._create_supplementary_agreement(
                             ^
@@ -10249,7 +10249,7 @@ tests/integration/documents/test_supplementary_agreement_generation.py:397:86: e
 tests/integration/contracts/test_contract_mutation_facade_admin_ops.py:19:88: error:
 Cannot instantiate abstract class "ClientServiceAdapter" with abstract
 attributes "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
     ...e = SupplementaryAgreementService(client_service=ClientServiceAdapter(...
                                                         ^~~~~~~~~~~~~~~~~~~~~~
@@ -10271,7 +10271,7 @@ Call to untyped function "ContractFactory" in typed context  [no-untyped-call]
             contract = ContractFactory()
                        ^~~~~~~~~~~~~~~~~
 tests/integration/contracts/test_contract_mutation_facade_admin_ops.py:33:19: error:
-Call to untyped function "_build_contract_service" in typed context 
+Call to untyped function "_build_contract_service" in typed context
 [no-untyped-call]
             service = self._build_contract_service()
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10292,7 +10292,7 @@ Call to untyped function "ContractFactory" in typed context  [no-untyped-call]
             contract = ContractFactory(
                        ^
 tests/integration/contracts/test_contract_mutation_facade_admin_ops.py:55:19: error:
-Call to untyped function "_build_contract_service" in typed context 
+Call to untyped function "_build_contract_service" in typed context
 [no-untyped-call]
             service = self._build_contract_service()
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10429,7 +10429,7 @@ tests/integration/client/test_property_clue_crud_api.py:272:46: error:
             clue = service.create_clue(client_id=client.id, data={})
                                                  ^~~~~~~~~
 tests/integration/cases/test_folder_binding_security.py:7:1: error: Module
-"apps.cases.services" has no attribute "CaseFolderBindingService" 
+"apps.cases.services" has no attribute "CaseFolderBindingService"
 [attr-defined]
     from apps.cases.services import CaseFolderBindingService
     ^
@@ -10570,7 +10570,7 @@ tests/integration/automation/test_token_acquisition_admin.py:32:23: error:
             self.lawyer = User.objects.create_user(
                           ^~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_token_acquisition_admin.py:49:9: error: Call
-to untyped function "create_test_history_records" in typed context 
+to untyped function "create_test_history_records" in typed context
 [no-untyped-call]
             self.create_test_history_records()
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10579,13 +10579,13 @@ tests/integration/automation/test_token_acquisition_admin.py:296:23: error:
             normal_user = User.objects.create_user(username="normal", emai...
                           ^~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_court_sms_chat_integration.py:40:37: error:
-Unexpected keyword argument "fee_check_service" for "SMSNotificationService" 
+Unexpected keyword argument "fee_check_service" for "SMSNotificationService"
 [call-arg]
             self.notification_service = SMSNotificationService(
                                         ^
 apps/automation/services/sms/sms_notification_service.py:45:5: note: "SMSNotificationService" defined here
 tests/integration/automation/test_court_sms_chat_integration.py:40:37: error:
-Unexpected keyword argument "chat_message_sender" for "SMSNotificationService" 
+Unexpected keyword argument "chat_message_sender" for "SMSNotificationService"
 [call-arg]
             self.notification_service = SMSNotificationService(
                                         ^
@@ -10597,7 +10597,7 @@ Cannot assign to a method  [method-assign]
 tests/integration/automation/test_court_document_persistence.py:139:48: error:
 Argument 1 to "_save_documents_batch" of "BaseCourtDocumentScraper" has
 incompatible type "list[tuple[dict[str, str], tuple[bool, str, None]]]";
-expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]" 
+expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]"
 [arg-type]
             result = scraper._save_documents_batch(documents_with_results)
                                                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -10606,7 +10606,7 @@ tests/integration/automation/test_court_document_persistence.py:139:48: note: Co
 tests/integration/automation/test_court_document_persistence.py:185:48: error:
 Argument 1 to "_save_documents_batch" of "BaseCourtDocumentScraper" has
 incompatible type "list[tuple[dict[str, str], tuple[bool, str, None]]]";
-expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]" 
+expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]"
 [arg-type]
             result = scraper._save_documents_batch(documents_with_results)
                                                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -10615,7 +10615,7 @@ tests/integration/automation/test_court_document_persistence.py:185:48: note: Co
 tests/integration/automation/test_court_document_persistence.py:213:48: error:
 Argument 1 to "_save_documents_batch" of "BaseCourtDocumentScraper" has
 incompatible type "list[tuple[dict[str, str], tuple[bool, str, None]]]";
-expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]" 
+expected "list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]"
 [arg-type]
             result = scraper._save_documents_batch(documents_with_results)
                                                    ^~~~~~~~~~~~~~~~~~~~~~
@@ -10626,7 +10626,7 @@ tests/integration/automation/test_court_document_integration.py:77:9: error:
             scraper.browser = MagicMock()
             ^~~~~~~~~~~~~~~
 tests/integration/automation/test_court_document_integration.py:88:38: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
                                 result = scraper._download_via_api_interce...
                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10635,7 +10635,7 @@ tests/integration/automation/test_court_document_integration.py:154:9: error:
             scraper.browser = MagicMock()
             ^~~~~~~~~~~~~~~
 tests/integration/automation/test_court_document_integration.py:165:38: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
                                 result = scraper._download_via_api_interce...
                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10680,7 +10680,7 @@ tests/integration/automation/test_court_document_integration.py:391:9: error:
             scraper.browser = MagicMock()
             ^~~~~~~~~~~~~~~
 tests/integration/automation/test_court_document_integration.py:401:34: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
                             result = scraper._download_via_api_intercept(P...
                                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10689,7 +10689,7 @@ tests/integration/automation/test_court_document_integration.py:467:9: error:
             scraper.browser = MagicMock()
             ^~~~~~~~~~~~~~~
 tests/integration/automation/test_court_document_integration.py:481:38: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
                                 result = scraper._download_via_api_interce...
                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10698,7 +10698,7 @@ tests/integration/automation/test_court_document_integration.py:538:9: error:
             scraper.browser = MagicMock()
             ^~~~~~~~~~~~~~~
 tests/integration/automation/test_court_document_integration.py:549:29: error:
-"CourtDocumentScraper" has no attribute "_download_via_api_intercept" 
+"CourtDocumentScraper" has no attribute "_download_via_api_intercept"
 [attr-defined]
                                 scraper._download_via_api_intercept(Path("...
                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10756,7 +10756,7 @@ untyped function "verify_data_migration" in typed context  [no-untyped-call]
             verify_data_migration()
             ^~~~~~~~~~~~~~~~~~~~~~~
 scripts/testing/verify_account_credential_migration.py:218:9: error: Call to
-untyped function "verify_database_constraints" in typed context 
+untyped function "verify_database_constraints" in typed context
 [no-untyped-call]
             verify_database_constraints()
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11273,7 +11273,7 @@ apps/core/legacy_service_locator.py:330:23: error: Call to untyped function
 apps/contracts/api/supplementary_agreement_api.py:23:24: error: Cannot
 instantiate abstract class "ClientServiceAdapter" with abstract attributes
 "get_client_internal", "get_identity_docs_by_client_internal",
-"get_property_clues_by_client_internal" and "is_natural_person_internal" 
+"get_property_clues_by_client_internal" and "is_natural_person_internal"
 [abstract]
             client_service=ClientServiceAdapter()
                            ^~~~~~~~~~~~~~~~~~~~~~
@@ -11651,7 +11651,7 @@ apps/client/api/client_api.py:224:15: error: Call to untyped function
                   ^~~~~~~~~~~~~~~~~~~~~
 apps/cases/services/case/case_admin_service.py:229:23: error: Argument
 "case_type" to "generate_case_filing_number_internal" of
-"ICaseFilingNumberService" has incompatible type "str | None"; expected "str" 
+"ICaseFilingNumberService" has incompatible type "str | None"; expected "str"
 [arg-type]
                 case_type=case.case_type,
                           ^~~~~~~~~~~~~~
@@ -12260,17 +12260,17 @@ Function is missing a return type annotation  [no-untyped-def]
         def match_case_by_document_parties(self, document_paths: list[str]...
         ^
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:264:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def rename_and_attach_documents(self, sms, case, extracted_files: ...
         ^
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:294:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _upload_attachments(self, case_log_service, log_id: int, file_...
         ^
 apps/automation/services/document_delivery/processor/document_delivery_processor.py:312:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def send_notification(self, sms, document_paths: list[str]) -> boo...
         ^
@@ -12299,7 +12299,7 @@ Unsupported operand types for >= ("datetime" and "None")  [operator]
                                ^
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:342:28: note: Left operand is of type "datetime | None"
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:359:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _sync_login_with_page(self, credential, page: Page) -> str:
         ^
@@ -12343,12 +12343,12 @@ Function is missing a return type annotation  [no-untyped-def]
         def _match_case_by_document_parties(self, document_paths: list[str...
         ^
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:1057:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(self, sms, case, extracted_files:...
         ^
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:1128:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: list[str]) -> bo...
         ^
@@ -12367,12 +12367,12 @@ Function is missing a return type annotation  [no-untyped-def]
         def preservation_quote_service(self):
         ^
 apps/automation/services/admin/preservation_quote_admin_service.py:221:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def get_quote_statistics(self, queryset=None) -> Dict[str, Any]:
         ^
 apps/automation/services/admin/preservation_quote_admin_service.py:305:31: error:
-Module "django.utils.timezone" does not explicitly export attribute "timedelta" 
+Module "django.utils.timezone" does not explicitly export attribute "timedelta"
 [attr-defined]
                     date = (now - timezone.timedelta(days=i)).date()
                                   ^~~~~~~~~~~~~~~~~~
@@ -12393,22 +12393,22 @@ Function is missing a type annotation  [no-untyped-def]
         def handle(self, *args, **options):
         ^
 apps/automation/management/commands/recover_court_sms_tasks.py:58:13: error:
-Call to untyped function "_show_current_status" in typed context 
+Call to untyped function "_show_current_status" in typed context
 [no-untyped-call]
                 self._show_current_status(max_age)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/management/commands/recover_court_sms_tasks.py:63:17: error:
-Call to untyped function "_show_recovery_plan" in typed context 
+Call to untyped function "_show_recovery_plan" in typed context
 [no-untyped-call]
                     self._show_recovery_plan(max_age, options['reset'])
                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/management/commands/recover_court_sms_tasks.py:72:27: error:
-Call to untyped function "_reset_stuck_tasks" in typed context 
+Call to untyped function "_reset_stuck_tasks" in typed context
 [no-untyped-call]
                 reset_count = self._reset_stuck_tasks(max_age, verbose)
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/management/commands/recover_court_sms_tasks.py:77:27: error:
-Call to untyped function "_recover_incomplete_tasks" in typed context 
+Call to untyped function "_recover_incomplete_tasks" in typed context
 [no-untyped-call]
             recovered_count = self._recover_incomplete_tasks(max_age, verb...
                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -12445,7 +12445,7 @@ Function is missing a type annotation  [no-untyped-def]
         def handle(self, *args, **options):
         ^
 apps/automation/management/commands/optimize_token_performance.py:57:21: error:
-Call to untyped function "_run_optimization_tasks" in typed context 
+Call to untyped function "_run_optimization_tasks" in typed context
 [no-untyped-call]
             asyncio.run(self._run_optimization_tasks(options))
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12480,7 +12480,7 @@ apps/automation/api/preservation_quote_api.py:129:19: error: Argument
                       ^~~~~~~~~
 apps/automation/api/preservation_quote_api.py:131:15: error: Argument "items"
 to "QuoteListSchema" has incompatible type
-"list[PreservationQuoteCreateSchema]"; expected "list[QuoteListItemSchema]" 
+"list[PreservationQuoteCreateSchema]"; expected "list[QuoteListItemSchema]"
 [arg-type]
             items=items,
                   ^~~~~
@@ -12502,7 +12502,7 @@ function "_get_preservation_quote_service" in typed context  [no-untyped-call]
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/preservation_quote_api.py:207:14: error: Argument "data" to
 "QuoteExecuteResponseSchema" has incompatible type
-"PreservationQuoteCreateSchema"; expected "PreservationQuoteSchema | None" 
+"PreservationQuoteCreateSchema"; expected "PreservationQuoteSchema | None"
 [arg-type]
             data=PreservationQuoteSchema.from_model(quote),
                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12516,7 +12516,7 @@ function "_get_preservation_quote_service" in typed context  [no-untyped-call]
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/preservation_quote_api.py:253:14: error: Argument "data" to
 "QuoteExecuteResponseSchema" has incompatible type
-"PreservationQuoteCreateSchema"; expected "PreservationQuoteSchema | None" 
+"PreservationQuoteCreateSchema"; expected "PreservationQuoteSchema | None"
 [arg-type]
             data=PreservationQuoteSchema.from_model(quote),
                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12621,7 +12621,7 @@ a return type annotation  [no-untyped-def]
     def _get_document_processor_service():
     ^
 apps/automation/api/document_processor_api.py:22:12: error:
-"type[ServiceLocator]" has no attribute "get_document_processor_service" 
+"type[ServiceLocator]" has no attribute "get_document_processor_service"
 [attr-defined]
         return ServiceLocator.get_document_processor_service()
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12971,22 +12971,22 @@ has no attribute "is_supported_format"  [attr-defined]
     from apps.automation.services.court_document_recognition.text_extracti...
     ^
 tests/unit/automation/test_preservation_quote_factory.py:33:19: error: Call to
-untyped function "_get_preservation_quote_service" in typed context 
+untyped function "_get_preservation_quote_service" in typed context
 [no-untyped-call]
             service = _get_preservation_quote_service()
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_preservation_quote_factory.py:50:19: error: Call to
-untyped function "_get_preservation_quote_service" in typed context 
+untyped function "_get_preservation_quote_service" in typed context
 [no-untyped-call]
             service = _get_preservation_quote_service()
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_preservation_quote_factory.py:99:20: error: Call to
-untyped function "_get_preservation_quote_service" in typed context 
+untyped function "_get_preservation_quote_service" in typed context
 [no-untyped-call]
             service1 = _get_preservation_quote_service()
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_preservation_quote_factory.py:100:20: error: Call to
-untyped function "_get_preservation_quote_service" in typed context 
+untyped function "_get_preservation_quote_service" in typed context
 [no-untyped-call]
             service2 = _get_preservation_quote_service()
                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14227,7 +14227,7 @@ Incompatible types in "await" (actual type "dict[str, Any]", expected type
             result = await self.adapter.execute_quote(1)
                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_preservation_quote_auto_token_integration.py:229:19: error:
-Call to untyped function "_get_preservation_quote_service" in typed context 
+Call to untyped function "_get_preservation_quote_service" in typed context
 [no-untyped-call]
             service = _get_preservation_quote_service()
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14236,7 +14236,7 @@ tests/integration/automation/test_manual_case_binding_integration.py:114:16: err
             assert self.task.case_id == self.case.id
                    ^~~~~~~~~~~~~~~~~
 tests/integration/automation/test_manual_case_binding_integration.py:115:16: error:
-"DocumentRecognitionTask" has no attribute "case_log_id"; maybe "case_log"? 
+"DocumentRecognitionTask" has no attribute "case_log_id"; maybe "case_log"?
 [attr-defined]
             assert self.task.case_log_id == result.case_log_id
                    ^~~~~~~~~~~~~~~~~~~~~
@@ -14253,7 +14253,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryApiService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                     documents=first_response.documents,
                               ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -14262,7 +14262,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryApiService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                             documents=page_response.documents,
                                       ^~~~~~~~~~~~~~~~~~~~~~~
@@ -14301,12 +14301,12 @@ Function is missing a return type annotation  [no-untyped-def]
         def _match_case_by_document_parties(self, document_paths: list[str...
         ^
 apps/automation/services/document_delivery/api/document_delivery_api_service.py:666:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(self, sms, case, extracted_files:...
         ^
 apps/automation/services/document_delivery/api/document_delivery_api_service.py:731:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: list[str]) -> bo...
         ^
@@ -14416,7 +14416,7 @@ type parameters for generic type "File"  [type-arg]
     def recognize_document(request, file: UploadedFile = File(...)):
                                                          ^
 apps/automation/api/court_document_recognition_api.py:169:27: error: Argument 1
-to "_validate_file_format" has incompatible type "str | None"; expected "str" 
+to "_validate_file_format" has incompatible type "str | None"; expected "str"
 [arg-type]
         _validate_file_format(file.name)
                               ^~~~~~~~~
@@ -14437,7 +14437,7 @@ missing a return type annotation  [no-untyped-def]
     def _get_recognition_service():
     ^
 apps/automation/api/court_document_recognition_api.py:261:12: error: Call to
-untyped function "CourtDocumentRecognitionService" in typed context 
+untyped function "CourtDocumentRecognitionService" in typed context
 [no-untyped-call]
         return CourtDocumentRecognitionService()
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14473,7 +14473,7 @@ tests/unit/test_setup.py:22:18: error: Call to untyped function "LawyerFactory"
 in typed context  [no-untyped-call]
             lawyer = LawyerFactory()
                      ^~~~~~~~~~~~~~~
-tests/unit/test_setup.py:24:16: error: "LawyerFactory" has no attribute "id" 
+tests/unit/test_setup.py:24:16: error: "LawyerFactory" has no attribute "id"
 [attr-defined]
             assert lawyer.id is not None
                    ^~~~~~~~~
@@ -14481,7 +14481,7 @@ tests/unit/test_setup.py:30:16: error: Call to untyped function "CaseFactory"
 in typed context  [no-untyped-call]
             case = CaseFactory()
                    ^~~~~~~~~~~~~
-tests/unit/test_setup.py:32:16: error: "CaseFactory" has no attribute "id" 
+tests/unit/test_setup.py:32:16: error: "CaseFactory" has no attribute "id"
 [attr-defined]
             assert case.id is not None
                    ^~~~~~~
@@ -14517,7 +14517,7 @@ Call to untyped function "CaseFactory" in typed context  [no-untyped-call]
         case = CaseFactory()
                ^~~~~~~~~~~~~
 tests/unit/cases/test_unified_template_party_selection_policy.py:89:29: error:
-Item "None" of "list[Any] | None" has no attribute "__iter__" (not iterable) 
+Item "None" of "list[Any] | None" has no attribute "__iter__" (not iterable)
 [union-attr]
         assert [c.name for c in selected.clients] == ["张三", "李四"]
                                 ^~~~~~~~~~~~~~~~
@@ -14530,12 +14530,12 @@ untyped function "get_config" in typed context  [no-untyped-call]
         data = get_config(request)
                ^~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_image_rotation_export.py:317:9: error: Need type
-annotation for "used_names" (hint: "used_names: Dict[<type>, <type>] = ...") 
+annotation for "used_names" (hint: "used_names: Dict[<type>, <type>] = ...")
 [var-annotated]
             used_names = {}
             ^~~~~~~~~~
 tests/unit/automation/test_image_rotation_export.py:356:9: error: Need type
-annotation for "used_names" (hint: "used_names: Dict[<type>, <type>] = ...") 
+annotation for "used_names" (hint: "used_names: Dict[<type>, <type>] = ...")
 [var-annotated]
             used_names = {}
             ^~~~~~~~~~
@@ -14665,7 +14665,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                     documents=first_response.documents,
                               ^~~~~~~~~~~~~~~~~~~~~~~~
@@ -14674,7 +14674,7 @@ Argument "documents" to "_process_document_page" of "DocumentDeliveryService"
 has incompatible type
 "list[apps.automation.services.document_delivery.court_document_api_client.DocumentRecord]";
 expected
-"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]" 
+"list[apps.automation.services.document_delivery.data_classes.DocumentRecord]"
 [arg-type]
                             documents=page_response.documents,
                                       ^~~~~~~~~~~~~~~~~~~~~~~
@@ -14688,7 +14688,7 @@ Function is missing a return type annotation  [no-untyped-def]
             ^
 apps/automation/services/document_delivery/document_delivery_service.py:485:9: note: Use "-> None" if function does not return a value
 apps/automation/services/document_delivery/document_delivery_service.py:541:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _sync_login_with_page(self, browser_service, credential, page)...
         ^
@@ -14751,12 +14751,12 @@ Function is missing a return type annotation  [no-untyped-def]
         def _match_case_by_number(self, case_number: str):
         ^
 apps/automation/services/document_delivery/document_delivery_service.py:1524:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _rename_and_attach_documents(self, sms, case, extracted_files:...
         ^
 apps/automation/services/document_delivery/document_delivery_service.py:1589:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def _send_notification(self, sms, document_paths: list[str]) -> bo...
         ^
@@ -14813,7 +14813,7 @@ comment  [unused-ignore]
             )  # type: ignore[no-any-return]
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/services/document_delivery/document_delivery_schedule_service.py:134:5: error:
-Function is missing a type annotation for one or more arguments 
+Function is missing a type annotation for one or more arguments
 [no-untyped-def]
         def update_schedule(
         ^
@@ -14831,7 +14831,7 @@ Function is missing a return type annotation  [no-untyped-def]
             ^
 apps/automation/services/document_delivery/document_delivery_schedule_service.py:251:9: note: Use "-> None" if function does not return a value
 tests/unit/client/test_client_storage_security.py:63:5: error: Module
-"apps.client.tasks" has no attribute "recognize_expiry_date_task" 
+"apps.client.tasks" has no attribute "recognize_expiry_date_task"
 [attr-defined]
         from apps.client.tasks import recognize_expiry_date_task
         ^
@@ -14845,7 +14845,7 @@ Argument "files" to "extract_fee_notices" has incompatible type
         res = extract_fee_notices(request, files=files, debug=False)
                                                  ^~~~~
 tests/unit/automation/test_document_delivery_schedule_locking.py:10:12: error:
-"DocumentDeliveryScheduleService" has no attribute "_get_execution_lock_key" 
+"DocumentDeliveryScheduleService" has no attribute "_get_execution_lock_key"
 [attr-defined]
         assert service._get_execution_lock_key(schedule_id=123) == "automa...
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14854,17 +14854,17 @@ Need type annotation for "calls"  [var-annotated]
         calls = {"add": [], "delete": []}
                 ^~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_document_delivery_schedule_locking.py:27:12: error:
-"DocumentDeliveryScheduleService" has no attribute "_acquire_execution_lock" 
+"DocumentDeliveryScheduleService" has no attribute "_acquire_execution_lock"
 [attr-defined]
         assert service._acquire_execution_lock(schedule_id=7, ttl_seconds=...
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_document_delivery_schedule_locking.py:28:5: error:
-"DocumentDeliveryScheduleService" has no attribute "_release_execution_lock" 
+"DocumentDeliveryScheduleService" has no attribute "_release_execution_lock"
 [attr-defined]
         service._release_execution_lock(schedule_id=7)
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_document_delivery_schedule_locking.py:45:12: error:
-"DocumentDeliveryScheduleService" has no attribute "_acquire_execution_lock" 
+"DocumentDeliveryScheduleService" has no attribute "_acquire_execution_lock"
 [attr-defined]
         assert service._acquire_execution_lock(schedule_id=7, ttl_seconds=...
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14997,17 +14997,17 @@ Function is missing a type annotation  [no-untyped-def]
         def handle(self, *args, **options):
         ^
 apps/automation/management/commands/execute_document_delivery_schedules.py:54:25: error:
-Call to untyped function "_get_specific_schedule" in typed context 
+Call to untyped function "_get_specific_schedule" in typed context
 [no-untyped-call]
                 schedules = self._get_specific_schedule(options['schedule_...
                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
 apps/automation/management/commands/execute_document_delivery_schedules.py:66:13: error:
-Call to untyped function "_show_schedule_info" in typed context 
+Call to untyped function "_show_schedule_info" in typed context
 [no-untyped-call]
                 self._show_schedule_info(schedules)
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/management/commands/execute_document_delivery_schedules.py:88:21: error:
-Call to untyped function "_show_execution_result" in typed context 
+Call to untyped function "_show_execution_result" in typed context
 [no-untyped-call]
                         self._show_execution_result(schedule, result)
                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15020,7 +15020,7 @@ Function is missing a type annotation  [no-untyped-def]
         def _show_schedule_info(self, schedules):
         ^
 apps/automation/management/commands/execute_document_delivery_schedules.py:147:31: error:
-Call to untyped function "_get_credential_info" in typed context 
+Call to untyped function "_get_credential_info" in typed context
 [no-untyped-call]
                 credential_info = self._get_credential_info(schedule.crede...
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
@@ -15074,12 +15074,12 @@ a type annotation for one or more arguments  [no-untyped-def]
     def list_schedules(request, credential_id: int | None = None, is_activ...
     ^
 apps/automation/api/document_delivery_api.py:221:15: error: Call to untyped
-function "_get_document_delivery_schedule_service" in typed context 
+function "_get_document_delivery_schedule_service" in typed context
 [no-untyped-call]
         service = _get_document_delivery_schedule_service()
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/document_delivery_api.py:224:13: error: Call to untyped
-function "from_model" of "DocumentDeliveryScheduleOut" in typed context 
+function "from_model" of "DocumentDeliveryScheduleOut" in typed context
 [no-untyped-call]
         return [DocumentDeliveryScheduleOut.from_model(schedule) for sched...
                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15092,12 +15092,12 @@ a type annotation for one or more arguments  [no-untyped-def]
     def create_schedule(request, payload: DocumentDeliveryScheduleCreateIn...
     ^
 apps/automation/api/document_delivery_api.py:234:15: error: Call to untyped
-function "_get_document_delivery_schedule_service" in typed context 
+function "_get_document_delivery_schedule_service" in typed context
 [no-untyped-call]
         service = _get_document_delivery_schedule_service()
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/document_delivery_api.py:244:12: error: Call to untyped
-function "from_model" of "DocumentDeliveryScheduleOut" in typed context 
+function "from_model" of "DocumentDeliveryScheduleOut" in typed context
 [no-untyped-call]
         return DocumentDeliveryScheduleOut.from_model(schedule)
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15110,12 +15110,12 @@ a type annotation for one or more arguments  [no-untyped-def]
     def update_schedule(request, schedule_id: int, payload: DocumentDelive...
     ^
 apps/automation/api/document_delivery_api.py:254:15: error: Call to untyped
-function "_get_document_delivery_schedule_service" in typed context 
+function "_get_document_delivery_schedule_service" in typed context
 [no-untyped-call]
         service = _get_document_delivery_schedule_service()
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/document_delivery_api.py:269:12: error: Call to untyped
-function "from_model" of "DocumentDeliveryScheduleOut" in typed context 
+function "from_model" of "DocumentDeliveryScheduleOut" in typed context
 [no-untyped-call]
         return DocumentDeliveryScheduleOut.from_model(schedule)
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15128,7 +15128,7 @@ a type annotation for one or more arguments  [no-untyped-def]
     def delete_schedule(request, schedule_id: int):
     ^
 apps/automation/api/document_delivery_api.py:279:15: error: Call to untyped
-function "_get_document_delivery_schedule_service" in typed context 
+function "_get_document_delivery_schedule_service" in typed context
 [no-untyped-call]
         service = _get_document_delivery_schedule_service()
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15141,12 +15141,12 @@ a type annotation for one or more arguments  [no-untyped-def]
     def get_schedule(request, schedule_id: int):
     ^
 apps/automation/api/document_delivery_api.py:292:15: error: Call to untyped
-function "_get_document_delivery_schedule_service" in typed context 
+function "_get_document_delivery_schedule_service" in typed context
 [no-untyped-call]
         service = _get_document_delivery_schedule_service()
                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 apps/automation/api/document_delivery_api.py:294:12: error: Call to untyped
-function "from_model" of "DocumentDeliveryScheduleOut" in typed context 
+function "from_model" of "DocumentDeliveryScheduleOut" in typed context
 [no-untyped-call]
         return DocumentDeliveryScheduleOut.from_model(schedule)
                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15191,7 +15191,7 @@ named argument "runs_per_day" for "DocumentDeliveryScheduleUpdateIn"  [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(cutoff_hours=48)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_automation_crud_api.py:280:19: error: Missing
-named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn" 
+named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn"
 [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(cutoff_hours=48)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15204,7 +15204,7 @@ named argument "runs_per_day" for "DocumentDeliveryScheduleUpdateIn"  [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(is_active=False)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_automation_crud_api.py:297:19: error: Missing
-named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn" 
+named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn"
 [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(is_active=False)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15213,7 +15213,7 @@ named argument "cutoff_hours" for "DocumentDeliveryScheduleUpdateIn"  [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(is_active=False)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 tests/integration/automation/test_automation_crud_api.py:305:19: error: Missing
-named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn" 
+named argument "hour_interval" for "DocumentDeliveryScheduleUpdateIn"
 [call-arg]
             payload = DocumentDeliveryScheduleUpdateIn(runs_per_day=2)
                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15250,7 +15250,7 @@ function "TokenCacheManager" in typed context  [no-untyped-call]
         manager = TokenCacheManager()
                   ^~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_token_cache_manager.py:87:5: error:
-"TokenCacheManager" has no attribute "_clear_redis_namespace_cache" 
+"TokenCacheManager" has no attribute "_clear_redis_namespace_cache"
 [attr-defined]
         manager._clear_redis_namespace_cache(
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15259,7 +15259,7 @@ function "TokenCacheManager" in typed context  [no-untyped-call]
         manager = TokenCacheManager()
                   ^~~~~~~~~~~~~~~~~~~
 tests/unit/automation/test_token_cache_manager.py:103:5: error:
-"TokenCacheManager" has no attribute "_clear_redis_namespace_cache" 
+"TokenCacheManager" has no attribute "_clear_redis_namespace_cache"
 [attr-defined]
         manager._clear_redis_namespace_cache({}, backend="django.core.cach...
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15384,35 +15384,35 @@ tests/litigation_ai/test_conversation_flow_service.py:123:17: error:
 "LawyerFactory" has no attribute "id"  [attr-defined]
             user_id=lawyer.id,
                     ^~~~~~~~~
-apiSystem/apiSystem/api.py:36:5: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:36:5: error: Function is missing a type annotation
 [no-untyped-def]
         def render(self, request, data, *, response_status):
         ^
-apiSystem/apiSystem/api.py:109:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:109:1: error: Function is missing a type annotation
 [no-untyped-def]
     def api_root(request):
     ^
-apiSystem/apiSystem/api.py:119:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:119:1: error: Function is missing a type annotation
 [no-untyped-def]
     def health_check(request):
     ^
-apiSystem/apiSystem/api.py:129:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:129:1: error: Function is missing a type annotation
 [no-untyped-def]
     def health_check_detail(request):
     ^
-apiSystem/apiSystem/api.py:141:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:141:1: error: Function is missing a type annotation
 [no-untyped-def]
     def liveness_probe(request):
     ^
-apiSystem/apiSystem/api.py:150:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:150:1: error: Function is missing a type annotation
 [no-untyped-def]
     def readiness_probe(request):
     ^
-apiSystem/apiSystem/api.py:164:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:164:1: error: Function is missing a type annotation
 [no-untyped-def]
     def _require_admin(request):
     ^
-apiSystem/apiSystem/api.py:170:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:170:1: error: Function is missing a type annotation
 [no-untyped-def]
     def resource_status(request):
     ^
@@ -15420,7 +15420,7 @@ apiSystem/apiSystem/api.py:175:5: error: Call to untyped function
 "_require_admin" in typed context  [no-untyped-call]
         _require_admin(request)
         ^~~~~~~~~~~~~~~~~~~~~~~
-apiSystem/apiSystem/api.py:180:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:180:1: error: Function is missing a type annotation
 [no-untyped-def]
     def resource_usage(request):
     ^
@@ -15428,7 +15428,7 @@ apiSystem/apiSystem/api.py:185:5: error: Call to untyped function
 "_require_admin" in typed context  [no-untyped-call]
         _require_admin(request)
         ^~~~~~~~~~~~~~~~~~~~~~~
-apiSystem/apiSystem/api.py:202:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:202:1: error: Function is missing a type annotation
 [no-untyped-def]
     def resource_recommendations(request):
     ^
@@ -15436,7 +15436,7 @@ apiSystem/apiSystem/api.py:207:5: error: Call to untyped function
 "_require_admin" in typed context  [no-untyped-call]
         _require_admin(request)
         ^~~~~~~~~~~~~~~~~~~~~~~
-apiSystem/apiSystem/api.py:212:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/api.py:212:1: error: Function is missing a type annotation
 [no-untyped-def]
     def resource_health(request):
     ^
@@ -15468,19 +15468,19 @@ apiSystem/apiSystem/api.py:233:5: error: Call to untyped function
 "_require_admin" in typed context  [no-untyped-call]
         _require_admin(request)
         ^~~~~~~~~~~~~~~~~~~~~~~
-apiSystem/apiSystem/urls.py:27:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/urls.py:27:1: error: Function is missing a type annotation
 [no-untyped-def]
     def index_view(request):
     ^
-apiSystem/apiSystem/urls.py:32:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/urls.py:32:1: error: Function is missing a type annotation
 [no-untyped-def]
     def root_redirect(request):
     ^
-apiSystem/apiSystem/urls.py:37:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/urls.py:37:1: error: Function is missing a type annotation
 [no-untyped-def]
     def api_redirect(request):
     ^
-apiSystem/apiSystem/urls.py:45:1: error: Function is missing a type annotation 
+apiSystem/apiSystem/urls.py:45:1: error: Function is missing a type annotation
 [no-untyped-def]
     def favicon_view(request):
     ^
