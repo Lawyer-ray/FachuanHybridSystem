@@ -68,7 +68,7 @@ class CourtFilingScraper(BaseScraper):
             "message": "立案提交成功（需根据实际网站完善逻辑）"
         }
     
-    def _login(self, username: str, password: str):
+    def _login(self, username: str, password: str) -> None:
         """
         登录法院网站
         
@@ -87,7 +87,7 @@ class CourtFilingScraper(BaseScraper):
         
         logger.info("登录成功")
     
-    def _fill_case_info(self):
+    def _fill_case_info(self) -> None:
         """填写案件信息"""
         case = self.task.case
         logger.info(f"填写案件信息: {case.name}")
@@ -100,7 +100,7 @@ class CourtFilingScraper(BaseScraper):
         
         logger.info("案件信息填写完成")
     
-    def _upload_files(self, file_paths: List[Any]):
+    def _upload_files(self, file_paths: List[Any]) -> None:
         """
         上传文件
         

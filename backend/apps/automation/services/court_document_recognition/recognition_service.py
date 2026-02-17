@@ -37,12 +37,12 @@ class CourtDocumentRecognitionService:
     
     def __init__(
         self,
-        text_extraction=None,
-        classifier=None,
-        extractor=None,
-        binding_service=None,
-        document_renamer=None,
-    ):
+        text_extraction: Any = None,
+        classifier: Any = None,
+        extractor: Any = None,
+        binding_service: Any = None,
+        document_renamer: Any = None,
+    ) -> None:
         """
         初始化服务
         
@@ -60,7 +60,7 @@ class CourtDocumentRecognitionService:
         self._document_renamer = document_renamer
     
     @property
-    def text_extraction(self):
+    def text_extraction(self) -> Any:
         """延迟加载文本提取服务"""
         if self._text_extraction is None:
             from .text_extraction_service import TextExtractionService
@@ -68,7 +68,7 @@ class CourtDocumentRecognitionService:
         return self._text_extraction
     
     @property
-    def classifier(self):
+    def classifier(self) -> Any:
         """延迟加载文书分类器"""
         if self._classifier is None:
             from .document_classifier import DocumentClassifier
@@ -76,7 +76,7 @@ class CourtDocumentRecognitionService:
         return self._classifier
     
     @property
-    def extractor(self):
+    def extractor(self) -> Any:
         """延迟加载信息提取器"""
         if self._extractor is None:
             from .info_extractor import InfoExtractor
@@ -84,7 +84,7 @@ class CourtDocumentRecognitionService:
         return self._extractor
     
     @property
-    def binding_service(self):
+    def binding_service(self) -> Any:
         """延迟加载案件绑定服务"""
         if self._binding_service is None:
             from .case_binding_service import CaseBindingService
@@ -92,7 +92,7 @@ class CourtDocumentRecognitionService:
         return self._binding_service
     
     @property
-    def document_renamer(self):
+    def document_renamer(self) -> Any:
         """延迟加载文书重命名服务"""
         if self._document_renamer is None:
             from apps.automation.services.sms.document_renamer import DocumentRenamer
