@@ -4,7 +4,7 @@
 """
 import time
 import hashlib
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable, Any
 from functools import wraps
 from django.core.cache import cache
 from django.http import HttpRequest
@@ -117,9 +117,9 @@ auth_limiter = RateLimiter(requests=5, window=60)       # 登录限流：每分�
 def rate_limit(
     requests: int = 100,
     window: int = 60,
-    key_func: Optional[callable] = None,
+    key_func: Optional[Callable[..., str]] = None,
     limiter: Optional[RateLimiter] = None,
-):
+) -> Callable[..., Any]:
     """
     限流装饰器
 
@@ -135,9 +135,9 @@ def rate_limit(
         def get_resource(request):
             ...
     """
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(request, *args, **kwargs):
+        def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
             # 使用指定的限流器或创建新的
             _limiter = limiter or RateLimiter(requests=requests, window=window)
 
@@ -162,12 +162,12 @@ def rate_limit(
     return decorator
 
 
-def rate_limit_by_user(requests: int = 100, window: int = 60):
+def rate_limit_by_user(requests: int = 100, window: int = 60) -> Callable[..., Any]:
     """
     基于用户的限流装饰器
     已登录用户使用用户 ID，未登录使用 IP
     """
-    def key_func(request):
+    def key_func(request: HttpRequest) -> str:
         user = getattr(request, "user", None)
         if user and getattr(user, "is_authenticated", False):
             return f"user:{user.id}"
