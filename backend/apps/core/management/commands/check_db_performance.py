@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 检查数据库性能的管理命令
 """
@@ -8,7 +10,7 @@ from django.db import connection
 class Command(BaseCommand):
     help = '检查数据库性能和索引使用情况'
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         self.stdout.write(self.style.SUCCESS('=== 数据库性能检查 ===\n'))
 
         # 检查数据库大小

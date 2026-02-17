@@ -8,6 +8,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from argparse import ArgumentParser
 
 from django.core.management.base import BaseCommand
 from typing import Any, Dict
@@ -16,13 +17,13 @@ from typing import Any, Dict
 class Command(BaseCommand):
     help = "分析性能日志，识别性能瓶颈"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("--log-file", type=str, default="logs/api.log", help="日志文件路径（默认: logs/api.log）")
         parser.add_argument("--threshold", type=int, default=1000, help="慢 API 阈值（毫秒，默认: 1000）")
         parser.add_argument("--top", type=int, default=10, help="显示前 N 个慢 API（默认: 10）")
         parser.add_argument("--hours", type=int, default=24, help="分析最近 N 小时的日志（默认: 24）")
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         log_file = options["log_file"]
         threshold = options["threshold"]
         top_n = options["top"]
@@ -54,7 +55,7 @@ class Command(BaseCommand):
         Returns:
             API 统计数据
         """
-        api_stats = defaultdict(
+        api_stats: dict[str, Any] = defaultdict(
             lambda: {"count": 0, "total_time": 0, "total_queries": 0, "max_time": 0, "max_queries": 0, "errors": 0}
         )
 
@@ -103,7 +104,7 @@ class Command(BaseCommand):
 
         return api_stats
 
-    def _analyze_performance(self, api_stats: Dict[str, Any], threshold: int, top_n: int):
+    def _analyze_performance(self, api_stats: Dict[str, Any], threshold: int, top_n: int) -> None:
         """
         分析性能数据
 
