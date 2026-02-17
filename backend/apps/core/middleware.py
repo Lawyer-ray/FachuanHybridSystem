@@ -5,9 +5,11 @@
 """
 import time
 import logging
+from typing import Any
 from django.db import connection, reset_queries
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
+from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger("apps.core.middleware")
 
@@ -23,19 +25,19 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
     SLOW_API_THRESHOLD_MS = 1000  # API 响应时间阈值（毫秒）
     MAX_QUERY_COUNT = 10  # 最大查询次数阈值
     
-    def process_request(self, request):
+    def process_request(self, request: HttpRequest) -> None:
         """请求开始时执行"""
         # 记录开始时间
-        request._performance_start_time = time.time()
+        request._performance_start_time = time.time()  # type: ignore[attr-defined]
         
         # 重置查询计数（仅在 DEBUG 模式下）
         if settings.DEBUG:
             reset_queries()
-            request._performance_start_query_count = 0
+            request._performance_start_query_count = 0  # type: ignore[attr-defined]
         
         return None
     
-    def process_response(self, request, response):
+    def process_response(self, request: HttpRequest, response: HttpResponse) -> HttpResponse:
         """响应返回时执行"""
         # 计算响应时间
         if hasattr(request, '_performance_start_time'):
@@ -68,7 +70,7 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
         
         return response
     
-    def _log_performance(self, request, response, duration_ms: float, query_count: int):
+    def _log_performance(self, request: HttpRequest, response: HttpResponse, duration_ms: float, query_count: int) -> None:
         """
         记录性能日志
         
@@ -101,7 +103,7 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
         else:
             logger.info(f"API 请求: {request.method} {request.path}", extra=log_data)
     
-    def _check_performance_issues(self, request, duration_ms: float, query_count: int):
+    def _check_performance_issues(self, request: HttpRequest, duration_ms: float, query_count: int) -> None:
         """
         检查性能问题
         
@@ -143,7 +145,7 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
             if settings.DEBUG and query_count > 0:
                 self._log_query_details()
     
-    def _log_query_details(self):
+    def _log_query_details(self) -> None:
         """记录查询详情（仅在 DEBUG 模式下）"""
         if not settings.DEBUG:
             return
