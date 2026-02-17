@@ -94,9 +94,9 @@ class PerformanceDataCollector:
     
     def __init__(self, max_history_size: int = 1000):
         self.max_history_size = max_history_size
-        self._loading_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
-        self._metrics_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
-        self._alerts_history: deque[dict[str, Any]] = deque(maxlen=max_history_size)
+        self._loading_history: deque[LoadingPerformanceData] = deque(maxlen=max_history_size)
+        self._metrics_history: deque[PerformanceMetric] = deque(maxlen=max_history_size)
+        self._alerts_history: deque[PerformanceAlert] = deque(maxlen=max_history_size)
         self._lock = threading.RLock()
         
         # 实时统计
@@ -177,12 +177,12 @@ class PerformanceDataCollector:
             
             return perf_data
     
-    def record_metric(self, metric: PerformanceMetric):
+    def record_metric(self, metric: PerformanceMetric) -> None:
         """记录性能指标"""
         with self._lock:
             self._metrics_history.append(metric)
     
-    def record_alert(self, alert: PerformanceAlert):
+    def record_alert(self, alert: PerformanceAlert) -> None:
         """记录性能告警"""
         with self._lock:
             self._alerts_history.append(alert)
@@ -263,9 +263,9 @@ class PerformanceDataCollector:
         except Exception:
             return 0.0
     
-    def _start_memory_monitoring(self):
+    def _start_memory_monitoring(self) -> None:
         """启动内存监控"""
-        def monitor_memory():
+        def monitor_memory() -> None:
             while True:
                 try:
                     memory_usage = self._get_current_memory_usage()
@@ -286,7 +286,7 @@ class PerformanceAnalyzer:
                  thresholds: PerformanceThresholds):
         self.data_collector = data_collector
         self.thresholds = thresholds
-        self._analysis_cache = {}
+        self._analysis_cache: dict[str, Any] = {}
         self._cache_lock = threading.RLock()
     
     def analyze_loading_performance(self, spec_path: Optional[str] = None) -> Dict[str, Any]:

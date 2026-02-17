@@ -15,7 +15,7 @@ class ConfigSchema:
     负责管理所有配置字段的定义，提供验证和模板生成功能
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化配置模式"""
         self._fields: Dict[str, ConfigField] = {}
         self._field_groups: Dict[str, List[str]] = {}
@@ -165,13 +165,13 @@ class ConfigSchema:
         errors = []
         
         # 检查必需字段
-        for field in self.get_required_fields():
-            if field.name not in config:
-                errors.append(f"缺少必需配置项: {field.name}")
+        for required_field in self.get_required_fields():
+            if required_field.name not in config:
+                errors.append(f"缺少必需配置项: {required_field.name}")
         
         # 检查字段值的有效性
         for key, value in config.items():
-            field = self.get_field(key)
+            field: ConfigField | None = self.get_field(key)
             if field is None:
                 # 未定义的字段，发出警告但不阻止
                 continue
