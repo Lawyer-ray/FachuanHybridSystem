@@ -76,7 +76,7 @@ def build_case_filing_number_service() -> ICaseFilingNumberService:
 def build_case_chat_service() -> ICaseChatService:
     from apps.cases.services.case_chat_service import CaseChatService
 
-    return CaseChatService()  # type: ignore[return-value, no-untyped-call]
+    return CaseChatService()  # type: ignore[return-value]
 
 
 def build_case_number_service() -> ICaseNumberService:

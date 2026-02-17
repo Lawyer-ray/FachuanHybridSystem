@@ -31,7 +31,7 @@ class RecognizeCourtDocumentUsecase:
         try:
             extraction_result = self.text_extraction.extract_text(file_path)
             if not extraction_result.success or not extraction_result.text.strip():
-                return self._empty_response(file_path, extraction_result)  # type: ignore[no-any-return]
+                return self._empty_response(file_path, extraction_result)
             doc_type, confidence = self.classifier.classify(extraction_result.text)
             case_number, key_time = self._extract_key_info(doc_type, extraction_result.text)
             recognition = RecognitionResult(
@@ -56,7 +56,7 @@ class RecognizeCourtDocumentUsecase:
             logger.error("文书识别失败", extra={"action": "recognize_document", "file_path": file_path}, exc_info=True)
             raise
 
-    def _empty_response(self, file_path: Any, extraction_result: Any) -> RecognitionResponse:  # type: ignore[misc]
+    def _empty_response(self, file_path: Any, extraction_result: Any) -> RecognitionResponse:
         """文本提取失败时返回空结果"""
         return RecognitionResponse(
             recognition=RecognitionResult(
@@ -71,7 +71,7 @@ class RecognizeCourtDocumentUsecase:
             file_path=file_path,
         )
 
-    def _extract_key_info(self, doc_type: Any, text: Any) -> tuple[Any, Any]:  # type: ignore[misc]
+    def _extract_key_info(self, doc_type: Any, text: Any) -> tuple[Any, Any]:
         """根据文书类型提取案号和关键时间"""
         if doc_type == DocumentType.SUMMONS:
             info = self.extractor.extract_summons_info(text)
@@ -83,7 +83,7 @@ class RecognizeCourtDocumentUsecase:
 
     def _bind_document(
         self, doc_type: Any, case_number: Any, key_time: Any, raw_text: Any, file_path: Any, user: Any
-    ) -> tuple[Any, Any]:  # type: ignore[misc]
+    ) -> tuple[Any, Any]:
         """绑定文书到案件,返回 (binding, renamed_file_path)"""
         _UNSUPPORTED = {
             DocumentType.OTHER: ("暂时只支持传票识别,其他文书类型敬请期待", "UNSUPPORTED_DOCUMENT_TYPE"),
@@ -119,7 +119,7 @@ class RecognizeCourtDocumentUsecase:
             file_path=renamed_file_path,
             user=user,
         )
-        return (binding, renamed_file_path)  # type: ignore[return-value]
+        return (binding, renamed_file_path)
 
     def _rename_document(self, *, file_path: str, document_type: DocumentType, case_name: str) -> str:
         try:

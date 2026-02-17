@@ -100,9 +100,9 @@ class Command(BaseCommand):
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
             return user  # type: ignore[no-any-return]
-        return User.objects.create_superuser(  # type: ignore[no-any-return]
+        return User.objects.create_superuser(  # type: ignore[no-any-return, attr-defined]
             username=username, email="smoke_admin@example.com", password="smoke_admin_password"
-        )  # type: ignore[no-any-return, attr-defined]
+        )
 
     def _check_admin_pages(self, client: Client) -> None:
         paths: list[Any] = ["/admin/", "/admin/cases/case/", "/admin/contracts/contract/"]

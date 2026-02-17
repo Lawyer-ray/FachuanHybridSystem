@@ -45,7 +45,7 @@ def build_contract_assignment_query_service() -> IContractAssignmentQueryService
 def build_contract_payment_service() -> IContractPaymentService:
     from apps.contracts.services import ContractPaymentService
 
-    return ContractPaymentService()  # type: ignore[no-untyped-call]
+    return ContractPaymentService()
 
 
 def build_contract_folder_binding_service() -> IContractFolderBindingService:

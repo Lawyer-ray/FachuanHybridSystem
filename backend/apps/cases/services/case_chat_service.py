@@ -86,7 +86,7 @@ class CaseChatService:
         # 使用配置服务渲染群名
         from apps.cases.services.chat_name_config_service import ChatNameConfigService
 
-        config_service = ChatNameConfigService()  # type: ignore[no-untyped-call]
+        config_service = ChatNameConfigService()
 
         # 获取阶段显示名称
         stage_display = None
