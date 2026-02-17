@@ -22,7 +22,7 @@ from .base import ChatProvider, ChatResult, MessageContent
 from .factory import ChatProviderFactory
 
 # 自动注册群聊提供者
-def _register_providers():
+def _register_providers() -> None:
     """自动注册所有可用的群聊提供者"""
     from apps.core.enums import ChatPlatform
     
