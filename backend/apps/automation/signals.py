@@ -4,6 +4,8 @@
 处理模型保存、删除等事件，自动触发相关操作。
 """
 import logging
+from typing import Any
+from django.db.models import Model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django_q.tasks import async_task
@@ -14,7 +16,7 @@ logger = logging.getLogger("apps.automation")
 
 
 @receiver(post_save, sender=PreservationQuote)
-def auto_submit_preservation_quote(sender, instance, created, **kwargs):
+def auto_submit_preservation_quote(sender: type[Model], instance: PreservationQuote, created: bool, **kwargs: Any) -> None:
     """
     自动提交询价任务到 Django Q 队列
     
@@ -65,7 +67,7 @@ def auto_submit_preservation_quote(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=ScraperTask)
-def handle_scraper_task_status_change(sender, instance, created, **kwargs):
+def handle_scraper_task_status_change(sender: type[Model], instance: ScraperTask, created: bool, **kwargs: Any) -> None:
     """
     处理 ScraperTask 状态变更，触发法院短信后续处理流程
     
