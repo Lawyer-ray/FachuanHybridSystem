@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Iterator
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from contextlib import contextmanager
@@ -268,7 +268,7 @@ class MigrationStateTracker:
             conn.commit()
     
     @contextmanager
-    def _get_db_connection(self):
+    def _get_db_connection(self) -> Iterator[sqlite3.Connection]:
         """获取数据库连接"""
         conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
@@ -703,7 +703,7 @@ class MigrationStateTracker:
         """
         with self._get_db_connection() as conn:
             query = 'SELECT * FROM migration_events WHERE migration_id = ?'
-            params = [migration_id]
+            params: list[str | int] = [migration_id]
             
             if event_types:
                 placeholders = ','.join('?' * len(event_types))
