@@ -2,7 +2,7 @@
 案件当事人 API
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from ninja import Router
 
 from ..schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
@@ -10,21 +10,21 @@ from ..schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
 router = Router()
 
 
-def _get_case_party_service():
+def _get_case_party_service() -> Any:
     """工厂函数：创建 CasePartyService 实例"""
     from ..services.case_party_service import CasePartyService
     return CasePartyService()
 
 
 @router.get("/parties", response=List[CasePartyOut])
-def list_parties(request, case_id: Optional[int] = None):
+def list_parties(request: Any, case_id: Optional[int] = None) -> List[CasePartyOut]:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     return service.list_parties(case_id=case_id, user=user)
 
 
 @router.post("/parties", response=CasePartyOut)
-def create_party(request, payload: CasePartyIn):
+def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     return service.create_party(
@@ -36,14 +36,14 @@ def create_party(request, payload: CasePartyIn):
 
 
 @router.get("/parties/{party_id}", response=CasePartyOut)
-def get_party(request, party_id: int):
+def get_party(request: Any, party_id: int) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     return service.get_party(party_id=party_id, user=user)
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
-def update_party(request, party_id: int, payload: CasePartyUpdate):
+def update_party(request: Any, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     data = payload.dict(exclude_unset=True)
@@ -51,7 +51,7 @@ def update_party(request, party_id: int, payload: CasePartyUpdate):
 
 
 @router.delete("/parties/{party_id}")
-def delete_party(request, party_id: int):
+def delete_party(request: Any, party_id: int) -> Any:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     return service.delete_party(party_id=party_id, user=user)

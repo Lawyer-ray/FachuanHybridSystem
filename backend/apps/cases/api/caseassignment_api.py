@@ -2,7 +2,7 @@
 案件指派 API
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from ninja import Router
 
 from ..schemas import (
@@ -14,21 +14,21 @@ from ..schemas import (
 router = Router()
 
 
-def _get_case_assignment_service():
+def _get_case_assignment_service() -> Any:
     """工厂函数：创建 CaseAssignmentService 实例"""
     from ..services.case_assignment_service import CaseAssignmentService
     return CaseAssignmentService()
 
 
 @router.get("/assignments", response=List[CaseAssignmentOut])
-def list_assignments(request, case_id: Optional[int] = None, lawyer_id: Optional[int] = None):
+def list_assignments(request: Any, case_id: Optional[int] = None, lawyer_id: Optional[int] = None) -> List[CaseAssignmentOut]:
     service = _get_case_assignment_service()
     user = getattr(request, "user", None)
     return service.list_assignments(case_id=case_id, lawyer_id=lawyer_id, user=user)
 
 
 @router.post("/assignments", response=CaseAssignmentOut)
-def create_assignment(request, payload: CaseAssignmentIn):
+def create_assignment(request: Any, payload: CaseAssignmentIn) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     user = getattr(request, "user", None)
     return service.create_assignment(
@@ -39,14 +39,14 @@ def create_assignment(request, payload: CaseAssignmentIn):
 
 
 @router.get("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def get_assignment(request, assignment_id: int):
+def get_assignment(request: Any, assignment_id: int) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     user = getattr(request, "user", None)
     return service.get_assignment(assignment_id=assignment_id, user=user)
 
 
 @router.put("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def update_assignment(request, assignment_id: int, payload: CaseAssignmentUpdate):
+def update_assignment(request: Any, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     user = getattr(request, "user", None)
     data = payload.dict(exclude_unset=True)
@@ -54,7 +54,7 @@ def update_assignment(request, assignment_id: int, payload: CaseAssignmentUpdate
 
 
 @router.delete("/assignments/{assignment_id}")
-def delete_assignment(request, assignment_id: int):
+def delete_assignment(request: Any, assignment_id: int) -> Any:
     service = _get_case_assignment_service()
     user = getattr(request, "user", None)
     return service.delete_assignment(assignment_id=assignment_id, user=user)

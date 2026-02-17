@@ -2,7 +2,7 @@
 案件日志 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 from ninja import Router
 
@@ -34,7 +34,7 @@ def _parse_reminder_time(rt: Optional[str]) -> Optional[datetime]:
 
 
 @router.get("/logs", response=List[CaseLogOut])
-def list_logs(request, case_id: Optional[int] = None):
+def list_logs(request: Any, case_id: Optional[int] = None) -> List[CaseLogOut]:
     """获取日志列表"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
@@ -50,7 +50,7 @@ def list_logs(request, case_id: Optional[int] = None):
 
 
 @router.post("/logs", response=CaseLogOut)
-def create_log(request, payload: CaseLogIn):
+def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
     """创建日志"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
@@ -67,7 +67,7 @@ def create_log(request, payload: CaseLogIn):
 
 
 @router.get("/logs/{log_id}", response=CaseLogOut)
-def get_log(request, log_id: int):
+def get_log(request: Any, log_id: int) -> CaseLogOut:
     """获取单个日志"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
@@ -83,7 +83,7 @@ def get_log(request, log_id: int):
 
 
 @router.put("/logs/{log_id}", response=CaseLogOut)
-def update_log(request, log_id: int, payload: CaseLogUpdate):
+def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     """更新日志"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
@@ -107,7 +107,7 @@ def update_log(request, log_id: int, payload: CaseLogUpdate):
 
 
 @router.delete("/logs/{log_id}")
-def delete_log(request, log_id: int):
+def delete_log(request: Any, log_id: int) -> Any:
     """删除日志"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
@@ -123,7 +123,7 @@ def delete_log(request, log_id: int):
 
 
 @router.post("/logs/{log_id}/attachments")
-def upload_log_attachments(request, log_id: int):
+def upload_log_attachments(request: Any, log_id: int) -> Any:
     """上传日志附件"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)

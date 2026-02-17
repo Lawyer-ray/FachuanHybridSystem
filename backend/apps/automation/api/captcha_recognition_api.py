@@ -4,6 +4,7 @@
 提供验证码识别的 HTTP 接口，支持 Base64 编码的图片上传。
 """
 import logging
+from typing import Any
 from ninja import Router
 
 from ..schemas import CaptchaRecognizeIn, CaptchaRecognizeOut
@@ -13,7 +14,7 @@ logger = logging.getLogger("apps.automation")
 router = Router(tags=["验证码识别"])
 
 
-def _get_captcha_service():
+def _get_captcha_service() -> Any:
     """
     工厂函数：创建验证码识别服务实例
     
@@ -27,7 +28,7 @@ def _get_captcha_service():
 
 
 @router.post("/recognize", response=CaptchaRecognizeOut)
-def recognize_captcha(request, payload: CaptchaRecognizeIn):
+def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecognizeOut:
     """
     识别验证码
     
