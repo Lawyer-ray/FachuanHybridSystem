@@ -49,7 +49,7 @@ class CaseLogService:
         user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[CaseLog]:
+    ) -> "QuerySet[CaseLog, CaseLog]":
         """
         获取日志列表
 
@@ -372,7 +372,7 @@ class CaseLogService:
         user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[CaseLog]:
+    ) -> "QuerySet[CaseLog, CaseLog]":
         """
         获取案件的所有日志
 

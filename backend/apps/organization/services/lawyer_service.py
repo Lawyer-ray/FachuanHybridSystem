@@ -33,7 +33,7 @@ class LawyerService:
         """初始化服务"""
         pass
 
-    def get_lawyer_queryset(self) -> QuerySet[Lawyer]:
+    def get_lawyer_queryset(self) -> "QuerySet[Lawyer, Lawyer]":
         """
         获取带预加载的律师查询集
 
@@ -70,7 +70,7 @@ class LawyerService:
 
     def list_lawyers(
         self, page: int = 1, page_size: int = 20, filters: dict[str, Any] | None = None, user: Lawyer | None = None
-    ) -> QuerySet[Lawyer]:
+    ) -> "QuerySet[Lawyer, Lawyer]":
         """
         列表查询
 
