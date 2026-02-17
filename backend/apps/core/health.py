@@ -193,6 +193,8 @@ class HealthChecker:
 
         # 优先使用 APP_VERSION（Docker 部署），回退到 API_VERSION
         version = getattr(settings, "APP_VERSION", None) or getattr(settings, "API_VERSION", "1.0.0")
+        if version is None:
+            version = "1.0.0"
 
         return SystemHealth(
             status=overall_status,

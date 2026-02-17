@@ -11,7 +11,7 @@ from docx import Document
 from rapidocr_onnxruntime import RapidOCR
 
 
-def get_doc_config():
+def get_doc_config() -> dict[str, int]:
     """获取文档处理配置"""
     from django.conf import settings
     
