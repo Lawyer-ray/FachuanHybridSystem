@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.automation")
 class ValidatorService:
     """数据校验服务"""
 
-    def __init__(self, text_utils=None, file_utils=None):
+    def __init__(self, text_utils: Any = None, file_utils: Any = None) -> None:
         """
         初始化校验服务
 
@@ -27,14 +27,14 @@ class ValidatorService:
         self._file_utils = file_utils
 
     @property
-    def text_utils(self):
+    def text_utils(self) -> Any:
         """延迟加载文本工具"""
         if self._text_utils is None:
             self._text_utils = TextUtils
         return self._text_utils
 
     @property
-    def file_utils(self):
+    def file_utils(self) -> Any:
         """延迟加载文件工具"""
         if self._file_utils is None:
             self._file_utils = FileUtils

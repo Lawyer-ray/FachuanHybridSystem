@@ -245,7 +245,7 @@ class CaseLogService:
         self,
         log_id: int,
         files: list[UploadedFile],
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, int]:
@@ -302,7 +302,7 @@ class CaseLogService:
         except CaseLog.DoesNotExist:
             raise NotFoundError(f"日志 {log_id} 不存在")
 
-    def _check_case_access(self, case_obj, user, org_access: Dict[str, Any] | None) -> bool:
+    def _check_case_access(self, case_obj: Any, user: Any, org_access: Dict[str, Any] | None) -> bool:
         """
         检查用户是否有权限访问案件
 
@@ -369,10 +369,10 @@ class CaseLogService:
     def get_logs_for_case(
         self,
         case_id: int,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> QuerySet[CaseLog]:
         """
         获取案件的所有日志
 
@@ -395,7 +395,7 @@ class CaseLogService:
     def get_log_versions(
         self,
         log_id: int,
-        user=None,
+        user: Any = None,
         org_access: Dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:

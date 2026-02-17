@@ -144,7 +144,7 @@ class DocumentParserService:
             logger.warning(f"从文书内容匹配当事人失败: {str(e)}")
             return []
     
-    def get_all_document_paths(self, sms) -> List[str]:
+    def get_all_document_paths(self, sms: Any) -> List[str]:
         """
         获取短信关联的所有已下载成功的文书路径
         

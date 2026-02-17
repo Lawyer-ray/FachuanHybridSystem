@@ -388,7 +388,7 @@ class AutoLoginService:
                 except:
                     pass
     
-    def _get_browser_context(self):
+    def _get_browser_context(self) -> Any:
         """获取浏览器上下文"""
         try:
             # 由于 BrowserServiceAdapter.get_browser() 实际上是同步的，我们可以直接调用底层服务
@@ -408,7 +408,7 @@ class AutoLoginService:
         except Exception as e:
             raise NetworkError(f"无法获取浏览器上下文: {str(e)}")
     
-    def _create_court_service(self, browser_context, site_name: str):
+    def _create_court_service(self, browser_context: Any, site_name: str) -> Any:
         """创建法院服务实例"""
         try:
             from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
