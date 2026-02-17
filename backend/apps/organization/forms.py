@@ -2,6 +2,7 @@
 用户注册表单
 """
 import re
+from typing import Any
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
@@ -15,7 +16,7 @@ class LawyerRegistrationForm(UserCreationForm):
         model = Lawyer
         fields = ('username', 'password1', 'password2')
         
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         # 设置字段样式
         self.fields['username'].widget.attrs.update({
@@ -45,7 +46,7 @@ class LawyerRegistrationForm(UserCreationForm):
         """检查是否为第一个注册的用户"""
         return not Lawyer.objects.exists()
     
-    def clean_username(self):
+    def clean_username(self) -> str:
         """验证用户名必须是中文"""
         username = self.cleaned_data.get('username')
         if username:
@@ -54,7 +55,7 @@ class LawyerRegistrationForm(UserCreationForm):
                 raise ValidationError('用户名只能输入中文')
         return username
     
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> Lawyer:
         """保存用户，根据是否为第一个用户设置权限"""
         user = super().save(commit=False)
         # 将用户名同时保存到 real_name 字段

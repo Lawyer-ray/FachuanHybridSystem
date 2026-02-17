@@ -1,14 +1,16 @@
 """
 用户注册视图
 """
+from typing import Any
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login
+from django.http import HttpRequest, HttpResponse
 from .forms import LawyerRegistrationForm
 from .models import Lawyer
 
 
-def register(request):
+def register(request: HttpRequest) -> HttpResponse:
     """用户注册视图"""
     is_first_user = not Lawyer.objects.exists()
     
