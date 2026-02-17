@@ -60,7 +60,7 @@ class Command(BaseCommand):
         async def run() -> None:
             sem = asyncio.Semaphore(concurrency)
             timings: list[Any] = []
-            statuses: dict[int, int] = {}
+            statuses: dict[int | str, int] = {}
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout), follow_redirects=True) as client:
 
                 async def one(i: int) -> None:
@@ -75,18 +75,18 @@ class Command(BaseCommand):
                             logger.exception("操作失败")
                             ms = (time.perf_counter() - t0) * 1000.0
                             timings.append(ms)
-                            statuses["error"] = statuses.get("error", 0) + 1  # type: ignore[assignment]
+                            statuses["error"] = statuses.get("error", 0) + 1
 
                 await asyncio.gather(*[one(i) for i in range(total)])
             timings.sort()
             self.stdout.write(
                 json.dumps(_build_report(url, method, total, concurrency, statuses, timings), ensure_ascii=False)
-            )  # type: ignore[func-returns-value]
+            )
 
         asyncio.run(run())
 
 
-def _build_report(url: Any, method: Any, total: Any, concurrency: Any, statuses: Any, timings: Any) -> None:
+def _build_report(url: Any, method: Any, total: Any, concurrency: Any, statuses: Any, timings: Any) -> dict[str, Any]:
     """构建基准测试报告"""
 
     def pct(p: float) -> float:
@@ -109,4 +109,4 @@ def _build_report(url: Any, method: Any, total: Any, concurrency: Any, statuses:
             "max": round(timings[-1], 2) if timings else None,
             "avg": round(statistics.mean(timings), 2) if timings else None,
         },
-    }  # type: ignore[return-value]
+    }

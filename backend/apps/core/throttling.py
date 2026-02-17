@@ -42,7 +42,7 @@ class RateLimiter:
             return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
         return request.META.get("REMOTE_ADDR", "unknown")  # type: ignore[no-any-return]
 
-    def get_cache_key(self, request: HttpRequest, key_func: Optional[callable] = None) -> str:
+    def get_cache_key(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> str:
         """
         生成缓存 key
 
@@ -65,7 +65,7 @@ class RateLimiter:
         key_hash = hashlib.md5(identifier.encode()).hexdigest()[:16]
         return f"{self.key_prefix}:{key_hash}"
 
-    def is_allowed(self, request: HttpRequest, key_func: Optional[callable] = None) -> Tuple[bool, dict]:
+    def is_allowed(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> Tuple[bool, dict]:
         """
         检查请求是否被允许
 
