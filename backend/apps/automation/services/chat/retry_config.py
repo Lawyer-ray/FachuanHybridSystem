@@ -71,7 +71,7 @@ class RetryConfig:
     Requirements: 3.3, 3.4
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化重试配置"""
         self._load_config()
     
