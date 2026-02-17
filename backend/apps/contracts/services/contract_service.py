@@ -502,7 +502,7 @@ class ContractService:
             }
         )
 
-        return assignments  # type: ignore[no-any-return]
+        return assignments
 
     @transaction.atomic
     def create_contract_with_cases(
