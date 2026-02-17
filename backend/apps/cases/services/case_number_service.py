@@ -46,7 +46,7 @@ class CaseNumberService:
         self,
         case_id: Optional[int] = None,
         user: Optional[Any] = None,
-    ) -> QuerySet:
+    ) -> "QuerySet[CaseNumber, CaseNumber]":
         """
         获取案号列表
 
