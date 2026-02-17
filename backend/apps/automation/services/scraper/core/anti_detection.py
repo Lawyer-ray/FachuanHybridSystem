@@ -48,7 +48,7 @@ class AntiDetection:
         }
 
     @staticmethod
-    def inject_stealth_script(page):
+    def inject_stealth_script(page: Any) -> None:
         """
         注入反检测脚本
 
@@ -88,7 +88,7 @@ class AntiDetection:
         )
 
     @staticmethod
-    def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0):
+    def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> None:
         """
         随机延迟（模拟人类操作）
 
@@ -100,7 +100,7 @@ class AntiDetection:
         time.sleep(delay)
 
     @staticmethod
-    def human_like_typing(page, selector: str, text: str, delay_range=(0.05, 0.15)):
+    def human_like_typing(page: Any, selector: str, text: str, delay_range: tuple[float, float] = (0.05, 0.15)) -> None:
         """
         模拟人类打字
 
@@ -116,7 +116,7 @@ class AntiDetection:
             time.sleep(random.uniform(*delay_range))
 
     @staticmethod
-    def random_mouse_move(page):
+    def random_mouse_move(page: Any) -> None:
         """
         随机鼠标移动（增加真实性）
 

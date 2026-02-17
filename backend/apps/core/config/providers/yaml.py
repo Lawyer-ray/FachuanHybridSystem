@@ -8,6 +8,7 @@ import os
 import re
 import yaml
 from pathlib import Path
+from typing import Any, Dict, Match
 from typing import Any, Dict, Optional
 from .base import ConfigProvider
 from ..exceptions import ConfigFileError, ConfigException
@@ -117,7 +118,7 @@ class YamlProvider(ConfigProvider):
         Returns:
             str: 替换后的内容
         """
-        def replace_var(match):
+        def replace_var(match: Match[str]) -> str:
             var_name = match.group(1)
             default_value = match.group(2) or ""
             
@@ -146,7 +147,7 @@ class YamlProvider(ConfigProvider):
         Returns:
             Dict[str, Any]: 扁平化后的字典
         """
-        items = []
+        items: list[tuple[str, Any]] = []
         
         for key, value in data.items():
             new_key = f"{parent_key}{sep}{key}" if parent_key else key
@@ -173,7 +174,7 @@ class YamlProvider(ConfigProvider):
         Returns:
             Dict[str, Any]: 嵌套字典
         """
-        result = {}
+        result: dict[str, Any] = {}
         
         for key, value in data.items():
             keys = key.split(sep)
@@ -251,7 +252,7 @@ class YamlProvider(ConfigProvider):
         Returns:
             str: YAML 模板内容
         """
-        template_config = {}
+        template_config: dict[str, Any] = {}
         
         for key, field_info in config_schema.items():
             # 反扁平化键名

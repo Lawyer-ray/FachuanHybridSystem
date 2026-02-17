@@ -8,6 +8,10 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
+from typing import Any, Callable, TypeVar
+from collections.abc import Callable as CallableABC
+
+F = TypeVar('F', bound=Callable[..., Any])
 from typing import Any
 from collections.abc import Callable
 
@@ -30,7 +34,7 @@ class PerformanceMonitor:
     MAX_QUERY_COUNT = 10  # 最大查询次数阈值
 
     @staticmethod
-    def monitor_api(endpoint: str):
+    def monitor_api(endpoint: str) -> Callable[[F], F]:
         """
         API 性能监控装饰器
 
