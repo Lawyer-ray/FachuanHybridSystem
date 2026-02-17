@@ -368,14 +368,14 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
         **kwargs: Any,
     ) -> Any:
         """创建询价任务（内部接口，无权限检查）"""
-        return self.create_quote(
-            case_name,
+        return self.create_quote(  # type: ignore[call-arg]
+            case_name,  # type: ignore[arg-type]
             target_amount,
             applicant_name,
-            respondent_name,
+            respondent_name,  # type: ignore[arg-type]
             court_name,
             case_type,
-            **kwargs,  # type: ignore[arg-type, call-arg]
+            **kwargs,
         )
 
     def execute_quote_internal(self, quote_id: int, force_refresh_token: bool = False) -> dict[str, Any]:
