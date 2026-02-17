@@ -331,7 +331,7 @@ class DependencyGraph:
             
             def calculate_level(spec: str, visited: Set[str]) -> int:
                 if spec in levels:
-                    return levels[spec]  # type: ignore[no-any-return]
+                    return levels[spec]
                 
                 if spec in visited:
                     # 循环依赖，返回默认层级
@@ -605,10 +605,10 @@ class SteeringDependencyManager:
                 ]
             }
     
-    def export_dependency_graph(self, output_path: str, format: str = "json"):
+    def export_dependency_graph(self, output_path: str, format: str = "json") -> None:
         """导出依赖图"""
         with self._lock:
-            graph_data = {
+            graph_data: dict[str, Any] = {
                 "nodes": {},
                 "edges": []
             }
@@ -653,7 +653,7 @@ class SteeringDependencyManager:
             total_specs = len(self._metadata_cache)
             
             # 统计依赖类型
-            dep_type_counts = defaultdict(int)
+            dep_type_counts: dict[str, int] = defaultdict(int)
             total_deps = 0
             
             for spec_path in self._metadata_cache:
@@ -683,7 +683,7 @@ class SteeringDependencyManager:
                 }
             }
     
-    def refresh_metadata(self):
+    def refresh_metadata(self) -> None:
         """刷新元数据"""
         with self._lock:
             self._metadata_cache.clear()
