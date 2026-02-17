@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 
@@ -83,7 +83,7 @@ class CaseLogMutationService:
         if "content" in data and data.get("content") != old_content:
             CaseLogVersion.objects.create(log=log, content=old_content, actor_id=actor_id)
 
-        return log  # type: ignore[no-any-return]
+        return cast(CaseLog, log)
 
     def delete_log(  # type: ignore[no-untyped-def]
         self,

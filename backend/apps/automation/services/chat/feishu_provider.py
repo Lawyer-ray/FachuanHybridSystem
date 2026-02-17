@@ -18,7 +18,7 @@ API文档参考：
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import requests
 from django.conf import settings
@@ -966,7 +966,7 @@ class FeishuChatProvider(ChatProvider):
             else:
                 logger.warning(f"群主设置验证失败: {chat_id}, 期望: {expected_owner_id}, 实际: {actual_owner_id}")
 
-            return is_match  # type: ignore[no-any-return]
+            return cast(bool, is_match)
 
         except Exception as e:
             logger.error(f"验证群主设置时发生错误: {chat_id}, 错误: {e!s}")

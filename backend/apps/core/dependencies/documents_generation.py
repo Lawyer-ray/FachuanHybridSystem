@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def build_generation_task_service() -> IGenerationTaskService:
     from apps.documents.services.generation.generation_task_service import GenerationTaskService
 
-    return GenerationTaskService()  # type: ignore[return-value]
+    return cast(IGenerationTaskService, GenerationTaskService())
 
 
 def build_contract_generation_service_with_deps(
@@ -27,9 +27,12 @@ def build_contract_generation_service_with_deps(
 ) -> IContractGenerationService:
     from apps.documents.services.generation.contract_generation_service import ContractGenerationService
 
-    return ContractGenerationService(  # type: ignore[return-value]
-        contract_service=contract_service,
-        folder_binding_service=folder_binding_service,
+    return cast(
+        IContractGenerationService,
+        ContractGenerationService(
+            contract_service=contract_service,
+            folder_binding_service=folder_binding_service,
+        ),
     )
 
 
@@ -51,9 +54,12 @@ def build_supplementary_agreement_generation_service_with_deps(
         SupplementaryAgreementGenerationService,
     )
 
-    return SupplementaryAgreementGenerationService(  # type: ignore[return-value]
-        contract_service=contract_service,
-        folder_binding_service=folder_binding_service,
+    return cast(
+        ISupplementaryAgreementGenerationService,
+        SupplementaryAgreementGenerationService(
+            contract_service=contract_service,
+            folder_binding_service=folder_binding_service,
+        ),
     )
 
 

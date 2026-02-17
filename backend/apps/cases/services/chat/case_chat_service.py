@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
@@ -205,8 +205,17 @@ class CaseChatService:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
             return existing_chat  # type: ignore[return-value]
         logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
-        return self.create_chat_for_case(  # type: ignore[no-any-return]
-            case_id, platform, owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
+        return cast(
+            None,
+            self.create_chat_for_case(
+                case_id,
+                platform,
+                owner_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+                ctx=ctx,
+            ),
         )
 
     def send_document_notification(
@@ -296,7 +305,7 @@ class CaseChatService:
                 recreate_policy=self.recreate_policy,
                 chat_creator=lambda case_id, platform: self.create_chat_for_case(case_id, platform),
             )  # type: ignore[assignment]
-        return self._send_notification_usecase  # type: ignore[return-value]
+        return cast(SendNotificationUsecase, self._send_notification_usecase)
 
     def unbind_chat(self, chat_id: int) -> bool:
         """解除群聊绑定(软删除)

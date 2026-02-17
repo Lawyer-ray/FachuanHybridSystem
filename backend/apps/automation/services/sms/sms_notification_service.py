@@ -17,7 +17,7 @@
 """
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from apps.automation.models import CourtSMS
 from apps.core.enums import ChatPlatform
@@ -159,6 +159,7 @@ class SMSNotificationService:
         Raises:
             Exception: 群聊创建失败时抛出异常
         """
-        return self.case_chat_service.get_or_create_chat(  # type: ignore[attr-defined, no-any-return]
-            case_id=case_id, platform=platform
+        return cast(
+            CaseChat,
+            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),  # type: ignore[attr-defined]
         )

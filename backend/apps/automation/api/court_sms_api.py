@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from ninja import Form, Router
 from ninja.pagination import PageNumberPagination, paginate
@@ -88,7 +88,7 @@ def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
 
     sms = service.get_sms_detail(sms_id)
 
-    return CourtSMSDetailOut.from_model(sms)  # type: ignore[no-any-return]
+    return cast(CourtSMSDetailOut, CourtSMSDetailOut.from_model(sms))
 
 
 @router.get("/court-sms", response=list[CourtSMSListOut])

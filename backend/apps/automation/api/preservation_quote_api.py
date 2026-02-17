@@ -77,7 +77,7 @@ def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreat
     )
 
     # 返回响应
-    return PreservationQuoteSchema.from_model(quote)  # type: ignore[return-value]
+    return PreservationQuoteSchema.from_model(quote)
 
 
 @router.get("/preservation-quotes", response=QuoteListSchema)
@@ -124,7 +124,7 @@ def list_preservation_quotes(
         page=page,
         page_size=page_size,  # type: ignore[arg-type]
         total_pages=total_pages,
-        items=items,  # type: ignore[arg-type]
+        items=items,
     )
 
 
@@ -151,7 +151,7 @@ def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQ
     quote = service.get_quote(quote_id)  # type: ignore[attr-defined]
 
     # 返回响应
-    return PreservationQuoteSchema.from_model(quote)  # type: ignore[return-value]
+    return PreservationQuoteSchema.from_model(quote)
 
 
 @router.post("/preservation-quotes/{quote_id}/execute", response=QuoteExecuteResponseSchema)
@@ -194,7 +194,7 @@ async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> Quo
     return QuoteExecuteResponseSchema(
         success=True,
         message=f"询价任务执行完成，成功 {result['success_count']} 个，失败 {result['failed_count']} 个",
-        data=PreservationQuoteSchema.from_model(quote),  # type: ignore[arg-type]
+        data=PreservationQuoteSchema.from_model(quote),
     )
 
 
@@ -237,5 +237,5 @@ async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> Quote
     return QuoteExecuteResponseSchema(
         success=True,
         message=f"重试询价任务完成，成功 {result['success_count']} 个，失败 {result['failed_count']} 个",
-        data=PreservationQuoteSchema.from_model(quote),  # type: ignore[arg-type]
+        data=PreservationQuoteSchema.from_model(quote),
     )

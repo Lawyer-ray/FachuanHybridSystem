@@ -13,7 +13,7 @@ import logging
 Requirements: 2.1, 2.2, 4.4, 6.1, 6.2, 7.1
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from apps.core.dtos import DocumentTemplateDTO
@@ -168,7 +168,10 @@ class DocumentServiceAdapter:
             raise
 
     def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
-        return self.template_matching_service.find_matching_case_file_templates(case_type, case_stage)  # type: ignore[no-any-return]
+        return cast(
+            list[dict[str, Any]],
+            self.template_matching_service.find_matching_case_file_templates(case_type, case_stage),
+        )
 
     def find_matching_contract_templates(self, case_type: str) -> list[dict[str, Any]]:
         """
@@ -188,7 +191,7 @@ class DocumentServiceAdapter:
         Raises:
             ValidationException: 案件类型无效
         """
-        return self.template_matching_service.find_matching_contract_templates(case_type)  # type: ignore[no-any-return]
+        return cast(list[dict[str, Any]], self.template_matching_service.find_matching_contract_templates(case_type))
 
     def find_matching_folder_templates(self, template_type: str, case_type: str | None = None) -> list[dict[str, Any]]:
         """
@@ -208,7 +211,10 @@ class DocumentServiceAdapter:
         Raises:
             ValidationException: 模板类型无效
         """
-        return self.template_matching_service.find_matching_folder_templates(template_type, case_type)  # type: ignore[no-any-return]
+        return cast(
+            list[dict[str, Any]],
+            self.template_matching_service.find_matching_folder_templates(template_type, case_type),
+        )
 
     def check_has_matching_templates(self, case_type: str) -> dict[str, bool]:
         """
@@ -227,7 +233,7 @@ class DocumentServiceAdapter:
         Raises:
             ValidationException: 案件类型无效
         """
-        return self.template_matching_service.check_has_matching_templates(case_type)  # type: ignore[no-any-return]
+        return cast(dict[str, bool], self.template_matching_service.check_has_matching_templates(case_type))
 
     # ============================================================
     # 内部方法 - 供跨模块调用(无权限检查)
@@ -284,8 +290,11 @@ class DocumentServiceAdapter:
 
         Requirements: 7.1, 4.4
         """
-        return self.template_query_service.list_templates_by_function_code_internal(  # type: ignore[no-any-return]
-            function_code, case_type=case_type, is_active=is_active
+        return cast(
+            list[DocumentTemplateDTO],
+            self.template_query_service.list_templates_by_function_code_internal(
+                function_code, case_type=case_type, is_active=is_active
+            ),
         )
 
     def get_templates_by_case_type_internal(self, case_type: str, is_active: bool = True) -> list[DocumentTemplateDTO]:
@@ -301,10 +310,15 @@ class DocumentServiceAdapter:
 
         Requirements: 8.6
         """
-        return self.template_query_service.get_templates_by_case_type_internal(case_type, is_active=is_active)  # type: ignore[no-any-return]
+        return cast(
+            list[DocumentTemplateDTO],
+            self.template_query_service.get_templates_by_case_type_internal(case_type, is_active=is_active),
+        )
 
     def list_case_templates_internal(self, is_active: bool = True) -> list[DocumentTemplateDTO]:
-        return self.template_query_service.list_case_templates_internal(is_active=is_active)  # type: ignore[no-any-return]
+        return cast(
+            list[DocumentTemplateDTO], self.template_query_service.list_case_templates_internal(is_active=is_active)
+        )
 
     def get_templates_by_ids_internal(self, template_ids: list[int]) -> list[DocumentTemplateDTO]:
-        return self.template_query_service.get_templates_by_ids_internal(template_ids)  # type: ignore[no-any-return]
+        return cast(list[DocumentTemplateDTO], self.template_query_service.get_templates_by_ids_internal(template_ids))

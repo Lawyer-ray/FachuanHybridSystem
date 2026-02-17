@@ -10,7 +10,7 @@
 """
 
 import logging
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.automation.utils.text_utils import TextUtils
 from apps.core.exceptions import ValidationException
@@ -197,7 +197,7 @@ class CaseMatcher:
         """
         # 1. 先尝试从短信提取（至少需要2个当事人才算有效）
         if sms.party_names and len(sms.party_names) >= 2:
-            return sms.party_names  # type: ignore[no-any-return]
+            return cast(list[str], sms.party_names)
 
         if sms.party_names and len(sms.party_names) == 1:
             logger.debug("短信只提取到1个当事人，视为提取失败，尝试从文书提取")
@@ -218,7 +218,7 @@ class CaseMatcher:
         # 3. 如果文书也提取失败，返回短信中的单个当事人（总比没有好）
         if sms.party_names:
             logger.debug(f"文书提取失败，使用短信中的当事人: {sms.party_names}")
-            return sms.party_names  # type: ignore[no-any-return]
+            return cast(list[str], sms.party_names)
 
         return []
 
@@ -246,7 +246,7 @@ class CaseMatcher:
 
         return self._find_all_matching_cases(matched_clients)
 
-    def _narrow_down_by_case_number_features(self, cases: List[Any], case_numbers: list[str]) -> Any:
+    def _narrow_down_by_case_number_features(self, cases: list[Any], case_numbers: list[str]) -> Any:
         """
         第三优先级：通过案号特征缩小案件范围
 
@@ -323,7 +323,7 @@ class CaseMatcher:
         all_cases = self._get_all_cases_by_numbers(case_numbers)
         return [c for c in all_cases if c.status == CaseStatus.ACTIVE]
 
-    def _find_all_matching_cases(self, matched_clients: List[Any]) -> list[Any]:
+    def _find_all_matching_cases(self, matched_clients: list[Any]) -> list[Any]:
         """根据匹配的客户查找所有关联的在办案件（双向严格匹配）"""
         from apps.core.enums import CaseStatus
 
@@ -441,7 +441,7 @@ class CaseMatcher:
         """
         return self._match_by_case_number_exact(case_numbers)
 
-    def _select_latest_case(self, cases: List[Any]) -> Any:
+    def _select_latest_case(self, cases: list[Any]) -> Any:
         """从案件列表中选择最新的案件（按 ID 降序，ID 越大越新）"""
         if not cases:
             return None

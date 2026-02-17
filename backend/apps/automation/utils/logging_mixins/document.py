@@ -21,7 +21,7 @@ class AutomationDocumentLoggerMixin:
             extra["case_id"] = case_id
         extra.update(kwargs)
 
-        get_logger().info("开始创建文档记录", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始创建文档记录", extra=extra)
 
     @staticmethod
     def log_document_creation_success(
@@ -38,7 +38,7 @@ class AutomationDocumentLoggerMixin:
             extra["case_id"] = case_id
         extra.update(kwargs)
 
-        get_logger().info("文档记录创建成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("文档记录创建成功", extra=extra)
 
     @staticmethod
     def log_document_status_update(document_id: int, old_status: str, new_status: str, **kwargs: Any) -> None:
@@ -51,7 +51,7 @@ class AutomationDocumentLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("文档状态更新", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("文档状态更新", extra=extra)
 
     @staticmethod
     def log_document_processing_start(file_type: str, file_size: int | None = None, **kwargs: Any) -> None:
@@ -64,7 +64,7 @@ class AutomationDocumentLoggerMixin:
             extra["file_size"] = file_size  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().info(f"开始处理{file_type}文档", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"开始处理{file_type}文档", extra=extra)
 
     @staticmethod
     def log_document_processing_success(
@@ -82,7 +82,7 @@ class AutomationDocumentLoggerMixin:
             extra["file_size"] = file_size
         extra.update(kwargs)
 
-        get_logger().info(f"{file_type}文档处理成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"{file_type}文档处理成功", extra=extra)
 
     @staticmethod
     def log_document_processing_failed(
@@ -100,7 +100,7 @@ class AutomationDocumentLoggerMixin:
             extra["file_size"] = file_size
         extra.update(kwargs)
 
-        get_logger().error(f"{file_type}文档处理失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"{file_type}文档处理失败", extra=extra)
 
     @staticmethod
     def log_document_api_request_start(
@@ -123,7 +123,7 @@ class AutomationDocumentLoggerMixin:
             extra["sdbh"] = sdbh
         extra.update(kwargs)
 
-        get_logger().info(f"开始调用文书API: {api_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"开始调用文书API: {api_name}", extra=extra)
 
     @staticmethod
     def log_document_api_request_success(
@@ -151,7 +151,7 @@ class AutomationDocumentLoggerMixin:
             extra["page_num"] = page_num
         extra.update(kwargs)
 
-        get_logger().info(f"文书API调用成功: {api_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"文书API调用成功: {api_name}", extra=extra)
 
     @staticmethod
     def log_document_api_request_failed(
@@ -176,7 +176,7 @@ class AutomationDocumentLoggerMixin:
             extra["page_num"] = page_num
         extra.update(kwargs)
 
-        get_logger().error(f"文书API调用失败: {api_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"文书API调用失败: {api_name}", extra=extra)
 
     @staticmethod
     def log_document_query_statistics(
@@ -201,7 +201,7 @@ class AutomationDocumentLoggerMixin:
             extra["credential_id"] = credential_id
         extra.update(kwargs)
 
-        get_logger().info(  # type: ignore[func-returns-value]
+        get_logger().info(
             f"文书查询统计: 发现={total_found}, 处理={processed_count}, 跳过={skipped_count}, 失败={failed_count}",
             extra=extra,
         )
@@ -222,7 +222,7 @@ class AutomationDocumentLoggerMixin:
             extra["sdbh"] = sdbh
         extra.update(kwargs)
 
-        get_logger().info(f"开始下载文书: {document_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"开始下载文书: {document_name}", extra=extra)
 
     @staticmethod
     def log_document_download_success(
@@ -240,7 +240,7 @@ class AutomationDocumentLoggerMixin:
             extra["save_path"] = save_path
         extra.update(kwargs)
 
-        get_logger().info(f"文书下载成功: {document_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"文书下载成功: {document_name}", extra=extra)
 
     @staticmethod
     def log_document_download_failed(
@@ -256,4 +256,4 @@ class AutomationDocumentLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().error(f"文书下载失败: {document_name}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"文书下载失败: {document_name}", extra=extra)

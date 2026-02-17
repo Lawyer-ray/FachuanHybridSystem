@@ -10,7 +10,7 @@ import io
 import logging
 import zipfile
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from docxtpl import DocxTemplate
 
@@ -220,7 +220,7 @@ class PreservationMaterialsGenerationService:
         from apps.core.enums import LegalStatus
 
         case_service = get_case_service()
-        return case_service.get_case_parties_internal(case_id, legal_status=LegalStatus.DEFENDANT)  # type: ignore[no-any-return]
+        return cast(list[Any], case_service.get_case_parties_internal(case_id, legal_status=LegalStatus.DEFENDANT))
 
     def _get_template_path_by_function_code(self, case_id: int, function_code: str) -> Path | None:
         """

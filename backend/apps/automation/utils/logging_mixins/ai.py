@@ -19,7 +19,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("开始AI文件名生成", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始AI文件名生成", extra=extra)
 
     @staticmethod
     def log_ai_filename_generation_success(
@@ -35,7 +35,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info("AI文件名生成成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("AI文件名生成成功", extra=extra)
 
     @staticmethod
     def log_ai_filename_generation_failed(
@@ -51,7 +51,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().error("AI文件名生成失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error("AI文件名生成失败", extra=extra)
 
     @staticmethod
     def log_audio_transcription_start(file_format: str, file_size: int | None = None, **kwargs: Any) -> None:
@@ -64,7 +64,7 @@ class AutomationAiLoggerMixin:
             extra["file_size"] = file_size  # type: ignore[assignment]
         extra.update(kwargs)
 
-        get_logger().info("开始音频转录", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("开始音频转录", extra=extra)
 
     @staticmethod
     def log_audio_transcription_success(
@@ -82,7 +82,7 @@ class AutomationAiLoggerMixin:
             extra["file_size"] = file_size
         extra.update(kwargs)
 
-        get_logger().info("音频转录成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info("音频转录成功", extra=extra)
 
     @staticmethod
     def log_audio_transcription_failed(
@@ -100,7 +100,7 @@ class AutomationAiLoggerMixin:
             extra["file_size"] = file_size
         extra.update(kwargs)
 
-        get_logger().error("音频转录失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error("音频转录失败", extra=extra)
 
     @staticmethod
     def log_performance_metrics_collection_start(metric_type: str, **kwargs: Any) -> None:
@@ -111,7 +111,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().debug(f"开始收集{metric_type}性能指标", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().debug(f"开始收集{metric_type}性能指标", extra=extra)
 
     @staticmethod
     def log_performance_metrics_collection_success(
@@ -127,7 +127,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().debug(f"{metric_type}性能指标收集成功", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().debug(f"{metric_type}性能指标收集成功", extra=extra)
 
     @staticmethod
     def log_performance_metrics_collection_failed(
@@ -143,7 +143,7 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().error(f"{metric_type}性能指标收集失败", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().error(f"{metric_type}性能指标收集失败", extra=extra)
 
     @staticmethod
     def log_performance_metric_recorded(metric_name: str, value: int | float, **kwargs: Any) -> None:
@@ -155,4 +155,4 @@ class AutomationAiLoggerMixin:
         }
         extra.update(kwargs)
 
-        get_logger().info(f"性能指标记录: {metric_name} = {value}", extra=extra)  # type: ignore[func-returns-value]
+        get_logger().info(f"性能指标记录: {metric_name} = {value}", extra=extra)

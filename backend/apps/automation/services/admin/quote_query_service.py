@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from django.db.models import Avg, Count, Max, Min, Q
 from django.utils import timezone

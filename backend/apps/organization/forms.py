@@ -3,7 +3,7 @@
 """
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
@@ -46,7 +46,7 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
             # 检查是否全部为中文字符
             if not re.match(r"^[\u4e00-\u9fa5]+$", username):
                 raise ValidationError("用户名只能输入中文")
-        return username  # type: ignore[no-any-return]
+        return cast(str, username)
 
     def save(self, commit: bool = True) -> Lawyer:
         """保存用户，根据是否为第一个用户设置权限"""

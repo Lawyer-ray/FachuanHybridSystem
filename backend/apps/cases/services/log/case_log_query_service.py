@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django.db.models import QuerySet
 
@@ -57,7 +57,7 @@ class CaseLogQueryService:
         log = self.get_log_internal(log_id=log_id)
 
         if perm_open_access:
-            return log  # type: ignore[no-any-return]
+            return cast(CaseLog, log)
 
         self.access_policy.ensure_access(
             case_id=log.case_id,
@@ -67,7 +67,7 @@ class CaseLogQueryService:
             case=log.case,
             message="无权限访问此日志",
         )
-        return log  # type: ignore[no-any-return]
+        return cast(CaseLog, log)
 
     def get_log_internal(self, *, log_id: int) -> Any:
         try:

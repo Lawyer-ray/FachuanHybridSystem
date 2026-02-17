@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+from typing import cast
 
-def get_logger() -> None:
+
+def get_logger() -> logging.Logger:
     import importlib
 
     module = importlib.import_module("apps.automation.utils.logging")
-    return module.logger  # type: ignore[no-any-return]
+    return cast(logging.Logger, module.logger)
 
 
 def utc_now_iso() -> str:

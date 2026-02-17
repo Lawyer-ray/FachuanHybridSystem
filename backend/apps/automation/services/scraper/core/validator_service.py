@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.utils.file_utils import FileUtils
 from apps.automation.utils.text_utils import TextUtils
@@ -73,7 +73,7 @@ class ValidatorService:
         Returns:
             规范化后的案号
         """
-        return self.text_utils.normalize_case_number(case_number)  # type: ignore[no-any-return]
+        return cast(str, self.text_utils.normalize_case_number(case_number))
 
     def validate_file(self, file_path: str, expected_extensions: list[Any] | None = None) -> dict[str, Any]:
         """
@@ -86,7 +86,7 @@ class ValidatorService:
         Returns:
             校验结果 {valid: bool, error: str, info: dict}
         """
-        return self.file_utils.validate_file_basic(file_path, expected_extensions)  # type: ignore[no-any-return]
+        return cast(dict[str, Any], self.file_utils.validate_file_basic(file_path, expected_extensions))
 
     def clean_text(self, text: str) -> str:
         """
@@ -98,7 +98,7 @@ class ValidatorService:
         Returns:
             清洗后的文本
         """
-        return self.text_utils.clean_text(text)  # type: ignore[no-any-return]
+        return cast(str, self.text_utils.clean_text(text))
 
     def extract_case_numbers(self, text: str) -> list[Any]:
         """
@@ -110,7 +110,7 @@ class ValidatorService:
         Returns:
             案号列表
         """
-        return self.text_utils.extract_case_numbers(text)  # type: ignore[no-any-return]
+        return cast(list[Any], self.text_utils.extract_case_numbers(text))
 
 
 class ValidatorServiceAdapter(IValidatorService):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import Q, QuerySet
 
@@ -57,7 +57,7 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             return False
 
         if case is not None:
-            return case.assignments.filter(Q(lawyer_id__in=list(allowed_lawyers))).exists()  # type: ignore[no-any-return]
+            return cast(bool, case.assignments.filter(Q(lawyer_id__in=list(allowed_lawyers))).exists())
 
         return self.case_assignment_repo.has_case_access(case_id, list(allowed_lawyers))
 

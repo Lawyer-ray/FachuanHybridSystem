@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -66,7 +66,7 @@ def build_evidence_query_service() -> IEvidenceQueryService:
 def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService:
     from apps.documents.services import EvidenceListPlaceholderService
 
-    return EvidenceListPlaceholderService()  # type: ignore[no-any-return]
+    return cast(IEvidenceListPlaceholderService, EvidenceListPlaceholderService())
 
 
 def build_prompt_version_service() -> IPromptVersionService:

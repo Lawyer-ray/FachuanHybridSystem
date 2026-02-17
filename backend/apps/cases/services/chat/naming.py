@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from apps.core.exceptions import ValidationException
 
@@ -54,4 +54,4 @@ class ChatNameBuilder:
             case_name=case.name, stage=stage_display, case_type=case_type_display
         )
         logger.debug(f"生成群聊名称: {chat_name} (案件ID: {getattr(case, 'id', None)})")
-        return chat_name  # type: ignore[no-any-return]
+        return cast(str, chat_name)

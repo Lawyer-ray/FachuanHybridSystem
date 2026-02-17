@@ -9,7 +9,7 @@ API 层职责：
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -47,12 +47,15 @@ def list_grants(request: Any, case_id: int | None = None, grantee_id: int | None
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.list_grants(  # type: ignore[no-any-return]
-        case_id=case_id,
-        grantee_id=grantee_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        list[CaseAccessGrantOut],
+        service.list_grants(
+            case_id=case_id,
+            grantee_id=grantee_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -71,10 +74,13 @@ def create_grant(request: Any, payload: CaseAccessGrantIn) -> CaseAccessGrantOut
     # 提取用户信息
     user = getattr(request, "user", None)
 
-    return service.create_grant(  # type: ignore[no-any-return]
-        case_id=payload.case_id,
-        grantee_id=payload.grantee_id,
-        user=user,
+    return cast(
+        CaseAccessGrantOut,
+        service.create_grant(
+            case_id=payload.case_id,
+            grantee_id=payload.grantee_id,
+            user=user,
+        ),
     )
 
 
@@ -95,11 +101,14 @@ def get_grant(request: Any, grant_id: int) -> CaseAccessGrantOut:
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.get_grant(  # type: ignore[no-any-return]
-        grant_id=grant_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        CaseAccessGrantOut,
+        service.get_grant(
+            grant_id=grant_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -123,12 +132,15 @@ def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) ->
     # 转换 Schema 为字典（只包含设置的字段）
     data = payload.dict(exclude_unset=True)
 
-    return service.update_grant(  # type: ignore[no-any-return]
-        grant_id=grant_id,
-        data=data,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        CaseAccessGrantOut,
+        service.update_grant(
+            grant_id=grant_id,
+            data=data,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 

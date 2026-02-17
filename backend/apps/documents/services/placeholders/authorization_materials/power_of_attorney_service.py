@@ -148,10 +148,10 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         case_type = getattr(case, "case_type", None)
         case_stage = getattr(case, "current_stage", None)
         rules = self._query_candidate_rules(case_type, case_stage)
-        matched = self._filter_matching_rules(rules, case_type, case_stage, party_statuses)  # type: ignore[func-returns-value]
+        matched = self._filter_matching_rules(rules, case_type, case_stage, party_statuses)
         if not matched:
             return ""
-        chosen = self._pick_best_rule(matched)  # type: ignore[func-returns-value]
+        chosen = self._pick_best_rule(matched)
         return (chosen.items_text or "").strip()
 
     def _query_candidate_rules(self, case_type: Any, case_stage: Any) -> list[Any]:
@@ -162,7 +162,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             candidates = candidates.filter(case_stage__in=[None, case_stage])
         return list(candidates)
 
-    def _filter_matching_rules(self, rules: Any, case_type: Any, case_stage: Any, party_statuses: Any) -> None:
+    def _filter_matching_rules(self, rules: Any, case_type: Any, case_stage: Any, party_statuses: Any) -> list[Any]:
         matched: list[Any] = []
         for rule in rules:
             if rule.case_type and case_type and (rule.case_type != case_type):
@@ -172,9 +172,9 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             if not self._match_legal_statuses(rule, party_statuses):
                 continue
             matched.append(rule)
-        return matched  # type: ignore[return-value]
+        return matched
 
-    def _pick_best_rule(self, matched: Any) -> None:
+    def _pick_best_rule(self, matched: Any) -> Any:
 
         def mode_rank(mode: str) -> int:
             if mode == ProxyMatterRule.LegalStatusMatchMode.EXACT:
@@ -193,7 +193,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
                 int(getattr(r, "id", 0)),
             )
         )
-        return matched[0]  # type: ignore[no-any-return]
+        return matched[0]
 
     def _get_party_legal_statuses(
         self, context_data: dict[str, Any], *, case: Any, selected_clients: list[Any]

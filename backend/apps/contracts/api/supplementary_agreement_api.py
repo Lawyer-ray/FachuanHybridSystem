@@ -4,7 +4,7 @@
 异常处理依赖全局异常处理器，API 层不包含 try/except
 """
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -35,8 +35,11 @@ def create_supplementary_agreement(request: Any, payload: SupplementaryAgreement
     """
     service = _get_supplementary_agreement_service()
 
-    return service.create_supplementary_agreement(  # type: ignore[return-value]
-        contract_id=payload.contract_id, name=payload.name, party_ids=payload.party_ids
+    return cast(
+        SupplementaryAgreementOut,
+        service.create_supplementary_agreement(
+            contract_id=payload.contract_id, name=payload.name, party_ids=payload.party_ids
+        ),
     )
 
 
@@ -53,7 +56,7 @@ def get_supplementary_agreement(request: Any, agreement_id: int) -> Supplementar
     异常由全局异常处理器处理
     """
     service = _get_supplementary_agreement_service()
-    return service.get_supplementary_agreement(agreement_id)  # type: ignore[return-value]
+    return cast(SupplementaryAgreementOut, service.get_supplementary_agreement(agreement_id))
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
@@ -67,7 +70,7 @@ def list_supplementary_agreements(request: Any, contract_id: int) -> list[Supple
     3. 返回结果列表
     """
     service = _get_supplementary_agreement_service()
-    return service.list_by_contract(contract_id)  # type: ignore[return-value]
+    return cast(list[SupplementaryAgreementOut], service.list_by_contract(contract_id))
 
 
 @router.put("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
@@ -89,8 +92,11 @@ def update_supplementary_agreement(
     # 提取更新数据（只包含实际提供的字段）
     data = payload.dict(exclude_unset=True)
 
-    return service.update_supplementary_agreement(  # type: ignore[return-value]
-        agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")
+    return cast(
+        SupplementaryAgreementOut,
+        service.update_supplementary_agreement(
+            agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")
+        ),
     )
 
 

@@ -65,7 +65,7 @@ class Command(BaseCommand):
         self._maybe_switch_sqlite_db(options.get("database_path"))
         if not options.get("skip_migrate"):
             call_command("migrate", "--noinput", verbosity=0)
-        user = self._ensure_smoke_superuser()  # type: ignore[func-returns-value]
+        user = self._ensure_smoke_superuser()
         client = Client()
         client.force_login(user)
         if not options.get("skip_admin"):
@@ -91,7 +91,7 @@ class Command(BaseCommand):
         for conn in connections.all():
             conn.close()
 
-    def _ensure_smoke_superuser(self) -> None:
+    def _ensure_smoke_superuser(self) -> Any:
         User = get_user_model()
         username = "smoke_admin"
         user = User.objects.filter(username=username).first()
@@ -99,8 +99,8 @@ class Command(BaseCommand):
             if not user.is_staff:
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
-            return user  # type: ignore[no-any-return]
-        return User.objects.create_superuser(  # type: ignore[no-any-return, attr-defined]
+            return user
+        return User.objects.create_superuser(  # type: ignore[attr-defined]
             username=username, email="smoke_admin@example.com", password="smoke_admin_password"
         )
 

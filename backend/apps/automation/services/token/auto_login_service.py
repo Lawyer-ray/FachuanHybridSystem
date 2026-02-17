@@ -9,7 +9,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from apps.core.exceptions import AutoTokenAcquisitionError, LoginFailedError, NetworkError, TokenAcquisitionTimeoutError
 from apps.core.interfaces import AccountCredentialDTO, IBrowserService, LoginAttemptResult
@@ -361,7 +361,7 @@ class AutoLoginService:
             if not token:
                 raise Exception("登录成功但未获取到token")
 
-            return token  # type: ignore[no-any-return]
+            return cast(str, token)
 
         except Exception as e:
             raise e

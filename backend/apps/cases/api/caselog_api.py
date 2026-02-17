@@ -4,7 +4,7 @@
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -43,11 +43,14 @@ def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.list_logs(  # type: ignore[return-value]
-        case_id=case_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        list[CaseLogOut],
+        service.list_logs(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -59,12 +62,15 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
 
     reminder_time = _parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
 
-    return service.create_log(  # type: ignore[return-value]
-        case_id=payload.case_id,
-        content=payload.content,
-        user=user,
-        reminder_type=payload.reminder_type,  # type: ignore[attr-defined]
-        reminder_time=reminder_time,
+    return cast(
+        CaseLogOut,
+        service.create_log(
+            case_id=payload.case_id,
+            content=payload.content,
+            user=user,
+            reminder_type=payload.reminder_type,  # type: ignore[attr-defined]
+            reminder_time=reminder_time,
+        ),
     )
 
 
@@ -76,11 +82,14 @@ def get_log(request: Any, log_id: int) -> CaseLogOut:
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.get_log(  # type: ignore[return-value]
-        log_id=log_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        CaseLogOut,
+        service.get_log(
+            log_id=log_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -99,12 +108,15 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     if "reminder_time" in data and isinstance(data["reminder_time"], str):
         data["reminder_time"] = _parse_reminder_time(data["reminder_time"])
 
-    return service.update_log(  # type: ignore[return-value]
-        log_id=log_id,
-        data=data,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        CaseLogOut,
+        service.update_log(
+            log_id=log_id,
+            data=data,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 

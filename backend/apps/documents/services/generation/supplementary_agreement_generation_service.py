@@ -7,7 +7,7 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5, 9.4
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.core.enums import PartyRole  # type: ignore[attr-defined]
 from apps.core.interfaces import IContractService
@@ -118,7 +118,7 @@ class SupplementaryAgreementGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return TemplateMatcher().match_supplementary_agreement_template(case_type)  # type: ignore[no-any-return]
+        return cast(Optional["DocumentTemplate"], TemplateMatcher().match_supplementary_agreement_template(case_type))
 
     def build_context(self, contract: Any, agreement: Any) -> dict[str, Any]:
         """

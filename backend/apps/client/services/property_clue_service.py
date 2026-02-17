@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -134,7 +134,7 @@ class PropertyClueService:
                 errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"},
             )
 
-        return clue  # type: ignore[no-any-return]
+        return cast(PropertyClue, clue)
 
     def list_clues_by_client(
         self,
@@ -361,4 +361,4 @@ class PropertyClueService:
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
-        return PropertyClue.CONTENT_TEMPLATES.get(clue_type, "")  # type: ignore[no-any-return]
+        return cast(str, PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))

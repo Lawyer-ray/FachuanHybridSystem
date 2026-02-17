@@ -6,7 +6,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.interfaces import ServiceLocator
@@ -72,7 +72,7 @@ class SMSRenamingStage(BaseSMSStage):
         return "重命名"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return sms.status == CourtSMSStatus.RENAMING  # type: ignore[no-any-return]
+        return cast(bool, sms.status == CourtSMSStatus.RENAMING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理文书重命名阶段"""

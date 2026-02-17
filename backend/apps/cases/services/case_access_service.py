@@ -3,12 +3,15 @@
 处理案件访问权限相关的业务逻辑
 符合四层架构规范：业务逻辑、权限检查、依赖注入
 """
-from typing import List, Optional, Set, Dict, Any
+
+from typing import Any, cast
+
 from django.db.models import QuerySet
 
-from apps.core.exceptions import NotFoundError, ConflictError
+from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, ServiceLocator
 from apps.organization.middleware import invalidate_user_org_cache
+
 from ..models import Case, CaseAccessGrant
 
 
@@ -22,7 +25,7 @@ class CaseAccessService:
     - 缓存失效管理
     """
 
-    def __init__(self, case_service: Optional[ICaseService] = None):
+    def __init__(self, case_service: ICaseService | None = None):
         """
         构造函数，支持依赖注入
 
@@ -40,10 +43,10 @@ class CaseAccessService:
 
     def list_grants(
         self,
-        case_id: Optional[int] = None,
-        grantee_id: Optional[int] = None,
+        case_id: int | None = None,
+        grantee_id: int | None = None,
         user: Any = None,
-        org_access: Optional[Dict[str, Any]] = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
@@ -80,7 +83,7 @@ class CaseAccessService:
         self,
         grant_id: int,
         user: Any = None,
-        org_access: Optional[Dict[str, Any]] = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
         """
@@ -99,7 +102,7 @@ class CaseAccessService:
             NotFoundError: 授权不存在
         """
         try:
-            return CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id)  # type: ignore[no-any-return]
+            return cast(CaseAccessGrant, CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id))
         except CaseAccessGrant.DoesNotExist:
             raise NotFoundError(f"授权 {grant_id} 不存在")
 
@@ -145,9 +148,9 @@ class CaseAccessService:
     def update_grant(
         self,
         grant_id: int,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user: Any = None,
-        org_access: Optional[Dict[str, Any]] = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
         """
@@ -181,9 +184,9 @@ class CaseAccessService:
         self,
         grant_id: int,
         user: Any = None,
-        org_access: Optional[Dict[str, Any]] = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         删除授权（通过授权 ID 撤销访问权限）
 
@@ -234,7 +237,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
-    def get_accessible_case_ids(self, user_id: int, user: Any = None) -> Set[int]:
+    def get_accessible_case_ids(self, user_id: int, user: Any = None) -> set[int]:
         """
         获取用户可访问的案件 ID 集合
 
@@ -245,11 +248,7 @@ class CaseAccessService:
         Returns:
             案件 ID 集合
         """
-        return set(
-            CaseAccessGrant.objects
-            .filter(grantee_id=user_id)
-            .values_list("case_id", flat=True)
-        )
+        return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 
     def grant_access(self, case_id: int, grantee_id: int, user: Any = None) -> CaseAccessGrant:
         """
@@ -316,9 +315,9 @@ class CaseAccessService:
     def batch_grant_access(
         self,
         case_id: int,
-        grantee_ids: List[int],
+        grantee_ids: list[int],
         user: Any = None,
-    ) -> List[CaseAccessGrant]:
+    ) -> list[CaseAccessGrant]:
         """
         批量授予案件访问权限
 
@@ -339,9 +338,9 @@ class CaseAccessService:
 
         # 获取已存在的授权
         existing = set(
-            CaseAccessGrant.objects
-            .filter(case_id=case_id, grantee_id__in=grantee_ids)
-            .values_list("grantee_id", flat=True)
+            CaseAccessGrant.objects.filter(case_id=case_id, grantee_id__in=grantee_ids).values_list(
+                "grantee_id", flat=True
+            )
         )
 
         # 创建新授权

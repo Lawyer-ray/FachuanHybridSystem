@@ -7,7 +7,7 @@ LLM API 共享实现
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 
 def chat_with_context(
@@ -42,7 +42,7 @@ async def achat_with_context(
         )
         return {"response": response, "session_id": conversation_service.session_id}
 
-    return await sync_to_async(_run, thread_sensitive=True)()  # type: ignore[no-any-return]
+    return cast(dict[str, str], await sync_to_async(_run, thread_sensitive=True)())
 
 
 def _get_conversation_history_service() -> Any:

@@ -4,7 +4,7 @@
 """
 
 import os
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 from ninja import File, Router
@@ -108,7 +108,7 @@ def get_client(request: Any, client_id: int) -> ClientOut:
     service = _get_client_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
     client = service.get_client(client_id, user)
-    return client  # type: ignore[no-any-return]
+    return cast(ClientOut, client)
 
 
 @router.post("/clients", response=ClientOut)
@@ -129,7 +129,7 @@ def create_client(request: Any, payload: ClientIn) -> ClientOut:
     client = service.create_client(data=payload.dict(), user=user)
 
     # 返回响应
-    return client  # type: ignore[no-any-return]
+    return cast(ClientOut, client)
 
 
 @router.post("/clients-with-docs", response=ClientOut)
@@ -173,7 +173,7 @@ def create_client_with_docs(
             )
 
     # 返回响应
-    return client  # type: ignore[no-any-return]
+    return cast(ClientOut, client)
 
 
 @router.put("/clients/{client_id}", response=ClientOut)
@@ -194,7 +194,7 @@ def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Clie
     user = getattr(request, "auth", None) or getattr(request, "user", None)
     client = service.update_client(client_id=client_id, data=data, user=user)
 
-    return client  # type: ignore[no-any-return]
+    return cast(ClientOut, client)
 
 
 @router.delete("/clients/{client_id}", response={204: None})

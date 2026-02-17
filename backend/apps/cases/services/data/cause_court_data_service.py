@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
@@ -52,7 +52,7 @@ class CauseCourtDataCache:
                 },
             )
 
-            return data  # type: ignore[no-any-return]
+            return cast(dict[str, Any], data)
 
         except json.JSONDecodeError as e:
             logger.error(

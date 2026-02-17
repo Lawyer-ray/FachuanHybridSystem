@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.exceptions import LoginFailedError, NoAvailableAccountError, TokenAcquisitionTimeoutError
 from apps.automation.utils.logging_mixins.common import mask_account, stable_hash
@@ -106,7 +106,7 @@ async def _resolve_credential(
                 "credential_id": credential_id,
             },
         )
-        return credential  # type: ignore[no-any-return]
+        return cast(AccountCredentialDTO, credential)
     if selected_credential:
         tried_accounts.add(selected_credential.account)
         logger.info(
@@ -134,7 +134,7 @@ async def _resolve_credential(
             "selection_reason": "best_available",
         },
     )
-    return credential  # type: ignore[no-any-return]
+    return cast(AccountCredentialDTO, credential)
 
 
 async def _execute_login_success(

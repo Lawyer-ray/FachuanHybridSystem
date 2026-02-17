@@ -10,7 +10,7 @@ import io
 import logging
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from docxtpl import DocxTemplate
 
@@ -279,7 +279,7 @@ class CaseTemplateGenerationService:
             context_data["client"] = client
         if clients:
             context_data["clients"] = clients
-        return get_enhanced_context_builder().build_context(context_data)  # type: ignore[no-any-return]
+        return cast(dict[str, Any], get_enhanced_context_builder().build_context(context_data))
 
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         """

@@ -10,7 +10,7 @@ import logging
 import zipfile
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.core.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -83,7 +83,7 @@ class FolderGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return TemplateMatcher().match_folder_template(case_type)  # type: ignore[no-any-return]
+        return cast(Optional["FolderTemplate"], TemplateMatcher().match_folder_template(case_type))
 
     def format_root_folder_name(self, contract: Any) -> str:
         """
@@ -136,7 +136,7 @@ class FolderGenerationService:
             # 根目录名称使用 root_name
             structure = {"name": root_name, "children": structure.get("children", [])}
 
-        return structure  # type: ignore[no-any-return]
+        return cast(dict[str, Any], structure)
 
     def get_document_placements(self, contract: Any, folder_template: "FolderTemplate") -> list[DocumentPlacement]:
         """

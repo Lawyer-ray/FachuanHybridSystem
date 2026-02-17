@@ -9,7 +9,7 @@ API 层职责：
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -53,12 +53,15 @@ def search_cases(
     perm_open_access = getattr(request, "perm_open_access", False)
 
     # 调用搜索服务
-    return service.search_cases(  # type: ignore[return-value]
-        query=q,
-        limit=limit,  # type: ignore[arg-type]
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        list[CaseOut],
+        service.search_cases(
+            query=q,
+            limit=limit,  # type: ignore[arg-type]
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -91,20 +94,26 @@ def list_cases(
 
     # 如果提供了案号，使用案号搜索
     if case_number:
-        return service.search_by_case_number(  # type: ignore[return-value]
-            case_number=case_number,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+        return cast(
+            list[CaseOut],
+            service.search_by_case_number(
+                case_number=case_number,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            ),
         )
 
     # 否则使用常规列表查询
-    return service.list_cases(  # type: ignore[return-value]
-        case_type=case_type,
-        status=status,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        list[CaseOut],
+        service.list_cases(
+            case_type=case_type,
+            status=status,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -126,11 +135,14 @@ def get_case(request: Any, case_id: int) -> CaseOut:
     perm_open_access = getattr(request, "perm_open_access", False)
 
     # 调用 Service（权限检查在 Service 层）
-    return service.get_case(  # type: ignore[return-value]
-        case_id=case_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+    return cast(
+        CaseOut,
+        service.get_case(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ),
     )
 
 
@@ -153,7 +165,7 @@ def create_case(request: Any, payload: CaseIn) -> CaseOut:
     data = payload.dict()
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return service.create_case(data, user=user)  # type: ignore[return-value]
+    return cast(CaseOut, service.create_case(data, user=user))
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
@@ -175,7 +187,7 @@ def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
     data = payload.dict(exclude_unset=True)
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return service.update_case(case_id, data, user=user)  # type: ignore[return-value]
+    return cast(CaseOut, service.update_case(case_id, data, user=user))
 
 
 @router.delete("/cases/{case_id}")

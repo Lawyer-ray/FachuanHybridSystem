@@ -6,7 +6,7 @@
 Requirements: 7.5
 """
 
-from typing import Any
+from typing import Any, cast
 
 from .data_classes import RecognitionResponse, RecognitionResult
 
@@ -44,7 +44,7 @@ class CourtDocumentRecognitionServiceAdapter:
         Returns:
             RecognitionResponse 对象
         """
-        return self.service.recognize_document(file_path, user)  # type: ignore[no-any-return]
+        return cast(RecognitionResponse, self.service.recognize_document(file_path, user))
 
     def recognize_document_from_text(self, text: str) -> RecognitionResult:
         """
@@ -56,4 +56,4 @@ class CourtDocumentRecognitionServiceAdapter:
         Returns:
             RecognitionResult 对象
         """
-        return self.service.recognize_document_from_text(text)  # type: ignore[no-any-return]
+        return cast(RecognitionResult, self.service.recognize_document_from_text(text))

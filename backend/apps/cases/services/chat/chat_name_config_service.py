@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ISystemConfigService
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def _get_system_config_service() -> ISystemConfigService:
     from .wiring import get_system_config_service
 
-    return get_system_config_service()  # type: ignore[no-any-return]
+    return cast(ISystemConfigService, get_system_config_service())
 
 
 class ChatNameConfigService:
@@ -74,7 +74,7 @@ class ChatNameConfigService:
         """延迟加载系统配置服务"""
         if self._system_config_service is None:
             self._system_config_service = _get_system_config_service()  # type: ignore[assignment]
-        return self._system_config_service  # type: ignore[return-value]
+        return cast(ISystemConfigService, self._system_config_service)
 
     def get_template(self) -> str:
         """获取群名模板

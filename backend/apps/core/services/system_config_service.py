@@ -5,7 +5,7 @@
 """
 
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 from django.core.cache import cache
 from django.db import transaction
@@ -72,7 +72,7 @@ class SystemConfigService:
         # 清除缓存
         self._clear_cache(key)
 
-        return config  # type: ignore[no-any-return]
+        return cast(SystemConfig, config)
 
     @transaction.atomic
     def update_config(
@@ -127,7 +127,7 @@ class SystemConfigService:
         # 清除缓存
         self._clear_cache(config.key)
 
-        return config  # type: ignore[no-any-return]
+        return cast(SystemConfig, config)
 
     @transaction.atomic
     def delete_config(self, config_id: int) -> bool:
@@ -168,7 +168,7 @@ class SystemConfigService:
             SystemConfig 实例
         """
         try:
-            return self._model.objects.get(id=config_id)  # type: ignore[no-any-return]
+            return cast(SystemConfig, self._model.objects.get(id=config_id))
         except self._model.DoesNotExist:
             raise NotFoundError(
                 message="系统配置不存在",
@@ -214,7 +214,7 @@ class SystemConfigService:
 
         value = config.value
         cache.set(cache_key, value, timeout=self._cache_timeout)
-        return value  # type: ignore[no-any-return]
+        return cast(str, value)
 
     def list_configs(
         self,

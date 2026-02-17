@@ -1,6 +1,6 @@
 """Business logic services."""
 
-from typing import Any
+from typing import Any, cast
 
 from django.db.models import QuerySet
 
@@ -100,7 +100,7 @@ class ContractQueryFacade:
             message="无权限访问该合同",
         )
         self.list_assembler.enrich([contract])
-        return contract  # type: ignore[no-any-return]
+        return cast(Contract, contract)
 
     def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         contract = self.query_service.get_contract_internal(contract_id)

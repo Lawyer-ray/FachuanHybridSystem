@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 from collections.abc import Callable
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ class ServiceLocator:
 
             service = ContractServiceAdapter()
             cls.register("contract_service", service)
-        return service  # type: ignore[return-value]
+        return cast(IContractService, service)
 
     @classmethod
     def get_case_service(cls) -> ICaseService:
@@ -164,7 +164,7 @@ class ServiceLocator:
 
             service = CaseServiceAdapter()
             cls.register("case_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICaseService, service)
 
     @classmethod
     def get_lawfirm_service(cls) -> ILawFirmService:
@@ -493,7 +493,7 @@ class ServiceLocator:
 
             service = CourtSMSService()
             cls.register("court_sms_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICourtSMSService, service)
 
     @classmethod
     def get_case_chat_service(cls) -> ICaseChatService:
@@ -510,7 +510,7 @@ class ServiceLocator:
 
             service = CaseChatService()
             cls.register("case_chat_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICaseChatService, service)
 
     @classmethod
     def get_organization_service(cls) -> IOrganizationService:
@@ -589,7 +589,7 @@ class ServiceLocator:
 
             service = CauseCourtQueryService()
             cls.register("cause_court_query_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICauseCourtQueryService, service)
 
     @classmethod
     def get_business_config_service(cls) -> IBusinessConfigService:
@@ -622,7 +622,7 @@ class ServiceLocator:
 
             service = LLMService()
             cls.register("llm_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ILLMService, service)
 
     @classmethod
     def get_prompt_version_service(cls) -> IPromptVersionService:
@@ -663,7 +663,7 @@ class ServiceLocator:
         service = cls.get("permission_service")
         if service is None:
             raise RuntimeError("权限服务未注册.请先调用 ServiceLocator.register('permission_service', instance) 注册.")
-        return service  # type: ignore[no-any-return]
+        return cast(IPermissionService, service)
 
     # ============================================================
     # 文档相关服务
@@ -732,7 +732,7 @@ class ServiceLocator:
 
             service = GenerationTaskService()
             cls.register("generation_task_service", service)
-        return service  # type: ignore[return-value]
+        return cast(IGenerationTaskService, service)
 
     @classmethod
     def get_contract_generation_service(cls) -> IContractGenerationService:
@@ -743,7 +743,7 @@ class ServiceLocator:
 
             service = ContractGenerationService()
             cls.register("contract_generation_service", service)
-        return service  # type: ignore[return-value]
+        return cast(IContractGenerationService, service)
 
     @classmethod
     def get_supplementary_agreement_generation_service(cls) -> ISupplementaryAgreementGenerationService:
@@ -756,7 +756,7 @@ class ServiceLocator:
 
             service = SupplementaryAgreementGenerationService()
             cls.register("supplementary_agreement_generation_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ISupplementaryAgreementGenerationService, service)
 
     # ============================================================
     # 案件扩展服务
@@ -804,7 +804,7 @@ class ServiceLocator:
 
             service = CaseAssignmentService()
             cls.register("case_assignment_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICaseAssignmentService, service)
 
     @classmethod
     def get_case_material_service(cls) -> ICaseMaterialService:
@@ -843,7 +843,7 @@ class ServiceLocator:
 
             service = FolderBindingService()
             cls.register("contract_folder_binding_service", service)
-        return service  # type: ignore[return-value]
+        return cast(IContractFolderBindingService, service)
 
     # ============================================================
     # 自动化扩展服务
@@ -858,7 +858,7 @@ class ServiceLocator:
 
             service = CourtTokenStoreService()
             cls.register("court_token_store_service", service)
-        return service  # type: ignore[return-value]
+        return cast(ICourtTokenStoreService, service)
 
     @classmethod
     def get_baoquan_token_service(cls) -> IBaoquanTokenService:

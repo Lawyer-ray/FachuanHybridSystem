@@ -3,7 +3,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.services.court_document_recognition.data_classes import DocumentType
 from apps.core.exceptions import ValidationException
@@ -52,7 +52,7 @@ class CaseLogSideEffects:
             if not success:
                 logger.warning("添加日志附件失败", extra={})
 
-        return case_log_id  # type: ignore[no-any-return]
+        return cast(int, case_log_id)
 
     def update_log_reminder(
         self, case_log_id: int, reminder_time: datetime, document_type: DocumentType | None = None

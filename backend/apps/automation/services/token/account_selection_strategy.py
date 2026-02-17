@@ -7,7 +7,7 @@
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from django.utils import timezone
 
@@ -134,7 +134,7 @@ class AccountSelectionStrategy:
             # 直接返回DTO列表（organization服务已经返回DTO）
             return credentials
 
-        return await get_credentials()  # type: ignore[no-any-return]
+        return cast(list[AccountCredentialDTO], await get_credentials())
 
     def _select_best_account(self, accounts: list[AccountCredentialDTO]) -> AccountCredentialDTO:
         """
@@ -180,7 +180,7 @@ class AccountSelectionStrategy:
             else:
                 success_rate_score = 10  # 新账号给予中等分数
 
-            return -(preferred_score + recency_score + success_score + success_rate_score)  # type: ignore[return-value]
+            return cast(tuple[int, int, int], -(preferred_score + recency_score + success_score + success_rate_score))
 
         # 排序并选择最优账号
         sorted_accounts = sorted(accounts, key=sort_key)

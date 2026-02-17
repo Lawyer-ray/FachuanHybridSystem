@@ -18,7 +18,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from apps.core.config.notifications import ConfigChangeListener
 from apps.core.path import Path
@@ -129,7 +129,7 @@ class SteeringConditionalLoader:
         """根据规范模式获取对应的文件模式"""
         with self._lock:
             if spec_pattern in self._file_pattern_cache:
-                return self._file_pattern_cache[spec_pattern]  # type: ignore[no-any-return]
+                return cast(list[str], self._file_pattern_cache[spec_pattern])
 
             patterns = self._match_spec_patterns(spec_pattern)
             self._file_pattern_cache[spec_pattern] = patterns
@@ -350,7 +350,7 @@ class SteeringDependencyResolver:
                         if isinstance(inherits, str):
                             inherits = [inherits]
 
-                        return inherits  # type: ignore[no-any-return]
+                        return cast(list[str], inherits)
                     except yaml.YAMLError:
                         pass
 
@@ -417,7 +417,7 @@ class SteeringDependencyResolver:
 
                         try:
                             metadata = yaml.safe_load(parts[1]) or {}
-                            return metadata.get("priority", 0)  # type: ignore[no-any-return]
+                            return cast(int, metadata.get("priority", 0))
                         except yaml.YAMLError:
                             pass
 

@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -47,7 +47,7 @@ class CaseLogService:
         self,
         case_id: int | None = None,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> "QuerySet[CaseLog, CaseLog]":
         """
@@ -90,7 +90,7 @@ class CaseLogService:
         self,
         log_id: int,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -165,7 +165,7 @@ class CaseLogService:
         log_id: int,
         data: dict[str, Any],
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
         """
@@ -213,7 +213,7 @@ class CaseLogService:
         self,
         log_id: int,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         """
@@ -246,7 +246,7 @@ class CaseLogService:
         log_id: int,
         files: list[UploadedFile],
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, int]:
         """
@@ -298,11 +298,13 @@ class CaseLogService:
             NotFoundError: 日志不存在
         """
         try:
-            return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)  # type: ignore[no-any-return]
+            return cast(
+                CaseLog, CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
+            )
         except CaseLog.DoesNotExist:
             raise NotFoundError(f"日志 {log_id} 不存在")
 
-    def _check_case_access(self, case_obj: Any, user: Any, org_access: Dict[str, Any] | None) -> bool:
+    def _check_case_access(self, case_obj: Any, user: Any, org_access: dict[str, Any] | None) -> bool:
         """
         检查用户是否有权限访问案件
 
@@ -370,7 +372,7 @@ class CaseLogService:
         self,
         case_id: int,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> "QuerySet[CaseLog, CaseLog]":
         """
@@ -396,7 +398,7 @@ class CaseLogService:
         self,
         log_id: int,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:
         """
@@ -427,7 +429,7 @@ class CaseLogService:
         self,
         attachment_id: int,
         user: Any = None,
-        org_access: Dict[str, Any] | None = None,
+        org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
         """

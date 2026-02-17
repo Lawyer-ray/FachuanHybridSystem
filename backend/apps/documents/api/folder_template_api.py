@@ -10,7 +10,7 @@ import logging
 提供文件夹模板的 CRUD 接口.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Router
 
@@ -27,7 +27,7 @@ def _get_folder_template_service() -> FolderTemplateService:
     """工厂函数:创建 FolderTemplateService 实例"""
     from apps.core.dependencies.documents import build_folder_template_service
 
-    return build_folder_template_service()  # type: ignore[no-any-return, func-returns-value]
+    return cast(FolderTemplateService, build_folder_template_service())
 
 
 @router.get("/folder-templates", response=list[FolderTemplateOut])

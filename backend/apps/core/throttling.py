@@ -2,10 +2,13 @@
 请求限流模块
 基于 Redis 或内存的请求限流实现
 """
-import time
+
 import hashlib
-from typing import Optional, Tuple, Callable, Any
+import time
 from functools import wraps
+from typing import Any, cast
+from collections.abc import Callable
+
 from django.core.cache import cache
 from django.http import HttpRequest
 from ninja.errors import HttpError
@@ -39,10 +42,10 @@ class RateLimiter:
         """获取客户端 IP"""
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
-        return request.META.get("REMOTE_ADDR", "unknown")  # type: ignore[no-any-return]
+            return cast(str, x_forwarded_for.split(",")[0].strip())
+        return cast(str, request.META.get("REMOTE_ADDR", "unknown"))
 
-    def get_cache_key(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> str:
+    def get_cache_key(self, request: HttpRequest, key_func: Callable[..., Any] | None = None) -> str:
         """
         生成缓存 key
 
@@ -65,7 +68,9 @@ class RateLimiter:
         key_hash = hashlib.md5(identifier.encode()).hexdigest()[:16]
         return f"{self.key_prefix}:{key_hash}"
 
-    def is_allowed(self, request: HttpRequest, key_func: Optional[Callable[..., Any]] = None) -> Tuple[bool, dict[str, Any]]:
+    def is_allowed(
+        self, request: HttpRequest, key_func: Callable[..., Any] | None = None
+    ) -> tuple[bool, dict[str, Any]]:
         """
         检查请求是否被允许
 
@@ -110,15 +115,15 @@ class RateLimiter:
 
 # 预定义的限流器实例
 default_limiter = RateLimiter(requests=100, window=60)  # 每分钟 100 次
-strict_limiter = RateLimiter(requests=10, window=60)    # 每分钟 10 次
-auth_limiter = RateLimiter(requests=5, window=60)       # 登录限流：每分钟 5 次
+strict_limiter = RateLimiter(requests=10, window=60)  # 每分钟 10 次
+auth_limiter = RateLimiter(requests=5, window=60)  # 登录限流：每分钟 5 次
 
 
 def rate_limit(
     requests: int = 100,
     window: int = 60,
-    key_func: Optional[Callable[..., str]] = None,
-    limiter: Optional[RateLimiter] = None,
+    key_func: Callable[..., str] | None = None,
+    limiter: RateLimiter | None = None,
 ) -> Callable[..., Any]:
     """
     限流装饰器
@@ -135,6 +140,7 @@ def rate_limit(
         def get_resource(request):
             ...
     """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
@@ -144,10 +150,7 @@ def rate_limit(
             allowed, info = _limiter.is_allowed(request, key_func)
 
             if not allowed:
-                raise HttpError(
-                    429,
-                    f"请求过于频繁，请 {info['reset'] - int(time.time())} 秒后重试"
-                )
+                raise HttpError(429, f"请求过于频繁，请 {info['reset'] - int(time.time())} 秒后重试")
 
             # 执行原函数
             response = func(request, *args, **kwargs)
@@ -159,6 +162,7 @@ def rate_limit(
             return response
 
         return wrapper
+
     return decorator
 
 
@@ -167,6 +171,7 @@ def rate_limit_by_user(requests: int = 100, window: int = 60) -> Callable[..., A
     基于用户的限流装饰器
     已登录用户使用用户 ID，未登录使用 IP
     """
+
     def key_func(request: HttpRequest) -> str:
         user = getattr(request, "user", None)
         if user and getattr(user, "is_authenticated", False):

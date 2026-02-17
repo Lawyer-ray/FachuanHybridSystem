@@ -9,7 +9,7 @@ Contract Schemas - Contract
 """
 
 import logging
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
@@ -171,7 +171,7 @@ class ContractOut(ModelSchema):
 
     @staticmethod
     def resolve_fee_mode(obj: Contract) -> str:
-        return obj.get_fee_mode_display()  # type: ignore[no-any-return, attr-defined]
+        return cast(str, obj.get_fee_mode_display())  # type: ignore[attr-defined]
 
     @staticmethod
     def resolve_contract_parties(obj: Contract) -> list[Any]:
