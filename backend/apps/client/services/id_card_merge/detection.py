@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 def detect_id_card_corners(
-    image: np.ndarray,
+    image: np.ndarray,  # type: ignore[type-arg]
     *,
     id_card_aspect_ratio: float,
     logger: Any,
-) -> np.ndarray | None:
+) -> np.ndarray | None:  # type: ignore[type-arg]
     if image is None or image.size == 0:
         logger.warning("输入图像为空")
         return None
@@ -46,7 +46,7 @@ def detect_id_card_corners(
     return ordered_corners
 
 
-def _compute_edges(image: np.ndarray) -> np.ndarray:
+def _compute_edges(image: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     median_val = np.median(blurred)

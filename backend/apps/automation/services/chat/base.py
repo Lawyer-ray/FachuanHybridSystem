@@ -30,7 +30,7 @@ class ChatResult:
     chat_name: Optional[str] = None
     message: Optional[str] = None
     error_code: Optional[str] = None
-    raw_response: Optional[dict] = None
+    raw_response: Optional[dict[str, Any]] = None
 
 
 @dataclass

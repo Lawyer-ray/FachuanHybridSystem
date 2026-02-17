@@ -353,7 +353,7 @@ class SteeringCacheManager:
         self._cleanup_timer: Optional[threading.Timer] = None
         self._start_cleanup_timer()
     
-    def get_cached_specification(self, spec_path: str, loader_func: Callable) -> Any:
+    def get_cached_specification(self, spec_path: str, loader_func: Callable[..., Any]) -> Any:
         """获取缓存的规范"""
         cache_config = self.config_provider.get_cache_config()
         
@@ -484,97 +484,6 @@ class SteeringCacheManager:
         """关闭缓存管理器"""
         if self._cleanup_timer:
             self._cleanup_timer.cancel()
-
-
-class SteeringPerformanceMonitor:
-    """Steering 性能监控器"""
-    
-    def __init__(self, config_provider: SteeringConfigProvider):
-        self.config_provider = config_provider
-        self._metrics: Dict[str, Dict[str, Any]] = {}
-        self._lock = threading.RLock()
-    
-    def monitor_loading(self, spec_path: str, loading_func: Callable) -> Any:
-        """监控规范加载性能"""
-        perf_config = self.config_provider.get_performance_config()
-        
-        if not perf_config.enable_monitoring:
-            return loading_func()
-        
-        start_time = time.time()
-        
-        try:
-            result = loading_func()
-            
-            # 记录成功加载
-            load_time_ms = (time.time() - start_time) * 1000
-            self._record_metric(spec_path, load_time_ms, True)
-            
-            # 检查性能阈值
-            self._check_performance_thresholds(spec_path, load_time_ms, perf_config)
-            
-            return result
-            
-        except Exception as e:
-            # 记录失败加载
-            load_time_ms = (time.time() - start_time) * 1000
-            self._record_metric(spec_path, load_time_ms, False)
-            
-            logger.error(f"规范加载失败 {spec_path}: {e}")
-            raise
-    
-    def _record_metric(self, spec_path: str, load_time_ms: float, success: bool) -> None:
-        """记录性能指标"""
-        with self._lock:
-            if spec_path not in self._metrics:
-                self._metrics[spec_path] = {
-                    "total_loads": 0,
-                    "successful_loads": 0,
-                    "failed_loads": 0,
-                    "total_time_ms": 0.0,
-                    "min_time_ms": float('inf'),
-                    "max_time_ms": 0.0,
-                    "avg_time_ms": 0.0
-                }
-            
-            metrics = self._metrics[spec_path]
-            metrics["total_loads"] += 1
-            metrics["total_time_ms"] += load_time_ms
-            
-            if success:
-                metrics["successful_loads"] += 1
-            else:
-                metrics["failed_loads"] += 1
-            
-            metrics["min_time_ms"] = min(metrics["min_time_ms"], load_time_ms)
-            metrics["max_time_ms"] = max(metrics["max_time_ms"], load_time_ms)
-            metrics["avg_time_ms"] = metrics["total_time_ms"] / metrics["total_loads"]
-    
-    def _check_performance_thresholds(self, spec_path: str, load_time_ms: float, 
-                                    perf_config: SteeringPerformanceConfig) -> None:
-        """检查性能阈值"""
-        if load_time_ms > perf_config.error_threshold_ms:
-            logger.error(f"规范加载性能严重超标 {spec_path}: {load_time_ms:.2f}ms "
-                        f"(阈值: {perf_config.error_threshold_ms}ms)")
-        elif load_time_ms > perf_config.warn_threshold_ms:
-            logger.warning(f"规范加载性能超标 {spec_path}: {load_time_ms:.2f}ms "
-                          f"(阈值: {perf_config.warn_threshold_ms}ms)")
-        elif load_time_ms > perf_config.load_threshold_ms:
-            logger.info(f"规范加载较慢 {spec_path}: {load_time_ms:.2f}ms "
-                       f"(阈值: {perf_config.load_threshold_ms}ms)")
-    
-    def get_performance_stats(self) -> Dict[str, Any]:
-        """获取性能统计信息"""
-        with self._lock:
-            return {
-                "total_specifications": len(self._metrics),
-                "metrics": dict(self._metrics)
-            }
-    
-    def reset_metrics(self) -> None:
-        """重置性能指标"""
-        with self._lock:
-            self._metrics.clear()
 
 
 class SteeringDependencyResolver:
