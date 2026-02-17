@@ -45,7 +45,7 @@ class CaseAccessService:
         user=None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
         获取授权列表
 
@@ -208,7 +208,7 @@ class CaseAccessService:
 
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user=None) -> QuerySet:
+    def get_grants_for_case(self, case_id: int, user=None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
         获取案件的所有访问授权
 
@@ -221,7 +221,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
 
-    def get_grants_for_user(self, user_id: int, user=None) -> QuerySet:
+    def get_grants_for_user(self, user_id: int, user=None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
         """
         获取用户的所有案件访问授权
 

@@ -46,7 +46,7 @@ class CaseAssignmentService:
         case_id: Optional[int] = None,
         lawyer_id: Optional[int] = None,
         user: Optional[Any] = None,
-    ) -> QuerySet:
+    ) -> "QuerySet[CaseAssignment, CaseAssignment]":
         """
         获取指派列表
 

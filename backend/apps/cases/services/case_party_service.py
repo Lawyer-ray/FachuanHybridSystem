@@ -177,7 +177,7 @@ class CasePartyService:
         self,
         case_id: Optional[int] = None,
         user: Optional[Any] = None,
-    ) -> QuerySet:
+    ) -> "QuerySet[CaseParty, CaseParty]":
         """
         获取当事人列表
 

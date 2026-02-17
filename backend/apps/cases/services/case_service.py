@@ -121,7 +121,7 @@ class CaseService:
         self.contract_service = contract_service
 
     @staticmethod
-    def get_case_queryset() -> QuerySet:
+    def get_case_queryset() -> "QuerySet[Case, Case]":
         """
         获取带预加载的案件查询集
 
@@ -153,7 +153,7 @@ class CaseService:
         org_access: Optional[dict[str, Any]] = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet[Case, Case]":
         """
         通过案号搜索案件
 
@@ -291,7 +291,7 @@ class CaseService:
         user: Optional[Any] = None,
         org_access: Optional[dict[str, Any]] = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet[Case, Case]":
         """
         获取案件列表（优化查询）
 

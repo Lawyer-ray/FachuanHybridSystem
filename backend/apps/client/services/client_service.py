@@ -56,7 +56,7 @@ class ClientService:
         is_our_client: Optional[bool] = None,
         search: Optional[str] = None,
         user: Optional[User] = None,
-    ) -> QuerySet:
+    ) -> "QuerySet[Client, Client]":
         """
         获取客户列表
 

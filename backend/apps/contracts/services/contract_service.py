@@ -120,7 +120,7 @@ class ContractService:
             )
         return self._supplementary_agreement_service
 
-    def get_contract_queryset(self) -> QuerySet:
+    def get_contract_queryset(self) -> "QuerySet[Contract, Contract]":
         """
         获取带预加载的合同查询集
 
@@ -148,7 +148,7 @@ class ContractService:
         user: Optional[Any] = None,
         org_access: Optional[Dict[str, Any]] = None,
         perm_open_access: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet[Contract, Contract]":
         """
         获取合同列表（包含权限过滤）
 
