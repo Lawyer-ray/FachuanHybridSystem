@@ -2,6 +2,7 @@
 主要API模块
 集成所有工具的API接口
 """
+from typing import Any
 from ninja import Router, File
 from ninja.files import UploadedFile
 from django.conf import settings
@@ -15,7 +16,7 @@ from .performance_monitor_api import router as performance_router
 router = Router(tags=["Main API"])
 
 
-def _get_ai_service():
+def _get_ai_service() -> Any:
     """
     工厂函数：创建AI服务实例
     
@@ -28,7 +29,7 @@ def _get_ai_service():
     return ServiceLocator.get_ai_service()
 
 
-def _get_document_processor_service():
+def _get_document_processor_service() -> Any:
     """
     工厂函数：创建文档处理服务实例
     
@@ -41,7 +42,7 @@ def _get_document_processor_service():
     return ServiceLocator.get_document_processor_service()
 
 
-def _get_config_service():
+def _get_config_service() -> Any:
     """
     工厂函数：创建配置服务实例
     
@@ -61,7 +62,7 @@ router.add_router("/performance", performance_router)
 # ============================================================================
 
 @router.post("/ai/ollama", response=OllamaChatOut)
-def ai_ollama(request, payload: OllamaChatIn):
+def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:
     """Ollama AI接口"""
     # 使用工厂函数获取服务
     service = _get_ai_service()
@@ -77,7 +78,7 @@ def ai_ollama(request, payload: OllamaChatIn):
 
 
 @router.post("/ai/moonshot", response=MoonshotChatOut)
-def ai_moonshot(request, payload: MoonshotChatIn):
+def ai_moonshot(request: Any, payload: MoonshotChatIn) -> MoonshotChatOut:
     """Moonshot AI接口"""
     # 使用工厂函数获取服务
     service = _get_ai_service()
@@ -98,11 +99,11 @@ def ai_moonshot(request, payload: MoonshotChatIn):
 
 @router.post("/file/upload", response=dict)
 def upload_file(
-    request,
+    request: Any,
     file: UploadedFile = File[UploadedFile](...),
     limit: int | None = None,
     preview_page: int | None = None
-):
+) -> dict[str, Any]:
     """通用文件上传和预处理API"""
     # 使用工厂函数获取服务
     service = _get_document_processor_service()
@@ -128,7 +129,7 @@ def upload_file(
 # ============================================================================
 
 @router.get("/config")
-def get_config(request):
+def get_config(request: Any) -> Any:
     """获取当前配置信息"""
     # 使用工厂函数获取服务
     service = _get_config_service()
@@ -140,7 +141,7 @@ def get_config(request):
 
 
 @router.get("/status")
-def get_status(request):
+def get_status(request: Any) -> Any:
     """获取系统状态"""
     # 使用工厂函数获取服务
     service = _get_config_service()

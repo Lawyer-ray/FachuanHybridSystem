@@ -8,7 +8,7 @@ API 层职责：
 
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from ninja import Router
 
 from ..schemas import (
@@ -20,7 +20,7 @@ from ..schemas import (
 router = Router()
 
 
-def _get_case_access_service():
+def _get_case_access_service() -> Any:
     """
     工厂函数：创建 CaseAccessService 实例
 
@@ -32,7 +32,7 @@ def _get_case_access_service():
 
 
 @router.get("/grants", response=List[CaseAccessGrantOut])
-def list_grants(request, case_id: Optional[int] = None, grantee_id: Optional[int] = None):
+def list_grants(request: Any, case_id: Optional[int] = None, grantee_id: Optional[int] = None) -> List[CaseAccessGrantOut]:
     """
     获取授权列表
 
@@ -58,7 +58,7 @@ def list_grants(request, case_id: Optional[int] = None, grantee_id: Optional[int
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
-def create_grant(request, payload: CaseAccessGrantIn):
+def create_grant(request: Any, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:
     """
     创建授权
 
@@ -80,7 +80,7 @@ def create_grant(request, payload: CaseAccessGrantIn):
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
-def get_grant(request, grant_id: int):
+def get_grant(request: Any, grant_id: int) -> CaseAccessGrantOut:
     """
     获取单个授权
 
@@ -105,7 +105,7 @@ def get_grant(request, grant_id: int):
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
-def update_grant(request, grant_id: int, payload: CaseAccessGrantUpdate):
+def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
     """
     更新授权
 
@@ -134,7 +134,7 @@ def update_grant(request, grant_id: int, payload: CaseAccessGrantUpdate):
 
 
 @router.delete("/grants/{grant_id}")
-def delete_grant(request, grant_id: int):
+def delete_grant(request: Any, grant_id: int) -> Any:
     """
     删除授权
 

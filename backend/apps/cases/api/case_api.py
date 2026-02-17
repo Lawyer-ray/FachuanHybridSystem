@@ -8,7 +8,7 @@ API 层职责：
 
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from ninja import Router
 
 from ..schemas import (
@@ -39,10 +39,10 @@ def _get_case_service() -> CaseService:
 
 @router.get("/cases/search", response=List[CaseOut])
 def search_cases(
-    request,
+    request: Any,
     q: str,
     limit: Optional[int] = 10,
-):
+) -> List[CaseOut]:
     """
     搜索案件
     
@@ -69,11 +69,11 @@ def search_cases(
 
 @router.get("/cases", response=List[CaseOut])
 def list_cases(
-    request,
+    request: Any,
     case_type: Optional[str] = None,
     status: Optional[str] = None,
     case_number: Optional[str] = None,
-):
+) -> List[CaseOut]:
     """
     获取案件列表
 
@@ -114,7 +114,7 @@ def list_cases(
 
 
 @router.get("/cases/{case_id}", response=CaseOut)
-def get_case(request, case_id: int):
+def get_case(request: Any, case_id: int) -> CaseOut:
     """
     获取单个案件
 
@@ -140,7 +140,7 @@ def get_case(request, case_id: int):
 
 
 @router.post("/cases", response=CaseOut)
-def create_case(request, payload: CaseIn):
+def create_case(request: Any, payload: CaseIn) -> CaseOut:
     """
     创建案件
 
@@ -162,7 +162,7 @@ def create_case(request, payload: CaseIn):
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
-def update_case(request, case_id: int, payload: CaseUpdate):
+def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
     """
     更新案件
 
@@ -184,7 +184,7 @@ def update_case(request, case_id: int, payload: CaseUpdate):
 
 
 @router.delete("/cases/{case_id}")
-def delete_case(request, case_id: int):
+def delete_case(request: Any, case_id: int) -> dict[str, bool]:
     """
     删除案件
 
@@ -205,7 +205,7 @@ def delete_case(request, case_id: int):
 
 
 @router.post("/cases/full", response=CaseFullOut)
-def create_case_full(request, payload: CaseCreateFull):
+def create_case_full(request: Any, payload: CaseCreateFull) -> CaseFullOut:
     """
     创建完整案件（包含当事人、指派、日志）
 
