@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+from typing import Any
 
 
 class AutomationConfig(AppConfig):
@@ -6,7 +7,7 @@ class AutomationConfig(AppConfig):
     name = "apps.automation"
     verbose_name = "自动化工具"
     
-    def ready(self):
+    def ready(self) -> None:
         """应用启动时的配置"""
         from django.contrib import admin
         from .admin.scraper.scraper_admin_site import customize_admin_index
@@ -20,7 +21,7 @@ class AutomationConfig(AppConfig):
         # 启动时自动恢复未完成的法院短信处理任务
         self._recover_court_sms_tasks()
     
-    def _recover_court_sms_tasks(self):
+    def _recover_court_sms_tasks(self) -> None:
         """启动时恢复未完成的法院短信处理任务"""
         import logging
         from django.conf import settings
@@ -74,7 +75,7 @@ class AutomationConfig(AppConfig):
             logger.error(f"安排法院短信任务恢复失败: {str(e)}", exc_info=True)
 
 
-def _delayed_recovery_task(*args, **kwargs):
+def _delayed_recovery_task(*args: Any, **kwargs: Any) -> None:
     """延迟执行的恢复任务（使用线程定时器，避免应用初始化时的数据库查询）"""
     import logging
     from django.core.management import call_command

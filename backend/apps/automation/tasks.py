@@ -2,11 +2,12 @@
 Django-Q 后台任务
 """
 import logging
+from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
 
-def _get_scraper_map():
+def _get_scraper_map() -> dict[str, type[Any]]:
     """
     延迟加载爬虫类映射，避免循环导入
     """
@@ -25,7 +26,7 @@ def _get_scraper_map():
     }
 
 
-def check_stuck_tasks():
+def check_stuck_tasks() -> None:
     """
     定时任务：检查卡住的任务
     """
@@ -42,7 +43,7 @@ def check_stuck_tasks():
         )
 
 
-def execute_scraper_task(task_id: int, **kwargs):
+def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
     """
     执行爬虫任务（同步版本，用于 Django-Q）
     
@@ -125,7 +126,7 @@ def execute_scraper_task(task_id: int, **kwargs):
             logger.info(f"计划执行时间: {next_run_time}")
 
 
-def process_pending_tasks():
+def process_pending_tasks() -> int:
     """
     处理所有待处理的任务
     
@@ -166,7 +167,7 @@ def process_pending_tasks():
     return submitted
 
 
-def reset_running_tasks():
+def reset_running_tasks() -> int:
     """
     重置所有 running 状态的任务为 pending
     
@@ -193,7 +194,7 @@ def reset_running_tasks():
     return count
 
 
-def startup_check():
+def startup_check() -> dict[str, int]:
     """
     启动时检查
     
@@ -221,7 +222,7 @@ def startup_check():
     }
 
 
-def execute_document_recognition_task(task_id: int):
+def execute_document_recognition_task(task_id: int) -> None:
     """
     执行文书识别任务（Django Q 异步任务）
     
@@ -363,7 +364,7 @@ def _send_recognition_notification(task, result):
         task.save(update_fields=["notification_sent", "notification_error"])
 
 
-def execute_preservation_quote_task(quote_id: int):
+def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
     """
     执行财产保全询价任务（Django Q 异步任务）
     
