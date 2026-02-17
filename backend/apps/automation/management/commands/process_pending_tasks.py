@@ -6,13 +6,14 @@
     python manage.py process_pending_tasks --reset   # 同时重置卡住的任务
     python manage.py process_pending_tasks --dry-run # 只显示，不执行
 """
+from typing import Any
 from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
     help = '处理所有待处理的爬虫任务'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--reset',
             action='store_true',
@@ -24,7 +25,7 @@ class Command(BaseCommand):
             help='只显示待处理任务，不实际执行',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from apps.automation.models import ScraperTask, ScraperTaskStatus
         from apps.automation.tasks import process_pending_tasks, reset_running_tasks
         

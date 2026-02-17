@@ -538,7 +538,7 @@ class DocumentDeliveryService:
         logger.warning("检查文书处理历史超时，默认处理")
         return True
 
-    def _sync_login_with_page(self, browser_service, credential, page) -> str:
+    def _sync_login_with_page(self, browser_service: Any, credential: Any, page: Page) -> str:
         """
         同步登录方法 - 使用传入的 page 进行登录
 

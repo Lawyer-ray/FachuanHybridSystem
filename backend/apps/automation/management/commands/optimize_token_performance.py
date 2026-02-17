@@ -5,6 +5,7 @@ Token性能优化管理命令
 """
 import asyncio
 import logging
+from typing import Any
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Token获取服务性能优化和维护'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--cleanup-days',
             type=int,
@@ -47,7 +48,7 @@ class Command(BaseCommand):
             help='重置性能指标'
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         """执行优化任务"""
         self.stdout.write(
             self.style.SUCCESS(f'开始Token性能优化任务 - {timezone.now()}')
@@ -60,7 +61,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(f'Token性能优化任务完成 - {timezone.now()}')
         )
 
-    async def _run_optimization_tasks(self, options):
+    async def _run_optimization_tasks(self, options: Any) -> None:
         """运行优化任务"""
         
         # 1. 清理历史记录

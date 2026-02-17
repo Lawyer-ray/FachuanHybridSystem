@@ -82,7 +82,7 @@ async def acquire_token_by_login(
 
 
 async def _resolve_credential(
-    self,
+    self: Any,
     logger: Any,
     acquisition_id: str,
     site_name: str,
@@ -138,7 +138,7 @@ async def _resolve_credential(
 
 
 async def _execute_login_success(
-    self,
+    self: Any,
     logger: Any,
     credential: Any,
     acquisition_id: Any,
@@ -198,7 +198,7 @@ async def _execute_login_success(
 
 
 async def _handle_timeout_error(
-    self,
+    self: Any,
     logger: Any,
     credential: Any,
     acquisition_id: Any,
@@ -279,7 +279,7 @@ async def _handle_timeout_error(
 
 
 async def _handle_login_failed_error(
-    self,
+    self: Any,
     logger: Any,
     e: Any,
     credential: Any,
@@ -362,7 +362,7 @@ async def _handle_login_failed_error(
 
 
 async def _handle_token_acquisition_timeout(
-    self,
+    self: Any,
     logger: Any,
     e: Any,
     credential: Any,
