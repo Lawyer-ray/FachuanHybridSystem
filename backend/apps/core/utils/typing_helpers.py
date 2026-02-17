@@ -39,7 +39,7 @@ def cast_model_id(model: Model | None) -> int | None:
     if model is None:
         return None
     # Django Model的id是动态属性，使用getattr避免类型检查错误
-    return cast(int, model.id)
+    return cast(int, model.id)  # type: ignore[attr-defined]
 
 
 def cast_model_pk(model: Model | None) -> Any:

@@ -5,6 +5,7 @@
 """
 
 import os
+from typing import Any
 from django.core.management.base import BaseCommand
 from apps.core.models import SystemConfig
 
@@ -12,7 +13,7 @@ from apps.core.models import SystemConfig
 class Command(BaseCommand):
     help = '初始化系统配置项'
     
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--sync-env',
             action='store_true',
