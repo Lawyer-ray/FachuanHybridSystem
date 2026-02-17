@@ -78,7 +78,7 @@ def get_contract_reminder(request: HttpRequest, reminder_id: int) -> Any:
 
 
 @router.put("/reminders/{reminder_id}", response=ContractReminderOut)
-def update_contract_reminder(request, reminder_id: int, payload: ContractReminderUpdate):
+def update_contract_reminder(request: HttpRequest, reminder_id: int, payload: ContractReminderUpdate) -> Any:
     """
     更新提醒记录
     
@@ -101,7 +101,7 @@ def update_contract_reminder(request, reminder_id: int, payload: ContractReminde
 
 
 @router.delete("/reminders/{reminder_id}")
-def delete_contract_reminder(request, reminder_id: int):
+def delete_contract_reminder(request: HttpRequest, reminder_id: int) -> Any:
     """
     删除提醒记录
     

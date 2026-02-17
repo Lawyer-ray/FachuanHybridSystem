@@ -2,8 +2,9 @@
 合同收款 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import Optional
+from typing import Optional, Any
 from ninja import Router
+from django.http import HttpRequest
 from django.utils.dateparse import parse_date
 
 from ..schemas import ContractPaymentIn, ContractPaymentOut, ContractPaymentUpdate
@@ -19,12 +20,12 @@ def _get_payment_service() -> ContractPaymentService:
 
 @router.get("/finance/payments", response=list[ContractPaymentOut])
 def list_payments(
-    request,
+    request: HttpRequest,
     contract_id: Optional[int] = None,
     invoice_status: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-):
+) -> list[Any]:
     """获取收款列表"""
     service = _get_payment_service()
     user = getattr(request, "user", None)
@@ -45,7 +46,7 @@ def list_payments(
 
 
 @router.post("/finance/payments", response=ContractPaymentOut)
-def create_payment(request, payload: ContractPaymentIn):
+def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:
     """创建收款记录"""
     service = _get_payment_service()
     user = getattr(request, "user", None)
@@ -66,7 +67,7 @@ def create_payment(request, payload: ContractPaymentIn):
 
 
 @router.put("/finance/payments/{payment_id}", response=ContractPaymentOut)
-def update_payment(request, payment_id: int, payload: ContractPaymentUpdate):
+def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:
     """更新收款记录"""
     service = _get_payment_service()
     user = getattr(request, "user", None)
@@ -90,7 +91,7 @@ def update_payment(request, payment_id: int, payload: ContractPaymentUpdate):
 
 
 @router.delete("/finance/payments/{payment_id}")
-def delete_payment(request, payment_id: int):
+def delete_payment(request: HttpRequest, payment_id: int) -> Any:
     """删除收款记录"""
     service = _get_payment_service()
     user = getattr(request, "user", None)

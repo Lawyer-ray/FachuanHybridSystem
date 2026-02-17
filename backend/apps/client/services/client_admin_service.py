@@ -406,7 +406,7 @@ class ClientAdminService:
         
         return None
     
-    def _save_uploaded_file(self, uploaded_file, client_name: str = "", doc_type: str = "") -> str:
+    def _save_uploaded_file(self, uploaded_file: Any, client_name: str = "", doc_type: str = "") -> str:
         """
         保存上传的文件并重命名
         
@@ -508,7 +508,7 @@ class ClientAdminService:
         client_name: str,
         doc_id: int,
         doc_type: str,
-        uploaded_file
+        uploaded_file: Any
     ) -> str:
         """
         保存上传文件并重命名，更新数据库记录
