@@ -13,7 +13,7 @@ import sys
 from typing import Any
 
 
-def _safe_get_config(key, default=None):
+def _safe_get_config(key: str, default: Any = None) -> Any:
     """安全获取配置，避免循环导入"""
     try:
         from .config import get_config
@@ -55,7 +55,7 @@ def _is_docker_environment() -> bool:
     return False
 
 
-def get_logging_config(base_dir, debug: bool = True) -> dict[str, Any]:
+def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
     """
     获取日志配置
 
@@ -221,12 +221,12 @@ def get_logging_config(base_dir, debug: bool = True) -> dict[str, Any]:
 class JsonFormatter:
     """JSON 格式化器，用于结构化日志输出"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         import json
 
         self.json = json
 
-    def format(self, record):
+    def format(self, record: Any) -> str:
         import traceback
         from datetime import datetime
 
