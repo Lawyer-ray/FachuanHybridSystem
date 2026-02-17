@@ -33,7 +33,7 @@ class ContractReminderService:
         contract_id: int | None = None,
         user: Any = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[ContractReminder]:
+    ) -> QuerySet:  # type: ignore[type-arg]
         """
         获取提醒列表
 
