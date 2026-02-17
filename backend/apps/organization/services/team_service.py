@@ -38,7 +38,7 @@ class TeamService:
         law_firm_id: Optional[int] = None,
         team_type: Optional[str] = None,
         user: Optional[Lawyer] = None
-    ) -> QuerySet:  # type: ignore[type-arg]
+    ) -> QuerySet:
         """
         列表查询团队
 

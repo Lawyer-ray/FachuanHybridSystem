@@ -16,7 +16,7 @@ def chat_with_context(
     user_id: str | None = None,
     system_prompt: str | None = None,
     conversation_service_factory: Callable[..., Any] | None = None,
-) -> dict[str, str]:  # type: ignore[assignment]
+) -> dict[str, str]:
     conversation_service = conversation_service_factory(session_id=session_id, user_id=user_id)
     response = conversation_service.chat_with_context(
         user_message=message,
@@ -31,7 +31,7 @@ async def achat_with_context(
     user_id: str | None = None,
     system_prompt: str | None = None,
     conversation_service_factory: Callable[..., Any] | None = None,
-) -> dict[str, str]:  # type: ignore[assignment]
+) -> dict[str, str]:
     from asgiref.sync import sync_to_async
 
     def _run() -> Any:

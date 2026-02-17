@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from .models import Lawyer
 
 
-class LawyerRegistrationForm(UserCreationForm):  # type: ignore[type-arg]
+class LawyerRegistrationForm(UserCreationForm):
     """律师注册表单"""
     
     class Meta:

@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_a4_pdf(
-    front_image: np.ndarray,  # type: ignore[type-arg]
-    back_image: np.ndarray,  # type: ignore[type-arg]
+    front_image: np.ndarray,
+    back_image: np.ndarray,
     *,
     id_card_aspect_ratio: float,
     output_dir: Path,

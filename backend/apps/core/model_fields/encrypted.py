@@ -13,7 +13,7 @@ from django.db import models
 logger = logging.getLogger(__name__)
 
 
-class EncryptedTextField(models.TextField):  # type: ignore[type-arg]
+class EncryptedTextField(models.TextField):
     prefix: str = "enc:v1:"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

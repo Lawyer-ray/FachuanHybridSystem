@@ -20,7 +20,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import requests  # type: ignore[import-untyped]
+import requests
 
 from django.conf import settings
 

@@ -33,7 +33,7 @@ def validate_image_format(
     return None
 
 
-def validate_image_size(image: np.ndarray, name: str, *, min_image_size: int) -> dict[str, Any] | None | None:  # type: ignore[type-arg]
+def validate_image_size(image: np.ndarray, name: str, *, min_image_size: int) -> dict[str, Any] | None | None:
     height, width = image.shape[:2]
     if width < min_image_size or height < min_image_size:
         return {
@@ -44,7 +44,7 @@ def validate_image_size(image: np.ndarray, name: str, *, min_image_size: int) ->
     return None
 
 
-def order_corners(corners: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
+def order_corners(corners: np.ndarray) -> np.ndarray:
     corners = corners.astype(np.float32)
     sum_coords = corners[:, 0] + corners[:, 1]
     diff_coords = corners[:, 0] - corners[:, 1]
@@ -81,7 +81,7 @@ def validate_corners(corners: list[list[int]]) -> str | None | None:
     return None
 
 
-def is_convex_quadrilateral(corners: np.ndarray) -> bool:  # type: ignore[type-arg]
+def is_convex_quadrilateral(corners: np.ndarray) -> bool:
     n = len(corners)
     if n != 4:
         return False

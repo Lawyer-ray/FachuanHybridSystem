@@ -16,7 +16,7 @@ from apps.core.path import Path
 logger = logging.getLogger(__name__)
 
 
-def read_uploaded_image(image: UploadedFile, *, logger: Any) -> np.ndarray | None | None:  # type: ignore[type-arg]
+def read_uploaded_image(image: UploadedFile, *, logger: Any) -> np.ndarray | None | None:
     try:
         image.seek(0)
         file_bytes = image.read()
