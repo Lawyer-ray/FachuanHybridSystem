@@ -70,7 +70,7 @@ class SMSSubmissionService:
             self._lawyer_service = ServiceLocator.get_lawyer_service()
         return self._lawyer_service
     
-    def submit_sms(self, content: str, received_at: datetime = None) -> CourtSMS:
+    def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:
         """
         提交短信，创建记录并触发异步处理
         
