@@ -13,7 +13,7 @@ class AutomationConfig(AppConfig):
         from .admin.scraper.scraper_admin_site import customize_admin_index
         
         # 自定义 admin 首页，添加爬虫工具分组
-        customize_admin_index(admin.site)
+        customize_admin_index(admin.site)  # type: ignore[no-untyped-call]
         
         # 导入信号处理器（确保信号被注册）
         from . import signals  # noqa: F401

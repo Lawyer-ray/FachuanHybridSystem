@@ -75,9 +75,7 @@ class Command(BaseCommand):
                             logger.exception("操作失败")
                             ms = (time.perf_counter() - t0) * 1000.0
                             timings.append(ms)
-                            statuses["error", call - overload, name - defined, name - defined] = (
-                                statuses.get("error", 0) + 1
-                            )  # type: ignore[index, call-overload, name-defined, name-defined]
+                            statuses["error"] = statuses.get("error", 0) + 1  # type: ignore[assignment]
 
                 await asyncio.gather(*[one(i) for i in range(total)])
             timings.sort()

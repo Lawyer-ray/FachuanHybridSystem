@@ -184,7 +184,7 @@ class PlaywrightDeliveryService:
             是否需要处理
         """
         # 检查时间过滤
-        if record.send_time <= cutoff_time:
+        if record.send_time and record.send_time <= cutoff_time:
             logger.info(f"⏰ 文书时间 {record.send_time} 早于截止时间 {cutoff_time},跳过")
             return False
 
