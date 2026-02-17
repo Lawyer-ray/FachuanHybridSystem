@@ -19,7 +19,7 @@ logger = logging.getLogger("apps.automation")
 class Command(BaseCommand):
     help = '恢复未完成的法院短信处理任务'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--dry-run',
             action='store_true',
@@ -37,7 +37,7 @@ class Command(BaseCommand):
             help='只恢复指定小时内的任务（默认24小时）',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from apps.automation.models import CourtSMS, CourtSMSStatus
         from apps.automation.services.sms.court_sms_service import CourtSMSService
         from django_q.tasks import async_task
@@ -86,7 +86,7 @@ class Command(BaseCommand):
             # 静默模式下只在有实际操作时输出简要信息
             logger.info(f"法院短信任务恢复完成: 恢复 {recovered_count} 个，重置 {reset_count} 个")
     
-    def _show_current_status(self, max_age):
+    def _show_current_status(self, max_age: Any) -> None:
         """显示当前任务状态"""
         from apps.automation.models import CourtSMS, CourtSMSStatus
         
@@ -104,7 +104,7 @@ class Command(BaseCommand):
             if count > 0:
                 self.stdout.write(f"  - {status_label}: {count}")
     
-    def _show_recovery_plan(self, max_age, reset_stuck):
+    def _show_recovery_plan(self, max_age: Any, reset_stuck: bool) -> None:
         """显示恢复计划"""
         from apps.automation.models import CourtSMS, CourtSMSStatus
         
@@ -161,7 +161,7 @@ class Command(BaseCommand):
                         f"卡住时间: {sms.updated_at.strftime('%m-%d %H:%M')}"
                     )
     
-    def _reset_stuck_tasks(self, max_age, verbose=True):
+    def _reset_stuck_tasks(self, max_age: Any, verbose: bool = True) -> int:
         """重置卡住的任务"""
         from apps.automation.models import CourtSMS, CourtSMSStatus
         
@@ -201,7 +201,7 @@ class Command(BaseCommand):
         
         return reset_count
     
-    def _recover_incomplete_tasks(self, max_age, verbose=True):
+    def _recover_incomplete_tasks(self, max_age: Any, verbose: bool = True) -> int:
         """恢复未完成的任务"""
         from apps.automation.models import CourtSMS, CourtSMSStatus
         from django_q.tasks import async_task

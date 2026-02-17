@@ -187,7 +187,7 @@ def create_client_with_docs(
 
 
 @router.put("/clients/{client_id}", response=ClientOut)
-def update_client(request, client_id: int, payload: ClientUpdateIn):
+def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> ClientOut:
     """
     更新客户
 
@@ -212,7 +212,7 @@ def update_client(request, client_id: int, payload: ClientUpdateIn):
 
 
 @router.delete("/clients/{client_id}", response={204: None})
-def delete_client(request, client_id: int):
+def delete_client(request: Any, client_id: int) -> tuple[int, None]:
     """
     删除客户
 

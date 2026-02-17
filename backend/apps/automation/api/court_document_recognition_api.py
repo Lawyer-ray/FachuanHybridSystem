@@ -153,7 +153,7 @@ class UpdateInfoResponseSchema(BaseModel):
 # ============================================================================
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
-def recognize_document(request, file: UploadedFile = File[UploadedFile](...)):
+def recognize_document(request: Any, file: UploadedFile = File[UploadedFile](...)) -> TaskSubmitResponseSchema:
     """
     提交文书识别任务（异步）
     
@@ -195,7 +195,7 @@ def recognize_document(request, file: UploadedFile = File[UploadedFile](...)):
 
 
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
-def get_task_status(request, task_id: int):
+def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
     """
     查询识别任务状态和结果
     """
@@ -249,20 +249,20 @@ def get_task_status(request, task_id: int):
 # 手动绑定 API Endpoints (Requirements: 1.3, 2.3, 3.1)
 # ============================================================================
 
-def _get_case_binding_service():
+def _get_case_binding_service() -> Any:
     """工厂函数：获取案件绑定服务"""
     from ..services.court_document_recognition import CaseBindingService
     return CaseBindingService()
 
 
-def _get_recognition_service():
+def _get_recognition_service() -> Any:
     """工厂函数：获取识别服务"""
     from ..services.court_document_recognition import CourtDocumentRecognitionService
     return CourtDocumentRecognitionService()
 
 
 @router.get("/court-document/search-cases", response=List[CaseSearchResultSchema])
-def search_cases_for_binding(request, q: str = "", limit: int = 20):
+def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> List[CaseSearchResultSchema]:
     """
     搜索可绑定的案件
     
@@ -341,7 +341,7 @@ def search_cases_for_binding(request, q: str = "", limit: int = 20):
 
 
 @router.post("/court-document/task/{task_id}/bind", response=ManualBindingResponseSchema)
-def manual_bind_case(request, task_id: int, payload: ManualBindingRequestSchema):
+def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:
     """
     手动绑定案件
     
@@ -428,7 +428,7 @@ def manual_bind_case(request, task_id: int, payload: ManualBindingRequestSchema)
 
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
-def update_task_info(request, task_id: int, payload: UpdateInfoRequestSchema):
+def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:
     """
     手动更新识别信息（案号、关键时间）
     

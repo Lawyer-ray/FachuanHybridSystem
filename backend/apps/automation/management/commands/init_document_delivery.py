@@ -9,6 +9,7 @@
     python manage.py init_document_delivery --reset           # 重置所有配置
 """
 import logging
+from typing import Any
 from django.core.management.base import BaseCommand
 
 logger = logging.getLogger("apps.automation")
@@ -17,7 +18,7 @@ logger = logging.getLogger("apps.automation")
 class Command(BaseCommand):
     help = '初始化文书送达系统的 Django Q 调度'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--interval',
             type=int,
@@ -35,7 +36,7 @@ class Command(BaseCommand):
             help='只显示将要执行的操作，不实际执行',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from apps.automation.services.document_delivery.document_delivery_schedule_service import DocumentDeliveryScheduleService
         
         interval_minutes = options['interval']
@@ -75,7 +76,7 @@ class Command(BaseCommand):
                 self.stdout.write("提示: 确保 Django Q 集群正在运行 (python manage.py qcluster)")
         self.stdout.write("=" * 60)
     
-    def _setup_schedules(self, schedule_service, interval_minutes, is_dry_run):
+    def _setup_schedules(self, schedule_service: Any, interval_minutes: int, is_dry_run: bool) -> None:
         """设置调度任务"""
         schedule_name = "document_delivery_periodic_check"
         
@@ -93,7 +94,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"✓ Django Q 调度任务已创建: {task_id}"))
             logger.info(f"文书送达系统初始化完成: task_id={task_id}, interval={interval_minutes}分钟")
     
-    def _reset_schedules(self, schedule_service, is_dry_run):
+    def _reset_schedules(self, schedule_service: Any, is_dry_run: bool) -> None:
         """重置调度任务"""
         schedule_name = "document_delivery_periodic_check"
         
@@ -110,7 +111,7 @@ class Command(BaseCommand):
             
             logger.info(f"文书送达调度任务已重置: 移除 {count} 个任务")
     
-    def _show_status(self):
+    def _show_status(self) -> None:
         """显示当前状态"""
         from django_q.models import Schedule
         from apps.automation.models import DocumentDeliverySchedule

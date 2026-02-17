@@ -15,10 +15,13 @@ from django.utils import timezone
 logger = logging.getLogger("apps.automation")
 
 
+from typing import Any
+
+
 class Command(BaseCommand):
     help = '执行到期的文书送达定时任务'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             '--dry-run',
             action='store_true',
@@ -35,7 +38,7 @@ class Command(BaseCommand):
             help='强制执行指定任务（忽略是否到期）',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from apps.automation.services.document_delivery.document_delivery_schedule_service import DocumentDeliveryScheduleService
         
         # 只在详细模式下显示完整输出
@@ -110,7 +113,7 @@ class Command(BaseCommand):
             # 静默模式下只在有实际操作时输出简要信息
             logger.info(f"文书送达定时任务执行完成: 处理 {total_processed} 个，失败 {total_failed} 个")
     
-    def _get_specific_schedule(self, schedule_id, force=False):
+    def _get_specific_schedule(self, schedule_id: int, force: bool = False) -> list[Any]:
         """获取指定的定时任务"""
         from apps.automation.models import DocumentDeliverySchedule
         from apps.core.exceptions import NotFoundError
@@ -138,7 +141,7 @@ class Command(BaseCommand):
         
         return [schedule]
     
-    def _show_schedule_info(self, schedules):
+    def _show_schedule_info(self, schedules: list[Any]) -> None:
         """显示定时任务信息"""
         self.stdout.write(f"\n找到 {len(schedules)} 个需要执行的定时任务:")
         
@@ -162,7 +165,7 @@ class Command(BaseCommand):
                     f"    下次运行: {schedule.next_run_at.strftime('%Y-%m-%d %H:%M:%S')}"
                 )
     
-    def _get_credential_info(self, credential_id):
+    def _get_credential_info(self, credential_id: int) -> str:
         """获取凭证信息"""
         try:
             from apps.core.interfaces import ServiceLocator
@@ -172,7 +175,7 @@ class Command(BaseCommand):
         except Exception:
             return f"凭证{credential_id}"
     
-    def _show_execution_result(self, schedule, result):
+    def _show_execution_result(self, schedule: Any, result: Any) -> None:
         """显示执行结果"""
         self.stdout.write(
             f"  结果: 发现 {result.total_found} 个文书，"
