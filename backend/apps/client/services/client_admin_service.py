@@ -568,4 +568,4 @@ class ClientAdminService:
             解析后的客户数据列表
         """
         from .text_parser import parse_multiple_clients_text
-        return parse_multiple_clients_text(text)  # type: ignore[no-any-return]
+        return parse_multiple_clients_text(text)

@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Dict, Any, Optional, Set, List
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -34,17 +34,9 @@ class ConcurrencyConfig:
 class ResourceUsage:
     """资源使用情况"""
     total_acquisitions: int = 0
-    site_acquisitions: Optional[Dict[str, int]] = None
-    account_acquisitions: Optional[Dict[str, int]] = None
-    active_locks: Optional[Set[str]] = None
-    
-    def __post_init__(self) -> None:
-        if self.site_acquisitions is None:
-            self.site_acquisitions = {}
-        if self.account_acquisitions is None:
-            self.account_acquisitions = {}
-        if self.active_locks is None:
-            self.active_locks = set()
+    site_acquisitions: Dict[str, int] = field(default_factory=dict)
+    account_acquisitions: Dict[str, int] = field(default_factory=dict)
+    active_locks: Set[str] = field(default_factory=set)
 
 
 class ConcurrencyOptimizer:

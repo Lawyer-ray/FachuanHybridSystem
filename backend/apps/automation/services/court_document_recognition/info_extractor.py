@@ -722,7 +722,7 @@ class InfoExtractor:
                     ),
                 },
             )
-            return result  # type: ignore[no-any-return]
+            return result
 
         except ConnectionError as e:
             logger.error(
