@@ -54,5 +54,5 @@ class CourtTokenStoreService:
             token=token,
             expires_in=expires_in,
             token_type=token_type,
-            credential_id=credential_id,  # type: ignore
+            credential_id=credential_id,
         )

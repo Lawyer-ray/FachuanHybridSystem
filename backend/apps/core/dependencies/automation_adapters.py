@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def build_document_processing_service() -> IDocumentProcessingService:
     from apps.automation.services.document.document_processing_service_adapter import DocumentProcessingServiceAdapter
 
-    return DocumentProcessingServiceAdapter()  # type: ignore[no-untyped-call]
+    return DocumentProcessingServiceAdapter()
 
 
 def build_auto_namer_service() -> IAutoNamerService:
@@ -42,7 +42,7 @@ def build_performance_monitor_service() -> IPerformanceMonitorService:
 def build_court_document_recognition_service() -> ICourtDocumentRecognitionService:
     from apps.automation.services.court_document_recognition.adapter import CourtDocumentRecognitionServiceAdapter
 
-    return CourtDocumentRecognitionServiceAdapter()  # type: ignore
+    return CourtDocumentRecognitionServiceAdapter()
 
 
 def build_court_pleading_signals_service() -> ICourtPleadingSignalsService:

@@ -75,7 +75,7 @@ class CasePartyMutationService:
         )
         is_compatible = business_config.is_legal_status_compatible(
             new_status=legal_status, existing_statuses=existing_statuses
-        )  # type: ignore[attr-defined]
+        )
         if not is_compatible:
             constraining_status: str | None = None
             allowed_statuses: list[str] = []

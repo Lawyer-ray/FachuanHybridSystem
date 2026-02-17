@@ -2,18 +2,16 @@
 账号凭证服务层
 处理账号凭证相关的业务逻辑
 """
-from typing import Optional, Dict, Any
-from decimal import Decimal
-from django.db import transaction
-from django.db.models import QuerySet, Q
 
-from apps.core.exceptions import (
-    ValidationException,
-    NotFoundError,
-    PermissionDenied,
-)
-from ..models import AccountCredential, Lawyer
 import logging
+from typing import Any
+
+from django.db import transaction
+from django.db.models import Q, QuerySet
+
+from apps.core.exceptions import NotFoundError, PermissionDenied
+
+from ..models import AccountCredential, Lawyer
 
 logger = logging.getLogger("apps.organization")
 
@@ -42,7 +40,7 @@ class AccountCredentialService:
             return False
         return getattr(user, "is_superuser", False)
 
-    def _get_user_law_firm_id(self, user: Any) -> Optional[int]:
+    def _get_user_law_firm_id(self, user: Any) -> int | None:
         """获取用户所属律所 ID"""
         if user is None:
             return None
@@ -98,8 +96,8 @@ class AccountCredentialService:
 
     def list_credentials(
         self,
-        lawyer_id: Optional[int] = None,
-        lawyer_name: Optional[str] = None,
+        lawyer_id: int | None = None,
+        lawyer_name: str | None = None,
         user: Any = None,
     ) -> QuerySet:
         """
@@ -129,10 +127,7 @@ class AccountCredentialService:
 
         if lawyer_name:
             # 支持按 real_name 或 username 模糊匹配
-            qs = qs.filter(
-                Q(lawyer__real_name__icontains=lawyer_name) |
-                Q(lawyer__username__icontains=lawyer_name)
-            )
+            qs = qs.filter(Q(lawyer__real_name__icontains=lawyer_name) | Q(lawyer__username__icontains=lawyer_name))
 
         return qs
 
@@ -154,17 +149,11 @@ class AccountCredentialService:
         credential = self._get_base_queryset().filter(id=credential_id).first()
 
         if not credential:
-            raise NotFoundError(
-                message="凭证不存在",
-                code="CREDENTIAL_NOT_FOUND"
-            )
+            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
 
         # 权限检查
         if not self._check_credential_access(user, credential):
-            raise PermissionDenied(
-                message="无权限访问该凭证",
-                code="CREDENTIAL_ACCESS_DENIED"
-            )
+            raise PermissionDenied(message="无权限访问该凭证", code="CREDENTIAL_ACCESS_DENIED")
 
         return credential  # type: ignore[no-any-return]
 
@@ -175,7 +164,7 @@ class AccountCredentialService:
         site_name: str,
         account: str,
         password: str,
-        url: Optional[str] = None,
+        url: str | None = None,
         user: Any = None,
     ) -> AccountCredential:
         """
@@ -199,17 +188,11 @@ class AccountCredentialService:
         # 验证律师存在
         lawyer = Lawyer.objects.select_related("law_firm").filter(id=lawyer_id).first()
         if not lawyer:
-            raise NotFoundError(
-                message="律师不存在",
-                code="LAWYER_NOT_FOUND"
-            )
+            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
 
         # 权限检查：验证用户是否有权限为该律师创建凭证
         if not self._check_lawyer_access(user, lawyer):
-            raise PermissionDenied(
-                message="无权限为该律师创建凭证",
-                code="CREDENTIAL_CREATE_DENIED"
-            )
+            raise PermissionDenied(message="无权限为该律师创建凭证", code="CREDENTIAL_CREATE_DENIED")
 
         credential = AccountCredential.objects.create(
             lawyer=lawyer,
@@ -220,13 +203,13 @@ class AccountCredentialService:
         )
 
         logger.info(
-            f"凭证创建成功",
+            "凭证创建成功",
             extra={
                 "credential_id": credential.id,
                 "lawyer_id": lawyer_id,
                 "site_name": site_name,
-                "action": "create_credential"
-            }
+                "action": "create_credential",
+            },
         )
 
         return credential
@@ -235,7 +218,7 @@ class AccountCredentialService:
     def update_credential(
         self,
         credential_id: int,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user: Any = None,
     ) -> AccountCredential:
         """
@@ -262,13 +245,7 @@ class AccountCredentialService:
 
         credential.save()
 
-        logger.info(
-            f"凭证更新成功",
-            extra={
-                "credential_id": credential_id,
-                "action": "update_credential"
-            }
-        )
+        logger.info("凭证更新成功", extra={"credential_id": credential_id, "action": "update_credential"})
 
         return credential
 
@@ -289,13 +266,7 @@ class AccountCredentialService:
         credential = self.get_credential(credential_id, user)
         credential.delete()
 
-        logger.info(
-            f"凭证删除成功",
-            extra={
-                "credential_id": credential_id,
-                "action": "delete_credential"
-            }
-        )
+        logger.info("凭证删除成功", extra={"credential_id": credential_id, "action": "delete_credential"})
 
     def _get_credential_internal(self, credential_id: int) -> AccountCredential:
         """
@@ -314,10 +285,7 @@ class AccountCredentialService:
         """
         credential = self._get_base_queryset().filter(id=credential_id).first()
         if not credential:
-            raise NotFoundError(
-                message="凭证不存在",
-                code="CREDENTIAL_NOT_FOUND"
-            )
+            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
         return credential  # type: ignore[no-any-return]
 
     @transaction.atomic
@@ -336,15 +304,15 @@ class AccountCredentialService:
         credential = self._get_credential_internal(credential_id)
         credential.last_login_success_at = timezone.now()
         credential.login_success_count += 1
-        credential.save(update_fields=['last_login_success_at', 'login_success_count'])
+        credential.save(update_fields=["last_login_success_at", "login_success_count"])
 
         logger.info(
-            f"登录成功统计已更新",
+            "登录成功统计已更新",
             extra={
                 "credential_id": credential_id,
                 "login_success_count": credential.login_success_count,
-                "action": "update_login_success"
-            }
+                "action": "update_login_success",
+            },
         )
 
     @transaction.atomic
@@ -360,13 +328,13 @@ class AccountCredentialService:
         """
         credential = self._get_credential_internal(credential_id)
         credential.login_failure_count += 1
-        credential.save(update_fields=['login_failure_count'])
+        credential.save(update_fields=["login_failure_count"])
 
         logger.info(
-            f"登录失败统计已更新",
+            "登录失败统计已更新",
             extra={
                 "credential_id": credential_id,
                 "login_failure_count": credential.login_failure_count,
-                "action": "update_login_failure"
-            }
+                "action": "update_login_failure",
+            },
         )
