@@ -9,7 +9,8 @@
     python manage.py setup_document_delivery_schedule --remove          # 移除调度
 """
 import logging
-from django.core.management.base import BaseCommand
+from typing import Any
+from django.core.management.base import BaseCommand, CommandParser
 
 logger = logging.getLogger("apps.automation")
 
@@ -17,7 +18,7 @@ logger = logging.getLogger("apps.automation")
 class Command(BaseCommand):
     help = '设置文书送达定时任务的 Django Q 调度'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             '--interval',
             type=int,
@@ -41,7 +42,7 @@ class Command(BaseCommand):
             help='只显示将要执行的操作，不实际执行',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from django_q.models import Schedule
         from django_q.tasks import schedule
         
@@ -124,7 +125,7 @@ class Command(BaseCommand):
         )
         self.stdout.write("=" * 60)
     
-    def _show_current_schedules(self):
+    def _show_current_schedules(self) -> None:
         """显示当前所有文书送达相关的调度任务"""
         from django_q.models import Schedule
         
