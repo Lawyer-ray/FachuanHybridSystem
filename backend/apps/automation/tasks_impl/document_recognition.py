@@ -74,7 +74,7 @@ def _send_recognition_notification(task: Any, result: Any) -> None:
             key_time=task.key_time,
             file_path=file_path,
             case_name=result.binding.case_name,
-        )  # type: ignore[name-defined]
+        )
         task.notification_sent = notification_result.success
         task.notification_sent_at = notification_result.sent_at
         task.notification_file_sent = notification_result.file_sent

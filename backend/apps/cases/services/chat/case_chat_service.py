@@ -63,14 +63,14 @@ class CaseChatService:
 
     def _resolve_access(
         self, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
-    ) -> tuple[Any, ...]:  # type: ignore[no-untyped-def]
+    ) -> tuple[Any, ...]:
         if ctx is not None:
             return (ctx.user, ctx.org_access, ctx.perm_open_access)
         return (user, org_access, perm_open_access)
 
     def _require_case_access(
         self, case: Any, *, user, org_access, perm_open_access: bool, ctx: AccessContext | None
-    ) -> None:  # type: ignore[no-untyped-def]
+    ) -> None:
         user, org_access, perm_open_access = self._resolve_access(
             user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
         )
@@ -203,11 +203,11 @@ class CaseChatService:
         existing_chat = self.repo.get_active_chat(case_id=case_id, platform=platform)
         if existing_chat:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
-            return existing_chat  # type: ignore[return-value]
+            return existing_chat
         logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
-        return self.create_chat_for_case(  # type: ignore[no-any-return]
+        return self.create_chat_for_case(
             case_id, platform, owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
-        )  # type: ignore[no-any-return]
+        )
 
     def send_document_notification(
         self,

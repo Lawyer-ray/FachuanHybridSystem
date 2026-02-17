@@ -89,7 +89,7 @@ async def _resolve_credential(
     credential_id: int | None,
     selected_credential: AccountCredentialDTO | None,
     tried_accounts: set[str],
-) -> AccountCredentialDTO:  # type: ignore[no-untyped-def]
+) -> AccountCredentialDTO:
     """解析并返回要使用的凭证"""
     if credential_id:
         credential = await self._get_credential_by_id(credential_id)
@@ -106,7 +106,7 @@ async def _resolve_credential(
                 "credential_id": credential_id,
             },
         )
-        return credential  # type: ignore[no-any-return]
+        return credential
     if selected_credential:
         tried_accounts.add(selected_credential.account)
         logger.info(
@@ -146,7 +146,7 @@ async def _execute_login_success(
     login_start_time: Any,
     start_time: Any,
     login_attempts: Any,
-) -> TokenAcquisitionResult:  # type: ignore[no-untyped-def]
+) -> TokenAcquisitionResult:
     """执行登录并在成功时保存 token"""
     token = await asyncio.wait_for(
         self.auto_login_service.login_and_get_token(credential), timeout=self.concurrency_config.acquisition_timeout
@@ -206,7 +206,7 @@ async def _handle_timeout_error(
     login_start_time: Any,
     start_time: Any,
     login_attempts: Any,
-) -> TokenAcquisitionResult:  # type: ignore[no-untyped-def]
+) -> TokenAcquisitionResult:
     """处理登录超时:检查 token 是否已保存"""
     login_duration = time.time() - login_start_time
     logger.info(
@@ -292,7 +292,7 @@ async def _handle_login_failed_error(
     login_attempts: Any,
     account_retry_count: Any,
     tried_accounts: Any,
-) -> TokenAcquisitionResult:  # type: ignore[no-untyped-def]
+) -> TokenAcquisitionResult:
     """处理登录失败:记录尝试,按错误类型决定是否重试"""
     login_duration = time.time() - login_start_time
     error_type = (getattr(e, "errors", None) or {}).get("error_type")
@@ -371,7 +371,7 @@ async def _handle_token_acquisition_timeout(
     login_start_time: Any,
     start_time: Any,
     login_attempts: Any,
-) -> TokenAcquisitionResult:  # type: ignore[no-untyped-def]
+) -> TokenAcquisitionResult:
     """处理 AutoLoginService 超时"""
     login_duration = time.time() - login_start_time
     logger.info(
