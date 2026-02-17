@@ -816,7 +816,7 @@ class ConfigMigrator:
                 missing_configs.append(config_key)
         
         if missing_configs:
-            raise ConfigValidationError(f"缺少必需的配置项: {', '.join(missing_configs)}")
+            raise ConfigValidationError(missing_configs)
     
     def _create_compatibility_layer(self) -> None:
         """创建兼容层"""
@@ -950,7 +950,7 @@ class ConfigMigrator:
         if not migration_log:
             raise ConfigException(f"找不到迁移: {migration_id}")
         
-        report = {
+        report: dict[str, Any] = {
             'migration_summary': migration_log.to_dict(),
             'migration_statistics': {
                 'total_steps': len(migration_log.steps),
@@ -1022,7 +1022,7 @@ class ConfigMigrator:
             point_key = f"{migration_id}_{point_name}"
             
             # 从内存获取回滚点
-            rollback_point = self._rollback_points.get(point_key)
+            rollback_point: dict[str, Any] | None = self._rollback_points.get(point_key)
             
             # 如果内存中没有，尝试从文件加载
             if not rollback_point:
@@ -1369,7 +1369,7 @@ class ConfigMigrator:
         Returns:
             Dict[str, Any]: 验证结果
         """
-        result = {
+        result: dict[str, Any] = {
             'migration_id': migration_id,
             'is_valid': True,
             'issues': [],
