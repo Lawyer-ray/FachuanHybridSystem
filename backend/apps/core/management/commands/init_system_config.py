@@ -25,7 +25,7 @@ class Command(BaseCommand):
             help='强制覆盖已存在的配置',
         )
     
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         sync_env = options['sync_env']
         force = options['force']
         
@@ -86,7 +86,7 @@ class Command(BaseCommand):
             f'\n完成！创建 {created_count} 个，更新 {updated_count} 个配置项'
         ))
     
-    def _get_default_configs(self):
+    def _get_default_configs(self) -> list[dict[str, Any]]:
         """获取默认配置项列表"""
         # 直接从 Admin 类获取配置，保持一致性
         from apps.core.admin.system_config_admin import SystemConfigAdmin
