@@ -220,7 +220,7 @@ class ConfigChangeEvent:
 class ConfigNotificationManager:
     """配置通知管理器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化通知管理器"""
         self._listeners: list[ConfigChangeListener] = []
         self._key_listeners: dict[str, list[ConfigChangeListener]] = {}
@@ -402,7 +402,7 @@ class ConfigFileWatcher(FileSystemEventHandler):
         self.last_reload_time = 0.0
         self.reload_debounce = 1.0  # 防抖时间（秒）
 
-    def on_modified(self, event):
+    def on_modified(self, event) -> None:
         """文件修改事件处理"""
         if event.is_directory:
             return
@@ -1784,7 +1784,7 @@ class ConfigManager:
             except ImportError as e:
                 logger.warning(f"无法启用 Steering 集成: {e}")
 
-    def get_steering_integration(self):
+    def get_steering_integration(self) -> Any:
         """获取 Steering 集成管理器"""
         if self._steering_integration is None:
             self.enable_steering_integration()
