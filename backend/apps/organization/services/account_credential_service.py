@@ -28,7 +28,7 @@ class AccountCredentialService:
     3. 执行权限检查
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化服务"""
         pass
 
@@ -36,19 +36,19 @@ class AccountCredentialService:
         """获取带预加载的基础查询集"""
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
-    def _is_superuser(self, user) -> bool:
+    def _is_superuser(self, user: Any) -> bool:
         """检查用户是否为超级用户"""
         if user is None:
             return False
         return getattr(user, "is_superuser", False)
 
-    def _get_user_law_firm_id(self, user) -> Optional[int]:
+    def _get_user_law_firm_id(self, user: Any) -> Optional[int]:
         """获取用户所属律所 ID"""
         if user is None:
             return None
         return getattr(user, "law_firm_id", None)
 
-    def _check_credential_access(self, user, credential: AccountCredential) -> bool:
+    def _check_credential_access(self, user: Any, credential: AccountCredential) -> bool:
         """
         检查用户是否有权限访问指定凭证
 
@@ -72,7 +72,7 @@ class AccountCredentialService:
         credential_law_firm_id = getattr(credential.lawyer, "law_firm_id", None)
         return user_law_firm_id == credential_law_firm_id
 
-    def _check_lawyer_access(self, user, lawyer: Lawyer) -> bool:
+    def _check_lawyer_access(self, user: Any, lawyer: Lawyer) -> bool:
         """
         检查用户是否有权限访问指定律师
 
@@ -100,7 +100,7 @@ class AccountCredentialService:
         self,
         lawyer_id: Optional[int] = None,
         lawyer_name: Optional[str] = None,
-        user=None,
+        user: Any = None,
     ) -> QuerySet[AccountCredential]:
         """
         获取凭证列表
