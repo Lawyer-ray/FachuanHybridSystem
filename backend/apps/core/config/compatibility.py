@@ -520,12 +520,12 @@ def patch_django_settings(config_manager: ConfigManager) -> SettingsProxy:
     
     # 替换模块中的 settings
     import django.conf
-    django.conf.settings = proxy
+    django.conf.settings = proxy  # type: ignore[assignment]
     
     # 也替换 sys.modules 中的引用
     for module_name, module in sys.modules.items():
         if hasattr(module, 'settings') and module.settings is django_settings:
-            module.settings = proxy
+            module.settings = proxy  # type: ignore[attr-defined]
     
     return proxy
 
@@ -546,7 +546,7 @@ def unpatch_django_settings() -> None:
     # 恢复 sys.modules 中的引用
     for module_name, module in sys.modules.items():
         if hasattr(module, 'settings') and isinstance(module.settings, SettingsProxy):
-            module.settings = module.settings.get_original_settings()
+            module.settings = module.settings.get_original_settings()  # type: ignore[attr-defined]
 
 
 # 全局兼容设置实例（可选）

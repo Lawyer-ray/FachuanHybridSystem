@@ -441,7 +441,7 @@ class HotReloadManager:
             config_manager: 配置管理器实例
         """
         self.config_manager = config_manager
-        self.observer: "Observer | None" = None
+        self.observer: Optional["Observer"] = None
         self.watched_files: list[str] = []
         self.enabled = False
         self._lock = threading.Lock()
