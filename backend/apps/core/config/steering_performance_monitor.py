@@ -15,7 +15,7 @@ import time
 import threading
 import psutil
 import gc
-from typing import Dict, List, Optional, Any, Callable, NamedTuple
+from typing import Dict, List, Optional, Any, Callable, NamedTuple, cast
 from dataclasses import dataclass, field
 from collections import deque, defaultdict
 from enum import Enum
@@ -387,7 +387,7 @@ class PerformanceAnalyzer:
                 })
         
         # 按平均时间排序
-        slow_specs.sort(key=lambda x: x["avg_duration_ms"], reverse=True)
+        slow_specs.sort(key=lambda x: cast(float, x["avg_duration_ms"]), reverse=True)
         
         return slow_specs[:10]  # 返回前10个最慢的
     
@@ -553,7 +553,7 @@ class SteeringPerformanceMonitor:
             )
             raise
     
-    def _check_performance_thresholds(self, perf_data: LoadingPerformanceData):
+    def _check_performance_thresholds(self, perf_data: LoadingPerformanceData) -> None:
         """检查性能阈值"""
         duration_ms = perf_data.duration_ms
         
@@ -605,7 +605,7 @@ class SteeringPerformanceMonitor:
             )
             self._trigger_alert(alert)
     
-    def _trigger_alert(self, alert: PerformanceAlert):
+    def _trigger_alert(self, alert: PerformanceAlert) -> None:
         """触发告警"""
         self.data_collector.record_alert(alert)
         
@@ -616,7 +616,7 @@ class SteeringPerformanceMonitor:
             except Exception as e:
                 logger.error(f"告警回调失败: {e}")
     
-    def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]):
+    def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]) -> None:
         """添加告警回调"""
         self.alert_callbacks.append(callback)
     
@@ -649,7 +649,7 @@ class SteeringPerformanceMonitor:
             }
         }
     
-    def export_performance_data(self, file_path: str):
+    def export_performance_data(self, file_path: str) -> None:
         """导出性能数据"""
         if not self.enabled:
             return
@@ -664,9 +664,9 @@ class SteeringPerformanceMonitor:
         except Exception as e:
             logger.error(f"导出性能数据失败: {e}")
     
-    def _start_periodic_checks(self):
+    def _start_periodic_checks(self) -> None:
         """启动定期检查"""
-        def periodic_check():
+        def periodic_check() -> None:
             while True:
                 try:
                     time.sleep(60)  # 每分钟检查一次
@@ -715,7 +715,7 @@ class SteeringPerformanceMonitor:
         check_thread = threading.Thread(target=periodic_check, daemon=True)
         check_thread.start()
     
-    def shutdown(self):
+    def shutdown(self) -> None:
         """关闭性能监控器"""
         if self.enabled:
             logger.info("Steering 性能监控器已关闭")
