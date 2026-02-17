@@ -356,7 +356,7 @@ class DocumentDeliveryPlaywrightService:
 
         return result
 
-    def _sync_login_with_page(self, credential, page: Page) -> str:
+    def _sync_login_with_page(self, credential: Any, page: Page) -> str:
         """
         同步登录方法 - 使用传入的 page 进行登录
 
@@ -1054,7 +1054,7 @@ class DocumentDeliveryPlaywrightService:
             logger.warning(f"案号同步失败: Case ID={case_id}, 案号={case_number}, 错误: {e!s}")
             return False
 
-    def _rename_and_attach_documents(self, sms, case, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
         """
         重命名文书并添加到案件日志
 
@@ -1125,7 +1125,7 @@ class DocumentDeliveryPlaywrightService:
 
         return renamed_files, case_log_id
 
-    def _send_notification(self, sms, document_paths: list[str]) -> bool:
+    def _send_notification(self, sms: Any, document_paths: list[str]) -> bool:
         """
         发送通知
 

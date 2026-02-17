@@ -134,7 +134,7 @@ class DocumentDeliveryScheduleService:
     def update_schedule(
         self,
         schedule_id: int,
-        **kwargs
+        **kwargs: Any
     ) -> DocumentDeliverySchedule:
         """
         更新定时任务

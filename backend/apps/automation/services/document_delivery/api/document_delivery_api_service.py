@@ -663,7 +663,7 @@ class DocumentDeliveryApiService:
             logger.warning(f"案号同步失败: Case ID={case_id}, 案号={case_number}, 错误: {e!s}")
             return False
 
-    def _rename_and_attach_documents(self, sms, case, extracted_files: list[str]) -> Tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> Tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         from datetime import date
 
@@ -728,7 +728,7 @@ class DocumentDeliveryApiService:
 
         return renamed_files, case_log_id
 
-    def _send_notification(self, sms, document_paths: list[str]) -> bool:
+    def _send_notification(self, sms: Any, document_paths: list[str]) -> bool:
         """发送通知"""
         try:
             if not sms.case:
