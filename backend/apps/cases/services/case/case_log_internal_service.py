@@ -39,7 +39,7 @@ class CaseLogInternalService:
                 "log_id": case_cast(int, log.id),
                 "user_id": actor_id,
             },
-        )  # type: ignore[name-defined]
+        )
         return case_log.id
 
     def add_case_log_attachment_internal(self, case_log_id: int, file_path: str, file_name: str) -> bool:

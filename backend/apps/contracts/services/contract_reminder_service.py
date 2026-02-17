@@ -4,6 +4,7 @@
 """
 
 from datetime import date
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -11,7 +12,6 @@ from django.db.models import QuerySet
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from ..models import Contract, ContractReminder
-from typing import Any, Dict
 
 
 class ContractReminderService:
@@ -120,7 +120,7 @@ class ContractReminderService:
     def update_reminder(
         self,
         reminder_id: int,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> ContractReminder:
         """
         更新提醒记录

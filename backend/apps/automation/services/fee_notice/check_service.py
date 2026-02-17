@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
 
-    from .comparison_service import CaseComparisonInfo, FeeComparisonService  # type: ignore
+    from .comparison_service import CaseComparisonInfo, FeeComparisonService
     from .extraction_service import FeeNoticeExtractionService
 
 logger = logging.getLogger("apps.automation")

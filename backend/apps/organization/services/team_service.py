@@ -2,18 +2,16 @@
 团队服务层
 处理团队相关的业务逻辑
 """
-from typing import Optional
+
+import logging
+
 from django.db import transaction
 from django.db.models import QuerySet
 
-from apps.core.exceptions import (
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-)
-from ..models import Team, LawFirm, TeamType, Lawyer
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+
+from ..models import LawFirm, Lawyer, Team, TeamType
 from ..schemas import TeamIn
-import logging
 
 logger = logging.getLogger("apps.organization")
 
@@ -34,10 +32,7 @@ class TeamService:
         pass
 
     def list_teams(
-        self,
-        law_firm_id: Optional[int] = None,
-        team_type: Optional[str] = None,
-        user: Optional[Lawyer] = None
+        self, law_firm_id: int | None = None, team_type: str | None = None, user: Lawyer | None = None
     ) -> QuerySet:
         """
         列表查询团队
@@ -64,7 +59,7 @@ class TeamService:
 
         return qs
 
-    def get_team(self, team_id: int, user: Optional[Lawyer] = None) -> Team:
+    def get_team(self, team_id: int, user: Lawyer | None = None) -> Team:
         """
         获取团队详情
 
@@ -82,22 +77,16 @@ class TeamService:
         team = Team.objects.select_related("law_firm").filter(id=team_id).first()
 
         if not team:
-            raise NotFoundError(
-                message="团队不存在",
-                code="TEAM_NOT_FOUND"
-            )
+            raise NotFoundError(message="团队不存在", code="TEAM_NOT_FOUND")
 
         # 权限检查
         if not self._check_read_permission(user, team):
-            raise PermissionDenied(
-                message="无权限访问该团队",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限访问该团队", code="PERMISSION_DENIED")
 
         return team  # type: ignore[no-any-return]
 
     @transaction.atomic
-    def create_team(self, data: TeamIn, user: Optional[Lawyer] = None) -> Team:
+    def create_team(self, data: TeamIn, user: Lawyer | None = None) -> Team:
         """
         创建团队
 
@@ -117,12 +106,9 @@ class TeamService:
         if not self._check_create_permission(user):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试创建团队但权限不足",
-                extra={"user_id": getattr(user, 'id', None), "action": "create_team"}
+                extra={"user_id": getattr(user, "id", None), "action": "create_team"},
             )
-            raise PermissionDenied(
-                message="无权限创建团队",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限创建团队", code="PERMISSION_DENIED")
 
         # 2. 验证团队类型
         self._validate_team_type(data.team_type)
@@ -130,37 +116,20 @@ class TeamService:
         # 3. 验证律所存在
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if not law_firm:
-            raise NotFoundError(
-                message="律所不存在",
-                code="LAWFIRM_NOT_FOUND"
-            )
+            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
 
         # 4. 创建团队
-        team = Team.objects.create(
-            name=data.name,
-            team_type=data.team_type,
-            law_firm=law_firm
-        )
+        team = Team.objects.create(name=data.name, team_type=data.team_type, law_firm=law_firm)
 
         # 5. 记录日志
         logger.info(
-            f"团队创建成功",
-            extra={
-                "team_id": team.id,
-                "user_id": getattr(user, 'id', None),
-                "action": "create_team"
-            }
+            "团队创建成功", extra={"team_id": team.id, "user_id": getattr(user, "id", None), "action": "create_team"}
         )
 
         return team
 
     @transaction.atomic
-    def update_team(
-        self,
-        team_id: int,
-        data: TeamIn,
-        user: Optional[Lawyer] = None
-    ) -> Team:
+    def update_team(self, team_id: int, data: TeamIn, user: Lawyer | None = None) -> Team:
         """
         更新团队
 
@@ -184,16 +153,9 @@ class TeamService:
         if not self._check_update_permission(user, team):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试更新团队 {team_id} 但权限不足",
-                extra={
-                    "user_id": getattr(user, 'id', None),
-                    "team_id": team_id,
-                    "action": "update_team"
-                }
+                extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "update_team"},
             )
-            raise PermissionDenied(
-                message="无权限更新该团队",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限更新该团队", code="PERMISSION_DENIED")
 
         # 3. 验证团队类型
         self._validate_team_type(data.team_type)
@@ -201,10 +163,7 @@ class TeamService:
         # 4. 验证律所存在
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if not law_firm:
-            raise NotFoundError(
-                message="律所不存在",
-                code="LAWFIRM_NOT_FOUND"
-            )
+            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
 
         # 5. 更新团队
         team.name = data.name
@@ -214,18 +173,13 @@ class TeamService:
 
         # 6. 记录日志
         logger.info(
-            f"团队更新成功",
-            extra={
-                "team_id": team.id,
-                "user_id": getattr(user, 'id', None),
-                "action": "update_team"
-            }
+            "团队更新成功", extra={"team_id": team.id, "user_id": getattr(user, "id", None), "action": "update_team"}
         )
 
         return team
 
     @transaction.atomic
-    def delete_team(self, team_id: int, user: Optional[Lawyer] = None) -> None:
+    def delete_team(self, team_id: int, user: Lawyer | None = None) -> None:
         """
         删除团队
 
@@ -244,28 +198,16 @@ class TeamService:
         if not self._check_delete_permission(user, team):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试删除团队 {team_id} 但权限不足",
-                extra={
-                    "user_id": getattr(user, 'id', None),
-                    "team_id": team_id,
-                    "action": "delete_team"
-                }
+                extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "delete_team"},
             )
-            raise PermissionDenied(
-                message="无权限删除该团队",
-                code="PERMISSION_DENIED"
-            )
+            raise PermissionDenied(message="无权限删除该团队", code="PERMISSION_DENIED")
 
         # 3. 删除团队
         team.delete()
 
         # 4. 记录日志
         logger.info(
-            f"团队删除成功",
-            extra={
-                "team_id": team_id,
-                "user_id": getattr(user, 'id', None),
-                "action": "delete_team"
-            }
+            "团队删除成功", extra={"team_id": team_id, "user_id": getattr(user, "id", None), "action": "delete_team"}
         )
 
     # ========== 私有方法（业务逻辑封装） ==========
@@ -285,14 +227,10 @@ class TeamService:
             raise ValidationException(
                 message="非法团队类型",
                 code="INVALID_TEAM_TYPE",
-                errors={"team_type": f"团队类型必须是 {valid_types} 之一"}
+                errors={"team_type": f"团队类型必须是 {valid_types} 之一"},
             )
 
-    def _check_read_permission(
-        self,
-        user: Optional[Lawyer],
-        team: Team
-    ) -> bool:
+    def _check_read_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查读取权限"""
         # 无用户时允许访问（公开接口）
         if user is None:
@@ -305,17 +243,13 @@ class TeamService:
         # 用户可以访问同律所的团队
         return user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
 
-    def _check_create_permission(self, user: Optional[Lawyer]) -> bool:
+    def _check_create_permission(self, user: Lawyer | None) -> bool:
         """检查创建权限"""
         if user is None:
             return False
         return user.is_authenticated and (user.is_superuser or user.is_admin)  # type: ignore[no-any-return]
 
-    def _check_update_permission(
-        self,
-        user: Optional[Lawyer],
-        team: Team
-    ) -> bool:
+    def _check_update_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查更新权限"""
         if user is None:
             return False
@@ -327,11 +261,7 @@ class TeamService:
         # 律所管理员可以更新同律所的团队
         return user.is_admin and user.law_firm_id == team.law_firm_id  # type: ignore[attr-defined, no-any-return]
 
-    def _check_delete_permission(
-        self,
-        user: Optional[Lawyer],
-        team: Team
-    ) -> bool:
+    def _check_delete_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查删除权限"""
         if user is None:
             return False

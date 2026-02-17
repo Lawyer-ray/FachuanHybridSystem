@@ -421,7 +421,7 @@ class ServiceLocator:
                 DocumentProcessingServiceAdapter,
             )
 
-            service = DocumentProcessingServiceAdapter()  # type: ignore[no-untyped-call]
+            service = DocumentProcessingServiceAdapter()
             cls.register("document_processing_service", service)
         return service
 
@@ -561,7 +561,7 @@ class ServiceLocator:
                 CourtDocumentRecognitionServiceAdapter,
             )
 
-            service = CourtDocumentRecognitionServiceAdapter()  # type: ignore[no-untyped-call]
+            service = CourtDocumentRecognitionServiceAdapter()
             cls.register("court_document_recognition_service", service)
         return service
 
