@@ -52,9 +52,12 @@ class CourtDocumentDownloadMixin(
             raise RuntimeError("django.media_root 未配置")
         media_root_path = Path(str(media_root))
 
-        if self.cast(int | None, self.cast(int, self.task.case_id)):
+        if self.cast(int | None, self.cast(int, self.task.case_id)):  # type: ignore[attr-defined]
             download_dir = (
-                media_root_path / "case_logs" / str(self.cast(int | None, self.cast(int, self.task.case_id))) / "documents"
+                media_root_path
+                / "case_logs"
+                / str(self.cast(int | None, self.cast(int, self.task.case_id)))
+                / "documents"  # type: ignore[attr-defined]
             )
         else:
             download_dir = media_root_path / "automation" / "downloads" / f"task_{cast(int, self.task.pk)}"
@@ -81,7 +84,7 @@ class CourtDocumentDownloadMixin(
             success, filepath, error = download_result
 
             document = self.document_service.create_document_from_api_data(
-                scraper_task_id=cast(int, self.cast(int, task.pk)),
+                scraper_task_id=cast(int, self.cast(int, task.pk)),  # type: ignore[attr-defined, name-defined]
                 api_data=document_data,
                 case_id=self.cast(int | None, self.cast(int, task.case_id)),  # type: ignore[name-defined, attr-defined]
             )

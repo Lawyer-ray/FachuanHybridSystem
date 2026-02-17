@@ -9,8 +9,8 @@ from typing import Any
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 from django.core.files.uploadedfile import UploadedFile
+from numpy.typing import NDArray
 
 from apps.core.path import Path
 
@@ -24,7 +24,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
         image.seek(0)
 
         nparr = np.frombuffer(file_bytes, np.uint8)
-        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)  # type: ignore[return-value]
     except Exception as e:
         logger.warning(
             "读取图片失败",

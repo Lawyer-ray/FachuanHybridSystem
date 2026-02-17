@@ -2,11 +2,13 @@
 案件日志 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional, Any
+
 from datetime import datetime
+from typing import Any
+
 from ninja import Router
 
-from ..schemas import CaseLogIn, CaseLogUpdate, CaseLogOut
+from ..schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
 from ..services.caselog_service import CaseLogService
 
 router = Router()
@@ -17,7 +19,7 @@ def _get_caselog_service() -> CaseLogService:
     return CaseLogService()
 
 
-def _parse_reminder_time(rt: Optional[str]) -> Optional[datetime]:
+def _parse_reminder_time(rt: str | None) -> datetime | None:
     """解析提醒时间字符串"""
     if not rt:
         return None
@@ -33,15 +35,15 @@ def _parse_reminder_time(rt: Optional[str]) -> Optional[datetime]:
         return None
 
 
-@router.get("/logs", response=List[CaseLogOut])
-def list_logs(request: Any, case_id: Optional[int] = None) -> List[CaseLogOut]:
+@router.get("/logs", response=list[CaseLogOut])
+def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
     """获取日志列表"""
     service = _get_caselog_service()
     user = getattr(request, "user", None)
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.list_logs(
+    return service.list_logs(  # type: ignore[return-value]
         case_id=case_id,
         user=user,
         org_access=org_access,
@@ -55,13 +57,13 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
     service = _get_caselog_service()
     user = getattr(request, "user", None)
 
-    reminder_time = _parse_reminder_time(payload.reminder_time)
+    reminder_time = _parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
 
-    return service.create_log(
+    return service.create_log(  # type: ignore[return-value]
         case_id=payload.case_id,
         content=payload.content,
         user=user,
-        reminder_type=payload.reminder_type,
+        reminder_type=payload.reminder_type,  # type: ignore[attr-defined]
         reminder_time=reminder_time,
     )
 
@@ -74,7 +76,7 @@ def get_log(request: Any, log_id: int) -> CaseLogOut:
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
 
-    return service.get_log(
+    return service.get_log(  # type: ignore[return-value]
         log_id=log_id,
         user=user,
         org_access=org_access,
@@ -97,7 +99,7 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     if "reminder_time" in data and isinstance(data["reminder_time"], str):
         data["reminder_time"] = _parse_reminder_time(data["reminder_time"])
 
-    return service.update_log(
+    return service.update_log(  # type: ignore[return-value]
         log_id=log_id,
         data=data,
         user=user,

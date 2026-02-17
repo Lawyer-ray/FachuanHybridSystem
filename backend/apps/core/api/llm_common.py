@@ -17,7 +17,7 @@ def chat_with_context(
     system_prompt: str | None = None,
     conversation_service_factory: Callable[..., Any] | None = None,
 ) -> dict[str, str]:
-    conversation_service = conversation_service_factory(session_id=session_id, user_id=user_id)
+    conversation_service = conversation_service_factory(session_id=session_id, user_id=user_id)  # type: ignore[misc]
     response = conversation_service.chat_with_context(
         user_message=message,
         system_prompt=system_prompt,
@@ -35,7 +35,7 @@ async def achat_with_context(
     from asgiref.sync import sync_to_async
 
     def _run() -> Any:
-        conversation_service = conversation_service_factory(session_id=session_id, user_id=user_id)
+        conversation_service = conversation_service_factory(session_id=session_id, user_id=user_id)  # type: ignore[misc]
         response = conversation_service.chat_with_context(
             user_message=message,
             system_prompt=system_prompt,

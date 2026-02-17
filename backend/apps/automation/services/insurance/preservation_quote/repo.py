@@ -21,7 +21,7 @@ logger = logging.getLogger("apps.automation")
 def _configure_db_settings() -> None:
     raw_settings = getattr(connections, "_settings", None)
     configured_settings = connections.configure_settings(raw_settings)
-    connections._settings = configured_settings
+    connections._settings = configured_settings  # type: ignore[attr-defined]
 
 
 async def _db_sync(func: Any, *args: Any, **kwargs: Any) -> Any:

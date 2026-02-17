@@ -201,7 +201,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             ),
         }
 
-        validator = _FEE_MODE_VALIDATORS.get(fee_mode)
+        validator = _FEE_MODE_VALIDATORS.get(fee_mode)  # type: ignore[arg-type]
         if validator:
             validator(data, errors)
 

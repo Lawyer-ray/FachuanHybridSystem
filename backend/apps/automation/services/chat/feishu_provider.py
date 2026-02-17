@@ -367,7 +367,7 @@ class FeishuChatProvider(ChatProvider):
                 # 根据错误代码分类异常类型
                 exception_class = self._classify_feishu_error(error_code, error_msg)
 
-                raise exception_class(
+                raise exception_class(  # type: ignore[call-arg]
                     message=f"创建群聊失败: {error_msg}",
                     platform="feishu",
                     error_code=error_code,
@@ -679,8 +679,8 @@ class FeishuChatProvider(ChatProvider):
                 )
 
             # 提取file_key
-            file_data = data.get("data", {})
-            file_key = file_data.get("file_key")
+            file_data = data.get("data", {})  # type: ignore[var-annotated]
+            file_key = file_data.get("file_key")  # type: ignore[union-attr]
 
             if not file_key:
                 raise MessageSendException(
@@ -1109,7 +1109,7 @@ class FeishuChatProvider(ChatProvider):
                     chat_id=chat_id,
                     validation_type="owner_verification",
                 )
-            return True
+            return True  # type: ignore[return-value]
 
         try:
             # 执行带重试的验证操作

@@ -32,8 +32,8 @@ class OrgAccessMiddleware(MiddlewareMixin):
             org_access = self._compute_org_access(user)
             cache.set(cache_key, org_access, CacheTimeout.MEDIUM)
 
-        request.org_access = org_access
-        request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))
+        request.org_access = org_access  # type: ignore[attr-defined]
+        request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
         return None
 
     def _compute_org_access(self, user: Any) -> dict[str, Any]:

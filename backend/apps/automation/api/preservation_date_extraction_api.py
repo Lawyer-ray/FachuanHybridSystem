@@ -101,7 +101,7 @@ class PreservationDateExtractionResponse(Schema):
 @rate_limit_from_settings("UPLOAD", by_user=True)
 def extract_preservation_dates(
     request: HttpRequest,
-    file: UploadedFile = File(...),  # type: ignore[type-arg]
+    file: UploadedFile = File(...),
 ) -> PreservationDateExtractionResponse:
     """
     从上传的 PDF 文件中提取财产保全日期

@@ -156,7 +156,7 @@ class FeeComparisonResponse(Schema):
 
 def extract_fee_notices(
     request: HttpRequest,
-    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    files: list[UploadedFile] = File(...),
     debug: bool = False,
 ) -> FeeNoticeExtractionResponse:
     """从上传的 PDF 文件中提取交费通知书信息"""

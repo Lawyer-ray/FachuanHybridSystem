@@ -6,7 +6,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.db import transaction
 from django.utils import timezone
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from apps.automation.services.sms.matching.case_number_extractor_service import CaseNumberExtractorService
     from apps.automation.services.sms.matching.document_attachment_service import DocumentAttachmentService
     from apps.automation.services.sms.matching.sms_notification_service import SMSNotificationService
-    from apps.core.interfaces import ICaseService, IClientService, ILawyerService, ICaseChatService
+    from apps.core.interfaces import ICaseChatService, ICaseService, IClientService, ILawyerService
 
 # from .feishu_bot_service import FeishuBotService  # 已弃用 webhook 方式
 
@@ -34,8 +34,8 @@ class CourtSMSService:
 
     def __init__(
         self,
-        parser: SMSParserService = None,
-        matcher: CaseMatcher = None,
+        parser: SMSParserService = None,  # type: ignore[assignment]
+        matcher: CaseMatcher = None,  # type: ignore[assignment]
         case_number_extractor: Optional["CaseNumberExtractorService"] = None,
         document_attachment: Optional["DocumentAttachmentService"] = None,
         notification: Optional["SMSNotificationService"] = None,
@@ -134,7 +134,7 @@ class CourtSMSService:
             self._notification = SMSNotificationService()
         return self._notification
 
-    def submit_sms(self, content: str, received_at: datetime = None) -> CourtSMS:
+    def submit_sms(self, content: str, received_at: datetime = None) -> CourtSMS:  # type: ignore[assignment]
         """
         提交短信，创建记录并触发异步处理
 
@@ -211,7 +211,7 @@ class CourtSMSService:
 
         try:
             # 更新短信记录 - 直接设置外键 ID，避免跨模块 Model 导入
-            sms.case_id = case_id
+            sms.case_id = case_id  # type: ignore[attr-defined]
             sms.error_message = None  # 清除之前的错误信息
             sms.save()
 
@@ -500,7 +500,7 @@ class CourtSMSService:
 
             # 如果已经手动指定了案件，直接进入下一阶段
             if sms.case:
-                logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
+                logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")  # type: ignore[attr-defined]
                 success = self._create_case_binding(sms)
                 if success:
                     sms.status = CourtSMSStatus.RENAMING
@@ -651,14 +651,14 @@ class CourtSMSService:
         try:
             # 方式1：从 CourtDocument 记录获取
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
-                documents = sms.scraper_task.documents.filter(download_status="success")
+                documents = sms.scraper_task.documents.filter(download_status="success")  # type: ignore[attr-defined]
                 for doc in documents:
                     if doc.local_file_path and os.path.exists(doc.local_file_path):
                         document_paths.append(doc.local_file_path)
 
             # 方式2：如果没有从数据库获取到，尝试从任务结果中获取
             if not document_paths and sms.scraper_task:
-                result = sms.scraper_task.result
+                result = sms.scraper_task.result  # type: ignore[attr-defined]
                 if result and isinstance(result, dict):
                     files = result.get("files", [])
                     for file_path in files:
@@ -705,12 +705,12 @@ class CourtSMSService:
 
             # 保存重命名后的文件路径到 scraper_task.result，供后续阶段使用
             if renamed_paths and sms.scraper_task:
-                result = sms.scraper_task.result or {}
+                result = sms.scraper_task.result or {}  # type: ignore[attr-defined]
                 if not isinstance(result, dict):
                     result = {}
                 result["renamed_files"] = renamed_paths
-                sms.scraper_task.result = result
-                sms.scraper_task.save()
+                sms.scraper_task.result = result  # type: ignore[attr-defined]
+                sms.scraper_task.save()  # type: ignore[attr-defined]
                 logger.info(f"保存重命名后的文件路径到任务结果: {len(renamed_paths)} 个文件")
 
             # 委托给 DocumentAttachmentService 添加附件到案件日志
@@ -758,7 +758,9 @@ class CourtSMSService:
                 # 同步案号到案件
                 if case_numbers_to_sync:
                     success_count = self.case_number_extractor.sync_to_case(
-                        case_id=sms.case.id, case_numbers=case_numbers_to_sync, sms_id=sms.id
+                        case_id=sms.case.id,
+                        case_numbers=case_numbers_to_sync,
+                        sms_id=sms.id,  # type: ignore[attr-defined]
                     )
                     logger.info(f"案号同步完成: SMS ID={sms.id}, 写入 {success_count} 个新案号")
 
@@ -914,7 +916,7 @@ class CourtSMSService:
             try:
                 from apps.automation.models import ScraperTask
 
-                fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)
+                fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
                 sms.scraper_task = fresh_task  # 更新实例
                 logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
             except ScraperTask.DoesNotExist:
@@ -945,7 +947,7 @@ class CourtSMSService:
                     return False
 
             # 获取所有文书记录并记录详细状态
-            all_documents = sms.scraper_task.documents.all()
+            all_documents = sms.scraper_task.documents.all()  # type: ignore[attr-defined]
             if not all_documents.exists():
                 # 如果任务还在进行中，需要等待
                 if sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]:
@@ -1033,7 +1035,7 @@ class CourtSMSService:
                 return False
 
             # 通过 ServiceLocator 获取 Lawyer 服务，避免跨模块 Model 导入
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore[attr-defined]
 
             # 如果短信提取到案号，自动写入案件（如果不存在）
             if sms.case_numbers:
@@ -1041,7 +1043,9 @@ class CourtSMSService:
 
             # 创建案件日志（只包含短信内容，附件在重命名后添加）
             case_log = case_log_service.create_log(
-                case_id=sms.case.id, content=f"收到法院短信：{sms.content}", user=system_user
+                case_id=sms.case.id,
+                content=f"收到法院短信：{sms.content}",
+                user=system_user,  # type: ignore[attr-defined]
             )
 
             sms.case_log = case_log
@@ -1091,13 +1095,15 @@ class CourtSMSService:
             added_count = 0
             for case_number in valid_case_numbers:
                 success = self.case_service.add_case_number_internal(
-                    case_id=sms.case.id, case_number=case_number, user_id=user_id
+                    case_id=sms.case.id,
+                    case_number=case_number,
+                    user_id=user_id,  # type: ignore[attr-defined]
                 )
                 if success:
                     added_count += 1
 
             if added_count > 0:
-                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")
+                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")  # type: ignore[attr-defined]
 
         except Exception as e:
             # 案号写入失败不影响主流程

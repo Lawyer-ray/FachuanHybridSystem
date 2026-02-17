@@ -2,7 +2,9 @@
 案件当事人 API
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import List, Optional, Any
+
+from typing import Any
+
 from ninja import Router
 
 from ..schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
@@ -13,25 +15,23 @@ router = Router()
 def _get_case_party_service() -> Any:
     """工厂函数：创建 CasePartyService 实例"""
     from ..services.case_party_service import CasePartyService
+
     return CasePartyService()
 
 
-@router.get("/parties", response=List[CasePartyOut])
-def list_parties(request: Any, case_id: Optional[int] = None) -> List[CasePartyOut]:
+@router.get("/parties", response=list[CasePartyOut])
+def list_parties(request: Any, case_id: int | None = None) -> list[CasePartyOut]:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.list_parties(case_id=case_id, user=user)
+    return service.list_parties(case_id=case_id, user=user)  # type: ignore[no-any-return]
 
 
 @router.post("/parties", response=CasePartyOut)
 def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.create_party(
-        case_id=payload.case_id,
-        client_id=payload.client_id,
-        legal_status=payload.legal_status,
-        user=user
+    return service.create_party(  # type: ignore[no-any-return]
+        case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status, user=user
     )
 
 
@@ -39,7 +39,7 @@ def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
 def get_party(request: Any, party_id: int) -> CasePartyOut:
     service = _get_case_party_service()
     user = getattr(request, "user", None)
-    return service.get_party(party_id=party_id, user=user)
+    return service.get_party(party_id=party_id, user=user)  # type: ignore[no-any-return]
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
@@ -47,7 +47,7 @@ def update_party(request: Any, party_id: int, payload: CasePartyUpdate) -> CaseP
     service = _get_case_party_service()
     user = getattr(request, "user", None)
     data = payload.dict(exclude_unset=True)
-    return service.update_party(party_id=party_id, data=data, user=user)
+    return service.update_party(party_id=party_id, data=data, user=user)  # type: ignore[no-any-return]
 
 
 @router.delete("/parties/{party_id}")

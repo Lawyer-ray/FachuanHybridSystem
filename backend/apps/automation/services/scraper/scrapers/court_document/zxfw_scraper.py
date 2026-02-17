@@ -765,7 +765,7 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
                         if doc_item.count() > 0:
                             doc_item.first.click()
                             logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
-                            self.random_wait(2, 3)  # 等待 PDF 加载  # type: ignore[attr-defined]
+                            self.random_wait(2, 3)  # type: ignore[attr-defined]  # 等待 PDF 加载
                         else:
                             logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
                     except Exception as e:

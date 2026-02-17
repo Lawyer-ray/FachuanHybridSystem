@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -20,7 +20,7 @@ def _use_agent_mode() -> bool:
     return getattr(settings, "LITIGATION_USE_AGENT_MODE", False)
 
 
-class LitigationConsumer(AsyncWebsocketConsumer):  # type: ignore[misc]
+class LitigationConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.session_id: str | None = None
@@ -308,13 +308,13 @@ class LitigationConsumer(AsyncWebsocketConsumer):  # type: ignore[misc]
             }
         )
 
-    @database_sync_to_async  # type: ignore[misc]
+    @database_sync_to_async
     def _get_session(self, session_id: str) -> Any:
         from apps.litigation_ai.models import LitigationSession
 
         return LitigationSession.objects.filter(session_id=session_id).first()
 
-    @database_sync_to_async  # type: ignore[misc]
+    @database_sync_to_async
     def _add_message(self, role: str, content: str, metadata: dict[str, Any] | None = None) -> Any:
         from apps.litigation_ai.services import LitigationConversationService
 
@@ -322,7 +322,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):  # type: ignore[misc]
         session_id = self.session_id if self.session_id is not None else ""
         return service.add_message(session_id=session_id, role=role, content=content, metadata=metadata or {})
 
-    @database_sync_to_async  # type: ignore[misc]
+    @database_sync_to_async
     def _get_current_step(self, flow_service: Any) -> Any:
         return flow_service.get_current_step(self.session_id)
 

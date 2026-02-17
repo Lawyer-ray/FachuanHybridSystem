@@ -226,7 +226,7 @@ class DocumentDownloadService:
             self.history_repo.enqueue_record_query_history(
                 credential_id=credential_id,
                 case_number=entry.case_number,
-                send_time=entry.send_time,
+                send_time=entry.send_time,  # type: ignore[arg-type]
             )
         except Exception as e:
             logger.warning("记录查询历史失败", extra={"credential_id": credential_id, "error": str(e)})

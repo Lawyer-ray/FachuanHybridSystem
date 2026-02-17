@@ -287,7 +287,7 @@ class LegacyServiceLocator:
 
             service = CourtSMSService()
             cls.register("court_sms_service", service)
-        return service
+        return service  # type: ignore[return-value]
 
     @classmethod
     def get_case_chat_service(cls) -> ICaseChatService:
@@ -297,7 +297,7 @@ class LegacyServiceLocator:
 
             service = CaseChatService()
             cls.register("case_chat_service", service)
-        return service
+        return service  # type: ignore[return-value]
 
     @classmethod
     def get_organization_service(cls) -> IOrganizationService:

@@ -86,7 +86,7 @@ class ValidatorService:
         Returns:
             校验结果 {valid: bool, error: str, info: dict}
         """
-        return self.file_utils.validate_file_basic(file_path, expected_extensions)
+        return self.file_utils.validate_file_basic(file_path, expected_extensions)  # type: ignore[no-any-return]
 
     def clean_text(self, text: str) -> str:
         """

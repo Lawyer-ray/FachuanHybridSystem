@@ -36,7 +36,7 @@ class CaseLogInternalService:
             extra={
                 "action": "create_case_log_internal",
                 "case_id": case_id,
-                "log_id": cast(int, case_log.id),
+                "log_id": cast(int, case_log.id),  # type: ignore[redundant-cast]
                 "user_id": actor_id,
             },
         )

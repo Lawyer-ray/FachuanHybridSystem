@@ -8,18 +8,15 @@ API 层职责：
 
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
-from typing import List, Optional, Any
+
+from typing import Any
+
 from ninja import Router
 
-from ..schemas import (
-    CaseIn,
-    CaseOut,
-    CaseUpdate,
-    CaseCreateFull,
-    CaseFullOut,
-)
-from ..services import CaseService
 from apps.core.interfaces import ServiceLocator
+
+from ..schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
+from ..services import CaseService
 
 router = Router()
 
@@ -32,48 +29,46 @@ def _get_case_service() -> CaseService:
         CaseService 实例
     """
     contract_service = ServiceLocator.get_contract_service()
-    return CaseService(
-        contract_service=contract_service
-    )
+    return CaseService(contract_service=contract_service)
 
 
-@router.get("/cases/search", response=List[CaseOut])
+@router.get("/cases/search", response=list[CaseOut])
 def search_cases(
     request: Any,
     q: str,
-    limit: Optional[int] = 10,
-) -> List[CaseOut]:
+    limit: int | None = 10,
+) -> list[CaseOut]:
     """
     搜索案件
-    
+
     Args:
         q: 搜索关键词（案号、案件名称、当事人姓名）
         limit: 返回结果数量限制
     """
     service = _get_case_service()
-    
+
     # 提取用户和权限信息
     user = getattr(request, "user", None)
     org_access = getattr(request, "org_access", None)
     perm_open_access = getattr(request, "perm_open_access", False)
-    
+
     # 调用搜索服务
-    return service.search_cases(
+    return service.search_cases(  # type: ignore[return-value]
         query=q,
-        limit=limit,
+        limit=limit,  # type: ignore[arg-type]
         user=user,
         org_access=org_access,
         perm_open_access=perm_open_access,
     )
 
 
-@router.get("/cases", response=List[CaseOut])
+@router.get("/cases", response=list[CaseOut])
 def list_cases(
     request: Any,
-    case_type: Optional[str] = None,
-    status: Optional[str] = None,
-    case_number: Optional[str] = None,
-) -> List[CaseOut]:
+    case_type: str | None = None,
+    status: str | None = None,
+    case_number: str | None = None,
+) -> list[CaseOut]:
     """
     获取案件列表
 
@@ -96,7 +91,7 @@ def list_cases(
 
     # 如果提供了案号，使用案号搜索
     if case_number:
-        return service.search_by_case_number(
+        return service.search_by_case_number(  # type: ignore[return-value]
             case_number=case_number,
             user=user,
             org_access=org_access,
@@ -104,7 +99,7 @@ def list_cases(
         )
 
     # 否则使用常规列表查询
-    return service.list_cases(
+    return service.list_cases(  # type: ignore[return-value]
         case_type=case_type,
         status=status,
         user=user,
@@ -131,7 +126,7 @@ def get_case(request: Any, case_id: int) -> CaseOut:
     perm_open_access = getattr(request, "perm_open_access", False)
 
     # 调用 Service（权限检查在 Service 层）
-    return service.get_case(
+    return service.get_case(  # type: ignore[return-value]
         case_id=case_id,
         user=user,
         org_access=org_access,
@@ -158,7 +153,7 @@ def create_case(request: Any, payload: CaseIn) -> CaseOut:
     data = payload.dict()
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return service.create_case(data, user=user)
+    return service.create_case(data, user=user)  # type: ignore[return-value]
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
@@ -180,7 +175,7 @@ def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
     data = payload.dict(exclude_unset=True)
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return service.update_case(case_id, data, user=user)
+    return service.update_case(case_id, data, user=user)  # type: ignore[return-value]
 
 
 @router.delete("/cases/{case_id}")
@@ -226,7 +221,9 @@ def create_case_full(request: Any, payload: CaseCreateFull) -> CaseFullOut:
         "parties": [p.dict() for p in payload.parties] if payload.parties else [],
         "assignments": [a.dict() for a in payload.assignments] if payload.assignments else [],
         "logs": [log.dict() for log in payload.logs] if payload.logs else [],
-        "supervising_authorities": [s.dict() for s in payload.supervising_authorities] if payload.supervising_authorities else [],
+        "supervising_authorities": (
+            [s.dict() for s in payload.supervising_authorities] if payload.supervising_authorities else []
+        ),
     }
 
     # 调用 Service（业务逻辑和权限检查在 Service 层）
