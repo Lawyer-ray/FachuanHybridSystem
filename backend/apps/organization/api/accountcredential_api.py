@@ -1,11 +1,12 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from ninja import Router
 from ..schemas import AccountCredentialOut, AccountCredentialIn, AccountCredentialUpdateIn
+from ..services import AccountCredentialService
 
 router = Router()
 
 
-def _get_credential_service():
+def _get_credential_service() -> AccountCredentialService:
     """工厂函数：创建 AccountCredentialService 实例"""
     from ..services import AccountCredentialService
     return AccountCredentialService()
@@ -13,10 +14,10 @@ def _get_credential_service():
 
 @router.get("/credentials", response=List[AccountCredentialOut])
 def list_credentials(
-    request,
+    request: Any,
     lawyer_id: Optional[int] = None,
     lawyer_name: Optional[str] = None,
-):
+) -> Any:
     """
     获取账号凭证列表
 
@@ -34,7 +35,7 @@ def list_credentials(
 
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
-def get_credential(request, cred_id: int):
+def get_credential(request: Any, cred_id: int) -> Any:
     """获取单个凭证"""
     service = _get_credential_service()
     user = getattr(request, "user", None)
@@ -42,7 +43,7 @@ def get_credential(request, cred_id: int):
 
 
 @router.post("/credentials", response=AccountCredentialOut)
-def create_credential(request, payload: AccountCredentialIn):
+def create_credential(request: Any, payload: AccountCredentialIn) -> Any:
     """创建凭证"""
     service = _get_credential_service()
     user = getattr(request, "user", None)
@@ -57,7 +58,7 @@ def create_credential(request, payload: AccountCredentialIn):
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
-def update_credential(request, cred_id: int, payload: AccountCredentialUpdateIn):
+def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpdateIn) -> Any:
     """更新凭证"""
     service = _get_credential_service()
     user = getattr(request, "user", None)
@@ -69,7 +70,7 @@ def update_credential(request, cred_id: int, payload: AccountCredentialUpdateIn)
 
 
 @router.delete("/credentials/{cred_id}")
-def delete_credential(request, cred_id: int):
+def delete_credential(request: Any, cred_id: int) -> dict[str, bool]:
     """删除凭证"""
     service = _get_credential_service()
     user = getattr(request, "user", None)
