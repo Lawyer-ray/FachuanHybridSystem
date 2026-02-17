@@ -46,7 +46,7 @@ class ContractAdminService:
         )
         
         # 复制当事人
-        for party in original.contract_parties.all():
+        for party in original.contract_parties.all():  # type: ignore[attr-defined]
             ContractParty.objects.create(
                 contract=new_contract,
                 client=party.client,
@@ -54,7 +54,7 @@ class ContractAdminService:
             )
         
         # 复制律师指派
-        for assignment in original.assignments.all():
+        for assignment in original.assignments.all():  # type: ignore[attr-defined]
             ContractAssignment.objects.create(
                 contract=new_contract,
                 lawyer=assignment.lawyer,
@@ -63,7 +63,7 @@ class ContractAdminService:
             )
         
         # 复制提醒
-        for reminder in original.reminders.all():
+        for reminder in original.reminders.all():  # type: ignore[attr-defined]
             ContractReminder.objects.create(
                 contract=new_contract,
                 kind=reminder.kind,
@@ -72,7 +72,7 @@ class ContractAdminService:
             )
         
         # 复制补充协议及其当事人
-        for agreement in original.supplementary_agreements.all():
+        for agreement in original.supplementary_agreements.all():  # type: ignore[attr-defined]
             new_agreement = SupplementaryAgreement.objects.create(
                 contract=new_contract,
                 name=agreement.name,
@@ -123,7 +123,7 @@ class ContractAdminService:
             raise ValidationException(
                 message="该合同类型不支持创建案件",
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型 {contract.get_case_type_display()} 不支持创建案件"}
+                errors={"case_type": f"合同类型 {contract.get_case_type_display()} 不支持创建案件"}  # type: ignore[attr-defined]
             )
         
         # 映射合同类型到案件类型
@@ -139,7 +139,7 @@ class ContractAdminService:
         case = Case.objects.create(
             contract=contract,
             name=f"{contract.name} - 案件",
-            case_type=case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
+            case_type=case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),  # type: ignore[arg-type]
             is_archived=False,
         )
         
