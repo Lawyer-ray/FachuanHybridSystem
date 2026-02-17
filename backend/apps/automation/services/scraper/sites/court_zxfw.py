@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from playwright.sync_api import BrowserContext, Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import (
-        CaptchaRecognizer,  # type: ignore[attr-defined]
+    from apps.automation.services.captcha.captcha_recognition_service import (  # type: ignore[attr-defined]
+        CaptchaRecognizer,
     )
     from apps.automation.services.scraper.core.token_service import TokenService
 

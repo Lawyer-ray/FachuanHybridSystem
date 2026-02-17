@@ -758,9 +758,9 @@ class CourtSMSService:
                 # 同步案号到案件
                 if case_numbers_to_sync:
                     success_count = self.case_number_extractor.sync_to_case(
-                        case_id=sms.case.id,
+                        case_id=sms.case.id,  # type: ignore[attr-defined]
                         case_numbers=case_numbers_to_sync,
-                        sms_id=sms.id,  # type: ignore[attr-defined]
+                        sms_id=sms.id,
                     )
                     logger.info(f"案号同步完成: SMS ID={sms.id}, 写入 {success_count} 个新案号")
 
@@ -1043,9 +1043,9 @@ class CourtSMSService:
 
             # 创建案件日志（只包含短信内容，附件在重命名后添加）
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,
+                case_id=sms.case.id,  # type: ignore[attr-defined]
                 content=f"收到法院短信：{sms.content}",
-                user=system_user,  # type: ignore[attr-defined]
+                user=system_user,
             )
 
             sms.case_log = case_log
@@ -1095,9 +1095,9 @@ class CourtSMSService:
             added_count = 0
             for case_number in valid_case_numbers:
                 success = self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,
+                    case_id=sms.case.id,  # type: ignore[attr-defined]
                     case_number=case_number,
-                    user_id=user_id,  # type: ignore[attr-defined]
+                    user_id=user_id,
                 )
                 if success:
                     added_count += 1

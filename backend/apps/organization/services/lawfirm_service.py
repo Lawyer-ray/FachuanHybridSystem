@@ -72,7 +72,7 @@ class LawFirmService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, Any] = None,
+        filters: dict[str, Any] = None,  # type: ignore[assignment]
         user: Lawyer = None,  # type: ignore[assignment]
     ) -> "QuerySet[LawFirm, LawFirm]":
         """
@@ -129,7 +129,7 @@ class LawFirmService:
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
-                f"用户 {user.id} 尝试创建律所但权限不足",
+                f"用户 {user.id} 尝试创建律所但权限不足",  # type: ignore[attr-defined]
                 extra={"user_id": user.id, "action": "create_lawfirm"},  # type: ignore[attr-defined]
             )
             raise PermissionDenied(message="无权限创建律所", code="PERMISSION_DENIED")

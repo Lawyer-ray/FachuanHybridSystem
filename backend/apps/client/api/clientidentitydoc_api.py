@@ -25,8 +25,8 @@ def _get_client_service() -> Any:
 
 @router.post("/clients/{client_id}/identity-docs")
 def add_identity_doc(
-    request: Any, client_id: int, doc_type: str, file: UploadedFile = File[UploadedFile](...)
-) -> dict[str, Any]:  # type: ignore[arg-type]
+    request: Any, client_id: int, doc_type: str, file: UploadedFile = File[UploadedFile](...)  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """
     添加证件文档
 

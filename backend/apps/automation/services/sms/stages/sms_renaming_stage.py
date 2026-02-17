@@ -168,9 +168,9 @@ class SMSRenamingStage(BaseSMSStage):
 
             user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore[attr-defined]
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,
+                case_id=sms.case.id,  # type: ignore[attr-defined]
                 content=f"收到法院短信：{sms.content}",
-                user=user,  # type: ignore[attr-defined]
+                user=user,
             )
             sms.case_log = case_log
             sms.save()
@@ -205,9 +205,9 @@ class SMSRenamingStage(BaseSMSStage):
         # 同步到案件
         if case_numbers:
             self.case_number_extractor.sync_to_case(
-                case_id=sms.case.id,
+                case_id=sms.case.id,  # type: ignore[attr-defined]
                 case_numbers=case_numbers,
-                sms_id=sms.id,  # type: ignore[attr-defined]
+                sms_id=sms.id,
             )
 
     def _extract_and_update_party_names(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
