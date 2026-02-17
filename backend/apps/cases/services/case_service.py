@@ -373,14 +373,14 @@ class CaseService:
 
         # 权限检查
         if perm_open_access:
-            return case  # type: ignore[no-any-return]
+            return case
 
         if user and getattr(user, "is_authenticated", False):
             if getattr(user, "is_admin", False):
-                return case  # type: ignore[no-any-return]
+                return case
 
             if self.check_case_access(case, user, org_access):
-                return case  # type: ignore[no-any-return]
+                return case
 
         raise ForbiddenError("无权限访问此案件")
 

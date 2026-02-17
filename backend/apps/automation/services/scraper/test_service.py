@@ -5,11 +5,14 @@
 import logging
 import time
 import traceback
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from django.conf import settings
 
 from apps.core.config import get_config
 from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
+
+if TYPE_CHECKING:
+    from apps.automation.services.scraper.core.browser_config import BrowserConfig
 
 logger = logging.getLogger("apps.automation")
 

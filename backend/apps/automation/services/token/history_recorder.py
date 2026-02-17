@@ -201,7 +201,7 @@ class TokenHistoryRecorder:
                     'period_hours': hours
                 }
             
-            return await get_stats()  # type: ignore[no-any-return]
+            return await get_stats()
             
         except Exception as e:
             logger.error(f"获取统计信息失败: {e}", exc_info=True)
@@ -243,7 +243,7 @@ class TokenHistoryRecorder:
                 'retention_days': days
             })
             
-            return deleted_count  # type: ignore[no-any-return]
+            return deleted_count
             
         except Exception as e:
             logger.error(f"清理历史记录失败: {e}", exc_info=True)
@@ -303,7 +303,7 @@ class TokenHistoryRecorder:
                     'last_success_at': last_success.created_at.isoformat() if last_success else None
                 }
             
-            return await get_account_stats()  # type: ignore[no-any-return]
+            return await get_account_stats()
             
         except Exception as e:
             logger.error(f"获取账号性能数据失败: {e}", extra={

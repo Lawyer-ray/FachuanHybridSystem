@@ -5,7 +5,7 @@
 """
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Any, Optional, List
 from django.utils import timezone
 
 from apps.core.exceptions import ValidationException, NotFoundError

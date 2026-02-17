@@ -4,9 +4,13 @@
 """
 import logging
 import time
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, TYPE_CHECKING
 from playwright.sync_api import Page, BrowserContext
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer
+    from apps.automation.services.scraper.core.token_service import TokenService
 
 logger = logging.getLogger("apps.automation")
 

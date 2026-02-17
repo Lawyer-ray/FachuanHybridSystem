@@ -66,7 +66,7 @@ class LawFirmService:
         if not self._check_read_permission(user, lawfirm):
             raise PermissionDenied(message="无权限访问该律所", code="PERMISSION_DENIED")
 
-        return lawfirm  # type: ignore[no-any-return]
+        return lawfirm
 
     def list_lawfirms(
         self, page: int = 1, page_size: int = 20, filters: dict[str, Any] = None, user: Lawyer = None

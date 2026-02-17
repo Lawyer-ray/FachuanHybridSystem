@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from django.conf import settings
 
 from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService, ServiceLocator
+from apps.core.exceptions import ValidationException, BusinessException
 from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 

@@ -5,6 +5,7 @@ Core 应用配置
 """
 
 import logging
+from typing import Any
 from django.apps import AppConfig
 from django.conf import settings
 
