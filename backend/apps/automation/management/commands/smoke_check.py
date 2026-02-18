@@ -100,8 +100,9 @@ class Command(BaseCommand):
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
             return user
+        smoke_password = getattr(settings, "SMOKE_ADMIN_PASSWORD", "smoke_admin_password")
         return User.objects.create_superuser(  # type: ignore[attr-defined]
-            username=username, email="smoke_admin@example.com", password="smoke_admin_password"
+            username=username, email="smoke_admin@example.com", password=smoke_password
         )
 
     def _check_admin_pages(self, client: Client) -> None:
