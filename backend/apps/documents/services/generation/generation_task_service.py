@@ -1,7 +1,7 @@
 """Business logic services."""
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.conf import settings
 from django.utils import timezone
@@ -98,7 +98,7 @@ class GenerationTaskService:
                     document_url = f"{media_url}{file_name}"
 
         return GenerationTaskDTO(
-            id=cast(int, task.pk),
+            id=task.pk,
             status=task.status,
             created_at=task.created_at,
             created_by_id=getattr(task, "created_by_id", None),

@@ -153,8 +153,8 @@ class GenerationService:
             metadata={},
         )
 
-        task.folder_template_id = folder_template_id  # type: ignore[assignment]
-        task.output_path = output_path  # type: ignore[assignment]
+        task.folder_template_id = folder_template_id
+        task.output_path = output_path
         generated_files: list[Any] = []
         error_logs: list[Any] = []
         task.save(update_fields=["metadata"])

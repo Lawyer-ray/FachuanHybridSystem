@@ -13,7 +13,7 @@ from __future__ import annotations
 import glob
 import logging
 import os
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -28,7 +28,7 @@ class AttachmentQueryService:
         """获取待重命名的文书路径列表"""
         try:
             if not sms.scraper_task:
-                logger.info("短信 %s 无下载任务,返回空路径列表", cast(int, cast(int, sms.pk)))
+                logger.info("短信 %s 无下载任务,返回空路径列表", sms.pk)
                 return []
 
             # 方式1:从 CourtDocument 记录获取(优先)
@@ -36,7 +36,7 @@ class AttachmentQueryService:
 
             # 方式2:降级从任务结果获取
             if not paths:
-                paths = self._collect_from_result_files(sms.scraper_task.result, set())  # type: ignore[attr-defined]
+                paths = self._collect_from_result_files(sms.scraper_task.result, set())
 
             logger.info("获取到 %d 个待重命名的文书路径", len(paths))
             return paths
@@ -48,13 +48,13 @@ class AttachmentQueryService:
         """获取待发送通知的文书路径列表(已去重)"""
         try:
             if not sms.scraper_task:
-                logger.info("短信 %s 无下载任务,返回空路径列表", cast(int, cast(int, sms.pk)))
+                logger.info("短信 %s 无下载任务,返回空路径列表", sms.pk)
                 return []
 
             seen_paths: set[str] = set()
 
             # 优先从 renamed_files 获取
-            result = sms.scraper_task.result  # type: ignore[attr-defined]
+            result = sms.scraper_task.result
             paths = self._collect_from_renamed_files(result, seen_paths)
             if paths:
                 logger.info("从 renamed_files 获取到 %d 个文书路径", len(paths))
@@ -127,7 +127,7 @@ class AttachmentQueryService:
             if not os.path.exists(directory):
                 return None
 
-            case_name: str | None = sms.case.name if sms.case else None  # type: ignore[attr-defined]
+            case_name: str | None = sms.case.name if sms.case else None
             if not case_name:
                 return None
 

@@ -43,9 +43,9 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
 
         if contract is not None:
-            if allowed_lawyers and contract.assignments.filter(lawyer_id__in=list(allowed_lawyers)).exists():  # type: ignore[attr-defined]
+            if allowed_lawyers and contract.assignments.filter(lawyer_id__in=list(allowed_lawyers)).exists():
                 return True
-            if user_id and contract.cases.filter(assignments__lawyer_id=user_id).exists():  # type: ignore[attr-defined]
+            if user_id and contract.cases.filter(assignments__lawyer_id=user_id).exists():
                 return True
             return False
 
@@ -82,11 +82,11 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
 
     def filter_queryset(
         self,
-        qs: QuerySet["Contract"],  # type: ignore[type-arg]
+        qs: QuerySet["Contract", "Contract"],
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
-    ) -> QuerySet["Contract"]:  # type: ignore[type-arg]
+    ) -> QuerySet["Contract", "Contract"]:
         if perm_open_access:
             return qs
 
@@ -131,7 +131,9 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             message=message,
         )
 
-    def filter_queryset_ctx(self, qs: QuerySet["Contract"], ctx: "AccessContext") -> QuerySet["Contract"]:  # type: ignore[type-arg]
+    def filter_queryset_ctx(
+        self, qs: QuerySet["Contract", "Contract"], ctx: "AccessContext"
+    ) -> QuerySet["Contract", "Contract"]:
         return self.filter_queryset(
             qs=qs, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access
         )

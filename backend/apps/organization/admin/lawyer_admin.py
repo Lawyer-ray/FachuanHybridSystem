@@ -1,15 +1,21 @@
-from django.contrib import admin
-from django import forms
-from django.core.exceptions import ValidationError
-from ..models import Lawyer, AccountCredential
+from __future__ import annotations
 
-class LawyerAdminForm(forms.ModelForm):
+from typing import Any
+
+from django import forms
+from django.contrib import admin
+from django.core.exceptions import ValidationError
+
+from ..models import AccountCredential, Lawyer
+
+
+class LawyerAdminForm(forms.ModelForm[Lawyer]):
     class Meta:
         model = Lawyer
         fields = "__all__"
 
-    def clean(self):
-        cleaned = super().clean()
+    def clean(self) -> dict[str, Any]:
+        cleaned: dict[str, Any] = super().clean() or {}
         law_firm = cleaned.get("law_firm")
         lawyer_teams = cleaned.get("lawyer_teams")
         biz_teams = cleaned.get("biz_teams")
@@ -27,9 +33,7 @@ class AccountCredentialInlineForm(forms.ModelForm):
     class Meta:
         model = AccountCredential
         fields = "__all__"
-        widgets = {
-            "password": forms.PasswordInput(render_value=True)
-        }
+        widgets = {"password": forms.PasswordInput(render_value=True)}
 
 
 class AccountCredentialInline(admin.TabularInline):

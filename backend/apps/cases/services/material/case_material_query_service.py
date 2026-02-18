@@ -188,12 +188,12 @@ class CaseMaterialQueryService:
         return ordered
 
     def _material_item_payload(self, m: CaseMaterial) -> dict[str, Any]:
-        att = m.source_attachment  # type: ignore
+        att = m.source_attachment
         file_name = getattr(getattr(att, "file", None), "name", "") if att else ""
         url = getattr(getattr(att, "file", None), "url", "") if att else ""
         uploaded_at = getattr(att, "uploaded_at", None)
         party_labels = []
-        for p in m.parties.all():  # type: ignore[attr-defined]
+        for p in m.parties.all():
             if p.client and p.client.name:
                 party_labels.append(p.client.name)
         return {

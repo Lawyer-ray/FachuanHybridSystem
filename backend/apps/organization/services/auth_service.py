@@ -3,7 +3,7 @@
 封装用户认证相关的业务逻辑
 """
 
-from typing import Any, cast
+from typing import Any
 
 from django.contrib.auth import authenticate, login, logout
 
@@ -41,7 +41,8 @@ class AuthService:
         if not user:
             raise AuthenticationError(message="用户名或密码错误", code="INVALID_CREDENTIALS")
         login(request, user)
-        return cast(Lawyer, user)
+        assert isinstance(user, Lawyer)
+        return user
 
     def logout(self, request: Any) -> None:
         """

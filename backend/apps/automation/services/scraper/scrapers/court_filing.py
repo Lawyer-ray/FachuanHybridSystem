@@ -92,7 +92,7 @@ class CourtFilingScraper(BaseScraper):
     def _fill_case_info(self) -> None:
         """填写案件信息"""
         case = self.task.case
-        logger.info(f"填写案件信息: {case.name}")  # type: ignore[attr-defined]
+        logger.info(f"填写案件信息: {case.name if case else 'N/A'}")
 
         # TODO: 根据实际网站调整字段映射
         # 示例：

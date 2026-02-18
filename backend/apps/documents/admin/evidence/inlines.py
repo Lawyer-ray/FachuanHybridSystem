@@ -1,17 +1,21 @@
 """Module for inlines."""
 
+from __future__ import annotations
+
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import EvidenceItem
 
 
-class EvidenceItemInline(admin.TabularInline):
+class EvidenceItemInline(admin.TabularInline):  # type: ignore[type-arg]
     model = EvidenceItem
     extra: int = 1
-    fields: tuple[Any, ...] = (
+    fields: ClassVar[tuple[Any, ...]] = (
         "global_order_display",
         "name",
         "purpose",
@@ -19,14 +23,14 @@ class EvidenceItemInline(admin.TabularInline):
         "page_count",
         "page_range_display",
     )
-    readonly_fields: tuple[Any, ...] = ("global_order_display", "page_count", "page_range_display")
-    ordering: ClassVar = ["order"]
+    readonly_fields: ClassVar[tuple[Any, ...]] = ("global_order_display", "page_count", "page_range_display")
+    ordering: ClassVar[list[str]] = ["order"]
 
-    def get_queryset(self, request) -> None:
-        qs = super().get_queryset(request)
+    def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:
+        qs: QuerySet[EvidenceItem, EvidenceItem] = super().get_queryset(request)  # type: ignore[assignment]
         return qs
 
-    def global_order_display(self, obj) -> None:
+    def global_order_display(self, obj: EvidenceItem) -> Any:
         if not obj.pk:
             return "-"
 
@@ -34,18 +38,18 @@ class EvidenceItemInline(admin.TabularInline):
         global_order = evidence_list.start_order + obj.order - 1
         return global_order
 
-    global_order_display.short_description = _("序号")
+    global_order_display.short_description = _("序号")  # type: ignore[attr-defined]
 
-    def page_range_display(self, obj) -> None:
+    def page_range_display(self, obj: EvidenceItem) -> Any:
         if obj.pk:
             return obj.page_range_display
         return "-"
 
-    page_range_display.short_description = _("页码范围")
+    page_range_display.short_description = _("页码范围")  # type: ignore[attr-defined]
 
     class Media:
-        css: ClassVar = {"all": ("documents/css/evidence_inline.css",)}
-        js: tuple[Any, ...] = ("documents/js/evidence_sortable.js",)
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/evidence_inline.css",)}
+        js: ClassVar[tuple[str, ...]] = ("documents/js/evidence_sortable.js",)
 
 
 __all__: list[str] = ["EvidenceItemInline"]

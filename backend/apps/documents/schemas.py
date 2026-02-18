@@ -187,7 +187,7 @@ class DocumentTemplateOut(ModelSchema):
                 priority=binding.priority,
                 is_active=binding.is_active,
             )
-            for binding in obj.folder_bindings.all()  # type: ignore[attr-defined]
+            for binding in obj.folder_bindings.all()
         ]
 
 

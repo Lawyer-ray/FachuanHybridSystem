@@ -815,11 +815,11 @@ class ContractService(PermissionMixin):
             contract.assignments.filter(  # type: ignore[attr-defined]
                 lawyer_id__in=org_access.get("lawyers", set())
             ).exists()
-            or contract.assignments.filter(lawyer_id=user_id).exists()
+            or contract.assignments.filter(lawyer_id=user_id).exists()  # type: ignore[misc]
         )  # type: ignore[attr-defined]
 
         if not has_access:
-            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined]
+            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined, misc]
 
         return has_access
 
@@ -958,7 +958,7 @@ class ContractServiceAdapter:
         """
         try:
             contract = self.contract_service._get_contract_internal(contract_id)
-            return cast(bool, contract.status == "active")
+            return bool(contract.status == "active")
         except NotFoundError:
             return False
 

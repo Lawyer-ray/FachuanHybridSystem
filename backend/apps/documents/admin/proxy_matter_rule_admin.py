@@ -1,6 +1,8 @@
 """Django admin configuration."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
@@ -9,7 +11,7 @@ from apps.core.enums import LegalStatus
 from apps.documents.models import ProxyMatterRule
 
 
-class ProxyMatterRuleAdminForm(forms.ModelForm):
+class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
     legal_statuses = forms.MultipleChoiceField(
         label="我方诉讼地位",
         choices=LegalStatus.choices,
@@ -24,9 +26,9 @@ class ProxyMatterRuleAdminForm(forms.ModelForm):
 
 
 @admin.register(ProxyMatterRule)
-class ProxyMatterRuleAdmin(admin.ModelAdmin):
+class ProxyMatterRuleAdmin(admin.ModelAdmin[ProxyMatterRule]):
     form = ProxyMatterRuleAdminForm
-    list_display: tuple[Any, ...] = (
+    list_display = (
         "id",
         "case_type",
         "case_stage",
@@ -36,16 +38,16 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
         "is_active",
         "updated_at",
     )
-    list_filter: tuple[Any, ...] = (
+    list_filter = (
         "is_active",
         "case_type",
         "case_stage",
         "legal_status_match_mode",
     )
-    search_fields: tuple[Any, ...] = ("items_text",)
-    ordering: tuple[Any, ...] = ("-is_active", "priority", "id")
+    search_fields = ("items_text",)
+    ordering = ("-is_active", "priority", "id")
 
     def legal_statuses_display(self, obj: ProxyMatterRule) -> str:
         return obj.get_legal_statuses_display() or "任意"
 
-    legal_statuses_display.short_description = "我方诉讼地位"
+    legal_statuses_display.short_description = "我方诉讼地位"  # type: ignore[attr-defined]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from ninja.files import UploadedFile
@@ -26,8 +26,8 @@ class LawyerMutationService:
     def create_lawyer(self, data: LawyerCreateDTO, user: Lawyer, license_pdf: UploadedFile | None = None) -> Lawyer:
         if not self.access_policy.can_create(user):
             logger.warning(
-                f"用户 {cast(int, user.pk)} 尝试创建律师但权限不足",
-                extra={"user_id": cast(int, user.pk), "action": "create_lawyer"},
+                f"用户 {user.pk} 尝试创建律师但权限不足",
+                extra={"user_id": user.pk, "action": "create_lawyer"},
             )
             raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
 
@@ -62,7 +62,7 @@ class LawyerMutationService:
 
         logger.info(
             "律师创建成功",
-            extra={"lawyer_id": cast(int, lawyer.pk), "user_id": cast(int, user.pk), "action": "create_lawyer"},
+            extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "create_lawyer"},
         )
         return lawyer
 
@@ -76,8 +76,8 @@ class LawyerMutationService:
     ) -> Lawyer:
         if not self.access_policy.can_update_lawyer(user=user, lawyer=lawyer):
             logger.warning(
-                f"用户 {cast(int, user.pk)} 尝试更新律师 {cast(int, lawyer.pk)} 但权限不足",
-                extra={"user_id": cast(int, user.pk), "lawyer_id": cast(int, lawyer.pk), "action": "update_lawyer"},
+                f"用户 {user.pk} 尝试更新律师 {lawyer.pk} 但权限不足",
+                extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "update_lawyer"},
             )
             raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
 
@@ -94,7 +94,7 @@ class LawyerMutationService:
 
         logger.info(
             "律师更新成功",
-            extra={"lawyer_id": cast(int, lawyer.pk), "user_id": cast(int, user.pk), "action": "update_lawyer"},
+            extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "update_lawyer"},
         )
         return lawyer
 
@@ -126,8 +126,8 @@ class LawyerMutationService:
     def delete_lawyer(self, lawyer: Lawyer, user: Lawyer) -> None:
         if not self.access_policy.can_delete_lawyer(user=user, lawyer=lawyer):
             logger.warning(
-                f"用户 {cast(int, user.pk)} 尝试删除律师 {cast(int, lawyer.pk)} 但权限不足",
-                extra={"user_id": cast(int, user.pk), "lawyer_id": cast(int, lawyer.pk), "action": "delete_lawyer"},
+                f"用户 {user.pk} 尝试删除律师 {lawyer.pk} 但权限不足",
+                extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "delete_lawyer"},
             )
             raise PermissionDenied(message="无权限删除该律师", code="PERMISSION_DENIED")
 
@@ -138,7 +138,7 @@ class LawyerMutationService:
         affected_user_ids = set(
             Lawyer.objects.filter(lawyer_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
         )
-        affected_user_ids.add(cast(int, lawyer.pk))
+        affected_user_ids.add(lawyer.pk)
 
         lawyer.delete()
 
@@ -147,7 +147,7 @@ class LawyerMutationService:
         invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)  # type: ignore[arg-type]
         logger.info(
             "律师删除成功",
-            extra={"lawyer_id": cast(int, lawyer.pk), "user_id": cast(int, user.pk), "action": "delete_lawyer"},
+            extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "delete_lawyer"},
         )
 
     def _validate_create_data(self, data: LawyerCreateDTO) -> None:
@@ -177,7 +177,7 @@ class LawyerMutationService:
                 errors={"lawyer_team_ids": "至少需要一个律师团队"},
             )
 
-        if law_firm and any(t.law_firm_id != cast(int, law_firm.pk) for t in teams):
+        if law_firm and any(t.law_firm_id != law_firm.pk for t in teams):
             raise ValidationException(
                 message="团队所属律所必须与律师所属律所一致",
                 code="TEAM_LAWFIRM_MISMATCH",
@@ -199,7 +199,7 @@ class LawyerMutationService:
     def _set_biz_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.BIZ))
 
-        if law_firm and any(t.law_firm_id != cast(int, law_firm.pk) for t in teams):
+        if law_firm and any(t.law_firm_id != law_firm.pk for t in teams):
             raise ValidationException(
                 message="团队所属律所必须与律师所属律所一致",
                 code="TEAM_LAWFIRM_MISMATCH",

@@ -246,7 +246,7 @@ class ContractPaymentService(DjangoPermsMixin):
                 raise ValidationException("收款金额需大于0")
 
             # 合规校验:替换后累计不超过固定金额
-            total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)  # type: ignore
+            total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
             contract = obj.contract
             if contract.fixed_amount is not None and amount + float(total_except) - float(contract.fixed_amount) > 1e-6:
                 self._log_finance(
@@ -289,7 +289,7 @@ class ContractPaymentService(DjangoPermsMixin):
 
         # 记录财务日志
         self._log_finance(
-            obj.contract_id,  # type: ignore
+            obj.contract_id,
             self._get_user_id(user),
             "update_payment",
             "INFO",
@@ -331,7 +331,7 @@ class ContractPaymentService(DjangoPermsMixin):
 
         # 获取收款记录
         obj = self.get_payment(payment_id)
-        cid = obj.contract_id  # type: ignore
+        cid = obj.contract_id
         pid = cast(Any, obj).id
 
         obj.delete()

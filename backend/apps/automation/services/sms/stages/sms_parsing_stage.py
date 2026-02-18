@@ -7,7 +7,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 
@@ -76,7 +76,7 @@ class SMSParsingStage(BaseSMSStage):
         Returns:
             bool: 是否可以处理
         """
-        return cast(bool, sms.status == CourtSMSStatus.PENDING)
+        return bool(sms.status == CourtSMSStatus.PENDING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """

@@ -1,6 +1,6 @@
 """Business logic services."""
 
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 
@@ -24,7 +24,7 @@ class ClientJsonImportPersister:
 
         for doc in identity_docs:
             self.identity_doc_service.add_identity_doc(
-                client_id=cast(int, client.pk),
+                client_id=client.pk,
                 doc_type=doc["doc_type"],
                 file_path=doc["file_path"],
             )

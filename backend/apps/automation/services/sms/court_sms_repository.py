@@ -1,6 +1,6 @@
 """Data repository layer."""
 
-from typing import Any, cast
+from typing import Any
 
 from apps.automation.models import CourtSMS
 from apps.core.exceptions import NotFoundError
@@ -17,7 +17,7 @@ class CourtSMSRepository:
         sms.save()
 
     def refresh(self, *, sms: CourtSMS) -> CourtSMS:
-        return CourtSMS.objects.get(id=cast(int, sms.pk))
+        return CourtSMS.objects.get(id=sms.pk)
 
     def set_error(self, *, sms: CourtSMS, message: str) -> None:
         sms.error_message = message

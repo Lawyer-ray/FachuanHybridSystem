@@ -249,7 +249,7 @@ class CaseChatService:
                 case_chat = CaseChat.objects.create(
                     case=case,
                     platform=platform,
-                    chat_id=result.chat_id,
+                    chat_id=result.chat_id or "",
                     name=result.chat_name or chat_name,
                     is_active=True,
                 )
