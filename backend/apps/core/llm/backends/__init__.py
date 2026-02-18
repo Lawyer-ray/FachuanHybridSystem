@@ -23,7 +23,7 @@ except Exception as exc:
     class SiliconFlowBackend:  # type: ignore[no-redef]
         BACKEND_NAME = "siliconflow"
 
-        def __init__(self, *args, **kwargs: Any) -> Any:  # type: ignore[no-untyped-def, misc]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             self._import_error = _siliconflow_import_error
 
         def is_available(self) -> bool:
@@ -32,7 +32,7 @@ except Exception as exc:
         def get_default_model(self) -> str:
             return ""
 
-        def chat(self, *args, **kwargs: Any) -> Any:  # type: ignore[no-untyped-def]
+        def chat(self, *args: Any, **kwargs: Any) -> Any:
             from apps.core.llm.exceptions import LLMBackendUnavailableError
 
             raise LLMBackendUnavailableError(
@@ -40,10 +40,10 @@ except Exception as exc:
                 errors={"detail": str(self._import_error)},
             )
 
-        async def achat(self, *args, **kwargs: Any) -> Any:  # type: ignore[no-untyped-def]
+        async def achat(self, *args: Any, **kwargs: Any) -> Any:
             return self.chat(*args, **kwargs)
 
-        def stream(self, *args, **kwargs: Any) -> Any:  # type: ignore[no-untyped-def]
+        def stream(self, *args: Any, **kwargs: Any) -> Any:
             from apps.core.llm.exceptions import LLMBackendUnavailableError
 
             raise LLMBackendUnavailableError(
@@ -51,7 +51,7 @@ except Exception as exc:
                 errors={"detail": str(self._import_error)},
             )
 
-        async def astream(self, *args, **kwargs: Any) -> Any:  # type: ignore[no-untyped-def]
+        async def astream(self, *args: Any, **kwargs: Any) -> Any:
             from apps.core.llm.exceptions import LLMBackendUnavailableError
 
             raise LLMBackendUnavailableError(

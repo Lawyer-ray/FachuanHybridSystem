@@ -24,12 +24,12 @@ class Command(BaseCommand):
         parser.add_argument("--interval", type=int, default=60, help="Monitoring interval in seconds (default: 60)")
         parser.add_argument("--daemon", action="store_true", help="Run as daemon process")
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]
+    def handle(self, *args: Any, **options: Any) -> None:
         interval = options["interval"]
         daemon = options["daemon"]
         self.stdout.write(self.style.SUCCESS(f"Starting resource monitor with {interval}s interval"))
 
-        def signal_handler(signum, frame) -> None:  # type: ignore[no-untyped-def]
+        def signal_handler(signum: int, frame: Any) -> None:
             self.stdout.write(self.style.WARNING("Received shutdown signal, stopping resource monitor..."))
             resource_monitor.stop_monitoring()
             sys.exit(0)

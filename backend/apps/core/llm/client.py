@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from .backends import ILLMBackend, LLMResponse
 
@@ -11,10 +11,10 @@ class LLMClient:
     def __init__(self, *, default_backend: str) -> None:
         self._default_backend = default_backend
 
-    def complete(  # type: ignore[no-untyped-def]
+    def complete(
         self,
         *,
-        fallback_policy,
+        fallback_policy: Any,
         prompt: str,
         system_prompt: str | None = None,
         backend: str | None = None,
@@ -37,10 +37,10 @@ class LLMClient:
             fallback=fallback,
         )
 
-    def chat(  # type: ignore[no-untyped-def]
+    def chat(
         self,
         *,
-        fallback_policy,
+        fallback_policy: Any,
         messages: list[dict[str, str]],
         backend: str | None = None,
         model: str | None = None,
@@ -54,10 +54,10 @@ class LLMClient:
         backend_name = backend or self._default_backend
         return cast(LLMResponse, fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback))
 
-    async def achat(  # type: ignore[no-untyped-def]
+    async def achat(
         self,
         *,
-        fallback_policy,
+        fallback_policy: Any,
         messages: list[dict[str, str]],
         backend: str | None = None,
         model: str | None = None,

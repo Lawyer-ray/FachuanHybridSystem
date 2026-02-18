@@ -59,7 +59,7 @@ from .external import (
 
 
 # 异常处理器 - 延迟导入避免 Django 配置问题
-def register_exception_handlers(*args, **kwargs: Any) -> None:  # type: ignore[no-untyped-def]
+def register_exception_handlers(*args: Any, **kwargs: Any) -> None:
     """延迟导入异常处理器"""
     from .handlers import register_exception_handlers as _register
 
