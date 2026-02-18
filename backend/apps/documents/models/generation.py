@@ -4,11 +4,16 @@
 本模块定义文书生成相关的数据模型.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from .folder_template import FolderTemplate
 
 logger = logging.getLogger("apps.documents")
 
@@ -44,7 +49,7 @@ class GenerationTask(models.Model):
     contract_id: int  # 外键ID字段
     litigation_session_id: int  # 外键ID字段
     created_by_id: int  # 外键ID字段
-    case = models.ForeignKey(
+    case: models.ForeignKey[Any] = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
         null=True,
@@ -52,7 +57,7 @@ class GenerationTask(models.Model):
         related_name="generation_tasks",
         verbose_name=_("关联案件"),
     )
-    contract = models.ForeignKey(
+    contract: models.ForeignKey[Any] = models.ForeignKey(
         "contracts.Contract",
         on_delete=models.CASCADE,
         null=True,
@@ -60,7 +65,7 @@ class GenerationTask(models.Model):
         related_name="generation_tasks",
         verbose_name=_("关联合同"),
     )
-    litigation_session = models.ForeignKey(
+    litigation_session: models.ForeignKey[Any] = models.ForeignKey(
         "litigation_ai.LitigationSession",
         on_delete=models.SET_NULL,
         null=True,
@@ -69,26 +74,26 @@ class GenerationTask(models.Model):
         verbose_name=_("AI生成会话"),
         help_text=_("如果是 AI 生成,关联到对应的会话"),
     )
-    generation_method = models.CharField(
+    generation_method: str = models.CharField(
         max_length=20, choices=GenerationMethod.choices, default=GenerationMethod.TEMPLATE, verbose_name=_("生成方式")
     )
-    document_type = models.CharField(
+    document_type: str = models.CharField(
         max_length=100, verbose_name=_("文书类型"), help_text=_("如:起诉状、答辩状、合同等")
     )
-    template_id = models.IntegerField(
+    template_id: int | None = models.IntegerField(
         null=True, blank=True, verbose_name=_("模板ID"), help_text=_("使用的模板ID(模板生成时)")
     )
-    status = models.CharField(
+    status: str = models.CharField(
         max_length=20, choices=GenerationStatus.choices, default=GenerationStatus.PENDING, verbose_name=_("生成状态")
     )
-    result_file = models.FileField(
+    result_file: models.FileField = models.FileField(
         upload_to="generated_documents/%Y/%m/", null=True, blank=True, verbose_name=_("生成文件")
     )
-    error_message = models.TextField(blank=True, verbose_name=_("错误信息"))
-    metadata = models.JSONField(
+    error_message: str = models.TextField(blank=True, verbose_name=_("错误信息"))
+    metadata: dict[str, Any] = models.JSONField(
         default=dict, verbose_name=_("任务元数据"), help_text=_("存储生成参数、token消耗等信息")
     )
-    created_by = models.ForeignKey(
+    created_by: models.ForeignKey[Any] = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
@@ -96,8 +101,8 @@ class GenerationTask(models.Model):
         related_name="created_generation_tasks",
         verbose_name=_("创建人"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    completed_at: models.DateTimeField = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
 
     class Meta:
         app_label: str = "documents"
@@ -113,7 +118,7 @@ class GenerationTask(models.Model):
             models.Index(fields=["created_by", "-created_at"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         resource = self.case or self.contract
         resource_name = resource.name if resource else "未关联"
         return f"{resource_name} - {self.document_type} ({self.get_status_display()})"
@@ -131,16 +136,16 @@ class GenerationTask(models.Model):
         return 0
 
     @property
-    def folder_template_id(self) -> None:
+    def folder_template_id(self) -> int | None:
         return (self.metadata or {}).get("folder_template_id")
 
     @folder_template_id.setter
-    def folder_template_id(self, value) -> None:
+    def folder_template_id(self, value: int | None) -> None:
         self.metadata = self.metadata or {}
         self.metadata["folder_template_id"] = value
 
     @property
-    def folder_template(self) -> None:
+    def folder_template(self) -> FolderTemplate | None:
         template_id = self.folder_template_id
         if not template_id:
             return None
@@ -149,29 +154,29 @@ class GenerationTask(models.Model):
         return FolderTemplate.objects.filter(id=template_id).first()
 
     @property
-    def output_path(self) -> None:
+    def output_path(self) -> str | None:
         return (self.metadata or {}).get("output_path")
 
     @output_path.setter
-    def output_path(self, value) -> None:
+    def output_path(self, value: str | None) -> None:
         self.metadata = self.metadata or {}
         self.metadata["output_path"] = value
 
     @property
-    def generated_files(self) -> None:
+    def generated_files(self) -> list[Any]:
         return list((self.metadata or {}).get("generated_files", []))
 
     @generated_files.setter
-    def generated_files(self, value) -> None:
+    def generated_files(self, value: list[Any] | None) -> None:
         self.metadata = self.metadata or {}
         self.metadata["generated_files"] = list(value or [])
 
     @property
-    def error_logs(self) -> None:
+    def error_logs(self) -> list[Any]:
         return list((self.metadata or {}).get("error_logs", []))
 
     @error_logs.setter
-    def error_logs(self, value) -> None:
+    def error_logs(self, value: list[Any] | None) -> None:
         self.metadata = self.metadata or {}
         self.metadata["error_logs"] = list(value or [])
 
@@ -186,15 +191,15 @@ class GenerationConfig(models.Model):
     """
 
     id: int
-    name = models.CharField(max_length=100, unique=True, verbose_name=_("配置名称"))
-    config_type = models.CharField(
+    name: str = models.CharField(max_length=100, unique=True, verbose_name=_("配置名称"))
+    config_type: str = models.CharField(
         max_length=50, verbose_name=_("配置类型"), help_text=_("如:default_template、ai_model、generation_params")
     )
-    value = models.JSONField(verbose_name=_("配置值"))
-    description = models.TextField(blank=True, verbose_name=_("配置说明"))
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    value: dict[str, Any] = models.JSONField(verbose_name=_("配置值"))
+    description: str = models.TextField(blank=True, verbose_name=_("配置说明"))
+    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         app_label: str = "documents"
@@ -206,29 +211,29 @@ class GenerationConfig(models.Model):
             models.Index(fields=["is_active"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.config_type} - {self.name}"
 
     @property
-    def case_type(self) -> None:
+    def case_type(self) -> str | None:
         return (self.value or {}).get("case_type")
 
     @property
-    def case_stage(self) -> None:
+    def case_stage(self) -> str | None:
         return (self.value or {}).get("case_stage")
 
     @property
-    def document_template_id(self) -> None:
+    def document_template_id(self) -> int | None:
         return (self.value or {}).get("document_template_id")
 
     @property
-    def folder_path(self) -> None:
+    def folder_path(self) -> str | None:
         return (self.value or {}).get("folder_path")
 
     @property
-    def priority(self) -> None:
+    def priority(self) -> int:
         return (self.value or {}).get("priority", 0)
 
     @property
-    def condition(self) -> None:
+    def condition(self) -> dict[str, Any]:
         return (self.value or {}).get("condition") or {}

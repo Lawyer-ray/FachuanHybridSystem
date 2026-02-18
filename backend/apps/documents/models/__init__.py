@@ -10,6 +10,8 @@
 - EvidenceItem: 证据明细
 """
 
+from __future__ import annotations
+
 from .audit_log import TemplateAuditLog
 
 # 导入所有选项类
