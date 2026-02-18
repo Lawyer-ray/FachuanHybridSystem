@@ -1,5 +1,0 @@
-apps/cases/services/case/case_mutation_service.py:50:28: error: cannot assign
-to expression here. Maybe you meant '==' instead of '='?  [syntax]
-            if current_stage: case_type | None = None
-                               ^
-Found 1 error in 1 file (errors prevented further checking)

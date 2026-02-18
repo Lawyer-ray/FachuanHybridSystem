@@ -43,3 +43,11 @@
 ## 相关脚本
 
 修复过程中使用的脚本已归档到 `backend/scripts/archive/mypy-fixes/` 目录。
+
+## 代码备份
+
+修复过程中的代码备份已归档到 `backups/` 子目录：
+- `backups/initial_backups/` - 早期修复阶段备份
+- `backups/final_cleanup_backups/` - 最终清理阶段备份（按时间戳）
+
+总计约 7MB，包含 11 个时间点的代码快照。
