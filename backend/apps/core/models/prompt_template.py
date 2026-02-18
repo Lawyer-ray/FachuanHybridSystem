@@ -35,10 +35,10 @@ class PromptTemplate(models.Model):
         db_table: str = "core_prompt_template"
         ordering: ClassVar = ["category", "name"]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.title} ({self.name})"
 
-    def delete(self, *args, **kwargs) -> None:
+    def delete(self, *args: object, **kwargs: object) -> tuple[int, dict[str, int]]:
         name = self.name
         result = super().delete(*args, **kwargs)
         delete_cache_key(CacheKeys.prompt_template(name))

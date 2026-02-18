@@ -99,7 +99,7 @@ class CauseOfAction(models.Model):
             models.Index(fields=["is_deprecated"], name="core_causeo_is_depr_7ecc77_idx"),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.name} ({self.get_case_type_display()})"
 
     @property

@@ -34,5 +34,5 @@ class LLMCallRecord(models.Model):
             models.Index(fields=["model"], name="core_llmcal_model_df0279_idx"),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.model} - {self.total_tokens} tokens - {self.created_at}"

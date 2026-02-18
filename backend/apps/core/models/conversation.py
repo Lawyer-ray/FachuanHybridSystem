@@ -59,5 +59,5 @@ class ConversationHistory(models.Model):
             models.Index(fields=["step"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.session_id} - {self.role} - {self.created_at}"
