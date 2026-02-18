@@ -54,7 +54,7 @@ class SubprocessRunner:
     ) -> SubprocessOutput:
         self._validate_args(args)
         try:
-            cp = subprocess.run(
+            cp = subprocess.run(  # 安全：args 已通过 _validate_args 白名单校验，shell=False
                 args,
                 check=check,
                 capture_output=True,
@@ -128,7 +128,9 @@ class SubprocessRunner:
                 errors={"command": scrub_text(str(args[0] if args else "")), "option": "shell"},
             )
         try:
-            return subprocess.Popen(args, **kwargs)
+            return subprocess.Popen(
+                args, **kwargs
+            )  # 安全：args 已通过 _validate_args 白名单校验，且明确拒绝 shell=True
         except FileNotFoundError as e:
             raise ExternalServiceError(
                 message="外部命令不存在",
