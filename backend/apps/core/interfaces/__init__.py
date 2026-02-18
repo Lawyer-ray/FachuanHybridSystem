@@ -19,6 +19,7 @@ from apps.core.dtos import (
     ClientIdentityDocDTO,
     ContractDTO,
     ConversationHistoryDTO,
+    CourtPleadingSignalsDTO,
     DocumentTemplateDTO,
     EvidenceItemDigestDTO,
     GenerationTaskDTO,
@@ -126,6 +127,8 @@ __all__ = [
     "DocumentTemplateDTO",
     "EvidenceItemDigestDTO",
     "GenerationTaskDTO",
+    # Automation DTOs
+    "CourtPleadingSignalsDTO",
     # Case Protocols
     "ICaseService",
     "ICaseSearchService",
