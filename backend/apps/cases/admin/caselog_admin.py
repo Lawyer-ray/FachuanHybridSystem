@@ -36,7 +36,7 @@ class CaseLogAdmin(BaseModelAdmin):
         if not getattr(obj, "actor_id", None):
             user_id = getattr(request.user, "id", None)
             if user_id is not None:
-                obj.actor_id = user_id  # type: ignore[attr-defined]
+                obj.actor_id = user_id
         super().save_model(request, obj, form, change)
 
 

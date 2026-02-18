@@ -30,8 +30,10 @@ class ContractPaymentInline(BaseTabularInline):
     def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
         FormSet = super().get_formset(request, obj, **kwargs)
 
+        original_clean = FormSet.clean
+
         def clean_fs(self: Any) -> None:
-            super(FormSet, self).clean()
+            original_clean(self)
             for form in self.forms:
                 if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
                     continue
@@ -48,7 +50,7 @@ class ContractPaymentInline(BaseTabularInline):
                         else:
                             form.cleaned_data["invoice_status"] = InvoiceStatus.INVOICED_FULL
 
-        FormSet.clean = clean_fs
+        FormSet.clean = clean_fs  # type: ignore[method-assign]
         return FormSet
 
 
