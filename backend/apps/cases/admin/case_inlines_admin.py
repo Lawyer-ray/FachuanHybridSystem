@@ -1,5 +1,7 @@
 """Django admin configuration."""
 
+from __future__ import annotations
+
 import logging
 from typing import Any, ClassVar
 
@@ -7,6 +9,7 @@ from django import forms
 from django.contrib import admin
 from django.db import models
 from django.forms.models import BaseInlineFormSet
+from django.http import HttpRequest
 
 from apps.cases.models import CaseLog, CaseLogAttachment, CaseNumber, CaseParty, SupervisingAuthority
 
@@ -17,14 +20,13 @@ from .case_forms_admin import CasePartyInlineForm, SupervisingAuthorityInlineFor
 class CasePartyInline(BaseTabularInline):
     model = CaseParty
     form = CasePartyInlineForm
-    extra: int = 1
-    fields: tuple[Any, ...] = ("client", "legal_status", "is_our_client_display")
-    readonly_fields: tuple[Any, ...] = ("is_our_client_display",)
-    classes: ClassVar = ["contract-party-inline"]
+    extra = 1
+    fields = ("client", "legal_status", "is_our_client_display")
+    readonly_fields = ("is_our_client_display",)
+    classes = ["contract-party-inline"]  # noqa: RUF012
 
     class UniqueClientInlineFormSet(BaseInlineFormSet):
         def clean(self) -> None:
-
             logger = logging.getLogger(__name__)
             logger.info(f"[CasePartyFormSet.clean] 开始验证, forms count: {len(self.forms)}")
 
@@ -51,9 +53,9 @@ class CasePartyInline(BaseTabularInline):
                 return set(CaseParty.objects.filter(case=case).values_list("client_id", flat=True))
             return set()
 
-        def _validate_each_form(self, existing: set[Any], logger) -> list[Any]:
-            seen = set()
-            our_party_statuses = []
+        def _validate_each_form(self, existing: set[Any], logger: logging.Logger) -> list[Any]:
+            seen: set[Any] = set()
+            our_party_statuses: list[Any] = []
             for i, form in enumerate(self.forms):
                 logger.info(
                     f"[CasePartyFormSet.clean] form[{i}]: "
@@ -69,7 +71,15 @@ class CasePartyInline(BaseTabularInline):
                 self._collect_our_party_status(our_party_statuses, i, client, form, logger)
             return our_party_statuses
 
-        def _check_duplicate(self, form, idx, cid, seen, existing, logger) -> None:
+        def _check_duplicate(
+            self,
+            form: Any,
+            idx: int,
+            cid: Any,
+            seen: set[Any],
+            existing: set[Any],
+            logger: logging.Logger,
+        ) -> None:
             if cid in seen:
                 form.add_error("client", "同一案件中当事人只能出现一次")
                 logger.warning(f"[CasePartyFormSet.clean] form[{idx}]: 重复当事人 {cid}")
@@ -80,23 +90,29 @@ class CasePartyInline(BaseTabularInline):
                 logger.warning(f"[CasePartyFormSet.clean] form[{idx}]: 当事人已存在 {cid}")
 
         @staticmethod
-        def _collect_our_party_status(our_party_statuses, idx, client, form, logger) -> None:
+        def _collect_our_party_status(
+            our_party_statuses: list[Any],
+            idx: int,
+            client: Any,
+            form: Any,
+            logger: logging.Logger,
+        ) -> None:
             legal_status = form.cleaned_data.get("legal_status")
             if not (getattr(client, "is_our_client", False) and legal_status):
                 return
             from apps.core.business_config import business_config
 
-            config = business_config._compatibility_map.get(legal_status)
+            config = business_config._compatibility_map.get(legal_status)  # type: ignore[attr-defined]
             if config:
                 our_party_statuses.append((idx, client.name, legal_status, config.group))
 
-        def _validate_our_party_conflicts(self, our_party_statuses, logger) -> None:
+        def _validate_our_party_conflicts(self, our_party_statuses: list[Any], logger: logging.Logger) -> None:
             if len(our_party_statuses) < 2:
                 return
 
             from apps.core.business_config import business_config
 
-            opposing_groups = {
+            opposing_groups: dict[str, str] = {
                 "plaintiff_side": "defendant_side",
                 "defendant_side": "plaintiff_side",
                 "appellant_side": "appellee_side",
@@ -129,27 +145,27 @@ class CasePartyInline(BaseTabularInline):
 
     formset = UniqueClientInlineFormSet
 
-    def is_our_client_display(self, obj) -> None:
+    def is_our_client_display(self, obj: CaseParty) -> bool:
         if obj and getattr(obj, "client", None):
             return bool(getattr(obj.client, "is_our_client", False))
         return False
 
-    is_our_client_display.boolean = True
-    is_our_client_display.short_description = "是否为我方当事人"
+    is_our_client_display.boolean = True  # type: ignore[attr-defined]
+    is_our_client_display.short_description = "是否为我方当事人"  # type: ignore[attr-defined]
 
     class Media:
-        js: tuple[Any, ...] = ("cases/admin_caseparty.js",)
-        css: ClassVar = {"all": ("cases/admin_caseparty.css",)}
+        js: tuple[str, ...] = ("cases/admin_caseparty.js",)
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("cases/admin_caseparty.css",)}
 
 
 class SupervisingAuthorityInline(BaseTabularInline):
     model = SupervisingAuthority
     form = SupervisingAuthorityInlineForm
-    extra: int = 1
-    fields: tuple[Any, ...] = ("name", "authority_type")
+    extra = 1
+    fields = ("name", "authority_type")
 
 
-def _make_custom_formset(base_formset) -> None:  # noqa: C901 — Django formset 工厂函数,内部类方法被计入复杂度
+def _make_custom_formset(base_formset: type) -> type:  # noqa: C901
     """创建自定义 FormSet 类,用于 CaseLogAttachmentInline"""
 
     class CustomFormSet(base_formset):
@@ -165,13 +181,13 @@ def _make_custom_formset(base_formset) -> None:  # noqa: C901 — Django formset
                 if not form.cleaned_data.get("file"):
                     continue
 
-        def is_valid(self) -> None:
+        def is_valid(self) -> bool:
             result = super().is_valid()
             if result:
                 return True
-            return self._recheck_ignoring_empty_forms()
+            return bool(self._recheck_ignoring_empty_forms())
 
-        def _recheck_ignoring_empty_forms(self) -> None:
+        def _recheck_ignoring_empty_forms(self) -> bool:
             has_real_error = False
             for form in self.forms:
                 if not form.errors:
@@ -183,7 +199,7 @@ def _make_custom_formset(base_formset) -> None:  # noqa: C901 — Django formset
             return not has_real_error
 
         @staticmethod
-        def _form_has_data(form) -> None:
+        def _form_has_data(form: Any) -> bool:
             skip_fields = {"DELETE", "id", "log"}
             for field_name in form.fields:
                 if field_name in skip_fields:
@@ -197,28 +213,28 @@ def _make_custom_formset(base_formset) -> None:  # noqa: C901 — Django formset
 
 class CaseLogAttachmentInline(BaseTabularInline):
     model = CaseLogAttachment
-    extra: int = 0
+    extra = 0
 
-    def get_formset(self, request, obj=None, **kwargs) -> None:
+    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> type:
         formset = super().get_formset(request, obj, **kwargs)
         return _make_custom_formset(formset)
 
 
 class CaseNumberInline(BaseTabularInline):
     model = CaseNumber
-    extra: int = 1
-    fields: tuple[Any, ...] = ("number", "remarks")
-    formfield_overrides: ClassVar = {
+    extra = 1
+    fields = ("number", "remarks")
+    formfield_overrides: ClassVar[dict[Any, Any]] = {
         models.TextField: {"widget": forms.TextInput(attrs={"style": "width: 100%;"})},
     }
 
 
-class CaseLogInlineForm(forms.ModelForm):
+class CaseLogInlineForm(forms.ModelForm[CaseLog]):
     class Meta:
         model = CaseLog
         fields: str = "__all__"
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if "actor" in self.fields:
             self.fields["actor"].required = False
@@ -227,11 +243,11 @@ class CaseLogInlineForm(forms.ModelForm):
 class CaseLogInline(BaseStackedInline):
     model = CaseLog
     form = CaseLogInlineForm
-    extra: int = 1
-    fields: tuple[Any, ...] = ("content",)
-    exclude: tuple[Any, ...] = ("actor",)
-    ordering: tuple[Any, ...] = ("-created_at",)
-    classes: tuple[Any, ...] = ("collapse", "case-log-inline")
+    extra = 1
+    fields = ("content",)
+    exclude = ("actor",)
+    ordering = ("-created_at",)
+    classes: tuple[str, ...] = ("collapse", "case-log-inline")
     verbose_name: str = "案件日志"
     verbose_name_plural: str = "案件日志"
     template: str = "admin/cases/case/caselog_inline.html"

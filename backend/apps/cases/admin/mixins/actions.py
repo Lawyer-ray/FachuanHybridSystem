@@ -1,9 +1,13 @@
 """Module for actions."""
 
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class CaseAdminActionsMixin(CaseAdminServiceMixin):
-    def response_change(self, request, obj) -> None:
+    def response_change(self, request: HttpRequest, obj: Any) -> HttpResponse:
         if "_save_and_duplicate" in request.POST:
             try:
                 service = self._get_case_admin_service()
@@ -33,11 +37,11 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
             return HttpResponseRedirect(reverse("admin:cases_case_detail", args=[obj.pk]))
 
         if "_continue" in request.POST:
-            return super().response_change(request, obj)
+            return super().response_change(request, obj)  # type: ignore[misc, no-any-return]
 
-        return super().response_change(request, obj)
+        return super().response_change(request, obj)  # type: ignore[misc, no-any-return]
 
-    def create_feishu_chat_for_selected_cases(self, request, queryset) -> None:
+    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Any, Any]) -> None:
         service = self._get_case_chat_service()
         success_count = 0
         error_count = 0
@@ -69,7 +73,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
         if error_count > 0:
             messages.error(request, f"总计 {error_count} 个案件创建群聊失败")
 
-    create_feishu_chat_for_selected_cases.short_description = _("为选中案件创建飞书群聊")
+    create_feishu_chat_for_selected_cases.short_description = _("为选中案件创建飞书群聊")  # type: ignore[attr-defined]
 
 
 __all__: list[str] = ["CaseAdminActionsMixin"]

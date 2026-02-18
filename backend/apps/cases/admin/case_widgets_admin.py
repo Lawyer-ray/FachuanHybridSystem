@@ -1,22 +1,24 @@
 """Django admin configuration."""
 
+from __future__ import annotations
+
 import json
 from typing import Any, ClassVar
 
 from django import forms
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString, mark_safe
 
 
 class AutocompleteWidget(forms.TextInput):
     def __init__(
         self,
-        api_url,
-        field_name,
-        case_type_field=None,
-        placeholder=None,
-        listen_case_type=False,
-        *args,
-        **kwargs,
+        api_url: str,
+        field_name: str,
+        case_type_field: str | None = None,
+        placeholder: str | None = None,
+        listen_case_type: bool = False,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         self.api_url = api_url
         self.field_name = field_name
@@ -25,7 +27,7 @@ class AutocompleteWidget(forms.TextInput):
         self.listen_case_type = listen_case_type
         super().__init__(*args, **kwargs)
 
-    def render(self, name, value, attrs=None, renderer=None) -> None:
+    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: Any = None) -> SafeString:
         if attrs is None:
             attrs = {}
 
@@ -120,7 +122,7 @@ class AutocompleteWidget(forms.TextInput):
                         const re = /[.*+?^${{}}()|[\\]\\]/g;
                         const esc = this.query.replace(re, '\\$&');
                         const regex = new RegExp(
-                            `(${esc})`, 'gi');
+                            `(${{esc}})`, 'gi');
                         const mk = '<mark style="background: #fef08a;'
                             + ' padding: 0 2px; border-radius: 2px;">'
                             + '$1</mark>';
