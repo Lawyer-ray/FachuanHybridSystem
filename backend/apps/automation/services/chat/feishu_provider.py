@@ -236,7 +236,8 @@ class FeishuChatProvider(ChatProvider):
             self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
 
             logger.debug("已获取飞书访问令牌")
-            assert self._access_token is not None
+            if self._access_token is None:
+                raise ChatProviderException("飞书访问令牌为空")
             return self._access_token
 
         except requests.RequestException as e:

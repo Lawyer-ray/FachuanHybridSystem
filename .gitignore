@@ -105,6 +105,7 @@ backend/tests/screenshots/*.webp
 
 # mypy
 .mypy_cache/
+.ruff_cache/
 
 # Celery
 celerybeat-schedule

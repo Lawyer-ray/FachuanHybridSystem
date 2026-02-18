@@ -101,9 +101,13 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 exc_info=True,
             )
 
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import BusinessException
 
-            raise AutomationExceptions.system_metrics_failed(str(e))
+            raise BusinessException(
+                message=f"获取系统性能指标失败: {e}",
+                code="SYSTEM_METRICS_FAILED",
+                errors={"error_message": str(e)},
+            ) from e
 
     def get_token_acquisition_metrics(self, hours: int = 24) -> dict[str, Any]:
         """
@@ -208,9 +212,13 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 exc_info=True,
             )
 
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import BusinessException
 
-            raise AutomationExceptions.token_acquisition_metrics_failed(str(e))
+            raise BusinessException(
+                message=f"获取Token获取性能指标失败: {e}",
+                code="TOKEN_ACQUISITION_METRICS_FAILED",
+                errors={"error_message": str(e)},
+            ) from e
 
     def get_api_performance_metrics(self, api_name: str | None = None, hours: int = 24) -> dict[str, Any]:
         """
@@ -270,9 +278,13 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 exc_info=True,
             )
 
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import BusinessException
 
-            raise AutomationExceptions.api_performance_metrics_failed(str(e))
+            raise BusinessException(
+                message=f"获取API性能指标失败: {e}",
+                code="API_PERFORMANCE_METRICS_FAILED",
+                errors={"error_message": str(e)},
+            ) from e
 
     def record_performance_metric(self, metric_name: str, value: float, tags: dict[str, str] | None = None) -> None:
         """

@@ -30,8 +30,8 @@ class SteeringConfigProvider:
 
             rules = []
             rules_config: Any = self.config_manager.get("steering.conditional_loading.rules", [])
-            assert isinstance(rules_config, list)
-
+            if not isinstance(rules_config, list):
+                rules_config = []
             for rule_config in rules_config:
                 rule = SteeringLoadingRule(
                     pattern=rule_config.get("pattern", ""),

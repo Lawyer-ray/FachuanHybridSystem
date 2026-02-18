@@ -61,15 +61,15 @@ class LawyerDTO:
     @classmethod
     def from_model(cls, lawyer: Lawyer) -> LawyerDTO:
         return cls(
-            id=lawyer.id,  # type: ignore[attr-defined]
+            id=lawyer.id,
             username=lawyer.username,
             real_name=lawyer.real_name,
             phone=lawyer.phone,
             email=lawyer.email,
             is_admin=lawyer.is_admin,
             is_active=lawyer.is_active,
-            law_firm_id=lawyer.law_firm_id,  # type: ignore[attr-defined]
-            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,  # type: ignore[attr-defined]
+            law_firm_id=lawyer.law_firm_id,
+            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,
             team_id=None,
             team_name=None,
         )

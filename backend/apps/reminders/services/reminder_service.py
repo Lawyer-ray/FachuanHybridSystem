@@ -73,17 +73,17 @@ class ReminderService:
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
         reminder = self.get_reminder(reminder_id)
 
-        current_contract_id = cast(int | None, reminder.contract_id)
-        current_case_log_id = cast(int | None, reminder.case_log_id)  # type: ignore[attr-defined]
-        contract_id = cast(int | None, data.get("contract_id", current_contract_id))
-        case_log_id = cast(int | None, data.get("case_log_id", current_case_log_id))
+        current_contract_id: int | None = reminder.contract_id
+        current_case_log_id: int | None = reminder.case_log_id
+        contract_id: int | None = data.get("contract_id", current_contract_id)
+        case_log_id: int | None = data.get("case_log_id", current_case_log_id)
         if ("contract_id" in data or "case_log_id" in data) and bool(contract_id) == bool(case_log_id):
             raise ValidationException("必须且只能绑定合同或案件日志之一")
 
         if "contract_id" in data:
-            reminder.contract_id = cast(int | None, data["contract_id"])  # type: ignore[assignment]
+            reminder.contract_id = data["contract_id"]
         if "case_log_id" in data:
-            reminder.case_log_id = cast(int | None, data["case_log_id"])  # type: ignore[attr-defined]
+            reminder.case_log_id = data["case_log_id"]
         if "reminder_type" in data and data["reminder_type"] is not None:
             reminder.reminder_type = data["reminder_type"]
         if "content" in data and data["content"] is not None:

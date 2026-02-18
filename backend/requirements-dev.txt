@@ -1,0 +1,22 @@
+# ============================================================
+# 法穿AI案件管理系统 - 开发依赖
+# 安装: pip install -r requirements-dev.txt -c constraints/py312.txt
+# ============================================================
+
+# --- 代码格式化 ---
+black==24.10.0
+isort==5.13.2
+ruff==0.15.0
+
+# --- 类型检查 ---
+mypy==1.8.0
+django-stubs==5.2.9
+django-stubs-ext==5.2.9
+
+# --- 安全扫描 ---
+bandit==1.9.3
+detect-secrets==1.5.0
+pip-audit==2.10.0
+
+# --- Pre-commit ---
+pre-commit==4.5.1

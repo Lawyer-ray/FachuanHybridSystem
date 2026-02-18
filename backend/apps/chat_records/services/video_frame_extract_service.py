@@ -170,8 +170,8 @@ class VideoFrameExtractService:
         started: float,
     ) -> Iterator[dict[str, str]]:
         """从 ffmpeg 进程读取进度行"""
-        assert proc.stdout is not None
-
+        if proc.stdout is None:
+            raise ValidationException("ffmpeg 进程没有 stdout")
         while True:
             if timeout_seconds is not None and time.monotonic() - started > timeout_seconds:
                 self._force_kill_proc(proc)

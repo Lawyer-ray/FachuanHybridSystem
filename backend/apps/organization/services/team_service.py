@@ -242,13 +242,13 @@ class TeamService:
             return True
 
         # 用户可以访问同律所的团队
-        return cast(bool, user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]
+        return bool(user.law_firm_id == team.law_firm_id)
 
     def _check_create_permission(self, user: Lawyer | None) -> bool:
         """检查创建权限"""
         if user is None:
             return False
-        return cast(bool, user.is_authenticated and (user.is_superuser or user.is_admin))
+        return bool(user.is_authenticated and (user.is_superuser or user.is_admin))
 
     def _check_update_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查更新权限"""
@@ -260,7 +260,7 @@ class TeamService:
             return True
 
         # 律所管理员可以更新同律所的团队
-        return cast(bool, user.is_admin and user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]
+        return bool(user.is_admin and user.law_firm_id == team.law_firm_id)
 
     def _check_delete_permission(self, user: Lawyer | None, team: Team) -> bool:
         """检查删除权限"""
@@ -272,4 +272,4 @@ class TeamService:
             return True
 
         # 律所管理员可以删除同律所的团队
-        return cast(bool, user.is_admin and user.law_firm_id == team.law_firm_id)  # type: ignore[attr-defined]
+        return bool(user.is_admin and user.law_firm_id == team.law_firm_id)

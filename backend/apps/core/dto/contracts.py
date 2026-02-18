@@ -38,7 +38,7 @@ class ContractDTO:
             case_type=contract.case_type,
             status=contract.status,
             representation_stages=representation_stages,
-            primary_lawyer_id=primary_lawyer.id if primary_lawyer else None,  # type: ignore[attr-defined]
+            primary_lawyer_id=primary_lawyer.id if primary_lawyer else None,
             primary_lawyer_name=primary_lawyer.real_name if primary_lawyer else None,
             fee_mode=contract.fee_mode,
             fixed_amount=contract.fixed_amount,
@@ -73,7 +73,7 @@ class SupplementaryAgreementDTO:
     def from_model(cls, agreement: SupplementaryAgreement) -> SupplementaryAgreementDTO:
         return cls(
             id=agreement.id,
-            contract_id=agreement.contract_id,  # type: ignore[attr-defined]
+            contract_id=agreement.contract_id,
             title=agreement.name or "",
             content=None,
             signed_date=None,

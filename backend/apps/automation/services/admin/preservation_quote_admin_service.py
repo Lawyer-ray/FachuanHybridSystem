@@ -54,9 +54,11 @@ class PreservationQuoteAdminService:
             BusinessException: 执行失败
         """
         if not quote_ids:
-            from apps.core.exceptions import AutomationExceptions
-
-            raise AutomationExceptions.no_quotes_selected()
+            raise ValidationException(
+                message="没有选中任何询价任务",
+                code="NO_QUOTES_SELECTED",
+                errors={},
+            )
 
         try:
             # 获取可执行的任务
@@ -65,9 +67,11 @@ class PreservationQuoteAdminService:
             )
 
             if not executable_quotes.exists():
-                from apps.core.exceptions import AutomationExceptions
-
-                raise AutomationExceptions.no_executable_quotes()
+                raise ValidationException(
+                    message="没有找到可执行的询价任务",
+                    code="NO_EXECUTABLE_QUOTES",
+                    errors={},
+                )
 
             success_count = 0
             error_count = 0
@@ -118,9 +122,11 @@ class PreservationQuoteAdminService:
                 extra={"action": "execute_quotes", "quote_ids": quote_ids, "error": str(e)},
                 exc_info=True,
             )
-            from apps.core.exceptions import AutomationExceptions
-
-            raise AutomationExceptions.execute_quotes_failed()
+            raise BusinessException(
+                message="批量执行询价任务失败",
+                code="EXECUTE_QUOTES_FAILED",
+                errors={},
+            )
 
     @transaction.atomic
     def retry_failed_quotes(self, quote_ids: list[int] | None = None) -> dict[str, Any]:
@@ -180,9 +186,11 @@ class PreservationQuoteAdminService:
                 extra={"action": "retry_failed_quotes", "quote_ids": quote_ids, "error": str(e)},
                 exc_info=True,
             )
-            from apps.core.exceptions import AutomationExceptions
-
-            raise AutomationExceptions.retry_failed_quotes_failed()
+            raise BusinessException(
+                message="重试失败询价任务失败",
+                code="RETRY_FAILED_QUOTES_FAILED",
+                errors={},
+            )
 
     def get_quote_statistics(self, queryset: Any = None) -> dict[str, Any]:
         """
@@ -308,9 +316,11 @@ class PreservationQuoteAdminService:
             self.logger.error(
                 "获取询价统计数据失败", extra={"action": "get_quote_statistics", "error": str(e)}, exc_info=True
             )
-            from apps.core.exceptions import AutomationExceptions
-
-            raise AutomationExceptions.get_quote_stats_failed()
+            raise BusinessException(
+                message="获取询价统计数据失败",
+                code="GET_QUOTE_STATS_FAILED",
+                errors={},
+            )
 
     @transaction.atomic
     def batch_create_quotes(self, quote_configs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -328,9 +338,11 @@ class PreservationQuoteAdminService:
             BusinessException: 创建失败
         """
         if not quote_configs:
-            from apps.core.exceptions import AutomationExceptions
-
-            raise AutomationExceptions.no_quote_configs()
+            raise ValidationException(
+                message="没有提供询价配置",
+                code="NO_QUOTE_CONFIGS",
+                errors={},
+            )
 
         try:
             created_quotes = []
@@ -340,9 +352,11 @@ class PreservationQuoteAdminService:
                 try:
                     # 验证必需字段
                     if "preserve_amount" not in config:
-                        from apps.core.exceptions import AutomationExceptions
-
-                        raise AutomationExceptions.missing_preserve_amount()
+                        raise ValidationException(
+                            message="缺少保全金额",
+                            code="MISSING_PRESERVE_AMOUNT",
+                            errors={},
+                        )
 
                     preserve_amount = Decimal(str(config["preserve_amount"]))
                     if preserve_amount <= 0:

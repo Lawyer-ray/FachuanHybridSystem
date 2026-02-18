@@ -22,7 +22,6 @@ ignore = [
     "RUF003",
     "RUF022",
     "RUF059",
-    "S101",
     "S104",
     "S105",
     "S106",
@@ -47,6 +46,10 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+"conftest.py" = ["S101"]
+"docs/**/*.py" = ["S101"]
+"scripts/**/*.py" = ["S101"]
 "__init__.py" = ["F401", "F403"]
 "admin.py" = ["F401"]
 "**/admin/*.py" = ["F401"]
