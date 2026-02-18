@@ -1,5 +1,7 @@
 """虚拟模型 - 用于 Admin 界面展示"""
 
+from __future__ import annotations
+
 from django.db import models
 
 

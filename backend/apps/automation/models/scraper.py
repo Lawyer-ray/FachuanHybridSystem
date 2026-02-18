@@ -1,9 +1,17 @@
 """爬虫任务相关模型"""
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
+
+    from apps.automation.models.court_document import CourtDocument
+    from apps.automation.models.court_sms import CourtSMS
 
 
 class ScraperTaskType(models.TextChoices):
@@ -28,6 +36,9 @@ class ScraperTask(models.Model):
     """网络爬虫任务"""
 
     id: int
+    if TYPE_CHECKING:
+        documents: RelatedManager[CourtDocument]
+        court_sms_records: RelatedManager[CourtSMS]
     task_type = models.CharField(max_length=32, choices=ScraperTaskType.choices, verbose_name=_("任务类型"))
     status = models.CharField(
         max_length=32, choices=ScraperTaskStatus.choices, default=ScraperTaskStatus.PENDING, verbose_name=_("状态")

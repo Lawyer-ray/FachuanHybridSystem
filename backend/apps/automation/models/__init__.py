@@ -3,6 +3,8 @@
 向后兼容:所有 Model 都可以通过 `from apps.automation.models import X` 导入
 """
 
+from __future__ import annotations
+
 # Base (Virtual Models)
 from .base import AutomationTool, FeeNoticeTest, ImageRotation, NamerTool, PreservationDateTest, TestCourt, TestToolsHub
 

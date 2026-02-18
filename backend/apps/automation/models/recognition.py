@@ -1,5 +1,7 @@
 """文书识别相关模型"""
 
+from __future__ import annotations
+
 from typing import ClassVar
 
 from django.db import models
@@ -78,5 +80,5 @@ class DocumentRecognitionTask(models.Model):
             models.Index(fields=["notification_sent"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"识别任务 #{self.id} - {self.get_status_display()}"

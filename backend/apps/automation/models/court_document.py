@@ -1,5 +1,7 @@
 """法院文书相关模型"""
 
+from __future__ import annotations
+
 from typing import ClassVar
 
 from django.db import models
@@ -74,7 +76,7 @@ class CourtDocument(models.Model):
         ]
         unique_together: ClassVar = [["c_wsbh", "c_sdbh"]]  # 文书编号+送达编号唯一
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.c_wsmc} - {self.get_download_status_display()}"
 
     @property
@@ -126,7 +128,7 @@ class DocumentQueryHistory(models.Model):
             models.Index(fields=["send_time"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return "{} - {} - {}".format(self.credential, self.case_number, self.send_time.strftime("%Y-%m-%d %H:%M"))
 
 
@@ -163,5 +165,5 @@ class DocumentDeliverySchedule(models.Model):
             models.Index(fields=["credential"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return "{} - 每天{}次 - {}".format(self.credential, self.runs_per_day, "启用" if self.is_active else "禁用")
