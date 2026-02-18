@@ -1,7 +1,12 @@
 """Module for client."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.client.models import Client, ClientIdentityDoc
 
 
 @dataclass
@@ -15,15 +20,15 @@ class ClientDTO:
     is_our_client: bool = False
 
     @classmethod
-    def from_model(cls, client: Any) -> "ClientDTO":
+    def from_model(cls, client: Client) -> ClientDTO:
         return cls(
             id=client.id,
             name=client.name,
-            client_type=client.client_type if hasattr(client, "client_type") else "individual",
-            phone=client.phone if hasattr(client, "phone") else None,
-            id_number=client.id_number if hasattr(client, "id_number") else None,
-            address=client.address if hasattr(client, "address") else None,
-            is_our_client=client.is_our_client if hasattr(client, "is_our_client") else False,
+            client_type=client.client_type,
+            phone=client.phone,
+            id_number=client.id_number,
+            address=client.address,
+            is_our_client=client.is_our_client,
         )
 
 
@@ -47,13 +52,11 @@ class ClientIdentityDocDTO:
     is_valid: bool = True
 
     @classmethod
-    def from_model(cls, doc: Any) -> "ClientIdentityDocDTO":
+    def from_model(cls, doc: ClientIdentityDoc) -> ClientIdentityDocDTO:
         return cls(
             id=doc.id,
             client_id=doc.client_id,
             doc_type=doc.doc_type,
-            doc_type_display=doc.get_doc_type_display(),
-            file_path=doc.file.url if doc.file else None,
-            expiry_date=str(doc.expiry_date) if doc.expiry_date else None,
-            is_valid=doc.is_valid if hasattr(doc, "is_valid") else True,
+            doc_type_display=doc.get_doc_type_display(),  # type: ignore[attr-defined]
+            file_path=doc.media_url(),
         )
