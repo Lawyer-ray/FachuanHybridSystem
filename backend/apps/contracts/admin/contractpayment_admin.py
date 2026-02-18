@@ -1,13 +1,25 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from django.contrib import admin
-from django.forms.models import BaseInlineFormSet
-from ..models import ContractPayment, InvoiceStatus
-try:
-    import nested_admin
-    BaseModelAdmin = nested_admin.NestedModelAdmin
-    BaseTabularInline = nested_admin.NestedTabularInline
-except Exception:
+from django.db.models import QuerySet
+from django.http import HttpRequest
+
+from apps.contracts.models import ContractPayment, InvoiceStatus
+
+if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
     BaseTabularInline = admin.TabularInline
+else:
+    try:
+        import nested_admin
+
+        BaseModelAdmin = nested_admin.NestedModelAdmin
+        BaseTabularInline = nested_admin.NestedTabularInline
+    except Exception:
+        BaseModelAdmin = admin.ModelAdmin
+        BaseTabularInline = admin.TabularInline
 
 
 class ContractPaymentInline(BaseTabularInline):
@@ -15,9 +27,10 @@ class ContractPaymentInline(BaseTabularInline):
     extra = 0
     fields = ("amount", "received_at", "invoiced_amount", "invoice_status", "note")
 
-    def get_formset(self, request, obj=None, **kwargs):
+    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
         FormSet = super().get_formset(request, obj, **kwargs)
-        def clean_fs(self):
+
+        def clean_fs(self: Any) -> None:
             super(FormSet, self).clean()
             for form in self.forms:
                 if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
@@ -34,16 +47,17 @@ class ContractPaymentInline(BaseTabularInline):
                             form.cleaned_data["invoice_status"] = InvoiceStatus.INVOICED_PARTIAL
                         else:
                             form.cleaned_data["invoice_status"] = InvoiceStatus.INVOICED_FULL
+
         FormSet.clean = clean_fs
         return FormSet
 
 
 @admin.register(ContractPayment)
-class ContractPaymentAdmin(admin.ModelAdmin):
+class ContractPaymentAdmin(admin.ModelAdmin[ContractPayment]):
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")
     list_filter = ("invoice_status", "received_at")
     search_fields = ("contract__name",)
     autocomplete_fields = ("contract",)
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[ContractPayment, ContractPayment]:
         return super().get_queryset(request).select_related("contract")
