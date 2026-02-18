@@ -20,14 +20,20 @@
 
 - `interfaces.py` 内的 `Protocol` 定义 → `apps/core/protocols/*.py`（按业务域拆分），由 `apps/core/protocols/__init__.py` 统一导出
 
-### LegacyServiceLocator / EventBus（遗留基础设施）
+### ServiceLocator / EventBus（基础设施）
 
-- LegacyServiceLocator → `apps/core/legacy_service_locator.py`
+- ServiceLocator → `apps/core/service_locator.py`（mixin 版，唯一实现）
 - EventBus → `apps/core/event_bus.py`
+- ~~LegacyServiceLocator~~ → 已删除（`legacy_service_locator.py` 已移除）
+- ~~service_locator_proxy.py~~ → 已删除
 
 ### 兼容入口
 
-- `apps/core/interfaces.py` 逐步收敛为兼容性 re-export：\n  - `from apps.core.dto.* import ...`\n  - `from apps.core.protocols import ...`\n  - `from apps.core.legacy_service_locator import LegacyServiceLocator`\n  - `from apps.core.event_bus import EventBus`
+- `apps/core/interfaces/` 包作为兼容性 re-export 层：
+  - `from apps.core.interfaces import ServiceLocator` → 重导出自 `apps.core.service_locator`
+  - `from apps.core.interfaces import EventBus, Events` → 重导出自 `apps.core.event_bus`
+  - `from apps.core.interfaces import CaseDTO, ...` → 重导出自 `apps.core.dtos`
+  - `from apps.core.interfaces import ICaseService, ...` → 重导出自 `apps.core.protocols`
 
 ## 影响面（依赖方）
 
@@ -35,6 +41,6 @@
 
 ## 护栏（结构测试）
 
-- 禁止在 `apps/core/interfaces.py` 新增 `@dataclass` 定义（DTO 必须在 `apps/core/dto/**`）
-- 禁止在 `apps/core/interfaces.py` 新增 `class X(Protocol)` 定义（Protocol 必须在 `apps/core/protocols/**`）
-- 禁止新增对 `LegacyServiceLocator/EventBus` 的直接引用扩散（允许 wiring/基础设施层白名单）
+- 禁止在 `apps/core/interfaces/` 包中新增 `@dataclass` 定义（DTO 必须在 `apps/core/dto/**`）
+- 禁止在 `apps/core/interfaces/` 包中新增 `class X(Protocol)` 定义（Protocol 必须在 `apps/core/protocols/**`）
+- 禁止引用已删除的 `LegacyServiceLocator`（统一使用 `apps.core.service_locator.ServiceLocator`）
