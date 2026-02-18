@@ -178,6 +178,23 @@ class BusinessConfig:
             return True
         return case_type in config.applicable_case_types if case_type else True
 
+    def invalidate_config_cache(self, case_type: Optional[str] = None) -> None:
+        """
+        失效配置缓存
+
+        在配置数据被修改后调用，确保下次查询返回最新数据。
+
+        Args:
+            case_type: 指定失效某个 case_type 的缓存，None 表示失效所有
+        """
+        if case_type is not None:
+            invalidate_cache(f"{CacheKeys.CASE_STAGES_CONFIG}:{case_type}")
+            invalidate_cache(f"{CacheKeys.LEGAL_STATUS_CONFIG}:{case_type}")
+        else:
+            # 失效 None key（全量查询缓存）
+            invalidate_cache(f"{CacheKeys.CASE_STAGES_CONFIG}:None")
+            invalidate_cache(f"{CacheKeys.LEGAL_STATUS_CONFIG}:None")
+
 
 # 全局配置实例
 business_config = BusinessConfig()
