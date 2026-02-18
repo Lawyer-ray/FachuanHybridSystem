@@ -4,9 +4,12 @@
 Requirements: 6.6
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -15,14 +18,14 @@ from apps.documents.models import TemplateAuditLog
 
 
 @admin.register(TemplateAuditLog)
-class TemplateAuditLogAdmin(admin.ModelAdmin):
+class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
     """
     模板审计日志管理
 
     只读界面,用于查看模板修改历史.
     """
 
-    list_display: tuple[Any, ...] = (
+    list_display = (
         "id",
         "content_type",
         "object_id",
@@ -32,18 +35,18 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
         "created_at",
     )
 
-    list_filter: tuple[Any, ...] = (
+    list_filter = (
         "content_type",
         "action",
         "created_at",
     )
 
-    search_fields: tuple[Any, ...] = (
+    search_fields = (
         "object_repr",
         "user__name",
     )
 
-    readonly_fields: tuple[Any, ...] = (
+    readonly_fields = (
         "content_type",
         "object_id",
         "object_repr",
@@ -55,39 +58,39 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
         "created_at",
     )
 
-    ordering: tuple[Any, ...] = ("-created_at",)
+    ordering = ("-created_at",)
 
     date_hierarchy: str = "created_at"
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets = (
         (_("对象信息"), {"fields": ("content_type", "object_id", "object_repr")}),
         (_("操作信息"), {"fields": ("action", "changes_display")}),
         (_("操作人信息"), {"fields": ("user", "ip_address", "user_agent")}),
         (_("时间"), {"fields": ("created_at",)}),
     )
 
-    def has_add_permission(self, request) -> None:
+    def has_add_permission(self, request: HttpRequest) -> bool:
         """禁止手动添加"""
         return False
 
-    def has_change_permission(self, request, obj=None) -> None:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         """禁止修改"""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> None:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         """禁止删除"""
         return False
 
-    def object_repr_display(self, obj) -> None:
+    def object_repr_display(self, obj: TemplateAuditLog) -> str:
         """显示对象描述(截断)"""
         text = obj.object_repr
         if len(text) > 50:
             text = text[:50] + "..."
         return text
 
-    object_repr_display.short_description = _("对象描述")
+    object_repr_display.short_description = _("对象描述")  # type: ignore[attr-defined]
 
-    def changes_display(self, obj) -> None:
+    def changes_display(self, obj: TemplateAuditLog) -> Any:
         """格式化显示变更内容"""
         if not obj.changes:
             return _("无变更记录")
@@ -130,4 +133,4 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
 
         return mark_safe("".join(str(p) for p in html_parts))
 
-    changes_display.short_description = _("变更详情")
+    changes_display.short_description = _("变更详情")  # type: ignore[attr-defined]

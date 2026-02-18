@@ -7,7 +7,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django_q.tasks import async_task
 
@@ -58,7 +58,7 @@ class SMSDownloadingStage(BaseSMSStage):
         Returns:
             bool: 是否可以处理
         """
-        return cast(bool, sms.status == CourtSMSStatus.PARSING)
+        return bool(sms.status == CourtSMSStatus.PARSING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """

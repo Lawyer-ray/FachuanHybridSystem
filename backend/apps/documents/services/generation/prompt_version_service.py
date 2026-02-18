@@ -13,7 +13,7 @@ Requirements: 5.3, 5.4, 5.5
 """
 
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
@@ -125,7 +125,7 @@ class PromptVersionService:
 
         logger.info(
             "创建 Prompt 版本",
-            extra={"prompt_name": name, "version": version, "version_id": cast(int, prompt_version.pk)},
+            extra={"prompt_name": name, "version": version, "version_id": prompt_version.pk},
         )
 
         return prompt_version

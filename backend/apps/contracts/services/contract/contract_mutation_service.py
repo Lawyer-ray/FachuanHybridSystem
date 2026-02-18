@@ -1,7 +1,7 @@
 """Business logic services."""
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
@@ -50,7 +50,7 @@ class ContractMutationService:
         contract = Contract.objects.create(**data)
 
         if lawyer_ids:
-            self.lawyer_assignment_service.set_contract_lawyers(cast(int, contract.pk), lawyer_ids)
+            self.lawyer_assignment_service.set_contract_lawyers(contract.pk, lawyer_ids)
 
         if parties_data:
             for party in parties_data:
@@ -61,7 +61,7 @@ class ContractMutationService:
 
         logger.info(
             "合同创建成功",
-            extra={"contract_id": cast(int, contract.pk), "lawyer_ids": lawyer_ids, "action": "create_contract"},
+            extra={"contract_id": contract.pk, "lawyer_ids": lawyer_ids, "action": "create_contract"},
         )
 
         return contract
@@ -97,7 +97,7 @@ class ContractMutationService:
         except Contract.DoesNotExist:
             raise NotFoundError(f"合同 {contract_id} 不存在") from None
 
-        unlinked_case_count = self.case_service.unbind_cases_from_contract_internal(contract_id=cast(int, contract.pk))
+        unlinked_case_count = self.case_service.unbind_cases_from_contract_internal(contract_id=contract.pk)
         contract.delete()
 
         logger.info(

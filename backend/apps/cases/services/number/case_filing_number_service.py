@@ -8,7 +8,7 @@ from typing import Any, cast
 from django.db import connection, transaction
 from django.db.utils import OperationalError
 
-from apps.cases.models import Case, CaseFilingNumberSequence  # type: ignore[attr-defined]
+from apps.cases.models import Case, CaseFilingNumberSequence
 from apps.core.enums import SimpleCaseType
 from apps.core.exceptions import ConflictError, ValidationException
 
@@ -90,7 +90,7 @@ class CaseFilingNumberService:
 
     def _get_next_case_sequence(self, year: int) -> int:
         with transaction.atomic():
-            qs = CaseFilingNumberSequence.objects
+            qs: Any = CaseFilingNumberSequence.objects
             if connection.features.has_select_for_update:
                 qs = qs.select_for_update()
             seq, _created = qs.get_or_create(year=year, defaults={"next_value": 1})

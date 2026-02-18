@@ -8,7 +8,7 @@ Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
 """
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import IntegrityError, transaction
 
@@ -200,7 +200,7 @@ class PlaceholderService:
 
         try:
             placeholder.save()
-            logger.info(f"更新占位符: {placeholder.key} (ID: {cast(int, placeholder.pk)})")
+            logger.info(f"更新占位符: {placeholder.key} (ID: {placeholder.pk})")
             return placeholder
         except IntegrityError as e:
             raise ValidationException(
@@ -233,7 +233,7 @@ class PlaceholderService:
 
         placeholder.is_active = False
         placeholder.save(update_fields=["is_active"])
-        logger.info(f"软删除占位符: {placeholder.key} (ID: {cast(int, placeholder.pk)})")
+        logger.info(f"软删除占位符: {placeholder.key} (ID: {placeholder.pk})")
         return True
 
     def list_placeholders(self, is_active: bool | None = None) -> list[Placeholder]:

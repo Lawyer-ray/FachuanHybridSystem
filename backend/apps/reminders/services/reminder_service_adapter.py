@@ -94,8 +94,8 @@ class ReminderServiceAdapter:
             reminder = Reminder.objects.create(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
-                content=reminder_type_label,
-                due_at=reminder_time,
+                content=str(reminder_type_label),
+                due_at=reminder_time,  # type: ignore[misc]
                 metadata={"created_by_user_id": user_id} if user_id else {},
             )
 

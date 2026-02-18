@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.http import HttpRequest
@@ -15,10 +15,10 @@ from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, Ch
 
 
 @admin.register(ChatRecordProject)
-class ChatRecordProjectAdmin(admin.ModelAdmin):
-    list_display: tuple[Any, ...] = ("id", "name", "created_by", "created_at", "workbench_link")
-    search_fields: tuple[Any, ...] = ("name",)
-    readonly_fields: tuple[Any, ...] = ("created_at", "updated_at")
+class ChatRecordProjectAdmin(admin.ModelAdmin[ChatRecordProject]):
+    list_display = ("id", "name", "created_by", "created_at", "workbench_link")
+    search_fields = ("name",)
+    readonly_fields = ("created_at", "updated_at")
 
     def get_urls(self) -> list[Any]:
         urls = super().get_urls()
@@ -35,7 +35,7 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
         url = reverse("admin:chat_records_project_workbench", args=[obj.id])
         return mark_safe(f'<a href="{url}">进入工作台</a>')
 
-    workbench_link.short_description = _("工作台")
+    workbench_link.short_description = _("工作台")  # type: ignore[attr-defined]
 
     def workbench_view(self, request: HttpRequest, project_id: int) -> TemplateResponse:
         project = ChatRecordProject.objects.get(id=project_id)
@@ -50,16 +50,16 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(ChatRecordScreenshot)
-class ChatRecordScreenshotAdmin(admin.ModelAdmin):
-    list_display: tuple[Any, ...] = ("id", "project", "ordering", "title", "created_at")
-    search_fields: tuple[Any, ...] = ("title", "note", "sha256")
-    list_filter: tuple[Any, ...] = ("project",)
-    readonly_fields: tuple[Any, ...] = ("created_at", "sha256")
+class ChatRecordScreenshotAdmin(admin.ModelAdmin[ChatRecordScreenshot]):
+    list_display = ("id", "project", "ordering", "title", "created_at")
+    search_fields = ("title", "note", "sha256")
+    list_filter = ("project",)
+    readonly_fields = ("created_at", "sha256")
 
 
 @admin.register(ChatRecordExportTask)
-class ChatRecordExportTaskAdmin(admin.ModelAdmin):
-    list_display: tuple[Any, ...] = (
+class ChatRecordExportTaskAdmin(admin.ModelAdmin[ChatRecordExportTask]):
+    list_display = (
         "id",
         "project",
         "export_type",
@@ -68,8 +68,8 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin):
         "created_at",
         "download_link",
     )
-    list_filter: tuple[Any, ...] = ("export_type", "status", "project")
-    readonly_fields: tuple[Any, ...] = (
+    list_filter = ("export_type", "status", "project")
+    readonly_fields = (
         "created_at",
         "updated_at",
         "started_at",
@@ -87,12 +87,12 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin):
             return "-"
         return mark_safe(f'<a href="/api/v1/chat-records/exports/{obj.id}/download">下载</a>')
 
-    download_link.short_description = _("文件")
+    download_link.short_description = _("文件")  # type: ignore[attr-defined]
 
 
 @admin.register(ChatRecordRecording)
-class ChatRecordRecordingAdmin(admin.ModelAdmin):
-    list_display: tuple[Any, ...] = (
+class ChatRecordRecordingAdmin(admin.ModelAdmin[ChatRecordRecording]):
+    list_display = (
         "id",
         "project",
         "original_name",
@@ -102,9 +102,9 @@ class ChatRecordRecordingAdmin(admin.ModelAdmin):
         "extract_progress",
         "created_at",
     )
-    list_filter: tuple[Any, ...] = ("project", "extract_status")
-    search_fields: tuple[Any, ...] = ("original_name",)
-    readonly_fields: tuple[Any, ...] = (
+    list_filter = ("project", "extract_status")
+    search_fields = ("original_name",)
+    readonly_fields = (
         "size_bytes",
         "duration_seconds",
         "extract_status",

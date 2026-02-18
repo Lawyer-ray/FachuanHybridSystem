@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, cast
+from typing import Any
 
 from django.core.cache import cache
 from django.db.models import Count, Max
@@ -80,7 +80,7 @@ class PlaceholderUsageService:
         except Exception:
             logger.exception(
                 "get_template_file_location_failed",
-                extra={"template_id": cast(int, template.pk), "template_name": template.name},
+                extra={"template_id": template.pk, "template_name": template.name},
             )
             return set()
 

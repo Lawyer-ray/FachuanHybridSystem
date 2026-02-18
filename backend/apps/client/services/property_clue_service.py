@@ -361,4 +361,4 @@ class PropertyClueService:
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
-        return cast(str, PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))
+        return str(PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))

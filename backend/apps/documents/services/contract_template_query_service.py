@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db.models import Q
 
@@ -36,7 +36,7 @@ class ContractTemplateQueryService:
         templates = self.find_matching_templates(case_type)
         return [
             {
-                "id": cast(int, template.pk),
+                "id": template.pk,
                 "name": template.name,
                 "type_display": getattr(template, "get_template_type_display", lambda: "")(),
             }

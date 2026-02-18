@@ -10,7 +10,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from django.utils import timezone
 
@@ -82,7 +82,7 @@ class SMSNotifyingStage(BaseSMSStage):
         Returns:
             bool: 是否可以处理
         """
-        return cast(bool, sms.status == CourtSMSStatus.NOTIFYING)
+        return bool(sms.status == CourtSMSStatus.NOTIFYING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """

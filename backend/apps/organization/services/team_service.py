@@ -50,7 +50,7 @@ class TeamService:
 
         # 权限过滤：非超级用户只能看到自己律所的团队
         if user and not user.is_superuser:
-            qs = qs.filter(law_firm_id=user.law_firm_id)  # type: ignore[attr-defined]
+            qs = qs.filter(law_firm_id=user.law_firm_id)
 
         # 业务过滤
         if law_firm_id is not None:

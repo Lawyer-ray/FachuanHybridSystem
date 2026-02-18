@@ -34,7 +34,7 @@ class ContractCloneWorkflow:
                     client=party.client,
                     role=party.role,
                 )
-                for party in cast(Any, source_contract.contract_parties).all()  # type: ignore[attr-defined]
+                for party in cast(Any, source_contract.contract_parties).all()
             ]
         )
 
@@ -46,12 +46,12 @@ class ContractCloneWorkflow:
                     is_primary=assignment.is_primary,
                     order=assignment.order,
                 )
-                for assignment in cast(Any, source_contract.assignments).all()  # type: ignore[attr-defined]
+                for assignment in cast(Any, source_contract.assignments).all()
             ]
         )
 
         reminders: list[dict[str, Any]] = []
-        for reminder in cast(Any, source_contract.reminders).all():  # type: ignore[attr-defined]
+        for reminder in cast(Any, source_contract.reminders).all():
             due_at = reminder.due_at
             if due_at_transform is not None:
                 due_at = due_at_transform(due_at)
@@ -72,7 +72,7 @@ class ContractCloneWorkflow:
 
         agreements_data = [
             {"agreement": agreement, "parties": list[Any](agreement.parties.all())}
-            for agreement in cast(Any, source_contract.supplementary_agreements).all()  # type: ignore[attr-defined]
+            for agreement in cast(Any, source_contract.supplementary_agreements).all()
         ]
         if not agreements_data:
             return

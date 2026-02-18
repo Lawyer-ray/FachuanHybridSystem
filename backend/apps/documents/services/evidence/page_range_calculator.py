@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from django.db import transaction
 
 from apps.documents.models import EvidenceList
@@ -10,7 +9,7 @@ from apps.documents.models import EvidenceList
 
 class EvidencePageRangeCalculator:
     def calculate_page_ranges(self, *, evidence_list: EvidenceList) -> None:
-        items = evidence_list.items.filter(file__isnull=False).order_by("order")  # type: ignore[attr-defined]
+        items = evidence_list.items.filter(file__isnull=False).order_by("order")
 
         current_page = evidence_list.start_page
         total_pages = 0

@@ -10,7 +10,7 @@ from django.db.models import Max
 
 from apps.core.error_catalog import case_not_found
 from apps.core.exceptions import ValidationException
-from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList
+from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
 
 
 class EvidenceMutationService:
@@ -78,7 +78,7 @@ class EvidenceMutationService:
         return True, None, previous_list
 
     def auto_link_previous_list(self, *, evidence_list: EvidenceList) -> EvidenceList | None | None:
-        required_previous_type = LIST_TYPE_PREVIOUS.get(evidence_list.list_type)
+        required_previous_type = LIST_TYPE_PREVIOUS.get(ListType(evidence_list.list_type))
         if not required_previous_type:
             return None
 
@@ -116,7 +116,7 @@ class EvidenceMutationService:
             with contextlib.suppress(Exception):
                 evidence_list.merged_pdf.delete(save=False)
 
-        for item in evidence_list.items.all():  # type: ignore[attr-defined]
+        for item in evidence_list.items.all():
             if item.file:
                 with contextlib.suppress(Exception):
                     item.file.delete(save=False)
@@ -140,7 +140,7 @@ class EvidenceMutationService:
                 errors={"purpose": "证明内容不能为空"},
             )
 
-        max_order = evidence_list.items.aggregate(max_order=Max("order"))["max_order"]  # type: ignore[attr-defined]
+        max_order = evidence_list.items.aggregate(max_order=Max("order"))["max_order"]
         order = (max_order or 0) + 1
 
         return EvidenceItem.objects.create(
@@ -197,7 +197,7 @@ class EvidenceMutationService:
 
     @transaction.atomic
     def reorder_items(self, *, evidence_list: EvidenceList, item_ids: list[int]) -> bool:
-        existing_ids = set(evidence_list.items.values_list("id", flat=True))  # type: ignore[attr-defined]
+        existing_ids = set(evidence_list.items.values_list("id", flat=True))
         provided_ids = set(item_ids)
 
         if existing_ids != provided_ids:

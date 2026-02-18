@@ -69,9 +69,9 @@ class LawyerQueryService:
         teams = user.lawyer_teams.prefetch_related("lawyers").all()
         for team in teams:
             for member in team.lawyers.all():
-                member_ids.add(cast(int, member.pk))
+                member_ids.add(member.pk)
 
         if not member_ids:
-            member_ids.add(cast(int, user.pk))
+            member_ids.add(user.pk)
 
         return member_ids

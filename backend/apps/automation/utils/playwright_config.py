@@ -16,7 +16,7 @@ def get_playwright_downloads_dir() -> str:
     统一设置为项目的 media/automation/screenshots 目录
     """
     # 使用项目根目录下的 backend/media 目录
-    project_root = Path(settings.BASE_DIR).parent  # 从 apiSystem 到 backend
+    project_root = Path(settings.BASE_DIR).parent  # type: ignore[misc]  # 从 apiSystem 到 backend
     downloads_dir = project_root / "media" / "automation" / "screenshots"
     downloads_dir.makedirs_p()
     return str(downloads_dir.abspath())
