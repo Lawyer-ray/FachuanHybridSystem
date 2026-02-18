@@ -58,5 +58,5 @@ class SystemConfig(models.Model):
             models.Index(fields=["key"], name="core_system_key_07f5b4_idx"),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.get_category_display()} - {self.key}"

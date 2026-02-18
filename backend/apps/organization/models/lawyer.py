@@ -10,7 +10,7 @@ from .storage import KeepOriginalNameStorage
 from .team import Team, TeamType
 
 
-def lawyer_license_upload_path(instance, filename) -> None:
+def lawyer_license_upload_path(instance: object, filename: str) -> str:
     """
     生成律师执业证文件上传路径
     """
@@ -24,6 +24,7 @@ class Lawyer(AbstractUser):
     """
 
     real_name = models.CharField(max_length=255, blank=True, verbose_name=_("真实姓名"))
+    law_firm_id: int | None  # 外键ID字段
     phone = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name=_("手机号码"))
     license_no = models.CharField(max_length=64, blank=True, verbose_name=_("执业证号"))
     id_card = models.CharField(max_length=32, blank=True, verbose_name=_("身份证号"))
