@@ -7,9 +7,6 @@ from __future__ import annotations
 
 from typing import Any
 
-# Automation 异常工厂
-from .automation_factory import AutomationExceptions
-
 # 基础异常
 from .base import BusinessError, BusinessException
 
@@ -56,6 +53,21 @@ from .external import (
     TokenAcquisitionTimeoutError,
     TokenError,
 )
+
+
+def __getattr__(name: str) -> object:
+    if name == "AutomationExceptions":
+        import warnings
+
+        warnings.warn(
+            "AutomationExceptions is deprecated, use direct exception instantiation",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from .automation_factory import AutomationExceptions as _AutomationExceptions
+
+        return _AutomationExceptions
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # 异常处理器 - 延迟导入避免 Django 配置问题

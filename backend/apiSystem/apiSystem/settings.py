@@ -86,50 +86,23 @@ MIDDLEWARE = [
     "apps.core.middleware_request_id.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "apps.organization.middleware.ApiTrailingSlashMiddleware",
-    "apps.core.middleware.ApiRateLimitMiddleware",
     "django.middleware.common.CommonMiddleware",
     "ninja.compatibility.files.fix_request_files_middleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.organization.middleware.OrgAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "apps.core.middleware.PermissionsPolicyMiddleware",  # 权限策略中间件
-    "apps.core.middleware.SecurityHeadersMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 _request_timing_env = (os.environ.get("DJANGO_REQUEST_TIMING", "") or "").lower().strip()
 _enable_request_timing = _request_timing_env in ("true", "1", "yes") or (_request_timing_env == "" and not DEBUG)
-if _enable_request_timing:
-    _request_id_middleware = "apps.core.middleware_request_id.RequestIdMiddleware"
-    try:
-        MIDDLEWARE.insert(MIDDLEWARE.index(_request_id_middleware) + 1, "apps.core.middleware.RequestTimingMiddleware")
-    except ValueError:
-        MIDDLEWARE.insert(1, "apps.core.middleware.RequestTimingMiddleware")
 
 _request_metrics_env = (os.environ.get("DJANGO_REQUEST_METRICS", "") or "").lower().strip()
 _enable_request_metrics = _request_metrics_env in ("true", "1", "yes") or (_request_metrics_env == "" and not DEBUG)
-if _enable_request_metrics and "apps.core.middleware.RequestMetricsMiddleware" not in MIDDLEWARE:
-    _request_id_middleware = "apps.core.middleware_request_id.RequestIdMiddleware"
-    _request_timing_middleware = "apps.core.middleware.RequestTimingMiddleware"
-    try:
-        insert_after = (
-            _request_timing_middleware if _request_timing_middleware in MIDDLEWARE else _request_id_middleware
-        )
-        MIDDLEWARE.insert(MIDDLEWARE.index(insert_after) + 1, "apps.core.middleware.RequestMetricsMiddleware")
-    except ValueError:
-        MIDDLEWARE.insert(1, "apps.core.middleware.RequestMetricsMiddleware")
 
 _service_locator_scope_env = (os.environ.get("DJANGO_SERVICE_LOCATOR_SCOPE", "") or "").lower().strip()
 _enable_service_locator_scope = _service_locator_scope_env not in ("false", "0", "no")
-if _enable_service_locator_scope and "apps.core.middleware.ServiceLocatorScopeMiddleware" not in MIDDLEWARE:
-    try:
-        _sessions_middleware = "django.contrib.sessions.middleware.SessionMiddleware"
-        MIDDLEWARE.insert(
-            MIDDLEWARE.index(_sessions_middleware) + 1, "apps.core.middleware.ServiceLocatorScopeMiddleware"
-        )
-    except ValueError:
-        MIDDLEWARE.insert(3, "apps.core.middleware.ServiceLocatorScopeMiddleware")
 
 ROOT_URLCONF = "apiSystem.urls"
 

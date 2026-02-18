@@ -32,7 +32,6 @@ env/
 .venv/
 backend/venv311/
 backend/venv312/
-
 # IDE
 .idea/
 .vscode/
@@ -42,13 +41,10 @@ backend/venv312/
 .project
 .pydevproject
 .settings/
-
 # Kiro IDE
 .kiro/
-
 # Config snapshots
 .config_snapshots/
-
 # Django
 *.log
 local_settings.py
@@ -59,29 +55,22 @@ staticfiles/
 backend/apiSystem/db.sqlite3
 backend/apiSystem/media/
 backend/apiSystem/htmlcov/
-
 # Environment
 .env
 .env.local
 .env.*.local
-
 # macOS
 .DS_Store
 **/.DS_Store
 .AppleDouble
 .LSOverride
 ._*
-
 # IDE specific (Trae)
 .trae/
-
 # Agent/skill artifacts
 .agents/
-
 # Logs
 logs/
-*.log
-
 # Testing
 .coverage
 htmlcov/
@@ -92,32 +81,26 @@ htmlcov/
 coverage.xml
 *.cover
 backend/apiSystem/.coverage
-backend/apiSystem/htmlcov/
-
 # Playwright screenshots (keep folder, ignore images)
 backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg
 backend/tests/screenshots/*.jpeg
 backend/tests/screenshots/*.webp
-
 # Jupyter
 .ipynb_checkpoints/
-
 # mypy
 .mypy_cache/
 .ruff_cache/
-
+backend/docs/
 # Celery
 celerybeat-schedule
 celerybeat.pid
-
 # Temporary files
 *.tmp
 *.temp
 *.bak
 .cache/
 **/.cache/
-
 # Repo-root one-off scripts (keep root clean)
 /analyze_exceptions.py
 /fix_all_silent_exceptions.py
@@ -125,6 +108,8 @@ celerybeat.pid
 /fix_silent_exceptions.py
 /run_tests.py
 /mypy_services_errors.txt
-
 # Docker volumes (auto-created on first run)
 docker-volumes/
+backend/scripts/
+backend/tests/screenshots/
+backend/tests/
