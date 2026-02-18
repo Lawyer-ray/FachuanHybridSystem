@@ -13,11 +13,11 @@ class CaseLogVersionService:
     def __init__(self, query_service: CaseLogQueryService | None = None) -> None:
         self.query_service = query_service or CaseLogQueryService()
 
-    def get_log_versions(  # type: ignore[no-untyped-def]
+    def get_log_versions(
         self,
         *,
         log_id: int,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:

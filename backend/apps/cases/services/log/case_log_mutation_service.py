@@ -17,12 +17,12 @@ class CaseLogMutationService:
     def __init__(self, query_service: CaseLogQueryService | None = None) -> None:
         self.query_service = query_service or CaseLogQueryService()
 
-    def create_log(  # type: ignore[no-untyped-def]
+    def create_log(
         self,
         *,
         case_id: int,
         content: str,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         reminder_type: str | None = None,
@@ -52,12 +52,12 @@ class CaseLogMutationService:
         return CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
 
     @transaction.atomic
-    def update_log(  # type: ignore[no-untyped-def]
+    def update_log(
         self,
         *,
         log_id: int,
         data: dict[str, Any],
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
@@ -85,11 +85,11 @@ class CaseLogMutationService:
 
         return cast(CaseLog, log)
 
-    def delete_log(  # type: ignore[no-untyped-def]
+    def delete_log(
         self,
         *,
         log_id: int,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:

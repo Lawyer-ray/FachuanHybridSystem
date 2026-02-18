@@ -22,11 +22,11 @@ class CaseLogQueryService:
         self.access_policy = access_policy or CaseAccessPolicy()
         self.query_repo = query_repo or CaseLogQueryRepo()
 
-    def list_logs(  # type: ignore[no-untyped-def]
+    def list_logs(
         self,
         *,
         case_id: int | None = None,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Case, Case]:
@@ -46,11 +46,11 @@ class CaseLogQueryService:
         ).values_list("id", flat=True)
         return self.query_repo.filter_by_allowed_case_ids(qs, allowed_case_ids_qs)
 
-    def get_log(  # type: ignore[no-untyped-def]
+    def get_log(
         self,
         *,
         log_id: int,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
