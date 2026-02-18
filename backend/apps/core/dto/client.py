@@ -57,6 +57,6 @@ class ClientIdentityDocDTO:
             id=doc.id,
             client_id=doc.client_id,
             doc_type=doc.doc_type,
-            doc_type_display=doc.get_doc_type_display(),  # type: ignore[attr-defined]
+            doc_type_display=doc.get_doc_type_display(),
             file_path=doc.media_url(),
         )

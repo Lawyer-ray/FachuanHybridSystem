@@ -79,9 +79,13 @@ class QuoteQueryService:
             self.logger.error(
                 "获取询价统计数据失败", extra={"action": "get_quote_statistics", "error": str(e)}, exc_info=True
             )
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import BusinessException
 
-            raise AutomationExceptions.get_quote_stats_failed() from e
+            raise BusinessException(
+                message="获取询价统计数据失败",
+                code="GET_QUOTE_STATS_FAILED",
+                errors={},
+            ) from e
 
     def get_quote_comparison(self, quote_id: int) -> dict[str, Any]:
         """

@@ -138,7 +138,8 @@ class AttachmentUploadService:
             shutil.copy2(file_path, target_path)
             relative_path = f"case_logs/{renamed_filename}"
 
-            assert sms.case_log is not None
+            if sms.case_log is None:
+                raise ValueError(f"短信 {sms.pk} 没有关联的案件日志")
             case_log = sms.case_log
             success = self.case_service.add_case_log_attachment_internal(
                 case_log_id=cast(int, case_log.pk), file_path=relative_path, file_name=renamed_filename

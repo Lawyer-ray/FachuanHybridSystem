@@ -114,7 +114,8 @@ class CourtSMSHelpersMixin:
                 return False
 
             task = sms.scraper_task
-            assert task is not None
+            if task is None:
+                return False
             if task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
                 logger.info(f"短信 {sms.pk} 的下载任务已完成(状态: {task.status}),不再等待")
                 return False
@@ -128,7 +129,9 @@ class CourtSMSHelpersMixin:
     def _refresh_scraper_task_status(self, sms: CourtSMS) -> bool:
         """刷新 ScraperTask 状态,返回任务是否存在"""
         try:
-            assert sms.scraper_task is not None
+            if sms.scraper_task is None:
+                logger.warning(f"短信 {sms.pk} 的下载任务不存在,无需等待")
+                return False
             scraper_task = sms.scraper_task
             fresh_task = ScraperTask.objects.get(id=scraper_task.pk)
             sms.scraper_task = fresh_task
@@ -140,7 +143,8 @@ class CourtSMSHelpersMixin:
     def _check_documents_need_wait(self, sms: CourtSMS) -> bool:
         """检查文书下载状态,返回是否需要等待"""
         task = sms.scraper_task
-        assert task is not None
+        if task is None:
+            return False
         task_in_progress = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
 
         if not hasattr(task, "documents"):

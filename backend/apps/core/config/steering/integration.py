@@ -487,17 +487,20 @@ class SteeringIntegrationManager:
         """初始化高级组件"""
         # 缓存策略管理器
         cache_config: Any = self.config_manager.get("steering.cache", {})
-        assert isinstance(cache_config, dict)
+        if not isinstance(cache_config, dict):
+            cache_config = {}
         self.cache_strategy_manager = SteeringCacheStrategyManager(CacheStrategy(cache_config.get("strategy", "smart")))
 
         # 性能监控器
         perf_config: Any = self.config_manager.get("steering.performance", {})
-        assert isinstance(perf_config, dict)
+        if not isinstance(perf_config, dict):
+            perf_config = {}
         self.performance_monitor = SteeringPerformanceMonitor(perf_config)
 
         # 依赖管理器
         dep_config: Any = self.config_manager.get("steering.dependencies", {})
-        assert isinstance(dep_config, dict)
+        if not isinstance(dep_config, dict):
+            dep_config = {}
         self.dependency_manager = SteeringDependencyManager(dep_config)
 
     def load_specifications_for_file(self, target_file_path: str) -> list[Any]:

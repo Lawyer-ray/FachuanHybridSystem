@@ -69,9 +69,13 @@ class CourtDocumentService:
 
         missing_fields = [field for field in required_fields if field not in api_data]
         if missing_fields:
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import ValidationException
 
-            raise AutomationExceptions.missing_required_fields(missing_fields)
+            raise ValidationException(
+                message=f"缺少必需字段: {', '.join(missing_fields)}",
+                code="MISSING_REQUIRED_FIELDS",
+                errors={"missing_fields": missing_fields},
+            )
 
         # 解析创建时间
         dt_cjsj = api_data["dt_cjsj"]
@@ -129,9 +133,13 @@ class CourtDocumentService:
 
         except Exception as e:
             logger.error(f"创建文书记录失败: {e}", extra={"scraper_task_id": scraper_task_id, "api_data": api_data})
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import BusinessException
 
-            raise AutomationExceptions.create_document_failed(error_message=str(e))
+            raise BusinessException(
+                message=f"创建文书记录失败: {e}",
+                code="CREATE_DOCUMENT_FAILED",
+                errors={"error_message": str(e)},
+            ) from e
 
     @transaction.atomic
     def update_download_status(
@@ -170,9 +178,13 @@ class CourtDocumentService:
         # 验证状态值
         valid_statuses = [choice[0] for choice in DocumentDownloadStatus.choices]
         if status not in valid_statuses:
-            from apps.core.exceptions import AutomationExceptions
+            from apps.core.exceptions import ValidationException
 
-            raise AutomationExceptions.invalid_download_status(status, valid_statuses)
+            raise ValidationException(
+                message=f"无效的下载状态: {status}",
+                code="INVALID_DOWNLOAD_STATUS",
+                errors={"invalid_status": status, "valid_statuses": valid_statuses},
+            )
 
         # 记录旧状态
         old_status = document.download_status

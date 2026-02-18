@@ -1,0 +1,16 @@
+# ============================================================
+# 法穿AI案件管理系统 - 测试依赖
+# 安装: pip install -r requirements-test.txt -c constraints/py312.txt
+# ============================================================
+
+# --- 测试框架 ---
+pytest==9.0.2
+pytest-django==4.11.1
+pytest-cov==7.0.0
+pytest-asyncio==1.3.0
+
+# --- Property-Based Testing ---
+hypothesis==6.150.2
+
+# --- 测试工厂 ---
+factory-boy==3.3.3
