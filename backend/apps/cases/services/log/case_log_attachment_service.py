@@ -17,12 +17,12 @@ class CaseLogAttachmentService:
     def __init__(self, query_service: CaseLogQueryService | None = None) -> None:
         self.query_service = query_service or CaseLogQueryService()
 
-    def upload_attachments(  # type: ignore[no-untyped-def]
+    def upload_attachments(
         self,
         *,
         log_id: int,
         files: list[UploadedFile],
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogAttachment]:
@@ -45,11 +45,11 @@ class CaseLogAttachmentService:
 
         return created
 
-    def delete_attachment(  # type: ignore[no-untyped-def]
+    def delete_attachment(
         self,
         *,
         attachment_id: int,
-        user=None,
+        user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
