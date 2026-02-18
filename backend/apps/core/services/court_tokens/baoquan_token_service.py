@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class BaoquanTokenService:
     COURT_SITE_NAME = "court_zxfw"
     BAOQUAN_SITE_NAME = "court_baoquan"
-    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
+    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"  # noqa: S105
 
     async def get_valid_baoquan_token(self, credential_id: int | None = None) -> str:
         logger.info("获取保全系统 Token (HS512)...")
