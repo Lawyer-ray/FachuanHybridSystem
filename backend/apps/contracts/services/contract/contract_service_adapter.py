@@ -56,7 +56,9 @@ class ContractServiceAdapter:
             return False
 
     def get_contracts_by_ids(self, contract_ids: list[int]) -> list[ContractDTO]:
-        contracts = Contract.objects.filter(id__in=contract_ids)
+        contracts = Contract.objects.filter(id__in=contract_ids).prefetch_related(
+            "assignments__lawyer__law_firm"
+        )
         return [self.dto_assembler.to_dto(c) for c in contracts]
 
     def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None | None:

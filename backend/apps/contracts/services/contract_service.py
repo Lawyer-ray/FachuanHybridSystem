@@ -985,7 +985,9 @@ class ContractServiceAdapter:
         Returns:
             合同 DTO 列表
         """
-        contracts = Contract.objects.filter(id__in=contract_ids)
+        contracts = Contract.objects.filter(id__in=contract_ids).prefetch_related(
+            "assignments__lawyer__law_firm"
+        )
         return [self._to_dto(c) for c in contracts]
 
     def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None:
