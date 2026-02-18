@@ -11,9 +11,9 @@ class AutomationTool(models.Model):
     id: int
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "文档处理"
-        verbose_name_plural: str = "文档处理"
+        managed = False
+        verbose_name = "文档处理"
+        verbose_name_plural = "文档处理"
 
 
 class NamerTool(models.Model):
@@ -22,9 +22,9 @@ class NamerTool(models.Model):
     id: int
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "自动命名工具"
-        verbose_name_plural: str = "自动命名工具"
+        managed = False
+        verbose_name = "自动命名工具"
+        verbose_name_plural = "自动命名工具"
 
 
 class TestCourt(models.Model):
@@ -34,9 +34,9 @@ class TestCourt(models.Model):
     name = models.CharField(max_length=64, default="Test Court")
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "测试法院系统"
-        verbose_name_plural: str = "测试法院系统"
+        managed = False
+        verbose_name = "测试法院系统"
+        verbose_name_plural = "测试法院系统"
 
 
 class FeeNoticeTest(models.Model):
@@ -46,9 +46,9 @@ class FeeNoticeTest(models.Model):
     name = models.CharField(max_length=64, default="Fee Notice Test")
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "交费通知书识别"
-        verbose_name_plural: str = "交费通知书识别"
+        managed = False
+        verbose_name = "交费通知书识别"
+        verbose_name_plural = "交费通知书识别"
 
 
 class TestToolsHub(models.Model):
@@ -58,9 +58,9 @@ class TestToolsHub(models.Model):
     name = models.CharField(max_length=64, default="Test Tools Hub")
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "测试工具"
-        verbose_name_plural: str = "测试工具"
+        managed = False
+        verbose_name = "测试工具"
+        verbose_name_plural = "测试工具"
 
 
 class PreservationDateTest(models.Model):
@@ -70,9 +70,9 @@ class PreservationDateTest(models.Model):
     name = models.CharField(max_length=64, default="Preservation Date Test")
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "财产保全日期识别"
-        verbose_name_plural: str = "财产保全日期识别"
+        managed = False
+        verbose_name = "财产保全日期识别"
+        verbose_name_plural = "财产保全日期识别"
 
 
 class ImageRotation(models.Model):
@@ -82,6 +82,6 @@ class ImageRotation(models.Model):
     name = models.CharField(max_length=64, default="Image Rotation")
 
     class Meta:
-        managed: bool = False
-        verbose_name: str = "图片自动旋转"
-        verbose_name_plural: str = "图片自动旋转"
+        managed = False
+        verbose_name = "图片自动旋转"
+        verbose_name_plural = "图片自动旋转"

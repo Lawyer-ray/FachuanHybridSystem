@@ -60,15 +60,11 @@ class ClientIdentityDoc(models.Model):
         (LEGAL_REP_ID_CARD, "法定代表人/负责人身份证"),
     ]
 
-    client: models.ForeignKey[Any, Any] = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人"
-    )
-    doc_type: models.CharField[str, str] = models.CharField(
-        max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型"
-    )
-    file_path: models.CharField[str, str] = models.CharField(max_length=512, verbose_name="文件路径")
-    expiry_date: models.DateField[Any, Any] = models.DateField(null=True, blank=True, verbose_name="到期日期")
-    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人")
+    doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型")
+    file_path = models.CharField(max_length=512, verbose_name="文件路径")
+    expiry_date = models.DateField(null=True, blank=True, verbose_name="到期日期")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         return f"{self.client.name}-{self.doc_type}"
@@ -114,7 +110,7 @@ class ClientIdentityDoc(models.Model):
                 raise ValidationError({"doc_type": "Invalid doc type for organization"})
 
     class Meta:
-        verbose_name: str = "当事人证件文件"
-        verbose_name_plural: str = "当事人证件文件"
-        db_table: str = "cases_clientidentitydoc"
-        managed: bool = True
+        verbose_name = "当事人证件文件"
+        verbose_name_plural = "当事人证件文件"
+        db_table = "cases_clientidentitydoc"
+        managed = True

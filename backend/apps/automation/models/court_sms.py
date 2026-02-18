@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
-    from django.db.models.manager import RelatedManager
+    from django.db.models.fields.related_descriptors import RelatedManager
 
     from apps.automation.models.court_document import DocumentQueryHistory
 
@@ -96,7 +96,7 @@ class CourtSMS(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("法院短信")
         verbose_name_plural = _("法院短信")
         ordering: ClassVar = ["-received_at"]
@@ -107,6 +107,4 @@ class CourtSMS(models.Model):
         ]
 
     def __str__(self) -> str:
-        return "短信 #{} - {} - {}".format(
-            cast(int, self.id), self.get_sms_type_display() or "未分类", self.get_status_display()
-        )
+        return "短信 #{} - {} - {}".format(self.id, self.get_sms_type_display() or "未分类", self.get_status_display())

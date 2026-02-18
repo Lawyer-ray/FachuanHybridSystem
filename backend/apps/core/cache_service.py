@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -31,9 +32,25 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:
     """
 
     def decorator(func: F) -> F:
+        sig = inspect.signature(func)
+        param_names = list(sig.parameters.keys())
+
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            cache_key = key_template.format(**kwargs)
+            # 将位置参数绑定到参数名，跳过 self
+            bound: dict[str, Any] = {}
+            for i, val in enumerate(args):
+                if i < len(param_names):
+                    bound[param_names[i]] = val
+            bound.update(kwargs)
+            # 移除 self
+            bound.pop("self", None)
+
+            try:
+                cache_key = key_template.format(**bound)
+            except KeyError:
+                cache_key = key_template
+
             try:
                 result = cache.get(cache_key)
                 if result is not None:

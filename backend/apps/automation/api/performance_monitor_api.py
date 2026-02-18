@@ -5,7 +5,6 @@ Token获取性能监控API
 """
 
 import logging
-from typing import Optional
 
 from django.http import HttpRequest
 from ninja import Query, Router
@@ -51,8 +50,8 @@ def get_performance_metrics(request: HttpRequest) -> dict[str, any]:  # type: ig
 @router.get("/statistics", response=StatisticsReportOut, summary="获取统计报告")
 def get_statistics_report(
     request: HttpRequest,
-    days: int = Query[int](7, description="统计天数", ge=1, le=90),  # type: ignore[call-overload]
-    site_name: str | None = Query[Optional[str]](None, description="网站名称过滤"),  # type: ignore[misc]
+    days: int = Query(7, description="统计天数", ge=1, le=90),  # type: ignore[call-overload]
+    site_name: str | None = Query(None, description="网站名称过滤"),  # type: ignore[misc]
 ) -> dict[str, any]:  # type: ignore[valid-type]
     """
     获取Token获取服务的统计报告
@@ -142,7 +141,7 @@ def get_cache_statistics(request: HttpRequest) -> dict[str, any]:  # type: ignor
 @router.post("/cache/warm-up", summary="预热缓存")
 def warm_up_cache(
     request: HttpRequest,
-    site_name: str = Query[str](..., description="网站名称"),  # type: ignore[call-overload]
+    site_name: str = Query(..., description="网站名称"),  # type: ignore[call-overload]
 ) -> dict[str, any]:  # type: ignore[valid-type]
     """
     预热指定网站的缓存

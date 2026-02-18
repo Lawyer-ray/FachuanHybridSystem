@@ -23,24 +23,24 @@ class PromptVersion(models.Model):
     """
 
     id: int
-    name: str = models.CharField(max_length=100, verbose_name=_("Prompt 名称"), help_text=_("如:complaint, defense"))
+    name = models.CharField(max_length=100, verbose_name=_("Prompt 名称"), help_text=_("如:complaint, defense"))
 
-    version: str = models.CharField(max_length=50, verbose_name=_("版本号"), help_text=_("如:v1.0, v1.1"))
+    version = models.CharField(max_length=50, verbose_name=_("版本号"), help_text=_("如:v1.0, v1.1"))
 
-    template: str = models.TextField(verbose_name=_("模板内容"), help_text=_("LangChain Prompt 模板字符串"))
+    template = models.TextField(verbose_name=_("模板内容"), help_text=_("LangChain Prompt 模板字符串"))
 
-    is_active: bool = models.BooleanField(
+    is_active = models.BooleanField(
         default=False, verbose_name=_("是否激活"), help_text=_("同一名称只能有一个激活版本")
     )
 
-    description: str = models.TextField(blank=True, verbose_name=_("版本说明"), help_text=_("描述此版本的变更内容"))
+    description = models.TextField(blank=True, verbose_name=_("版本说明"), help_text=_("描述此版本的变更内容"))
 
-    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
-    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        app_label: str = "documents"
+        app_label = "documents"
         verbose_name = _("Prompt 版本")
         verbose_name_plural = _("Prompt 版本")
         ordering: ClassVar = ["-created_at"]

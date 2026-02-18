@@ -1,9 +1,15 @@
+import logging
 import os
 from typing import Any, cast
 
 from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
+
+from apps.client.schemas import IdentityRecognizeOut
+from apps.core.exceptions import ServiceUnavailableError, ValidationException
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -22,12 +28,73 @@ def _get_client_service() -> Any:
     return ClientService()
 
 
+def _get_identity_extraction_service() -> Any:
+    """工厂函数：创建 IdentityExtractionService 实例"""
+    from ..services.identity_extraction.extraction_service import IdentityExtractionService
+
+    return IdentityExtractionService()
+
+
+@router.post("/identity-doc/recognize", response=IdentityRecognizeOut)
+def recognize_identity_doc(
+    request: Any,
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    doc_type: str = "身份证",
+) -> IdentityRecognizeOut:
+    """识别证件信息"""
+    from apps.client.services.identity_extraction.data_classes import OCRExtractionError, OllamaExtractionError
+
+    image_bytes = file.read()
+    service = _get_identity_extraction_service()
+    try:
+        result = service.extract(image_bytes, doc_type)
+        return IdentityRecognizeOut(
+            success=True,
+            doc_type=result.doc_type,
+            extracted_data=result.extracted_data,
+            confidence=result.confidence,
+        )
+    except ValidationException as e:
+        return IdentityRecognizeOut(
+            success=False,
+            doc_type=doc_type,
+            extracted_data={},
+            confidence=0.0,
+            error=str(e),
+        )
+    except (OCRExtractionError, OllamaExtractionError) as e:
+        return IdentityRecognizeOut(
+            success=False,
+            doc_type=doc_type,
+            extracted_data={},
+            confidence=0.0,
+            error=f"识别失败: {e}",
+        )
+    except ServiceUnavailableError as e:
+        return IdentityRecognizeOut(
+            success=False,
+            doc_type=doc_type,
+            extracted_data={},
+            confidence=0.0,
+            error=f"服务不可用: {e}",
+        )
+    except Exception as e:
+        logger.warning("证件识别未知错误: %s", e)
+        return IdentityRecognizeOut(
+            success=False,
+            doc_type=doc_type,
+            extracted_data={},
+            confidence=0.0,
+            error=f"未知错误: {e}",
+        )
+
+
 @router.post("/clients/{client_id}/identity-docs")
 def add_identity_doc(
     request: Any,
     client_id: int,
     doc_type: str,
-    file: UploadedFile = File[UploadedFile](...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
 ) -> dict[str, Any]:
     """
     添加证件文档

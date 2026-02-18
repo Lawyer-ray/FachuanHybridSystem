@@ -319,15 +319,12 @@ class ContractService(PermissionMixin):
         return contract
 
     @transaction.atomic
-    def delete_contract(self, contract_id: int) -> bool:
+    def delete_contract(self, contract_id: int) -> None:
         """
         删除合同
 
         Args:
             contract_id: 合同 ID
-
-        Returns:
-            是否成功
 
         Raises:
             NotFoundError: 合同不存在
@@ -340,8 +337,6 @@ class ContractService(PermissionMixin):
         contract.delete()
 
         logger.info("合同删除成功", extra={"contract_id": contract_id, "action": "delete_contract"})
-
-        return True
 
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
         """
@@ -394,7 +389,7 @@ class ContractService(PermissionMixin):
 
         return party
 
-    def remove_party(self, contract_id: int, client_id: int) -> bool:
+    def remove_party(self, contract_id: int, client_id: int) -> None:
         """
         移除合同当事人
 
@@ -402,15 +397,16 @@ class ContractService(PermissionMixin):
             contract_id: 合同 ID
             client_id: 客户 ID
 
-        Returns:
-            是否成功
+        Raises:
+            NotFoundError: 当事人不存在
         """
         deleted, _ = ContractParty.objects.filter(
             contract_id=contract_id,
             client_id=client_id,
         ).delete()
 
-        return deleted > 0
+        if not deleted:
+            raise NotFoundError(f"合同 {contract_id} 中不存在客户 {client_id} 的当事人记录")
 
     @transaction.atomic
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:

@@ -30,16 +30,16 @@ class PromptTemplate(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name: str = "Prompt 模板"
-        verbose_name_plural: str = "Prompt 模板"
-        db_table: str = "core_prompt_template"
+        verbose_name = "Prompt 模板"
+        verbose_name_plural = "Prompt 模板"
+        db_table = "core_prompt_template"
         ordering: ClassVar = ["category", "name"]
 
     def __str__(self) -> str:
         return f"{self.title} ({self.name})"
 
-    def delete(self, *args: object, **kwargs: object) -> tuple[int, dict[str, int]]:
+    def delete(self, using: str | None = None, keep_parents: bool = False) -> tuple[int, dict[str, int]]:
         name = self.name
-        result = super().delete(*args, **kwargs)
+        result = super().delete(using=using, keep_parents=keep_parents)
         delete_cache_key(CacheKeys.prompt_template(name))
         return result

@@ -33,8 +33,8 @@ class Court(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
 
     class Meta:
-        verbose_name: str = "法院"
-        verbose_name_plural: str = "法院"
+        verbose_name = "法院"
+        verbose_name_plural = "法院"
         ordering: ClassVar = ["province", "level", "name"]
         indexes: ClassVar = [
             models.Index(fields=["province"], name="core_court_provinc_9fe4bb_idx"),

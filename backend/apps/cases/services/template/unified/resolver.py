@@ -11,7 +11,7 @@ from apps.core.path import Path
 
 from .wiring import get_document_service
 
-logger = logging.getLogger("apps.cases.services", cast)  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases.services")  # type: ignore[call-arg]
 
 
 @dataclass(frozen=True)

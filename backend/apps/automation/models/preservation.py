@@ -8,7 +8,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
-    from django.db.models.manager import RelatedManager
+    from django.db.models.fields.related_descriptors import RelatedManager
 
 
 class QuoteStatus(models.TextChoices):
@@ -58,7 +58,7 @@ class PreservationQuote(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("财产保全询价")
         verbose_name_plural = _("财产保全询价")
         ordering: ClassVar = ["-created_at"]
@@ -128,7 +128,7 @@ class InsuranceQuote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("保险公司报价")
         verbose_name_plural = _("保险公司报价")
         ordering: ClassVar = ["min_amount"]  # 按最低报价排序

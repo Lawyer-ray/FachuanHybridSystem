@@ -180,8 +180,8 @@ class TestCaseAPI:
             perm_open_access=False,
         )
 
-        # 断言结果
-        assert result is True
+        # 断言返回 None
+        assert result is None
 
         # 验证案件已删除
         assert not Case.objects.filter(id=case.id).exists()

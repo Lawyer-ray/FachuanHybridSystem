@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import ClassVar
 
 from django.db import models
@@ -16,14 +15,14 @@ class ContractFolderBinding(models.Model):
 
     id: int
     contract_id: int
-    contract: Contract = models.OneToOneField(
+    contract = models.OneToOneField(
         Contract, on_delete=models.CASCADE, related_name="folder_binding", verbose_name=_("合同")
     )
-    folder_path: str = models.CharField(
+    folder_path = models.CharField(
         max_length=1000, verbose_name=_("文件夹路径"), help_text=_("绑定的本地或网络文件夹路径")
     )
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("合同文件夹绑定")

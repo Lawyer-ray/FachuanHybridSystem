@@ -508,16 +508,13 @@ class CaseService(PermissionMixin):
 
         return case  # type: ignore[no-any-return]
 
-    def delete_case(self, case_id: int, user: Any | None = None) -> bool:
+    def delete_case(self, case_id: int, user: Any | None = None) -> None:
         """
         删除案件
 
         Args:
             case_id: 案件 ID
             user: 当前用户（用于权限检查）
-
-        Returns:
-            是否成功
 
         Raises:
             NotFoundError: 案件不存在
@@ -538,7 +535,6 @@ class CaseService(PermissionMixin):
         )
 
         case.delete()
-        return True
 
     def _validate_stage(
         self,

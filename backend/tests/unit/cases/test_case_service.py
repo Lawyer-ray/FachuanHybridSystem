@@ -250,11 +250,11 @@ class TestCaseService:
         # 创建测试案件
         case = Case.objects.create(name="测试案件", is_archived=False)
 
-        # 执行测试
+        # 执行测试（返回 None）
         result = self.service.delete_case(case.id, user=user)
 
-        # 断言结果
-        assert result is True
+        # 断言返回 None
+        assert result is None
 
         # 验证案件已删除
         assert not Case.objects.filter(id=case.id).exists()

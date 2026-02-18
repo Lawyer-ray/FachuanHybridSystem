@@ -215,7 +215,7 @@ class _CacheTimeoutMeta(type):
             return int(_safe_get_config("performance.cache.timeout_long", 3600))
         if name == "DAY":
             return int(_safe_get_config("performance.cache.timeout_day", 86400))
-        return int(super().__getattribute__(name))
+        return super().__getattribute__(name)
 
 
 class CacheTimeout(metaclass=_CacheTimeoutMeta):

@@ -31,7 +31,7 @@ def _get_auto_namer_service() -> Any:
 @router.post("/process", response=AutoToolProcessOut)
 def auto_namer_process(
     request: Any,
-    file: UploadedFile = File[UploadedFile](...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
     prompt: str = DEFAULT_FILENAME_PROMPT,
     model: str = "qwen3:0.6b",
     limit: int | None = None,

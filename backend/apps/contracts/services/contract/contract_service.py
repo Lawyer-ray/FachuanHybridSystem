@@ -245,7 +245,7 @@ class ContractService(ContractServiceQueryMixin):
     def update_contract(self, contract_id: int, data: dict[str, Any]) -> Contract:
         return self.mutation_service.update_contract(contract_id, data)
 
-    def delete_contract(self, contract_id: int) -> bool:
+    def delete_contract(self, contract_id: int) -> None:
         """
         删除合同
 
@@ -255,13 +255,10 @@ class ContractService(ContractServiceQueryMixin):
         Args:
             contract_id: 合同 ID
 
-        Returns:
-            bool: 删除成功返回 True
-
         Raises:
             NotFoundError: 合同不存在
         """
-        return self.mutation_service.delete_contract(contract_id)
+        self.mutation_service.delete_contract(contract_id)
 
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
         """
@@ -302,7 +299,7 @@ class ContractService(ContractServiceQueryMixin):
         """
         return self.party_service.add_party(contract_id=contract_id, client_id=client_id)
 
-    def remove_party(self, contract_id: int, client_id: int) -> bool:
+    def remove_party(self, contract_id: int, client_id: int) -> None:
         """
         移除合同当事人
 
@@ -310,10 +307,10 @@ class ContractService(ContractServiceQueryMixin):
             contract_id: 合同 ID
             client_id: 客户 ID
 
-        Returns:
-            bool: 是否成功删除
+        Raises:
+            NotFoundError: 当事人不存在
         """
-        return self.party_service.remove_party(contract_id=contract_id, client_id=client_id)
+        self.party_service.remove_party(contract_id=contract_id, client_id=client_id)
 
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
         """

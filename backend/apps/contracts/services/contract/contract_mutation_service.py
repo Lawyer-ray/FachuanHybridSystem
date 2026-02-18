@@ -91,7 +91,7 @@ class ContractMutationService:
         return contract
 
     @transaction.atomic
-    def delete_contract(self, contract_id: int) -> bool:
+    def delete_contract(self, contract_id: int) -> None:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
@@ -108,8 +108,6 @@ class ContractMutationService:
                 "unlinked_case_count": unlinked_case_count,
             },
         )
-
-        return True
 
     @transaction.atomic
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:

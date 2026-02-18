@@ -129,8 +129,8 @@ class TestContractService:
         # 执行测试
         result = self.service.delete_contract(contract.id)
 
-        # 断言结果
-        assert result is True
+        # 断言返回 None
+        assert result is None
 
         # 验证合同已删除
         assert not Contract.objects.filter(id=contract.id).exists()
@@ -364,24 +364,22 @@ class TestContractService:
         client = ClientFactory()
         ContractParty.objects.create(contract=contract, client=client)
 
-        # 执行测试
+        # 执行测试（返回 None）
         result = self.service.remove_party(contract.id, client.id)
 
-        # 断言结果
-        assert result is True
+        # 断言返回 None
+        assert result is None
 
         # 验证当事人已删除
         assert not ContractParty.objects.filter(contract_id=contract.id, client_id=client.id).exists()
 
     def test_remove_party_not_found(self):
-        """测试移除不存在的当事人"""
+        """测试移除不存在的当事人抛出 NotFoundError"""
         contract = ContractFactory()
 
-        # 执行测试（不存在的当事人）
-        result = self.service.remove_party(contract.id, 999)
-
-        # 断言结果（返回 False）
-        assert result is False
+        # 执行测试（不存在的当事人应抛出异常）
+        with pytest.raises(NotFoundError):
+            self.service.remove_party(contract.id, 999)
 
     def test_update_contract_lawyers(self):
         """测试更新合同律师"""

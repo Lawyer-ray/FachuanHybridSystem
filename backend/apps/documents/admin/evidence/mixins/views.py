@@ -87,7 +87,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         urls = super().get_urls()
         custom_urls = [
             path(
-                "next-list-type/<int: case_id>/",
+                "next-list-type/<int:case_id>/",
                 self.admin_site.admin_view(self.next_list_type_view),
                 name="documents_evidencelist_next_list_type",
             ),

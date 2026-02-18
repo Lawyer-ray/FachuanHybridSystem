@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+
 from ..models import CaseLog, CaseLogAttachment
+
 try:
     import nested_admin
+
     BaseModelAdmin = nested_admin.NestedModelAdmin
 except Exception:
     BaseModelAdmin = admin.ModelAdmin
@@ -11,7 +14,7 @@ except Exception:
 @admin.register(CaseLog)
 class CaseLogAdmin(BaseModelAdmin):
     list_display = ("id", "case", "actor", "reminder_type", "reminder_time", "created_at", "updated_at")
-    list_filter = ("reminder_type",)
+    list_filter = ()
     search_fields = ("content", "case__name")
     autocomplete_fields = ("case", "actor")
     exclude = ("actor",)

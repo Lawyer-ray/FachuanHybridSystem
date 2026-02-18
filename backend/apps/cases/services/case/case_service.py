@@ -233,14 +233,12 @@ class CaseService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> bool:
-        return bool(
-            self.mutation_service.delete_case(
-                case_id=case_id,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            )
+    ) -> None:
+        self.mutation_service.delete_case(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     def _validate_stage(

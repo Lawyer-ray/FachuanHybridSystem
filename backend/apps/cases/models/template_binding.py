@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -19,16 +19,16 @@ class CaseTemplateBinding(models.Model):
     """案件模板绑定关系"""
 
     id: int
-    case: models.ForeignKey[Any, Any] = models.ForeignKey(
+    case = models.ForeignKey(
         "cases.Case", on_delete=models.CASCADE, related_name="template_bindings", verbose_name=_("案件")
     )
-    template: models.ForeignKey[Any, Any] = models.ForeignKey(
+    template = models.ForeignKey(
         "documents.DocumentTemplate", on_delete=models.CASCADE, related_name="case_bindings", verbose_name=_("文书模板")
     )
-    binding_source: models.CharField[str, str] = models.CharField(
+    binding_source = models.CharField(
         max_length=20, choices=BindingSource.choices, default=BindingSource.AUTO_RECOMMENDED, verbose_name=_("绑定来源")
     )
-    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
 
     class Meta:
         verbose_name = _("案件模板绑定")
@@ -40,4 +40,4 @@ class CaseTemplateBinding(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.case_id}-{self.template_id}-{self.binding_source}"  # type: ignore[attr-defined]
+        return f"{self.case_id}-{self.template_id}-{self.binding_source}"
