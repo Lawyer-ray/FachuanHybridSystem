@@ -55,13 +55,6 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
                 message=f"PDF文件处理失败: {e}",
                 code="PDF_PROCESSING_FAILED",
                 errors={"error_message": str(e)},
-            ) from e    except Exception as e:
-            from apps.core.exceptions import ValidationException
-
-            raise ValidationException(
-                message=f"PDF文件处理失败: {e}",
-                code="PDF_PROCESSING_FAILED",
-                errors={"error_message": str(e)},
             ) from e
 
     def extract_text_from_docx(self, file_path: str, limit: int | None = None) -> str:
@@ -168,7 +161,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
                 message=f"文档内容提取失败: {e!s}",
                 code="DOCUMENT_CONTENT_EXTRACTION_FAILED",
                 errors={"file_path": file_path, "error": str(e)},
-            )
+            ) from e
 
     # 内部方法版本，供其他模块调用
     def extract_text_from_pdf_internal(
