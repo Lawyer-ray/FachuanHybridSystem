@@ -1,7 +1,12 @@
 """Module for organization."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.organization.models import AccountCredential, LawFirm, Lawyer
 
 
 @dataclass
@@ -18,32 +23,24 @@ class AccountCredentialDTO:
     is_preferred: bool = False
     created_at: str | None = None
     updated_at: str | None = None
-    lawyer: Any | None = None
+    lawyer: Lawyer | None = None
 
     @classmethod
-    def from_model(cls, credential: Any) -> "AccountCredentialDTO":
+    def from_model(cls, credential: AccountCredential) -> AccountCredentialDTO:
         return cls(
             id=credential.id,
             lawyer_id=credential.lawyer_id,
             site_name=credential.site_name,
-            url=credential.url if hasattr(credential, "url") else None,
+            url=credential.url,
             account=credential.account,
             password=credential.password,
-            last_login_success_at=(
-                str(credential.last_login_success_at)
-                if hasattr(credential, "last_login_success_at") and credential.last_login_success_at
-                else None
-            ),
-            login_success_count=credential.login_success_count if hasattr(credential, "login_success_count") else 0,
-            login_failure_count=credential.login_failure_count if hasattr(credential, "login_failure_count") else 0,
-            is_preferred=credential.is_preferred if hasattr(credential, "is_preferred") else False,
-            created_at=(
-                str(credential.created_at) if hasattr(credential, "created_at") and credential.created_at else None
-            ),
-            updated_at=(
-                str(credential.updated_at) if hasattr(credential, "updated_at") and credential.updated_at else None
-            ),
-            lawyer=credential.lawyer if hasattr(credential, "lawyer") else None,
+            last_login_success_at=(str(credential.last_login_success_at) if credential.last_login_success_at else None),
+            login_success_count=credential.login_success_count,
+            login_failure_count=credential.login_failure_count,
+            is_preferred=credential.is_preferred,
+            created_at=(str(credential.created_at) if credential.created_at else None),
+            updated_at=(str(credential.updated_at) if credential.updated_at else None),
+            lawyer=credential.lawyer,
         )
 
 
@@ -62,19 +59,19 @@ class LawyerDTO:
     team_name: str | None = None
 
     @classmethod
-    def from_model(cls, lawyer: Any) -> "LawyerDTO":
+    def from_model(cls, lawyer: Lawyer) -> LawyerDTO:
         return cls(
-            id=lawyer.id,
-            username=lawyer.username if hasattr(lawyer, "username") else str(lawyer.id),
-            real_name=lawyer.real_name if hasattr(lawyer, "real_name") else None,
-            phone=lawyer.phone if hasattr(lawyer, "phone") else None,
-            email=lawyer.email if hasattr(lawyer, "email") else None,
-            is_admin=lawyer.is_admin if hasattr(lawyer, "is_admin") else False,
-            is_active=lawyer.is_active if hasattr(lawyer, "is_active") else True,
-            law_firm_id=lawyer.law_firm_id if hasattr(lawyer, "law_firm_id") else None,
-            law_firm_name=lawyer.law_firm.name if hasattr(lawyer, "law_firm") and lawyer.law_firm else None,
-            team_id=lawyer.team_id if hasattr(lawyer, "team_id") else None,
-            team_name=lawyer.team.name if hasattr(lawyer, "team") and lawyer.team else None,
+            id=lawyer.id,  # type: ignore[attr-defined]
+            username=lawyer.username,
+            real_name=lawyer.real_name,
+            phone=lawyer.phone,
+            email=lawyer.email,
+            is_admin=lawyer.is_admin,
+            is_active=lawyer.is_active,
+            law_firm_id=lawyer.law_firm_id,  # type: ignore[attr-defined]
+            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,  # type: ignore[attr-defined]
+            team_id=None,
+            team_name=None,
         )
 
 
@@ -87,11 +84,11 @@ class LawFirmDTO:
     social_credit_code: str | None = None
 
     @classmethod
-    def from_model(cls, lawfirm: Any) -> "LawFirmDTO":
+    def from_model(cls, lawfirm: LawFirm) -> LawFirmDTO:
         return cls(
             id=lawfirm.id,
             name=lawfirm.name,
-            address=lawfirm.address if hasattr(lawfirm, "address") else None,
-            phone=lawfirm.phone if hasattr(lawfirm, "phone") else None,
-            social_credit_code=lawfirm.social_credit_code if hasattr(lawfirm, "social_credit_code") else None,
+            address=lawfirm.address,
+            phone=lawfirm.phone,
+            social_credit_code=lawfirm.social_credit_code,
         )
