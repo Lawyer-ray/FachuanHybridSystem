@@ -9,9 +9,13 @@ API 层职责：
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
 
+from __future__ import annotations
+
 from typing import Any, cast
 
 from ninja import Router
+
+from apps.core.request_context import extract_request_context
 
 from ..schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
 
@@ -32,104 +36,56 @@ def _get_case_access_service() -> Any:
 
 @router.get("/grants", response=list[CaseAccessGrantOut])
 def list_grants(request: Any, case_id: int | None = None, grantee_id: int | None = None) -> list[CaseAccessGrantOut]:
-    """
-    获取授权列表
-
-    API 层只负责：
-    1. 接收查询参数
-    2. 调用 Service
-    3. 返回结果
-    """
     service = _get_case_access_service()
-
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return cast(
         list[CaseAccessGrantOut],
         service.list_grants(
             case_id=case_id,
             grantee_id=grantee_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
 def create_grant(request: Any, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:
-    """
-    创建授权
-
-    API 层只负责：
-    1. 接收请求数据
-    2. 调用 Service
-    3. 返回结果
-    """
     service = _get_case_access_service()
-
-    # 提取用户信息
-    user = getattr(request, "user", None)
+    ctx = extract_request_context(request)
 
     return cast(
         CaseAccessGrantOut,
         service.create_grant(
             case_id=payload.case_id,
             grantee_id=payload.grantee_id,
-            user=user,
+            user=ctx.user,
         ),
     )
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
 def get_grant(request: Any, grant_id: int) -> CaseAccessGrantOut:
-    """
-    获取单个授权
-
-    API 层只负责：
-    1. 接收路径参数
-    2. 调用 Service
-    3. 返回结果（Service 会抛出 NotFoundError）
-    """
     service = _get_case_access_service()
-
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return cast(
         CaseAccessGrantOut,
         service.get_grant(
             grant_id=grant_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
 def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
-    """
-    更新授权
-
-    API 层只负责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回结果
-    """
     service = _get_case_access_service()
-
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
-
-    # 转换 Schema 为字典（只包含设置的字段）
+    ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
 
     return cast(
@@ -137,33 +93,21 @@ def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) ->
         service.update_grant(
             grant_id=grant_id,
             data=data,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
 
 @router.delete("/grants/{grant_id}")
 def delete_grant(request: Any, grant_id: int) -> Any:
-    """
-    删除授权
-
-    API 层只负责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回结果
-    """
     service = _get_case_access_service()
-
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return service.delete_grant(
         grant_id=grant_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )

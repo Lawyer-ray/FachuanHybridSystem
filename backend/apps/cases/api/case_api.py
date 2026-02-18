@@ -9,11 +9,14 @@ API 层职责：
 不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
 """
 
+from __future__ import annotations
+
 from typing import Any, cast
 
 from ninja import Router
 
 from apps.core.interfaces import ServiceLocator
+from apps.core.request_context import extract_request_context
 
 from ..schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
 from ..services import CaseService
@@ -46,21 +49,16 @@ def search_cases(
         limit: 返回结果数量限制
     """
     service = _get_case_service()
+    ctx = extract_request_context(request)
 
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
-
-    # 调用搜索服务
     return cast(
         list[CaseOut],
         service.search_cases(
             query=q,
             limit=limit,  # type: ignore[arg-type]
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -86,11 +84,7 @@ def list_cases(
         case_number: 案号搜索（支持模糊匹配）
     """
     service = _get_case_service()
-
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     # 如果提供了案号，使用案号搜索
     if case_number:
@@ -98,9 +92,9 @@ def list_cases(
             list[CaseOut],
             service.search_by_case_number(
                 case_number=case_number,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
             ),
         )
 
@@ -110,9 +104,9 @@ def list_cases(
         service.list_cases(
             case_type=case_type,
             status=status,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -128,20 +122,15 @@ def get_case(request: Any, case_id: int) -> CaseOut:
     3. 返回结果（Service 会抛出 NotFoundError 或 ForbiddenError）
     """
     service = _get_case_service()
+    ctx = extract_request_context(request)
 
-    # 提取用户和权限信息
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
-
-    # 调用 Service（权限检查在 Service 层）
     return cast(
         CaseOut,
         service.get_case(
             case_id=case_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -157,15 +146,10 @@ def create_case(request: Any, payload: CaseIn) -> CaseOut:
     3. 返回结果
     """
     service = _get_case_service()
-
-    # 提取用户信息
-    user = getattr(request, "user", None)
-
-    # 转换 Schema 为字典
+    ctx = extract_request_context(request)
     data = payload.dict()
 
-    # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return cast(CaseOut, service.create_case(data, user=user))
+    return cast(CaseOut, service.create_case(data, user=ctx.user))
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
@@ -179,15 +163,10 @@ def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
     3. 返回结果
     """
     service = _get_case_service()
-
-    # 提取用户信息
-    user = getattr(request, "user", None)
-
-    # 转换 Schema 为字典（只包含设置的字段）
+    ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
 
-    # 调用 Service（业务逻辑和权限检查在 Service 层）
-    return cast(CaseOut, service.update_case(case_id, data, user=user))
+    return cast(CaseOut, service.update_case(case_id, data, user=ctx.user))
 
 
 @router.delete("/cases/{case_id}")
@@ -201,12 +180,9 @@ def delete_case(request: Any, case_id: int) -> dict[str, bool]:
     3. 返回 204 状态码
     """
     service = _get_case_service()
+    ctx = extract_request_context(request)
 
-    # 提取用户信息
-    user = getattr(request, "user", None)
-
-    # 调用 Service（业务逻辑和权限检查在 Service 层）
-    service.delete_case(case_id, user=user)
+    service.delete_case(case_id, user=ctx.user)
 
     return {"success": True}
 
@@ -222,12 +198,9 @@ def create_case_full(request: Any, payload: CaseCreateFull) -> CaseFullOut:
     3. 返回结果
     """
     service = _get_case_service()
+    ctx = extract_request_context(request)
+    actor_id = getattr(ctx.user, "id", None) if ctx.user else None
 
-    # 提取用户信息
-    user = getattr(request, "user", None)
-    actor_id = getattr(user, "id", None) if user else None
-
-    # 转换 Schema 为字典
     data = {
         "case": payload.case.dict(),
         "parties": [p.dict() for p in payload.parties] if payload.parties else [],
@@ -238,10 +211,8 @@ def create_case_full(request: Any, payload: CaseCreateFull) -> CaseFullOut:
         ),
     }
 
-    # 调用 Service（业务逻辑和权限检查在 Service 层）
-    result = service.create_case_full(data, actor_id=actor_id, user=user)
+    result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
 
-    # 返回响应
     return CaseFullOut(
         case=result["case"],
         parties=result["parties"],
