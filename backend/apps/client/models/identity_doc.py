@@ -1,21 +1,26 @@
 """Module for identity doc."""
 
+from __future__ import annotations
+
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from .client import Client
 
+if TYPE_CHECKING:
+    pass
+
 logger = logging.getLogger(__name__)
 
 
-def client_identity_doc_upload_path(instance, filename) -> None:
+def client_identity_doc_upload_path(instance: Any, filename: str) -> str:
     """生成当事人证件文件上传路径"""
-    from django.utils.text import slugify
+    from pathlib import Path
 
-    from apps.core.path import Path
+    from django.utils.text import slugify
 
     # 获取文件扩展名
     ext = Path(filename).suffix
@@ -36,9 +41,8 @@ def client_identity_doc_upload_path(instance, filename) -> None:
 
 class ClientIdentityDoc(models.Model):
     id: int
-    client_id: int  # 外键ID字段
+    client_id: int
     ID_CARD = "id_card"
-    id: int
     PASSPORT = "passport"
     HK_MACAO_PERMIT = "hk_macao_permit"
     RESIDENCE_PERMIT = "residence_permit"
@@ -46,7 +50,7 @@ class ClientIdentityDoc(models.Model):
     BUSINESS_LICENSE = "business_license"
     LEGAL_REP_CERT = "legal_rep_certificate"
     LEGAL_REP_ID_CARD = "legal_rep_id_card"
-    DOC_TYPE_CHOICES: ClassVar = [
+    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (ID_CARD, "身份证"),
         (PASSPORT, "护照"),
         (HK_MACAO_PERMIT, "港澳通行证"),
@@ -56,19 +60,23 @@ class ClientIdentityDoc(models.Model):
         (LEGAL_REP_ID_CARD, "法定代表人/负责人身份证"),
     ]
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人")
-    doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型")
-    file_path = models.CharField(max_length=512, verbose_name="文件路径")
-    expiry_date = models.DateField(null=True, blank=True, verbose_name="到期日期")
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    client: models.ForeignKey[Any, Any] = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人"
+    )
+    doc_type: models.CharField[str, str] = models.CharField(
+        max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型"
+    )
+    file_path: models.CharField[str, str] = models.CharField(max_length=512, verbose_name="文件路径")
+    expiry_date: models.DateField[Any, Any] = models.DateField(null=True, blank=True, verbose_name="到期日期")
+    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         return f"{self.client.name}-{self.doc_type}"
 
     def media_url(self) -> str | None:
-        from django.conf import settings
+        from pathlib import Path
 
-        from apps.core.path import Path
+        from django.conf import settings
 
         if not self.file_path:
             return None
@@ -84,7 +92,6 @@ class ClientIdentityDoc(models.Model):
                 return settings.MEDIA_URL + str(file_path).replace("\\", "/")
         except Exception:
             logger.exception("操作失败")
-
             return None
         return None
 

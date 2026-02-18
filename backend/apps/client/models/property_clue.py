@@ -1,11 +1,18 @@
 """Module for property clue."""
 
+from __future__ import annotations
+
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 
 from .client import Client
+
+if TYPE_CHECKING:
+    from django.db.models.fields.related_descriptors import RelatedManager
+
+logger = logging.getLogger(__name__)
 
 
 class PropertyClue(models.Model):
@@ -18,7 +25,7 @@ class PropertyClue(models.Model):
     REAL_ESTATE = "real_estate"
     OTHER = "other"
 
-    CLUE_TYPE_CHOICES: ClassVar = [
+    CLUE_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (BANK, "银行账户"),
         (ALIPAY, "支付宝账户"),
         (WECHAT, "微信账户"),
@@ -26,7 +33,7 @@ class PropertyClue(models.Model):
         (OTHER, "其他"),
     ]
 
-    CONTENT_TEMPLATES: ClassVar = {
+    CONTENT_TEMPLATES: ClassVar[dict[str, str]] = {
         BANK: "户名:\n开户行:\n银行账号:",
         WECHAT: "微信号:\n微信实名:",
         ALIPAY: "支付宝账号:\n支付宝实名:",
@@ -34,14 +41,21 @@ class PropertyClue(models.Model):
         OTHER: "",
     }
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
-    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
-    content = models.TextField(blank=True, default="", verbose_name="线索内容")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    client: models.ForeignKey[Any, Any] = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人"
+    )
+    clue_type: models.CharField[str, str] = models.CharField(
+        max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型"
+    )
+    content: models.TextField[str, str] = models.TextField(blank=True, default="", verbose_name="线索内容")
+    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    if TYPE_CHECKING:
+        attachments: RelatedManager[PropertyClueAttachment]
 
     def __str__(self) -> str:
-        return f"{self.client.name}-{self.get_clue_type_display()}"
+        return f"{self.client.name}-{self.get_clue_type_display()}"  # type: ignore[attr-defined]
 
     class Meta:
         verbose_name: str = "财产线索"
@@ -54,25 +68,22 @@ class PropertyClueAttachment(models.Model):
     """财产线索附件模型"""
 
     id: int
-    property_clue_id: int  # 外键ID字段
-    property_clue = models.ForeignKey(
+    property_clue_id: int
+    property_clue: models.ForeignKey[Any, Any] = models.ForeignKey(
         PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name="财产线索"
     )
-    file_path = models.CharField(max_length=512, verbose_name="文件路径")
-    file_name = models.CharField(max_length=255, verbose_name="文件名")
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    file_path: models.CharField[str, str] = models.CharField(max_length=512, verbose_name="文件路径")
+    file_name: models.CharField[str, str] = models.CharField(max_length=255, verbose_name="文件名")
+    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
 
     def media_url(self) -> str | None:
         """返回附件的媒体 URL"""
+        from pathlib import Path
 
         from django.conf import settings
-
-        from apps.core.path import Path
-
-        logger = logging.getLogger(__name__)
 
         if not self.file_path:
             return None
@@ -86,7 +97,6 @@ class PropertyClueAttachment(models.Model):
                 return settings.MEDIA_URL + str(file_path).replace("\\", "/")
         except Exception:
             logger.exception("操作失败")
-
             return None
         return None
 
