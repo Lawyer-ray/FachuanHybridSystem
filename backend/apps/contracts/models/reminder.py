@@ -1,5 +1,7 @@
 """Module for reminder."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from django.db import models
@@ -19,8 +21,8 @@ class ContractReminderType(models.TextChoices):
 
 class ContractReminder(models.Model):
     id: int
-    contract_id: int  # 外键ID字段
-    contract = models.ForeignKey(
+    contract_id: int
+    contract: Contract = models.ForeignKey(
         Contract,
         on_delete=models.CASCADE,
         related_name="contract_reminders",

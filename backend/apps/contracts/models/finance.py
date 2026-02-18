@@ -1,5 +1,7 @@
 """Module for finance."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, ClassVar
 
@@ -17,16 +19,16 @@ class LogLevel(models.TextChoices):
 
 class ContractFinanceLog(models.Model):
     id: int
-    contract_id: int  # 外键ID字段
-    actor_id: int  # 外键ID字段
-    contract = models.ForeignKey(
+    contract_id: int
+    actor_id: int
+    contract: Contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE, related_name="finance_logs", verbose_name=_("合同")
     )
     action: str = models.CharField(max_length=64, verbose_name=_("动作"))
     level: str = models.CharField(
         max_length=16, choices=LogLevel.choices, default=LogLevel.INFO, verbose_name=_("级别")
     )
-    actor = models.ForeignKey(
+    actor: Any = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="finance_logs", verbose_name=_("操作者")
     )
     payload: dict[str, Any] | None = models.JSONField(default=dict, blank=True, verbose_name=_("数据"))

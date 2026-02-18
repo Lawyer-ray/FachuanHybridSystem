@@ -1,11 +1,16 @@
 """Module for party."""
 
-from typing import Any, ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .contract import Contract
+
+if TYPE_CHECKING:
+    pass
 
 
 class PartyRole(models.TextChoices):
@@ -18,15 +23,15 @@ class PartyRole(models.TextChoices):
 
 class ContractParty(models.Model):
     id: int
-    contract_id: int  # 外键ID字段
-    contract_id: int  # 外键ID字段
-    contract = models.ForeignKey(
+    contract_id: int
+    client_id: int
+    contract: Contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE, related_name="contract_parties", verbose_name=_("合同")
     )
-    client = models.ForeignKey(
+    client: Any = models.ForeignKey(
         "client.Client", on_delete=models.CASCADE, related_name="contracts", verbose_name=_("当事人")
     )
-    role = models.CharField(
+    role: str = models.CharField(
         max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name=_("身份")
     )
 
@@ -41,12 +46,12 @@ class ContractParty(models.Model):
 
 class ContractAssignment(models.Model):
     id: int
-    lawyer_id: int  # 外键ID字段
-    contract: Any = models.ForeignKey(
+    contract_id: int
+    lawyer_id: int
+    contract: Contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("合同")
     )
-    id: int
-    lawyer = models.ForeignKey(
+    lawyer: Any = models.ForeignKey(
         "organization.Lawyer", on_delete=models.CASCADE, related_name="contract_assignments", verbose_name=_("律师")
     )
     is_primary: bool = models.BooleanField(default=False, verbose_name=_("是否主办律师"))

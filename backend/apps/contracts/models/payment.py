@@ -1,8 +1,10 @@
 """Module for payment."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from django.db import models
 from django.utils import timezone
@@ -19,13 +21,13 @@ class InvoiceStatus(models.TextChoices):
 
 class ContractPayment(models.Model):
     id: int
-    contract: Any = models.ForeignKey(
+    contract_id: int
+    contract: Contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE, related_name="payments", verbose_name=_("合同")
     )
-    id: int
     amount: Decimal = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("收款金额"))
     received_at: date = models.DateField(default=timezone.localdate, verbose_name=_("收款日期"))
-    invoice_status = models.CharField(
+    invoice_status: str = models.CharField(
         max_length=32, choices=InvoiceStatus.choices, default=InvoiceStatus.UNINVOICED, verbose_name=_("开票状态")
     )
     invoiced_amount: Decimal = models.DecimalField(
