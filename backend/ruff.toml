@@ -31,7 +31,7 @@ ignore = [
     "S308",
     "S311",
     "S324",
-    "S603",
+    "S603",  # 保留：SubprocessRunner 已通过白名单校验 args 并强制 shell=False，属安全封装
     "S608",
     "SIM103",
     "SIM108",
