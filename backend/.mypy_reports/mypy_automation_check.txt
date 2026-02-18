@@ -1,5 +1,0 @@
-apps/automation/services/ai/auto_namer_service_adapter.py:82:17: error:
-unexpected indent  [syntax]
-                    {"role": "system", "content": prompt},
-                    ^
-Found 1 error in 1 file (errors prevented further checking)

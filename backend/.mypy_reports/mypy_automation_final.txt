@@ -1,5 +1,0 @@
-apps/automation/services/court_document_recognition/extractor_parsers.py:269:13: error:
-unexpected indent  [syntax]
-                "%Y-%m-%d",
-                ^
-Found 1 error in 1 file (errors prevented further checking)

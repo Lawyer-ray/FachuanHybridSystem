@@ -1,5 +1,0 @@
-apps/automation/admin/document_recognition/document_recognition_admin.py:396:13: error:
-unexpected indent  [syntax]
-                DocumentRecognitionStatus.PENDING: 'orange',
-                ^
-Found 1 error in 1 file (errors prevented further checking)
