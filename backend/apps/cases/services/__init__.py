@@ -24,7 +24,19 @@ class CaseService(CaseQueryService, CaseCommandService):
     保持向后兼容：`from apps.cases.services import CaseService` 仍可用。
     """
 
-    pass
+    def __init__(
+        self,
+        contract_service: object | None = None,
+        search_service: object | None = None,
+        access_policy: object | None = None,
+    ) -> None:
+        from .case.case_access_policy import CaseAccessPolicy
+        from .case.case_search_service import CaseSearchService
+
+        resolved_policy = access_policy or CaseAccessPolicy()
+        resolved_search = search_service or CaseSearchService(access_policy=resolved_policy)  # type: ignore[arg-type]
+        CaseQueryService.__init__(self, search_service=resolved_search, access_policy=resolved_policy)  # type: ignore[arg-type]
+        CaseCommandService.__init__(self, contract_service=contract_service, access_policy=resolved_policy)  # type: ignore[arg-type]
 
 
 __all__ = [

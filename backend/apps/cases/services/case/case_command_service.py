@@ -7,9 +7,9 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.cases.models import Case
+from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty
 from apps.core.business_config import business_config
-from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import IContractService
 from apps.core.permissions import PermissionMixin
 from apps.core.security.access_context import AccessContext
@@ -263,3 +263,76 @@ class CaseCommandService(PermissionMixin):
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
+
+    @transaction.atomic
+    def create_case_full(
+        self,
+        data: dict[str, Any],
+        actor_id: int | None = None,
+        user: Any | None = None,
+    ) -> dict[str, Any]:
+        """创建完整案件（包含当事人、指派、日志）。
+
+        Raises:
+            ValidationException: 数据验证失败
+            ConflictError: 数据冲突
+            ForbiddenError: 权限不足
+        """
+        case_data: dict[str, Any] = data.get("case", {})
+        parties_data: list[dict[str, Any]] = data.get("parties", [])
+        assignments_data: list[dict[str, Any]] = data.get("assignments", [])
+        logs_data: list[dict[str, Any]] = data.get("logs", [])
+        supervising_authorities_data: list[dict[str, Any]] = data.get("supervising_authorities", [])
+
+        case = self.create_case(case_data, user=user)
+
+        parties: list[CaseParty] = []
+        for party in parties_data:
+            if CaseParty.objects.filter(case=case, client_id=party["client_id"]).exists():
+                raise ConflictError("该当事人已存在于此案件")
+            parties.append(
+                CaseParty.objects.create(
+                    case=case,
+                    client_id=party["client_id"],
+                    legal_status=party.get("legal_status"),
+                )
+            )
+
+        assignments: list[CaseAssignment] = []
+        for assignment in assignments_data:
+            assignments.append(
+                CaseAssignment.objects.create(
+                    case=case,
+                    lawyer_id=assignment["lawyer_id"],
+                )
+            )
+
+        logs: list[CaseLog] = []
+        for log in logs_data:
+            logs.append(
+                CaseLog.objects.create(
+                    case=case,
+                    content=log["content"],
+                    actor_id=actor_id,
+                )
+            )
+
+        from apps.cases.models import SupervisingAuthority
+
+        supervising_authorities: list[SupervisingAuthority] = []
+        for authority in supervising_authorities_data:
+            supervising_authorities.append(
+                SupervisingAuthority.objects.create(
+                    case=case,
+                    name=authority.get("name"),
+                    authority_type=authority.get("authority_type"),
+                )
+            )
+
+        return {
+            "case": case,
+            "parties": parties,
+            "assignments": assignments,
+            "logs": logs,
+            "supervising_authorities": supervising_authorities,
+        }
