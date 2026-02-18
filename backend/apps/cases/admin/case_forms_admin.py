@@ -1,5 +1,7 @@
 """Django admin configuration."""
 
+from __future__ import annotations
+
 import logging
 from typing import Any, ClassVar
 
@@ -9,7 +11,7 @@ from apps.cases.models import Case, CaseParty, CaseStage, SupervisingAuthority
 from apps.cases.validators import normalize_stages
 
 
-class CaseAdminForm(forms.ModelForm):
+class CaseAdminForm(forms.ModelForm[Case]):
     current_stage = forms.ChoiceField(
         choices=[("", "---------")] + list(CaseStage.choices), required=False, label="当前阶段"
     )
@@ -17,7 +19,7 @@ class CaseAdminForm(forms.ModelForm):
     class Meta:
         model = Case
         fields: str = "__all__"
-        widgets: ClassVar = {
+        widgets: ClassVar[dict[str, Any]] = {
             "cause_of_action": forms.TextInput(
                 attrs={
                     "class": "vTextField js-cause-autocomplete",
@@ -27,14 +29,13 @@ class CaseAdminForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-    def clean(self) -> None:
-
+    def clean(self) -> dict[str, Any]:
         logger = logging.getLogger(__name__)
 
-        cleaned = super().clean()
+        cleaned: dict[str, Any] = super().clean() or {}
         logger.info(f"[CaseAdminForm.clean] 开始验证, errors so far: {self.errors}")
 
         cur = cleaned.get("current_stage")
@@ -67,11 +68,11 @@ class CaseAdminForm(forms.ModelForm):
         return cleaned
 
 
-class CasePartyInlineForm(forms.ModelForm):
+class CasePartyInlineForm(forms.ModelForm[CaseParty]):
     class Meta:
         model = CaseParty
         fields: str = "__all__"
-        widgets: ClassVar = {
+        widgets: ClassVar[dict[str, Any]] = {
             "client": forms.Select(
                 attrs={
                     "class": "contract-party-client-select",
@@ -81,11 +82,11 @@ class CasePartyInlineForm(forms.ModelForm):
         }
 
 
-class SupervisingAuthorityInlineForm(forms.ModelForm):
+class SupervisingAuthorityInlineForm(forms.ModelForm[SupervisingAuthority]):
     class Meta:
         model = SupervisingAuthority
         fields: str = "__all__"
-        widgets: ClassVar = {
+        widgets: ClassVar[dict[str, Any]] = {
             "name": forms.TextInput(
                 attrs={
                     "class": "vTextField js-court-autocomplete",

@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from django.contrib import admin
-from ..models import CaseAssignment
+
+from apps.cases.models import CaseAssignment
+
 
 @admin.register(CaseAssignment)
-class CaseAssignmentAdmin(admin.ModelAdmin):
+class CaseAssignmentAdmin(admin.ModelAdmin[CaseAssignment]):
     list_display = ("id", "case", "lawyer")
-    list_filter = ()
     search_fields = ("case__name", "lawyer__real_name")

@@ -6,10 +6,13 @@
 Requirements: 1.1, 1.7, 3.1, 3.2, 3.3
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib import admin
+from django.http import HttpRequest
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
@@ -17,23 +20,21 @@ from apps.cases.models import BindingSource, CaseTemplateBinding
 
 logger = logging.getLogger(__name__)
 
-try:
-    import nested_admin
-
-    BaseTabularInline = nested_admin.NestedTabularInline
-except Exception:
-    logger.exception("操作失败")
-
+if TYPE_CHECKING:
     BaseTabularInline = admin.TabularInline
+else:
+    try:
+        import nested_admin
+
+        BaseTabularInline = nested_admin.NestedTabularInline
+    except Exception:
+        logger.exception("操作失败")
+        BaseTabularInline = admin.TabularInline
 
 
-def _get_case_document_template_admin_service() -> None:
+def _get_case_document_template_admin_service() -> Any:
     """工厂函数获取案件文件模板 Admin 服务"""
-    import logging
-
     from apps.cases.services.template.wiring import get_case_document_template_admin_service
-
-    logger = logging.getLogger(__name__)
 
     return get_case_document_template_admin_service()
 
@@ -54,22 +55,16 @@ class CaseDocumentTemplateInline(BaseTabularInline):
     verbose_name = _("文件模板")
     verbose_name_plural = _("文件模板")
 
-    fields: tuple[Any, ...] = ("template_display", "binding_source_display", "actions_display")
-    readonly_fields: tuple[Any, ...] = ("template_display", "binding_source_display", "actions_display")
+    fields = ("template_display", "binding_source_display", "actions_display")
+    readonly_fields = ("template_display", "binding_source_display", "actions_display")
 
-    ordering: tuple[Any, ...] = ("binding_source", "-created_at")
+    ordering: tuple[Any, ...] = ("binding_source", "-created_at")  # type: ignore[misc]
 
-    def template_display(self, obj) -> str:
+    def template_display(self, obj: CaseTemplateBinding) -> str:
         """
         显示模板名称和描述
 
         Requirements: 1.7
-
-        Args:
-            obj: CaseTemplateBinding 实例
-
-        Returns:
-            包含模板名称和描述的 HTML 字符串
         """
         if not obj or not obj.pk:
             return ""
@@ -78,8 +73,8 @@ class CaseDocumentTemplateInline(BaseTabularInline):
         if not template:
             return mark_safe('<span style="color: #999;">模板已删除</span>')
 
-        name = template.name or "未命名模板"
-        description = template.description or ""
+        name = getattr(template, "name", None) or "未命名模板"
+        description = getattr(template, "description", None) or ""
 
         html_parts = [
             '<div class="template-info">',
@@ -97,22 +92,13 @@ class CaseDocumentTemplateInline(BaseTabularInline):
 
         return mark_safe("".join(html_parts))
 
-    template_display.short_description = _("模板")
+    template_display.short_description = _("模板")  # type: ignore[attr-defined]
 
-    def binding_source_display(self, obj) -> str:
+    def binding_source_display(self, obj: CaseTemplateBinding) -> str:
         """
         显示绑定来源标签
 
-        自动推荐的模板显示"自动推荐"标签(蓝色)
-        手动绑定的模板显示"手动添加"标签(绿色)
-
         Requirements: 3.1, 3.2, 3.3
-
-        Args:
-            obj: CaseTemplateBinding 实例
-
-        Returns:
-            包含绑定来源标签的 HTML 字符串
         """
         if not obj or not obj.pk:
             return ""
@@ -144,20 +130,13 @@ class CaseDocumentTemplateInline(BaseTabularInline):
                 "未知</span>"
             )
 
-    binding_source_display.short_description = _("来源")
+    binding_source_display.short_description = _("来源")  # type: ignore[attr-defined]
 
-    def actions_display(self, obj) -> str:
+    def actions_display(self, obj: CaseTemplateBinding) -> str:
         """
         显示操作按钮(生成文档、移除)
 
-        - 所有模板都显示"生成文档"按钮
-        - 只有手动添加的模板显示"移除"按钮(Requirements 3.4)
-
-        Args:
-            obj: CaseTemplateBinding 实例
-
-        Returns:
-            包含操作按钮的 HTML 字符串
+        Requirements: 3.4
         """
         if not obj or not obj.pk:
             return ""
@@ -170,7 +149,7 @@ class CaseDocumentTemplateInline(BaseTabularInline):
 
         buttons.append(
             f'<button type="button" class="btn-generate-document" '
-            f'data-template-id="{cast(int, template.id)}" '
+            f'data-template-id="{cast(int, getattr(template, "id", 0))}" '
             f'data-binding-id="{cast(int, obj.id)}" '
             f'style="padding: 4px 12px; margin-right: 8px; cursor: pointer; '
             f"background-color: #1890ff; color: white; border: none; border-radius: 4px; "
@@ -190,13 +169,13 @@ class CaseDocumentTemplateInline(BaseTabularInline):
 
         return mark_safe("".join(buttons))
 
-    actions_display.short_description = _("操作")
+    actions_display.short_description = _("操作")  # type: ignore[attr-defined]
 
-    def has_add_permission(self, request, obj=None) -> bool:
+    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
