@@ -1,1 +1,0 @@
-# Refactoring unit tests package

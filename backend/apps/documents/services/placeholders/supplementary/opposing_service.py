@@ -7,7 +7,7 @@
 import logging
 from typing import Any, ClassVar
 
-from apps.core.enums import PartyRole  # type: ignore[attr-defined]
+from apps.contracts.models import PartyRole
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
