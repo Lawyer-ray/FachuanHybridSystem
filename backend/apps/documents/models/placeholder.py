@@ -23,20 +23,18 @@ class Placeholder(models.Model):
     """
 
     id: int
-    key: str = models.CharField(
+    key = models.CharField(
         max_length=100, unique=True, verbose_name=_("占位符键"), help_text=_("模板中使用的占位符名称,如 case_name")
     )
-    display_name: str = models.CharField(
-        max_length=200, verbose_name=_("显示名称"), help_text=_("用于界面显示的友好名称")
-    )
-    example_value: str = models.CharField(
+    display_name = models.CharField(max_length=200, verbose_name=_("显示名称"), help_text=_("用于界面显示的友好名称"))
+    example_value = models.CharField(
         max_length=200, blank=True, verbose_name=_("示例值"), help_text=_("占位符的示例值,用于说明用途")
     )
-    description: str = models.TextField(blank=True, verbose_name=_("说明"))
-    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    description = models.TextField(blank=True, verbose_name=_("说明"))
+    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
 
     class Meta:
-        app_label: str = "documents"
+        app_label = "documents"
         verbose_name = _("替换词")
         verbose_name_plural = _("替换词")
         ordering: ClassVar = ["key"]

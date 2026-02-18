@@ -27,8 +27,8 @@ class LLMCallRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="调用时间")
 
     class Meta:
-        verbose_name: str = "LLM 调用记录"
-        verbose_name_plural: str = "LLM 调用记录"
+        verbose_name = "LLM 调用记录"
+        verbose_name_plural = "LLM 调用记录"
         indexes: ClassVar = [
             models.Index(fields=["created_at"], name="core_llmcal_created_830747_idx"),
             models.Index(fields=["model"], name="core_llmcal_model_df0279_idx"),

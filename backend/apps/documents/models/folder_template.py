@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from .choices import DocumentCaseStage, DocumentCaseType, DocumentContractType, FolderTemplateType
 
 if TYPE_CHECKING:
-    from django.db.models.manager import RelatedManager
+    from django.db.models.fields.related_descriptors import RelatedManager
 
     from .document_template import DocumentTemplateFolderBinding
 
@@ -38,47 +38,47 @@ class FolderTemplate(models.Model):
         ALL = "all", _("全部包含")
         EXACT = "exact", _("完全一致")
 
-    name: str = models.CharField(max_length=100, verbose_name=_("模板名称"))
-    template_type: str = models.CharField(
+    name = models.CharField(max_length=100, verbose_name=_("模板名称"))
+    template_type = models.CharField(
         max_length=20,
         choices=FolderTemplateType.choices,
         verbose_name=_("模板类型"),
         help_text=_("选择此模板用于合同还是案件"),
     )
-    case_types: list[Any] = models.JSONField(
+    case_types: Any = models.JSONField(
         default=list, verbose_name=_("案件类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    case_stages: list[Any] = models.JSONField(
+    case_stages: Any = models.JSONField(
         default=list, verbose_name=_("案件阶段"), help_text=_("JSON 数组,如 ['first_trial', 'second_trial'],支持多选")
     )
-    contract_types: list[Any] = models.JSONField(
+    contract_types: Any = models.JSONField(
         default=list, verbose_name=_("合同类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    legal_statuses: list[Any] = models.JSONField(
+    legal_statuses: Any = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("我方诉讼地位"),
         help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
     )
-    legal_status_match_mode: str = models.CharField(
+    legal_status_match_mode = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
-    structure: dict[str, Any] = models.JSONField(
+    structure: Any = models.JSONField(
         default=dict, verbose_name=_("文件夹结构"), help_text=_("JSON 格式的文件夹层级结构")
     )
-    is_default: bool = models.BooleanField(default=False, verbose_name=_("是否默认模板"))
-    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_default = models.BooleanField(default=False, verbose_name=_("是否默认模板"))
+    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     if TYPE_CHECKING:
         document_bindings: RelatedManager[DocumentTemplateFolderBinding]
 
     class Meta:
-        app_label: str = "documents"
+        app_label = "documents"
         verbose_name = _("文件夹模板")
         verbose_name_plural = _("文件夹模板")
         ordering: ClassVar = ["-updated_at"]
@@ -103,7 +103,7 @@ class FolderTemplate(models.Model):
     @property
     def template_type_display(self) -> str:
         """模板类型显示"""
-        return dict(FolderTemplateType.choices).get(self.template_type, self.template_type)
+        return str(dict(FolderTemplateType.choices).get(self.template_type, self.template_type))
 
     @property
     def case_types_display(self) -> str:

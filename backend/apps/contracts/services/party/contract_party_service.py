@@ -14,9 +14,10 @@ class ContractPartyService:
         party, _ = ContractParty.objects.get_or_create(contract_id=contract_id, client_id=client_id)
         return party
 
-    def remove_party(self, contract_id: int, client_id: int) -> bool:
+    def remove_party(self, contract_id: int, client_id: int) -> None:
         deleted, _ = ContractParty.objects.filter(contract_id=contract_id, client_id=client_id).delete()
-        return deleted > 0
+        if not deleted:
+            raise NotFoundError(f"合同 {contract_id} 中不存在客户 {client_id} 的当事人记录")
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         contract = Contract.objects.filter(id=contract_id).prefetch_related("parties__client").first()

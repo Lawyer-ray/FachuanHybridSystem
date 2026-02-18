@@ -22,34 +22,30 @@ class CaseChat(models.Model):
     """案件群聊"""
 
     id: int
-    case: models.ForeignKey[Any, Any] = models.ForeignKey(
-        Case, on_delete=models.CASCADE, related_name="chats", verbose_name=_("案件")
-    )
-    platform: models.CharField[str, str] = models.CharField(
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="chats", verbose_name=_("案件"))
+    platform = models.CharField(
         max_length=32, choices=ChatPlatform.choices, default=ChatPlatform.FEISHU, verbose_name=_("平台")
     )
-    chat_id: models.CharField[str, str] = models.CharField(max_length=128, verbose_name=_("群聊ID"))
-    name: models.CharField[str, str] = models.CharField(max_length=255, verbose_name=_("群名"))
-    is_active: models.BooleanField[bool, bool] = models.BooleanField(default=True, verbose_name=_("是否有效"))
+    chat_id = models.CharField(max_length=128, verbose_name=_("群聊ID"))
+    name = models.CharField(max_length=255, verbose_name=_("群名"))
+    is_active = models.BooleanField(default=True, verbose_name=_("是否有效"))
 
-    owner_id: models.CharField[str | None, str | None] = models.CharField(
+    owner_id = models.CharField(
         max_length=64,
         null=True,
         blank=True,
         verbose_name=_("群主ID"),
         help_text=_("飞书用户的open_id或其他平台的用户标识符"),
     )
-    owner_verified: models.BooleanField[bool, bool] = models.BooleanField(
-        default=False, verbose_name=_("群主已验证"), help_text=_("群主设置是否已验证")
-    )
-    owner_verified_at: models.DateTimeField[Any, Any] = models.DateTimeField(
+    owner_verified = models.BooleanField(default=False, verbose_name=_("群主已验证"), help_text=_("群主设置是否已验证"))
+    owner_verified_at = models.DateTimeField(
         null=True, blank=True, verbose_name=_("群主验证时间"), help_text=_("群主设置验证成功的时间")
     )
-    creation_audit_log: models.JSONField[Any, Any] = models.JSONField(
+    creation_audit_log: Any = models.JSONField(
         default=dict, verbose_name=_("创建审计日志"), help_text=_("群聊创建过程的详细日志,包含群主设置信息")
     )
-    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     if TYPE_CHECKING:
         audit_logs: RelatedManager[ChatAuditLog]
@@ -68,7 +64,7 @@ class CaseChat(models.Model):
         ]
 
     def __str__(self) -> str:
-        platform_display = self.get_platform_display()  # type: ignore[attr-defined]
+        platform_display = self.get_platform_display()
         return f"[{platform_display}] {self.name}"
 
     def get_owner_display(self) -> str:
@@ -135,7 +131,7 @@ class ChatAuditLog(models.Model):
         ("CONFIG_ERROR", _("配置错误")),
     ]
 
-    chat: models.ForeignKey[Any, Any] = models.ForeignKey(
+    chat = models.ForeignKey(
         CaseChat,
         on_delete=models.CASCADE,
         related_name="audit_logs",
@@ -144,7 +140,7 @@ class ChatAuditLog(models.Model):
         verbose_name=_("关联群聊"),
         help_text=_("关联的群聊,某些操作(如配置错误)可能没有关联群聊"),
     )
-    case: models.ForeignKey[Any, Any] = models.ForeignKey(
+    case = models.ForeignKey(
         Case,
         on_delete=models.CASCADE,
         related_name="chat_audit_logs",
@@ -153,32 +149,26 @@ class ChatAuditLog(models.Model):
         verbose_name=_("关联案件"),
         help_text=_("关联的案件"),
     )
-    action: models.CharField[str, str] = models.CharField(
+    action = models.CharField(
         max_length=32, choices=ACTION_CHOICES, verbose_name=_("操作类型"), help_text=_("执行的操作类型")
     )
-    details: models.JSONField[Any, Any] = models.JSONField(
+    details: Any = models.JSONField(
         default=dict, verbose_name=_("操作详情"), help_text=_("操作的详细信息,以JSON格式存储")
     )
-    timestamp: models.DateTimeField[Any, Any] = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("时间戳"), help_text=_("操作发生的时间")
-    )
-    success: models.BooleanField[bool, bool] = models.BooleanField(
-        default=True, verbose_name=_("操作成功"), help_text=_("操作是否成功执行")
-    )
-    error_message: models.TextField[str, str] = models.TextField(
-        blank=True, verbose_name=_("错误信息"), help_text=_("操作失败时的错误信息")
-    )
-    external_chat_id: models.CharField[str, str] = models.CharField(
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_("时间戳"), help_text=_("操作发生的时间"))
+    success = models.BooleanField(default=True, verbose_name=_("操作成功"), help_text=_("操作是否成功执行"))
+    error_message = models.TextField(blank=True, verbose_name=_("错误信息"), help_text=_("操作失败时的错误信息"))
+    external_chat_id = models.CharField(
         max_length=128, blank=True, verbose_name=_("群聊ID"), help_text=_("群聊的外部ID,便于查询")
     )
-    platform: models.CharField[str, str] = models.CharField(
+    platform = models.CharField(
         max_length=32,
         choices=ChatPlatform.choices,
         default=ChatPlatform.FEISHU,
         verbose_name=_("平台"),
         help_text=_("群聊平台"),
     )
-    audit_version: models.CharField[str, str] = models.CharField(
+    audit_version = models.CharField(
         max_length=16, default="1.0", verbose_name=_("审计版本"), help_text=_("审计日志格式版本")
     )
 
@@ -197,12 +187,10 @@ class ChatAuditLog(models.Model):
         ]
 
     def __str__(self) -> str:
-        chat_info = (
-            f"Chat:{self.external_chat_id}" if self.external_chat_id else f"ChatModel:{self.chat_id}"  # type: ignore[attr-defined]
-        )
-        case_info = f"Case:{self.case_id}" if self.case_id else "NoCase"  # type: ignore[attr-defined]
+        chat_info = f"Chat:{self.external_chat_id}" if self.external_chat_id else f"ChatModel:{self.chat_id}"
+        case_info = f"Case:{self.case_id}" if self.case_id else "NoCase"
         status = "SUCCESS" if self.success else "FAILED"
-        action_display = self.get_action_display()  # type: ignore[attr-defined]
+        action_display = self.get_action_display()
         return f"[{action_display}] {chat_info} | {case_info} | {status}"
 
     def get_formatted_details(self) -> str:
@@ -214,12 +202,12 @@ class ChatAuditLog(models.Model):
 
     def get_summary(self) -> str:
         """获取操作摘要"""
-        action_display = self.get_action_display()  # type: ignore[attr-defined]
+        action_display = self.get_action_display()
         summary_parts = [str(action_display)]
         if self.external_chat_id:
             summary_parts.append(f"群聊:{self.external_chat_id}")
-        if self.case_id:  # type: ignore[attr-defined]
-            summary_parts.append(f"案件:{self.case_id}")  # type: ignore[attr-defined]
+        if self.case_id:
+            summary_parts.append(f"案件:{self.case_id}")
         if not self.success and self.error_message:
             summary_parts.append(f"错误:{self.error_message[:50]}...")
         return " | ".join(summary_parts)

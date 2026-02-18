@@ -32,15 +32,13 @@ def validate_log_attachment(file: Any) -> None:
 
 class CaseLog(models.Model):
     id: int
-    case: models.ForeignKey[Any, Any] = models.ForeignKey(
-        Case, on_delete=models.CASCADE, related_name="logs", verbose_name=_("案件")
-    )
-    content: models.TextField[str, str] = models.TextField(verbose_name=_("日志内容"))
-    actor: models.ForeignKey[Any, Any] = models.ForeignKey(
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="logs", verbose_name=_("案件"))
+    content = models.TextField(verbose_name=_("日志内容"))
+    actor = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="case_logs", verbose_name=_("操作人")
     )
-    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
-    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
 
     if TYPE_CHECKING:
         attachments: RelatedManager[CaseLogAttachment]
@@ -56,7 +54,7 @@ class CaseLog(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.case_id}-{self.actor_id}-{self.created_at}"  # type: ignore[attr-defined]
+        return f"{self.case_id}-{self.actor_id}-{self.created_at}"
 
     @property
     def reminder_type(self) -> Any:
@@ -71,16 +69,14 @@ class CaseLog(models.Model):
 
 class CaseLogAttachment(models.Model):
     id: int
-    log: models.ForeignKey[Any, Any] = models.ForeignKey(
-        CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志")
-    )
-    file: models.FileField = models.FileField(
+    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志"))
+    file = models.FileField(
         upload_to="case_logs/",
         storage=case_log_storage,
         validators=[validate_log_attachment],
         verbose_name=_("相关文书"),
     )
-    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:
         verbose_name = _("案件日志附件")
@@ -89,12 +85,10 @@ class CaseLogAttachment(models.Model):
 
 class CaseLogVersion(models.Model):
     id: int
-    log: models.ForeignKey[Any, Any] = models.ForeignKey(
-        CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name=_("日志")
-    )
-    content: models.TextField[str, str] = models.TextField(verbose_name=_("历史内容"))
-    version_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("版本时间"))
-    actor: models.ForeignKey[Any, Any] = models.ForeignKey(
+    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name=_("日志"))
+    content = models.TextField(verbose_name=_("历史内容"))
+    version_at = models.DateTimeField(auto_now_add=True, verbose_name=_("版本时间"))
+    actor = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="case_log_versions", verbose_name=_("操作者")
     )
 
@@ -103,4 +97,4 @@ class CaseLogVersion(models.Model):
         verbose_name_plural = _("案件日志版本")
 
     def __str__(self) -> str:
-        return f"{self.log_id}-{self.version_at}"  # type: ignore[attr-defined]
+        return f"{self.log_id}-{self.version_at}"

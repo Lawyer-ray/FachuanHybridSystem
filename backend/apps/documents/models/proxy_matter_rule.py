@@ -18,7 +18,7 @@ class ProxyMatterRule(models.Model):
         ALL = "all", _("全部包含")
         EXACT = "exact", _("完全一致")
 
-    case_type: str | None = models.CharField(
+    case_type = models.CharField(
         max_length=32,
         choices=SimpleCaseType.choices,
         null=True,
@@ -26,7 +26,7 @@ class ProxyMatterRule(models.Model):
         verbose_name=_("案件类型"),
         help_text=_("为空表示匹配任意案件类型"),
     )
-    case_stage: str | None = models.CharField(
+    case_stage = models.CharField(
         max_length=64,
         choices=CaseStage.choices,
         null=True,
@@ -34,28 +34,28 @@ class ProxyMatterRule(models.Model):
         verbose_name=_("当前阶段"),
         help_text=_("为空表示匹配任意案件阶段"),
     )
-    legal_statuses: list[Any] = models.JSONField(
+    legal_statuses: Any = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("我方诉讼地位"),
         help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
     )
-    legal_status_match_mode: str = models.CharField(
+    legal_status_match_mode = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
-    items_text: str = models.TextField(
+    items_text = models.TextField(
         blank=True,
         default="",
         verbose_name=_("代理事项条目"),
         help_text=_("每行一条代理事项"),
     )
-    priority: int = models.PositiveIntegerField(default=100, verbose_name=_("优先级"))
-    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    priority = models.PositiveIntegerField(default=100, verbose_name=_("优先级"))
+    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("代理事项规则")

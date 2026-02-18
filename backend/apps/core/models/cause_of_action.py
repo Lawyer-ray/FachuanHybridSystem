@@ -89,8 +89,8 @@ class CauseOfAction(models.Model):
     )
 
     class Meta:
-        verbose_name: str = "案由"
-        verbose_name_plural: str = "案由"
+        verbose_name = "案由"
+        verbose_name_plural = "案由"
         ordering: ClassVar = ["case_type", "code"]
         indexes: ClassVar = [
             models.Index(fields=["case_type"], name="core_causeo_case_ty_0bbdcd_idx"),

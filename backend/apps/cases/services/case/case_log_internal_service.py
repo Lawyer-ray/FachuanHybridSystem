@@ -12,7 +12,7 @@ from apps.core.exceptions import NotFoundError
 
 from .wiring import get_organization_service, get_reminder_service
 
-logger = logging.getLogger("apps.cases", cast)  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")
 
 
 class CaseLogInternalService:

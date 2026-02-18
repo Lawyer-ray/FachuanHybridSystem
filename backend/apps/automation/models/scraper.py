@@ -8,7 +8,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
-    from django.db.models.manager import RelatedManager
+    from django.db.models.fields.related_descriptors import RelatedManager
 
     from apps.automation.models.court_document import CourtDocument
     from apps.automation.models.court_sms import CourtSMS
@@ -67,7 +67,7 @@ class ScraperTask(models.Model):
     )
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("任务管理")
         verbose_name_plural = _("任务管理")
         ordering: ClassVar = ["priority", "-created_at"]  # 优先级优先,然后按创建时间

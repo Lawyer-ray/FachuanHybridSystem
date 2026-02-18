@@ -62,7 +62,7 @@ class CourtDocument(models.Model):
     downloaded_at = models.DateTimeField(null=True, blank=True, verbose_name=_("下载完成时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("法院文书")
         verbose_name_plural = _("法院文书")
         ordering: ClassVar = ["-created_at"]
@@ -119,7 +119,7 @@ class DocumentQueryHistory(models.Model):
     queried_at = models.DateTimeField(auto_now_add=True, verbose_name=_("查询时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("文书查询历史")
         verbose_name_plural = _("文书查询历史")
         unique_together: ClassVar = [["credential", "case_number", "send_time"]]
@@ -157,7 +157,7 @@ class DocumentDeliverySchedule(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("文书送达定时任务")
         verbose_name_plural = _("文书送达定时任务")
         indexes: ClassVar = [

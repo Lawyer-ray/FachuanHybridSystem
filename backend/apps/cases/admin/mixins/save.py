@@ -13,7 +13,7 @@ from apps.cases.models import Case, CaseLog
 
 from .views import CaseAdminServiceMixin
 
-logger = logging.getLogger("apps.cases", cast)
+logger = logging.getLogger("apps.cases")
 
 
 class CaseAdminSaveMixin(CaseAdminServiceMixin):

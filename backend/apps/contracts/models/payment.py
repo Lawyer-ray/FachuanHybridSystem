@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from decimal import Decimal
 from typing import ClassVar
 
 from django.db import models
@@ -22,20 +20,16 @@ class InvoiceStatus(models.TextChoices):
 class ContractPayment(models.Model):
     id: int
     contract_id: int
-    contract: Contract = models.ForeignKey(
-        Contract, on_delete=models.CASCADE, related_name="payments", verbose_name=_("合同")
-    )
-    amount: Decimal = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("收款金额"))
-    received_at: date = models.DateField(default=timezone.localdate, verbose_name=_("收款日期"))
-    invoice_status: str = models.CharField(
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="payments", verbose_name=_("合同"))
+    amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("收款金额"))
+    received_at = models.DateField(default=timezone.localdate, verbose_name=_("收款日期"))
+    invoice_status = models.CharField(
         max_length=32, choices=InvoiceStatus.choices, default=InvoiceStatus.UNINVOICED, verbose_name=_("开票状态")
     )
-    invoiced_amount: Decimal = models.DecimalField(
-        max_digits=14, decimal_places=2, default=0, verbose_name=_("已开票金额")
-    )
-    note: str | None = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("备注"))
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    invoiced_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name=_("已开票金额"))
+    note = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("备注"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("合同收款")

@@ -22,7 +22,7 @@ from apps.core.security import DjangoPermsMixin
 
 from .wiring import get_case_service
 
-logger = logging.getLogger("apps.cases", cast)  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")  # type: ignore[call-arg]
 
 
 class CaseNumberService(DjangoPermsMixin):

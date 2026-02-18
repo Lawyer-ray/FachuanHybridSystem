@@ -96,7 +96,7 @@ def ai_moonshot(request: Any, payload: MoonshotChatIn) -> MoonshotChatOut:
 @router.post("/file/upload", response=dict)
 def upload_file(
     request: Any,
-    file: UploadedFile = File[UploadedFile](...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
     limit: int | None = None,
     preview_page: int | None = None,
 ) -> dict[str, Any]:

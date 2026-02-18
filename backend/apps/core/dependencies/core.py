@@ -53,6 +53,7 @@ def build_conversation_history_service() -> IConversationHistoryService:
 
 
 def build_cause_court_query_service() -> ICauseCourtQueryService:
+    from apps.core.protocols import ICauseCourtQueryService
     from apps.core.services.cause_court_query_service import CauseCourtQueryService
 
     return cast(ICauseCourtQueryService, CauseCourtQueryService())

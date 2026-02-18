@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from ninja import Form, Router
 from ninja.pagination import PageNumberPagination, paginate
@@ -56,9 +56,9 @@ def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
 def submit_sms_form(
     request: Any,
-    content: str = Form[str](...),
-    received_at: datetime | None = Form[Optional[datetime]](None),  # type: ignore[misc]
-    sender: str | None = Form[Optional[str]](None),  # type: ignore[misc]
+    content: str = Form(...),
+    received_at: datetime | None = Form(None),  # type: ignore[misc]
+    sender: str | None = Form(None),  # type: ignore[misc]
 ) -> CourtSMSSubmitOut:
     """
     提交法院短信（表单格式）

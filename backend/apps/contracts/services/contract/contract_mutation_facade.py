@@ -221,16 +221,16 @@ class ContractMutationFacade:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> bool:
+    ) -> None:
         self._ensure_contract_write_access(
             contract_id=contract_id,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        return self.mutation_service.delete_contract(contract_id)
+        self.mutation_service.delete_contract(contract_id)
 
-    def delete_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> bool:
+    def delete_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> None:
         return self.delete_contract(
             contract_id=contract_id,
             user=ctx.user,

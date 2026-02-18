@@ -43,7 +43,7 @@ def get_lawyer(request: Any, lawyer_id: int) -> Any:
 def create_lawyer(
     request: Any,
     payload: LawyerCreateIn,
-    license_pdf: UploadedFile | None = File[UploadedFile | None](None),  # type: ignore[misc]
+    license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
 ) -> Any:
     """创建律师"""
     service = _get_lawyer_service()
@@ -57,7 +57,7 @@ def update_lawyer(
     request: Any,
     lawyer_id: int,
     payload: LawyerUpdateIn,
-    license_pdf: UploadedFile | None = File[UploadedFile | None](None),  # type: ignore[misc]
+    license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
 ) -> Any:
     """更新律师"""
     service = _get_lawyer_service()

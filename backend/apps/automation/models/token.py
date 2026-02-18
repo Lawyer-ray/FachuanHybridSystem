@@ -25,7 +25,7 @@ class CourtToken(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("Token管理")
         verbose_name_plural = _("Token管理")
         unique_together: ClassVar = [["site_name", "account"]]
@@ -99,7 +99,7 @@ class TokenAcquisitionHistory(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("Token获取历史")
         verbose_name_plural = _("Token获取历史")
         ordering: ClassVar = ["-created_at"]

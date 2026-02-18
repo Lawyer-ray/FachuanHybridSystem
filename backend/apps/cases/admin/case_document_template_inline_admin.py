@@ -15,7 +15,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import BindingSource, CaseTemplateBinding
 
-logger = logging.getLogger(__name__, cast)
+logger = logging.getLogger(__name__)
 
 try:
     import nested_admin

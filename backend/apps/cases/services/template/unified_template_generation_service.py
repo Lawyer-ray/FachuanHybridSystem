@@ -8,13 +8,13 @@ Requirements: 1.1, 1.2, 1.3, 1.4, 1.6
 """
 
 import logging
-from typing import Any, Tuple, cast
+from typing import Any
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .wiring import get_case_service
 
-logger = logging.getLogger("apps.cases.services", cast)  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases.services")  # type: ignore[call-arg]
 
 
 class UnifiedTemplateGenerationService:

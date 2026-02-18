@@ -70,7 +70,7 @@ class DocumentRecognitionTask(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
 
     class Meta:
-        app_label: str = "automation"
+        app_label = "automation"
         verbose_name = _("文书识别任务")
         verbose_name_plural = _("文书识别任务")
         ordering: ClassVar = ["-created_at"]

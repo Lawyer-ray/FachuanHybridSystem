@@ -255,3 +255,92 @@ class JsonFormatter:
             log_data["exception"] = "".join(traceback.format_exception(*record.exc_info))
 
         return self.json.dumps(log_data, ensure_ascii=False)
+
+
+import logging
+import re
+
+
+class SensitiveDataFilter(logging.Filter):
+    """敏感数据过滤器，自动脱敏日志中的敏感信息"""
+
+    # 需要完全遮蔽的字段名（不区分大小写）
+    _SENSITIVE_KEYS = frozenset({"authorization", "token", "password", "secret", "api_key", "apikey"})
+
+    # 消息中需要脱敏的正则模式
+    _MSG_PATTERNS = [
+        (re.compile(r"(Authorization:\s*Bearer\s+)\S+", re.IGNORECASE), r"\1***"),
+        (re.compile(r"(token\s*=\s*)sk-\S+", re.IGNORECASE), r"\1***"),
+        (re.compile(r"sk-[A-Za-z0-9]{20,}", re.IGNORECASE), "***"),
+    ]
+
+    @staticmethod
+    def _mask_email(value: str) -> str:
+        """部分遮蔽邮件地址：保留首2字符和末2字符（含域名末2字符）"""
+        at_pos = value.find("@")
+        if at_pos > 0:
+            local = value[:at_pos]
+            full = value
+            # 保留整体首2字符和末2字符
+            if len(full) > 4:
+                return full[:2] + "***" + full[-2:]
+            return "***"
+        # 非邮件字符串，保留首2末2
+        if len(value) > 4:
+            return value[:2] + "***" + value[-2:]
+        return "***"
+
+    def _scrub_value(self, key: str, value: object) -> object:
+        """根据 key 决定如何脱敏 value"""
+        if isinstance(value, dict):
+            return {k: self._scrub_value(k, v) for k, v in value.items()}
+        if isinstance(value, str):
+            lower_key = key.lower()
+            if lower_key in self._SENSITIVE_KEYS:
+                return "***"
+            if lower_key in {"account", "email", "username"}:
+                return self._mask_email(value)
+            # 检查值本身是否包含敏感 token
+            if re.search(r"sk-[A-Za-z0-9]{20,}", value, re.IGNORECASE):
+                return re.sub(r"sk-[A-Za-z0-9]{20,}", "***", value, flags=re.IGNORECASE)
+        return value
+
+    def _scrub_message(self, msg: str) -> str:
+        for pattern, replacement in self._MSG_PATTERNS:
+            msg = pattern.sub(replacement, msg)
+        return msg
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # 脱敏消息
+        record.msg = self._scrub_message(str(record.msg))
+
+        # 脱敏 record 上的额外属性
+        for attr in list(vars(record).keys()):
+            if attr.startswith("_") or attr in {
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "taskName",
+            }:
+                continue
+            val = getattr(record, attr)
+            setattr(record, attr, self._scrub_value(attr, val))
+
+        return True

@@ -138,7 +138,7 @@ class CaseMutationService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> bool:
+    ) -> None:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
@@ -173,7 +173,6 @@ class CaseMutationService:
                 )
 
         case.delete()
-        return True
 
     def unbind_cases_from_contract_internal(self, contract_id: int) -> int:
         return int(Case.objects.filter(contract_id=contract_id).update(contract=None))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -15,7 +15,7 @@ from apps.core.interfaces import IClientService, IContractService
 
 from .repo import CasePartyCommandRepo
 
-logger = logging.getLogger("apps.cases", cast)  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")  # type: ignore[call-arg]
 
 
 class CasePartyMutationService:

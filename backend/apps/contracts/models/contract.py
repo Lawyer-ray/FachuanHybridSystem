@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-from datetime import date
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
@@ -34,16 +33,16 @@ class FeeMode(models.TextChoices):
 
 class Contract(models.Model):
     id: int
-    name: str = models.CharField(max_length=100, verbose_name=_("合同名称"))
-    case_type: str = models.CharField(max_length=32, choices=CaseType.choices, verbose_name=_("合同类型"))
-    status: str = models.CharField(
+    name = models.CharField(max_length=100, verbose_name=_("合同名称"))
+    case_type = models.CharField(max_length=32, choices=CaseType.choices, verbose_name=_("合同类型"))
+    status = models.CharField(
         max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("合同状态")
     )
-    specified_date: date = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
-    start_date: date | None = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
-    end_date: date | None = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
-    is_archived: bool = models.BooleanField(default=False, verbose_name=_("是否已建档"))
-    filing_number: str | None = models.CharField(
+    specified_date = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
+    start_date = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
+    end_date = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
+    is_archived = models.BooleanField(default=False, verbose_name=_("是否已建档"))
+    filing_number = models.CharField(
         max_length=50,
         blank=True,
         null=True,
@@ -51,19 +50,17 @@ class Contract(models.Model):
         verbose_name=_("建档编号"),
         help_text=_("格式: {年份}_{合同类型}_{HT}_{序号}"),
     )
-    fee_mode: str = models.CharField(
+    fee_mode = models.CharField(
         max_length=16, choices=FeeMode.choices, default=FeeMode.FIXED, verbose_name=_("收费模式")
     )
-    fixed_amount: Any = models.DecimalField(
+    fixed_amount = models.DecimalField(
         max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("固定/前期律师费")
     )
-    risk_rate: Any = models.DecimalField(
+    risk_rate = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True, verbose_name=_("风险比例(%)")
     )
-    custom_terms: str | None = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
-    representation_stages: dict[str, Any] | None = models.JSONField(
-        default=list, blank=True, verbose_name=_("代理阶段")
-    )
+    custom_terms = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
+    representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
 
     if TYPE_CHECKING:
         finance_logs: RelatedManager[ContractFinanceLog]

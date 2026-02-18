@@ -319,7 +319,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
                 name="documents_foldertemplate_initialize_defaults",
             ),
             path(
-                "<int: pk>/structure-json/",
+                "<int:pk>/structure-json/",
                 self.admin_site.admin_view(self.get_structure_json_view),
                 name="documents_foldertemplate_structure_json",
             ),

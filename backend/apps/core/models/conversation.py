@@ -48,9 +48,9 @@ class ConversationHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
-        verbose_name: str = "对话历史"
-        verbose_name_plural: str = "对话历史"
-        db_table: str = "core_conversation_history"
+        verbose_name = "对话历史"
+        verbose_name_plural = "对话历史"
+        db_table = "core_conversation_history"
         ordering: ClassVar = ["session_id", "created_at"]
         indexes: ClassVar = [
             models.Index(fields=["session_id", "created_at"], name="core_conver_session_f8b2e5_idx"),

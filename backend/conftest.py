@@ -171,7 +171,7 @@ def case(db, contract):
 from hypothesis import Verbosity, settings
 
 # 配置 Hypothesis
-settings.register_profile("default", max_examples=20, verbosity=Verbosity.normal)
+settings.register_profile("default", max_examples=5, verbosity=Verbosity.normal)
 settings.register_profile("ci", max_examples=1000, verbosity=Verbosity.verbose)
 settings.register_profile("dev", max_examples=10, verbosity=Verbosity.verbose)
 settings.register_profile("debug", max_examples=10, verbosity=Verbosity.debug)

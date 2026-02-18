@@ -50,8 +50,8 @@ class SystemConfig(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name: str = "系统配置"
-        verbose_name_plural: str = "系统配置"
+        verbose_name = "系统配置"
+        verbose_name_plural = "系统配置"
         ordering: ClassVar = ["category", "key"]
         indexes: ClassVar = [
             models.Index(fields=["category"], name="core_system_categor_aa7ba2_idx"),

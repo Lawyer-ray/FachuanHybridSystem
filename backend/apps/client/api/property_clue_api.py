@@ -140,7 +140,7 @@ def delete_property_clue(request: Any, clue_id: int) -> tuple[int, None]:
 def upload_attachment(
     request: Any,
     clue_id: int,
-    file: UploadedFile = File[UploadedFile](...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
 ) -> Any:
     """
     为财产线索上传附件

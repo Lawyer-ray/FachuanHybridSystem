@@ -90,15 +90,15 @@ class CaseMutationFacade:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> bool:
-        return self.mutation_service.delete_case(
+    ) -> None:
+        self.mutation_service.delete_case(
             case_id=case_id,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
 
-    def delete_case_ctx(self, *, case_id: int, ctx: AccessContext) -> bool:
+    def delete_case_ctx(self, *, case_id: int, ctx: AccessContext) -> None:
         return self.delete_case(
             case_id=case_id,
             user=ctx.user,

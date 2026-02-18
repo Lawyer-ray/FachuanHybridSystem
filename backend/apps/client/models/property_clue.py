@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 
@@ -41,27 +41,23 @@ class PropertyClue(models.Model):
         OTHER: "",
     }
 
-    client: models.ForeignKey[Any, Any] = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人"
-    )
-    clue_type: models.CharField[str, str] = models.CharField(
-        max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型"
-    )
-    content: models.TextField[str, str] = models.TextField(blank=True, default="", verbose_name="线索内容")
-    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
+    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
+    content = models.TextField(blank=True, default="", verbose_name="线索内容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     if TYPE_CHECKING:
         attachments: RelatedManager[PropertyClueAttachment]
 
     def __str__(self) -> str:
-        return f"{self.client.name}-{self.get_clue_type_display()}"  # type: ignore[attr-defined]
+        return f"{self.client.name}-{self.get_clue_type_display()}"
 
     class Meta:
-        verbose_name: str = "财产线索"
-        verbose_name_plural: str = "财产线索"
-        db_table: str = "cases_propertyclue"
-        managed: bool = True
+        verbose_name = "财产线索"
+        verbose_name_plural = "财产线索"
+        db_table = "cases_propertyclue"
+        managed = True
 
 
 class PropertyClueAttachment(models.Model):
@@ -69,12 +65,12 @@ class PropertyClueAttachment(models.Model):
 
     id: int
     property_clue_id: int
-    property_clue: models.ForeignKey[Any, Any] = models.ForeignKey(
+    property_clue = models.ForeignKey(
         PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name="财产线索"
     )
-    file_path: models.CharField[str, str] = models.CharField(max_length=512, verbose_name="文件路径")
-    file_name: models.CharField[str, str] = models.CharField(max_length=255, verbose_name="文件名")
-    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    file_path = models.CharField(max_length=512, verbose_name="文件路径")
+    file_name = models.CharField(max_length=255, verbose_name="文件名")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
@@ -101,7 +97,7 @@ class PropertyClueAttachment(models.Model):
         return None
 
     class Meta:
-        verbose_name: str = "财产线索附件"
-        verbose_name_plural: str = "财产线索附件"
-        db_table: str = "cases_propertyclueattachment"
-        managed: bool = True
+        verbose_name = "财产线索附件"
+        verbose_name_plural = "财产线索附件"
+        db_table = "cases_propertyclueattachment"
+        managed = True
