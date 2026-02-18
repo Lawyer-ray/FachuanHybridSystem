@@ -1,5 +1,7 @@
 """Token 管理相关模型"""
 
+from __future__ import annotations
+
 from typing import ClassVar
 
 from django.db import models
@@ -32,7 +34,7 @@ class CourtToken(models.Model):
             models.Index(fields=["expires_at"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.site_name} - {self.account}"
 
     def is_expired(self) -> bool:
@@ -109,7 +111,7 @@ class TokenAcquisitionHistory(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.site_name} - {self.account} - {self.get_status_display()}"
 
     def get_success_rate_display(self) -> str:

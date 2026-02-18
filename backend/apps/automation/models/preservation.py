@@ -1,9 +1,14 @@
 """财产保全询价相关模型"""
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
 
 
 class QuoteStatus(models.TextChoices):
@@ -27,6 +32,8 @@ class PreservationQuote(models.Model):
     """财产保全询价任务"""
 
     id: int
+    if TYPE_CHECKING:
+        quotes: RelatedManager[InsuranceQuote]
     preserve_amount = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name=_("保全金额"), help_text=_("需要保全的财产金额")
     )
@@ -61,7 +68,7 @@ class PreservationQuote(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"询价任务 #{self.id} - {self.preserve_amount}元 - {self.get_status_display()}"
 
     def get_success_rate(self) -> float:
@@ -131,7 +138,7 @@ class InsuranceQuote(models.Model):
             models.Index(fields=["premium"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         if self.min_amount:
             return f"{self.company_name} - ¥{self.min_amount}"
         return f"{self.company_name} - {self.get_status_display()}"

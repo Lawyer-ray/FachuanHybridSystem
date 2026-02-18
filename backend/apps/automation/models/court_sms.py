@@ -1,9 +1,16 @@
 """法院短信相关模型"""
 
-from typing import ClassVar, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
+
+    from apps.automation.models.court_document import DocumentQueryHistory
 
 
 class CourtSMSStatus(models.TextChoices):
@@ -33,6 +40,8 @@ class CourtSMS(models.Model):
     """法院短信记录"""
 
     id: int
+    if TYPE_CHECKING:
+        query_histories: RelatedManager[DocumentQueryHistory]
     # 原始内容
     content = models.TextField(verbose_name=_("短信内容"))
     received_at = models.DateTimeField(verbose_name=_("收到时间"))
@@ -97,7 +106,7 @@ class CourtSMS(models.Model):
             models.Index(fields=["case"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return "短信 #{} - {} - {}".format(
             cast(int, self.id), self.get_sms_type_display() or "未分类", self.get_status_display()
         )
