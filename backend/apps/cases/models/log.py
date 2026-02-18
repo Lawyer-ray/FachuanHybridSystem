@@ -1,6 +1,8 @@
 """Module for log."""
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -10,11 +12,14 @@ from apps.core.storage import KeepOriginalNameStorage
 
 from .case import Case
 
+if TYPE_CHECKING:
+    from django.db.models.fields.related_descriptors import RelatedManager
+
 # 案件日志附件存储
 case_log_storage = KeepOriginalNameStorage()
 
 
-def validate_log_attachment(file) -> None:
+def validate_log_attachment(file: Any) -> None:
     """验证日志附件"""
     name = getattr(file, "name", "")
     size = getattr(file, "size", 0)
@@ -27,16 +32,20 @@ def validate_log_attachment(file) -> None:
 
 class CaseLog(models.Model):
     id: int
-    case_id: int  # 外键ID字段
-    case_id: int  # 外键ID字段
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="logs", verbose_name=_("案件"))
-    id: int
-    content = models.TextField(verbose_name=_("日志内容"))
-    actor = models.ForeignKey(
+    case: models.ForeignKey[Any, Any] = models.ForeignKey(
+        Case, on_delete=models.CASCADE, related_name="logs", verbose_name=_("案件")
+    )
+    content: models.TextField[str, str] = models.TextField(verbose_name=_("日志内容"))
+    actor: models.ForeignKey[Any, Any] = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="case_logs", verbose_name=_("操作人")
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
+    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
+    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
+
+    if TYPE_CHECKING:
+        attachments: RelatedManager[CaseLogAttachment]
+        versions: RelatedManager[CaseLogVersion]
+        reminders: RelatedManager[Any]
 
     class Meta:
         verbose_name = _("案件日志")
@@ -46,32 +55,32 @@ class CaseLog(models.Model):
             models.Index(fields=["actor"]),
         ]
 
-    def __str__(self) -> None:
-        return f"{self.case_id}-{self.actor_id}-{self.created_at}"
+    def __str__(self) -> str:
+        return f"{self.case_id}-{self.actor_id}-{self.created_at}"  # type: ignore[attr-defined]
 
     @property
-    def reminder_type(self) -> None:
+    def reminder_type(self) -> Any:
         reminder = self.reminders.order_by("-due_at").first()
         return getattr(reminder, "reminder_type", None) if reminder else None
 
     @property
-    def reminder_time(self) -> None:
+    def reminder_time(self) -> Any:
         reminder = self.reminders.order_by("-due_at").first()
         return getattr(reminder, "due_at", None) if reminder else None
 
 
 class CaseLogAttachment(models.Model):
     id: int
-    log_id: int  # 外键ID字段
-    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志"))
-    id: int
-    file = models.FileField(
+    log: models.ForeignKey[Any, Any] = models.ForeignKey(
+        CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志")
+    )
+    file: models.FileField = models.FileField(
         upload_to="case_logs/",
         storage=case_log_storage,
         validators=[validate_log_attachment],
         verbose_name=_("相关文书"),
     )
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
+    uploaded_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:
         verbose_name = _("案件日志附件")
@@ -80,13 +89,12 @@ class CaseLogAttachment(models.Model):
 
 class CaseLogVersion(models.Model):
     id: int
-    log_id: int  # 外键ID字段
-    actor_id: int  # 外键ID字段
-    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name=_("日志"))
-    id: int
-    content = models.TextField(verbose_name=_("历史内容"))
-    version_at = models.DateTimeField(auto_now_add=True, verbose_name=_("版本时间"))
-    actor = models.ForeignKey(
+    log: models.ForeignKey[Any, Any] = models.ForeignKey(
+        CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name=_("日志")
+    )
+    content: models.TextField[str, str] = models.TextField(verbose_name=_("历史内容"))
+    version_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("版本时间"))
+    actor: models.ForeignKey[Any, Any] = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="case_log_versions", verbose_name=_("操作者")
     )
 
@@ -94,5 +102,5 @@ class CaseLogVersion(models.Model):
         verbose_name = _("案件日志版本")
         verbose_name_plural = _("案件日志版本")
 
-    def __str__(self) -> None:
-        return f"{self.log_id}-{self.version_at}"
+    def __str__(self) -> str:
+        return f"{self.log_id}-{self.version_at}"  # type: ignore[attr-defined]

@@ -1,6 +1,8 @@
 """Module for material."""
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -21,11 +23,12 @@ class CaseMaterialSide(models.TextChoices):
 
 
 class CaseMaterialType(models.Model):
-    law_firm_id: int  # 外键ID字段
-    category = models.CharField(max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类"))
     id: int
-    name = models.CharField(max_length=64, verbose_name=_("类型名称"))
-    law_firm = models.ForeignKey(
+    category: models.CharField[str, str] = models.CharField(
+        max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类")
+    )
+    name: models.CharField[str, str] = models.CharField(max_length=64, verbose_name=_("类型名称"))
+    law_firm: models.ForeignKey[Any, Any] = models.ForeignKey(
         "organization.LawFirm",
         on_delete=models.CASCADE,
         null=True,
@@ -33,8 +36,8 @@ class CaseMaterialType(models.Model):
         related_name="case_material_types",
         verbose_name=_("律所"),
     )
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    is_active: models.BooleanField[bool, bool] = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
         verbose_name = _("案件材料类型")
@@ -48,19 +51,21 @@ class CaseMaterialType(models.Model):
             models.Index(fields=["is_active"]),
         ]
 
-    def __str__(self) -> None:
-        scope = self.law_firm.name if self.law_firm_id else "全局"
-        return f"{scope}-{self.get_category_display()}-{self.name}"
+    def __str__(self) -> str:
+        scope = self.law_firm.name if self.law_firm_id else "全局"  # type: ignore[attr-defined]
+        category_display = self.get_category_display()  # type: ignore[attr-defined]
+        return f"{scope}-{category_display}-{self.name}"
 
 
 class CaseMaterial(models.Model):
-    case_id: int  # 外键ID字段
-    case_id: int  # 外键ID字段
-    supervising_authority_id: int  # 外键ID字段
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="materials", verbose_name=_("案件"))
     id: int
-    category = models.CharField(max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类"))
-    type = models.ForeignKey(
+    case: models.ForeignKey[Any, Any] = models.ForeignKey(
+        Case, on_delete=models.CASCADE, related_name="materials", verbose_name=_("案件")
+    )
+    category: models.CharField[str, str] = models.CharField(
+        max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类")
+    )
+    type: models.ForeignKey[Any, Any] = models.ForeignKey(
         CaseMaterialType,
         on_delete=models.SET_NULL,
         null=True,
@@ -68,9 +73,8 @@ class CaseMaterial(models.Model):
         related_name="materials",
         verbose_name=_("材料类型"),
     )
-    type_name = models.CharField(max_length=64, verbose_name=_("类型名称"))
-
-    source_attachment = models.OneToOneField(
+    type_name: models.CharField[str, str] = models.CharField(max_length=64, verbose_name=_("类型名称"))
+    source_attachment: models.OneToOneField[Any, Any] = models.OneToOneField(
         CaseLogAttachment,
         on_delete=models.CASCADE,
         null=True,
@@ -78,17 +82,17 @@ class CaseMaterial(models.Model):
         related_name="bound_material",
         verbose_name=_("来源日志附件"),
     )
-
-    side = models.CharField(
+    side: models.CharField[str | None, str | None] = models.CharField(
         max_length=32,
         choices=CaseMaterialSide.choices,
         null=True,
         blank=True,
         verbose_name=_("当事人方向"),
     )
-    parties = models.ManyToManyField(CaseParty, blank=True, related_name="materials", verbose_name=_("关联当事人"))
-
-    supervising_authority = models.ForeignKey(
+    parties: models.ManyToManyField[Any, Any] = models.ManyToManyField(
+        CaseParty, blank=True, related_name="materials", verbose_name=_("关联当事人")
+    )
+    supervising_authority: models.ForeignKey[Any, Any] = models.ForeignKey(
         SupervisingAuthority,
         on_delete=models.PROTECT,
         null=True,
@@ -96,8 +100,7 @@ class CaseMaterial(models.Model):
         related_name="materials",
         verbose_name=_("主管机关"),
     )
-
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
         verbose_name = _("案件材料")
@@ -109,27 +112,27 @@ class CaseMaterial(models.Model):
             models.Index(fields=["type_name"]),
         ]
 
-    def __str__(self) -> None:
-        return f"{self.case_id}-{self.get_category_display()}-{self.type_name}"
+    def __str__(self) -> str:
+        category_display = self.get_category_display()  # type: ignore[attr-defined]
+        return f"{self.case_id}-{category_display}-{self.type_name}"  # type: ignore[attr-defined]
 
 
 class CaseMaterialGroupOrder(models.Model):
     id: int
-    case_id: int  # 外键ID字段
-    supervising_authority_id: int  # 外键ID字段
-    type_id: int  # 外键ID字段
-    case = models.ForeignKey(
+    case: models.ForeignKey[Any, Any] = models.ForeignKey(
         Case, on_delete=models.CASCADE, related_name="material_group_orders", verbose_name=_("案件")
     )
-    category = models.CharField(max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类"))
-    side = models.CharField(
+    category: models.CharField[str, str] = models.CharField(
+        max_length=32, choices=CaseMaterialCategory.choices, verbose_name=_("材料大类")
+    )
+    side: models.CharField[str | None, str | None] = models.CharField(
         max_length=32,
         choices=CaseMaterialSide.choices,
         null=True,
         blank=True,
         verbose_name=_("当事人方向"),
     )
-    supervising_authority = models.ForeignKey(
+    supervising_authority: models.ForeignKey[Any, Any] = models.ForeignKey(
         SupervisingAuthority,
         on_delete=models.CASCADE,
         null=True,
@@ -137,10 +140,10 @@ class CaseMaterialGroupOrder(models.Model):
         related_name="material_group_orders",
         verbose_name=_("主管机关"),
     )
-    type = models.ForeignKey(
+    type: models.ForeignKey[Any, Any] = models.ForeignKey(
         CaseMaterialType, on_delete=models.CASCADE, related_name="group_orders", verbose_name=_("材料类型")
     )
-    sort_index = models.PositiveIntegerField(default=0, verbose_name=_("排序"))
+    sort_index: models.PositiveIntegerField[int, int] = models.PositiveIntegerField(default=0, verbose_name=_("排序"))
 
     class Meta:
         verbose_name = _("案件材料分组顺序")
@@ -156,20 +159,22 @@ class CaseMaterialGroupOrder(models.Model):
             models.Index(fields=["case", "category", "supervising_authority", "sort_index"]),
         ]
 
-    def __str__(self) -> None:
-        return f"{self.case_id}-{self.category}-{self.sort_index}"
+    def __str__(self) -> str:
+        return f"{self.case_id}-{self.category}-{self.sort_index}"  # type: ignore[attr-defined]
 
 
 class CaseFolderBinding(models.Model):
     """案件文件夹绑定"""
 
     id: int
-    case = models.OneToOneField(Case, on_delete=models.CASCADE, related_name="folder_binding", verbose_name=_("案件"))
-    folder_path = models.CharField(
+    case: models.OneToOneField[Any, Any] = models.OneToOneField(
+        Case, on_delete=models.CASCADE, related_name="folder_binding", verbose_name=_("案件")
+    )
+    folder_path: models.CharField[str, str] = models.CharField(
         max_length=1000, verbose_name=_("文件夹路径"), help_text=_("绑定的本地或网络文件夹路径")
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    created_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
+    updated_at: models.DateTimeField[Any, Any] = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("案件文件夹绑定")
@@ -179,7 +184,7 @@ class CaseFolderBinding(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.case.name} - {self.folder_path}"
 
     @property
@@ -187,13 +192,9 @@ class CaseFolderBinding(models.Model):
         """格式化显示路径"""
         if not self.folder_path:
             return ""
-
-        # 如果路径太长,显示省略号
         max_length = 50
         if len(self.folder_path) <= max_length:
             return self.folder_path
-
-        # 保留开头和结尾
         start_len = max_length // 2 - 2
         end_len = max_length - start_len - 3
         return f"{self.folder_path[:start_len]}...{self.folder_path[-end_len:]}"
