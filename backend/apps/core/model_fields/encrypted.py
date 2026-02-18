@@ -13,7 +13,7 @@ from django.db import models
 logger = logging.getLogger(__name__)
 
 
-class EncryptedTextField(models.TextField[str | None, str | None]):
+class EncryptedTextField(models.TextField):
     prefix: str = "enc:v1:"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -56,7 +56,8 @@ class EncryptedTextField(models.TextField[str | None, str | None]):
         last_error: Exception | None = None
         for cipher in self._get_ciphers():
             try:
-                return cipher.decrypt(token).decode()
+                decrypted: bytes = cipher.decrypt(token)
+                return decrypted.decode()
             except Exception as e:
                 logger.exception("操作失败")
                 last_error = e
