@@ -4,18 +4,23 @@
 提供独立的上传界面,用户可以直接上传正反面图片进行合并
 """
 
+from __future__ import annotations
+
+import json
 import logging
+from typing import Any
 
 from django.contrib import admin, messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import path
+from django.urls import URLPattern, path
 from django.utils.html import format_html
 
 logger = logging.getLogger("apps.client")
 
 
-def _get_id_card_merge_service() -> None:
+def _get_id_card_merge_service() -> Any:
     """工厂函数:获取身份证合并服务"""
     from apps.client.services.id_card_merge_service import IdCardMergeService
 
@@ -23,14 +28,14 @@ def _get_id_card_merge_service() -> None:
 
 
 @staff_member_required
-def id_card_merge_view(request) -> None:
+def id_card_merge_view(request: HttpRequest) -> HttpResponse:
     """
     身份证合并视图
 
     GET: 显示上传表单
     POST: 处理上传并合并
     """
-    context = {
+    context: dict[str, Any] = {
         "title": "身份证合并",
         "site_header": admin.site.site_header,
         "site_title": admin.site.site_title,
@@ -76,7 +81,7 @@ def id_card_merge_view(request) -> None:
 
 
 @staff_member_required
-def id_card_merge_manual_view(request) -> None:
+def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
     """
     身份证手动合并视图
 
@@ -84,8 +89,6 @@ def id_card_merge_manual_view(request) -> None:
     """
     if request.method != "POST":
         return redirect("admin:id_card_merge")
-
-    import json
 
     front_image_path = request.POST.get("front_image_path", "")
     back_image_path = request.POST.get("back_image_path", "")
@@ -120,7 +123,7 @@ def id_card_merge_manual_view(request) -> None:
     return redirect("admin:id_card_merge")
 
 
-def get_id_card_merge_urls() -> None:
+def get_id_card_merge_urls() -> list[URLPattern]:
     """获取身份证合并相关的 URL 配置"""
     return [
         path(
@@ -136,13 +139,13 @@ def get_id_card_merge_urls() -> None:
     ]
 
 
-def register_id_card_merge_urls(admin_site) -> None:
+def register_id_card_merge_urls(admin_site: admin.AdminSite) -> None:
     """注册身份证合并页面的 URL 到 admin site"""
     original_get_urls = admin_site.get_urls
 
-    def get_urls() -> None:
+    def get_urls() -> list[Any]:
         urls = original_get_urls()
-        custom_urls = [
+        custom_urls: list[URLPattern] = [
             path(
                 "client/id-card-merge/",
                 admin_site.admin_view(id_card_merge_view),
@@ -156,7 +159,7 @@ def register_id_card_merge_urls(admin_site) -> None:
         ]
         return custom_urls + urls
 
-    admin_site.get_urls = get_urls
+    admin_site.get_urls = get_urls  # type: ignore[method-assign]
 
 
 register_id_card_merge_urls(admin.site)
