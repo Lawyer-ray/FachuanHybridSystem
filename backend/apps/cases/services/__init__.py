@@ -3,6 +3,7 @@ Cases Services Module
 业务逻辑服务层
 """
 from .case_service import CaseService, CaseServiceAdapter
+from .folder_binding_service import CaseFolderBindingService
 from .caselog_service import CaseLogService
 from .case_access_service import CaseAccessService
 from .case_assignment_service import CaseAssignmentService
@@ -19,4 +20,5 @@ __all__ = [
     "CaseNumberService",
     "CasePartyService",
     "ChatNameConfigService",
+    "CaseFolderBindingService",
 ]
