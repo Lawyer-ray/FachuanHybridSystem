@@ -6,7 +6,9 @@
 - EvidenceItem: 证据明细
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -57,6 +59,10 @@ LIST_TYPE_PREVIOUS = {
 }
 
 
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
+
+
 class EvidenceList(models.Model):
     """
     证据清单
@@ -72,20 +78,20 @@ class EvidenceList(models.Model):
     export_template_id: int  # 外键ID字段
     created_by_id: int  # 外键ID字段
     case_id: int  # 外键ID字段
-    case = models.ForeignKey(
+    case: models.ForeignKey[Any] = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
         related_name="evidence_lists",
         verbose_name=_("案件"),
     )
-    list_type = models.CharField(
+    list_type: str = models.CharField(
         max_length=20,
         choices=ListType.choices,
         default=ListType.LIST_1,
         verbose_name=_("清单类型"),
         help_text=_("选择清单类型,系统自动处理序号和页码的连续性"),
     )
-    previous_list = models.ForeignKey(
+    previous_list: EvidenceList | None = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
         null=True,
@@ -95,19 +101,19 @@ class EvidenceList(models.Model):
         help_text=_("关联前一个清单,用于自动计算起始序号和页码"),
     )
     # 保留 title 字段用于显示,但由 list_type 自动生成
-    title = models.CharField(
+    title: str = models.CharField(
         max_length=100,
         verbose_name=_("标题"),
         blank=True,
         help_text=_("由清单类型自动生成"),
     )
     # 保留 order 字段用于排序,由 list_type 自动设置
-    order = models.IntegerField(
+    order: int = models.IntegerField(
         default=1,
         verbose_name=_("顺序"),
         editable=False,
     )
-    merged_pdf = models.FileField(
+    merged_pdf: models.FileField = models.FileField(
         upload_to="evidence/merged/%Y/%m/",
         storage=evidence_file_storage,
         blank=True,
@@ -115,54 +121,54 @@ class EvidenceList(models.Model):
         verbose_name=_("合并PDF"),
         help_text=_("将所有证据文件合并为一个PDF,便于打印和提交"),
     )
-    total_pages = models.IntegerField(
+    total_pages: int = models.IntegerField(
         default=0,
         verbose_name=_("总页数"),
     )
-    export_version = models.IntegerField(
+    export_version: int = models.IntegerField(
         default=1,
         verbose_name=_("导出版本号"),
         help_text=_("由用户手动控制,用于导出文件名版本控制"),
     )
     # 异步合并状态
-    merge_status = models.CharField(
+    merge_status: str = models.CharField(
         max_length=20,
         choices=MergeStatus.choices,
         default=MergeStatus.PENDING,
         verbose_name=_("合并状态"),
     )
-    merge_error = models.TextField(
+    merge_error: str = models.TextField(
         blank=True,
         verbose_name=_("合并错误信息"),
     )
-    merge_started_at = models.DateTimeField(
+    merge_started_at: models.DateTimeField = models.DateTimeField(
         null=True,
         blank=True,
         verbose_name=_("合并开始时间"),
     )
-    merge_finished_at = models.DateTimeField(
+    merge_finished_at: models.DateTimeField = models.DateTimeField(
         null=True,
         blank=True,
         verbose_name=_("合并完成时间"),
     )
-    merge_progress = models.IntegerField(
+    merge_progress: int = models.IntegerField(
         default=0,
         verbose_name=_("合并进度"),
     )
-    merge_current = models.IntegerField(
+    merge_current: int = models.IntegerField(
         default=0,
         verbose_name=_("合并进度-已处理文件数"),
     )
-    merge_total = models.IntegerField(
+    merge_total: int = models.IntegerField(
         default=0,
         verbose_name=_("合并进度-总文件数"),
     )
-    merge_message = models.CharField(
+    merge_message: str = models.CharField(
         max_length=255,
         blank=True,
         verbose_name=_("合并进度信息"),
     )
-    export_template = models.ForeignKey(
+    export_template: models.ForeignKey[Any] = models.ForeignKey(
         "documents.DocumentTemplate",
         on_delete=models.SET_NULL,
         null=True,
@@ -176,7 +182,7 @@ class EvidenceList(models.Model):
             "case_sub_type": DocumentCaseFileSubType.EVIDENCE_MATERIALS,
         },
     )
-    created_by = models.ForeignKey(
+    created_by: models.ForeignKey[Any] = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
@@ -184,14 +190,18 @@ class EvidenceList(models.Model):
         related_name="created_evidence_lists",
         verbose_name=_("创建人"),
     )
-    created_at = models.DateTimeField(
+    created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
-    updated_at = models.DateTimeField(
+    updated_at: models.DateTimeField = models.DateTimeField(
         auto_now=True,
         verbose_name=_("更新时间"),
     )
+
+    if TYPE_CHECKING:
+        items: RelatedManager[EvidenceItem]
+        next_lists: RelatedManager[EvidenceList]
 
     class Meta:
         app_label: str = "documents"
@@ -206,7 +216,7 @@ class EvidenceList(models.Model):
         # 同一案件不能有重复的清单类型
         constraints: ClassVar = [models.UniqueConstraint(fields=["case", "list_type"], name="unique_case_list_type")]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.case.name} - {self.title}"
 
     @property
@@ -298,67 +308,67 @@ class EvidenceItem(models.Model):
 
     id: int
     evidence_list_id: int  # 外键ID字段
-    evidence_list = models.ForeignKey(
+    evidence_list: EvidenceList = models.ForeignKey(
         EvidenceList,
         on_delete=models.CASCADE,
         related_name="items",
         verbose_name=_("证据清单"),
     )
-    order = models.IntegerField(
+    order: int = models.IntegerField(
         verbose_name=_("序号"),
         help_text=_("证据在清单中的序号"),
         default=0,
         blank=True,
     )
-    name = models.CharField(
+    name: str = models.CharField(
         max_length=200,
         verbose_name=_("证据名称"),
     )
-    purpose = models.TextField(
+    purpose: str = models.TextField(
         verbose_name=_("证明内容"),
     )
-    file = models.FileField(
+    file: models.FileField = models.FileField(
         upload_to="evidence/files/%Y/%m/",
         blank=True,
         null=True,
         verbose_name=_("证据文件"),
     )
-    file_name = models.CharField(
+    file_name: str = models.CharField(
         max_length=255,
         blank=True,
         verbose_name=_("原始文件名"),
     )
-    file_size = models.IntegerField(
+    file_size: int = models.IntegerField(
         default=0,
         verbose_name=_("文件大小"),
         help_text=_("单位:字节"),
     )
-    page_count = models.IntegerField(
+    page_count: int = models.IntegerField(
         default=0,
         verbose_name=_("页数"),
     )
-    page_start = models.IntegerField(
+    page_start: int | None = models.IntegerField(
         null=True,
         blank=True,
         verbose_name=_("起始页"),
     )
-    page_end = models.IntegerField(
+    page_end: int | None = models.IntegerField(
         null=True,
         blank=True,
         verbose_name=_("结束页"),
     )
     # AI 扩展字段
-    ai_analysis = models.JSONField(
+    ai_analysis: dict[str, Any] = models.JSONField(
         default=dict,
         blank=True,
         verbose_name=_("AI分析结果"),
         help_text=_("预留字段,用于未来 LLM 自动分析"),
     )
-    created_at = models.DateTimeField(
+    created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
-    updated_at = models.DateTimeField(
+    updated_at: models.DateTimeField = models.DateTimeField(
         auto_now=True,
         verbose_name=_("更新时间"),
     )
@@ -372,7 +382,7 @@ class EvidenceItem(models.Model):
             models.Index(fields=["evidence_list", "order"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return f"{self.order}. {self.name}"
 
     @property

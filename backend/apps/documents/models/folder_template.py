@@ -4,12 +4,19 @@
 本模块定义文件夹模板相关的数据模型.
 """
 
-from typing import Any, ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .choices import DocumentCaseStage, DocumentCaseType, DocumentContractType, FolderTemplateType
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
+
+    from .document_template import DocumentTemplateFolderBinding
 
 
 class FolderTemplate(models.Model):
@@ -31,39 +38,44 @@ class FolderTemplate(models.Model):
         ALL = "all", _("全部包含")
         EXACT = "exact", _("完全一致")
 
-    name = models.CharField(max_length=100, verbose_name=_("模板名称"))
-    template_type = models.CharField(
+    name: str = models.CharField(max_length=100, verbose_name=_("模板名称"))
+    template_type: str = models.CharField(
         max_length=20,
         choices=FolderTemplateType.choices,
         verbose_name=_("模板类型"),
         help_text=_("选择此模板用于合同还是案件"),
     )
-    case_types = models.JSONField(
+    case_types: list[Any] = models.JSONField(
         default=list, verbose_name=_("案件类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    case_stages = models.JSONField(
+    case_stages: list[Any] = models.JSONField(
         default=list, verbose_name=_("案件阶段"), help_text=_("JSON 数组,如 ['first_trial', 'second_trial'],支持多选")
     )
-    contract_types = models.JSONField(
+    contract_types: list[Any] = models.JSONField(
         default=list, verbose_name=_("合同类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    legal_statuses = models.JSONField(
+    legal_statuses: list[Any] = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("我方诉讼地位"),
         help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
     )
-    legal_status_match_mode = models.CharField(
+    legal_status_match_mode: str = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
-    structure = models.JSONField(default=dict, verbose_name=_("文件夹结构"), help_text=_("JSON 格式的文件夹层级结构"))
-    is_default = models.BooleanField(default=False, verbose_name=_("是否默认模板"))
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    structure: dict[str, Any] = models.JSONField(
+        default=dict, verbose_name=_("文件夹结构"), help_text=_("JSON 格式的文件夹层级结构")
+    )
+    is_default: bool = models.BooleanField(default=False, verbose_name=_("是否默认模板"))
+    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+
+    if TYPE_CHECKING:
+        document_bindings: RelatedManager[DocumentTemplateFolderBinding]
 
     class Meta:
         app_label: str = "documents"
@@ -75,12 +87,12 @@ class FolderTemplate(models.Model):
             models.Index(fields=["is_default"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         template_type_display = dict(FolderTemplateType.choices).get(self.template_type, self.template_type)
         case_types_display = self._get_types_display(self.case_types, DocumentCaseType)
         return f"{self.name} ({template_type_display} - {case_types_display})"
 
-    def _get_types_display(self, types_list, choices_class) -> str:
+    def _get_types_display(self, types_list: list[Any], choices_class: type[models.TextChoices]) -> str:
         """获取类型列表的显示文本"""
         if not types_list:
             return "-"  # 空值显示为"-"而非"通用"
@@ -109,7 +121,7 @@ class FolderTemplate(models.Model):
         return self._get_types_display(self.contract_types, DocumentContractType)
 
     @property
-    def case_type(self) -> None:
+    def case_type(self) -> str | None:
         values = self.case_types or []
         return values[0] if values else None
 
@@ -132,7 +144,7 @@ class FolderTemplate(models.Model):
         """诉讼地位显示属性"""
         return self.get_legal_statuses_display() or "-"
 
-    def delete(self, *args, **kwargs) -> None:
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         result = super().delete(*args, **kwargs)
         from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
 

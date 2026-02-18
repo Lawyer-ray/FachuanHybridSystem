@@ -4,6 +4,8 @@
 本模块定义所有 TextChoices 类,用于模型字段的选项.
 """
 
+from __future__ import annotations
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 

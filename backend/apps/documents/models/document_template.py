@@ -4,7 +4,9 @@
 本模块定义文件模板相关的数据模型.
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -21,6 +23,12 @@ from .choices import (
     DocumentContractType,
     DocumentTemplateType,
 )
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
+
+    from .evidence import EvidenceList
+    from .folder_template import FolderTemplate
 
 
 class LegalStatusMatchMode(models.TextChoices):
@@ -43,16 +51,16 @@ class DocumentTemplate(models.Model):
     """
 
     id: int
-    name = models.CharField(max_length=200, verbose_name=_("模板名称"))
-    description = models.TextField(blank=True, verbose_name=_("描述"))
-    template_type = models.CharField(
+    name: str = models.CharField(max_length=200, verbose_name=_("模板名称"))
+    description: str = models.TextField(blank=True, verbose_name=_("描述"))
+    template_type: str = models.CharField(
         max_length=20,
         choices=DocumentTemplateType.choices,
         default=DocumentTemplateType.CONTRACT,
         verbose_name=_("模板类型"),
         help_text=_("选择此模板用于合同还是案件"),
     )
-    contract_sub_type = models.CharField(
+    contract_sub_type: str | None = models.CharField(
         max_length=30,
         choices=DocumentContractSubType.choices,
         blank=True,
@@ -60,7 +68,7 @@ class DocumentTemplate(models.Model):
         verbose_name=_("合同子类型"),
         help_text=_("仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"),
     )
-    case_sub_type = models.CharField(
+    case_sub_type: str | None = models.CharField(
         max_length=50,
         choices=DocumentCaseFileSubType.choices,
         blank=True,
@@ -68,39 +76,39 @@ class DocumentTemplate(models.Model):
         verbose_name=_("案件文件子类型"),
         help_text=_("仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"),
     )
-    file = models.FileField(
+    file: models.FileField = models.FileField(
         storage=document_template_storage,
         upload_to="",  # 存储类会自动处理路径
         blank=True,
         null=True,
         verbose_name=_("上传文件"),
     )
-    file_path = models.CharField(
+    file_path: str = models.CharField(
         max_length=500, blank=True, verbose_name=_("文件路径"), help_text=_("相对于模板基础目录的路径")
     )
     # 适用范围字段(与文件夹模板保持一致)
-    case_types = models.JSONField(
+    case_types: list[Any] = models.JSONField(
         default=list, verbose_name=_("案件类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    case_stages = models.JSONField(
+    case_stages: list[Any] = models.JSONField(
         default=list, verbose_name=_("案件阶段"), help_text=_("JSON 数组,如 ['first_trial', 'second_trial'],支持多选")
     )
-    contract_types = models.JSONField(
+    contract_types: list[Any] = models.JSONField(
         default=list, verbose_name=_("合同类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
     )
-    legal_statuses = models.JSONField(
+    legal_statuses: list[Any] = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("我方诉讼地位"),
         help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
     )
-    legal_status_match_mode = models.CharField(
+    legal_status_match_mode: str = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
-    function_code = models.CharField(
+    function_code: str | None = models.CharField(
         max_length=100,
         blank=True,
         null=True,
@@ -108,9 +116,13 @@ class DocumentTemplate(models.Model):
         help_text=_("用于程序识别特定功能的模板,如 preservation_application、delay_delivery_application"),
         db_index=True,
     )
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+
+    if TYPE_CHECKING:
+        folder_bindings: RelatedManager[DocumentTemplateFolderBinding]
+        evidence_lists: RelatedManager[EvidenceList]
 
     class Meta:
         app_label: str = "documents"
@@ -122,7 +134,7 @@ class DocumentTemplate(models.Model):
             models.Index(fields=["is_active"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return self.name
 
     def clean(self) -> None:
@@ -154,7 +166,7 @@ class DocumentTemplate(models.Model):
                 return str(docx_templates_root / self.file_path)
         return ""
 
-    def _get_types_display(self, types_list, choices_class) -> str:
+    def _get_types_display(self, types_list: list[Any], choices_class: type[models.TextChoices]) -> str:
         """获取类型列表的显示文本"""
         if not types_list:
             return "-"
@@ -198,7 +210,7 @@ class DocumentTemplate(models.Model):
         labels = [str(choices.get(code, code)) for code in statuses]
         return "、".join([x for x in labels if x]) or "任意"
 
-    def delete(self, *args, **kwargs) -> None:
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         result = super().delete(*args, **kwargs)
         from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
 
@@ -221,33 +233,33 @@ class DocumentTemplateFolderBinding(models.Model):
     id: int
     document_template_id: int  # 外键ID字段
     folder_template_id: int  # 外键ID字段
-    document_template = models.ForeignKey(
+    document_template: DocumentTemplate = models.ForeignKey(
         "documents.DocumentTemplate",
         on_delete=models.CASCADE,
         related_name="folder_bindings",
         verbose_name=_("文件模板"),
     )
-    folder_template = models.ForeignKey(
+    folder_template: FolderTemplate = models.ForeignKey(
         "documents.FolderTemplate",
         on_delete=models.CASCADE,
         related_name="document_bindings",
         verbose_name=_("文件夹模板"),
     )
-    folder_node_id = models.CharField(
+    folder_node_id: str = models.CharField(
         max_length=100,
         verbose_name=_("文件夹节点ID"),
         help_text=_("文件夹结构JSON中的节点ID"),
     )
-    folder_node_path = models.CharField(
+    folder_node_path: str = models.CharField(
         max_length=500,
         blank=True,
         verbose_name=_("文件夹路径"),
         help_text=_("自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"),
     )
 
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: bool = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         app_label: str = "documents"
@@ -262,7 +274,7 @@ class DocumentTemplateFolderBinding(models.Model):
             models.Index(fields=["is_active"]),
         ]
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return (
             f"{self.document_template.name} → "
             f"{self.folder_template.name}/{self.folder_node_path or self.folder_node_id}"
