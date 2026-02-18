@@ -3,6 +3,8 @@
 处理案件相关的业务逻辑
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,6 +16,8 @@ from django.db.models import Q, QuerySet
 from apps.core import business_config
 from apps.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationException
 from apps.core.interfaces import CaseDTO, IContractService
+from apps.core.permissions import AccessContext, PermissionMixin
+from apps.core.querysets import CaseQuerySetManager
 
 from ..models import Case, CaseAssignment, CaseLog, CaseNumber, CaseParty
 
@@ -100,7 +104,7 @@ class CaseFullCreateData:
     logs: list[dict[str, Any]] | None = None
 
 
-class CaseService:
+class CaseService(PermissionMixin):
     """
     案件服务
 
@@ -122,30 +126,9 @@ class CaseService:
         self.contract_service = contract_service
 
     @staticmethod
-    def get_case_queryset() -> "QuerySet[Case, Case]":
-        """
-        获取带预加载的案件查询集
-
-        优化点：
-        1. 使用 select_related 预加载外键关系（contract）
-        2. 使用 prefetch_related 预加载多对多和反向外键关系
-        3. 深层预加载（assignments__lawyer__law_firm）
-        4. 预加载合同的补充协议及其当事人（需求 4.1, 4.5）
-
-        Returns:
-            优化后的案件查询集
-        """
-        return Case.objects.select_related(
-            "contract",  # 外键：合同
-        ).prefetch_related(
-            "parties__client",  # 反向外键 + 外键：当事人及其客户
-            "assignments__lawyer",  # 反向外键 + 外键：指派及其律师
-            "assignments__lawyer__law_firm",  # 深层预加载：律师的律所
-            "logs__attachments",  # 反向外键 + 反向外键：日志及其附件
-            "case_numbers",  # 反向外键：案号
-            "supervising_authorities",  # 反向外键：主管机关
-            "contract__supplementary_agreements__parties__client",  # 合同的补充协议及其当事人
-        )
+    def get_case_queryset() -> QuerySet[Case, Case]:
+        """获取带预加载的案件查询集（委托给 CaseQuerySetManager）。"""
+        return CaseQuerySetManager.with_standard_prefetch()  # type: ignore[return-value]
 
     def search_by_case_number(
         self,
@@ -154,7 +137,7 @@ class CaseService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
-    ) -> "QuerySet[Case, Case]":
+    ) -> QuerySet[Case, Case]:
         """
         通过案号搜索案件
 
@@ -184,15 +167,15 @@ class CaseService:
             case_ids = CaseNumber.objects.filter(number__icontains=search_term).values_list("case_id", flat=True)
 
         # 获取案件并应用权限过滤
-        qs = self.get_case_queryset().filter(id__in=case_ids)
+        qs = CaseQuerySetManager.with_standard_prefetch().filter(id__in=case_ids)  # type: ignore[assignment]
 
         # 权限控制
         if perm_open_access:
-            return qs
+            return qs  # type: ignore[return-value]
 
         if user and getattr(user, "is_authenticated", False):
             if getattr(user, "is_admin", False):
-                return qs
+                return qs  # type: ignore[return-value]
 
             if org_access:
                 lawyers = org_access.get("lawyers", set())
@@ -200,7 +183,7 @@ class CaseService:
 
                 qs = qs.filter(Q(assignments__lawyer_id__in=list(lawyers)) | Q(id__in=list(extra_cases))).distinct()
 
-        return qs
+        return qs  # type: ignore[return-value]
 
     def search_cases(
         self,
@@ -234,7 +217,7 @@ class CaseService:
         query = query.strip()
 
         # 获取基础查询集
-        qs = self.get_case_queryset()
+        qs = CaseQuerySetManager.with_standard_prefetch()
 
         # 构建搜索条件
         search_conditions = Q()
@@ -258,19 +241,17 @@ class CaseService:
         qs = qs.filter(search_conditions).distinct()
 
         # 权限控制
-        if not perm_open_access:
-            if user and getattr(user, "is_authenticated", False):
-                if getattr(user, "is_admin", False):
-                    # 管理员可以访问所有案件
-                    pass
-                elif org_access:
+        ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        if not self.has_open_access(ctx):
+            if not (user and getattr(user, "is_authenticated", False)):
+                return []
+            if not self.is_admin(ctx):
+                if org_access:
                     lawyers = org_access.get("lawyers", set())
                     extra_cases = org_access.get("extra_cases", set())
                     qs = qs.filter(Q(assignments__lawyer_id__in=list(lawyers)) | Q(id__in=list(extra_cases))).distinct()
                 else:
                     return []
-            else:
-                return []
 
         # 限制结果数量
         return list(qs[:limit])
@@ -282,7 +263,7 @@ class CaseService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> "QuerySet[Case, Case]":
+    ) -> QuerySet[Case, Case]:
         """
         获取案件列表（优化查询）
 
@@ -302,7 +283,7 @@ class CaseService:
             案件查询集
         """
         # 使用优化的查询集
-        qs = self.get_case_queryset().order_by("-id")
+        qs = CaseQuerySetManager.with_standard_prefetch().order_by("-id")  # type: ignore[assignment]
 
         # 应用过滤条件
         if case_type:
@@ -311,23 +292,16 @@ class CaseService:
             qs = qs.filter(contract__status=status)
 
         # 权限控制
-        if perm_open_access:
-            return qs
+        ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        if self.has_open_access(ctx) or self.is_admin(ctx):
+            return qs  # type: ignore[return-value]
 
-        if user and getattr(user, "is_authenticated", False):
-            if getattr(user, "is_admin", False):
-                return qs
+        if user and getattr(user, "is_authenticated", False) and org_access:
+            lawyers = org_access.get("lawyers", set())
+            extra_cases = org_access.get("extra_cases", set())
+            qs = qs.filter(Q(assignments__lawyer_id__in=list(lawyers)) | Q(id__in=list(extra_cases))).distinct()
 
-            if org_access:
-                lawyers = org_access.get("lawyers", set())
-                extra_cases = org_access.get("extra_cases", set())
-
-                # 使用 distinct() 避免重复记录
-                qs = qs.filter(Q(assignments__lawyer_id__in=list(lawyers))).distinct() | Case.objects.filter(
-                    id__in=list(extra_cases)
-                )
-
-        return qs
+        return qs  # type: ignore[return-value]
 
     def get_case(
         self,
@@ -358,22 +332,18 @@ class CaseService:
         """
         try:
             # 使用优化的查询集
-            case = self.get_case_queryset().get(id=case_id)
+            case = CaseQuerySetManager.with_standard_prefetch().get(id=case_id)
         except Case.DoesNotExist:
             raise NotFoundError(f"案件 {case_id} 不存在")
 
         # 权限检查
-        if perm_open_access:
-            return case
-
-        if user and getattr(user, "is_authenticated", False):
-            if getattr(user, "is_admin", False):
-                return case
-
-            if self.check_case_access(case, user, org_access):
-                return case
-
-        raise ForbiddenError("无权限访问此案件")
+        ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        self.check_resource_access(
+            ctx,
+            resource_check=lambda c: self.check_case_access(case, c.user, c.org_access),
+            error_message="无权限访问此案件",
+        )
+        return case
 
     def check_case_access(
         self,
