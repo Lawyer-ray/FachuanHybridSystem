@@ -11,7 +11,7 @@ Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
 """
 
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -90,7 +90,7 @@ class PromptManager:
         return cls._templates[name]
 
     @classmethod
-    def render(cls, name: str, **variables) -> str:  # type: ignore[no-untyped-def]
+    def render(cls, name: str, **variables: Any) -> str:
         """
         渲染 Prompt 模板
 

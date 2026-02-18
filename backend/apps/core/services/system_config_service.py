@@ -25,7 +25,7 @@ _DEFAULT_CACHE_TIMEOUT_SECONDS = 300
 class SystemConfigService:
     """系统配置服务"""
 
-    def __init__(self, *, model=SystemConfig, cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, model: type[Any] = SystemConfig, cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS) -> None:
         self._model = model
         self._cache_timeout = cache_timeout
 

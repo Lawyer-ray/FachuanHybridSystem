@@ -155,14 +155,14 @@ class CaseFolderBindingService(FolderBindingCrudService):
             )
         return case
 
-    def _require_owner(  # type: ignore[no-untyped-def]
+    def _require_owner(
         self,
         *,
         owner_id: int,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> Case:
         return self._require_case_access(
             case_id=owner_id,
