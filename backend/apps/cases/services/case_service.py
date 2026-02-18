@@ -726,7 +726,7 @@ class CaseServiceAdapter:
             案件 DTO，不存在时返回 None
         """
         try:
-            case = Case.objects.select_related("contract").get(id=case_id)
+            case = CaseQuerySetManager.with_standard_prefetch().get(id=case_id)
             return self._to_dto(case)
         except Case.DoesNotExist:
             return None
@@ -741,7 +741,7 @@ class CaseServiceAdapter:
         Returns:
             案件 DTO 列表
         """
-        cases = Case.objects.filter(contract_id=contract_id).select_related("contract")
+        cases = CaseQuerySetManager.with_standard_prefetch().filter(contract_id=contract_id)
         return [self._to_dto(case) for case in cases]
 
     def check_case_access(self, case_id: int, user_id: int) -> bool:
@@ -772,7 +772,7 @@ class CaseServiceAdapter:
         Returns:
             案件 DTO 列表
         """
-        cases = Case.objects.filter(id__in=case_ids).select_related("contract")
+        cases = CaseQuerySetManager.with_standard_prefetch().filter(id__in=case_ids)
         return [self._to_dto(case) for case in cases]
 
     def validate_case_active(self, case_id: int) -> bool:
@@ -969,7 +969,7 @@ class CaseServiceAdapter:
             案件 DTO，不存在时返回 None
         """
         try:
-            case = Case.objects.select_related("contract").get(id=case_id)
+            case = CaseQuerySetManager.with_standard_prefetch().get(id=case_id)
             return self._to_dto(case)
         except Case.DoesNotExist:
             return None
@@ -994,7 +994,7 @@ class CaseServiceAdapter:
             query |= Q(parties__client__name__icontains=name)
 
         # 获取案件查询集
-        qs = Case.objects.select_related("contract").prefetch_related("parties__client").filter(query).distinct()
+        qs = CaseQuerySetManager.with_standard_prefetch().filter(query).distinct()
 
         # 应用状态过滤
         if status:
@@ -1073,7 +1073,7 @@ class CaseServiceAdapter:
             return []
 
         # 获取案件
-        cases = Case.objects.select_related("contract").filter(id__in=case_ids)
+        cases = CaseQuerySetManager.with_standard_prefetch().filter(id__in=case_ids)
         return [self._to_dto(case) for case in cases]
 
     def create_case_log_internal(self, case_id: int, content: str, user_id: int | None = None) -> int:
