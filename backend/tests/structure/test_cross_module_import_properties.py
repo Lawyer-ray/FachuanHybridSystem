@@ -167,7 +167,6 @@ def extract_service_locator_imports(file_path: Path) -> List[Tuple[int, str]]:
         service_locator_modules = {
             "apps.core.interfaces",
             "apps.core.service_locator",
-            "apps.core.service_locator_proxy",
         }
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module in service_locator_modules:

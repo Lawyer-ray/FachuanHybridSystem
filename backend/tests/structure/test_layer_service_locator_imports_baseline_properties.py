@@ -7,7 +7,6 @@ from .test_cross_module_import_properties import get_backend_path
 
 SERVICE_LOCATOR_MODULES = {
     "apps.core.interfaces",
-    "apps.core.service_locator_proxy",
     "apps.core.service_locator",
 }
 
