@@ -1,7 +1,12 @@
 """Module for cases."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.cases.models import Case, CaseParty, CaseTemplateBinding
 
 
 @dataclass
@@ -13,28 +18,26 @@ class CaseDTO:
     status: str = "active"
     case_type: str | None = None
     cause_of_action: str | None = None
-    target_amount: Any | None = None
+    target_amount: str | None = None
     is_archived: bool = False
     start_date: str | None = None
     effective_date: str | None = None
     case_number: str | None = None
 
     @classmethod
-    def from_model(cls, case: Any) -> "CaseDTO":
+    def from_model(cls, case: Case) -> CaseDTO:
         return cls(
             id=case.id,
             name=case.name,
             current_stage=case.current_stage,
             contract_id=case.contract_id,
-            status=case.status if hasattr(case, "status") else "active",
-            case_type=case.case_type if hasattr(case, "case_type") else None,
-            cause_of_action=case.cause_of_action if hasattr(case, "cause_of_action") else None,
-            target_amount=case.target_amount if hasattr(case, "target_amount") else None,
-            is_archived=case.is_archived if hasattr(case, "is_archived") else False,
-            start_date=str(case.start_date) if hasattr(case, "start_date") and case.start_date else None,
-            effective_date=(
-                str(case.effective_date) if hasattr(case, "effective_date") and case.effective_date else None
-            ),
+            status=case.status,
+            case_type=case.case_type,
+            cause_of_action=case.cause_of_action,
+            target_amount=str(case.target_amount) if case.target_amount is not None else None,
+            is_archived=case.is_archived,
+            start_date=str(case.start_date) if case.start_date else None,
+            effective_date=str(case.effective_date) if case.effective_date else None,
         )
 
 
@@ -58,14 +61,14 @@ class CaseTemplateBindingDTO:
     created_at: str | None = None
 
     @classmethod
-    def from_model(cls, binding: Any) -> "CaseTemplateBindingDTO":
+    def from_model(cls, binding: CaseTemplateBinding) -> CaseTemplateBindingDTO:
         return cls(
             id=binding.id,
             case_id=binding.case_id,
             template_id=binding.template_id,
             template_name=binding.template.name if binding.template else "",
             template_function_code=binding.template.function_code if binding.template else None,
-            binding_source=binding.binding_source if hasattr(binding, "binding_source") else "manual",
+            binding_source=binding.binding_source,
             created_at=str(binding.created_at) if binding.created_at else None,
         )
 
@@ -85,7 +88,7 @@ class CasePartyDTO:
     is_our_client: bool = False
 
     @classmethod
-    def from_model(cls, party: Any) -> "CasePartyDTO":
+    def from_model(cls, party: CaseParty) -> CasePartyDTO:
         client = party.client
         return cls(
             id=party.id,
@@ -93,10 +96,10 @@ class CasePartyDTO:
             client_id=party.client_id,
             client_name=client.name if client else "",
             client_type=client.client_type if client else "natural",
-            legal_status=party.legal_status,
+            legal_status=party.legal_status or "",
             id_number=client.id_number if client else None,
             address=client.address if client else None,
             phone=client.phone if client else None,
             legal_representative=client.legal_representative if client else None,
-            is_our_client=party.is_our_client if hasattr(party, "is_our_client") else False,
+            is_our_client=client.is_our_client if client else False,
         )

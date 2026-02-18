@@ -370,6 +370,7 @@ class CaseTemplateBinding(models.Model):
     case_id: int
     case: Case
     template_id: int
+    template: Any
     binding_source: str
     created_at: datetime
 
