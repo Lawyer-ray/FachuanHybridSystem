@@ -3,10 +3,14 @@
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, cast
 
 from ninja import Router
+
+from apps.core.request_context import extract_request_context
 
 from ..schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
 from ..services.caselog_service import CaseLogService
@@ -23,12 +27,10 @@ def _parse_reminder_time(rt: str | None) -> datetime | None:
     """解析提醒时间字符串"""
     if not rt:
         return None
-    # 尝试 ISO 格式
     try:
         return datetime.fromisoformat(rt)
     except (ValueError, TypeError):
         pass
-    # 尝试标准格式
     try:
         return datetime.strptime(rt, "%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
@@ -39,17 +41,15 @@ def _parse_reminder_time(rt: str | None) -> datetime | None:
 def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
     """获取日志列表"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return cast(
         list[CaseLogOut],
         service.list_logs(
             case_id=case_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -58,7 +58,7 @@ def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
 def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
     """创建日志"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
+    ctx = extract_request_context(request)
 
     reminder_time = _parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
 
@@ -67,7 +67,7 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
         service.create_log(
             case_id=payload.case_id,
             content=payload.content,
-            user=user,
+            user=ctx.user,
             reminder_type=payload.reminder_type,  # type: ignore[attr-defined]
             reminder_time=reminder_time,
         ),
@@ -78,17 +78,15 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
 def get_log(request: Any, log_id: int) -> CaseLogOut:
     """获取单个日志"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return cast(
         CaseLogOut,
         service.get_log(
             log_id=log_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -97,14 +95,10 @@ def get_log(request: Any, log_id: int) -> CaseLogOut:
 def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     """更新日志"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
-    # 构建更新数据
     data = payload.dict(exclude_unset=True)
 
-    # 解析提醒时间
     if "reminder_time" in data and isinstance(data["reminder_time"], str):
         data["reminder_time"] = _parse_reminder_time(data["reminder_time"])
 
@@ -113,9 +107,9 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
         service.update_log(
             log_id=log_id,
             data=data,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -124,15 +118,13 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
 def delete_log(request: Any, log_id: int) -> Any:
     """删除日志"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     return service.delete_log(
         log_id=log_id,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
@@ -140,16 +132,14 @@ def delete_log(request: Any, log_id: int) -> Any:
 def upload_log_attachments(request: Any, log_id: int) -> Any:
     """上传日志附件"""
     service = _get_caselog_service()
-    user = getattr(request, "user", None)
-    org_access = getattr(request, "org_access", None)
-    perm_open_access = getattr(request, "perm_open_access", False)
+    ctx = extract_request_context(request)
 
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
 
     return service.upload_attachments(
         log_id=log_id,
         files=files,
-        user=user,
-        org_access=org_access,
-        perm_open_access=perm_open_access,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
