@@ -2,9 +2,15 @@
 业务配置模块
 将硬编码的业务逻辑配置化，支持动态调整
 """
-from typing import Dict, List, Tuple, Optional
+
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+from apps.core.cache_service import cached, invalidate_cache
+from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
 
 
 @dataclass
@@ -110,6 +116,7 @@ class BusinessConfig:
         self._stage_map: Dict[str, StageConfig] = {s.value: s for s in CASE_STAGES}
         self._status_map: Dict[str, LegalStatusConfig] = {s.value: s for s in LEGAL_STATUSES}
 
+    @cached(CacheKeys.CASE_STAGES_CONFIG + ":{case_type}", timeout=CacheTimeout.LONG)
     def get_stages_for_case_type(self, case_type: Optional[str]) -> List[Tuple[str, str]]:
         """
         获取指定案件类型可用的阶段列表
@@ -126,6 +133,7 @@ class BusinessConfig:
                 result.append((stage.value, stage.label))
         return result
 
+    @cached(CacheKeys.LEGAL_STATUS_CONFIG + ":{case_type}", timeout=CacheTimeout.LONG)
     def get_legal_statuses_for_case_type(self, case_type: Optional[str]) -> List[Tuple[str, str]]:
         """
         获取指定案件类型可用的诉讼地位列表
