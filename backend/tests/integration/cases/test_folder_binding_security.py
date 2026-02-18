@@ -17,7 +17,7 @@ class TestCaseFolderBindingSecurity:
             lambda *args, **kwargs: SimpleNamespace(folder_path=str(tmp_path)),
         )
         monkeypatch.setattr(service, "_get_case_internal", lambda case_id: SimpleNamespace(case_type="civil"))
-        monkeypatch.setattr(service, "_get_subdir_path_from_template_binding", lambda *args, **kwargs: "案件文书")
+        monkeypatch.setattr(service, "_resolve_subdir_path", lambda *args, **kwargs: "案件文书")
 
         with pytest.raises(ValidationException):
             service.save_file_to_bound_folder(
@@ -36,7 +36,7 @@ class TestCaseFolderBindingSecurity:
             lambda *args, **kwargs: SimpleNamespace(folder_path=str(tmp_path)),
         )
         monkeypatch.setattr(service, "_get_case_internal", lambda case_id: SimpleNamespace(case_type="civil"))
-        monkeypatch.setattr(service, "_get_subdir_path_from_template_binding", lambda *args, **kwargs: "../escape")
+        monkeypatch.setattr(service, "_resolve_subdir_path", lambda *args, **kwargs: "../escape")
 
         with pytest.raises(ValidationException):
             service.save_file_to_bound_folder(
