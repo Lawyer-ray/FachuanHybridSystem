@@ -110,12 +110,11 @@ class CacheKeys:
     SYSTEM_CONFIG = "system_config:{key}"
 
     # 法院系统 Token 相关
-    COURT_TOKEN = "court_token:{site_name}:{account}"  # 法院系统 Token
-
+    COURT_TOKEN = "court_token:{site_name}:{account}"  # 法院系统 Token  # noqa: S105
     # 自动化 Token 性能监控
-    AUTOMATION_TOKEN_PERF_ACQUISITION = "automation:token:perf:acquisition:{acquisition_id}"
-    AUTOMATION_TOKEN_PERF_CONCURRENT = "automation:token:perf:concurrent:{site_name}"
-    AUTOMATION_TOKEN_PERF_COUNTER = "automation:token:perf:counter:{date}:{site_name}:{metric}"
+    AUTOMATION_TOKEN_PERF_ACQUISITION = "automation:token:perf:acquisition:{acquisition_id}"  # noqa: S105
+    AUTOMATION_TOKEN_PERF_CONCURRENT = "automation:token:perf:concurrent:{site_name}"  # noqa: S105
+    AUTOMATION_TOKEN_PERF_COUNTER = "automation:token:perf:counter:{date}:{site_name}:{metric}"  # noqa: S105
 
     # Prompt 相关
     PROMPT_TEMPLATE = "prompt_template:{name}"

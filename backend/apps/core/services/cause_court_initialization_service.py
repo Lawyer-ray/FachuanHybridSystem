@@ -99,7 +99,7 @@ class CauseCourtInitializationService:
     # 法院系统站点名称(用于登录和案由 API)
     COURT_SITE_NAME = "court_zxfw"
     BAOQUAN_SITE_NAME = "court_baoquan"
-    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
+    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"  # noqa: S105
 
     def __init__(
         self,

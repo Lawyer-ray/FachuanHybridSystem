@@ -3,7 +3,7 @@
 
 class CourtZxfwSelectors:
     PASSWORD_LOGIN_TAB_XPATH = (
-        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"  # noqa: S105
         "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
         "/uni-view[1]/uni-view[2]/uni-view[2]"
     )
@@ -14,7 +14,7 @@ class CourtZxfwSelectors:
         "/uni-input/div/input"
     )
     PASSWORD_INPUT_XPATH = (
-        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"  # noqa: S105
         "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
         "/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view"
         "/uni-input/div/input"

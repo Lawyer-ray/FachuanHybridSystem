@@ -226,7 +226,7 @@ class CourtZxfwService:
 
             # 2. 点击"密码登录"
             logger.info("点击'密码登录'")
-            password_login_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[2]/uni-view[2]"
+            password_login_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[2]/uni-view[2]"  # noqa: S105
 
             try:
                 password_tab = self.page.locator(f"xpath={password_login_xpath}")
@@ -250,7 +250,7 @@ class CourtZxfwService:
 
             # 4. 输入密码
             logger.info("输入密码")
-            password_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"
+            password_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"  # noqa: S105
 
             password_input = self.page.locator(f"xpath={password_xpath}")
             password_input.wait_for(state="visible", timeout=10000)
