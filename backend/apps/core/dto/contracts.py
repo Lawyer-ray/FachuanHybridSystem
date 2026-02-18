@@ -1,7 +1,12 @@
 """Module for contracts."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from apps.contracts.models import Contract, SupplementaryAgreement
 
 
 @dataclass
@@ -21,25 +26,26 @@ class ContractDTO:
     end_date: str | None = None
 
     @classmethod
-    def from_model(cls, contract: Any) -> "ContractDTO":
-        primary_lawyer = contract.primary_lawyer if hasattr(contract, "primary_lawyer") else None
+    def from_model(cls, contract: Contract) -> ContractDTO:
+        primary_lawyer = contract.primary_lawyer
+
+        stages = contract.representation_stages
+        representation_stages: list[str] = stages if isinstance(stages, list) else []
 
         return cls(
             id=contract.id,
             name=contract.name,
             case_type=contract.case_type,
             status=contract.status,
-            representation_stages=contract.representation_stages or [],
-            primary_lawyer_id=primary_lawyer.id if primary_lawyer else None,
-            primary_lawyer_name=(
-                primary_lawyer.real_name if primary_lawyer and hasattr(primary_lawyer, "real_name") else None
-            ),
-            fee_mode=contract.fee_mode if hasattr(contract, "fee_mode") else None,
-            fixed_amount=contract.fixed_amount if hasattr(contract, "fixed_amount") else None,
-            risk_rate=contract.risk_rate if hasattr(contract, "risk_rate") else None,
-            is_archived=contract.is_archived if hasattr(contract, "is_archived") else False,
-            start_date=str(contract.start_date) if hasattr(contract, "start_date") and contract.start_date else None,
-            end_date=str(contract.end_date) if hasattr(contract, "end_date") and contract.end_date else None,
+            representation_stages=representation_stages,
+            primary_lawyer_id=primary_lawyer.id if primary_lawyer else None,  # type: ignore[attr-defined]
+            primary_lawyer_name=primary_lawyer.real_name if primary_lawyer else None,
+            fee_mode=contract.fee_mode,
+            fixed_amount=contract.fixed_amount,
+            risk_rate=contract.risk_rate,
+            is_archived=contract.is_archived,
+            start_date=str(contract.start_date) if contract.start_date else None,
+            end_date=str(contract.end_date) if contract.end_date else None,
         )
 
 
@@ -64,13 +70,13 @@ class SupplementaryAgreementDTO:
     created_at: str | None = None
 
     @classmethod
-    def from_model(cls, agreement: Any) -> "SupplementaryAgreementDTO":
+    def from_model(cls, agreement: SupplementaryAgreement) -> SupplementaryAgreementDTO:
         return cls(
             id=agreement.id,
-            contract_id=agreement.contract_id,
-            title=agreement.title,
-            content=agreement.content if hasattr(agreement, "content") else None,
-            signed_date=str(agreement.signed_date) if agreement.signed_date else None,
-            file_path=agreement.file.url if hasattr(agreement, "file") and agreement.file else None,
+            contract_id=agreement.contract_id,  # type: ignore[attr-defined]
+            title=agreement.name or "",
+            content=None,
+            signed_date=None,
+            file_path=None,
             created_at=str(agreement.created_at) if agreement.created_at else None,
         )
