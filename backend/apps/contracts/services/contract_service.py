@@ -3,9 +3,11 @@
 处理合同相关的业务逻辑
 """
 
+from __future__ import annotations
+
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -13,6 +15,8 @@ from django.db.models import QuerySet
 from apps.core import business_config
 from apps.core.business_config import BusinessConfig
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.core.permissions import AccessContext, PermissionMixin
+from apps.core.querysets import ContractQuerySetManager
 
 from ..models import Contract, ContractAssignment, ContractParty, FeeMode
 
@@ -29,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.contracts")
 
 
-class ContractService:
+class ContractService(PermissionMixin):
     """
     合同服务
 
@@ -44,10 +48,10 @@ class ContractService:
     def __init__(
         self,
         config: BusinessConfig | None = None,
-        case_service: Optional["ICaseService"] = None,
-        lawyer_assignment_service: Optional["LawyerAssignmentService"] = None,
-        payment_service: Optional["ContractPaymentService"] = None,
-        supplementary_agreement_service: Optional["SupplementaryAgreementService"] = None,
+        case_service: ICaseService | None = None,
+        lawyer_assignment_service: LawyerAssignmentService | None = None,
+        payment_service: ContractPaymentService | None = None,
+        supplementary_agreement_service: SupplementaryAgreementService | None = None,
     ):
         """
         初始化服务（依赖注入）
@@ -66,7 +70,7 @@ class ContractService:
         self._supplementary_agreement_service = supplementary_agreement_service
 
     @property
-    def case_service(self) -> "ICaseService":
+    def case_service(self) -> ICaseService:
         """
         延迟获取案件服务
 
@@ -80,7 +84,7 @@ class ContractService:
         return self._case_service
 
     @property
-    def lawyer_assignment_service(self) -> "LawyerAssignmentService":
+    def lawyer_assignment_service(self) -> LawyerAssignmentService:
         """
         延迟获取律师指派服务
 
@@ -99,7 +103,7 @@ class ContractService:
         return self._lawyer_assignment_service
 
     @property
-    def payment_service(self) -> "ContractPaymentService":
+    def payment_service(self) -> ContractPaymentService:
         """
         延迟获取收款服务
 
@@ -113,7 +117,7 @@ class ContractService:
         return self._payment_service
 
     @property
-    def supplementary_agreement_service(self) -> "SupplementaryAgreementService":
+    def supplementary_agreement_service(self) -> SupplementaryAgreementService:
         """
         延迟获取补充协议服务
 
@@ -130,25 +134,9 @@ class ContractService:
             )
         return self._supplementary_agreement_service
 
-    def get_contract_queryset(self) -> "QuerySet[Contract, Contract]":
-        """
-        获取带预加载的合同查询集
-
-        优化点：
-        1. 使用 select_related 预加载外键关系
-        2. 使用 prefetch_related 预加载多对多和反向外键关系
-
-        Returns:
-            优化后的合同查询集
-        """
-        return Contract.objects.prefetch_related(
-            "cases",
-            "contract_parties__client",
-            "payments",
-            "reminders",
-            "assignments__lawyer",
-            "assignments__lawyer__law_firm",
-        )
+    def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
+        """获取带预加载的合同查询集（委托给 ContractQuerySetManager）。"""
+        return ContractQuerySetManager.with_standard_prefetch()  # type: ignore[return-value]
 
     def list_contracts(
         self,
@@ -158,7 +146,7 @@ class ContractService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> "QuerySet[Contract, Contract]":
+    ) -> QuerySet[Contract, Contract]:
         """
         获取合同列表（包含权限过滤）
 
@@ -184,22 +172,19 @@ class ContractService:
             qs = qs.filter(is_archived=is_archived)
 
         # 权限过滤逻辑
-        if perm_open_access:
+        ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        if self.has_open_access(ctx) or self.is_admin(ctx):
             return qs
 
-        if user and getattr(user, "is_authenticated", False):
-            if getattr(user, "is_admin", False):
-                return qs
+        if user and getattr(user, "is_authenticated", False) and org_access:
+            from django.db.models import Q
 
-            if org_access:
-                from django.db.models import Q
-
-                user_id = getattr(user, "id", None)
-                qs = qs.filter(
-                    Q(assignments__lawyer_id__in=list(org_access["lawyers"]))
-                    | Q(assignments__lawyer_id=user_id)
-                    | Q(cases__assignments__lawyer_id=user_id)
-                ).distinct()
+            user_id = getattr(user, "id", None)
+            qs = qs.filter(
+                Q(assignments__lawyer_id__in=list(org_access["lawyers"]))
+                | Q(assignments__lawyer_id=user_id)
+                | Q(cases__assignments__lawyer_id=user_id)
+            ).distinct()
 
         return qs
 
@@ -246,34 +231,14 @@ class ContractService:
         """
         contract = self._get_contract_internal(contract_id)
 
-        # 权限检查逻辑
-        if perm_open_access:
-            return contract
-
-        if user and getattr(user, "is_authenticated", False):
-            if getattr(user, "is_admin", False):
-                return contract
-
-            # 团队成员可见，或被明确指派到合同/合同关联的案件
-            user_id = getattr(user, "id", None)
-            has_access = False
-
-            if org_access:
-                # 检查是否指派给该律师（通过 ContractAssignment）
-                has_access = (
-                    contract.assignments.filter(  # type: ignore[attr-defined]
-                        lawyer_id__in=org_access.get("lawyers", set())
-                    ).exists()
-                    or contract.assignments.filter(lawyer_id=user_id).exists()  # type: ignore[attr-defined]
-                )
-
-                if not has_access:
-                    has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined]
-
-            if has_access:
-                return contract
-
-        raise PermissionDenied("无权限访问该合同")
+        # 权限检查
+        ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        self.check_resource_access(
+            ctx,
+            resource_check=lambda c: self._check_contract_access(contract, c.user, c.org_access),
+            error_message="无权限访问该合同",
+        )
+        return contract
 
     @transaction.atomic
     def create_contract(self, data: dict[str, Any]) -> Contract:
@@ -692,7 +657,7 @@ class ContractService:
         payments_data: list[dict[str, Any]],
         user: Any = None,
         confirm: bool = True,
-    ) -> list["ContractPayment"]:
+    ) -> list[ContractPayment]:
         """
         添加合同收款记录（委托给 ContractPaymentService）
 
@@ -836,6 +801,32 @@ class ContractService:
 
         return stages
 
+    def _check_contract_access(
+        self,
+        contract: Contract,
+        user: Any,
+        org_access: dict[str, Any] | None,
+    ) -> bool:
+        """检查用户是否有权访问合同。"""
+        if getattr(user, "is_admin", False):
+            return True
+
+        if not org_access:
+            return False
+
+        user_id = getattr(user, "id", None)
+        has_access = (
+            contract.assignments.filter(  # type: ignore[attr-defined]
+                lawyer_id__in=org_access.get("lawyers", set())
+            ).exists()
+            or contract.assignments.filter(lawyer_id=user_id).exists()
+        )  # type: ignore[attr-defined]
+
+        if not has_access:
+            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined]
+
+        return has_access
+
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         """
         获取合同及其补充协议的所有当事人
@@ -899,7 +890,7 @@ class ContractServiceAdapter:
     def __init__(
         self,
         contract_service: ContractService | None = None,
-        case_service: Optional["ICaseService"] = None,
+        case_service: ICaseService | None = None,
     ):
         """
         初始化适配器
@@ -913,7 +904,7 @@ class ContractServiceAdapter:
         else:
             self.contract_service = ContractService(case_service=case_service)
 
-    def _to_dto(self, contract: Contract) -> "ContractDTO":
+    def _to_dto(self, contract: Contract) -> ContractDTO:
         """
         将 Model 转换为 DTO
 
@@ -927,7 +918,7 @@ class ContractServiceAdapter:
 
         return ContractDTO.from_model(contract)
 
-    def get_contract(self, contract_id: int) -> "ContractDTO | None":
+    def get_contract(self, contract_id: int) -> ContractDTO | None:
         """
         获取合同信息
 
@@ -975,7 +966,7 @@ class ContractServiceAdapter:
         except NotFoundError:
             return False
 
-    def get_contracts_by_ids(self, contract_ids: list[int]) -> list["ContractDTO"]:
+    def get_contracts_by_ids(self, contract_ids: list[int]) -> list[ContractDTO]:
         """
         批量获取合同信息
 
@@ -1005,7 +996,7 @@ class ContractServiceAdapter:
         except NotFoundError:
             return None
 
-    def get_contract_lawyers(self, contract_id: int) -> list["LawyerDTO"]:
+    def get_contract_lawyers(self, contract_id: int) -> list[LawyerDTO]:
         """
         获取合同的所有律师
 
