@@ -46,14 +46,14 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
         return instance
 
 
-class PropertyClueAttachmentInline(admin.TabularInline):  # type: ignore[type-arg]
+class PropertyClueAttachmentInline(admin.TabularInline):
     """财产线索附件内联编辑"""
 
     model = PropertyClueAttachment
     form = PropertyClueAttachmentInlineForm
     extra = 1
-    fields: ClassVar = ("file_upload", "file_name", "file_link", "uploaded_at")
-    readonly_fields: ClassVar = ("file_link", "uploaded_at")
+    fields = ("file_upload", "file_name", "file_link", "uploaded_at")
+    readonly_fields = ("file_link", "uploaded_at")
 
     def file_link(self, obj: PropertyClueAttachment) -> str:
         """显示文件链接"""
@@ -70,7 +70,7 @@ class PropertyClueAttachmentInline(admin.TabularInline):  # type: ignore[type-ar
 class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
     """财产线索管理"""
 
-    list_display: ClassVar = (
+    list_display = (
         "id",
         "client",
         "clue_type_display",
@@ -79,12 +79,12 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
         "created_at",
         "updated_at",
     )
-    list_filter: ClassVar = ("clue_type", "created_at")
-    search_fields: ClassVar = ("client__name", "content")
-    readonly_fields: ClassVar = ("created_at", "updated_at")
+    list_filter = ("clue_type", "created_at")
+    search_fields = ("client__name", "content")
+    readonly_fields = ("created_at", "updated_at")
     inlines: ClassVar = [PropertyClueAttachmentInline]
 
-    fieldsets: ClassVar = (
+    fieldsets = (
         ("基本信息", {"fields": ("client", "clue_type", "content")}),
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )

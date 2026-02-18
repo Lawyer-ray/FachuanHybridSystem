@@ -75,7 +75,7 @@ class SupplementaryAgreementInline(BaseStackedInline):
 
 # 如果支持嵌套 Admin，添加当事人内联到补充协议
 if BaseModelAdmin is not admin.ModelAdmin:
-    SupplementaryAgreementInline.inlines = [SupplementaryAgreementPartyInline]
+    SupplementaryAgreementInline.inlines = [SupplementaryAgreementPartyInline]  # type: ignore[attr-defined]
 
 
 @admin.register(Contract)
@@ -103,8 +103,8 @@ class ContractAdmin(BaseModelAdmin):
                 getattr(self.instance, "representation_stages", []) or []
             )
 
-        def clean(self) -> Any:
-            cleaned = super().clean()
+        def clean(self) -> dict[str, Any]:
+            cleaned = super().clean() or {}
             try:
                 from apps.cases.validators import normalize_stages
 

@@ -65,7 +65,7 @@ class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
         """显示平台（带图标）"""
         platform_icons = {"feishu": "🚀", "dingtalk": "📱", "wechat_work": "💬", "telegram": "✈️", "slack": "💼"}
         icon = platform_icons.get(obj.platform, "📢")
-        display = obj.get_platform_display()  # type: ignore[attr-defined]
+        display = obj.get_platform_display()
         return f"{icon} {display}"
 
     platform_display.short_description = _("平台")  # type: ignore[attr-defined]
@@ -151,7 +151,7 @@ class CaseChatInline(BaseTabularInline):
 
         platform_icons = {"feishu": "🚀", "dingtalk": "📱", "wechat_work": "💬", "telegram": "✈️", "slack": "💼"}
         icon = platform_icons.get(obj.platform, "📢")
-        display = obj.get_platform_display()  # type: ignore[attr-defined]
+        display = obj.get_platform_display()
         return f"{icon} {display}"
 
     platform_display.short_description = _("平台")  # type: ignore[attr-defined]

@@ -27,17 +27,17 @@ class SupplementaryAgreementPartyInline(admin.TabularInline):
 class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):
     """补充协议 Admin"""
 
-    list_display: ClassVar = [
+    list_display = (
         "id",
         "name",
         "contract",
         "party_count",
         "created_at",
         "updated_at",
-    ]
-    list_filter: ClassVar = ["created_at", "updated_at"]
-    search_fields: ClassVar = ["name", "contract__name"]
-    readonly_fields: ClassVar = ["created_at", "updated_at"]
+    )
+    list_filter = ("created_at", "updated_at")
+    search_fields = ("name", "contract__name")
+    readonly_fields = ("created_at", "updated_at")
     autocomplete_fields: ClassVar = ["contract"]
 
     inlines: ClassVar = [SupplementaryAgreementPartyInline]
@@ -55,7 +55,7 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):
 
     def party_count(self, obj: SupplementaryAgreement) -> int:
         """当事人数量"""
-        return obj.parties.count()  # type: ignore[attr-defined]
+        return obj.parties.count()
 
     party_count.short_description = "当事人数量"  # type: ignore[attr-defined]
 

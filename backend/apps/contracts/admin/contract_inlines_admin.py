@@ -4,19 +4,25 @@ Contract Admin - Inline Classes
 合同 Admin 的 Inline 类定义.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
+
 from django.apps import apps as django_apps
 from django.contrib import admin
 
-try:
-    import nested_admin
-
-    BaseStackedInline = nested_admin.NestedStackedInline
-    BaseTabularInline = nested_admin.NestedTabularInline
-except ImportError:
+if TYPE_CHECKING:
     BaseStackedInline = admin.StackedInline
     BaseTabularInline = admin.TabularInline
+else:
+    try:
+        import nested_admin
 
-from typing import Any, ClassVar
+        BaseStackedInline = nested_admin.NestedStackedInline
+        BaseTabularInline = nested_admin.NestedTabularInline
+    except ImportError:
+        BaseStackedInline = admin.StackedInline
+        BaseTabularInline = admin.TabularInline
 
 from apps.contracts.models import ContractAssignment, ContractParty, SupplementaryAgreement, SupplementaryAgreementParty
 
@@ -25,32 +31,32 @@ Reminder = django_apps.get_model("reminders", "Reminder")
 
 class ContractPartyInline(BaseTabularInline):
     model = ContractParty
-    extra: int = 1
-    fields: tuple[Any, ...] = ("client", "role")
+    extra = 1
+    fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
-    show_change_link: bool = True
+    show_change_link = True
 
 
 class ContractReminderInline(BaseTabularInline):
     model = Reminder
-    extra: int = 1
-    fields: tuple[Any, ...] = ("reminder_type", "content", "due_at")
+    extra = 1
+    fields = ("reminder_type", "content", "due_at")
 
 
 class ContractAssignmentInline(BaseTabularInline):
     model = ContractAssignment
-    extra: int = 1
-    fields: tuple[Any, ...] = ("lawyer", "is_primary", "order")
+    extra = 1
+    fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
-    ordering: tuple[Any, ...] = ("order",)
+    ordering = ("order",)
 
 
 class SupplementaryAgreementPartyInlineAdmin(BaseTabularInline):
     """补充协议当事人内联管理"""
 
     model = SupplementaryAgreementParty
-    extra: int = 1
-    fields: tuple[Any, ...] = ("client", "role")
+    extra = 1
+    fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
 
 
@@ -61,8 +67,8 @@ class SupplementaryAgreementInlineAdmin(BaseStackedInline):
     """
 
     model = SupplementaryAgreement
-    extra: int = 0
-    fields: tuple[Any, ...] = ("name", "created_at", "updated_at")
-    readonly_fields: tuple[Any, ...] = ("created_at", "updated_at")
-    show_change_link: bool = True
+    extra = 0
+    fields = ("name", "created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at")
+    show_change_link = True
     inlines: ClassVar = [SupplementaryAgreementPartyInlineAdmin]

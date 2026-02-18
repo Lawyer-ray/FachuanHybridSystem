@@ -91,11 +91,11 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
 @admin.register(ClientIdentityDoc)
 class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
     form = ClientIdentityDocForm
-    list_display: ClassVar = ("id", "client", "doc_type", "uploaded_at", "file_link")
-    search_fields: ClassVar = ("client__name", "file_path")
-    list_filter: ClassVar = ("doc_type",)
-    actions: ClassVar = ["rename_files"]
-    fields: ClassVar = ("client", "doc_type", "file_upload", "file_path")
+    list_display = ("id", "client", "doc_type", "uploaded_at", "file_link")
+    search_fields = ("client__name", "file_path")
+    list_filter = ("doc_type",)
+    actions = ["rename_files"]  # noqa: RUF012
+    fields = ("client", "doc_type", "file_upload", "file_path")
 
     def file_link(self, obj: ClientIdentityDoc) -> str:
         url = obj.media_url()

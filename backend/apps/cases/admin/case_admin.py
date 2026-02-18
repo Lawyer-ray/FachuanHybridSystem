@@ -183,7 +183,7 @@ class CaseAdmin(BaseModelAdmin):
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
-                    obj.actor_id = user_id  # type: ignore[attr-defined]
+                    obj.actor_id = user_id
             obj.save()
         formset.save_m2m()
         for obj in formset.deleted_objects:
