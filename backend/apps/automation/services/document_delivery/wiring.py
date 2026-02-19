@@ -45,7 +45,6 @@ def build_document_delivery_coordinator(
     case_service = ServiceLocator.get_case_service()
     client_service = ServiceLocator.get_client_service()
     lawyer_service = ServiceLocator.get_lawyer_service()
-    document_processing_service = ServiceLocator.get_document_processing_service()
     case_chat_service = ServiceLocator.get_case_chat_service()
     case_log_service = ServiceLocator.get_caselog_service()
     case_number_service = ServiceLocator.get_case_number_service()

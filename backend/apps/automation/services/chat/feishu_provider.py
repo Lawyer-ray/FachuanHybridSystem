@@ -1126,7 +1126,7 @@ class FeishuChatProvider(ChatProvider):
 
         try:
             # 执行带重试的验证操作
-            result = retry_manager.execute_with_retry(
+            retry_manager.execute_with_retry(
                 operation=verify_operation,
                 operation_name=f"verify_owner_setting_{chat_id}",
                 context={"chat_id": chat_id, "owner_id": owner_id, "max_retries": max_retries},

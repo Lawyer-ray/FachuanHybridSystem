@@ -155,8 +155,6 @@ class GenerationService:
 
         task.folder_template_id = folder_template_id
         task.output_path = output_path
-        generated_files: list[Any] = []
-        error_logs: list[Any] = []
         task.save(update_fields=["metadata"])
         return task
 

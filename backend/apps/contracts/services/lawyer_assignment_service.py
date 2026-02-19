@@ -213,7 +213,7 @@ class LawyerAssignmentService:
         """
         # 验证合同存在
         try:
-            contract = Contract.objects.get(id=contract_id)
+            Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist as e:
             raise NotFoundError(f"合同 {contract_id} 不存在") from e
 

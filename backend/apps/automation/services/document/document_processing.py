@@ -64,8 +64,6 @@ def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:
     Returns:
         图片URL
     """
-    config = get_doc_config()
-
     # 验证页码范围
     if page_num < 0:
         page_num = 0

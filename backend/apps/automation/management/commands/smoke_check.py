@@ -13,7 +13,6 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
@@ -113,7 +112,6 @@ class Command(BaseCommand):
                 raise CommandError(f"Admin 冒烟失败:GET {p} -> {resp.status_code}")
 
     def _check_upload_endpoints(self, client: Client) -> None:
-        file_obj = SimpleUploadedFile("hello.txt", b"hello", content_type="text/plain")
         with patch("apps.core.dependencies.build_auto_namer_service", return_value=_DummyAutoNamerService()):
             resp = client.post("/api/v1/automation/auto-namer/process", data={}, HTTP_HOST="localhost")
         if resp.status_code != 200:
@@ -121,7 +119,6 @@ class Command(BaseCommand):
         payload = resp.json()
         if payload.get("text") != "ok" or payload.get("error") is not None:
             raise CommandError(f"上传冒烟失败:auto-namer 返回异常 {json.dumps(payload, ensure_ascii=False)}")
-        file_obj2 = SimpleUploadedFile("hello2.txt", b"hello2", content_type="text/plain")
         with patch(
             "apps.core.dependencies.build_document_processing_service", return_value=_DummyDocumentProcessorService()
         ):
@@ -162,7 +159,7 @@ class Command(BaseCommand):
                 return_value=None,
             ):
                 communicator = WebsocketCommunicator(
-                    application, f"/ws/litigation/sessions/{session.session_id}/", headers=[]
+                    application, f"/ws/litigation/sessions/{session.session_id}/", headers=[(b"cookie", cookie_header)]
                 )
                 connected2, _ = await communicator.connect()
                 if not connected2:

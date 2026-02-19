@@ -151,14 +151,6 @@ class CourtSMSAdminActions:
             logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
             suggested_cases: list[Any] = []
 
-        recent_cases: list[Any] = []
-        try:
-            all_recent = case_service.search_cases_by_party_internal([])
-            recent_cases = all_recent[:20] if all_recent else []
-        except Exception as e:
-            logger.warning(f"获取最近案件失败: SMS ID={sms_id}, 错误: {e!s}")
-            recent_cases: list[Any] = []
-
         def format_case_for_template(case_dto) -> None:
             """将 CaseDTO 转换为模板可用的格式"""
             try:
@@ -264,7 +256,7 @@ class CourtSMSAdminActions:
 
     def retry_single_sms_view(self, request, sms_id) -> None:
         """单个短信重新处理"""
-        sms = get_object_or_404(CourtSMS, id=sms_id)
+        get_object_or_404(CourtSMS, id=sms_id)
 
         try:
             service = _get_court_sms_service()

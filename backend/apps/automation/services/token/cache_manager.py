@@ -315,7 +315,7 @@ class TokenCacheManager:
             # 预加载账号凭证
             from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
 
-            strategy = AccountSelectionStrategy()
+            AccountSelectionStrategy()
 
             # 这里需要异步调用，但为了简化，我们先跳过实际的预加载
             # 在实际使用中，可以通过后台任务来预热缓存
@@ -329,13 +329,6 @@ class TokenCacheManager:
         """清除所有相关缓存"""
         try:
             # 获取所有相关的缓存键
-            cache_patterns = [
-                f"{self.cache_prefix}:token:*",
-                f"{self.cache_prefix}:credentials:*",
-                f"{self.cache_prefix}:account_stats:*",
-                f"{self.cache_prefix}:blacklist",
-            ]
-
             # 注意：这里简化处理，实际应该使用Redis的SCAN命令
             # 或者维护一个缓存键的注册表
 

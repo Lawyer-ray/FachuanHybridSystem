@@ -251,7 +251,6 @@ class YamlProvider(ConfigProvider):
 
             # 设置默认值和注释
             default_value = field_info.get("default", "")
-            description = field_info.get("description", "")
 
             # 如果是敏感配置，使用环境变量语法
             if field_info.get("sensitive", False):

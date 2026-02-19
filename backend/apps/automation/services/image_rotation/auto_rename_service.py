@@ -92,13 +92,10 @@ class AutoRenameService:
             return ExtractionResult()
 
         # 构建 prompt
-        prompt = EXTRACTION_PROMPT.format(ocr_text=ocr_text)
-
-        # 调用 Ollama
+        messages: list[Any] = []
         try:
             from apps.automation.services.wiring import get_llm_service
 
-            messages: list[Any] = []
             llm_service = get_llm_service()
             llm_resp = llm_service.chat(messages=messages, backend="ollama", model=self._ollama_model, fallback=False)
             response_text = (llm_resp.content or "").strip()

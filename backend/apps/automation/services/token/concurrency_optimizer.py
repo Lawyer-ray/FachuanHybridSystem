@@ -261,8 +261,6 @@ class ConcurrencyOptimizer:
         deadlocks: list[dict[str, Any]] = []
 
         # 检查长时间持有的锁
-        current_time = time.time()
-
         for lock_key, lock in self._locks.items():
             if lock.locked():
                 # 这里简化处理，实际应该记录锁的获取时间

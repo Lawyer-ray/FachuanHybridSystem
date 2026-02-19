@@ -205,9 +205,6 @@ class EvidenceListPlaceholderService:
         lines = self._format_ordered_groups(groups)  # type: ignore
         return "\n".join(lines)
 
-        def _group_parties_by_status(parties: list[Any]) -> dict[str, list[str]]:
-            groups: dict[str, list[str]] = {}
-
         for party in parties:
             legal_status = party.get("legal_status")
             name = party.get("client_name") or party.get("name", "")
@@ -215,9 +212,6 @@ class EvidenceListPlaceholderService:
                 continue
             groups.setdefault(legal_status, []).append(name)
         return groups
-
-        def _format_ordered_groups(groups: dict[str, list[str]]) -> list[str]:
-            lines: list[Any] = []
 
         seen_statuses: set[str] = set()
         for status in LEGAL_STATUS_ORDER:

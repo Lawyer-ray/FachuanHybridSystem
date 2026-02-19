@@ -279,7 +279,6 @@ class SensitiveDataFilter(logging.Filter):
         """部分遮蔽邮件地址：保留首2字符和末2字符（含域名末2字符）"""
         at_pos = value.find("@")
         if at_pos > 0:
-            local = value[:at_pos]
             full = value
             # 保留整体首2字符和末2字符
             if len(full) > 4:
