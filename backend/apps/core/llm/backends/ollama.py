@@ -41,7 +41,7 @@ class OllamaBackend(HttpxErrorMixin):
     Example:
         backend = OllamaBackend()
         response = backend.chat([{"role": "user", "content": "你好"}])
-        print(response.content)
+        logger.info(response.content)
 
         # 使用 options 参数
         response = backend.chat(
