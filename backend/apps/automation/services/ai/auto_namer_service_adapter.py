@@ -113,7 +113,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     message=f"AI文件名生成失败: {e}",
                     code="AI_FILENAME_GENERATION_FAILED",
                     errors={"error_message": str(e)},
-                )
+                ) from e
 
     def process_document_for_naming(
         self,
@@ -224,7 +224,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     message=f"文档处理和命名生成失败: {e}",
                     code="DOCUMENT_NAMING_PROCESSING_FAILED",
                     errors={"error_message": str(e)},
-                )
+                ) from e
 
     # 内部方法版本，供其他模块调用
     def generate_filename_internal(

@@ -337,7 +337,7 @@ class AutoTokenAcquisitionService:
                     message=f"Token获取过程中发生未预期错误: {e!s}",
                     code="TOKEN_ACQUISITION_ERROR",
                     errors={"original_error": str(e)},
-                )
+                ) from e
 
     async def _get_acquisition_lock(self, site_name: str) -> asyncio.Lock:
         """
@@ -539,7 +539,7 @@ class AutoTokenAcquisitionService:
                     login_attempts=login_attempts,
                 )
 
-            except TimeoutError:
+            except TimeoutError as e:
                 login_duration = time.time() - login_start_time
 
                 # 超时后再检查一次Token是否已经保存（可能登录成功但保存Token时超时）
@@ -618,7 +618,7 @@ class AutoTokenAcquisitionService:
                 raise TokenAcquisitionTimeoutError(
                     message=error_msg,
                     errors={"timeout": self.concurrency_config.acquisition_timeout, "login_duration": login_duration},
-                )
+                ) from e
 
             except LoginFailedError as e:
                 login_duration = time.time() - login_start_time

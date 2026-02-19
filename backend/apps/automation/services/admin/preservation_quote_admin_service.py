@@ -126,7 +126,7 @@ class PreservationQuoteAdminService:
                 message="批量执行询价任务失败",
                 code="EXECUTE_QUOTES_FAILED",
                 errors={},
-            )
+            ) from e
 
     @transaction.atomic
     def retry_failed_quotes(self, quote_ids: list[int] | None = None) -> dict[str, Any]:
@@ -190,7 +190,7 @@ class PreservationQuoteAdminService:
                 message="重试失败询价任务失败",
                 code="RETRY_FAILED_QUOTES_FAILED",
                 errors={},
-            )
+            ) from e
 
     def get_quote_statistics(self, queryset: Any = None) -> dict[str, Any]:
         """
@@ -320,7 +320,7 @@ class PreservationQuoteAdminService:
                 message="获取询价统计数据失败",
                 code="GET_QUOTE_STATS_FAILED",
                 errors={},
-            )
+            ) from e
 
     @transaction.atomic
     def batch_create_quotes(self, quote_configs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -396,7 +396,7 @@ class PreservationQuoteAdminService:
             )
             raise BusinessException(
                 message="批量创建询价任务失败", code="BATCH_CREATE_QUOTES_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def run_single_quote(self, quote_id: int) -> dict[str, Any]:
         """
@@ -438,8 +438,8 @@ class PreservationQuoteAdminService:
                 "message": f"✅ 任务 #{quote_id} 已提交到队列，Task ID: {task_id}。请确保 Django Q 正在运行。",
             }
 
-        except PreservationQuote.DoesNotExist:
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id})
+        except PreservationQuote.DoesNotExist as e:
+            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
     def get_quote_comparison(self, quote_id: int) -> dict[str, Any]:
         """
@@ -459,8 +459,10 @@ class PreservationQuoteAdminService:
             # 获取询价任务
             try:
                 quote = PreservationQuote.objects.get(id=quote_id)
-            except PreservationQuote.DoesNotExist:
-                raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id})
+            except PreservationQuote.DoesNotExist as e:
+                raise NotFoundError(
+                    message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
+                ) from e
 
             # 获取所有成功的报价
             successful_quotes = quote.quotes.filter(  # type: ignore[attr-defined]
@@ -539,4 +541,4 @@ class PreservationQuoteAdminService:
             )
             raise BusinessException(
                 message="获取询价对比分析失败", code="GET_QUOTE_COMPARISON_FAILED", errors={"error": str(e)}
-            )
+            ) from e

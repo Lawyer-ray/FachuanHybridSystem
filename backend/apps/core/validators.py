@@ -6,7 +6,7 @@
 import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict
+from typing import Any
 
 from .exceptions import ValidationException
 
@@ -158,8 +158,8 @@ class Validators:
 
         try:
             decimal_value = Decimal(str(value))
-        except (InvalidOperation, ValueError):
-            raise ValidationException(f"{field_name} 格式不正确", errors={field_name: "请输入有效的数字"})
+        except (InvalidOperation, ValueError) as e:
+            raise ValidationException(f"{field_name} 格式不正确", errors={field_name: "请输入有效的数字"}) from e
 
         # 检查精度
         sign, digits, exponent = decimal_value.as_tuple()
@@ -196,8 +196,10 @@ class Validators:
         elif isinstance(value, str):
             try:
                 value = datetime.strptime(value, "%Y-%m-%d").date()
-            except ValueError:
-                raise ValidationException(f"{field_name} 日期格式不正确", errors={field_name: "请使用 YYYY-MM-DD 格式"})
+            except ValueError as e:
+                raise ValidationException(
+                    f"{field_name} 日期格式不正确", errors={field_name: "请使用 YYYY-MM-DD 格式"}
+                ) from e
         elif not isinstance(value, date):
             raise ValidationException(f"{field_name} 类型不正确", errors={field_name: "请提供有效的日期"})
 
@@ -231,7 +233,7 @@ class Validators:
         return value
 
 
-def validate_model_data(data: Dict[str, Any], rules: Dict[str, Any]) -> dict[str, Any]:
+def validate_model_data(data: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
     """
     批量验证数据
 

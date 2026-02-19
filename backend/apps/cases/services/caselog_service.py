@@ -301,8 +301,8 @@ class CaseLogService:
             return cast(
                 CaseLog, CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
             )
-        except CaseLog.DoesNotExist:
-            raise NotFoundError(f"日志 {log_id} 不存在")
+        except CaseLog.DoesNotExist as e:
+            raise NotFoundError(f"日志 {log_id} 不存在") from e
 
     def _check_case_access(self, case_obj: Any, user: Any, org_access: dict[str, Any] | None) -> bool:
         """
@@ -450,8 +450,8 @@ class CaseLogService:
         """
         try:
             attachment = CaseLogAttachment.objects.select_related("log__case").get(id=attachment_id)
-        except CaseLogAttachment.DoesNotExist:
-            raise NotFoundError(f"附件 {attachment_id} 不存在")
+        except CaseLogAttachment.DoesNotExist as e:
+            raise NotFoundError(f"附件 {attachment_id} 不存在") from e
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(attachment.log.case, user, org_access):

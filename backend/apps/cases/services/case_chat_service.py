@@ -141,9 +141,11 @@ class CaseChatService:
             case = Case.objects.get(id=case_id)
             logger.debug(f"获取案件成功: ID={case_id}, 名称={case.name}")
             return case
-        except ObjectDoesNotExist:
+        except ObjectDoesNotExist as e:
             logger.error(f"案件不存在: ID={case_id}")
-            raise NotFoundError(message=f"案件不存在: ID={case_id}", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(
+                message=f"案件不存在: ID={case_id}", code="CASE_NOT_FOUND", errors={"case_id": case_id}
+            ) from e
 
     def create_chat_for_case(
         self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
@@ -443,7 +445,7 @@ class CaseChatService:
                                 "retry_error": str(retry_error),
                                 "provider_response": result.raw_response,
                             },
-                        )
+                        ) from retry_error
 
                 # 如果不是群聊不存在的错误，或重试后仍然失败，抛出异常
                 if not result.success:

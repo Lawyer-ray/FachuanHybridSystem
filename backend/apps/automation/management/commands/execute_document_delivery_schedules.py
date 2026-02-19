@@ -122,8 +122,8 @@ class Command(BaseCommand):
 
         try:
             schedule = DocumentDeliverySchedule.objects.get(id=schedule_id)
-        except DocumentDeliverySchedule.DoesNotExist:
-            raise NotFoundError(f"定时任务不存在: {schedule_id}")
+        except DocumentDeliverySchedule.DoesNotExist as e:
+            raise NotFoundError(f"定时任务不存在: {schedule_id}") from e
 
         # 检查任务是否启用
         if not schedule.is_active and not force:

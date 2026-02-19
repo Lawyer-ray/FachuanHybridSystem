@@ -101,7 +101,7 @@ class TokenAcquisitionHistoryAdminService:
                 message="清理历史记录失败",
                 code="CLEANUP_RECORDS_FAILED",
                 errors={},
-            )
+            ) from e
 
     def export_to_csv(self, queryset: QuerySet[Any, Any]) -> HttpResponse:
         """
@@ -197,7 +197,7 @@ class TokenAcquisitionHistoryAdminService:
                 message="导出CSV文件失败",
                 code="EXPORT_CSV_FAILED",
                 errors={},
-            )
+            ) from e
 
     def reanalyze_performance(self, queryset: QuerySet[Any, Any]) -> dict[str, Any]:
         """
@@ -305,7 +305,7 @@ class TokenAcquisitionHistoryAdminService:
                 message="性能数据分析失败",
                 code="PERFORMANCE_ANALYSIS_FAILED",
                 errors={},
-            )
+            ) from e
 
     def get_dashboard_statistics(self) -> dict[str, Any]:
         """
@@ -409,4 +409,4 @@ class TokenAcquisitionHistoryAdminService:
                 message="获取仪表板统计数据失败",
                 code="GET_DASHBOARD_STATS_FAILED",
                 errors={},
-            )
+            ) from e

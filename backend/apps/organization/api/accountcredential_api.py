@@ -1,6 +1,8 @@
-from typing import Any, List, Optional
+from typing import Any
+
 from ninja import Router
-from ..schemas import AccountCredentialOut, AccountCredentialIn, AccountCredentialUpdateIn
+
+from ..schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
 from ..services import AccountCredentialService
 
 router = Router()
@@ -9,14 +11,15 @@ router = Router()
 def _get_credential_service() -> AccountCredentialService:
     """工厂函数：创建 AccountCredentialService 实例"""
     from ..services import AccountCredentialService
+
     return AccountCredentialService()
 
 
-@router.get("/credentials", response=List[AccountCredentialOut])
+@router.get("/credentials", response=list[AccountCredentialOut])
 def list_credentials(
     request: Any,
-    lawyer_id: Optional[int] = None,
-    lawyer_name: Optional[str] = None,
+    lawyer_id: int | None = None,
+    lawyer_name: str | None = None,
 ) -> Any:
     """
     获取账号凭证列表

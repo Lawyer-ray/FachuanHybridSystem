@@ -25,7 +25,9 @@ _DEFAULT_CACHE_TIMEOUT_SECONDS = 300
 class SystemConfigService:
     """系统配置服务"""
 
-    def __init__(self, *, model: type[Any] = SystemConfig, cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS) -> None:
+    def __init__(
+        self, *, model: type[Any] = SystemConfig, cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS
+    ) -> None:
         self._model = model
         self._cache_timeout = cache_timeout
 
@@ -100,12 +102,12 @@ class SystemConfigService:
         """
         try:
             config = self._model.objects.get(id=config_id)
-        except self._model.DoesNotExist:
+        except self._model.DoesNotExist as e:
             raise NotFoundError(
                 message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            )
+            ) from e
 
         if value is not None:
             config.value = value
@@ -142,12 +144,12 @@ class SystemConfigService:
         """
         try:
             config = self._model.objects.get(id=config_id)
-        except self._model.DoesNotExist:
+        except self._model.DoesNotExist as e:
             raise NotFoundError(
                 message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            )
+            ) from e
 
         key = config.key
         config.delete()
@@ -169,12 +171,12 @@ class SystemConfigService:
         """
         try:
             return cast(SystemConfig, self._model.objects.get(id=config_id))
-        except self._model.DoesNotExist:
+        except self._model.DoesNotExist as e:
             raise NotFoundError(
                 message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            )
+            ) from e
 
     def get_config_by_key(self, key: str) -> SystemConfig | None:
         """

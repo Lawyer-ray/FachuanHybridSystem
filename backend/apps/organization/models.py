@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
-from django.db import models
 from django.core.validators import FileExtensionValidator
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
@@ -23,7 +23,9 @@ class Lawyer(AbstractUser):
     id_card = models.CharField(max_length=32, blank=True)
     law_firm = models.ForeignKey(LawFirm, on_delete=models.SET_NULL, null=True, blank=True, related_name="lawyers")
     is_admin = models.BooleanField(default=False)
-    license_pdf = models.FileField(upload_to="lawyers/licenses/", null=True, blank=True, validators=[FileExtensionValidator(["pdf"])])
+    license_pdf = models.FileField(
+        upload_to="lawyers/licenses/", null=True, blank=True, validators=[FileExtensionValidator(["pdf"])]
+    )
 
     def __str__(self) -> str:
         return self.username or self.real_name
@@ -62,7 +64,7 @@ class AccountCredential(models.Model):
     password = models.CharField(max_length=255, verbose_name="密码")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     # 新增登录统计字段
     last_login_success_at = models.DateTimeField(null=True, blank=True, verbose_name="最后成功登录时间")
     login_success_count = models.PositiveIntegerField(default=0, verbose_name="成功登录次数")
@@ -72,10 +74,10 @@ class AccountCredential(models.Model):
     class Meta:
         verbose_name = "账号密码"
         verbose_name_plural = "账号密码"
-        ordering = ['-last_login_success_at', '-login_success_count', 'login_failure_count']
+        ordering = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
         indexes = [
-            models.Index(fields=['site_name', '-last_login_success_at']),
-            models.Index(fields=['site_name', 'is_preferred']),
+            models.Index(fields=["site_name", "-last_login_success_at"]),
+            models.Index(fields=["site_name", "is_preferred"]),
         ]
 
     def __str__(self) -> str:
@@ -88,6 +90,7 @@ class AccountCredential(models.Model):
         if total_attempts == 0:
             return 0.0
         return self.login_success_count / total_attempts
+
 
 Lawyer.add_to_class(
     "biz_teams",

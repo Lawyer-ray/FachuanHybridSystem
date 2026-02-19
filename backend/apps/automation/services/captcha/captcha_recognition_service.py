@@ -103,7 +103,7 @@ class CaptchaRecognitionService:
 
         except Exception as e:
             logger.warning(f"Base64 解码失败: {e}")
-            raise ValueError("无效的 Base64 编码")
+            raise ValueError("无效的 Base64 编码") from e
 
     def _validate_image_size(self, image_bytes: bytes) -> None:
         """
@@ -151,7 +151,7 @@ class CaptchaRecognitionService:
             raise
         except Exception as e:
             logger.warning(f"图片格式验证失败: {e}")
-            raise ValueError("无法识别图片格式")
+            raise ValueError("无法识别图片格式") from e
 
     def recognize_from_base64(self, image_base64: str) -> CaptchaRecognizeOut:
         """

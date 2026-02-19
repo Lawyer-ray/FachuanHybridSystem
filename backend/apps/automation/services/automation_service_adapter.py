@@ -117,4 +117,4 @@ class AutomationServiceAdapter(IAutomationService):
                 message=f"创建Token获取历史记录失败: {e!s}",
                 code="CREATE_HISTORY_FAILED",
                 errors={"internal_error": str(e)},
-            )
+            ) from e

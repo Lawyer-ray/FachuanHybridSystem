@@ -203,8 +203,8 @@ class ContractService(PermissionMixin):
         """
         try:
             return self.get_contract_queryset().get(id=contract_id)
-        except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在")
+        except Contract.DoesNotExist as e:
+            raise NotFoundError(f"合同 {contract_id} 不存在") from e
 
     def get_contract(
         self,
@@ -296,8 +296,8 @@ class ContractService(PermissionMixin):
         """
         try:
             contract = Contract.objects.get(id=contract_id)
-        except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在")
+        except Contract.DoesNotExist as e:
+            raise NotFoundError(f"合同 {contract_id} 不存在") from e
 
         # 如果更新收费模式，需要验证
         if "fee_mode" in data:
@@ -331,8 +331,8 @@ class ContractService(PermissionMixin):
         """
         try:
             contract = Contract.objects.get(id=contract_id)
-        except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在")
+        except Contract.DoesNotExist as e:
+            raise NotFoundError(f"合同 {contract_id} 不存在") from e
 
         contract.delete()
 

@@ -75,7 +75,7 @@ class ClientIdentityDocService:
                 doc_instance.file_path = new_path
                 doc_instance.save(update_fields=["file_path"])
             except Exception as e:
-                raise ValidationException(f"文件重命名失败: {e!s}", code="FILE_RENAME_ERROR")
+                raise ValidationException(f"文件重命名失败: {e!s}", code="FILE_RENAME_ERROR") from e
 
     @transaction.atomic
     def add_identity_doc_from_upload(

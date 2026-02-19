@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
 from apps.automation.services.ai.ollama_client import chat
@@ -432,7 +432,7 @@ class InfoExtractor:
             return None, "无法提取"
 
         # 对正则结果进行合理性校验和综合评分
-        validated_regex_results: List[Dict[str, Any]] = []
+        validated_regex_results: list[dict[str, Any]] = []
         for dt, matched_text, context_score in regex_results:
             is_valid, validity_score, validity_reason = self._validate_hearing_datetime(dt)
             # 综合得分 = 上下文得分 * 0.6 + 合理性得分 * 0.4
@@ -487,7 +487,10 @@ class InfoExtractor:
                         f"所有正则结果合理性较低，使用最佳候选: {best_invalid['datetime']} "
                         f"({best_invalid['validity_reason']})"
                     )
-                    return cast(datetime, best_invalid["datetime"]), f"regex(低合理性:{best_invalid['validity_reason']})"
+                    return (
+                        cast(datetime, best_invalid["datetime"]),
+                        f"regex(低合理性:{best_invalid['validity_reason']})",
+                    )
                 return None, "无法提取"
 
         # 情况2：有有效的正则结果
@@ -504,9 +507,10 @@ class InfoExtractor:
 
         # 情况3：正则和 Ollama 都有有效结果，进行交叉校验
         from datetime import datetime as dt_type
+
         if not isinstance(best_regex_dt, dt_type) or not isinstance(ollama_datetime, dt_type):
             return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
-        
+
         date_diff = abs((best_regex_dt.date() - ollama_datetime.date()).days)
         time_diff = abs((best_regex_dt - ollama_datetime).total_seconds())
 
@@ -734,7 +738,7 @@ class InfoExtractor:
                 code="OLLAMA_SERVICE_UNAVAILABLE",
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
-            )
+            ) from e
         except TimeoutError as e:
             logger.error(
                 f"执行裁定书信息提取超时: {e}",
@@ -742,16 +746,16 @@ class InfoExtractor:
             )
             raise RecognitionTimeoutError(
                 message="信息提取超时，请重试", code="EXTRACTION_TIMEOUT", errors={"timeout": "AI 提取超时"}
-            )
+            ) from e
         except Exception as e:
             logger.error(
                 f"执行裁定书信息提取失败: {e!s}",
                 extra={"action": "extract_execution_info", "error_type": type(e).__name__, "error": str(e)},
                 exc_info=True,
             )
-            raise RuntimeError(f"执行裁定书信息提取失败: {e!s}")
+            raise RuntimeError(f"执行裁定书信息提取失败: {e!s}") from e
 
-    def _parse_summons_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_summons_response(self, response: dict[str, Any]) -> dict[str, Any]:
         """
         解析传票信息提取响应
 
@@ -761,7 +765,7 @@ class InfoExtractor:
         Returns:
             Dict[str, Any]: 提取的信息
         """
-        result: Dict[str, Any] = {"case_number": None, "court_time": None}
+        result: dict[str, Any] = {"case_number": None, "court_time": None}
 
         try:
             # 提取响应内容
@@ -794,7 +798,7 @@ class InfoExtractor:
             logger.warning(f"解析传票响应失败: {e!s}")
             return result
 
-    def _parse_execution_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_execution_response(self, response: dict[str, Any]) -> dict[str, Any]:
         """
         解析执行裁定书信息提取响应
 
@@ -804,7 +808,7 @@ class InfoExtractor:
         Returns:
             Dict[str, Any]: 提取的信息
         """
-        result: Dict[str, Any] = {"case_number": None, "preservation_deadline": None}
+        result: dict[str, Any] = {"case_number": None, "preservation_deadline": None}
 
         try:
             # 提取响应内容
@@ -837,7 +841,7 @@ class InfoExtractor:
             logger.warning(f"解析执行裁定书响应失败: {e!s}")
             return result
 
-    def _extract_json_from_response(self, content: str) -> Dict[str, Any] | None:
+    def _extract_json_from_response(self, content: str) -> dict[str, Any] | None:
         """
         从响应内容中提取 JSON
 

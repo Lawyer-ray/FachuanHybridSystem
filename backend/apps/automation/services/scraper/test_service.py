@@ -8,7 +8,6 @@ import time
 import traceback
 from typing import TYPE_CHECKING, Any, Optional
 
-
 from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
 from apps.core.config import get_config
 
@@ -101,7 +100,7 @@ class TestService:
                 result["logs"].append(f"✅ 获取凭证成功: {credential.site_name}")  # type: ignore[attr-defined]
                 result["logs"].append(f"   账号: {credential.account}")  # type: ignore[attr-defined]
             except Exception as e:
-                raise ValueError(f"凭证 ID {credential_id} 不存在: {e!s}")
+                raise ValueError(f"凭证 ID {credential_id} 不存在: {e!s}") from e
 
             # 2. 加载浏览器配置
             if config is None:

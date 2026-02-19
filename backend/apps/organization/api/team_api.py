@@ -2,9 +2,12 @@
 团队 API
 负责请求/响应处理，所有业务逻辑委托给 TeamService
 """
-from typing import Any, List, Optional
+
+from typing import Any
+
 from ninja import Router
-from ..schemas import TeamOut, TeamIn
+
+from ..schemas import TeamIn, TeamOut
 from ..services import TeamService
 
 router = Router()
@@ -13,23 +16,16 @@ router = Router()
 def _get_team_service() -> TeamService:
     """工厂函数：创建 TeamService 实例"""
     from ..services import TeamService
+
     return TeamService()
 
 
-@router.get("/teams", response=List[TeamOut])
-def list_teams(
-    request: Any,
-    law_firm_id: Optional[int] = None,
-    team_type: Optional[str] = None
-) -> Any:
+@router.get("/teams", response=list[TeamOut])
+def list_teams(request: Any, law_firm_id: int | None = None, team_type: str | None = None) -> Any:
     """列表查询团队"""
     service = _get_team_service()
     user = getattr(request, "user", None)
-    return service.list_teams(
-        law_firm_id=law_firm_id,
-        team_type=team_type,
-        user=user
-    )
+    return service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=user)
 
 
 @router.post("/teams", response=TeamOut)

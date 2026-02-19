@@ -131,7 +131,7 @@ class CaseMatcher:
             logger.error(f"案件匹配过程中发生错误: {e!s}")
             raise ValidationException(
                 message=f"案件匹配失败: {e!s}", code="CASE_MATCH_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def _match_by_case_number_exact(self, case_numbers: list[str]) -> Any:
         """

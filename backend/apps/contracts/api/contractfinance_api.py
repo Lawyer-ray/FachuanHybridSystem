@@ -2,11 +2,13 @@
 合同财务统计 API 层
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
-from typing import Optional, Any
-from ninja import Router
-from django.utils.dateparse import parse_date
 
-from ..schemas import FinanceStatsOut, FinanceStatsItem
+from typing import Any
+
+from django.utils.dateparse import parse_date
+from ninja import Router
+
+from ..schemas import FinanceStatsItem, FinanceStatsOut
 from ..services.contract_finance_service import ContractFinanceService
 
 router = Router()
@@ -20,13 +22,13 @@ def _get_finance_service() -> ContractFinanceService:
 @router.get("/finance/stats", response=FinanceStatsOut)
 def finance_stats(
     request: Any,
-    contract_id: Optional[int] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    contract_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> FinanceStatsOut:
     """
     获取财务统计数据
-    
+
     API 层职责：
     1. 接收请求参数
     2. 解析日期参数
@@ -34,18 +36,18 @@ def finance_stats(
     4. 返回响应
     """
     service = _get_finance_service()
-    
+
     # 解析日期参数
     d1 = parse_date(start_date) if start_date else None
     d2 = parse_date(end_date) if end_date else None
-    
+
     # 调用 Service 层
     result = service.get_finance_stats(
         contract_id=contract_id,
         start_date=d1,
         end_date=d2,
     )
-    
+
     # 转换为 Schema
     items = [
         FinanceStatsItem(
@@ -56,7 +58,7 @@ def finance_stats(
         )
         for item in result["items"]
     ]
-    
+
     return FinanceStatsOut(
         items=items,
         total_received_all=result["total_received_all"],

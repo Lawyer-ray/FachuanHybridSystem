@@ -5,14 +5,14 @@ Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
 """
 
 import logging
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
 from ..config.browser_config import BrowserConfig
 from .exceptions import BrowserCreationError
-from typing import Any, Dict
 
 logger = logging.getLogger("apps.automation")
 
@@ -63,7 +63,7 @@ class BrowserManager:
         except Exception as e:
             raise BrowserCreationError(
                 message="配置验证失败", config=config.__dict__ if config else None, original_error=e
-            )
+            ) from e
 
         playwright: Playwright | None = None
         browser: Browser | None = None
@@ -91,7 +91,7 @@ class BrowserManager:
                     message="浏览器启动失败",
                     config={"launch_args": launch_args, "config": config.__dict__},
                     original_error=e,
-                )
+                ) from e
 
             # 应用反检测配置
             if use_anti_detection:
@@ -104,7 +104,7 @@ class BrowserManager:
             except Exception as e:
                 raise BrowserCreationError(
                     message="浏览器上下文创建失败", config={"context_args": context_args}, original_error=e
-                )
+                ) from e
 
             # 设置超时
             context.set_default_timeout(pw_args["timeout"])
@@ -128,13 +128,13 @@ class BrowserManager:
             # 包装其他异常
             raise BrowserCreationError(
                 message="浏览器操作失败", config=config.__dict__ if config else None, original_error=e
-            )
+            ) from e
         finally:
             # 确保资源被清理
             BrowserManager._cleanup(page, context, browser, playwright)
 
     @staticmethod
-    def _apply_anti_detection(context_args: Dict[str, Any]) -> dict[str, Any]:
+    def _apply_anti_detection(context_args: dict[str, Any]) -> dict[str, Any]:
         """
         应用反检测配置
 

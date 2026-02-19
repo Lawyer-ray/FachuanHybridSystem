@@ -102,12 +102,12 @@ class PromptTemplateService:
         """
         try:
             prompt_template = PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist:
+        except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
                 message="Prompt 模板不存在",
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            )
+            ) from e
 
         if title is not None:
             if not title or not title.strip():
@@ -156,12 +156,12 @@ class PromptTemplateService:
         """
         try:
             prompt_template = PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist:
+        except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
                 message="Prompt 模板不存在",
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            )
+            ) from e
 
         name = prompt_template.name
         prompt_template.delete()
@@ -183,12 +183,12 @@ class PromptTemplateService:
         """
         try:
             return PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist:
+        except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
                 message="Prompt 模板不存在",
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            )
+            ) from e
 
     def get_template_by_name(self, name: str) -> PromptTemplate | None:
         """

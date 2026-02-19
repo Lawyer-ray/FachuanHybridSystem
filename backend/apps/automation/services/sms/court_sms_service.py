@@ -179,7 +179,7 @@ class CourtSMSService:
             logger.error(f"提交短信处理失败: {e!s}")
             raise ValidationException(
                 message=f"提交短信处理失败: {e!s}", code="SMS_SUBMIT_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     @transaction.atomic
     def assign_case(self, sms_id: int, case_id: int) -> CourtSMS:
@@ -201,8 +201,8 @@ class CourtSMSService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         # 验证案件是否存在
         case_dto = self.case_service.get_case_by_id_internal(case_id)
@@ -245,7 +245,7 @@ class CourtSMSService:
             logger.error(f"手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
             raise ValidationException(
                 message=f"手动指定案件失败: {e!s}", code="CASE_ASSIGNMENT_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def retry_processing(self, sms_id: int) -> CourtSMS:
         """
@@ -263,8 +263,8 @@ class CourtSMSService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         try:
             # 重置状态和错误信息
@@ -298,7 +298,7 @@ class CourtSMSService:
             logger.error(f"重新处理短信失败: SMS ID={sms_id}, 错误: {e!s}")
             raise ValidationException(
                 message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def process_sms(self, sms_id: int) -> CourtSMS:
         """
@@ -316,8 +316,8 @@ class CourtSMSService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         logger.info(f"开始处理短信: ID={sms_id}, 状态={sms.status}")
 
@@ -359,7 +359,7 @@ class CourtSMSService:
                 message=f"处理短信失败: {e!s}",
                 code="SMS_PROCESSING_FAILED",
                 errors={"sms_id": sms_id, "error": str(e)},
-            )
+            ) from e
 
     def _process_from_matching(self, sms_id: int) -> CourtSMS:
         """
@@ -373,8 +373,8 @@ class CourtSMSService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         logger.info(f"从匹配阶段开始处理短信: ID={sms_id}")
 
@@ -406,8 +406,8 @@ class CourtSMSService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         logger.info(f"从重命名阶段开始处理短信: ID={sms_id}")
 

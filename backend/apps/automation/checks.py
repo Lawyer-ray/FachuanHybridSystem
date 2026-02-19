@@ -1,16 +1,18 @@
 """
 系统检查 - 确保爬虫依赖正确配置
 """
+
 from typing import Any
-from django.core.checks import Error, Warning, register, CheckMessage
+
 from django.conf import settings
+from django.core.checks import CheckMessage, Error, Warning, register
 
 
 @register()
 def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     """检查爬虫依赖"""
     errors: list[CheckMessage] = []
-    
+
     # 检查 Playwright
     try:
         import playwright
@@ -22,7 +24,7 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
                 id="automation.E001",
             )
         )
-    
+
     # 检查加密密钥
     if not hasattr(settings, "SCRAPER_ENCRYPTION_KEY"):
         errors.append(
@@ -32,7 +34,7 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
                 id="automation.W001",
             )
         )
-    
+
     # 检查 MEDIA_ROOT
     if not hasattr(settings, "MEDIA_ROOT"):
         errors.append(
@@ -42,5 +44,5 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
                 id="automation.E002",
             )
         )
-    
+
     return errors

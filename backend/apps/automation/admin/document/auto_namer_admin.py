@@ -4,50 +4,37 @@
 """
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.http import HttpResponse, HttpResponseRedirect
-from django.urls import path, reverse
 from django.middleware.csrf import get_token
-from django.conf import settings
+from django.urls import path, reverse
 
-from ...services.document.document_processing import process_uploaded_document
+from ...models import NamerTool
 from ...services.ai.ollama_client import chat as ollama_chat
 from ...services.ai.prompts import DEFAULT_FILENAME_PROMPT
-from ...models import NamerTool
+from ...services.document.document_processing import process_uploaded_document
 
 
 class AutoNamerToolForm(forms.Form):
     """自动命名工具表单"""
-    upload = forms.FileField(
-        required=True,
-        help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）"
-    )
+
+    upload = forms.FileField(required=True, help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）")
     prompt = forms.CharField(
         required=True,
-        widget=forms.Textarea(attrs={'rows': 8}),
+        widget=forms.Textarea(attrs={"rows": 8}),
         initial=DEFAULT_FILENAME_PROMPT,
-        help_text="AI提示词，用于指导模型生成合适的文件名"
+        help_text="AI提示词，用于指导模型生成合适的文件名",
     )
-    model = forms.CharField(
-        required=True,
-        initial="qwen3:0.6b",
-        help_text="使用的AI模型名称"
-    )
-    limit = forms.IntegerField(
-        required=False,
-        help_text="文字提取限制（留空使用默认值1500字）"
-    )
-    preview_page = forms.IntegerField(
-        required=False,
-        min_value=1,
-        help_text="PDF预览页码（留空使用默认值第1页）"
-    )
+    model = forms.CharField(required=True, initial="qwen3:0.6b", help_text="使用的AI模型名称")
+    limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
+    preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")
 
 
 @admin.register(NamerTool)
 class AutoNamerToolAdmin(admin.ModelAdmin):
     """自动命名工具管理类"""
-    
+
     change_list_template = None
 
     def get_urls(self):
@@ -62,7 +49,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
     def redirect_to_process(self, request):
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:%s_%s_process" % info))
-    
+
     def process_view(self, request):
         """自动命名工具主视图"""
         if request.method == "POST":
@@ -73,28 +60,28 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                 model = form.cleaned_data["model"]
                 limit = form.cleaned_data.get("limit")
                 preview_page = form.cleaned_data.get("preview_page")
-                
+
                 info = self.model._meta.app_label, self.model._meta.model_name
                 return_url = reverse("admin:%s_%s_process" % info)
-                
+
                 try:
                     # 处理文档
                     extraction = process_uploaded_document(fp, limit=limit, preview_page=preview_page)
                 except ValueError as e:
                     return HttpResponse(str(e))
-                
+
                 text = extraction.text or ""
-                
+
                 if extraction.kind not in {"pdf", "docx", "image"}:
                     return HttpResponse("不支持的文件类型，支持PDF、DOCX和图片文件（JPG、PNG等）")
-                
+
                 if not text.strip():
                     error_msg = "文档中没有提取到文字内容，无法生成命名。"
                     if extraction.kind == "image":
                         error_msg += "<br><em>提示：图片文件可能包含手写文字、复杂排版或图片质量较差，建议尝试更清晰的扫描件。</em>"
                     elif extraction.kind == "pdf":
                         error_msg += "<br><em>提示：PDF可能是扫描版或图片格式，系统已尝试OCR识别但未成功。</em>"
-                    
+
                     html = f"""
                     <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>
                     <h2>❌ 处理失败</h2>
@@ -105,21 +92,18 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                     <ul>
                         <li>文件类型: {extraction.kind.upper()}</li>
                         <li>文件路径: {extraction.file_path}</li>
-                        <li>预览图: {'<a href="' + extraction.image_url + '" target="_blank">查看预览图</a>' if extraction.image_url else '无'}</li>
+                        <li>预览图: {'<a href="' + extraction.image_url + '" target="_blank">查看预览图</a>' if extraction.image_url else "无"}</li>
                     </ul>
                     <p><a href='{return_url}'>← 返回重新上传</a></p>
                     """
                     return HttpResponse(html)
-                
+
                 # 调用AI
                 try:
-                    messages = [
-                        {"role": "system", "content": prompt},
-                        {"role": "user", "content": text}
-                    ]
+                    messages = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
                     base_url = getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")
                     ollama_result = ollama_chat(model=model, messages=messages, base_url=base_url)
-                    
+
                     # 处理不同的响应格式
                     response_text = "无返回内容"
                     if isinstance(ollama_result, dict):
@@ -131,8 +115,9 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                             response_text = ollama_result["content"]
                         else:
                             import json
+
                             response_text = json.dumps(ollama_result, ensure_ascii=False, indent=2)
-                    
+
                     html = f"""
                     <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>
                     <div style='background:#e7f3ff;border:1px solid #b8daff;border-radius:5px;padding:15px;margin:15px 0;'>
@@ -142,17 +127,17 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                             <li>文本长度: {len(text)} 字符</li>
                         </ul>
                     </div>
-                    
+
                     <h2>📝 提取的文字内容</h2>
                     <div style='background:#f8f9fa;padding:15px;border:1px solid #dee2e6;border-radius:5px;margin:10px 0;'>
                         <pre style='white-space:pre-wrap;max-height:400px;overflow:auto;margin:0;font-family:monospace;'>{text}</pre>
                     </div>
-                    
+
                     <h2>🤖 Ollama 返回结果</h2>
                     <div style='background:#f0f8f0;padding:15px;border:1px solid #c3e6cb;border-radius:5px;margin:10px 0;'>
                         <pre style='white-space:pre-wrap;margin:0;font-family:monospace;'>{response_text}</pre>
                     </div>
-                    
+
                     <div style='margin-top:20px;'>
                         <a href='{return_url}' style='display:inline-block;padding:8px 16px;background:#007bff;color:white;text-decoration:none;border-radius:4px;'>← 返回</a>
                     </div>
@@ -160,6 +145,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                     return HttpResponse(html)
                 except Exception as e:
                     import traceback
+
                     error_detail = str(e)
                     error_traceback = traceback.format_exc()
                     html = f"""
@@ -178,7 +164,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                     return HttpResponse(html)
         else:
             form = AutoNamerToolForm()
-        
+
         csrf_token = get_token(request)
         html = f"""
         <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>

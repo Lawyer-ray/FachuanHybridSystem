@@ -2,16 +2,19 @@
 健康检查模块
 提供系统健康状态检查功能
 """
+
 import time
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
-from django.db import connection
+from typing import Any
+
 from django.core.cache import cache
+from django.db import connection
 
 
 class HealthStatus(str, Enum):
     """健康状态枚举"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -20,22 +23,24 @@ class HealthStatus(str, Enum):
 @dataclass
 class ComponentHealth:
     """组件健康状态"""
+
     name: str
     status: HealthStatus
-    latency_ms: Optional[float] = None
-    message: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    latency_ms: float | None = None
+    message: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class SystemHealth:
     """系统健康状态"""
+
     status: HealthStatus
     version: str
     uptime_seconds: float
-    components: List[ComponentHealth] = field(default_factory=list)
+    components: list[ComponentHealth] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status.value,
             "version": self.version,
@@ -80,7 +85,7 @@ class HealthChecker:
             return ComponentHealth(
                 name="database",
                 status=HealthStatus.UNHEALTHY,
-                message=f"Database error: {str(e)}",
+                message=f"Database error: {e!s}",
             )
 
     @staticmethod
@@ -120,13 +125,14 @@ class HealthChecker:
             return ComponentHealth(
                 name="cache",
                 status=HealthStatus.DEGRADED,  # 缓存不可用不影响核心功能
-                message=f"Cache error: {str(e)}",
+                message=f"Cache error: {e!s}",
             )
 
     @staticmethod
     def check_disk_space() -> ComponentHealth:
         """检查磁盘空间"""
         import os
+
         from django.conf import settings
 
         try:
@@ -157,7 +163,7 @@ class HealthChecker:
             return ComponentHealth(
                 name="disk",
                 status=HealthStatus.DEGRADED,
-                message=f"Disk check error: {str(e)}",
+                message=f"Disk check error: {e!s}",
             )
 
     @classmethod
@@ -204,7 +210,7 @@ class HealthChecker:
         )
 
     @classmethod
-    def liveness_check(cls) -> Dict[str, str]:
+    def liveness_check(cls) -> dict[str, str]:
         """
         存活检查（Kubernetes liveness probe）
         仅检查应用是否运行
@@ -212,7 +218,7 @@ class HealthChecker:
         return {"status": "ok"}
 
     @classmethod
-    def readiness_check(cls) -> Dict[str, Any]:
+    def readiness_check(cls) -> dict[str, Any]:
         """
         就绪检查（Kubernetes readiness probe）
         检查应用是否可以接收流量

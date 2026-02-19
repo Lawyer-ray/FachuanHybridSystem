@@ -164,7 +164,7 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
                     "api_intercept_error": str(api_intercept_error),
                     "fallback_error": str(fallback_error),
                 },
-            )
+            ) from fallback_error
 
     def _extract_url_params(self, url: str) -> dict[str, str] | None:
         """

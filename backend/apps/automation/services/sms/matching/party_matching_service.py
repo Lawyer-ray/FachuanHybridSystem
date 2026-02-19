@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from apps.core.interfaces import ServiceLocator
 
@@ -211,7 +211,7 @@ class PartyMatchingService:
         except Exception as e:
             logger.warning(f"调试客户数据库失败: {e!s}")
 
-    def _deduplicate_clients(self, clients: List[Any]) -> list[Any]:
+    def _deduplicate_clients(self, clients: list[Any]) -> list[Any]:
         """
         去重客户列表（基于客户ID）
 

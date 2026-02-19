@@ -432,7 +432,7 @@ class CourtInsuranceClient:
                 message=error_msg,
                 code="INSURANCE_LIST_TIMEOUT",
                 errors={"url": self.insurance_list_url, "timeout": timeout, "original_error": str(e)},
-            )
+            ) from e
         except httpx.HTTPStatusError as e:
             error_msg = f"获取保险公司列表失败: HTTP {e.response.status_code}"
 
@@ -456,7 +456,7 @@ class CourtInsuranceClient:
                         "response_text": e.response.text[:500] if e.response.text else "",
                         "original_error": str(e),
                     },
-                )
+                ) from e
 
             # 4xx客户端错误不重试
             logger.error(
@@ -478,7 +478,7 @@ class CourtInsuranceClient:
                     "response_text": e.response.text[:500] if e.response.text else "",
                     "original_error": str(e),
                 },
-            )
+            ) from e
         except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
             error_msg = f"获取保险公司列表网络错误: {type(e).__name__}"
             logger.error(
@@ -494,7 +494,7 @@ class CourtInsuranceClient:
                 message=error_msg,
                 code="INSURANCE_LIST_NETWORK_ERROR",
                 errors={"url": self.insurance_list_url, "error_type": type(e).__name__, "original_error": str(e)},
-            )
+            ) from e
         except httpx.HTTPError as e:
             error_msg = f"获取保险公司列表 HTTP 错误: {type(e).__name__}"
             logger.error(
@@ -510,7 +510,7 @@ class CourtInsuranceClient:
                 message=error_msg,
                 code="INSURANCE_LIST_HTTP_ERROR",
                 errors={"url": self.insurance_list_url, "error_type": type(e).__name__, "original_error": str(e)},
-            )
+            ) from e
         except Exception as e:
             error_msg = f"获取保险公司列表失败: {type(e).__name__}"
             logger.error(
@@ -526,7 +526,7 @@ class CourtInsuranceClient:
                 message=error_msg,
                 code="INSURANCE_LIST_ERROR",
                 errors={"url": self.insurance_list_url, "error_type": type(e).__name__, "original_error": str(e)},
-            )
+            ) from e
 
     async def fetch_premium(
         self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float | None = None

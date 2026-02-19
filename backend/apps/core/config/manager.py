@@ -506,7 +506,7 @@ class HotReloadManager:
                 if self.observer:
                     self.observer.stop()
                     self.observer = None
-                raise ConfigException(f"启动热重载监控失败: {e}")
+                raise ConfigException(f"启动热重载监控失败: {e}") from e
 
     def stop(self) -> None:
         """停止热重载监控"""
@@ -645,7 +645,7 @@ class ConfigManager:
                                 self._hot_reload_manager.add_watch_file(file_path)
 
                     except Exception as e:
-                        raise ConfigException(f"从 {provider.get_name()} 加载配置失败: {e}")
+                        raise ConfigException(f"从 {provider.get_name()} 加载配置失败: {e}") from e
 
                 # 验证配置
                 self._validate_config()
@@ -1059,7 +1059,7 @@ class ConfigManager:
                 try:
                     self._hot_reload_manager.start()
                 except Exception as e:
-                    raise ConfigException(f"启用自动热重载失败: {e}")
+                    raise ConfigException(f"启用自动热重载失败: {e}") from e
 
     def disable_auto_reload(self) -> None:
         """禁用自动热重载"""
@@ -1179,7 +1179,7 @@ class ConfigManager:
                     raise ConfigException(f"不支持的导出格式: {format}")
 
         except Exception as e:
-            raise ConfigException(f"导出配置失败: {e}")
+            raise ConfigException(f"导出配置失败: {e}") from e
 
     def _prepare_export_data(self, mask_sensitive: bool, include_metadata: bool) -> dict[str, Any]:
         """
@@ -1382,7 +1382,7 @@ class ConfigManager:
             if isinstance(e, (ConfigException, ConfigFileError, ConfigValidationError)):
                 raise
             else:
-                raise ConfigException(f"导入配置失败: {e}")
+                raise ConfigException(f"导入配置失败: {e}") from e
 
     def _detect_file_format(self, path: str) -> str:
         """
@@ -1422,11 +1422,11 @@ class ConfigManager:
                 else:
                     raise ConfigException(f"不支持的文件格式: {format}")
         except yaml.YAMLError as e:
-            raise ConfigFileError(path, message=f"YAML格式错误: {e}")
+            raise ConfigFileError(path, message=f"YAML格式错误: {e}") from e
         except json.JSONDecodeError as e:
-            raise ConfigFileError(path, line=e.lineno, message=f"JSON格式错误: {e.msg}")
+            raise ConfigFileError(path, line=e.lineno, message=f"JSON格式错误: {e.msg}") from e
         except Exception as e:
-            raise ConfigFileError(path, message=f"文件读取失败: {e}")
+            raise ConfigFileError(path, message=f"文件读取失败: {e}") from e
 
     def _validate_import_data(self, data: dict[str, Any]) -> None:
         """
@@ -1582,7 +1582,7 @@ class ConfigManager:
             return snapshot_id
 
         except Exception as e:
-            raise ConfigException(f"创建配置快照失败: {e}")
+            raise ConfigException(f"创建配置快照失败: {e}") from e
 
     def restore_snapshot(self, snapshot_id: str, validate: bool = True) -> None:
         """
@@ -1636,7 +1636,7 @@ class ConfigManager:
             if isinstance(e, (ConfigException, ConfigFileError, ConfigValidationError)):
                 raise
             else:
-                raise ConfigException(f"恢复配置快照失败: {e}")
+                raise ConfigException(f"恢复配置快照失败: {e}") from e
 
     def list_snapshots(self) -> list[dict[str, Any]]:
         """
@@ -1678,7 +1678,7 @@ class ConfigManager:
             snapshots.sort(key=lambda x: x["created_at"], reverse=True)
 
         except Exception as e:
-            raise ConfigException(f"列出快照失败: {e}")
+            raise ConfigException(f"列出快照失败: {e}") from e
 
         return snapshots
 

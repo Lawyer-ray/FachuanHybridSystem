@@ -6,6 +6,6 @@ from .document_delivery_schedule_admin import DocumentDeliveryScheduleAdmin
 from .document_query_history_admin import DocumentQueryHistoryAdmin
 
 __all__ = [
-    'DocumentDeliveryScheduleAdmin',
-    'DocumentQueryHistoryAdmin',
+    "DocumentDeliveryScheduleAdmin",
+    "DocumentQueryHistoryAdmin",
 ]

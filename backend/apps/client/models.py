@@ -1,5 +1,5 @@
-from django.db import models
 from django.core.exceptions import ValidationError
+from django.db import models
 
 
 class Client(models.Model):
@@ -40,22 +40,23 @@ class Client(models.Model):
 def client_identity_doc_upload_path(instance, filename):
     """生成当事人证件文件上传路径"""
     import os
+
     from django.utils.text import slugify
-    
+
     # 获取文件扩展名
     _, ext = os.path.splitext(filename)
-    
+
     # 清理当事人名称
     client_name = instance.client.name if instance.client else "未知"
     client_name = slugify(client_name) or "unknown"
-    
+
     # 获取证件类型显示名称
     doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(instance.doc_type, instance.doc_type)
     doc_type_display = slugify(doc_type_display) or instance.doc_type
-    
+
     # 生成文件名：当事人名称_证件类型.扩展名
     new_filename = f"{client_name}_{doc_type_display}{ext}"
-    
+
     return f"client_identity_docs/{new_filename}"
 
 
@@ -88,8 +89,10 @@ class ClientIdentityDoc(models.Model):
         return f"{self.client.name}-{self.doc_type}"
 
     def media_url(self) -> str | None:
-        from django.conf import settings
         import os
+
+        from django.conf import settings
+
         if not self.file_path:
             return None
         try:
@@ -107,11 +110,20 @@ class ClientIdentityDoc(models.Model):
 
     def clean(self):
         if self.client:
-            natural_docs = {self.ID_CARD, self.PASSPORT, self.HK_MACAO_PERMIT, self.RESIDENCE_PERMIT, self.HOUSEHOLD_REGISTER}
+            natural_docs = {
+                self.ID_CARD,
+                self.PASSPORT,
+                self.HK_MACAO_PERMIT,
+                self.RESIDENCE_PERMIT,
+                self.HOUSEHOLD_REGISTER,
+            }
             legal_docs = {self.BUSINESS_LICENSE, self.LEGAL_REP_CERT, self.LEGAL_REP_ID_CARD}
             if self.client.client_type == Client.NATURAL and self.doc_type not in natural_docs:
                 raise ValidationError({"doc_type": "Invalid doc type for natural person"})
-            if self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG} and self.doc_type not in natural_docs | legal_docs:
+            if (
+                self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG}
+                and self.doc_type not in natural_docs | legal_docs
+            ):
                 raise ValidationError({"doc_type": "Invalid doc type for organization"})
 
     class Meta:
@@ -123,12 +135,13 @@ class ClientIdentityDoc(models.Model):
 
 class PropertyClue(models.Model):
     """财产线索模型"""
+
     BANK = "bank"
     ALIPAY = "alipay"
     WECHAT = "wechat"
     REAL_ESTATE = "real_estate"
     OTHER = "other"
-    
+
     CLUE_TYPE_CHOICES = [
         (BANK, "银行"),
         (ALIPAY, "支付宝账户"),
@@ -136,7 +149,7 @@ class PropertyClue(models.Model):
         (REAL_ESTATE, "不动产"),
         (OTHER, "其他"),
     ]
-    
+
     CONTENT_TEMPLATES = {
         BANK: "户名：\n开户行：\n银行账号：",
         WECHAT: "微信号：\n微信实名：",
@@ -144,30 +157,16 @@ class PropertyClue(models.Model):
         REAL_ESTATE: "",
         OTHER: "",
     }
-    
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name="property_clues",
-        verbose_name="当事人"
-    )
-    clue_type = models.CharField(
-        max_length=16,
-        choices=CLUE_TYPE_CHOICES,
-        default=BANK,
-        verbose_name="线索类型"
-    )
-    content = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="线索内容"
-    )
+
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
+    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
+    content = models.TextField(blank=True, default="", verbose_name="线索内容")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
-    
+
     def __str__(self) -> str:
         return f"{self.client.name}-{self.get_clue_type_display()}"
-    
+
     class Meta:
         verbose_name = "财产线索"
         verbose_name_plural = "财产线索"
@@ -177,23 +176,23 @@ class PropertyClue(models.Model):
 
 class PropertyClueAttachment(models.Model):
     """财产线索附件模型"""
+
     property_clue = models.ForeignKey(
-        PropertyClue,
-        on_delete=models.CASCADE,
-        related_name="attachments",
-        verbose_name="财产线索"
+        PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name="财产线索"
     )
     file_path = models.CharField(max_length=512, verbose_name="文件路径")
     file_name = models.CharField(max_length=255, verbose_name="文件名")
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
-    
+
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
-    
+
     def media_url(self) -> str | None:
         """返回附件的媒体 URL"""
-        from django.conf import settings
         import os
+
+        from django.conf import settings
+
         if not self.file_path:
             return None
         try:
@@ -204,7 +203,7 @@ class PropertyClueAttachment(models.Model):
         except Exception:
             return None
         return None
-    
+
     class Meta:
         verbose_name = "财产线索附件"
         verbose_name_plural = "财产线索附件"

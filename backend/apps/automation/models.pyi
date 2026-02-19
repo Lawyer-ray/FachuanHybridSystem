@@ -1,11 +1,10 @@
 """Type stubs for automation models - Django ORM dynamic attributes"""
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
 from django.db import models
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager
 
 class ScraperTask(models.Model):
     id: int

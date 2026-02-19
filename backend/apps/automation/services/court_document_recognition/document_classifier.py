@@ -119,21 +119,21 @@ class DocumentClassifier:
                 code="OLLAMA_SERVICE_UNAVAILABLE",
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
-            )
+            ) from e
         except TimeoutError as e:
             logger.error(
                 f"文书分类超时: {e}", extra={"action": "classify", "error_type": "timeout_error", "error": str(e)}
             )
             raise RecognitionTimeoutError(
                 message="文书分类超时，请重试", code="CLASSIFICATION_TIMEOUT", errors={"timeout": "AI 分类超时"}
-            )
+            ) from e
         except Exception as e:
             logger.error(
                 f"文书分类失败: {e!s}",
                 extra={"action": "classify", "error_type": type(e).__name__, "error": str(e)},
                 exc_info=True,
             )
-            raise RuntimeError(f"文书分类失败: {e!s}")
+            raise RuntimeError(f"文书分类失败: {e!s}") from e
 
     def _parse_classification_response(self, response: dict[str, Any]) -> tuple[DocumentType, float]:
         """

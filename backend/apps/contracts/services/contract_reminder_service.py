@@ -67,8 +67,8 @@ class ContractReminderService:
         """
         try:
             return cast(ContractReminder, ContractReminder.objects.select_related("contract").get(id=reminder_id))
-        except ContractReminder.DoesNotExist:
-            raise NotFoundError(f"提醒记录 {reminder_id} 不存在")
+        except ContractReminder.DoesNotExist as e:
+            raise NotFoundError(f"提醒记录 {reminder_id} 不存在") from e
 
     @transaction.atomic
     def create_reminder(

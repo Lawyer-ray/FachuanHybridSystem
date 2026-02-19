@@ -106,7 +106,7 @@ class AutoLoginService:
 
             return token
 
-        except TimeoutError:
+        except TimeoutError as e:
             total_duration = time.time() - start_time
             error_msg = f"登录超时（{self.retry_config.login_timeout}秒）"
 
@@ -128,7 +128,7 @@ class AutoLoginService:
                     "total_duration": total_duration,
                     "attempts": len(self._login_attempts),
                 },
-            )
+            ) from e
 
         except Exception as e:
             total_duration = time.time() - start_time
@@ -146,7 +146,9 @@ class AutoLoginService:
             if isinstance(e, (LoginFailedError, NetworkError, AutoTokenAcquisitionError)):
                 raise
             else:
-                raise LoginFailedError(message=f"登录过程中发生未预期错误: {e!s}", attempts=self._login_attempts.copy())
+                raise LoginFailedError(
+                    message=f"登录过程中发生未预期错误: {e!s}", attempts=self._login_attempts.copy()
+                ) from e
 
     async def _login_with_retries(self, credential: AccountCredentialDTO) -> str:
         """
@@ -320,7 +322,7 @@ class AutoLoginService:
                 keyword in error_msg
                 for keyword in ["network", "connection", "timeout", "dns", "socket", "连接", "网络", "超时", "无法访问"]
             ):
-                raise NetworkError(f"网络连接错误: {e!s}")
+                raise NetworkError(f"网络连接错误: {e!s}") from e
             else:
                 # 其他错误（验证码、账号密码等）
                 raise e
@@ -392,7 +394,7 @@ class AutoLoginService:
 
             return browser.new_context(**default_config)
         except Exception as e:
-            raise NetworkError(f"无法获取浏览器上下文: {e!s}")
+            raise NetworkError(f"无法获取浏览器上下文: {e!s}") from e
 
     def _create_court_service(self, browser_context: Any, site_name: str) -> Any:
         """创建法院服务实例"""
@@ -405,7 +407,7 @@ class AutoLoginService:
             # 创建服务实例
             return CourtZxfwService(page=page, context=browser_context, site_name=site_name)
         except Exception as e:
-            raise Exception(f"创建法院服务失败: {e!s}")
+            raise Exception(f"创建法院服务失败: {e!s}") from e
 
     def get_login_attempts(self) -> list[LoginAttemptResult]:
         """获取登录尝试记录"""
