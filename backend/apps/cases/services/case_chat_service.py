@@ -309,7 +309,7 @@ class CaseChatService:
         logger.debug(f"获取或创建群聊: case_id={case_id}, platform={platform.value}")
 
         # 验证案件存在性（这也会验证 case_id 的有效性）
-        case = self._get_case(case_id)
+        self._get_case(case_id)
 
         # 查找现有的活跃群聊
         existing_chat = CaseChat.objects.filter(case_id=case_id, platform=platform, is_active=True).first()

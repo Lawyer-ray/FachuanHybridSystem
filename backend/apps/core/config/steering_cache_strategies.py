@@ -448,8 +448,6 @@ class SteeringCacheStrategyManager:
             )
 
             # 检查是否需要淘汰
-            cache_state = {"cache_size": len(self._cache)}
-
             # 如果缓存已满，进行淘汰
             if len(self._cache) >= 1000:  # 默认最大缓存大小
                 eviction_candidates = self.strategy.get_eviction_candidates(

@@ -165,14 +165,14 @@ class CourtSMSViewsMixin:
         case_service = _get_case_service()
 
         # 获取推荐案件(根据当事人名称或案号匹配)
-        suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
+        self._get_suggested_cases(sms, case_service, sms_id)
 
         # 获取最近的案件
-        recent_cases = self._get_recent_cases(case_service, sms_id)
+        self._get_recent_cases(case_service, sms_id)
 
         from apps.core.enums import CaseStatus
 
-        active_cases = case_service.list_cases_internal(status=CaseStatus.ACTIVE)
+        case_service.list_cases_internal(status=CaseStatus.ACTIVE)
         formatted_active_cases: list[Any] = []
 
         # 格式化案件数据

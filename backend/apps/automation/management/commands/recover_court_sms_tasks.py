@@ -218,7 +218,7 @@ class Command(BaseCommand):
                 # 根据当前状态决定恢复策略
                 if sms.status == CourtSMSStatus.PENDING:
                     # 待处理状态，直接提交处理任务
-                    task_id = async_task(
+                    async_task(
                         "apps.automation.services.sms.court_sms_service.process_sms_async",
                         sms.id,
                         task_name=f"court_sms_recovery_{sms.id}",
@@ -227,7 +227,7 @@ class Command(BaseCommand):
                 elif sms.status == CourtSMSStatus.DOWNLOAD_FAILED:
                     # 下载失败，检查是否可以重试
                     if sms.retry_count < 3:
-                        task_id = async_task(
+                        async_task(
                             "apps.automation.services.sms.court_sms_service.retry_download_task",
                             sms.id,
                             task_name=f"court_sms_retry_recovery_{sms.id}",
@@ -241,7 +241,7 @@ class Command(BaseCommand):
 
                 elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
                     # 处理中状态，继续处理
-                    task_id = async_task(
+                    async_task(
                         "apps.automation.services.sms.court_sms_service.process_sms_async",
                         sms.id,
                         task_name=f"court_sms_continue_recovery_{sms.id}",
@@ -257,7 +257,7 @@ class Command(BaseCommand):
                             sms.status = CourtSMSStatus.MATCHING
                             sms.save()
 
-                            task_id = async_task(
+                            async_task(
                                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                                 sms.id,
                                 task_name=f"court_sms_download_complete_recovery_{sms.id}",
@@ -268,7 +268,7 @@ class Command(BaseCommand):
                             sms.save()
 
                             if sms.retry_count < 3:
-                                task_id = async_task(
+                                async_task(
                                     "apps.automation.services.sms.court_sms_service.retry_download_task",
                                     sms.id,
                                     task_name=f"court_sms_download_retry_recovery_{sms.id}",
@@ -281,7 +281,7 @@ class Command(BaseCommand):
                         sms.status = CourtSMSStatus.PARSING
                         sms.save()
 
-                        task_id = async_task(
+                        async_task(
                             "apps.automation.services.sms.court_sms_service.process_sms_async",
                             sms.id,
                             task_name=f"court_sms_reparse_recovery_{sms.id}",
@@ -289,7 +289,7 @@ class Command(BaseCommand):
 
                 else:
                     # 其他状态，重新处理
-                    task_id = async_task(
+                    async_task(
                         "apps.automation.services.sms.court_sms_service.process_sms_async",
                         sms.id,
                         task_name=f"court_sms_general_recovery_{sms.id}",

@@ -8,7 +8,6 @@ import json
 import re
 from argparse import ArgumentParser
 from collections import defaultdict
-from datetime import datetime, timedelta
 from typing import Any
 
 from django.core.management.base import BaseCommand
@@ -58,8 +57,6 @@ class Command(BaseCommand):
         api_stats: dict[str, Any] = defaultdict(
             lambda: {"count": 0, "total_time": 0, "total_queries": 0, "max_time": 0, "max_queries": 0, "errors": 0}
         )
-
-        cutoff_time = datetime.now() - timedelta(hours=hours)
 
         try:
             with open(log_file, encoding="utf-8") as f:

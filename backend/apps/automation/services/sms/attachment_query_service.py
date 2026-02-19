@@ -95,7 +95,7 @@ class AttachmentQueryService:
         """从 CourtDocument 记录收集路径"""
         if not hasattr(scraper_task, "documents"):
             return []
-        documents = scraper_task.documents.filter(download_status="success")
+        scraper_task.documents.filter(download_status="success")
         paths: list[Any] = []
         return self.collect_existing_paths(paths, seen_paths)
 

@@ -44,13 +44,6 @@ class CaseBindingWorkflow:
     def format_log_content(
         self, document_type: DocumentType, case_number: str | None, key_time: datetime | None, raw_text: str
     ) -> str:
-        type_labels = {
-            DocumentType.SUMMONS: "传票",
-            DocumentType.EXECUTION_RULING: "执行裁定书",
-            DocumentType.OTHER: "其他文书",
-        }
-
-        type_label = type_labels.get(document_type, "法院文书")
         lines: list[Any] = []
 
         if case_number:

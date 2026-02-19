@@ -841,8 +841,6 @@ class ConfigMigrator:
                 backup_data = json.load(f)
 
             # 恢复 Django settings（这里只能恢复部分）
-            django_configs = backup_data.get("django_settings", {})
-
             # 恢复配置管理器数据
             config_data = backup_data.get("config_manager_data", {})
             if config_data:

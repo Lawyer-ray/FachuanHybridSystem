@@ -657,7 +657,7 @@ class CourtSMSAdmin(admin.ModelAdmin):
 
     def retry_single_sms_view(self, request, sms_id):
         """单个短信重新处理"""
-        sms = get_object_or_404(CourtSMS, id=sms_id)
+        get_object_or_404(CourtSMS, id=sms_id)
 
         try:
             service = _get_court_sms_service()

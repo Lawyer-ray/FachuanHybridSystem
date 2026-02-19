@@ -183,8 +183,8 @@ class PerformanceMonitor:
         total = counters["total"]
         success_rate = (counters["success"] / total * 100) if total > 0 else 0.0
 
-        # 计算超时率
-        timeout_rate = (counters["timeout"] / total * 100) if total > 0 else 0.0
+        # 计算超时率（暂未使用，保留计算逻辑供后续扩展）
+        # timeout_rate = (counters["timeout"] / total * 100) if total > 0 else 0.0
 
         # 计算缓存命中率
         cache_total = self._cache_stats["total_requests"]

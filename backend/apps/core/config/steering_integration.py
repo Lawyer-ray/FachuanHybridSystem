@@ -13,10 +13,10 @@ Requirements: 8.1, 8.2, 8.3, 8.4
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
-from collections.abc import Callable
 
 from .manager import ConfigChangeListener, ConfigManager
 from .steering_cache_strategies import CacheStrategy, SteeringCacheStrategyManager
@@ -270,7 +270,7 @@ class SteeringConditionalLoader:
             List[str]: 规范文件路径列表
         """
         applicable_specs: list[str] = []
-        rules = self.config_provider.get_loading_rules()
+        self.config_provider.get_loading_rules()
 
         # 扫描所有规范文件
         steering_root = Path(".kiro/steering")

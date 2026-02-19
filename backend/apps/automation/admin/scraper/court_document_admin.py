@@ -213,11 +213,6 @@ class CourtDocumentAdmin(admin.ModelAdmin):
     def download_link(self, obj):
         """列表页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
-            # 提取文件名
-            import os
-
-            filename = os.path.basename(obj.local_file_path)
-
             return format_html(
                 '<a href="/media/{}" target="_blank" '
                 'style="background-color: #28a745; color: white; padding: 5px 10px; '

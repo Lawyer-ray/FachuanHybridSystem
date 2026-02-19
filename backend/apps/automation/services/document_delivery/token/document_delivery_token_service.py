@@ -203,7 +203,7 @@ class DocumentDeliveryTokenService:
             api_client = CourtDocumentApiClient()
 
             # 尝试使用当前 Token 获取文书列表（只获取1条，用于验证）
-            test_response = api_client.fetch_document_list(token=current_token, page_num=1, page_size=1)
+            api_client.fetch_document_list(token=current_token, page_num=1, page_size=1)
 
             # Token 有效
             logger.debug(f"Token 验证通过: credential_id={credential_id}")
