@@ -1,8 +1,6 @@
 import logging
-import os
 from typing import Any, cast
 
-from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -96,36 +94,14 @@ def add_identity_doc(
     doc_type: str,
     file: UploadedFile = File(...),  # type: ignore[arg-type]
 ) -> dict[str, Any]:
-    """
-    添加证件文档
-
-    Args:
-        request: HTTP 请求
-        client_id: 客户 ID
-        doc_type: 证件类型
-        file: 上传的文件
-
-    Returns:
-        操作结果
-    """
-    # 1. 处理文件存储（API 层职责）
-    base_dir = os.path.join(settings.MEDIA_ROOT, "client_docs", str(client_id))
-    os.makedirs(base_dir, exist_ok=True)
-    target_path = os.path.join(base_dir, file.name)  # type: ignore[arg-type]
-
-    with open(target_path, "wb+") as f:
-        for chunk in file.chunks():
-            f.write(chunk)
-
-    # 2. 委托给 Service 层处理业务逻辑
+    """添加证件文档"""
     service = _get_identity_doc_service()
-    identity_doc = service.add_identity_doc(
+    identity_doc = service.add_identity_doc_from_upload(
         client_id=client_id,
         doc_type=doc_type,
-        file_path=os.path.abspath(target_path),
+        uploaded_file=file,
         user=getattr(request, "user", None),
     )
-
     return {"success": True, "doc_id": identity_doc.id, "message": "证件文档添加成功"}
 
 

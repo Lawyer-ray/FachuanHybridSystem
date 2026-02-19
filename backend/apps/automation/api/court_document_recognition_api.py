@@ -9,7 +9,6 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 
 import logging
 import os
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -43,22 +42,13 @@ def _validate_file_format(filename: str) -> str:
 
 
 def _save_uploaded_file(file: UploadedFile) -> str:
-    """保存上传的文件"""
-    from django.conf import settings
+    """保存上传的文件（委托给 FileUploadService）"""
+    from apps.core.services.file_upload_service import FileUploadService
 
-    ext = os.path.splitext(file.name)[1].lower()  # type: ignore[type-var, union-attr]
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-
-    upload_dir = os.path.join(settings.MEDIA_ROOT, "automation", "document_recognition")
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_path = os.path.join(upload_dir, unique_name)
-    with open(file_path, "wb") as f:
-        for chunk in file.chunks():
-            f.write(chunk)
-
-    logger.info(f"文件已保存: {file_path}")
-    return file_path
+    upload_service = FileUploadService()
+    saved_path = upload_service.save_file(file, base_dir="automation/document_recognition")
+    logger.info("文件已保存: %s", saved_path)
+    return str(saved_path)
 
 
 # ============================================================================
