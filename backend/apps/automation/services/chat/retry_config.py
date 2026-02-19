@@ -267,7 +267,7 @@ class RetryManager:
             RetryErrorType: 错误类型
         """
         # 导入异常类（避免循环导入）
-        import requests
+        import httpx
 
         from apps.core.exceptions import (
             NetworkError,
@@ -297,7 +297,7 @@ class RetryManager:
             return RetryErrorType.NOT_FOUND_ERROR
         elif isinstance(exception, ValidationException):
             return RetryErrorType.VALIDATION_ERROR
-        elif isinstance(exception, (NetworkError, requests.RequestException)):
+        elif isinstance(exception, (NetworkError, httpx.RequestError)):
             return RetryErrorType.NETWORK_ERROR
         else:
             # 根据错误消息进一步分类

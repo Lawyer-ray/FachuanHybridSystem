@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, cast
 
-import requests
+import httpx
 from django.conf import settings
 
 from apps.core.enums import ChatPlatform
@@ -216,7 +216,7 @@ class FeishuChatProvider(ChatProvider):
 
         try:
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.post(url, json=payload, timeout=timeout, headers={"Content-Type": "application/json"})
+            response = httpx.post(url, json=payload, timeout=timeout, headers={"Content-Type": "application/json"})
             response.raise_for_status()
 
             data = response.json()
@@ -241,7 +241,7 @@ class FeishuChatProvider(ChatProvider):
                 raise ChatProviderException("飞书访问令牌为空")
             return self._access_token
 
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"请求飞书访问令牌失败: {e!s}")
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
@@ -347,7 +347,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.post(url, params=params, json=payload, headers=headers, timeout=timeout)
+            response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
 
             # 记录响应详情用于调试
             logger.debug(f"飞书API响应状态码: {response.status_code}")
@@ -424,7 +424,7 @@ class FeishuChatProvider(ChatProvider):
         except ChatCreationException:
             # 重新抛出业务异常
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"创建飞书群聊网络请求失败: {e!s}")
             raise owner_network_error(
                 message=f"网络请求失败: {e!s}",
@@ -483,7 +483,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.post(url, params=params, json=payload, headers=headers, timeout=timeout)  # 添加查询参数
+            response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)  # 添加查询参数
 
             logger.debug(f"飞书API响应状态码: {response.status_code}")
             logger.debug(f"飞书API响应内容: {response.text}")
@@ -519,7 +519,7 @@ class FeishuChatProvider(ChatProvider):
         except MessageSendException:
             # 重新抛出业务异常
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"发送飞书消息网络请求失败: {e!s}")
             raise MessageSendException(
                 message=f"网络请求失败: {e!s}",
@@ -672,7 +672,7 @@ class FeishuChatProvider(ChatProvider):
 
                 # 发送请求
                 timeout = self.config.get("TIMEOUT", 30)
-                response = requests.post(url, headers=headers, files=files, data=data, timeout=timeout)
+                response = httpx.post(url, headers=headers, files=files, data=data, timeout=timeout)
                 response.raise_for_status()
 
             data = response.json()
@@ -705,7 +705,7 @@ class FeishuChatProvider(ChatProvider):
 
         except MessageSendException:
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"上传飞书文件网络请求失败: {e!s}")
             raise MessageSendException(
                 message=f"文件上传网络请求失败: {e!s}",
@@ -759,7 +759,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.post(url, params=params, json=payload, headers=headers, timeout=timeout)  # 添加查询参数
+            response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)  # 添加查询参数
 
             logger.debug(f"飞书API响应状态码: {response.status_code}")
             logger.debug(f"飞书API响应内容: {response.text}")
@@ -799,7 +799,7 @@ class FeishuChatProvider(ChatProvider):
 
         except MessageSendException:
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"发送飞书文件消息网络请求失败: {e!s}")
             raise MessageSendException(
                 message=f"发送文件消息网络请求失败: {e!s}",
@@ -888,7 +888,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.get(url, headers=headers, timeout=timeout)
+            response = httpx.get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
 
             data = response.json()
@@ -920,7 +920,7 @@ class FeishuChatProvider(ChatProvider):
         except ChatProviderException:
             # 重新抛出业务异常
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"获取飞书群聊信息网络请求失败: {e!s}")
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}",
@@ -1023,7 +1023,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+            response = httpx.get(url, params=params, headers=headers, timeout=timeout)
             response.raise_for_status()
 
             data = response.json()
@@ -1064,7 +1064,7 @@ class FeishuChatProvider(ChatProvider):
         except ChatProviderException:
             # 重新抛出业务异常
             raise
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"获取飞书群聊群主信息网络请求失败: {e!s}")
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}",
@@ -1227,7 +1227,7 @@ class FeishuChatProvider(ChatProvider):
 
             # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
-            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+            response = httpx.get(url, params=params, headers=headers, timeout=timeout)
             response.raise_for_status()
 
             data = response.json()
