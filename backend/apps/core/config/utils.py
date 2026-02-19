@@ -67,7 +67,7 @@ def get_feishu_category_configs() -> dict[str, Any]:
         飞书配置字典，key 为 DB 键名（如 FEISHU_APP_ID），value 为配置值
     """
     try:
-        from apps.core.models import SystemConfig  # noqa: PLC0415
+        from apps.core.models import SystemConfig
 
         result: dict[str, Any] = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
         return result
@@ -88,7 +88,7 @@ def get_system_config_value(key: str, default: Any = None) -> Any:
         配置值
     """
     try:
-        from apps.core.models import SystemConfig  # noqa: PLC0415
+        from apps.core.models import SystemConfig
 
         return SystemConfig.get_value(key, default=default)  # type: ignore[attr-defined]
     except Exception as e:

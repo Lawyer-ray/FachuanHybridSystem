@@ -8,8 +8,8 @@ from apps.automation.models import InsuranceQuote, QuoteItemStatus
 from apps.automation.services.insurance.exceptions import APIError, CompanyListEmptyError, TokenError
 
 if TYPE_CHECKING:
-    from apps.automation.services.insurance.court_insurance_client import InsuranceCompany, PremiumResult
     from apps.automation.models import PreservationQuote
+    from apps.automation.services.insurance.court_insurance_client import InsuranceCompany, PremiumResult
 
 logger = logging.getLogger("apps.automation")
 
@@ -30,9 +30,9 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
             return token
 
     try:
-        valid_tokens = CourtToken.objects.filter(
-            site_name=site_name, expires_at__gt=timezone.now()
-        ).order_by("-created_at")
+        valid_tokens = CourtToken.objects.filter(site_name=site_name, expires_at__gt=timezone.now()).order_by(
+            "-created_at"
+        )
         if valid_tokens.exists():
             token_obj = valid_tokens.first()
             logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")
@@ -47,7 +47,7 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
 class QuoteExecutionMixin:
     """负责询价执行流程的私有方法"""
 
-    from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService  # noqa: F401
+    from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService
 
     @property
     def auto_token_service(self) -> Any:
@@ -82,9 +82,7 @@ class QuoteExecutionMixin:
                     from apps.automation.services.scraper.core.token_service import TokenService
 
                     sync_token_service = TokenService()
-                    token = await sync_to_async(sync_token_service.get_token)(
-                        site_name=site_name, account=account
-                    )
+                    token = await sync_to_async(sync_token_service.get_token)(site_name=site_name, account=account)
                     if token:
                         logger.info(f"✅ 找到指定账号的有效 Token: {account}")
                         return token
@@ -122,9 +120,7 @@ class QuoteExecutionMixin:
                 msg = f"❌ Token获取失败: {e!s}"
             raise TokenError(msg) from e
 
-    async def _fetch_insurance_companies(
-        self, token: str, category_id: str, corp_id: str
-    ) -> "list[InsuranceCompany]":
+    async def _fetch_insurance_companies(self, token: str, category_id: str, corp_id: str) -> "list[InsuranceCompany]":
         """获取保险公司列表"""
         logger.info(
             "开始获取保险公司列表",
@@ -193,22 +189,24 @@ class QuoteExecutionMixin:
                 except (ValueError, TypeError, ArithmeticError):
                     return None
 
-            insurance_quotes.append(InsuranceQuote(
-                preservation_quote=quote,
-                company_id=result.company.c_id,
-                company_code=result.company.c_code,
-                company_name=result.company.c_name,
-                premium=result.premium,
-                min_premium=clean_decimal(rate_data.get("minPremium")),
-                min_amount=clean_decimal(rate_data.get("minAmount")),
-                max_amount=clean_decimal(rate_data.get("maxAmount")),
-                min_rate=clean_decimal(rate_data.get("minRate")),
-                max_rate=clean_decimal(rate_data.get("maxRate")),
-                max_apply_amount=clean_decimal(rate_data.get("maxApplyAmount")),
-                status=status,
-                error_message=result.error_message,
-                response_data=result.response_data,
-            ))
+            insurance_quotes.append(
+                InsuranceQuote(
+                    preservation_quote=quote,
+                    company_id=result.company.c_id,
+                    company_code=result.company.c_code,
+                    company_name=result.company.c_name,
+                    premium=result.premium,
+                    min_premium=clean_decimal(rate_data.get("minPremium")),
+                    min_amount=clean_decimal(rate_data.get("minAmount")),
+                    max_amount=clean_decimal(rate_data.get("maxAmount")),
+                    min_rate=clean_decimal(rate_data.get("minRate")),
+                    max_rate=clean_decimal(rate_data.get("maxRate")),
+                    max_apply_amount=clean_decimal(rate_data.get("maxApplyAmount")),
+                    status=status,
+                    error_message=result.error_message,
+                    response_data=result.response_data,
+                )
+            )
 
             if result.status == "success":
                 success_count += 1
