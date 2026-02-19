@@ -17,14 +17,13 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, Optional
 
 from apps.automation.models import DocumentQueryHistory
-from apps.core.interfaces import ServiceLocator
-
 from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
+    from apps.core.interfaces import ICaseLogService, ICaseNumberService
 
 logger = logging.getLogger("apps.automation")
 
@@ -37,11 +36,15 @@ class DocumentDeliveryProcessor:
         case_matcher: Optional["CaseMatcher"] = None,
         document_renamer: Optional["DocumentRenamer"] = None,
         notification_service: Optional["SMSNotificationService"] = None,
+        caselog_service: Optional["ICaseLogService"] = None,
+        case_number_service: Optional["ICaseNumberService"] = None,
     ):
         """初始化文书处理服务，支持依赖注入"""
         self._case_matcher = case_matcher
         self._document_renamer = document_renamer
         self._notification_service = notification_service
+        self._caselog_service = caselog_service
+        self._case_number_service = case_number_service
         logger.debug("DocumentDeliveryProcessor 初始化完成")
 
     @property
@@ -70,6 +73,24 @@ class DocumentDeliveryProcessor:
 
             self._notification_service = SMSNotificationService()
         return self._notification_service
+
+    @property
+    def caselog_service(self) -> "ICaseLogService":
+        """延迟加载案件日志服务"""
+        if self._caselog_service is None:
+            from apps.cases.services.caselog_service_adapter import CaseLogServiceAdapter
+
+            self._caselog_service = CaseLogServiceAdapter()
+        return self._caselog_service
+
+    @property
+    def case_number_service(self) -> "ICaseNumberService":
+        """延迟加载案号服务"""
+        if self._case_number_service is None:
+            from apps.cases.services.case_number_service_adapter import CaseNumberServiceAdapter
+
+            self._case_number_service = CaseNumberServiceAdapter()
+        return self._case_number_service
 
     def process_downloaded_document(
         self, file_path: str, record: DocumentDeliveryRecord, credential_id: int
@@ -278,7 +299,7 @@ class DocumentDeliveryProcessor:
                     renamed_files.append(file_path)
 
             if renamed_files:
-                case_log_service = ServiceLocator.get_caselog_service()
+                case_log_service = self.caselog_service
                 file_names = [os.path.basename(f) for f in renamed_files]
                 case_log = case_log_service.create_log(
                     case_id=case.id, content=f"文书送达自动下载: {', '.join(file_names)}", user=None
@@ -344,9 +365,7 @@ class DocumentDeliveryProcessor:
     def sync_case_number_to_case(self, case_id: int, case_number: str) -> bool:
         """将案号同步到案件（如果案件还没有这个案号）"""
         try:
-            from apps.core.interfaces import ServiceLocator
-
-            case_number_service = ServiceLocator.get_case_number_service()
+            case_number_service = self.case_number_service
 
             existing_numbers = case_number_service.list_numbers(case_id=case_id)
             for num in existing_numbers:
