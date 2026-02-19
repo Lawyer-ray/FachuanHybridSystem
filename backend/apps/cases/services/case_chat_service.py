@@ -24,6 +24,7 @@ from typing import Any, cast
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
+from apps.automation.services.chat.base import ChatResult
 from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform
@@ -213,8 +214,11 @@ class CaseChatService:
                         errors={"provider_response": result.raw_response, "chat_name": chat_name},
                     )
                 case_chat = CaseChat.objects.create(
-                    case=case, platform=platform,
-                    chat_id=result.chat_id or "", name=result.chat_name or chat_name, is_active=True,
+                    case=case,
+                    platform=platform,
+                    chat_id=result.chat_id or "",
+                    name=result.chat_name or chat_name,
+                    is_active=True,
                 )
                 logger.info(
                     f"群聊创建成功: case_id={case.pk}, chat_id={result.chat_id},"
@@ -226,8 +230,10 @@ class CaseChatService:
         except Exception as e:
             logger.error(f"创建群聊时发生未预期错误: case_id={case.pk}, error={e!s}")
             raise ChatCreationException(
-                message="创建群聊时发生系统错误", code="SYSTEM_ERROR",
-                platform=platform.value, errors={"case_id": case.pk, "original_error": str(e)},
+                message="创建群聊时发生系统错误",
+                code="SYSTEM_ERROR",
+                platform=platform.value,
+                errors={"case_id": case.pk, "original_error": str(e)},
             ) from e
 
     def create_chat_for_case(
@@ -327,7 +333,9 @@ class CaseChatService:
             logger.error(f"创建新群聊或重试发送失败: {retry_error!s}")
             raise MessageSendException(
                 message=f"群聊已解散，重新创建群聊失败: {retry_error!s}",
-                code="CHAT_RECREATE_FAILED", platform=platform.value, chat_id=chat.chat_id,
+                code="CHAT_RECREATE_FAILED",
+                platform=platform.value,
+                chat_id=chat.chat_id,
                 error_code=result.error_code,
                 errors={
                     "original_error": result.message,
@@ -343,7 +351,7 @@ class CaseChatService:
         document_paths: list[Any] | None = None,
         platform: ChatPlatform = ChatPlatform.FEISHU,
         title: str = "📋 法院文书通知",
-    ) -> "ChatResult":
+    ) -> ChatResult:
         """发送文书通知到群聊"""
         logger.info(
             f"发送文书通知: case_id={case_id}, platform={platform.value},"
@@ -378,8 +386,7 @@ class CaseChatService:
 
             if not result.success:
                 logger.error(
-                    f"消息发送失败: chat_id={chat.chat_id},"
-                    f" message={result.message}, error_code={result.error_code}"
+                    f"消息发送失败: chat_id={chat.chat_id}, message={result.message}, error_code={result.error_code}"
                 )
                 if self._is_chat_not_found_error(result):
                     result, chat = self._retry_send_after_chat_recreate(
@@ -406,10 +413,7 @@ class CaseChatService:
         except MessageSendException:
             raise
         except Exception as e:
-            logger.error(
-                f"发送文书通知时发生未预期错误: case_id={case_id},"
-                f" chat_id={chat.chat_id}, error={e!s}"
-            )
+            logger.error(f"发送文书通知时发生未预期错误: case_id={case_id}, chat_id={chat.chat_id}, error={e!s}")
             raise MessageSendException(
                 message="发送文书通知时发生系统错误",
                 code="SYSTEM_ERROR",
@@ -418,7 +422,7 @@ class CaseChatService:
                 errors={"case_id": case_id, "original_error": str(e)},
             ) from e
 
-    def _is_chat_not_found_error(self, result: "ChatResult") -> bool:
+    def _is_chat_not_found_error(self, result: ChatResult) -> bool:
         """检查是否是群聊不存在的错误
 
         根据不同平台的错误代码判断群聊是否已解散或不存在。
