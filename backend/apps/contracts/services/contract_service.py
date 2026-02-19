@@ -20,6 +20,8 @@ from apps.core.querysets import ContractQuerySetManager
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty, FeeMode
 
+from ._contract_helpers_mixin import ContractHelpersMixin
+
 if TYPE_CHECKING:
     from apps.contracts.dtos import ContractDTO
     from apps.core.dtos import LawyerDTO
@@ -33,7 +35,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.contracts")
 
 
-class ContractService(PermissionMixin):
+class ContractService(ContractHelpersMixin, PermissionMixin):
     """
     合同服务
 
@@ -704,123 +706,9 @@ class ContractService(PermissionMixin):
 
         return created_payments
 
-    # ========== 私有方法（业务逻辑封装） ==========
 
-    def _log_finance_change(
-        self, contract_id: int, user_id: int, action: str, changes: dict[str, Any], level: str = "INFO"
-    ) -> None:
-        """
-        记录财务变更日志（私有方法）
 
-        Args:
-            contract_id: 合同 ID
-            user_id: 操作用户 ID
-            action: 操作类型
-            changes: 变更内容
-            level: 日志级别
-        """
-        try:
-            from apps.contracts.models import ContractFinanceLog
 
-            ContractFinanceLog.objects.create(
-                contract_id=contract_id,
-                action=action,
-                level=level,
-                actor_id=user_id,
-                payload=changes,
-            )
-        except Exception as e:
-            logger.error(f"记录财务日志失败: {e}", extra={"contract_id": contract_id, "action": action})
-
-    def _validate_fee_mode(self, data: dict[str, Any]) -> None:
-        """
-        验证收费模式数据（私有方法）
-
-        Args:
-            data: 合同数据
-
-        Raises:
-            ValidationException: 验证失败
-        """
-        fee_mode = data.get("fee_mode")
-        fixed_amount = data.get("fixed_amount")
-        risk_rate = data.get("risk_rate")
-        custom_terms = data.get("custom_terms")
-
-        errors = {}
-
-        if fee_mode == FeeMode.FIXED:
-            if not fixed_amount or float(fixed_amount) <= 0:
-                errors["fixed_amount"] = "固定收费需填写金额"
-
-        elif fee_mode == FeeMode.SEMI_RISK:
-            if not fixed_amount or float(fixed_amount) <= 0:
-                errors["fixed_amount"] = "半风险需填写前期金额"
-            if not risk_rate or float(risk_rate) <= 0:
-                errors["risk_rate"] = "半风险需填写风险比例"
-
-        elif fee_mode == FeeMode.FULL_RISK:
-            if not risk_rate or float(risk_rate) <= 0:
-                errors["risk_rate"] = "全风险需填写风险比例"
-
-        elif fee_mode == FeeMode.CUSTOM and (not custom_terms or not str(custom_terms).strip()):
-            errors["custom_terms"] = "自定义收费需填写条款文本"
-
-        if errors:
-            raise ValidationException("收费模式验证失败", errors=errors)
-
-    def _validate_stages(self, stages: list[str], case_type: str | None) -> list[str]:
-        """
-        验证代理阶段（私有方法）
-
-        Args:
-            stages: 阶段列表
-            case_type: 案件类型
-
-        Returns:
-            验证后的阶段列表
-
-        Raises:
-            ValidationException: 验证失败
-        """
-        if not stages:
-            return []
-
-        valid_stages = [v for v, _ in self.config.get_stages_for_case_type(case_type)]
-        invalid = set(stages) - set(valid_stages)
-
-        if invalid:
-            raise ValidationException(
-                "无效的代理阶段", errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
-            )
-
-        return stages
-
-    def _check_contract_access(
-        self,
-        contract: Contract,
-        user: Any,
-        org_access: dict[str, Any] | None,
-    ) -> bool:
-        """检查用户是否有权访问合同。"""
-        if getattr(user, "is_admin", False):
-            return True
-
-        if not org_access:
-            return False
-
-        user_id = getattr(user, "id", None)
-        has_access = (
-            contract.assignments.filter(  # type: ignore[attr-defined]
-                lawyer_id__in=org_access.get("lawyers", set())
-            ).exists()
-            or contract.assignments.filter(lawyer_id=user_id).exists()  # type: ignore[misc]
-        )  # type: ignore[attr-defined]
-
-        if not has_access:
-            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined, misc]
-
-        return has_access
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         """
@@ -876,187 +764,9 @@ class ContractService(PermissionMixin):
         return list(parties_dict.values())
 
 
-class ContractServiceAdapter:
-    """
-    合同服务适配器
-    实现 IContractService Protocol，将 Model 转换为 DTO
-    """
+# 向后兼容导出
+from ._contract_service_adapter import ContractServiceAdapter  # noqa: E402
 
-    def __init__(
-        self,
-        contract_service: ContractService | None = None,
-        case_service: ICaseService | None = None,
-    ):
-        """
-        初始化适配器
+__all__ = ["ContractService", "ContractServiceAdapter"]
 
-        Args:
-            contract_service: 合同服务实例（可选）
-            case_service: 案件服务接口（可选，传递给 ContractService）
-        """
-        if contract_service is not None:
-            self.contract_service = contract_service
-        else:
-            self.contract_service = ContractService(case_service=case_service)
 
-    def _to_dto(self, contract: Contract) -> ContractDTO:
-        """
-        将 Model 转换为 DTO
-
-        Args:
-            contract: Contract Model 实例
-
-        Returns:
-            ContractDTO 实例
-        """
-        from apps.core.interfaces import ContractDTO
-
-        return ContractDTO.from_model(contract)
-
-    def get_contract(self, contract_id: int) -> ContractDTO | None:
-        """
-        获取合同信息
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            合同 DTO，不存在时返回 None
-        """
-        try:
-            contract = self.contract_service._get_contract_internal(contract_id)
-            return self._to_dto(contract)
-        except NotFoundError:
-            return None
-
-    def get_contract_stages(self, contract_id: int) -> list[str]:
-        """
-        获取合同的代理阶段
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            代理阶段列表
-        """
-        try:
-            contract = self.contract_service._get_contract_internal(contract_id)
-            return cast(list[str], contract.representation_stages or [])
-        except NotFoundError:
-            return []
-
-    def validate_contract_active(self, contract_id: int) -> bool:
-        """
-        验证合同是否有效（状态为 active）
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            合同是否有效
-        """
-        try:
-            contract = self.contract_service._get_contract_internal(contract_id)
-            return bool(contract.status == "active")
-        except NotFoundError:
-            return False
-
-    def get_contracts_by_ids(self, contract_ids: list[int]) -> list[ContractDTO]:
-        """
-        批量获取合同信息
-
-        Args:
-            contract_ids: 合同 ID 列表
-
-        Returns:
-            合同 DTO 列表
-        """
-        contracts = Contract.objects.filter(id__in=contract_ids).prefetch_related("assignments__lawyer__law_firm")
-        return [self._to_dto(c) for c in contracts]
-
-    def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None:
-        """
-        获取合同的主办律师 ID（使用 primary_lawyer）
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            主办律师 ID，合同不存在或无主办律师时返回 None
-        """
-        try:
-            contract = self.contract_service._get_contract_internal(contract_id)
-            primary_lawyer = contract.primary_lawyer
-            return primary_lawyer.id if primary_lawyer else None  # type: ignore[attr-defined]
-        except NotFoundError:
-            return None
-
-    def get_contract_lawyers(self, contract_id: int) -> list[LawyerDTO]:
-        """
-        获取合同的所有律师
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            律师 DTO 列表，按 is_primary 降序、order 升序排列
-
-        Raises:
-            NotFoundError: 合同不存在
-        """
-        from apps.core.interfaces import LawyerDTO
-
-        contract = self.contract_service._get_contract_internal(contract_id)
-        all_lawyers = contract.all_lawyers
-
-        return [LawyerDTO.from_model(lawyer) for lawyer in all_lawyers]
-
-    def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
-        """
-        获取合同及其补充协议的所有当事人
-
-        聚合 ContractParty 和 SupplementaryAgreementParty 中的所有 Client，
-        按 client_id 去重，返回包含来源标识的当事人列表。
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            当事人列表，每个元素包含:
-            - id: Client ID
-            - name: Client 名称
-            - source: 来源 ("contract" 或 "supplementary")
-
-        Raises:
-            NotFoundError: 合同不存在
-
-        Requirements: 2.1, 2.2, 2.3, 2.4
-        """
-        contract = self.contract_service._get_contract_internal(contract_id)
-
-        # 用于去重的字典，key 为 client_id
-        parties_dict: dict[int, dict[str, Any]] = {}
-
-        # 聚合合同当事人 (Requirements 2.2)
-        for party in contract.contract_parties.select_related("client").all():  # type: ignore[attr-defined]
-            client = party.client
-            if client.id not in parties_dict:
-                parties_dict[client.id] = {
-                    "id": client.id,
-                    "name": client.name,
-                    "source": "contract",
-                }
-
-        # 聚合补充协议当事人 (Requirements 2.3)
-        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():  # type: ignore[attr-defined]
-            for sa_party in sa.parties.all():
-                client = sa_party.client
-                if client.id not in parties_dict:
-                    parties_dict[client.id] = {
-                        "id": client.id,
-                        "name": client.name,
-                        "source": "supplementary",
-                    }
-
-        # 返回去重后的列表 (Requirements 2.4)
-        return list(parties_dict.values())

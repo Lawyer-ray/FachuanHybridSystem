@@ -1,0 +1,154 @@
+"""短信下载任务管理 Mixin"""
+
+import logging
+from typing import Any
+
+from django_q.tasks import async_task
+
+from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask, ScraperTaskStatus, ScraperTaskType
+
+logger = logging.getLogger("apps.automation")
+
+
+class SMSDownloadMixin:
+    """负责下载任务创建和等待状态检查"""
+
+    def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
+        """创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行"""
+        if not sms.download_links:
+            return None
+
+        try:
+            download_url = sms.download_links[0]
+
+            task = ScraperTask.objects.create(
+                task_type=ScraperTaskType.COURT_DOCUMENT,
+                url=download_url,
+                case=sms.case,
+                config={"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"},
+            )
+
+            logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")
+
+            queue_task_id = async_task(
+                "apps.automation.tasks.execute_scraper_task", task.id, task_name=f"court_document_download_{task.id}"
+            )
+
+            logger.info(f"提交下载任务到队列: Task ID={task.id}, Queue Task ID={queue_task_id}")
+
+            return task
+
+        except Exception as e:
+            logger.error(f"创建下载任务失败: SMS ID={sms.id}, 错误: {e!s}")
+            return None
+
+    def _should_wait_for_document_download(self, sms: CourtSMS) -> bool:
+        """检查是否需要等待文书下载完成后再进行匹配"""
+        try:
+            if sms.party_names or not sms.download_links or not sms.scraper_task:
+                return False
+
+            fresh_task = self._refresh_scraper_task(sms)
+            if fresh_task is None:
+                return False
+
+            if fresh_task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
+                self._log_completed_task_files(sms, fresh_task)
+                return False
+
+            if not hasattr(fresh_task, "documents"):
+                return fresh_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]  # type: ignore[no-any-return]
+
+            return self._check_documents_wait_status(sms, fresh_task)
+
+        except Exception as e:
+            logger.error(f"检查下载状态失败: SMS ID={sms.id}, 错误: {e!s}")
+            return False
+
+    def _refresh_scraper_task(self, sms: CourtSMS) -> Any:
+        """刷新并返回最新的 ScraperTask，不存在则返回 None"""
+        try:
+            fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
+            sms.scraper_task = fresh_task
+            logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
+            return fresh_task
+        except Exception:
+            logger.warning(f"短信 {sms.id} 的下载任务不存在，无需等待")
+            return None
+
+    def _log_completed_task_files(self, sms: CourtSMS, task: Any) -> None:
+        """记录已完成任务的文件信息"""
+        logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+        if task.result and isinstance(task.result, dict):
+            files = task.result.get("files", [])
+            if files:
+                logger.info(f"短信 {sms.id} 从任务结果中发现 {len(files)} 个已下载文件")
+
+    def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:
+        """根据文书记录状态判断是否需要等待"""
+        all_docs = task.documents.all()  # type: ignore[attr-defined]
+        if not all_docs.exists():
+            running = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
+            wait_msg = "需要" if running else "不再"
+            running_msg = "进行中但" if running else ""
+            logger.info(f"短信 {sms.id} 的下载任务{running_msg}没有文书记录，{wait_msg}等待")
+            return running
+
+        successful = all_docs.filter(download_status="success")
+        pending = all_docs.filter(download_status="pending")
+        downloading = all_docs.filter(download_status="downloading")
+
+        logger.info(
+            f"短信 {sms.id} 文书状态统计: 总数={all_docs.count()}, "
+            f"成功={successful.count()}, 待下载={pending.count()}, 下载中={downloading.count()}"
+        )
+
+        if successful.exists():
+            logger.info(f"短信 {sms.id} 已有下载成功的文书，可以进行匹配")
+            return False
+
+        if task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
+            logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+            return False
+
+        if (
+            task.status == ScraperTaskStatus.RUNNING
+            and all_docs.count() > 0
+            and successful.count() == 0
+            and pending.count() == 0
+            and downloading.count() == 0
+        ):
+            logger.info(f"短信 {sms.id} 的下载任务运行中但所有文书都已失败，不再等待")
+            return False
+
+        should_wait = (
+            pending.exists()
+            or downloading.exists()
+            or task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
+        )
+        logger.info(
+            f"短信 {sms.id} "
+            f"{'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}"
+        )
+        return should_wait
+
+    def _process_downloading_or_matching(self, sms: CourtSMS) -> CourtSMS:
+        """根据是否有下载链接决定进入下载或匹配阶段"""
+        if sms.download_links:
+            logger.info(f"短信 {sms.id} 有下载链接，创建下载任务")
+            scraper_task = self._create_download_task(sms)
+            if scraper_task:
+                sms.scraper_task = scraper_task
+                sms.status = CourtSMSStatus.DOWNLOADING
+                sms.save()
+                logger.info(f"下载任务创建成功: SMS ID={sms.id}, Task ID={scraper_task.id}")
+            else:
+                logger.warning(f"下载任务创建失败，直接进入匹配: SMS ID={sms.id}")
+                sms.status = CourtSMSStatus.MATCHING
+                sms.save()
+        else:
+            logger.info(f"短信 {sms.id} 无下载链接，直接进入匹配")
+            sms.status = CourtSMSStatus.MATCHING
+            sms.save()
+
+        return sms
