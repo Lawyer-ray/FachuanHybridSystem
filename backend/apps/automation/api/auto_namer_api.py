@@ -16,17 +16,9 @@ router = Router(tags=["Auto Namer"])
 
 
 def _get_auto_namer_service() -> Any:
-    """
-    工厂函数：创建自动命名服务实例
+    from apps.core.dependencies import build_auto_namer_service
 
-    通过ServiceLocator获取自动命名服务，确保依赖解耦
-
-    Returns:
-        IAutoNamerService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_auto_namer_service()
+    return build_auto_namer_service()
 
 
 @router.post("/process", response=AutoToolProcessOut)

@@ -17,17 +17,9 @@ router = Router(tags=["验证码识别"])
 
 
 def _get_captcha_service() -> Any:
-    """
-    工厂函数：创建验证码识别服务实例
+    from apps.core.dependencies import build_captcha_service
 
-    通过ServiceLocator获取验证码服务，确保依赖解耦
-
-    Returns:
-        ICaptchaService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_captcha_service()
+    return build_captcha_service()
 
 
 @router.post("/recognize", response=CaptchaRecognizeOut)

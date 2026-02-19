@@ -16,28 +16,12 @@ from typing import Any, ClassVar
 
 
 def _get_document_delivery_service() -> Any:
-    """
-    工厂函数：创建文书送达服务实例
-
-    通过ServiceLocator获取文书送达服务，确保依赖解耦
-
-    Returns:
-        DocumentDeliveryService 实例
-    """
     from apps.automation.services.document_delivery.document_delivery_service import DocumentDeliveryService
 
     return DocumentDeliveryService()
 
 
 def _get_document_delivery_schedule_service() -> Any:
-    """
-    工厂函数：创建文书送达定时任务服务实例
-
-    通过ServiceLocator获取定时任务服务，确保依赖解耦
-
-    Returns:
-        DocumentDeliveryScheduleService 实例
-    """
     from apps.automation.services.document_delivery.document_delivery_schedule_service import (
         DocumentDeliveryScheduleService,
     )

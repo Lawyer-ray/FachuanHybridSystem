@@ -195,22 +195,21 @@ class CaseNumberExtractorService:
             return self._extract_fallback(content_text)
 
     def validate_and_normalize(self, case_numbers: list[str]) -> list[str]:
-        """
-        验证案号格式有效性并规范化
-        """
+        """验证案号格式有效性并规范化"""
         if not case_numbers:
             logger.debug("案号列表为空，无需验证")
             return []
 
         try:
-            from apps.cases.services.case_number_service import CaseNumberService
+            from apps.core.interfaces import ServiceLocator
 
+            case_number_svc = ServiceLocator.get_case_number_service()
             logger.info(f"开始验证 {len(case_numbers)} 个案号")
             valid_numbers: list[str] = []
             seen: set[str] = set()
 
             for i, case_number in enumerate(case_numbers):
-                normalized = self._normalize_single(case_number, i, CaseNumberService)
+                normalized = self._normalize_single(case_number, i, case_number_svc)
                 if normalized and normalized not in seen:
                     valid_numbers.append(normalized)
                     seen.add(normalized)
@@ -220,18 +219,13 @@ class CaseNumberExtractorService:
             logger.info(f"案号验证完成: 输入 {len(case_numbers)} 个，有效 {len(valid_numbers)} 个")
             return valid_numbers
 
-        except ImportError as e:
-            logger.error(f"无法导入必要模块进行案号验证: {e!s}")
-            return []
         except Exception as e:
             logger.error(f"案号验证和规范化失败: {e!s}")
             return []
 
-    def _normalize_single(self, case_number: str, idx: int, CaseNumberService: Any) -> str | None:
+    def _normalize_single(self, case_number: str, idx: int, case_number_svc: Any) -> str | None:
         """规范化单个案号，返回规范化结果或 None"""
-        # 标准格式：(年份)法院代码案件类型序号
         standard_pattern = r"^\（\d{4}\）[^）]*?\w+\d+[^0-9]*?\d+号$"
-        # 简化格式：法院代码案件类型序号
         simple_pattern = r"^[^（）]*?\w+\d+[^0-9]*?\d+号$"
 
         try:
@@ -244,7 +238,7 @@ class CaseNumberExtractorService:
                 return None
 
             try:
-                normalized = CaseNumberService.normalize_case_number(original)
+                normalized = case_number_svc.normalize_case_number(original)
             except Exception as e:
                 logger.warning(f"案号规范化失败: {original}, 错误: {e!s}")
                 return None
@@ -271,9 +265,7 @@ class CaseNumberExtractorService:
             return None
 
     def sync_to_case(self, case_id: int, case_numbers: list[str], sms_id: int) -> int:
-        """
-        同步案号到案件，检查案件中是否已存在该案号，不存在则写入。
-        """
+        """同步案号到案件，检查案件中是否已存在该案号，不存在则写入。"""
         if not case_id:
             logger.warning("案件 ID 为空，无法同步案号")
             return 0
@@ -283,19 +275,20 @@ class CaseNumberExtractorService:
             return 0
 
         try:
-            from apps.cases.services.case_number_service import CaseNumberService
+            from apps.core.interfaces import ServiceLocator
 
+            case_number_svc = ServiceLocator.get_case_number_service()
             case_numbers_to_sync = self._deduplicate(case_numbers)
             if not case_numbers_to_sync:
                 logger.info(f"去重后没有案号需要同步: Case ID={case_id}")
                 return 0
 
-            existing_numbers = self._get_existing_numbers(case_id, CaseNumberService)
+            existing_numbers = self._get_existing_numbers(case_id, case_number_svc)
             if existing_numbers is None:
                 return 0
 
             success_count = self._write_new_numbers(
-                case_id, case_numbers_to_sync, existing_numbers, sms_id, CaseNumberService
+                case_id, case_numbers_to_sync, existing_numbers, sms_id, case_number_svc
             )
 
             logger.info(
@@ -308,13 +301,13 @@ class CaseNumberExtractorService:
             logger.error(f"同步案号失败: Case ID={case_id}, SMS ID={sms_id}, 错误: {e!s}")
             return 0
 
-    def _get_existing_numbers(self, case_id: int, CaseNumberService: Any) -> set[str] | None:
+    def _get_existing_numbers(self, case_id: int, case_number_svc: Any) -> set[str] | None:
         """获取案件现有的规范化案号集合"""
         try:
             existing_case_numbers = self.case_service.get_case_numbers_by_case_internal(case_id)
             result: set[str] = set()
             for cn in existing_case_numbers:
-                normalized = CaseNumberService.normalize_case_number(cn)
+                normalized = case_number_svc.normalize_case_number(cn)
                 if normalized:
                     result.add(normalized)
             logger.info(f"案件现有案号数量: {len(result)}, Case ID={case_id}")
@@ -329,14 +322,13 @@ class CaseNumberExtractorService:
         case_numbers: list[str],
         existing: set[str],
         sms_id: int,
-        CaseNumberService: Any,
+        case_number_svc: Any,
     ) -> int:
         """将不存在的案号写入案件，返回成功数量"""
-        case_number_service = CaseNumberService()
         success_count = 0
 
         for case_number in case_numbers:
-            normalized = CaseNumberService.normalize_case_number(case_number)
+            normalized = case_number_svc.normalize_case_number(case_number)
             if not normalized:
                 logger.warning(f"案号格式不正确，跳过: {case_number}")
                 continue
@@ -346,7 +338,7 @@ class CaseNumberExtractorService:
                 continue
 
             try:
-                case_number_service.create_number(
+                case_number_svc.create_number(
                     case_id=case_id,
                     number=normalized,
                     remarks=f"从法院短信自动提取 (SMS ID: {sms_id})",
@@ -407,31 +399,21 @@ class CaseNumberExtractorService:
         return found
 
     def _deduplicate(self, case_numbers: list[str]) -> list[str]:
-        """
-        去重处理案号列表
-
-        Args:
-            case_numbers: 案号列表
-
-        Returns:
-            去重后的案号列表
-        """
+        """去重处理案号列表"""
         if not case_numbers:
             return []
 
         try:
-            from apps.cases.services.case_number_service import CaseNumberService
+            from apps.core.interfaces import ServiceLocator
 
-            seen = set()
-            unique_numbers = []
+            case_number_svc = ServiceLocator.get_case_number_service()
+            seen: set[str] = set()
+            unique_numbers: list[str] = []
 
             for case_number in case_numbers:
                 if not case_number or not isinstance(case_number, str):
                     continue
-
-                # 规范化后再去重
-                normalized = CaseNumberService.normalize_case_number(case_number.strip())
-
+                normalized = case_number_svc.normalize_case_number(case_number.strip())
                 if normalized and normalized not in seen:
                     unique_numbers.append(normalized)
                     seen.add(normalized)
@@ -441,4 +423,4 @@ class CaseNumberExtractorService:
 
         except Exception as e:
             logger.error(f"案号去重失败: {e!s}")
-            return case_numbers  # 返回原始列表
+            return case_numbers

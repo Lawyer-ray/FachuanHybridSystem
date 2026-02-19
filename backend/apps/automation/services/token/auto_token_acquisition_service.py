@@ -73,9 +73,9 @@ class AutoTokenAcquisitionService:
         初始化自动Token获取服务
 
         Args:
-            account_selection_strategy: 账号选择策略，None则使用 ServiceLocator 获取默认实现
-            auto_login_service: 自动登录服务，None则使用 ServiceLocator 获取默认实现
-            token_service: Token服务，None则使用 ServiceLocator 获取默认实现
+            account_selection_strategy: 账号选择策略，None则延迟加载默认实现
+            auto_login_service: 自动登录服务，None则延迟加载默认实现
+            token_service: Token服务，None则延迟加载默认实现
             concurrency_config: 并发控制配置，None则使用默认配置
         """
         self._account_selection_strategy = account_selection_strategy
@@ -92,27 +92,27 @@ class AutoTokenAcquisitionService:
     def account_selection_strategy(self) -> IAccountSelectionStrategy:
         """获取账号选择策略（延迟加载）"""
         if self._account_selection_strategy is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies import build_account_selection_strategy
 
-            self._account_selection_strategy = ServiceLocator.get_account_selection_strategy()
+            self._account_selection_strategy = build_account_selection_strategy()
         return self._account_selection_strategy
 
     @property
     def auto_login_service(self) -> IAutoLoginService:
         """获取自动登录服务（延迟加载）"""
         if self._auto_login_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies import build_auto_login_service
 
-            self._auto_login_service = ServiceLocator.get_auto_login_service()
+            self._auto_login_service = build_auto_login_service()
         return self._auto_login_service
 
     @property
     def token_service(self) -> ITokenService:
         """获取Token服务（延迟加载）"""
         if self._token_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies import build_token_service
 
-            self._token_service = ServiceLocator.get_token_service()
+            self._token_service = build_token_service()
         return self._token_service
 
     async def acquire_token_if_needed(self, site_name: str, credential_id: int | None = None) -> str:
@@ -338,10 +338,9 @@ class AutoTokenAcquisitionService:
             账号凭证DTO，不存在时返回None
         """
         try:
-            # 通过ServiceLocator获取organization服务
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies import build_organization_service
 
-            organization_service = ServiceLocator.get_organization_service()
+            organization_service = build_organization_service()
 
             credential = await organization_service.get_credential_internal(credential_id)  # type: ignore[misc]
             return AccountCredentialDTO.from_model(credential)

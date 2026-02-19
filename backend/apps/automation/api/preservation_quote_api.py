@@ -31,18 +31,10 @@ logger = logging.getLogger("apps.automation")
 router = Router(tags=["财产保全询价"], auth=JWTAuth())
 
 
-def _get_preservation_quote_service() -> any:  # type: ignore[valid-type]
-    """
-    工厂函数：创建财产保险询价服务实例
+def _get_preservation_quote_service() -> Any:
+    from apps.core.dependencies import build_preservation_quote_service
 
-    通过ServiceLocator获取财产保全询价服务，确保依赖解耦
-
-    Returns:
-        IPreservationQuoteService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_preservation_quote_service()
+    return build_preservation_quote_service()
 
 
 @router.post("/preservation-quotes", response=PreservationQuoteSchema)

@@ -1,8 +1,26 @@
 apps/automation/admin/insurance/preservation_quote_admin.py:281:from apps.core.models import Court
-apps/automation/management/commands/smoke_check.py:151:from apps.cases.models import Case
-apps/automation/management/commands/smoke_check.py:152:from apps.contracts.models import Contract
-apps/automation/management/commands/smoke_check.py:154:from apps.litigation_ai.models.session import LitigationSession
+apps/automation/management/commands/smoke_check.py:135:from apps.cases.models import Case
+apps/automation/management/commands/smoke_check.py:136:from apps.contracts.models import Contract
+apps/automation/management/commands/smoke_check.py:138:from apps.litigation_ai.models.session import LitigationSession
 apps/cases/api/cause_court_api.py:102:from apps.core.models import CauseOfAction
-apps/contracts/models/contract.py:10:from apps.organization.models import Lawyer
-apps/litigation_ai/agent/prompts.py:115:from apps.core.models import SystemConfig
-apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:10:from apps.documents.models import PromptVersion
+apps/contracts/admin/contract_admin.py:98:from apps.cases.models import CaseStatus
+apps/contracts/models.py:12:from apps.organization.models import Lawyer
+apps/contracts/models/contract.py:17:from apps.organization.models import Lawyer
+apps/core/dto/cases.py:9:from apps.cases.models import Case, CaseParty, CaseTemplateBinding
+apps/core/dto/client.py:9:from apps.client.models import Client, ClientIdentityDoc
+apps/core/dto/contracts.py:9:from apps.contracts.models import Contract, SupplementaryAgreement
+apps/core/dto/organization.py:9:from apps.organization.models import AccountCredential, LawFirm, Lawyer
+apps/core/querysets.py:33:from apps.cases.models import Case
+apps/core/querysets.py:58:from apps.contracts.models import Contract
+apps/core/service_locator_mixins/automation_mixin.py:246:from apps.automation.models import ScraperTask
+apps/core/utils/typing_helpers.py:14:from apps.cases.models import Case
+apps/core/utils/typing_helpers.py:15:from apps.contracts.models import Contract
+apps/core/utils/typing_helpers.py:16:from apps.documents.models import DocumentTemplate, EvidenceList, FolderTemplate, GenerationTask
+apps/core/utils/typing_helpers_example.py:15:from apps.cases.models import Case
+apps/core/utils/typing_helpers_example.py:29:from apps.cases.models import Case
+apps/core/utils/typing_helpers_example.py:43:from apps.cases.models import Case
+apps/core/utils/typing_helpers_example.py:59:from apps.cases.models import Case
+apps/litigation_ai/agent/prompts.py:118:from apps.core.models import SystemConfig
+apps/litigation_ai/management/commands/init_litigation_ai_flow_prompts.py:14:from apps.documents.models import PromptVersion
+apps/onboarding/views.py:13:from apps.client.models import Client
+apps/onboarding/views.py:14:from apps.contracts.models import FeeMode, PartyRole

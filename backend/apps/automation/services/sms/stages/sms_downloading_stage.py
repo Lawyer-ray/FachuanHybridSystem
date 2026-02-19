@@ -7,14 +7,13 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import Any
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask, ScraperTaskType
+from apps.automation.services.sms.task_queue import TaskQueue
 
 from .base import BaseSMSStage
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger("apps.automation")
 
@@ -26,18 +25,15 @@ class SMSDownloadingStage(BaseSMSStage):
     负责根据短信中的下载链接决定：
     - 有下载链接：创建下载任务，进入 DOWNLOADING 状态
     - 无下载链接：直接进入 MATCHING 状态
-
-    Attributes:
-        无外部依赖，使用 Django ORM 和 Django Q
     """
 
-    def __init__(self) -> None:
-        """
-        初始化下载阶段处理器
-
-        此阶段不需要外部服务依赖，直接使用 Django ORM 和 Django Q。
-        """
-        pass
+    def __init__(
+        self,
+        task_queue: TaskQueue,
+        execute_scraper_task: Callable[..., Any],
+    ) -> None:
+        self._task_queue = task_queue
+        self._execute_scraper_task = execute_scraper_task
 
     @property
     def stage_name(self) -> str:
@@ -105,7 +101,7 @@ class SMSDownloadingStage(BaseSMSStage):
 
     def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
         """
-        创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行
+        创建下载任务并关联到短信记录，然后提交到任务队列执行
 
         Args:
             sms: CourtSMS 实例
@@ -117,10 +113,8 @@ class SMSDownloadingStage(BaseSMSStage):
             return None
 
         try:
-            # 使用第一个下载链接创建任务
             download_url = sms.download_links[0]
 
-            # 创建 ScraperTask
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
                 url=download_url,
@@ -130,11 +124,10 @@ class SMSDownloadingStage(BaseSMSStage):
 
             logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")
 
-            # 提交到 Django Q 队列执行（延迟导入避免 django_q.tasks 顶层导入）
-            from django_q.tasks import async_task  # noqa: PLC0415
-
-            queue_task_id = async_task(
-                "apps.automation.tasks.execute_scraper_task", task.id, task_name=f"court_document_download_{task.id}"
+            queue_task_id = self._task_queue.enqueue(
+                "apps.automation.tasks.execute_scraper_task",
+                task.id,
+                task_name=f"court_document_download_{task.id}",
             )
 
             logger.info(f"提交下载任务到队列: Task ID={task.id}, Queue Task ID={queue_task_id}")
@@ -147,10 +140,11 @@ class SMSDownloadingStage(BaseSMSStage):
 
 
 def create_sms_downloading_stage() -> SMSDownloadingStage:
-    """
-    工厂函数：创建 SMS 下载阶段处理器
+    """工厂函数：创建 SMS 下载阶段处理器"""
+    from apps.automation.tasks import execute_scraper_task
+    from apps.automation.services.sms.task_queue import DjangoQTaskQueue
 
-    Returns:
-        SMSDownloadingStage: 下载阶段处理器实例
-    """
-    return SMSDownloadingStage()
+    return SMSDownloadingStage(
+        task_queue=DjangoQTaskQueue(),
+        execute_scraper_task=execute_scraper_task,
+    )

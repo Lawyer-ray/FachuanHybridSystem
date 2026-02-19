@@ -27,14 +27,24 @@ def _parse_reminder_time(rt: str | None) -> datetime | None:
     """解析提醒时间字符串"""
     if not rt:
         return None
-    try:
-        return datetime.fromisoformat(rt)
-    except (ValueError, TypeError):
-        pass
-    try:
-        return datetime.strptime(rt, "%Y-%m-%d %H:%M:%S")
-    except (ValueError, TypeError):
+    for fmt in (None, "%Y-%m-%d %H:%M:%S"):
+        parsed = _try_parse_dt(rt, fmt)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _try_parse_dt(rt: str, fmt: str | None) -> datetime | None:
+    """尝试单种格式解析，失败返回 None"""
+    if fmt is None:
+        import contextlib
+        with contextlib.suppress(ValueError, TypeError):
+            return datetime.fromisoformat(rt)
         return None
+    import contextlib
+    with contextlib.suppress(ValueError, TypeError):
+        return datetime.strptime(rt, fmt)
+    return None
 
 
 @router.get("/logs", response=list[CaseLogOut])

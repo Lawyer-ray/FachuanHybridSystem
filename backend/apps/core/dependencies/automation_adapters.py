@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -51,3 +51,16 @@ def build_court_pleading_signals_service() -> ICourtPleadingSignalsService:
     )
 
     return CourtPleadingSignalsServiceAdapter()
+
+
+def build_ai_service() -> Any:
+    from apps.automation.services.ai.ai_service import AIService
+    from apps.core.dependencies.core import build_llm_service
+
+    return AIService(llm_service=build_llm_service())  # type: ignore[arg-type]
+
+
+def build_automation_config_service() -> Any:
+    from apps.automation.services.config_service import AutomationConfigService
+
+    return AutomationConfigService()

@@ -15,17 +15,9 @@ from typing import Any
 
 
 def _get_document_processor_service() -> Any:
-    """
-    工厂函数：创建文档处理服务实例
+    from apps.core.dependencies import build_document_processing_service
 
-    通过ServiceLocator获取文档处理服务，确保依赖解耦
-
-    Returns:
-        IDocumentProcessorService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_document_processor_service()  # type: ignore[attr-defined]
+    return build_document_processing_service()
 
 
 @router.post("/process", response=DocumentProcessOut)

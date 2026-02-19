@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from django.utils import timezone
 
 from apps.automation.models import DocumentQueryHistory
-from apps.core.interfaces import ServiceLocator
-
 from apps.automation.services.document_delivery.court_document_api_client import CourtDocumentApiClient
 from apps.automation.services.document_delivery.data_classes import (
     DocumentDeliveryRecord,
@@ -646,7 +644,8 @@ class DocumentDeliveryApiService:
             是否成功同步
         """
         try:
-            case_number_service = ServiceLocator.get_case_number_service()
+            from apps.core.dependencies.business_case import build_case_number_service
+            case_number_service = build_case_number_service()
 
             # 检查案件是否已有这个案号
             existing_numbers = case_number_service.list_numbers(case_id=case_id)
@@ -693,7 +692,8 @@ class DocumentDeliveryApiService:
 
             # 创建案件日志
             if renamed_files:
-                case_log_service = ServiceLocator.get_caselog_service()
+                from apps.core.dependencies.business_case import build_case_log_service
+                case_log_service = build_case_log_service()
                 file_names = [f.split("/")[-1] for f in renamed_files]
                 case_log = case_log_service.create_log(
                     case_id=case.id,

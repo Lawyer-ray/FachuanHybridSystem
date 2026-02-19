@@ -5,7 +5,6 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityRecognizeOut
-from apps.core.exceptions import ServiceUnavailableError, ValidationException
 
 logger = logging.getLogger(__name__)
 
@@ -40,51 +39,16 @@ def recognize_identity_doc(
     doc_type: str = "身份证",
 ) -> IdentityRecognizeOut:
     """识别证件信息"""
-    from apps.client.services.identity_extraction.data_classes import OCRExtractionError, OllamaExtractionError
-
     image_bytes = file.read()
     service = _get_identity_extraction_service()
-    try:
-        result = service.extract(image_bytes, doc_type)
-        return IdentityRecognizeOut(
-            success=True,
-            doc_type=result.doc_type,
-            extracted_data=result.extracted_data,
-            confidence=result.confidence,
-        )
-    except ValidationException as e:
-        return IdentityRecognizeOut(
-            success=False,
-            doc_type=doc_type,
-            extracted_data={},
-            confidence=0.0,
-            error=str(e),
-        )
-    except (OCRExtractionError, OllamaExtractionError) as e:
-        return IdentityRecognizeOut(
-            success=False,
-            doc_type=doc_type,
-            extracted_data={},
-            confidence=0.0,
-            error=f"识别失败: {e}",
-        )
-    except ServiceUnavailableError as e:
-        return IdentityRecognizeOut(
-            success=False,
-            doc_type=doc_type,
-            extracted_data={},
-            confidence=0.0,
-            error=f"服务不可用: {e}",
-        )
-    except Exception as e:
-        logger.warning("证件识别未知错误: %s", e)
-        return IdentityRecognizeOut(
-            success=False,
-            doc_type=doc_type,
-            extracted_data={},
-            confidence=0.0,
-            error=f"未知错误: {e}",
-        )
+    result = service.safe_extract(image_bytes, doc_type)
+    return IdentityRecognizeOut(
+        success=result["success"],
+        doc_type=result["doc_type"],
+        extracted_data=result["extracted_data"],
+        confidence=result["confidence"],
+        error=result.get("error"),
+    )
 
 
 @router.post("/clients/{client_id}/identity-docs")

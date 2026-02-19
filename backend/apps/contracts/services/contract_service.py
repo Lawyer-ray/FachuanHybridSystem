@@ -127,12 +127,12 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
             SupplementaryAgreementService 实例
         """
         if self._supplementary_agreement_service is None:
-            from apps.client.services import ClientServiceAdapter
+            from apps.core.interfaces import ServiceLocator
 
             from .supplementary_agreement_service import SupplementaryAgreementService
 
             self._supplementary_agreement_service = SupplementaryAgreementService(
-                client_service=ClientServiceAdapter()  # type: ignore[abstract]
+                client_service=ServiceLocator.get_client_service()
             )
         return self._supplementary_agreement_service
 
