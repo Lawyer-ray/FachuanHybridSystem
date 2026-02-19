@@ -12,22 +12,21 @@ from typing import TYPE_CHECKING, Any, cast
 from django.db import transaction
 from django.db.models import QuerySet
 
+from apps.contracts.models import Contract, ContractAssignment, ContractParty, FeeMode
 from apps.core import business_config
 from apps.core.business_config import BusinessConfig
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.permissions import AccessContext, PermissionMixin
 from apps.core.querysets import ContractQuerySetManager
 
-from apps.contracts.models import Contract, ContractAssignment, ContractParty, FeeMode
-
 from ._contract_helpers_mixin import ContractHelpersMixin
 
 if TYPE_CHECKING:
     from apps.contracts.dtos import ContractDTO
+    from apps.contracts.models import ContractPayment
     from apps.core.dtos import LawyerDTO
     from apps.core.interfaces import ICaseService
 
-    from apps.contracts.models import ContractPayment
     from .contract_payment_service import ContractPaymentService
     from .lawyer_assignment_service import LawyerAssignmentService
     from .supplementary_agreement_service import SupplementaryAgreementService
@@ -706,10 +705,6 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
 
         return created_payments
 
-
-
-
-
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         """
         获取合同及其补充协议的所有当事人
@@ -765,8 +760,6 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
 
 
 # 向后兼容导出
-from ._contract_service_adapter import ContractServiceAdapter  # noqa: E402
+from ._contract_service_adapter import ContractServiceAdapter
 
 __all__ = ["ContractService", "ContractServiceAdapter"]
-
-
