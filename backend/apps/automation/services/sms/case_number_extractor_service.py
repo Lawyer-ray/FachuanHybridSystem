@@ -10,7 +10,7 @@ import re
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from apps.core.interfaces import ICaseService, IDocumentProcessingService
+    from apps.core.interfaces import ICaseNumberService, ICaseService, IDocumentProcessingService
 
 logger = logging.getLogger("apps.automation")
 
@@ -31,6 +31,7 @@ class CaseNumberExtractorService:
         self,
         document_processing_service: Optional["IDocumentProcessingService"] = None,
         case_service: Optional["ICaseService"] = None,
+        case_number_service: Optional["ICaseNumberService"] = None,
     ):
         """
         初始化服务，支持依赖注入
@@ -38,15 +39,18 @@ class CaseNumberExtractorService:
         Args:
             document_processing_service: 文档处理服务（可选）
             case_service: 案件服务（可选）
+            case_number_service: 案号服务（可选）
         """
         self._document_processing_service = document_processing_service
         self._case_service = case_service
+        self._case_number_service = case_number_service
 
     @property
     def document_processing_service(self) -> "IDocumentProcessingService":
         """延迟加载文档处理服务"""
         if self._document_processing_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_document_processing_service
+
             self._document_processing_service = build_sms_document_processing_service()
         return self._document_processing_service
 
@@ -55,8 +59,18 @@ class CaseNumberExtractorService:
         """延迟加载案件服务"""
         if self._case_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+
             self._case_service = build_sms_case_service()
         return self._case_service
+
+    @property
+    def case_number_service(self) -> "ICaseNumberService":
+        """延迟加载案号服务"""
+        if self._case_number_service is None:
+            from apps.core.interfaces import ServiceLocator
+
+            self._case_number_service = ServiceLocator.get_case_number_service()
+        return self._case_number_service
 
     def extract_from_document(self, document_path: str) -> list[str]:
         """
@@ -201,9 +215,7 @@ class CaseNumberExtractorService:
             return []
 
         try:
-            from apps.core.interfaces import ServiceLocator
-
-            case_number_svc = ServiceLocator.get_case_number_service()
+            case_number_svc = self.case_number_service
             logger.info(f"开始验证 {len(case_numbers)} 个案号")
             valid_numbers: list[str] = []
             seen: set[str] = set()
@@ -275,9 +287,7 @@ class CaseNumberExtractorService:
             return 0
 
         try:
-            from apps.core.interfaces import ServiceLocator
-
-            case_number_svc = ServiceLocator.get_case_number_service()
+            case_number_svc = self.case_number_service
             case_numbers_to_sync = self._deduplicate(case_numbers)
             if not case_numbers_to_sync:
                 logger.info(f"去重后没有案号需要同步: Case ID={case_id}")
@@ -404,9 +414,7 @@ class CaseNumberExtractorService:
             return []
 
         try:
-            from apps.core.interfaces import ServiceLocator
-
-            case_number_svc = ServiceLocator.get_case_number_service()
+            case_number_svc = self.case_number_service
             seen: set[str] = set()
             unique_numbers: list[str] = []
 
