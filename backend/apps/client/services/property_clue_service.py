@@ -312,6 +312,30 @@ class PropertyClueService:
         return attachment
 
     @transaction.atomic
+    def add_attachment_from_upload(
+        self,
+        clue_id: int,
+        uploaded_file: Any,
+        user: Any = None,
+    ) -> "PropertyClueAttachment":
+        """从上传文件添加附件（文件 IO 在 Service 层处理）"""
+        from apps.core.services.file_upload_service import FileUploadService
+
+        upload_service = FileUploadService()
+        saved_path = upload_service.save_file(
+            uploaded_file,
+            base_dir=f"property_clue_attachments/{clue_id}",
+            preserve_name=True,
+        )
+        file_name: str = uploaded_file.name or saved_path.name
+        return self.add_attachment(
+            clue_id=clue_id,
+            file_path=str(saved_path),
+            file_name=file_name,
+            user=user,
+        )
+
+    @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: User | None = None) -> None:  # type: ignore[valid-type]
         """
         删除财产线索附件

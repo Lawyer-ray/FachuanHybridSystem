@@ -3,10 +3,8 @@
 只负责请求/响应处理，不包含业务逻辑
 """
 
-import os
 from typing import Any
 
-from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -142,38 +140,10 @@ def upload_attachment(
     clue_id: int,
     file: UploadedFile = File(...),  # type: ignore[arg-type]
 ) -> Any:
-    """
-    为财产线索上传附件
-
-    API 层职责：
-    1. 接收文件上传
-    2. 处理文件存储（UI 相关逻辑）
-    3. 调用 Service 创建附件记录
-    4. 返回响应
-
-    Requirements: 3.1
-    """
+    """为财产线索上传附件"""
     service = _get_property_clue_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-
-    # 处理文件上传（UI 相关逻辑，保留在 API 层）
-    base_dir = os.path.join(settings.MEDIA_ROOT, "property_clue_attachments", str(clue_id))
-    os.makedirs(base_dir, exist_ok=True)
-
-    target_path = os.path.join(base_dir, file.name)  # type: ignore[arg-type]
-    with open(target_path, "wb+") as f:
-        for chunk in file.chunks():
-            f.write(chunk)
-
-    # 调用 Service 创建附件记录
-    attachment = service.add_attachment(
-        clue_id=clue_id,
-        file_path=os.path.abspath(target_path),
-        file_name=file.name,  # type: ignore[arg-type]
-        user=user,
-    )
-
-    return attachment
+    return service.add_attachment_from_upload(clue_id=clue_id, uploaded_file=file, user=user)
 
 
 @router.delete("/property-clue-attachments/{attachment_id}", response={204: None})

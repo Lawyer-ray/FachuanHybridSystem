@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-import os
-from typing import Any, cast
+from typing import Any
 
-from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
@@ -81,22 +79,19 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
-def get_client(request: Any, client_id: int) -> ClientOut:
+def get_client(request: Any, client_id: int) -> Any:
     """获取单个客户"""
     service = _get_client_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    client = service.get_client(client_id, user)
-    return cast(ClientOut, client)
+    return service.get_client(client_id, user)
 
 
 @router.post("/clients", response=ClientOut)
-def create_client(request: Any, payload: ClientIn) -> ClientOut:
+def create_client(request: Any, payload: ClientIn) -> Any:
     """创建客户"""
     service = _get_client_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    client = service.create_client(data=payload.dict(), user=user)
-
-    return cast(ClientOut, client)
+    return service.create_client(data=payload.dict(), user=user)
 
 
 @router.post("/clients-with-docs", response=ClientOut)
@@ -105,7 +100,7 @@ def create_client_with_docs(
     payload: ClientIn,
     doc_types: list[str],
     files: list[UploadedFile] = File(...),  # type: ignore[call-overload]
-) -> ClientOut:
+) -> Any:
     """创建客户并上传文档"""
     service = _get_client_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
@@ -113,31 +108,24 @@ def create_client_with_docs(
 
     if doc_types and files:
         identity_doc_service = _get_identity_doc_service()
-        base_dir = os.path.join(settings.MEDIA_ROOT, "client_docs", str(client.id))
-        os.makedirs(base_dir, exist_ok=True)
-
-        for doc_type, file in zip(doc_types, files):
-            target_path = os.path.join(base_dir, file.name)  # type: ignore[arg-type]
-            with open(target_path, "wb+") as f:
-                for chunk in file.chunks():
-                    f.write(chunk)
-
-            identity_doc_service.add_identity_doc(
-                client_id=client.id, doc_type=doc_type, file_path=os.path.abspath(target_path), user=user
+        for doc_type, file in zip(doc_types, files, strict=False):
+            identity_doc_service.add_identity_doc_from_upload(
+                client_id=client.id,
+                doc_type=doc_type,
+                uploaded_file=file,
+                user=user,
             )
 
-    return cast(ClientOut, client)
+    return client
 
 
 @router.put("/clients/{client_id}", response=ClientOut)
-def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> ClientOut:
+def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:
     """更新客户"""
     service = _get_client_service()
     data = payload.dict(exclude_unset=True)
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    client = service.update_client(client_id=client_id, data=data, user=user)
-
-    return cast(ClientOut, client)
+    return service.update_client(client_id=client_id, data=data, user=user)
 
 
 @router.delete("/clients/{client_id}", response={204: None})
