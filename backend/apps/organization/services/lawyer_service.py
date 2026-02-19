@@ -13,7 +13,6 @@ from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied,
 from apps.core.interfaces import ILawyerService, LawyerDTO
 
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
-from apps.organization.schemas import LawyerCreateIn, LawyerUpdateIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -112,7 +111,7 @@ class LawyerService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawyer(self, data: LawyerCreateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
+    def create_lawyer(self, data: Any, user: Lawyer, license_pdf: Any = None) -> Lawyer:
         """
         创建律师
 
@@ -177,7 +176,7 @@ class LawyerService:
 
         return lawyer
 
-    def _apply_lawyer_fields(self, lawyer: Lawyer, data: LawyerUpdateIn, license_pdf: Any) -> None:
+    def _apply_lawyer_fields(self, lawyer: Lawyer, data: Any, license_pdf: Any) -> None:
         """将更新数据写入律师对象（不保存）"""
         if data.real_name is not None:
             lawyer.real_name = data.real_name
@@ -205,7 +204,7 @@ class LawyerService:
             lawyer.license_pdf.save(license_pdf.name, license_pdf, save=False)
 
     @transaction.atomic
-    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
+    def update_lawyer(self, lawyer_id: int, data: Any, user: Lawyer, license_pdf: Any = None) -> Lawyer:
         """更新律师"""
         lawyer = self.get_lawyer(lawyer_id, user)
 
@@ -331,7 +330,7 @@ class LawyerService:
         # 只有超级管理员或律所管理员可以删除律师
         return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id))  # type: ignore[attr-defined]
 
-    def _validate_create_data(self, data: LawyerCreateIn, user: Lawyer) -> None:
+    def _validate_create_data(self, data: Any, user: Lawyer) -> None:
         """验证创建数据（私有方法）"""
         # 检查用户名是否重复
         if Lawyer.objects.filter(username=data.username).exists():
@@ -345,7 +344,7 @@ class LawyerService:
                 message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
-    def _validate_update_data(self, lawyer: Lawyer, data: LawyerUpdateIn, user: Lawyer) -> None:
+    def _validate_update_data(self, lawyer: Lawyer, data: Any, user: Lawyer) -> None:
         """验证更新数据（私有方法）"""
         # 检查手机号是否与其他律师重复
         if data.phone and data.phone != lawyer.phone and Lawyer.objects.filter(phone=data.phone).exists():

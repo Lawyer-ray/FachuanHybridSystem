@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import cast
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -12,7 +12,6 @@ from django.db.models import QuerySet
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
-from apps.organization.schemas import TeamIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -87,7 +86,7 @@ class TeamService:
         return cast(Team, team)
 
     @transaction.atomic
-    def create_team(self, data: TeamIn, user: Lawyer | None = None) -> Team:
+    def create_team(self, data: Any, user: Lawyer | None = None) -> Team:
         """
         创建团队
 
@@ -130,7 +129,7 @@ class TeamService:
         return team
 
     @transaction.atomic
-    def update_team(self, team_id: int, data: TeamIn, user: Lawyer | None = None) -> Team:
+    def update_team(self, team_id: int, data: Any, user: Lawyer | None = None) -> Team:
         """
         更新团队
 

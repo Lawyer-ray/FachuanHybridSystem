@@ -13,7 +13,6 @@ from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied,
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from apps.organization.models import LawFirm, Lawyer
-from apps.organization.schemas import LawFirmIn, LawFirmUpdateIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -111,7 +110,7 @@ class LawFirmService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawfirm(self, data: LawFirmIn, user: Lawyer) -> LawFirm:
+    def create_lawfirm(self, data: Any, user: Lawyer) -> LawFirm:
         """
         创建律所
 
@@ -151,7 +150,7 @@ class LawFirmService:
         return lawfirm
 
     @transaction.atomic
-    def update_lawfirm(self, lawfirm_id: int, data: LawFirmUpdateIn, user: Lawyer) -> LawFirm:
+    def update_lawfirm(self, lawfirm_id: int, data: Any, user: Lawyer) -> LawFirm:
         """
         更新律所
 
@@ -262,7 +261,7 @@ class LawFirmService:
         # 只有超级管理员可以删除律所
         return cast(bool, user.is_superuser)
 
-    def _validate_create_data(self, data: LawFirmIn) -> None:
+    def _validate_create_data(self, data: Any) -> None:
         """验证创建数据（私有方法）"""
         # 检查名称是否重复
         if LawFirm.objects.filter(name=data.name).exists():
@@ -270,7 +269,7 @@ class LawFirmService:
                 message="律所名称已存在", code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
             )
 
-    def _validate_update_data(self, lawfirm: LawFirm, data: LawFirmUpdateIn) -> None:
+    def _validate_update_data(self, lawfirm: LawFirm, data: Any) -> None:
         """验证更新数据（私有方法）"""
         # 检查名称是否与其他律所重复
         if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
