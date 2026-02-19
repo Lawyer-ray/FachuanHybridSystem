@@ -2,9 +2,9 @@ from typing import ClassVar
 
 from ninja import ModelSchema, Schema
 
-from apps.client.schemas import ClientOut
 from apps.core.interfaces import LawyerDTO, ServiceLocator
 from apps.core.schemas import SchemaMixin
+from apps.core.schemas_shared import ClientLiteOut as ClientOut
 
 from .models import (
     Case,

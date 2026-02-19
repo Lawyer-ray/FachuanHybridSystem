@@ -7,16 +7,25 @@
 import base64
 import logging
 import time
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
 
 from PIL import Image
 
-from apps.automation.schemas import CaptchaRecognizeOut
 from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
 from apps.core.interfaces import ICaptchaService
 
 logger = logging.getLogger("apps.automation")
+
+
+@dataclass
+class CaptchaResult:
+    """验证码识别结果"""
+    success: bool
+    text: str | None
+    processing_time: float
+    error: str | None
 
 
 class CaptchaRecognitionService:
@@ -153,7 +162,7 @@ class CaptchaRecognitionService:
             logger.warning(f"图片格式验证失败: {e}")
             raise ValueError("无法识别图片格式") from e
 
-    def recognize_from_base64(self, image_base64: str) -> CaptchaRecognizeOut:
+    def recognize_from_base64(self, image_base64: str) -> CaptchaResult:
         """
         从 Base64 编码的图片识别验证码
 
@@ -167,7 +176,7 @@ class CaptchaRecognitionService:
             image_base64: Base64 编码的图片字符串
 
         Returns:
-            CaptchaRecognizeOut: 识别结果，包含成功状态、文本、处理时间和错误信息
+            CaptchaResult: 识别结果，包含成功状态、文本、处理时间和错误信息
         """
         start_time = time.time()
 
@@ -175,7 +184,7 @@ class CaptchaRecognitionService:
             # 1. 验证输入
             if not image_base64 or not image_base64.strip():
                 logger.warning("收到空的图片数据")
-                return CaptchaRecognizeOut(
+                return CaptchaResult(
                     success=False, text=None, processing_time=time.time() - start_time, error="图片数据不能为空"
                 )
 
@@ -183,7 +192,7 @@ class CaptchaRecognitionService:
             try:
                 image_bytes = self._decode_base64_image(image_base64)
             except ValueError as e:
-                return CaptchaRecognizeOut(
+                return CaptchaResult(
                     success=False, text=None, processing_time=time.time() - start_time, error=str(e)
                 )
 
@@ -191,7 +200,7 @@ class CaptchaRecognitionService:
             try:
                 self._validate_image_size(image_bytes)
             except ValueError as e:
-                return CaptchaRecognizeOut(
+                return CaptchaResult(
                     success=False, text=None, processing_time=time.time() - start_time, error=str(e)
                 )
 
@@ -199,7 +208,7 @@ class CaptchaRecognitionService:
             try:
                 self._validate_image_format(image_bytes)
             except ValueError as e:
-                return CaptchaRecognizeOut(
+                return CaptchaResult(
                     success=False, text=None, processing_time=time.time() - start_time, error=str(e)
                 )
 
@@ -226,12 +235,12 @@ class CaptchaRecognitionService:
                 AutomationLogger.log_captcha_recognition_success(
                     processing_time=processing_time, result_length=len(result), image_size=len(image_bytes)
                 )
-                return CaptchaRecognizeOut(success=True, text=result, processing_time=processing_time, error=None)
+                return CaptchaResult(success=True, text=result, processing_time=processing_time, error=None)
             else:
                 AutomationLogger.log_captcha_recognition_failed(
                     processing_time=processing_time, error_message="无法识别验证码", image_size=len(image_bytes)
                 )
-                return CaptchaRecognizeOut(
+                return CaptchaResult(
                     success=False, text=None, processing_time=processing_time, error="无法识别验证码"
                 )
 
@@ -245,7 +254,7 @@ class CaptchaRecognitionService:
                 error_message=str(e),
                 image_size=len(image_bytes) if "image_bytes" in locals() else None,
             )
-            return CaptchaRecognizeOut(
+            return CaptchaResult(
                 success=False, text=None, processing_time=processing_time, error="系统错误，请稍后重试"
             )
 
@@ -350,6 +359,6 @@ class CaptchaServiceAdapter(ICaptchaService):
             image_base64: Base64 编码的图片数据
 
         Returns:
-            CaptchaRecognizeOut: 识别结果对象
+            CaptchaResult: 识别结果对象
         """
         return self.service.recognize_from_base64(image_base64)
