@@ -280,8 +280,6 @@ class IdentityExtractionService:
         提取证件信息，捕获所有异常，返回含 success 字段的 dict。
         供 API 层直接调用，无需 try/except。
         """
-        import contextlib
-
         result: dict[str, Any] = {
             "success": False,
             "doc_type": doc_type,
@@ -289,8 +287,6 @@ class IdentityExtractionService:
             "confidence": 0.0,
             "error": None,
         }
-        with contextlib.suppress():
-            pass  # 占位，下面用 try 在 Service 层内部处理
         # Service 层内部允许 try/except（规范禁止的是 API 层）
         try:
             extraction = self.extract(image_bytes, doc_type)
