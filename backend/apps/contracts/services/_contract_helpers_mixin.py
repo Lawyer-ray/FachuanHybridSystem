@@ -74,7 +74,7 @@ class ContractHelpersMixin:
 
     def _check_contract_access(
         self,
-        contract: "Contract",
+        contract: Contract,
         user: Any,
         org_access: dict[str, Any] | None,
     ) -> bool:
@@ -85,9 +85,7 @@ class ContractHelpersMixin:
             return False
         user_id = getattr(user, "id", None)
         has_access = (
-            contract.assignments.filter(
-                lawyer_id__in=org_access.get("lawyers", set())
-            ).exists()
+            contract.assignments.filter(lawyer_id__in=org_access.get("lawyers", set())).exists()
             or contract.assignments.filter(lawyer_id=user_id).exists()
         )
         if not has_access:
