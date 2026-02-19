@@ -29,7 +29,6 @@ from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.service_locator import ServiceLocator
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,16 @@ class CaseChatService:
 
     @property
     def factory(self) -> Any:
-        """懒加载群聊提供者工厂（通过 ServiceLocator 避免跨模块直接导入）"""
-        return ServiceLocator.get_chat_provider_factory()
+        """懒加载群聊提供者工厂（避免 cases→automation 跨模块导入）"""
+        from apps.automation.services.chat.factory import ChatProviderFactory
+
+        return ChatProviderFactory
+
+    def _build_message_content(self, title: str, text: str) -> Any:
+        """构造 MessageContent 对象（懒加载，避免 cases→automation 跨模块导入）"""
+        from apps.automation.services.chat.base import MessageContent
+
+        return MessageContent(title=title, text=text, file_path=None)
 
     def _build_chat_name(self, case: Case) -> str:
         """构建群聊名称
@@ -379,7 +386,7 @@ class CaseChatService:
                 errors={"original_error": str(e)},
             ) from e
 
-        content = ServiceLocator.build_chat_message_content(title=title, text=sms_content.strip(), file_path=None)
+        content = self._build_message_content(title=title, text=sms_content.strip())
 
         try:
             result = provider.send_message(chat.chat_id, content)
