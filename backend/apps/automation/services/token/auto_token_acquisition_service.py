@@ -168,66 +168,11 @@ class AutoTokenAcquisitionService:
             try:
                 # 再次检查token（可能在等待期间已被其他任务获取）
 
-                if credential_id:
-                    credential = await self._get_credential_by_id(credential_id)
-                    if not credential:
-                        raise ValidationException(f"无效的凭证ID: {credential_id}")
-
-                    # 先检查缓存
-                    existing_token = cache_manager.get_cached_token(site_name, credential.account)
-                    if not existing_token:
-                        # 缓存未命中，检查数据库（token_service.get_token 是异步方法）
-                        existing_token = await self.token_service.get_token_internal(site_name, credential.account)  # type: ignore[attr-defined]
-                        if existing_token:
-                            # 缓存Token
-                            cache_manager.cache_token(site_name, credential.account, existing_token)
-
-                    if existing_token:
-                        AutomationLogger.log_existing_token_used(
-                            acquisition_id=acquisition_id,
-                            site_name=site_name,
-                            account=credential.account,
-                            acquisition_method="existing",
-                        )
-                        return existing_token
-                else:
-                    # 对于自动选择账号的情况，先选择账号然后检查该账号是否有有效token
-                    credential = await self.account_selection_strategy.select_account(site_name)
-                    if credential:
-                        # 先检查缓存
-                        existing_token = cache_manager.get_cached_token(site_name, credential.account)
-                        if not existing_token:
-                            # 缓存未命中，检查数据库（token_service.get_token 是异步方法）
-                            existing_token = await self.token_service.get_token_internal(site_name, credential.account)  # type: ignore[attr-defined]
-                            if existing_token:
-                                # 缓存Token
-                                cache_manager.cache_token(site_name, credential.account, existing_token)
-
-                        if existing_token:
-                            logger.info(
-                                "使用现有Token（自动选择账号）",
-                                extra={
-                                    "acquisition_id": acquisition_id,
-                                    "site_name": site_name,
-                                    "account": credential.account,
-                                    "acquisition_method": "existing",
-                                },
-                            )
-                            return existing_token
-                    else:
-                        # 没有找到可用账号
-                        logger.error(
-                            "没有找到可用账号", extra={"acquisition_id": acquisition_id, "site_name": site_name}
-                        )
-                        raise NoAvailableAccountError(
-                            "没有找到法院一张网的账号凭证\n\n"
-                            "请在 Admin 后台添加账号：\n"
-                            "1. 访问 /admin/organization/accountcredential/\n"
-                            "2. 点击「添加账号密码」\n"
-                            "3. URL 填写：https://zxfw.court.gov.cn\n"
-                            "4. 填写账号和密码\n"
-                            "5. 保存后重新执行询价"
-                        )
+                credential, existing_token = await self._resolve_credential_and_token(
+                    site_name, credential_id, acquisition_id
+                )
+                if existing_token:
+                    return existing_token
 
                 # 执行自动登录获取token
                 result = await self._acquire_token_by_login(acquisition_id, site_name, credential_id, credential)
@@ -404,78 +349,251 @@ class AutoTokenAcquisitionService:
         except Exception:
             return None
 
+    async def _get_cached_or_db_token(self, site_name: str, account: str) -> str | None:
+        """先查缓存，再查数据库，命中时回填缓存"""
+        token = cache_manager.get_cached_token(site_name, account)
+        if not token:
+            token = await self.token_service.get_token_internal(site_name, account)  # type: ignore[attr-defined]
+            if token:
+                cache_manager.cache_token(site_name, account, token)
+        return token  # type: ignore[return-value]
+
+    async def _resolve_credential_and_token(
+        self,
+        site_name: str,
+        credential_id: int | None,
+        acquisition_id: str,
+    ) -> tuple[AccountCredentialDTO | None, str | None]:
+        """
+        解析凭证并检查是否已有有效 token。
+
+        Returns:
+            (credential, existing_token)，existing_token 非 None 时可直接返回
+        """
+        if credential_id:
+            credential = await self._get_credential_by_id(credential_id)
+            if not credential:
+                raise ValidationException(f"无效的凭证ID: {credential_id}")
+            existing_token = await self._get_cached_or_db_token(site_name, credential.account)
+            if existing_token:
+                logger.info(
+                    "使用现有Token（指定凭证）",
+                    extra={
+                        "acquisition_id": acquisition_id,
+                        "site_name": site_name,
+                        "account": credential.account,
+                        "acquisition_method": "existing",
+                    },
+                )
+            return credential, existing_token
+
+        credential = await self.account_selection_strategy.select_account(site_name)
+        if not credential:
+            logger.error("没有找到可用账号", extra={"acquisition_id": acquisition_id, "site_name": site_name})
+            raise NoAvailableAccountError(
+                "没有找到法院一张网的账号凭证\n\n"
+                "请在 Admin 后台添加账号：\n"
+                "1. 访问 /admin/organization/accountcredential/\n"
+                "2. 点击「添加账号密码」\n"
+                "3. URL 填写：https://zxfw.court.gov.cn\n"
+                "4. 填写账号和密码\n"
+                "5. 保存后重新执行询价"
+            )
+        existing_token = await self._get_cached_or_db_token(site_name, credential.account)
+        if existing_token:
+            logger.info(
+                "使用现有Token（自动选择账号）",
+                extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
+            )
+        return credential, existing_token
+
+    async def _try_recover_token_after_timeout(
+        self,
+        site_name: str,
+        account: str,
+        login_duration: float,
+        login_attempts: list[LoginAttemptResult],
+        start_time: float,
+    ) -> TokenAcquisitionResult | None:
+        """
+        超时后等待并检查 token 是否已保存，成功则返回结果，否则返回 None
+        """
+        await asyncio.sleep(2)
+        saved_token = await self.token_service.get_token_internal(site_name, account)  # type: ignore[attr-defined]
+        if not saved_token:
+            return None
+        logger.info("超时但Token已保存成功", extra={"site_name": site_name, "account": account})
+        login_attempts.append(LoginAttemptResult(
+            success=True, token=saved_token, account=account,
+            error_message="超时但Token已保存", attempt_duration=login_duration, retry_count=1,
+        ))
+        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+            account=account, site_name=site_name, success=True
+        )
+        return TokenAcquisitionResult(
+            success=True, token=saved_token,
+            acquisition_method="auto_login_timeout_recovered",
+            total_duration=time.time() - start_time,
+            login_attempts=login_attempts,
+        )
+
+    async def _select_credential(
+        self,
+        acquisition_id: str,
+        site_name: str,
+        credential_id: int | None,
+        selected_credential: "AccountCredentialDTO | None",
+    ) -> "AccountCredentialDTO":
+        """选择登录凭证"""
+        if credential_id:
+            credential = await self._get_credential_by_id(credential_id)
+            if not credential:
+                raise ValidationException(f"无效的凭证ID: {credential_id}")
+            logger.info(
+                "使用指定账号",
+                extra={
+                    "acquisition_id": acquisition_id,
+                    "site_name": site_name,
+                    "account": credential.account,
+                    "credential_id": credential_id,
+                },
+            )
+            return credential
+        if selected_credential:
+            logger.info(
+                "使用已选择账号",
+                extra={
+                    "acquisition_id": acquisition_id,
+                    "site_name": site_name,
+                    "account": selected_credential.account,
+                    "selection_reason": "pre_selected",
+                },
+            )
+            return selected_credential
+        credential = await self.account_selection_strategy.select_account(site_name)
+        if not credential:
+            raise NoAvailableAccountError(f"网站 {site_name} 没有可用账号")
+        logger.info(
+            "自动选择账号",
+            extra={
+                "acquisition_id": acquisition_id,
+                "site_name": site_name,
+                "account": credential.account,
+                "selection_reason": "best_available",
+            },
+        )
+        return credential
+
+    async def _handle_login_timeout(
+        self,
+        acquisition_id: str,
+        site_name: str,
+        credential: "AccountCredentialDTO",
+        login_duration: float,
+        login_attempts: list[Any],
+        start_time: float,
+        exc: Exception,
+    ) -> "TokenAcquisitionResult":
+        """处理登录超时，尝试恢复 token"""
+        logger.info(
+            "登录超时，检查Token是否已保存",
+            extra={
+                "acquisition_id": acquisition_id,
+                "site_name": site_name,
+                "account": credential.account,
+            },
+        )
+        recovered = await self._try_recover_token_after_timeout(
+            site_name, credential.account, login_duration, login_attempts, start_time
+        )
+        if recovered is not None:
+            return recovered
+        error_msg = f"登录超时（{self.concurrency_config.acquisition_timeout}秒）"
+        login_attempts.append(LoginAttemptResult(
+            success=False, token=None, account=credential.account,
+            error_message=error_msg, attempt_duration=login_duration, retry_count=1,
+        ))
+        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+            account=credential.account, site_name=site_name, success=False
+        )
+        logger.error(
+            "自动登录超时",
+            extra={
+                "acquisition_id": acquisition_id,
+                "site_name": site_name,
+                "account": credential.account,
+                "timeout": self.concurrency_config.acquisition_timeout,
+            },
+        )
+        raise TokenAcquisitionTimeoutError(
+            message=error_msg,
+            errors={
+                "timeout": self.concurrency_config.acquisition_timeout,
+                "login_duration": login_duration,
+            },
+        ) from exc
+
+    async def _handle_login_failed(
+        self,
+        acquisition_id: str,
+        site_name: str,
+        credential: "AccountCredentialDTO",
+        login_duration: float,
+        login_attempts: list[Any],
+        start_time: float,
+        exc: Exception,
+    ) -> "TokenAcquisitionResult":
+        """处理登录失败"""
+        if hasattr(exc, "attempts") and exc.attempts:  # type: ignore[union-attr]
+            login_attempts.extend(exc.attempts)  # type: ignore[union-attr]
+        else:
+            login_attempts.append(LoginAttemptResult(
+                success=False, token=None, account=credential.account,
+                error_message=str(exc), attempt_duration=login_duration, retry_count=1,
+            ))
+        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+            account=credential.account, site_name=site_name, success=False
+        )
+        logger.error(
+            "自动登录失败",
+            extra={
+                "acquisition_id": acquisition_id,
+                "site_name": site_name,
+                "account": credential.account,
+                "error": str(exc),
+                "login_duration": login_duration,
+                "attempts": len(login_attempts),
+            },
+        )
+        return TokenAcquisitionResult(
+            success=False, token=None, acquisition_method="auto_login",
+            total_duration=time.time() - start_time,
+            login_attempts=login_attempts,
+            error_details={"message": str(exc), "error_type": type(exc).__name__},
+        )
+
     async def _acquire_token_by_login(
         self,
         acquisition_id: str,
         site_name: str,
         credential_id: int | None,
-        selected_credential: AccountCredentialDTO | None = None,
-    ) -> TokenAcquisitionResult:
-        """
-        通过自动登录获取token
-
-        Args:
-            acquisition_id: 获取流程ID
-            site_name: 网站名称
-            credential_id: 指定的凭证ID（可选）
-            selected_credential: 已选择的凭证（可选，避免重复选择）
-
-        Returns:
-            Token获取结果
-        """
+        selected_credential: "AccountCredentialDTO | None" = None,
+    ) -> "TokenAcquisitionResult":
+        """通过自动登录获取token"""
         start_time = time.time()
-        login_attempts = []
+        login_attempts: list[Any] = []
 
         try:
-            # 1. 选择账号（如果还没有选择的话）
-            if credential_id:
-                credential = await self._get_credential_by_id(credential_id)
-                if not credential:
-                    raise ValidationException(f"无效的凭证ID: {credential_id}")
+            credential = await self._select_credential(acquisition_id, site_name, credential_id, selected_credential)
 
-                logger.info(
-                    "使用指定账号",
-                    extra={
-                        "acquisition_id": acquisition_id,
-                        "site_name": site_name,
-                        "account": credential.account,
-                        "credential_id": credential_id,
-                    },
-                )
-            elif selected_credential:
-                # 使用已选择的凭证，避免重复选择
-                credential = selected_credential
-                logger.info(
-                    "使用已选择账号",
-                    extra={
-                        "acquisition_id": acquisition_id,
-                        "site_name": site_name,
-                        "account": credential.account,
-                        "selection_reason": "pre_selected",
-                    },
-                )
-            else:
-                # 自动选择账号
-                credential = await self.account_selection_strategy.select_account(site_name)
-                if not credential:
-                    raise NoAvailableAccountError(f"网站 {site_name} 没有可用账号")
-
-                logger.info(
-                    "自动选择账号",
-                    extra={
-                        "acquisition_id": acquisition_id,
-                        "site_name": site_name,
-                        "account": credential.account,
-                        "selection_reason": "best_available",
-                    },
-                )
-
-            # 2. 执行自动登录
             logger.info(
                 "开始自动登录",
-                extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
+                extra={
+                    "acquisition_id": acquisition_id,
+                    "site_name": site_name,
+                    "account": credential.account,
+                },
             )
-
             login_start_time = time.time()
 
             try:
@@ -483,42 +601,28 @@ class AutoTokenAcquisitionService:
                     self.auto_login_service.login_and_get_token(credential),
                     timeout=self.concurrency_config.acquisition_timeout,
                 )
-
                 login_duration = time.time() - login_start_time
+                login_attempts.append(LoginAttemptResult(
+                    success=True, token=token, account=credential.account,
+                    error_message=None, attempt_duration=login_duration, retry_count=1,
+                ))
 
-                # 记录成功的登录尝试
-                login_attempt = LoginAttemptResult(
-                    success=True,
-                    token=token,
-                    account=credential.account,
-                    error_message=None,
-                    attempt_duration=login_duration,
-                    retry_count=1,
-                )
-                login_attempts.append(login_attempt)
-
-                # 3. 保存token（token_service.save_token_internal 是异步方法）
                 logger.info(
                     "保存Token到服务",
-                    extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
+                    extra={
+                        "acquisition_id": acquisition_id,
+                        "site_name": site_name,
+                        "account": credential.account,
+                    },
                 )
-
                 await self.token_service.save_token_internal(  # type: ignore[attr-defined]
-                    site_name=site_name,
-                    account=credential.account,
-                    token=token,
-                    expires_in=3600,  # 默认1小时过期
+                    site_name=site_name, account=credential.account,
+                    token=token, expires_in=3600,
                 )
-
-                # 缓存新获取的Token
                 cache_manager.cache_token(site_name, credential.account, token)
-
-                # 4. 更新账号统计
                 await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
                     account=credential.account, site_name=site_name, success=True
                 )
-
-                total_duration = time.time() - start_time
 
                 logger.info(
                     "自动登录成功",
@@ -527,235 +631,66 @@ class AutoTokenAcquisitionService:
                         "site_name": site_name,
                         "account": credential.account,
                         "login_duration": login_duration,
-                        "total_duration": total_duration,
+                        "total_duration": time.time() - start_time,
                     },
                 )
-
                 return TokenAcquisitionResult(
-                    success=True,
-                    token=token,
-                    acquisition_method="auto_login",
-                    total_duration=total_duration,
+                    success=True, token=token, acquisition_method="auto_login",
+                    total_duration=time.time() - start_time,
                     login_attempts=login_attempts,
                 )
 
             except TimeoutError as e:
-                login_duration = time.time() - login_start_time
-
-                # 超时后再检查一次Token是否已经保存（可能登录成功但保存Token时超时）
-                logger.info(
-                    "登录超时，检查Token是否已保存",
-                    extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
+                return await self._handle_login_timeout(
+                    acquisition_id, site_name, credential,
+                    time.time() - login_start_time, login_attempts, start_time, e,
                 )
-
-                # 等待一小段时间让Token保存完成
-                await asyncio.sleep(2)
-
-                # 检查Token是否已保存（token_service.get_token_internal 是异步方法）
-                saved_token = await self.token_service.get_token_internal(site_name, credential.account)  # type: ignore[attr-defined]
-                if saved_token:
-                    logger.info(
-                        "✅ 超时但Token已保存成功",
-                        extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
-                    )
-
-                    # 记录成功的登录尝试
-                    login_attempt = LoginAttemptResult(
-                        success=True,
-                        token=saved_token,
-                        account=credential.account,
-                        error_message="超时但Token已保存",
-                        attempt_duration=login_duration,
-                        retry_count=1,
-                    )
-                    login_attempts.append(login_attempt)
-
-                    # 更新账号统计为成功
-                    await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
-                        account=credential.account, site_name=site_name, success=True
-                    )
-
-                    total_duration = time.time() - start_time
-
-                    return TokenAcquisitionResult(
-                        success=True,
-                        token=saved_token,
-                        acquisition_method="auto_login_timeout_recovered",
-                        total_duration=total_duration,
-                        login_attempts=login_attempts,
-                    )
-
-                # Token确实没有保存，记录失败
-                error_msg = f"登录超时（{self.concurrency_config.acquisition_timeout}秒）"
-
-                # 记录超时的登录尝试
-                login_attempt = LoginAttemptResult(
-                    success=False,
-                    token=None,
-                    account=credential.account,
-                    error_message=error_msg,
-                    attempt_duration=login_duration,
-                    retry_count=1,
-                )
-                login_attempts.append(login_attempt)
-
-                # 更新账号统计
-                await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
-                    account=credential.account, site_name=site_name, success=False
-                )
-
-                logger.error(
-                    "自动登录超时",
-                    extra={
-                        "acquisition_id": acquisition_id,
-                        "site_name": site_name,
-                        "account": credential.account,
-                        "timeout": self.concurrency_config.acquisition_timeout,
-                        "login_duration": login_duration,
-                    },
-                )
-
-                raise TokenAcquisitionTimeoutError(
-                    message=error_msg,
-                    errors={"timeout": self.concurrency_config.acquisition_timeout, "login_duration": login_duration},
-                ) from e
 
             except LoginFailedError as e:
-                login_duration = time.time() - login_start_time
-
-                # 获取登录尝试记录
-                if hasattr(e, "attempts") and e.attempts:
-                    login_attempts.extend(e.attempts)
-                else:
-                    # 创建失败记录
-                    login_attempt = LoginAttemptResult(
-                        success=False,
-                        token=None,
-                        account=credential.account,
-                        error_message=str(e),
-                        attempt_duration=login_duration,
-                        retry_count=1,
-                    )
-                    login_attempts.append(login_attempt)
-
-                # 更新账号统计
-                await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
-                    account=credential.account, site_name=site_name, success=False
-                )
-
-                logger.error(
-                    "自动登录失败",
-                    extra={
-                        "acquisition_id": acquisition_id,
-                        "site_name": site_name,
-                        "account": credential.account,
-                        "error": str(e),
-                        "login_duration": login_duration,
-                        "attempts": len(login_attempts),
-                    },
-                )
-
-                # 返回失败结果而不是抛出异常
-                total_duration = time.time() - start_time
-                return TokenAcquisitionResult(
-                    success=False,
-                    token=None,
-                    acquisition_method="auto_login",
-                    total_duration=total_duration,
-                    login_attempts=login_attempts,
-                    error_details={"message": str(e), "error_type": type(e).__name__},
+                return await self._handle_login_failed(
+                    acquisition_id, site_name, credential,
+                    time.time() - login_start_time, login_attempts, start_time, e,
                 )
 
             except TokenAcquisitionTimeoutError as e:
-                # AutoLoginService超时，检查Token是否已保存
                 login_duration = time.time() - login_start_time
-
                 logger.info(
                     "AutoLoginService超时，检查Token是否已保存",
-                    extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
+                    extra={
+                        "acquisition_id": acquisition_id,
+                        "site_name": site_name,
+                        "account": credential.account,
+                    },
                 )
-
-                # 等待一小段时间让Token保存完成
-                await asyncio.sleep(2)
-
-                # 检查Token是否已保存（token_service.get_token_internal 是异步方法）
-                saved_token = await self.token_service.get_token_internal(site_name, credential.account)  # type: ignore[attr-defined]
-                if saved_token:
-                    logger.info(
-                        "✅ AutoLoginService超时但Token已保存成功",
-                        extra={"acquisition_id": acquisition_id, "site_name": site_name, "account": credential.account},
-                    )
-
-                    # 记录成功的登录尝试
-                    login_attempt = LoginAttemptResult(
-                        success=True,
-                        token=saved_token,
-                        account=credential.account,
-                        error_message="超时但Token已保存",
-                        attempt_duration=login_duration,
-                        retry_count=1,
-                    )
-                    login_attempts.append(login_attempt)
-
-                    # 更新账号统计为成功
-                    await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
-                        account=credential.account, site_name=site_name, success=True
-                    )
-
-                    total_duration = time.time() - start_time
-
-                    return TokenAcquisitionResult(
-                        success=True,
-                        token=saved_token,
-                        acquisition_method="auto_login_timeout_recovered",
-                        total_duration=total_duration,
-                        login_attempts=login_attempts,
-                    )
-
-                # Token确实没有保存，记录失败并重新抛出异常
+                recovered = await self._try_recover_token_after_timeout(
+                    site_name, credential.account, login_duration, login_attempts, start_time
+                )
+                if recovered is not None:
+                    return recovered
                 logger.error(
                     "AutoLoginService超时且Token未保存",
                     extra={
                         "acquisition_id": acquisition_id,
                         "site_name": site_name,
                         "account": credential.account,
-                        "login_duration": login_duration,
                     },
                 )
-
-                # 更新账号统计
                 await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
                     account=credential.account, site_name=site_name, success=False
                 )
-
-                # 返回失败结果而不是抛出异常
-                total_duration = time.time() - start_time
                 return TokenAcquisitionResult(
-                    success=False,
-                    token=None,
-                    acquisition_method="auto_login_timeout",
-                    total_duration=total_duration,
+                    success=False, token=None, acquisition_method="auto_login_timeout",
+                    total_duration=time.time() - start_time,
                     login_attempts=login_attempts,
                     error_details={"message": str(e), "error_type": type(e).__name__},
                 )
 
         except Exception as e:
             total_duration = time.time() - start_time
-
-            if isinstance(
-                e, (LoginFailedError, NoAvailableAccountError, TokenAcquisitionTimeoutError, ValidationException)
+            if not isinstance(
+                e,
+                (LoginFailedError, NoAvailableAccountError, TokenAcquisitionTimeoutError, ValidationException),
             ):
-                # 返回失败结果
-                return TokenAcquisitionResult(
-                    success=False,
-                    token=None,
-                    acquisition_method="auto_login",
-                    total_duration=total_duration,
-                    login_attempts=login_attempts,
-                    error_details={"message": str(e), "error_type": type(e).__name__},
-                )
-            else:
-                # 未预期错误
                 logger.error(
                     "自动登录过程中发生未预期错误",
                     extra={
@@ -766,15 +701,12 @@ class AutoTokenAcquisitionService:
                     },
                     exc_info=True,
                 )
-
-                return TokenAcquisitionResult(
-                    success=False,
-                    token=None,
-                    acquisition_method="auto_login",
-                    total_duration=total_duration,
-                    login_attempts=login_attempts,
-                    error_details={"message": f"未预期错误: {e!s}", "error_type": "UnexpectedError"},
-                )
+            return TokenAcquisitionResult(
+                success=False, token=None, acquisition_method="auto_login",
+                total_duration=total_duration,
+                login_attempts=login_attempts,
+                error_details={"message": str(e), "error_type": type(e).__name__},
+            )
 
     def get_statistics(self) -> dict[str, Any]:
         """

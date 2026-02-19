@@ -1,6 +1,10 @@
+import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import fitz
 from django.conf import settings
@@ -142,79 +146,57 @@ def extract_pdf_text(file_path: str, limit: int | None = None) -> str:
     return text
 
 
-def process_pdf(
-    file_path: str, limit: int | None = None, preview_page: int | None = None
-) -> tuple[str | None, str | None]:
-    """
-    处理PDF文件：
-    1. 先尝试直接提取文字
-    2. 如果提取失败，将指定页转为图片并用RapidOCR处理
-    3. 如果OCR也失败，返回预览图
+def _apply_pdf_limits(
+    limit: int | None, preview_page: int | None, config: dict[str, Any]
+) -> tuple[int, int]:
+    """应用配置默认值和范围限制"""
+    lim = limit if limit is not None else config["DEFAULT_TEXT_LIMIT"]
+    page = preview_page if preview_page is not None else config["DEFAULT_PREVIEW_PAGE"]
+    lim = min(lim, config["MAX_TEXT_LIMIT"])
+    page = min(page, config["MAX_PREVIEW_PAGES"])
+    return lim, page
 
-    Args:
-        file_path: PDF文件路径
-        limit: 文字提取限制，None时使用配置默认值
-        preview_page: 预览页码（从1开始），None时使用配置默认值
 
-    Returns:
-        (image_url, text) 元组，其中一个为None
-    """
-    config = get_doc_config()
-
-    # 设置默认值
-    if limit is None:
-        limit = config["DEFAULT_TEXT_LIMIT"]
-    if preview_page is None:
-        preview_page = config["DEFAULT_PREVIEW_PAGE"]
-
-    # 限制范围
-    if limit > config["MAX_TEXT_LIMIT"]:
-        limit = config["MAX_TEXT_LIMIT"]
-    if preview_page > config["MAX_PREVIEW_PAGES"]:
-        preview_page = config["MAX_PREVIEW_PAGES"]
-
-    # 先尝试直接提取文字
-    text = extract_pdf_text(file_path, limit)
-    if text.strip():
-        return None, text
-
-    # 直接提取失败，使用RapidOCR处理指定页面
+def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | None:
+    """将 PDF 指定页 OCR，返回文字或 None"""
     try:
-        # 将指定页面渲染为临时图片文件
         p = Path(file_path)
         with fitz.open(p) as doc:
-            # 转换为0基页码
-            page_num = preview_page - 1
-            if page_num >= doc.page_count:
-                page_num = doc.page_count - 1
-            if page_num < 0:
-                page_num = 0
-
+            page_num = min(max(page_num_1based - 1, 0), doc.page_count - 1)
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
 
-            # 保存临时图片文件
             temp_dir = Path(settings.MEDIA_ROOT) / "automation" / "processed"
             temp_dir.mkdir(parents=True, exist_ok=True)
-            temp_name = f"temp_{uuid.uuid4().hex}_page{page_num + 1}.png"
-            temp_path = temp_dir / temp_name
+            temp_path = temp_dir / f"temp_{uuid.uuid4().hex}_page{page_num + 1}.png"
             pix.save(temp_path.as_posix())
 
-            # 使用RapidOCR识别
             ocr_text = extract_text_from_image_with_rapidocr(temp_path.as_posix())
-
-            # 删除临时文件
             temp_path.unlink(missing_ok=True)
 
             if ocr_text.strip():
-                if limit is not None:
-                    ocr_text = ocr_text[: int(limit)]
-                return None, ocr_text
+                return ocr_text[:limit]
     except Exception as e:
-        print(f"RapidOCR处理PDF失败: {e}")
+        logger.info(f"RapidOCR处理PDF失败: {e}")
+    return None
 
-    # 如果RapidOCR也失败，返回指定页的预览图
-    image_url = render_pdf_page_to_image(file_path, preview_page - 1)
+
+def process_pdf(
+    file_path: str, limit: int | None = None, preview_page: int | None = None
+) -> tuple[str | None, str | None]:
+    """处理PDF文件：先提取文字，失败则 OCR，再失败则返回预览图"""
+    config = get_doc_config()
+    lim, page = _apply_pdf_limits(limit, preview_page, config)
+
+    text = extract_pdf_text(file_path, lim)
+    if text.strip():
+        return None, text
+
+    ocr_text = _ocr_pdf_page(file_path, page, lim)
+    if ocr_text:
+        return None, ocr_text
+
+    image_url = render_pdf_page_to_image(file_path, page - 1)
     return image_url, None
 
 

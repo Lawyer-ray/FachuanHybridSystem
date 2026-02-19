@@ -159,20 +159,62 @@ class DocumentDeliveryPlaywrightService:
             self._notification_service = SMSNotificationService()
         return self._notification_service
 
+    def _process_page_entries(
+        self,
+        page: Page,
+        cutoff_time: datetime,
+        credential_id: int,
+        result: DocumentQueryResult,
+    ) -> bool:
+        """处理当前页的文书条目，返回是否需要继续翻页"""
+        entries = self._extract_document_entries(page)
+        result.total_found += len(entries)
+
+        if not entries:
+            logger.info("当前页面没有文书条目，结束处理")
+            return False
+
+        should_continue = False
+        for entry in entries:
+            if self._should_process(entry, cutoff_time, credential_id):
+                process_result = self._process_document_entry(page, entry, credential_id)
+                if process_result.success:
+                    result.processed_count += 1
+                    if process_result.case_log_id:
+                        result.case_log_ids.append(process_result.case_log_id)
+                else:
+                    result.failed_count += 1
+                    if process_result.error_message:
+                        result.errors.append(process_result.error_message)
+                if entry.send_time > cutoff_time:  # type: ignore[operator]
+                    should_continue = True
+            else:
+                result.skipped_count += 1
+                if entry.send_time <= cutoff_time:  # type: ignore[operator]
+                    return False
+        return should_continue
+
+    def _paginate_documents(
+        self,
+        page: Page,
+        cutoff_time: datetime,
+        credential_id: int,
+        result: DocumentQueryResult,
+    ) -> None:
+        """分页处理所有文书"""
+        page_num = 1
+        while True:
+            logger.info(f"处理第 {page_num} 页")
+            should_continue = self._process_page_entries(page, cutoff_time, credential_id, result)
+            if not should_continue or not self._has_next_page(page):
+                break
+            self._go_to_next_page(page)
+            page_num += 1
+
     def query_documents(
         self, credential_id: int, cutoff_time: datetime, tab: str = "pending", debug_mode: bool = True
     ) -> DocumentQueryResult:
-        """
-        使用 Playwright 方式查询文书
-
-        Args:
-            credential_id: 账号凭证ID
-            cutoff_time: 截止时间
-            tab: 查询标签页，"pending"=待查阅，"reviewed"=已查阅
-            debug_mode: 调试模式，为 True 时不关闭浏览器
-
-        Returns:
-            DocumentQueryResult: 查询结果
+        """使用 Playwright 方式查询文书
 
         Requirements: 1.1, 1.3
         """
@@ -182,10 +224,7 @@ class DocumentDeliveryPlaywrightService:
             total_found=0, processed_count=0, skipped_count=0, failed_count=0, case_log_ids=[], errors=[]
         )
 
-        page = None
-
         try:
-            # 获取凭证信息
             organization_service = ServiceLocator.get_organization_service()
             credential = organization_service.get_credential_internal(credential_id)
 
@@ -195,87 +234,23 @@ class DocumentDeliveryPlaywrightService:
                 result.errors.append(error_msg)
                 return result
 
-            # 获取同步浏览器实例
             browser = self.browser_service.get_browser()
             page = browser.new_page()
 
             try:
-                # 在同一个 page 上登录，保持登录状态
                 try:
                     token = self._sync_login_with_page(credential, page)
                     logger.info(f"登录成功，获得token: {token[:20] if token else 'None'}...")
-
                 except Exception as login_error:
                     error_msg = f"登录失败: {login_error!s}"
                     logger.error(error_msg)
                     result.errors.append(error_msg)
                     return result
 
-                # 导航到文书送达页面（同一个 page，保持登录状态）
                 self._navigate_to_delivery_page(page, tab)
-
-                # 分页处理文书
-                page_num = 1
-                while True:
-                    logger.info(f"处理第 {page_num} 页")
-
-                    # 提取当前页面的文书条目
-                    entries = self._extract_document_entries(page)
-                    result.total_found += len(entries)
-
-                    if not entries:
-                        logger.info("当前页面没有文书条目，结束处理")
-                        break
-
-                    # 检查是否需要继续翻页
-                    should_continue = False
-
-                    # 处理每个文书条目
-                    for entry in entries:
-                        logger.info(f"🔍 检查文书条目: {entry.case_number} - {entry.send_time}")
-                        logger.info(f"📅 截止时间: {cutoff_time}")
-
-                        if self._should_process(entry, cutoff_time, credential_id):
-                            logger.info(f"✅ 开始处理文书: {entry.case_number}")
-                            # 处理文书
-                            process_result = self._process_document_entry(page, entry, credential_id)
-
-                            if process_result.success:
-                                result.processed_count += 1
-                                if process_result.case_log_id:
-                                    result.case_log_ids.append(process_result.case_log_id)
-                                logger.info(f"✅ 文书处理成功: {entry.case_number}")
-                            else:
-                                result.failed_count += 1
-                                if process_result.error_message:
-                                    result.errors.append(process_result.error_message)
-                                logger.warning(
-                                    f"❌ 文书处理失败: {entry.case_number}, 错误: {process_result.error_message}"
-                                )
-
-                            # 如果文书时间晚于截止时间，需要继续翻页
-                            if entry.send_time > cutoff_time:  # type: ignore[operator]
-                                should_continue = True
-                        else:
-                            result.skipped_count += 1
-                            logger.info(f"⏭️ 跳过文书: {entry.case_number} - {entry.send_time}")
-
-                            # 如果文书时间早于或等于截止时间，停止翻页
-                            if entry.send_time <= cutoff_time:  # type: ignore[operator]
-                                logger.info(f"文书时间 {entry.send_time} 早于截止时间 {cutoff_time}，停止翻页")
-                                should_continue = False
-                                break
-
-                    # 检查是否需要翻页
-                    if not should_continue or not self._has_next_page(page):
-                        break
-
-                    # 翻到下一页
-                    self._go_to_next_page(page)
-                    page_num += 1
+                self._paginate_documents(page, cutoff_time, credential_id, result)
 
             finally:
-                # 调试模式下不关闭浏览器，方便调试
                 if not debug_mode:
                     try:
                         page.close()
@@ -288,8 +263,6 @@ class DocumentDeliveryPlaywrightService:
             error_msg = f"查询文书失败: {e!s}"
             logger.error(error_msg)
             result.errors.append(error_msg)
-
-            # 记录详细错误信息
             AutomationLogger.log_api_error_detail(
                 api_name="playwright_document_query",
                 error_type=type(e).__name__,
@@ -297,7 +270,6 @@ class DocumentDeliveryPlaywrightService:
                 stack_trace=traceback.format_exc(),
             )
 
-        # 记录查询统计
         AutomationLogger.log_document_query_statistics(
             total_found=result.total_found,
             processed_count=result.processed_count,
@@ -312,19 +284,7 @@ class DocumentDeliveryPlaywrightService:
     def query_documents_with_token(
         self, credential_id: int, cutoff_time: datetime, page: Page, tab: str = "pending", debug_mode: bool = True
     ) -> DocumentQueryResult:
-        """
-        使用已登录的 page 查询文书（用于 API 降级后的场景）
-
-        Args:
-            credential_id: 账号凭证ID
-            cutoff_time: 截止时间
-            page: 已登录的 Playwright 页面
-            tab: 查询标签页
-            debug_mode: 调试模式
-
-        Returns:
-            DocumentQueryResult: 查询结果
-        """
+        """使用已登录的 page 查询文书（用于 API 降级后的场景）"""
         logger.info(f"使用已登录页面查询文书: credential_id={credential_id}")
 
         result = DocumentQueryResult(
@@ -332,53 +292,8 @@ class DocumentDeliveryPlaywrightService:
         )
 
         try:
-            # 导航到文书送达页面
             self._navigate_to_delivery_page(page, tab)
-
-            # 分页处理文书
-            page_num = 1
-            while True:
-                logger.info(f"处理第 {page_num} 页")
-
-                # 提取当前页面的文书条目
-                entries = self._extract_document_entries(page)
-                result.total_found += len(entries)
-
-                if not entries:
-                    logger.info("当前页面没有文书条目，结束处理")
-                    break
-
-                # 检查是否需要继续翻页
-                should_continue = False
-
-                # 处理每个文书条目
-                for entry in entries:
-                    if self._should_process(entry, cutoff_time, credential_id):
-                        process_result = self._process_document_entry(page, entry, credential_id)
-
-                        if process_result.success:
-                            result.processed_count += 1
-                            if process_result.case_log_id:
-                                result.case_log_ids.append(process_result.case_log_id)
-                        else:
-                            result.failed_count += 1
-                            if process_result.error_message:
-                                result.errors.append(process_result.error_message)
-
-                        if entry.send_time > cutoff_time:  # type: ignore[operator]
-                            should_continue = True
-                    else:
-                        result.skipped_count += 1
-                        if entry.send_time <= cutoff_time:  # type: ignore[operator]
-                            should_continue = False
-                            break
-
-                if not should_continue or not self._has_next_page(page):
-                    break
-
-                self._go_to_next_page(page)
-                page_num += 1
-
+            self._paginate_documents(page, cutoff_time, credential_id, result)
         except Exception as e:
             error_msg = f"查询文书失败: {e!s}"
             logger.error(error_msg)

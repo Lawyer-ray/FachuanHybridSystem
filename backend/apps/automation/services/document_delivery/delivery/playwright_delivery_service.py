@@ -97,93 +97,78 @@ class PlaywrightDeliveryService:
         except Exception as e:
             logger.warning(f"切换到{tab_name}标签页失败: {e!s}")
 
+    def _parse_send_time(self, send_time_str: str, index: int) -> Any:
+        """解析发送时间字符串，返回 aware datetime 或 None"""
+        if not send_time_str or send_time_str == "发送时间":
+            logger.debug(f"条目 {index} 跳过标签文本: {send_time_str}")
+            return None
+        time_pattern = r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$"
+        if not re.match(time_pattern, send_time_str):
+            logger.debug(f"条目 {index} 时间格式不匹配: {send_time_str}")
+            return None
+        try:
+            from django.utils import timezone
+            naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
+            send_time = timezone.make_aware(naive_time)
+            logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
+            return send_time
+        except ValueError as e:
+            logger.warning(f"条目 {index} 时间解析失败: {send_time_str}, 错误: {e!s}")
+            return None
+
+    def _extract_single_entry(
+        self,
+        index: int,
+        case_number_elements: list[Any],
+        send_time_elements: list[Any],
+    ) -> Any:
+        """提取单个文书条目，返回 DocumentDeliveryRecord 或 None"""
+        case_number = None
+        if index < len(case_number_elements):
+            text = case_number_elements[index].inner_text()
+            case_number = text.strip() if text else None
+            logger.info(f"条目 {index} 案号: {case_number}")
+            if case_number in ("案号", "案件编号"):
+                case_number = None
+
+        send_time = None
+        send_time_str = None
+        if index < len(send_time_elements):
+            text = send_time_elements[index].inner_text()
+            send_time_str = text.strip() if text else None
+            logger.info(f"条目 {index} 时间文本: {send_time_str}")
+            if send_time_str:
+                send_time = self._parse_send_time(send_time_str, index)
+
+        if case_number and send_time:
+            entry = DocumentDeliveryRecord(case_number=case_number, send_time=send_time, element_index=index)
+            logger.info(f"✅ 提取文书条目: {entry.case_number} - {entry.send_time}")
+            return entry
+        logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
+        return None
+
     def extract_document_entries(self, page: Page) -> list[DocumentDeliveryRecord]:
-        """
-        从页面提取文书条目 - 使用精确 XPath 遍历
-
-        Args:
-            page: Playwright 页面实例
-
-        Returns:
-            文书条目列表
-        """
+        """从页面提取文书条目 - 使用精确 XPath 遍历"""
         logger.info("开始提取文书条目")
-
         entries: list[Any] = []
 
         try:
-            # 等待页面加载
             page.wait_for_timeout(2000)
-
-            # 使用精确 XPath 获取所有案号
             case_number_elements = page.locator(self.CASE_NUMBER_SELECTOR).all()
-            logger.info(f"找到 {len(case_number_elements)} 个案号元素")
-
-            # 使用精确 XPath 获取所有发送时间
             send_time_elements = page.locator(self.SEND_TIME_SELECTOR).all()
-            logger.info(f"找到 {len(send_time_elements)} 个时间元素")
+            logger.info(f"找到 {len(case_number_elements)} 个案号元素, {len(send_time_elements)} 个时间元素")
 
-            # 确保案号和时间数量一致
             if len(case_number_elements) != len(send_time_elements):
                 logger.warning(f"案号数量({len(case_number_elements)})与时间数量({len(send_time_elements)})不匹配")
-                count = min(len(case_number_elements), len(send_time_elements))
-            else:
-                count = len(case_number_elements)
 
+            count = min(len(case_number_elements), len(send_time_elements))
             logger.info(f"将处理 {count} 个文书条目")
 
-            # 遍历提取每个文书条目
             for index in range(count):
                 try:
-                    # 提取案号
-                    case_number = None
-                    if index < len(case_number_elements):
-                        case_number_text = case_number_elements[index].inner_text()
-                        case_number = case_number_text.strip() if case_number_text else None
-                        logger.info(f"条目 {index} 案号: {case_number}")
-
-                        # 过滤掉标签文本
-                        if case_number and case_number in ["案号", "案件编号"]:
-                            case_number = None
-                            logger.debug(f"条目 {index} 跳过案号标签文本")
-
-                    # 提取发送时间
-                    send_time = None
-                    send_time_str = None
-                    if index < len(send_time_elements):
-                        send_time_text = send_time_elements[index].inner_text()
-                        send_time_str = send_time_text.strip() if send_time_text else None
-                        logger.info(f"条目 {index} 时间文本: {send_time_str}")
-
-                        # 过滤掉标签文本,只处理实际的时间格式
-                        if send_time_str and send_time_str != "发送时间":
-                            # 检查是否符合时间格式 2025-12-16 10:58:52
-                            time_pattern = r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$"
-                            if re.match(time_pattern, send_time_str):
-                                try:
-                                    # 解析时间并添加时区信息
-                                    naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
-                                    from django.utils import timezone
-
-                                    send_time = timezone.make_aware(naive_time)
-                                    logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
-                                except ValueError as e:
-                                    logger.warning(f"条目 {index} 时间解析失败: {send_time_str}, 错误: {e!s}")
-                            else:
-                                logger.debug(f"条目 {index} 时间格式不匹配: {send_time_str}")
-                        else:
-                            logger.debug(f"条目 {index} 跳过标签文本: {send_time_str}")
-
-                    # 创建文书记录
-                    if case_number and send_time:
-                        entry = DocumentDeliveryRecord(
-                            case_number=case_number, send_time=send_time, element_index=index
-                        )
+                    entry = self._extract_single_entry(index, case_number_elements, send_time_elements)
+                    if entry:
                         entries.append(entry)
-                        logger.info(f"✅ 提取文书条目: {entry.case_number} - {entry.send_time}")
-                    else:
-                        logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
-
                 except Exception as e:
                     logger.warning(f"提取第 {index} 个文书条目失败: {e!s}")
                     continue

@@ -96,27 +96,72 @@ class CourtDocumentRecognitionService:
             self._document_renamer = DocumentRenamer()
         return self._document_renamer
 
+    def _extract_doc_info(self, doc_type: Any, text: str) -> tuple[Any, Any]:
+        """根据文书类型提取案号和关键时间"""
+        case_number = None
+        key_time = None
+        if doc_type.value == "summons":
+            info = self.extractor.extract_summons_info(text)
+            case_number = info.get("case_number")
+            key_time = info.get("court_time")
+        elif doc_type.value == "execution_ruling":
+            info = self.extractor.extract_execution_info(text)
+            case_number = info.get("case_number")
+            key_time = info.get("preservation_deadline")
+        return case_number, key_time
+
+    def _build_binding(
+        self,
+        doc_type: Any,
+        case_number: Any,
+        key_time: Any,
+        file_path: str,
+        extraction_text: str,
+        user: Any,
+    ) -> tuple[Any, str]:
+        """绑定案件，返回 (binding_result, renamed_file_path)"""
+        from apps.automation.services.court_document_recognition.models import DocumentType
+
+        renamed_file_path = file_path
+
+        if doc_type == DocumentType.SUMMONS and case_number:
+            case_id = self.binding_service.find_case_by_number(case_number)
+            case_name = None
+            if case_id:
+                case_dto = self.binding_service.case_service.get_case_by_id_internal(case_id)
+                if case_dto:
+                    case_name = case_dto.name
+            if case_name:
+                renamed_file_path = self._rename_document(
+                    file_path=file_path, document_type=doc_type, case_name=case_name
+                )
+            log_content = self.binding_service.format_log_content(
+                document_type=doc_type, case_number=case_number, key_time=key_time, raw_text=extraction_text
+            )
+            binding = self.binding_service.bind_document_to_case(
+                case_number=case_number,
+                document_type=doc_type,
+                content=log_content,
+                key_time=key_time,
+                file_path=renamed_file_path,
+                user=user,
+            )
+        elif doc_type == DocumentType.OTHER:
+            binding = BindingResult.failure_result(
+                message="暂时只支持传票识别，其他文书类型敬请期待", error_code="UNSUPPORTED_DOCUMENT_TYPE"
+            )
+        elif doc_type == DocumentType.EXECUTION_RULING:
+            binding = BindingResult.failure_result(
+                message="执行裁定书绑定功能开发中，敬请期待", error_code="FEATURE_NOT_IMPLEMENTED"
+            )
+        else:
+            binding = BindingResult.failure_result(
+                message="未识别到案号，无法绑定案件", error_code="CASE_NUMBER_NOT_FOUND"
+            )
+        return binding, renamed_file_path
+
     def recognize_document(self, file_path: str, user: Any | None = None) -> RecognitionResponse:
-        """
-        识别文书并绑定案件
-
-        完整流程：
-        1. 提取文本
-        2. 分类文书类型
-        3. 提取关键信息
-        4. 匹配案件并创建日志
-
-        Args:
-            file_path: 文书文件路径
-            user: 当前用户
-
-        Returns:
-            RecognitionResponse 对象
-
-        Raises:
-            ValidationException: 文件格式不支持或文本提取失败
-            ServiceUnavailableError: AI 服务不可用
-            RecognitionTimeoutError: 识别超时
+        """识别文书并绑定案件
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -130,19 +175,10 @@ class CourtDocumentRecognitionService:
         )
 
         try:
-            # 1. 提取文本
             extraction_result = self.text_extraction.extract_text(file_path)
 
             if not extraction_result.success or not extraction_result.text.strip():
-                logger.warning(
-                    "文本提取失败或内容为空",
-                    extra={
-                        "action": "recognize_document",
-                        "file_path": file_path,
-                        "extraction_method": extraction_result.extraction_method,
-                    },
-                )
-                # 返回空结果
+                logger.warning("文本提取失败或内容为空", extra={"action": "recognize_document", "file_path": file_path})
                 return RecognitionResponse(
                     recognition=RecognitionResult(
                         document_type=DocumentType.OTHER,
@@ -153,28 +189,15 @@ class CourtDocumentRecognitionService:
                         extraction_method=extraction_result.extraction_method,
                     ),
                     binding=BindingResult.failure_result(
-                        message="无法从文书中提取文字", error_code="TEXT_EXTRACTION_FAILED"
+                        message="无法从文书中提取文字",
+                        error_code="TEXT_EXTRACTION_FAILED",
                     ),
                     file_path=file_path,
                 )
 
-            # 2. 分类文书类型
             doc_type, confidence = self.classifier.classify(extraction_result.text)
+            case_number, key_time = self._extract_doc_info(doc_type, extraction_result.text)
 
-            # 3. 提取关键信息
-            case_number = None
-            key_time = None
-
-            if doc_type == DocumentType.SUMMONS:
-                info = self.extractor.extract_summons_info(extraction_result.text)
-                case_number = info.get("case_number")
-                key_time = info.get("court_time")
-            elif doc_type == DocumentType.EXECUTION_RULING:
-                info = self.extractor.extract_execution_info(extraction_result.text)
-                case_number = info.get("case_number")
-                key_time = info.get("preservation_deadline")
-
-            # 构建识别结果
             recognition = RecognitionResult(
                 document_type=doc_type,
                 case_number=case_number,
@@ -184,76 +207,22 @@ class CourtDocumentRecognitionService:
                 extraction_method=extraction_result.extraction_method,
             )
 
-            # 4. 绑定案件（仅支持传票）
-            binding = None
-            renamed_file_path = file_path  # 默认使用原路径
-
-            if doc_type == DocumentType.SUMMONS and case_number:
-                # 4.1 先查找案件获取案件名称
-                case_id = self.binding_service.find_case_by_number(case_number)
-                case_name = None
-
-                if case_id:
-                    case_dto = self.binding_service.case_service.get_case_by_id_internal(case_id)
-                    if case_dto:
-                        case_name = case_dto.name
-
-                # 4.2 如果找到案件，先重命名文件
-                if case_name:
-                    renamed_file_path = self._rename_document(
-                        file_path=file_path, document_type=doc_type, case_name=case_name
-                    )
-
-                # 4.3 格式化日志内容
-                log_content = self.binding_service.format_log_content(
-                    document_type=doc_type, case_number=case_number, key_time=key_time, raw_text=extraction_result.text
-                )
-
-                # 4.4 绑定案件（使用重命名后的文件路径）
-                binding = self.binding_service.bind_document_to_case(
-                    case_number=case_number,
-                    document_type=doc_type,
-                    content=log_content,
-                    key_time=key_time,
-                    file_path=renamed_file_path,
-                    user=user,
-                )
-            elif doc_type == DocumentType.OTHER:
-                # 非支持文书类型
-                binding = BindingResult.failure_result(
-                    message="暂时只支持传票识别，其他文书类型敬请期待", error_code="UNSUPPORTED_DOCUMENT_TYPE"
-                )
-            elif doc_type == DocumentType.EXECUTION_RULING:
-                # 执行裁定书暂不支持绑定
-                binding = BindingResult.failure_result(
-                    message="执行裁定书绑定功能开发中，敬请期待", error_code="FEATURE_NOT_IMPLEMENTED"
-                )
-            elif not case_number:
-                # 未识别到案号
-                binding = BindingResult.failure_result(
-                    message="未识别到案号，无法绑定案件", error_code="CASE_NUMBER_NOT_FOUND"
-                )
-
-            logger.info(
-                "文书识别完成",
-                extra={
-                    "action": "recognize_document",
-                    "file_path": file_path,
-                    "renamed_file_path": renamed_file_path,
-                    "document_type": doc_type.value,
-                    "case_number": case_number,
-                    "binding_success": binding.success if binding else None,
-                },
+            binding, renamed_file_path = self._build_binding(
+                doc_type, case_number, key_time, file_path, extraction_result.text, user
             )
 
-            return RecognitionResponse(
-                recognition=recognition,
-                binding=binding,
-                file_path=renamed_file_path,  # 返回重命名后的路径
-            )
+            logger.info("文书识别完成", extra={
+                "action": "recognize_document",
+                "file_path": file_path,
+                "renamed_file_path": renamed_file_path,
+                "document_type": doc_type.value,
+                "case_number": case_number,
+                "binding_success": binding.success if binding else None,
+            })
+
+            return RecognitionResponse(recognition=recognition, binding=binding, file_path=renamed_file_path)
 
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):
-            # 这些异常直接向上抛出，由全局异常处理器处理
             raise
         except Exception as e:
             logger.error(

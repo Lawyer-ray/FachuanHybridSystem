@@ -6,6 +6,35 @@ import httpx
 from apps.automation.services.ai import get_ollama_base_url
 
 
+def _parse_streaming_response(text: str, original_error: json.JSONDecodeError) -> dict[str, Any]:
+    """解析流式响应，提取最后一个有效的 JSON 行"""
+    lines = text.split("\n")
+    last_valid_json: dict[str, Any] | None = None
+    for line in lines:
+        line = line.strip()
+        if line:
+            try:
+                data = json.loads(line)
+                if "message" in data:
+                    last_valid_json = data
+            except json.JSONDecodeError:
+                continue
+    if last_valid_json:
+        return cast(dict[str, Any], last_valid_json)
+    raise ValueError(f"无法解析Ollama响应: {original_error!s}\n响应内容: {text[:500]}") from original_error
+
+
+def _parse_response(resp: httpx.Response) -> dict[str, Any]:
+    """解析 Ollama HTTP 响应"""
+    try:
+        return cast(dict[str, Any], resp.json())
+    except json.JSONDecodeError as e:
+        text = resp.text.strip()
+        if text:
+            return _parse_streaming_response(text, e)
+        raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容为空") from e
+
+
 def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None) -> dict[str, Any]:
     """
     调用Ollama API进行聊天
@@ -20,37 +49,13 @@ def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None
     """
     base = base_url or get_ollama_base_url()
     url = base.rstrip("/") + "/api/chat"
-    payload = {"model": model, "messages": messages, "stream": False}  # 设置为False以获取完整响应而不是流式响应
+    payload = {"model": model, "messages": messages, "stream": False}
 
     try:
         with httpx.Client(timeout=120) as client:
             resp = client.post(url, json=payload)
             resp.raise_for_status()
-
-            # 尝试解析JSON响应
-            try:
-                return cast(dict[str, Any], resp.json())
-            except json.JSONDecodeError as e:
-                # 如果JSON解析失败，可能是流式响应，尝试读取最后一行
-                text = resp.text.strip()
-                if text:
-                    # 尝试解析每一行JSON（流式响应格式）
-                    lines = text.split("\n")
-                    last_valid_json = None
-                    for line in lines:
-                        line = line.strip()
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if "message" in data:
-                                    last_valid_json = data
-                            except json.JSONDecodeError:
-                                continue
-
-                    if last_valid_json:
-                        return cast(dict[str, Any], last_valid_json)
-
-                raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}") from e
+            return _parse_response(resp)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             raise ConnectionError(

@@ -64,65 +64,40 @@ class OwnerConfigManager:
 
         logger.debug("OwnerConfigManager 初始化完成")
 
-    def _load_config(self) -> dict[str, Any]:
-        """加载配置
-
-        优先从Admin后台SystemConfig加载，然后从Django settings和环境变量中加载。
-
-        配置优先级：
-        1. Admin后台 SystemConfig (feishu分类)
-        2. Django settings
-        3. 环境变量
-        4. 默认值
-
-        Returns:
-            dict: 配置字典
-
-        Raises:
-            ConfigurationException: 当配置格式错误时
-        """
+    def _load_config_from_db(self) -> dict[str, Any]:
+        """从 SystemConfig 加载飞书配置"""
         try:
-            config = {}
+            from apps.core.models import SystemConfig
+            db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
+            if not db_configs:
+                return {}
+            key_mapping = {
+                "FEISHU_APP_ID": "APP_ID",
+                "FEISHU_APP_SECRET": "APP_SECRET",
+                "FEISHU_TIMEOUT": "TIMEOUT",
+                "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
+                "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
+            }
+            config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
+            logger.debug(f"从SystemConfig加载飞书配置: {list(config.keys())}")
+            return config
+        except Exception as e:
+            logger.debug(f"从SystemConfig加载配置失败，回退到settings: {e!s}")
+            return {}
 
-            # 优先级1: 从Admin后台SystemConfig获取飞书配置
-            try:
-                from apps.core.models import SystemConfig
+    def _load_config(self) -> dict[str, Any]:
+        """加载配置"""
+        try:
+            config = self._load_config_from_db()
 
-                db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
-
-                if db_configs:
-                    # 映射数据库配置键到内部配置键
-                    key_mapping = {
-                        "FEISHU_APP_ID": "APP_ID",
-                        "FEISHU_APP_SECRET": "APP_SECRET",
-                        "FEISHU_TIMEOUT": "TIMEOUT",
-                        "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
-                        "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
-                    }
-
-                    for db_key, internal_key in key_mapping.items():
-                        if db_configs.get(db_key):
-                            config[internal_key] = db_configs[db_key]
-
-                    logger.debug(f"从SystemConfig加载飞书配置: {list(config.keys())}")
-
-            except Exception as e:
-                logger.debug(f"从SystemConfig加载配置失败，回退到settings: {e!s}")
-
-            # 优先级2: 从Django settings获取飞书配置（不覆盖已有配置）
             feishu_config = getattr(settings, "FEISHU", {})
             case_chat_config = getattr(settings, "CASE_CHAT", {})
 
-            if "APP_ID" not in config:
-                config["APP_ID"] = feishu_config.get("APP_ID")
-            if "APP_SECRET" not in config:
-                config["APP_SECRET"] = feishu_config.get("APP_SECRET")
-            if "TIMEOUT" not in config:
-                config["TIMEOUT"] = feishu_config.get("TIMEOUT", 30)
-            if "DEFAULT_OWNER_ID" not in config:
-                config["DEFAULT_OWNER_ID"] = case_chat_config.get("DEFAULT_OWNER_ID")
+            config.setdefault("APP_ID", feishu_config.get("APP_ID"))
+            config.setdefault("APP_SECRET", feishu_config.get("APP_SECRET"))
+            config.setdefault("TIMEOUT", feishu_config.get("TIMEOUT", 30))
+            config.setdefault("DEFAULT_OWNER_ID", case_chat_config.get("DEFAULT_OWNER_ID"))
 
-            # 优先级3: 环境变量配置（测试和验证相关）
             config["TEST_MODE"] = os.environ.get("FEISHU_TEST_MODE", "false").lower() == "true"
             config["TEST_OWNER_ID"] = os.environ.get("FEISHU_TEST_OWNER_ID")
             config["OWNER_VALIDATION_ENABLED"] = (
@@ -131,13 +106,9 @@ class OwnerConfigManager:
             config["OWNER_RETRY_ENABLED"] = os.environ.get("FEISHU_OWNER_RETRY_ENABLED", "true").lower() == "true"
             config["OWNER_MAX_RETRIES"] = int(os.environ.get("FEISHU_OWNER_MAX_RETRIES", 3))
 
-            # 确保TIMEOUT是整数类型
-            if config.get("TIMEOUT"):
-                try:
-                    config["TIMEOUT"] = int(config["TIMEOUT"])
-                except (ValueError, TypeError):
-                    config["TIMEOUT"] = 30
-            else:
+            try:
+                config["TIMEOUT"] = int(config["TIMEOUT"]) if config.get("TIMEOUT") else 30
+            except (ValueError, TypeError):
                 config["TIMEOUT"] = 30
 
             logger.debug(
@@ -145,7 +116,6 @@ class OwnerConfigManager:
                 f"validation_enabled={config['OWNER_VALIDATION_ENABLED']}, "
                 f"has_default_owner={bool(config.get('DEFAULT_OWNER_ID'))}"
             )
-
             return config
 
         except Exception as e:

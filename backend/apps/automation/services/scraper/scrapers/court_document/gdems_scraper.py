@@ -78,67 +78,55 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             "message": f"成功下载并解压 {len(extracted_files)} 个文件",
         }
 
-    def _click_confirm_button(self) -> None:
+    def _find_locator(self, selectors: list[str], label: str) -> Any | None:
         """
-        点击"确认并预览材料"按钮
+        按顺序尝试多个选择器，返回第一个可见的定位器
 
-        尝试多种定位策略
+        Args:
+            selectors: 选择器列表
+            label: 用于日志的描述
+
+        Returns:
+            找到的定位器，或 None
         """
-        try:
-            submit_button: Any | None = None
-
-            # 方案 1: 使用 ID/class
+        for selector in selectors:
             try:
-                submit_button = self.page.locator("#submit-btn, #confirm-btn, .submit-btn, .confirm-btn")
-                if submit_button.count() > 0 and submit_button.first.is_visible():
-                    logger.info("通过 ID/class 找到确认按钮")
-                else:
-                    submit_button = None
+                loc = self.page.locator(selector)
+                if loc.count() > 0 and loc.first.is_visible():
+                    logger.info(f"通过 '{selector}' 找到 {label}")
+                    return loc
             except Exception:
-                logger.exception("操作失败")
-
                 pass
+        return None
 
-            # 方案 2: 使用文本
+    def _click_confirm_button(self) -> None:
+        """点击"确认并预览材料"按钮，尝试多种定位策略"""
+        try:
+            selectors = [
+                "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
+                "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')",
+            ]
+            submit_button = self._find_locator(selectors, "确认按钮")
+
+            # 文本定位器单独处理（get_by_text 接口不同）
             if not submit_button:
                 try:
-                    submit_button = self.page.get_by_text("确认并预览材料", exact=False)
-                    if submit_button.count() > 0 and submit_button.first.is_visible():
+                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    if btn.count() > 0 and btn.first.is_visible():
+                        submit_button = btn
                         logger.info("通过文本找到确认按钮")
-                    else:
-                        submit_button = None
                 except Exception:
-                    logger.exception("操作失败")
-
-                    pass
-
-            # 方案 3: 使用按钮文本
-            if not submit_button:
-                try:
-                    submit_button = self.page.locator(
-                        "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')"
-                    )
-                    if submit_button.count() > 0 and submit_button.first.is_visible():
-                        logger.info("通过按钮选择器找到确认按钮")
-                    else:
-                        submit_button = None
-                except Exception:
-                    logger.exception("操作失败")
-
                     pass
 
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-
-                # 等待预览页加载
                 self.page.wait_for_load_state("networkidle", timeout=30000)
                 self.random_wait(5, 7)  # type: ignore[attr-defined]
             else:
-                logger.warning("未找到确认按钮,可能页面已经在预览状态")
-
+                logger.warning("未找到确认按钮，可能页面已经在预览状态")
         except Exception as e:
-            logger.warning(f"点击确认按钮时出错: {e},继续尝试下载")
+            logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
 
     def _download_zip_file(self, download_dir: Path) -> Path:
         """
@@ -153,99 +141,34 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         Raises:
             ValueError: 下载失败时抛出异常
         """
-        # 点击下载按钮 - 多种方式尝试
         download_xpath = "/html/body/div/div[1]/div[1]/label/a/img"
+        selectors = [
+            "a.downloadPackClass",
+            f"xpath={download_xpath}",
+            "label a:has(img)",
+            "a:has-text('送达材料')",
+            "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
+        ]
 
         try:
-            download_button: Any | None = None
-
-            # 方式1: 使用 downloadPackClass 类名(最可靠)
-            try:
-                download_button = self.page.locator("a.downloadPackClass")
-                if download_button.count() > 0 and download_button.first.is_visible():
-                    logger.info("通过 a.downloadPackClass 找到下载按钮")
-                else:
-                    download_button = None
-            except Exception:
-                logger.exception("操作失败")
-
-                pass
-
-            # 方式2: 使用提供的 XPath
-            if not download_button:
-                try:
-                    download_button = self.page.locator(f"xpath={download_xpath}")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info(f"通过 XPath 找到下载按钮: {download_xpath}")
-                    else:
-                        download_button = None
-                except Exception:
-                    logger.exception("操作失败")
-
-                    pass
-
-            # 方式3: 查找 label 下的 a 标签(包含 img)
-            if not download_button:
-                try:
-                    download_button = self.page.locator("label a:has(img)")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过 label a:has(img) 找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    logger.exception("操作失败")
-
-                    pass
-
-            # 方式4: 查找包含"送达材料"文本的链接
-            if not download_button:
-                try:
-                    download_button = self.page.locator("a:has-text('送达材料')")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过文本'送达材料'找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    logger.exception("操作失败")
-
-                    pass
-
-            # 方式5: 查找任何包含"下载"的元素
-            if not download_button:
-                try:
-                    download_button = self.page.locator("a:has-text('下载'), button:has-text('下载'), [title*='下载']")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过文本找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    logger.exception("操作失败")
-
-                    pass
+            download_button = self._find_locator(selectors, "下载按钮")
 
             if not download_button or download_button.count() == 0:
-                # 保存页面 HTML 用于调试
                 self._save_page_state("gdems_no_download_button")
                 raise ValueError("找不到下载按钮")
 
-            # 滚动到按钮位置
             download_button.first.scroll_into_view_if_needed()
             self.random_wait(1, 2)  # type: ignore[attr-defined]
 
-            # 监听下载事件
             with self.page.expect_download(timeout=60000) as download_info:
                 download_button.first.click()
-                logger.info("已点击下载按钮,等待下载...")
+                logger.info("已点击下载按钮，等待下载...")
 
             download = download_info.value
-
-            # 保存 ZIP 文件
             zip_filename = download.suggested_filename or "documents.zip"
             zip_filepath = download_dir / zip_filename
             download.save_as(str(zip_filepath))
-
             logger.info(f"ZIP 文件已保存: {zip_filepath}")
-
             return zip_filepath
 
         except Exception as e:

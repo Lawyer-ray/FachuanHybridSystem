@@ -40,12 +40,32 @@ class Command(BaseCommand):
             help="强制执行指定任务（忽略是否到期）",
         )
 
+    def _execute_single_schedule(
+        self, schedule: Any, schedule_service: Any, verbose: bool
+    ) -> tuple[int, int]:
+        """执行单个定时任务，返回 (processed, failed)"""
+        try:
+            if verbose:
+                self.stdout.write(f"\n执行任务 [{schedule.id}] - 凭证 {schedule.credential_id}...")
+            result = schedule_service.execute_scheduled_task(schedule.id)
+            if verbose:
+                self._show_execution_result(schedule, result)
+            logger.info(
+                f"定时任务执行完成: schedule_id={schedule.id}, "
+                f"processed={result.processed_count}, failed={result.failed_count}"
+            )
+            return result.processed_count, result.failed_count
+        except Exception as e:
+            logger.error(f"执行定时任务失败: schedule_id={schedule.id}, 错误: {e!s}")
+            if verbose:
+                self.stdout.write(self.style.ERROR(f"任务 [{schedule.id}] 执行失败: {e!s}"))
+            return 0, 1
+
     def handle(self, *args: Any, **options: Any) -> None:
         from apps.automation.services.document_delivery.document_delivery_schedule_service import (
             DocumentDeliveryScheduleService,
         )
 
-        # 只在详细模式下显示完整输出
         verbose = options.get("verbosity", 1) > 0
 
         if verbose:
@@ -55,12 +75,9 @@ class Command(BaseCommand):
 
         schedule_service = DocumentDeliveryScheduleService()
 
-        # 获取要执行的任务
         if options["schedule_id"]:
-            # 执行指定任务
             schedules = self._get_specific_schedule(options["schedule_id"], options["force"])
         else:
-            # 获取所有到期任务
             schedules = schedule_service.get_due_schedules()
 
         if not schedules:
@@ -68,7 +85,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING("没有找到需要执行的定时任务"))
             return
 
-        # 显示任务信息
         if verbose:
             self._show_schedule_info(schedules)
 
@@ -77,43 +93,55 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING("\n[DRY RUN] 只显示，不执行"))
             return
 
-        # 执行任务
-        total_processed = 0
-        total_failed = 0
-
-        for schedule in schedules:
-            try:
-                if verbose:
-                    self.stdout.write(f"\n执行任务 [{schedule.id}] - 凭证 {schedule.credential_id}...")
-
-                result = schedule_service.execute_scheduled_task(schedule.id)
-
-                total_processed += result.processed_count
-                total_failed += result.failed_count
-
-                if verbose:
-                    self._show_execution_result(schedule, result)
-
-                logger.info(
-                    f"定时任务执行完成: schedule_id={schedule.id}, "
-                    f"processed={result.processed_count}, failed={result.failed_count}"
-                )
-
-            except Exception as e:
-                error_msg = f"执行定时任务失败: schedule_id={schedule.id}, 错误: {e!s}"
-                logger.error(error_msg)
-                total_failed += 1
-
-                if verbose:
-                    self.stdout.write(self.style.ERROR(f"任务 [{schedule.id}] 执行失败: {e!s}"))
-
+    def _print_summary(self, verbose: bool, total_processed: int, total_failed: int) -> None:
+        """打印执行摘要"""
         if verbose:
             self.stdout.write("=" * 60)
             self.stdout.write(self.style.SUCCESS(f"完成！共处理 {total_processed} 个文书，失败 {total_failed} 个"))
             self.stdout.write("=" * 60)
         elif total_processed > 0 or total_failed > 0:
-            # 静默模式下只在有实际操作时输出简要信息
             logger.info(f"文书送达定时任务执行完成: 处理 {total_processed} 个，失败 {total_failed} 个")
+
+    def handle(self, *args: Any, **options: Any) -> None:
+        from apps.automation.services.document_delivery.document_delivery_schedule_service import (
+            DocumentDeliveryScheduleService,
+        )
+
+        verbose = options.get("verbosity", 1) > 0
+
+        if verbose:
+            self.stdout.write("=" * 60)
+            self.stdout.write(self.style.SUCCESS("文书送达定时任务执行"))
+            self.stdout.write("=" * 60)
+
+        schedule_service = DocumentDeliveryScheduleService()
+
+        if options["schedule_id"]:
+            schedules = self._get_specific_schedule(options["schedule_id"], options["force"])
+        else:
+            schedules = schedule_service.get_due_schedules()
+
+        if not schedules:
+            if verbose:
+                self.stdout.write(self.style.WARNING("没有找到需要执行的定时任务"))
+            return
+
+        if verbose:
+            self._show_schedule_info(schedules)
+
+        if options["dry_run"]:
+            if verbose:
+                self.stdout.write(self.style.WARNING("\n[DRY RUN] 只显示，不执行"))
+            return
+
+        total_processed = 0
+        total_failed = 0
+        for schedule in schedules:
+            p, f = self._execute_single_schedule(schedule, schedule_service, verbose)
+            total_processed += p
+            total_failed += f
+
+        self._print_summary(verbose, total_processed, total_failed)
 
     def _get_specific_schedule(self, schedule_id: int, force: bool = False) -> list[Any]:
         """获取指定的定时任务"""

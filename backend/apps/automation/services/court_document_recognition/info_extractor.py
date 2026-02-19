@@ -206,75 +206,50 @@ class InfoExtractor:
         logger.debug("正则未能提取到案号")
         return None
 
+    def _parse_datetime_groups(
+        self, groups: tuple[Any, ...], has_am_pm: bool, matched_text: str
+    ) -> datetime | None:
+        """解析正则分组为 datetime，失败返回 None"""
+        if has_am_pm and len(groups) == 6:
+            year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
+            am_pm, hour, minute = groups[3], int(groups[4]), int(groups[5])
+            if am_pm not in ("上午", "下午"):
+                logger.debug(f"无效的上午/下午标识: {am_pm}, 跳过匹配: {matched_text}")
+                return None
+            if am_pm == "下午" and hour < 12:
+                hour += 12
+            elif am_pm == "上午" and hour == 12:
+                hour = 0
+        elif len(groups) == 5:
+            year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
+            hour, minute = int(groups[3]), int(groups[4])
+        else:
+            logger.debug(f"未知的分组数量: {len(groups)}, 跳过匹配: {matched_text}")
+            return None
+
+        if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23 and 0 <= minute <= 59):
+            logger.debug(f"日期时间无效: {matched_text}")
+            return None
+        if not (2020 <= year <= 2030):
+            logger.debug(f"年份不合理: {year}, 跳过匹配: {matched_text}")
+            return None
+        return datetime(year, month, day, hour, minute)
+
     def _extract_datetime_by_regex(self, text: str) -> list[tuple[datetime, str, float]]:
-        """
-        使用正则表达式从文本中提取日期时间
-
-        Args:
-            text: 文书文本
-
-        Returns:
-            提取到的日期时间列表，每项为 (datetime对象, 原始匹配文本, 上下文得分)
-        """
+        """使用正则表达式从文本中提取日期时间"""
         results: list[tuple[datetime, str, float]] = []
 
         for pattern, has_am_pm in DATETIME_PATTERNS:
             for match in re.finditer(pattern, text):
                 try:
-                    groups = match.groups()
                     matched_text = match.group(0)
-
-                    # 解析年月日时分
-                    if has_am_pm and len(groups) == 6:
-                        # 带上午/下午格式：年、月、日、上午/下午、时、分
-                        year = int(groups[0])
-                        month = int(groups[1])
-                        day = int(groups[2])
-                        am_pm = groups[3]
-                        hour = int(groups[4])
-                        minute = int(groups[5])
-
-                        # 验证上午/下午标识
-                        if am_pm not in ("上午", "下午"):
-                            logger.debug(f"无效的上午/下午标识: {am_pm}, 跳过匹配: {matched_text}")
-                            continue
-
-                        # 处理上午/下午
-                        if am_pm == "下午" and hour < 12:
-                            hour += 12
-                        elif am_pm == "上午" and hour == 12:
-                            hour = 0
-                    elif len(groups) == 5:
-                        # 标准格式：年、月、日、时、分
-                        year = int(groups[0])
-                        month = int(groups[1])
-                        day = int(groups[2])
-                        hour = int(groups[3])
-                        minute = int(groups[4])
-                    else:
-                        logger.debug(f"未知的分组数量: {len(groups)}, 跳过匹配: {matched_text}")
+                    dt = self._parse_datetime_groups(match.groups(), has_am_pm, matched_text)
+                    if dt is None:
                         continue
-
-                    # 验证日期时间有效性
-                    if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23 and 0 <= minute <= 59):
-                        logger.debug(f"日期时间无效: {matched_text}")
-                        continue
-
-                    # 验证年份合理性（2020-2030）
-                    if not (2020 <= year <= 2030):
-                        logger.debug(f"年份不合理: {year}, 跳过匹配: {matched_text}")
-                        continue
-
-                    dt = datetime(year, month, day, hour, minute)
-
-                    # 计算上下文得分
                     context_score = self._calculate_context_score(text, match.start())
-
-                    # 避免重复添加相同时间
                     if not any(abs((dt - existing[0]).total_seconds()) < 60 for existing in results):
                         results.append((dt, matched_text, context_score))
                         logger.debug(f"正则提取到时间: {dt}, 原文: {matched_text}, 上下文得分: {context_score}")
-
                 except (ValueError, IndexError) as e:
                     logger.debug(f"解析日期时间失败: {match.group(0)}, 错误: {e}")
                     continue
@@ -320,237 +295,181 @@ class InfoExtractor:
         # 最高100分
         return min(score, 100)
 
-    def _validate_hearing_datetime(self, dt: datetime) -> tuple[bool, int, str]:
-        """
-        校验开庭时间的合理性
-
-        校验规则：
-        1. 时间应该在未来或近期（不超过过去7天）
-        2. 时间不应该超过未来2年
-        3. 开庭时间通常在工作时间（8:00-18:00）
-        4. 开庭时间通常不在周末（但法院有时也会安排）
-
-        Args:
-            dt: 待校验的时间
-
-        Returns:
-            (是否有效, 合理性得分0-100, 校验说明)
-        """
-        now = datetime.now()
-        score = 50  # 基础分
-        reasons = []
-
-        # 1. 检查是否在合理的时间范围内
-        days_diff = (dt.date() - now.date()).days
-
+    def _score_days_diff(self, days_diff: int, score: int, reasons: list[str]) -> tuple[int, list[str]]:
+        """评估天数差对分数的影响"""
         if days_diff < -7:
-            # 过去超过7天，可能是错误识别
             reasons.append(f"时间已过去{abs(days_diff)}天")
             score -= 30
         elif days_diff < 0:
-            # 过去7天内，可能是刚过的开庭
             reasons.append(f"时间已过去{abs(days_diff)}天")
             score -= 10
         elif days_diff > 365 * 2:
-            # 超过2年后，不太合理
             reasons.append(f"时间在{days_diff}天后，超过2年")
             score -= 40
         elif days_diff > 365:
-            # 1-2年后，可能但不常见
             reasons.append(f"时间在{days_diff}天后")
             score -= 15
         elif days_diff > 180:
-            # 半年到1年，较少见
             reasons.append(f"时间在{days_diff}天后")
             score -= 5
         else:
-            # 未来半年内，最合理
             reasons.append(f"时间在{days_diff}天后")
             score += 20
+        return score, reasons
 
-        # 2. 检查是否在工作时间
+    def _validate_hearing_datetime(self, dt: datetime) -> tuple[bool, int, str]:
+        """校验开庭时间的合理性"""
+        now = datetime.now()
+        score = 50
+        reasons: list[str] = []
+
+        days_diff = (dt.date() - now.date()).days
+        score, reasons = self._score_days_diff(days_diff, score, reasons)
+
         hour = dt.hour
         if 8 <= hour <= 18:
-            # 正常工作时间
             score += 15
             reasons.append("工作时间内")
         elif 7 <= hour < 8 or 18 < hour <= 20:
-            # 边缘时间，可能但不常见
             score += 5
             reasons.append("边缘工作时间")
         else:
-            # 非工作时间，不太可能
             score -= 20
             reasons.append(f"非工作时间({hour}点)")
 
-        # 3. 检查是否是周末
-        weekday = dt.weekday()
-        if weekday >= 5:  # 周六或周日
+        if dt.weekday() >= 5:
             score -= 10
             reasons.append("周末")
         else:
             score += 5
             reasons.append("工作日")
 
-        # 4. 检查分钟是否合理（通常是整点或半点）
-        minute = dt.minute
-        if minute in [0, 30]:
+        if dt.minute in {0, 30}:
             score += 10
             reasons.append("整点/半点")
-        elif minute in [15, 45]:
+        elif dt.minute in {15, 45}:
             score += 5
             reasons.append("刻钟")
 
-        # 确保分数在0-100范围内
         score = max(0, min(100, score))
+        return score > 30, score, "; ".join(reasons)
 
-        # 有效性判断：分数大于30认为有效
-        is_valid = score > 30
-
-        return is_valid, score, "; ".join(reasons)
-
-    def _select_best_datetime(
-        self, regex_results: list[tuple[datetime, str, int | float]], ollama_datetime: datetime | None
-    ) -> tuple[datetime | None, str]:
-        """
-        从正则提取结果和 Ollama 结果中选择最佳时间
-
-        交叉校验机制：
-        1. 对所有候选时间进行合理性校验
-        2. 如果正则和 Ollama 结果一致（日期相同），使用该结果
-        3. 如果不一致，综合考虑上下文得分和合理性得分
-        4. 如果正则没有结果，使用 Ollama 结果（需通过合理性校验）
-
-        Args:
-            regex_results: 正则提取结果列表
-            ollama_datetime: Ollama 提取的时间
-
-        Returns:
-            (最佳时间, 提取方法描述)
-        """
-        if not regex_results and not ollama_datetime:
-            return None, "无法提取"
-
-        # 对正则结果进行合理性校验和综合评分
-        validated_regex_results: list[dict[str, Any]] = []
+    def _validate_regex_results(
+        self, regex_results: list[tuple[datetime, str, int | float]]
+    ) -> list[dict[str, Any]]:
+        """对正则结果进行合理性校验和综合评分"""
+        validated: list[dict[str, Any]] = []
         for dt, matched_text, context_score in regex_results:
             is_valid, validity_score, validity_reason = self._validate_hearing_datetime(dt)
-            # 综合得分 = 上下文得分 * 0.6 + 合理性得分 * 0.4
             combined_score = context_score * 0.6 + validity_score * 0.4
-            validated_regex_results.append(
-                {
-                    "datetime": dt,
-                    "matched_text": matched_text,
-                    "context_score": context_score,
-                    "validity_score": validity_score,
-                    "validity_reason": validity_reason,
-                    "combined_score": combined_score,
-                    "is_valid": is_valid,
-                }
-            )
+            validated.append({
+                "datetime": dt,
+                "matched_text": matched_text,
+                "context_score": context_score,
+                "validity_score": validity_score,
+                "validity_reason": validity_reason,
+                "combined_score": combined_score,
+                "is_valid": is_valid,
+            })
             logger.debug(
                 f"正则候选: {dt}, 上下文={context_score}, 合理性={validity_score}({validity_reason}), "
                 f"综合={combined_score:.1f}, 有效={is_valid}"
             )
+        return validated
 
-        # 过滤掉无效的结果，按综合得分排序
-        valid_regex_results = [r for r in validated_regex_results if r["is_valid"]]
-        valid_regex_results.sort(key=lambda x: float(x["combined_score"]), reverse=True)
-
-        # 校验 Ollama 结果
-        ollama_valid = False
-        ollama_validity_score = 0
-        ollama_validity_reason = ""
-        if ollama_datetime:
-            ollama_valid, ollama_validity_score, ollama_validity_reason = self._validate_hearing_datetime(
-                ollama_datetime
-            )
-            logger.debug(
-                f"Ollama候选: {ollama_datetime}, 合理性={ollama_validity_score}({ollama_validity_reason}), "
-                f"有效={ollama_valid}"
-            )
-
-        # 情况1：只有 Ollama 结果
-        if not valid_regex_results:
-            if ollama_datetime and ollama_valid:
-                logger.info(f"仅使用 Ollama 结果: {ollama_datetime} (合理性={ollama_validity_score})")
-                return ollama_datetime, f"ollama(validity={ollama_validity_score})"
-            elif ollama_datetime:
-                # Ollama 结果不合理，但没有其他选择
-                logger.warning(f"Ollama 结果合理性较低: {ollama_datetime} ({ollama_validity_reason})")
-                return ollama_datetime, f"ollama(低合理性:{ollama_validity_reason})"
-            else:
-                # 检查是否有被过滤掉的正则结果
-                if validated_regex_results:
-                    best_invalid = max(validated_regex_results, key=lambda x: float(x["combined_score"]))
-                    logger.warning(
-                        f"所有正则结果合理性较低，使用最佳候选: {best_invalid['datetime']} "
-                        f"({best_invalid['validity_reason']})"
-                    )
-                    return (
-                        cast(datetime, best_invalid["datetime"]),
-                        f"regex(低合理性:{best_invalid['validity_reason']})",
-                    )
-                return None, "无法提取"
-
-        # 情况2：有有效的正则结果
-        best_regex = valid_regex_results[0]
-        best_regex_dt = cast(datetime, best_regex["datetime"])
-        best_regex_combined = best_regex["combined_score"]
-
-        if not ollama_datetime or not ollama_valid:
-            logger.info(
-                f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f} "
-                f"(上下文={best_regex['context_score']}, 合理性={best_regex['validity_score']})"
-            )
-            return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
-
-        # 情况3：正则和 Ollama 都有有效结果，进行交叉校验
-        from datetime import datetime as dt_type
-
-        if not isinstance(best_regex_dt, dt_type) or not isinstance(ollama_datetime, dt_type):
-            return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
-
+    def _select_best_from_conflict(
+        self,
+        best_regex_dt: datetime,
+        best_regex_combined: float,
+        ollama_datetime: datetime,
+        ollama_validity_score: int,
+        valid_regex_results: list[dict[str, Any]],
+    ) -> tuple[datetime | None, str]:
+        """处理正则与 Ollama 结果冲突"""
         date_diff = abs((best_regex_dt.date() - ollama_datetime.date()).days)
         time_diff = abs((best_regex_dt - ollama_datetime).total_seconds())
 
-        if date_diff == 0 and time_diff < 3600:  # 同一天且时间差小于1小时
-            # 结果一致，使用正则结果（更精确）
+        if date_diff == 0 and time_diff < 3600:
             logger.info(f"正则和Ollama结果一致: {best_regex_dt}")
             return best_regex_dt, "regex+ollama(一致)"
 
         if date_diff == 0:
-            # 日期一致但时间不同
             logger.warning(f"时间冲突: 正则={best_regex_dt}, Ollama={ollama_datetime}, 时间差={time_diff}秒")
-            # 日期相同时，优先使用正则结果（从原文直接提取，更可靠）
-            # 只有当正则得分很低时才考虑 Ollama
             if best_regex_combined >= 40:
                 return best_regex_dt, f"regex(score={best_regex_combined:.0f},时间冲突)"
-            else:
-                # 正则得分太低，使用 Ollama
-                return ollama_datetime, f"ollama(validity={ollama_validity_score},时间冲突,正则得分低)"
+            return ollama_datetime, f"ollama(validity={ollama_validity_score},时间冲突,正则得分低)"
 
-        # 日期不一致
         logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")
-
-        # 检查是否有其他正则结果与 Ollama 一致
         for result in valid_regex_results[1:]:
             result_dt = cast(datetime, result["datetime"])
-            if isinstance(result_dt, dt_type) and abs((result_dt.date() - ollama_datetime.date()).days) == 0:
+            if abs((result_dt.date() - ollama_datetime.date()).days) == 0:
                 logger.info(f"找到与Ollama一致的备选正则结果: {result['datetime']}")
                 return result_dt, f"regex(score={result['combined_score']:.0f},与ollama一致)"
 
-        # 比较最佳正则和 Ollama 的得分
         if best_regex_combined >= 60:
             return best_regex_dt, f"regex(score={best_regex_combined:.0f},日期冲突)"
-        elif ollama_validity_score >= 50:
+        if ollama_validity_score >= 50:
             return ollama_datetime, f"ollama(validity={ollama_validity_score},日期冲突)"
-        else:
-            # 都不太可靠，选择综合得分更高的
-            if best_regex_combined >= ollama_validity_score:
-                return best_regex_dt, f"regex(score={best_regex_combined:.0f},低置信度)"
-            else:
-                return ollama_datetime, f"ollama(validity={ollama_validity_score},低置信度)"
+        if best_regex_combined >= ollama_validity_score:
+            return best_regex_dt, f"regex(score={best_regex_combined:.0f},低置信度)"
+        return ollama_datetime, f"ollama(validity={ollama_validity_score},低置信度)"
+
+    def _select_best_datetime(
+        self, regex_results: list[tuple[datetime, str, int | float]], ollama_datetime: datetime | None
+    ) -> tuple[datetime | None, str]:
+        """从正则提取结果和 Ollama 结果中选择最佳时间"""
+        if not regex_results and not ollama_datetime:
+            return None, "无法提取"
+
+        validated_regex_results = self._validate_regex_results(regex_results)
+        valid_regex_results = sorted(
+            [r for r in validated_regex_results if r["is_valid"]],
+            key=lambda x: float(x["combined_score"]),
+            reverse=True,
+        )
+
+        ollama_valid = False
+        ollama_validity_score = 0
+        ollama_validity_reason = ""
+        if ollama_datetime:
+            ollama_valid, ollama_validity_score, ollama_validity_reason = (
+                self._validate_hearing_datetime(ollama_datetime)
+            )
+            logger.debug(
+                f"Ollama候选: {ollama_datetime},"
+                f" 合理性={ollama_validity_score}({ollama_validity_reason}), 有效={ollama_valid}"
+            )
+
+        if not valid_regex_results:
+            if ollama_datetime and ollama_valid:
+                logger.info(f"仅使用 Ollama 结果: {ollama_datetime} (合理性={ollama_validity_score})")
+                return ollama_datetime, f"ollama(validity={ollama_validity_score})"
+            if ollama_datetime:
+                logger.warning(f"Ollama 结果合理性较低: {ollama_datetime} ({ollama_validity_reason})")
+                return ollama_datetime, f"ollama(低合理性:{ollama_validity_reason})"
+            if validated_regex_results:
+                best_invalid = max(validated_regex_results, key=lambda x: float(x["combined_score"]))
+                logger.warning(
+                    f"所有正则结果合理性较低，使用最佳候选:"
+                    f" {best_invalid['datetime']} ({best_invalid['validity_reason']})"
+                )
+                return (
+                    cast(datetime, best_invalid["datetime"]),
+                    f"regex(低合理性:{best_invalid['validity_reason']})",
+                )
+            return None, "无法提取"
+
+        best_regex = valid_regex_results[0]
+        best_regex_dt = cast(datetime, best_regex["datetime"])
+        best_regex_combined = float(best_regex["combined_score"])
+
+        if not ollama_datetime or not ollama_valid:
+            logger.info(f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f}")
+            return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
+
+        return self._select_best_from_conflict(
+            best_regex_dt, best_regex_combined, ollama_datetime, ollama_validity_score, valid_regex_results
+        )
 
     def extract_summons_info(self, text: str) -> dict[str, Any]:
         """

@@ -253,50 +253,36 @@ class CourtInsuranceClient:
         if last_exception:
             raise last_exception
 
+    def _parse_insurance_companies(self, data: Any) -> list[InsuranceCompany]:
+        """从 API 响应中解析保险公司列表"""
+        if isinstance(data, dict) and "data" in data:
+            company_list = data.get("data", [])
+        elif isinstance(data, list):
+            company_list = data
+        else:
+            logger.warning(f"未知的响应格式: {data}")
+            company_list = []
+
+        companies = []
+        for item in company_list:
+            if not isinstance(item, dict):
+                continue
+            c_id, c_code, c_name = item.get("cId"), item.get("cCode"), item.get("cName")
+            if c_id and c_code and c_name:
+                companies.append(InsuranceCompany(c_id=str(c_id), c_code=str(c_code), c_name=str(c_name)))
+            else:
+                logger.warning(f"保险公司信息不完整，跳过: {item}")
+        return companies
+
     async def _fetch_insurance_companies_once(
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float, attempt: int = 1
     ) -> list[InsuranceCompany]:
-        """
-        获取保险公司列表（单次尝试）
+        """获取保险公司列表（单次尝试）"""
+        import time
 
-        Args:
-            bearer_token: Bearer Token
-            c_pid: 分类 ID
-            fy_id: 法院 ID
-            timeout: 超时时间（秒）
-            attempt: 当前尝试次数
+        headers = {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+        params = {"cPid": c_pid, "fyId": fy_id}
 
-        Returns:
-            保险公司列表
-
-        Raises:
-            NetworkError: 网络错误（连接失败、超时等）
-            APIError: API 错误（HTTP 状态码错误、响应格式错误等）
-        """
-
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json",
-        }
-
-        params = {
-            "cPid": c_pid,
-            "fyId": fy_id,
-        }
-
-        # 控制台打印：获取保险公司列表请求
-        print("\n" + "=" * 100)
-        print("🏢 【获取保险公司列表】请求")
-        print("=" * 100)
-        print(f"📍 URL: {self.insurance_list_url}")
-        print("📋 URL 参数:")
-        print(f"   - cPid: {params['cPid']}")
-        print(f"   - fyId: {params['fyId']}")
-        print(f"🔑 Bearer Token (前30字符): {bearer_token[:30]}...")
-        print("📤 HTTP 方法: GET")
-        print("=" * 100 + "\n")
-
-        # 记录 API 调用开始（包含 URL 和参数）
         logger.info(
             "开始获取保险公司列表",
             extra={
@@ -308,124 +294,46 @@ class CourtInsuranceClient:
         )
 
         try:
-            import time
-
             start_time = time.time()
-
-            # 使用共享客户端（连接池复用）
             response = await self._client.get(
-                self.insurance_list_url,
-                headers=headers,
-                params=params,
-                timeout=timeout,
+                self.insurance_list_url, headers=headers, params=params, timeout=timeout
             )
-
             elapsed_time = time.time() - start_time
 
-            # 控制台打印：响应信息
-            print("\n" + "=" * 100)
-            print("📥 【获取保险公司列表】响应")
-            print("=" * 100)
-            print(f"📊 HTTP 状态码: {response.status_code}")
-            print(f"🔗 完整 URL: {response.url}")
-            print(f"⏱️ 响应时间: {round(elapsed_time, 3)}秒")
-            print("📄 响应内容 (前1000字符):")
-            print(f"   {response.text[:1000]}")
-            print("=" * 100 + "\n")
-
-            # 记录 API 调用响应（包含状态码和响应时间）
-            response_size = len(response.content) if hasattr(response.content, "__len__") else 0
             logger.info(
                 "保险公司列表 API 响应",
                 extra={
                     "action": "fetch_insurance_companies_response",
-                    "url": self.insurance_list_url,
                     "status_code": response.status_code,
                     "response_time_seconds": round(elapsed_time, 3),
-                    "response_size_bytes": response_size,
                 },
             )
 
-            # 检查 HTTP 状态码
             if response.status_code != 200:
                 error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
                 logger.error(
                     "获取保险公司列表失败",
-                    extra={
-                        "action": "fetch_insurance_companies_error",
-                        "url": self.insurance_list_url,
-                        "status_code": response.status_code,
-                        "error_message": error_msg,
-                        "response_time_seconds": round(elapsed_time, 3),
-                    },
+                    extra={"action": "fetch_insurance_companies_error", "status_code": response.status_code},
                 )
                 raise httpx.HTTPStatusError(error_msg, request=response.request, response=response)
 
-            # 解析响应
-            data = response.json()
-
-            # 提取保险公司列表
-            companies = []
-            if isinstance(data, dict) and "data" in data:
-                company_list = data.get("data", [])
-            elif isinstance(data, list):
-                company_list = data
-            else:
-                logger.warning(f"未知的响应格式: {data}")
-                company_list = []
-
-            # 解析每个保险公司
-            for item in company_list:
-                if not isinstance(item, dict):
-                    continue
-
-                c_id = item.get("cId")
-                c_code = item.get("cCode")
-                c_name = item.get("cName")
-
-                # 验证必需字段
-                if c_id and c_code and c_name:
-                    companies.append(
-                        InsuranceCompany(
-                            c_id=str(c_id),
-                            c_code=str(c_code),
-                            c_name=str(c_name),
-                        )
-                    )
-                else:
-                    logger.warning(f"保险公司信息不完整，跳过: {item}")
-
+            companies = self._parse_insurance_companies(response.json())
             logger.info(
                 f"✅ 成功获取 {len(companies)} 家保险公司",
-                extra={
-                    "action": "fetch_insurance_companies_success",
-                    "companies_count": len(companies),
-                    "total_time_seconds": round(elapsed_time, 3),
-                },
+                extra={"action": "fetch_insurance_companies_success", "companies_count": len(companies)},
             )
-
             if not companies:
                 logger.warning(
                     "保险公司列表为空",
-                    extra={
-                        "action": "fetch_insurance_companies_empty",
-                        "c_pid": c_pid,
-                        "fy_id": fy_id,
-                    },
+                    extra={"action": "fetch_insurance_companies_empty", "c_pid": c_pid, "fy_id": fy_id},
                 )
-
             return companies
 
         except httpx.TimeoutException as e:
             error_msg = f"获取保险公司列表超时（{timeout}秒）"
             logger.error(
                 error_msg,
-                extra={
-                    "action": "fetch_insurance_companies_timeout",
-                    "url": self.insurance_list_url,
-                    "timeout": timeout,
-                    "error_type": type(e).__name__,
-                },
+                extra={"action": "fetch_insurance_companies_timeout", "timeout": timeout},
                 exc_info=True,
             )
             raise NetworkError(
@@ -435,17 +343,10 @@ class CourtInsuranceClient:
             ) from e
         except httpx.HTTPStatusError as e:
             error_msg = f"获取保险公司列表失败: HTTP {e.response.status_code}"
-
-            # 5xx服务器错误可以重试（502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout等）
             if 500 <= e.response.status_code < 600:
                 logger.warning(
                     f"服务器错误（可重试）: {error_msg}",
-                    extra={
-                        "action": "fetch_insurance_companies_server_error",
-                        "url": self.insurance_list_url,
-                        "status_code": e.response.status_code,
-                        "error_type": type(e).__name__,
-                    },
+                    extra={"action": "fetch_insurance_companies_server_error", "status_code": e.response.status_code},
                 )
                 raise NetworkError(
                     message=error_msg,
@@ -453,20 +354,12 @@ class CourtInsuranceClient:
                     errors={
                         "url": self.insurance_list_url,
                         "status_code": e.response.status_code,
-                        "response_text": e.response.text[:500] if e.response.text else "",
                         "original_error": str(e),
                     },
                 ) from e
-
-            # 4xx客户端错误不重试
             logger.error(
                 error_msg,
-                extra={
-                    "action": "fetch_insurance_companies_http_status_error",
-                    "url": self.insurance_list_url,
-                    "status_code": e.response.status_code,
-                    "error_type": type(e).__name__,
-                },
+                extra={"action": "fetch_insurance_companies_http_status_error", "status_code": e.response.status_code},
                 exc_info=True,
             )
             raise APIError(
@@ -475,7 +368,6 @@ class CourtInsuranceClient:
                 errors={
                     "url": self.insurance_list_url,
                     "status_code": e.response.status_code,
-                    "response_text": e.response.text[:500] if e.response.text else "",
                     "original_error": str(e),
                 },
             ) from e
@@ -483,11 +375,7 @@ class CourtInsuranceClient:
             error_msg = f"获取保险公司列表网络错误: {type(e).__name__}"
             logger.error(
                 error_msg,
-                extra={
-                    "action": "fetch_insurance_companies_network_error",
-                    "url": self.insurance_list_url,
-                    "error_type": type(e).__name__,
-                },
+                extra={"action": "fetch_insurance_companies_network_error", "error_type": type(e).__name__},
                 exc_info=True,
             )
             raise NetworkError(
@@ -499,11 +387,7 @@ class CourtInsuranceClient:
             error_msg = f"获取保险公司列表 HTTP 错误: {type(e).__name__}"
             logger.error(
                 error_msg,
-                extra={
-                    "action": "fetch_insurance_companies_http_error",
-                    "url": self.insurance_list_url,
-                    "error_type": type(e).__name__,
-                },
+                extra={"action": "fetch_insurance_companies_http_error", "error_type": type(e).__name__},
                 exc_info=True,
             )
             raise NetworkError(
@@ -515,11 +399,7 @@ class CourtInsuranceClient:
             error_msg = f"获取保险公司列表失败: {type(e).__name__}"
             logger.error(
                 error_msg,
-                extra={
-                    "action": "fetch_insurance_companies_exception",
-                    "url": self.insurance_list_url,
-                    "error_type": type(e).__name__,
-                },
+                extra={"action": "fetch_insurance_companies_exception", "error_type": type(e).__name__},
                 exc_info=True,
             )
             raise APIError(
@@ -528,40 +408,19 @@ class CourtInsuranceClient:
                 errors={"url": self.insurance_list_url, "error_type": type(e).__name__, "original_error": str(e)},
             ) from e
 
-    async def fetch_premium(
-        self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float | None = None
-    ) -> PremiumResult:
-        """
-        查询单个保险公司报价
-
-        注意：此方法不会抛出异常，而是返回包含错误信息的 PremiumResult。
-        这样设计是为了支持并发查询时，单个查询失败不影响其他查询。
-
-        Args:
-            bearer_token: Bearer Token
-            preserve_amount: 保全金额
-            institution: 保险公司编码 (cCode)
-            corp_id: 企业/法院 ID
-            timeout: 超时时间（秒），默认使用 DEFAULT_TIMEOUT
-
-        Returns:
-            报价结果（包含成功或失败信息）
-            - status="success": 查询成功，premium 字段包含报价金额
-            - status="failed": 查询失败，error_message 字段包含详细错误信息
-        """
-        if timeout is None:
-            timeout = self.default_timeout
-
+    def _build_premium_request(
+        self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float
+    ) -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, Any]]:
+        """构建询价请求的 headers、params、body 和 request_info"""
         import time
 
-        # 生成毫秒级时间戳（关键修复！）
         current_time_ms = str(int(time.time() * 1000))
+        preserve_amount_str = str(int(preserve_amount))
 
-        # 请求头（修复：Bearer 字段而不是 Authorization）
-        headers = {
+        headers: dict[str, str] = {
             "Accept": "*/*",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Bearer": bearer_token,  # 修复：直接使用 Bearer 字段
+            "Bearer": bearer_token,
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Content-Type": "application/json;charset=UTF-8",
@@ -579,370 +438,183 @@ class CourtInsuranceClient:
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"macOS"',
         }
-
-        # 转换保全金额为整数字符串（去掉小数点，API 要求整数）
-        # 如果 preserve_amount 是 Decimal("3.00")，转换为 "3"
-        preserve_amount_str = str(int(preserve_amount))
-
-        # URL 查询参数（修复：添加时间戳）
-        params = {
-            "time": current_time_ms,  # 修复：添加毫秒级时间戳
+        params: dict[str, str] = {
+            "time": current_time_ms,
             "preserveAmount": preserve_amount_str,
             "institution": institution,
             "corpId": corp_id,
         }
-
-        # 请求体数据（修复：POST 请求需要请求体）
-        request_body = {
+        body: dict[str, str] = {
             "preserveAmount": preserve_amount_str,
             "institution": institution,
             "corpId": corp_id,
         }
-
-        # 创建临时的 InsuranceCompany 对象（用于返回结果）
-        company = InsuranceCompany(
-            c_id="",  # 单个查询时不需要 cId
-            c_code=institution,
-            c_name="",  # 单个查询时不需要 cName
-        )
-
-        # 构建请求信息（用于记录）
-        request_info = {
+        request_info: dict[str, Any] = {
             "url": self.premium_query_url,
             "method": "POST",
             "timestamp": current_time_ms,
             "params": params.copy(),
-            "body": request_body.copy(),
+            "body": body.copy(),
             "headers": {k: v[:50] + "..." if k == "Bearer" and len(v) > 50 else v for k, v in headers.items()},
-            "timeout": timeout if timeout else self.default_timeout,
+            "timeout": timeout,
         }
-
-        # 控制台打印：完整的询价请求信息
-        import json
-
-        print("\n" + "=" * 120)
-        print(f"💰 【询价请求】保险公司: {institution}")
-        print("=" * 120)
-        print(
-            f"📍 完整 URL: {self.premium_query_url}"
-            f"?time={params['time']}&preserveAmount={params['preserveAmount']}"
-            f"&institution={params['institution']}&corpId={params['corpId']}"
-        )
-        print(f"⏰ 时间戳: {current_time_ms}")
-        print("\n📋 URL 查询参数:")
-        for key, value in params.items():
-            print(f"   {key}: {value} (类型: {type(value).__name__})")
-
-        print("\n📦 请求体 (JSON):")
-        print(json.dumps(request_body, ensure_ascii=False, indent=2))
-
-        print("\n🔑 完整请求头:")
-        for key, value in headers.items():
-            if key == "Bearer":
-                print(f"   {key}: {value[:50]}...{value[-30:]}")
-            else:
-                print(f"   {key}: {value}")
-
-        print("\n📤 HTTP 方法: POST")
-        print(f"📄 Content-Type: {headers['Content-Type']}")
-        print(f"⏱️ 超时时间: {timeout if timeout else self.default_timeout} 秒")
-        print("=" * 120 + "\n")
-
-        # 记录完整的请求信息（用于调试）
         logger.info(
-            "=" * 80 + "\n"
-            f"🔍 查询保险公司报价: {institution}\n"
-            f"=" * 80 + "\n"
-            f"📍 URL: {self.premium_query_url}\n"
-            f"⏰ 时间戳: {current_time_ms}\n"
-            f"📋 URL 参数:\n"
-            f"   - time: {params['time']}\n"
-            f"   - preserveAmount: {params['preserveAmount']}\n"
-            f"   - institution: {params['institution']}\n"
-            f"   - corpId: {params['corpId']}\n"
-            f"📦 请求体:\n"
-            f"   {request_body}\n"
-            f"🔑 Bearer Token (前20字符): {bearer_token[:20]}...\n"
-            f"=" * 80
+            f"查询保险公司报价: {institution}",
+            extra={
+                "action": "fetch_premium_request",
+                "institution": institution,
+                "timestamp": current_time_ms,
+                "preserve_amount": preserve_amount_str,
+            },
         )
+        return headers, params, body, request_info
+
+    def _parse_premium_from_response(
+        self, data: dict[str, Any], institution: str, elapsed_time: float
+    ) -> Decimal | None:
+        """从响应数据中提取报价金额"""
+        rate_data = data.get("data", {}) if isinstance(data, dict) else {}
+        if not rate_data:
+            return None
+        premium_value = rate_data.get("minPremium") or rate_data.get("minAmount")
+        if premium_value is None:
+            return None
+        try:
+            return Decimal(str(premium_value))
+        except (ValueError, TypeError) as e:
+            logger.warning(f"无法解析报价金额: {premium_value}, 错误: {e}")
+            return None
+
+    def _make_failed_result(
+        self,
+        company: InsuranceCompany,
+        error_label: str,
+        exc: BaseException,
+        request_info: dict[str, Any],
+        response_data: dict[str, Any] | None = None,
+        log_level: str = "warning",
+        extra: dict[str, Any] | None = None,
+    ) -> "PremiumResult":
+        """构建失败的 PremiumResult"""
+        import json
+        import traceback
+
+        error_details: dict[str, Any] = {
+            "error": error_label,
+            "exception": str(exc),
+            "exception_type": type(exc).__name__,
+            "request": request_info,
+        }
+        if log_level == "error":
+            error_details["traceback"] = traceback.format_exc()
+        error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
+        log_extra = {"action": f"fetch_premium_{log_level}", **(extra or {})}
+        getattr(logger, log_level)(error_label, extra=log_extra, exc_info=(log_level == "error"))
+        return PremiumResult(
+            company=company,
+            premium=None,
+            status="failed",
+            error_message=error_msg,
+            response_data=response_data,
+            request_info=request_info,
+        )
+
+    async def fetch_premium(
+        self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float | None = None
+    ) -> PremiumResult:
+        """
+        查询单个保险公司报价
+
+        注意：此方法不会抛出异常，而是返回包含错误信息的 PremiumResult。
+        这样设计是为了支持并发查询时，单个查询失败不影响其他查询。
+        """
+        import json
+        import time
+
+        if timeout is None:
+            timeout = self.default_timeout
+
+        headers, params, request_body, request_info = self._build_premium_request(
+            bearer_token, preserve_amount, institution, corp_id, timeout
+        )
+        company = InsuranceCompany(c_id="", c_code=institution, c_name="")
 
         try:
             start_time = time.time()
-
-            # 修复：使用 POST 请求而不是 GET
             response = await self._client.post(
                 self.premium_query_url,
                 headers=headers,
                 params=params,
-                json=request_body,  # 修复：添加请求体
+                json=request_body,
                 timeout=timeout,
             )
-
-            # 控制台打印：完整的响应信息
-            elapsed = round(time.time() - start_time, 3)
-            print("\n" + "=" * 120)
-            print(f"📥 【询价响应】保险公司: {institution}")
-            print("=" * 120)
-            print(f"📊 HTTP 状态码: {response.status_code}")
-            print(f"🔗 完整 URL: {response.url}")
-            print(f"⏱️ 响应时间: {elapsed} 秒")
-
-            print("\n📋 响应头:")
-            for key, value in response.headers.items():
-                print(f"   {key}: {value}")
-
-            print("\n📄 完整响应内容:")
-            print(response.text)
-
-            print("\n📦 响应内容 (格式化 JSON):")
-            try:
-                response_json = response.json()
-                print(json.dumps(response_json, ensure_ascii=False, indent=2))
-            except Exception:
-                print("   (无法解析为 JSON)")
-
-            print("=" * 120 + "\n")
-
-            # 记录完整的响应信息
-            logger.info(
-                "=" * 80 + "\n"
-                f"📥 API 响应: {institution}\n"
-                f"=" * 80 + "\n"
-                f"📊 状态码: {response.status_code}\n"
-                f"🔗 完整 URL: {response.url}\n"
-                f"📄 响应内容: {response.text[:500]}\n"
-                f"⏱️ 响应时间: {round(time.time() - start_time, 3)}秒\n"
-                f"=" * 80
-            )
-
             elapsed_time = time.time() - start_time
 
-            # 记录 API 调用响应（包含状态码和响应时间）
-            response_size = len(response.content) if hasattr(response.content, "__len__") else 0
             logger.info(
                 f"保险公司 {institution} 响应",
                 extra={
                     "action": "fetch_premium_response",
-                    "url": self.premium_query_url,
                     "institution": institution,
                     "status_code": response.status_code,
                     "response_time_seconds": round(elapsed_time, 3),
-                    "response_size_bytes": response_size,
                 },
             )
 
-            # 检查 HTTP 状态码
             if response.status_code != 200:
-                # 构建详细的错误信息
-                error_details = {
-                    "error": f"HTTP {response.status_code}",
-                    "request": request_info,
-                    "response": {
-                        "status_code": response.status_code,
-                        "headers": dict(response.headers),
-                        "body": response.text,
-                        "elapsed_seconds": round(elapsed_time, 3),
-                    },
-                }
-                error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
-
-                logger.warning(
-                    f"保险公司 {institution} 查询失败: HTTP {response.status_code}",
-                    extra={
-                        "action": "fetch_premium_http_error",
-                        "institution": institution,
-                        "status_code": response.status_code,
-                        "response_time_seconds": round(elapsed_time, 3),
-                    },
-                )
-                return PremiumResult(
-                    company=company,
-                    premium=None,
-                    status="failed",
-                    error_message=error_msg,
-                    response_data=None,
-                    request_info=request_info,
+                return self._make_failed_result(
+                    company,
+                    f"HTTP {response.status_code}",
+                    Exception(response.text),
+                    request_info,
+                    extra={"institution": institution, "status_code": response.status_code},
                 )
 
-            # 解析响应
-            data = response.json()
-
-            # 提取 data 字段中的费率信息
-            rate_data = data.get("data", {}) if isinstance(data, dict) else {}
-
-            # 控制台打印：费率信息详情
-            if rate_data:
-                print("\n" + "=" * 100)
-                print(f"💰 【费率信息详情】保险公司: {institution}")
-                print("=" * 100)
-                print(f"  最低收费1 (minPremium):        {rate_data.get('minPremium', 'N/A')} 元")
-                print(f"  最低收费2 (minAmount):         {rate_data.get('minAmount', 'N/A')} 元")
-                print(f"  最低费率 (minRate):            {rate_data.get('minRate', 'N/A')}")
-                print(f"  最高费率 (maxRate):            {rate_data.get('maxRate', 'N/A')}")
-                print(f"  最高收费 (maxAmount):          {rate_data.get('maxAmount', 'N/A')} 元")
-                print(f"  最高保全金额 (maxApplyAmount): {rate_data.get('maxApplyAmount', 'N/A')} 元")
-                print("=" * 100 + "\n")
-
-            # 提取报价金额（优先使用 minPremium）
-            premium = None
-            if rate_data:
-                # 优先使用 minPremium 作为报价
-                premium_value = rate_data.get("minPremium") or rate_data.get("minAmount")
-                if premium_value is not None:
-                    try:
-                        premium = Decimal(str(premium_value))
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"无法解析报价金额: {premium_value}, 错误: {e}")
+            data: dict[str, Any] = response.json()
+            premium = self._parse_premium_from_response(data, institution, elapsed_time)
 
             if premium is not None:
-                # 构建成功的详细信息（包含请求和响应）
-                success_details = {
-                    "status": "success",
-                    "request": request_info,
-                    "response": {
-                        "status_code": response.status_code,
-                        "body": data,
-                        "elapsed_seconds": round(elapsed_time, 3),
+                success_msg = json.dumps(
+                    {
+                        "status": "success",
+                        "request": request_info,
+                        "response": {"body": data, "elapsed_seconds": round(elapsed_time, 3)},
                     },
-                }
-                success_msg = json.dumps(success_details, ensure_ascii=False, indent=2)
-
+                    ensure_ascii=False,
+                    indent=2,
+                )
                 logger.info(
-                    f"✅ 保险公司 {institution} 报价: ¥{premium}",
-                    extra={
-                        "action": "fetch_premium_success",
-                        "institution": institution,
-                        "premium": str(premium),
-                        "min_premium": rate_data.get("minPremium"),
-                        "min_amount": rate_data.get("minAmount"),
-                        "min_rate": rate_data.get("minRate"),
-                        "max_rate": rate_data.get("maxRate"),
-                        "max_amount": rate_data.get("maxAmount"),
-                        "max_apply_amount": rate_data.get("maxApplyAmount"),
-                        "response_time_seconds": round(elapsed_time, 3),
-                    },
+                    f"保险公司 {institution} 报价: ¥{premium}",
+                    extra={"action": "fetch_premium_success", "institution": institution, "premium": str(premium)},
                 )
                 return PremiumResult(
-                    company=company,
-                    premium=premium,
-                    status="success",
-                    error_message=success_msg,  # 成功时也记录完整信息
-                    response_data=data,
-                    request_info=request_info,
+                    company=company, premium=premium, status="success",
+                    error_message=success_msg, response_data=data, request_info=request_info,
                 )
-            else:
-                # 构建详细的错误信息
-                error_details = {
-                    "error": "响应中未找到费率数据",
-                    "request": request_info,
-                    "response": {
-                        "status_code": response.status_code,
-                        "body": data,
-                        "elapsed_seconds": round(elapsed_time, 3),
-                    },
-                }
-                error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
 
-                logger.warning(
-                    f"保险公司 {institution}: 响应中未找到费率数据",
-                    extra={
-                        "action": "fetch_premium_no_premium",
-                        "institution": institution,
-                        "response_time_seconds": round(elapsed_time, 3),
-                    },
-                )
-                return PremiumResult(
-                    company=company,
-                    premium=None,
-                    status="failed",
-                    error_message=error_msg,
-                    response_data=data,
-                    request_info=request_info,
-                )
+            logger.warning(
+                f"保险公司 {institution}: 响应中未找到费率数据",
+                extra={"action": "fetch_premium_no_premium", "institution": institution},
+            )
+            return PremiumResult(
+                company=company, premium=None, status="failed",
+                error_message="响应中未找到费率数据", response_data=data, request_info=request_info,
+            )
 
         except httpx.TimeoutException as e:
-            # 构建详细的错误信息
-            error_details = {
-                "error": "查询超时",
-                "exception": str(e),
-                "exception_type": type(e).__name__,
-                "request": request_info,
-            }
-            error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
-
-            logger.warning(
-                f"保险公司 {institution} 查询超时",
-                extra={
-                    "action": "fetch_premium_timeout",
-                    "institution": institution,
-                    "timeout": timeout,
-                    "error_type": type(e).__name__,
-                },
-            )
-            return PremiumResult(
-                company=company,
-                premium=None,
-                status="failed",
-                error_message=error_msg,
-                response_data=None,
-                request_info=request_info,
+            return self._make_failed_result(
+                company, "查询超时", e, request_info,
+                extra={"institution": institution, "timeout": timeout},
             )
         except httpx.HTTPError as e:
-            # 构建详细的错误信息
-            error_details = {
-                "error": "HTTP 错误",
-                "exception": str(e),
-                "exception_type": type(e).__name__,
-                "request": request_info,
-            }
-            error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
-
-            logger.warning(
-                f"保险公司 {institution} HTTP 错误",
-                extra={
-                    "action": "fetch_premium_http_exception",
-                    "institution": institution,
-                    "error_type": type(e).__name__,
-                },
-            )
-            return PremiumResult(
-                company=company,
-                premium=None,
-                status="failed",
-                error_message=error_msg,
-                response_data=None,
-                request_info=request_info,
+            return self._make_failed_result(
+                company, "HTTP 错误", e, request_info,
+                extra={"institution": institution},
             )
         except Exception as e:
-            # 构建详细的错误信息
-            import traceback
-
-            error_details = {
-                "error": "未知错误",
-                "exception": str(e),
-                "exception_type": type(e).__name__,
-                "traceback": traceback.format_exc(),
-                "request": request_info,
-            }
-            error_msg = json.dumps(error_details, ensure_ascii=False, indent=2)
-
-            logger.error(
-                f"保险公司 {institution} 未知错误",
-                extra={
-                    "action": "fetch_premium_exception",
-                    "institution": institution,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-                exc_info=True,  # 记录完整堆栈信息
-            )
-            return PremiumResult(
-                company=company,
-                premium=None,
-                status="failed",
-                error_message=error_msg,
-                response_data=None,
-                request_info=request_info,
+            return self._make_failed_result(
+                company, "未知错误", e, request_info,
+                log_level="error",
+                extra={"institution": institution},
             )
 
     async def fetch_all_premiums(

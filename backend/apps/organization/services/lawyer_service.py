@@ -177,40 +177,8 @@ class LawyerService:
 
         return lawyer
 
-    @transaction.atomic
-    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
-        """
-        更新律师
-
-        Args:
-            lawyer_id: 律师 ID
-            data: 更新数据
-            user: 当前用户
-            license_pdf: 律师执照文件
-
-        Returns:
-            更新后的律师对象
-
-        Raises:
-            NotFoundError: 律师不存在
-            PermissionDenied: 权限不足
-            ValidationException: 数据验证失败
-        """
-        # 1. 获取律师
-        lawyer = self.get_lawyer(lawyer_id, user)
-
-        # 2. 权限检查
-        if not self._check_update_permission(user, lawyer):
-            logger.warning(
-                f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",  # type: ignore[attr-defined]
-                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},  # type: ignore[attr-defined]
-            )
-            raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
-
-        # 3. 业务验证
-        self._validate_update_data(lawyer, data, user)
-
-        # 4. 更新字段
+    def _apply_lawyer_fields(self, lawyer: Lawyer, data: LawyerUpdateIn, license_pdf: Any) -> None:
+        """将更新数据写入律师对象（不保存）"""
         if data.real_name is not None:
             lawyer.real_name = data.real_name
         if data.phone is not None:
@@ -236,18 +204,28 @@ class LawyerService:
         if license_pdf is not None:
             lawyer.license_pdf.save(license_pdf.name, license_pdf, save=False)
 
+    @transaction.atomic
+    def update_lawyer(self, lawyer_id: int, data: LawyerUpdateIn, user: Lawyer, license_pdf: Any = None) -> Lawyer:
+        """更新律师"""
+        lawyer = self.get_lawyer(lawyer_id, user)
+
+        if not self._check_update_permission(user, lawyer):
+            logger.warning(
+                f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",  # type: ignore[attr-defined]
+                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},  # type: ignore[attr-defined]
+            )
+            raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
+
+        self._validate_update_data(lawyer, data, user)
+        self._apply_lawyer_fields(lawyer, data, license_pdf)
         lawyer.save()
 
-        # 5. 更新团队关系
         if data.lawyer_team_ids is not None:
             self._set_lawyer_teams(lawyer, data.lawyer_team_ids, lawyer.law_firm)
-
         if data.biz_team_ids is not None:
             self._set_biz_teams(lawyer, data.biz_team_ids, lawyer.law_firm)
 
-        # 6. 记录日志
         logger.info("律师更新成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "update_lawyer"})  # type: ignore[attr-defined]
-
         return lawyer
 
     @transaction.atomic

@@ -69,6 +69,7 @@ ignore = [
 "**/admin/*.py" = ["F401"]
 "apps/automation/services/token/history_recorder.py" = ["C901"]
 "apps/automation/services/token/token_acquisition_orchestrator.py" = ["C901"]
+"apps/cases/admin/case_inlines_admin.py" = ["C901"]
 "apps/cases/admin/case_widgets_admin.py" = ["F821"]
 "apps/automation/services/ai/prompts.py" = ["E501"]
 

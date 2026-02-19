@@ -61,6 +61,28 @@ class GenerationService:
         )
         return config
 
+    def _apply_value_updates(self, value: dict[str, Any], updates: dict[str, Any]) -> None:
+        """将 updates 中的字段写入 value 字典"""
+        for key in ("case_type", "case_stage", "folder_path", "priority", "condition", "document_template_id"):
+            if key not in updates or updates[key] is None:
+                continue
+            if key == "folder_path":
+                if not str(updates[key]).strip():
+                    raise ValidationException("文件夹路径不能为空")
+                value[key] = str(updates[key]).strip()
+            else:
+                value[key] = updates[key]
+
+    def _validate_template_update(self, updates: dict[str, Any]) -> None:
+        """验证 updates 中的模板 ID 是否有效"""
+        if "document_template_id" not in updates or updates["document_template_id"] is None:
+            return
+        template = DocumentTemplate.objects.filter(id=updates["document_template_id"]).first()
+        if not template:
+            raise NotFoundError("文书模板不存在")
+        if not getattr(template, "is_active", True):
+            raise ValidationException("文书模板已禁用")
+
     def update_generation_config(self, config_id: int, **updates: Any) -> Any:
         config = GenerationConfig.objects.filter(id=config_id).first()
         if not config:
@@ -70,8 +92,8 @@ class GenerationService:
             config.name = updates["name"]
 
         value = dict(config.value or {})
-        self._apply_value_updates(value, updates)  # type: ignore[attr-defined]
-        self._validate_template_update(updates)  # type: ignore[attr-defined]
+        self._apply_value_updates(value, updates)
+        self._validate_template_update(updates)
         config.value = value
 
         if "is_active" in updates and updates["is_active"] is not None:
@@ -79,26 +101,6 @@ class GenerationService:
 
         config.save()
         return config
-
-        def _apply_value_updates(value: dict[str, Any], updates: dict[str, Any]) -> None:
-            for key in ("case_type", "case_stage", "folder_path", "priority", "condition", "document_template_id"):
-                if key not in updates or updates[key] is None:
-                    continue
-                if key == "folder_path":
-                    if not str(updates[key]).strip():
-                        raise ValidationException("文件夹路径不能为空")
-                    value[key] = str(updates[key]).strip()
-                else:
-                    value[key] = updates[key]
-
-        def _validate_template_update(updates: dict[str, Any]) -> None:
-            if "document_template_id" not in updates or updates["document_template_id"] is None:
-                return
-            template = DocumentTemplate.objects.filter(id=updates["document_template_id"]).first()
-            if not template:
-                raise NotFoundError("文书模板不存在")
-            if not getattr(template, "is_active", True):
-                raise ValidationException("文书模板已禁用")
 
     def delete_generation_config(self, config_id: int) -> bool:
         config = GenerationConfig.objects.filter(id=config_id).first()

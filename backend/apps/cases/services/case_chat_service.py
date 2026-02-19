@@ -147,68 +147,31 @@ class CaseChatService:
                 message=f"案件不存在: ID={case_id}", code="CASE_NOT_FOUND", errors={"case_id": case_id}
             ) from e
 
-    def create_chat_for_case(
-        self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
-    ) -> CaseChat:
-        """为案件创建群聊
+    def _resolve_owner_id(self, owner_id: str | None) -> str | None:
+        """解析群主 ID，未指定时从配置读取默认值"""
+        if owner_id:
+            return owner_id
+        from django.conf import settings
 
-        通过群聊提供者工厂获取对应平台的提供者，创建群聊并保存记录。
-        使用数据库事务确保群聊创建和数据持久化的一致性。
+        try:
+            if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
+                get_unified_config = getattr(settings, "get_unified_config", None)
+                if get_unified_config:
+                    default_owner = get_unified_config("features.case_chat.default_owner_id")
+                    if default_owner:
+                        logger.debug(f"使用默认群主（统一配置）: {default_owner}")
+                        return str(default_owner)
+        except Exception as e:
+            logger.debug(f"从统一配置获取默认群主失败: {e}")
 
-        Args:
-            case_id: 案件ID
-            platform: 群聊平台，默认为飞书
-            owner_id: 群主ID（可选，某些平台需要）
+        default_owner = getattr(settings, "CASE_CHAT", {}).get("DEFAULT_OWNER_ID")
+        if default_owner:
+            logger.debug(f"使用默认群主: {default_owner}")
+            return str(default_owner)
+        return None
 
-        Returns:
-            CaseChat: 创建的群聊记录
-
-        Raises:
-            NotFoundError: 当案件不存在时
-            ChatCreationException: 当群聊创建失败时
-            ValidationException: 当参数无效时
-
-        Requirements: 4.1, 4.2, 4.5
-
-        Example:
-            service = CaseChatService()
-            chat = service.create_chat_for_case(
-                case_id=123,
-                platform=ChatPlatform.FEISHU
-            )
-            print(f"创建群聊成功: {chat.name}")
-        """
-        logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
-
-        # 获取案件对象
-        case = self._get_case(case_id)
-
-        # 生成群聊名称
-        chat_name = self._build_chat_name(case)
-
-        # 如果没有指定群主，使用默认群主配置
-        if not owner_id:
-            from django.conf import settings
-
-            # 尝试使用统一配置管理器
-            try:
-                if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-                    get_unified_config = getattr(settings, "get_unified_config", None)
-                    if get_unified_config:
-                        default_owner = get_unified_config("features.case_chat.default_owner_id")
-                        if default_owner:
-                            owner_id = default_owner
-                            logger.debug(f"使用默认群主（统一配置）: {owner_id}")
-            except Exception as e:
-                logger.debug(f"从统一配置获取默认群主失败: {e}")
-
-            # 回退到传统配置方式
-            default_owner = getattr(settings, "CASE_CHAT", {}).get("DEFAULT_OWNER_ID")
-            if default_owner:
-                owner_id = default_owner
-                logger.debug(f"使用默认群主: {owner_id}")
-
-        # 获取群聊提供者
+    def _get_available_provider(self, platform: ChatPlatform) -> Any:
+        """获取可用的群聊提供者，不可用时抛出异常"""
         try:
             provider = self.factory.get_provider(platform)
         except Exception as e:
@@ -219,8 +182,6 @@ class CaseChatService:
                 platform=platform.value,
                 errors={"original_error": str(e)},
             ) from e
-
-        # 检查提供者是否可用
         if not provider.is_available():
             logger.error(f"群聊提供者不可用: platform={platform.value}")
             raise ChatCreationException(
@@ -229,14 +190,16 @@ class CaseChatService:
                 platform=platform.value,
                 errors={"platform_status": "配置不完整或服务不可用"},
             )
+        return provider
 
-        # 使用数据库事务确保一致性
+    def _create_chat_in_transaction(
+        self, case: Any, platform: ChatPlatform, chat_name: str, owner_id: str | None
+    ) -> "CaseChat":
+        """在事务中调用提供者创建群聊并保存记录"""
+        provider = self._get_available_provider(platform)
         try:
             with transaction.atomic():
-                # 调用提供者创建群聊
-                logger.debug(f"调用提供者创建群聊: name={chat_name}")
                 result = provider.create_chat(chat_name, owner_id)
-
                 if not result.success:
                     logger.error(f"群聊创建失败: {result.message}, error_code={result.error_code}")
                     raise ChatCreationException(
@@ -246,34 +209,33 @@ class CaseChatService:
                         error_code=result.error_code,
                         errors={"provider_response": result.raw_response, "chat_name": chat_name},
                     )
-
-                # 创建数据库记录
                 case_chat = CaseChat.objects.create(
-                    case=case,
-                    platform=platform,
-                    chat_id=result.chat_id or "",
-                    name=result.chat_name or chat_name,
-                    is_active=True,
+                    case=case, platform=platform,
+                    chat_id=result.chat_id or "", name=result.chat_name or chat_name, is_active=True,
                 )
-
                 logger.info(
-                    f"群聊创建成功: case_id={case_id}, chat_id={result.chat_id}, "
-                    f"platform={platform.value}, name={case_chat.name}"
+                    f"群聊创建成功: case_id={case.pk}, chat_id={result.chat_id},"
+                    f" platform={platform.value}, name={case_chat.name}"
                 )
-
                 return case_chat
-
         except ChatCreationException:
-            # 重新抛出业务异常
             raise
         except Exception as e:
-            logger.error(f"创建群聊时发生未预期错误: case_id={case_id}, error={e!s}")
+            logger.error(f"创建群聊时发生未预期错误: case_id={case.pk}, error={e!s}")
             raise ChatCreationException(
-                message="创建群聊时发生系统错误",
-                code="SYSTEM_ERROR",
-                platform=platform.value,
-                errors={"case_id": case_id, "original_error": str(e)},
+                message="创建群聊时发生系统错误", code="SYSTEM_ERROR",
+                platform=platform.value, errors={"case_id": case.pk, "original_error": str(e)},
             ) from e
+
+    def create_chat_for_case(
+        self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
+    ) -> "CaseChat":
+        """为案件创建群聊"""
+        logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
+        case = self._get_case(case_id)
+        chat_name = self._build_chat_name(case)
+        resolved_owner = self._resolve_owner_id(owner_id)
+        return self._create_chat_in_transaction(case, platform, chat_name, resolved_owner)
 
     def get_or_create_chat(
         self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
@@ -322,6 +284,55 @@ class CaseChatService:
         logger.info(f"未找到现有群聊，开始创建新群聊: case_id={case_id}, platform={platform.value}")
         return self.create_chat_for_case(case_id, platform, owner_id)
 
+    def _send_files_to_chat(self, provider: Any, chat: Any, document_paths: list[Any]) -> str:
+        """逐个发送文件到群聊，返回结果描述"""
+        total = len(document_paths)
+        ok = 0
+        for i, file_path in enumerate(document_paths, 1):
+            try:
+                r = provider.send_file(chat.chat_id, file_path)
+                if r.success:
+                    ok += 1
+                    logger.info(f"文件发送成功 ({i}/{total}): {file_path}")
+                else:
+                    logger.warning(f"文件发送失败 ({i}/{total}): {file_path}, 错误: {r.message}")
+            except Exception as e:
+                logger.error(f"文件发送异常 ({i}/{total}): {file_path}, 错误: {e!s}")
+        if ok == total:
+            return f"消息和所有文件发送成功 ({ok} 个文件)"
+        if ok > 0:
+            return f"消息发送成功，部分文件发送成功 ({ok}/{total} 个文件)"
+        return f"消息发送成功，但所有文件发送失败 ({total - ok} 个文件)"
+
+    def _retry_send_after_chat_recreate(
+        self, provider: Any, chat: Any, content: Any, case_id: int, platform: "ChatPlatform", result: Any
+    ) -> tuple[Any, Any]:
+        """群聊解散时重建群聊并重试发送，返回 (new_result, new_chat)"""
+        logger.warning(f"群聊可能已解散，尝试创建新群聊: chat_id={chat.chat_id}")
+        chat.is_active = False
+        chat.save()
+        try:
+            new_chat = self.create_chat_for_case(case_id, platform)
+            logger.info(f"创建新群聊成功，重试发送消息: old={chat.chat_id}, new={new_chat.chat_id}")
+            new_result = provider.send_message(new_chat.chat_id, content)
+            if new_result.success:
+                logger.info(f"重试发送消息成功: new_chat_id={new_chat.chat_id}")
+            else:
+                logger.error(f"重试发送消息仍然失败: new_chat_id={new_chat.chat_id}")
+            return new_result, new_chat
+        except Exception as retry_error:
+            logger.error(f"创建新群聊或重试发送失败: {retry_error!s}")
+            raise MessageSendException(
+                message=f"群聊已解散，重新创建群聊失败: {retry_error!s}",
+                code="CHAT_RECREATE_FAILED", platform=platform.value, chat_id=chat.chat_id,
+                error_code=result.error_code,
+                errors={
+                    "original_error": result.message,
+                    "retry_error": str(retry_error),
+                    "provider_response": result.raw_response,
+                },
+            ) from retry_error
+
     def send_document_notification(
         self,
         case_id: int,
@@ -330,58 +341,21 @@ class CaseChatService:
         platform: ChatPlatform = ChatPlatform.FEISHU,
         title: str = "📋 法院文书通知",
     ) -> ChatResult:
-        """发送文书通知到群聊
-
-        获取或创建指定案件的群聊，然后发送文书通知消息。
-        支持同时发送文本消息和多个文件附件。
-
-        Args:
-            case_id: 案件ID
-            sms_content: 短信内容（作为消息正文）
-            document_paths: 文书文件路径列表（可选）
-            platform: 群聊平台，默认为飞书
-            title: 消息标题，默认为"📋 法院文书通知"
-
-        Returns:
-            ChatResult: 消息发送结果
-
-        Raises:
-            NotFoundError: 当案件不存在时
-            MessageSendException: 当消息发送失败时
-            ChatCreationException: 当群聊创建失败时
-            ValidationException: 当参数无效时
-
-        Requirements: 6.3, 8.1, 8.2
-
-        Example:
-            service = CaseChatService()
-            result = service.send_document_notification(
-                case_id=123,
-                sms_content="您有新的法院文书，请及时查看。",
-                document_paths=["/path/to/document1.pdf", "/path/to/document2.pdf"]
-            )
-            if result.success:
-                print("通知发送成功")
-        """
+        """发送文书通知到群聊"""
         logger.info(
-            f"发送文书通知: case_id={case_id}, platform={platform.value}, "
-            f"file_count={len(document_paths) if document_paths else 0}"
+            f"发送文书通知: case_id={case_id}, platform={platform.value},"
+            f" file_count={len(document_paths) if document_paths else 0}"
         )
 
-        # 验证必填参数
         if not sms_content or not sms_content.strip():
             raise ValidationException(
-                message="短信内容不能为空", code="INVALID_SMS_CONTENT", errors={"sms_content": "短信内容为必填项"}
+                message="短信内容不能为空",
+                code="INVALID_SMS_CONTENT",
+                errors={"sms_content": "短信内容为必填项"},
             )
 
-        # 获取或创建群聊
-        try:
-            chat = self.get_or_create_chat(case_id, platform)
-        except Exception as e:
-            logger.error(f"获取或创建群聊失败: case_id={case_id}, error={e!s}")
-            raise
+        chat = self.get_or_create_chat(case_id, platform)
 
-        # 获取群聊提供者
         try:
             provider = self.factory.get_provider(platform)
         except Exception as e:
@@ -394,117 +368,45 @@ class CaseChatService:
                 errors={"original_error": str(e)},
             ) from e
 
-        # 构建消息内容（暂时不包含文件，文件单独发送）
-        content = MessageContent(title=title, text=sms_content.strip(), file_path=None)  # 文件将单独发送
+        content = MessageContent(title=title, text=sms_content.strip(), file_path=None)
 
-        # 发送消息（带重试机制处理群聊解散情况）
         try:
-            logger.debug(f"发送消息到群聊: chat_id={chat.chat_id}, title={title}")
             result = provider.send_message(chat.chat_id, content)
 
             if not result.success:
                 logger.error(
-                    f"消息发送失败: chat_id={chat.chat_id}, message={result.message}, error_code={result.error_code}"
+                    f"消息发送失败: chat_id={chat.chat_id},"
+                    f" message={result.message}, error_code={result.error_code}"
+                )
+                if self._is_chat_not_found_error(result):
+                    result, chat = self._retry_send_after_chat_recreate(
+                        provider, chat, content, case_id, platform, result
+                    )
+
+            if not result.success:
+                raise MessageSendException(
+                    message=result.message or "消息发送失败",
+                    code="MESSAGE_SEND_FAILED",
+                    platform=platform.value,
+                    chat_id=chat.chat_id,
+                    error_code=result.error_code,
+                    errors={"provider_response": result.raw_response, "content_title": title},
                 )
 
-                # 检查是否是群聊不存在的错误（群聊可能已解散）
-                if self._is_chat_not_found_error(result):
-                    logger.warning(f"群聊可能已解散，尝试创建新群聊: chat_id={chat.chat_id}")
-
-                    # 标记旧群聊为非活跃状态
-                    chat.is_active = False
-                    chat.save()
-
-                    # 创建新群聊并重试发送
-                    try:
-                        new_chat = self.create_chat_for_case(case_id, platform)
-                        logger.info(
-                            f"创建新群聊成功，重试发送消息: old_chat_id={chat.chat_id}, new_chat_id={new_chat.chat_id}"
-                        )
-
-                        # 使用新群聊重试发送消息
-                        result = provider.send_message(new_chat.chat_id, content)
-                        chat = new_chat  # 更新chat引用，用于后续文件发送
-
-                        if result.success:
-                            logger.info(f"重试发送消息成功: new_chat_id={new_chat.chat_id}")
-                        else:
-                            logger.error(f"重试发送消息仍然失败: new_chat_id={new_chat.chat_id}")
-
-                    except Exception as retry_error:
-                        logger.error(f"创建新群聊或重试发送失败: {retry_error!s}")
-                        # 如果重试也失败，抛出原始错误
-                        raise MessageSendException(
-                            message=f"群聊已解散，重新创建群聊失败: {retry_error!s}",
-                            code="CHAT_RECREATE_FAILED",
-                            platform=platform.value,
-                            chat_id=chat.chat_id,
-                            error_code=result.error_code,
-                            errors={
-                                "original_error": result.message,
-                                "retry_error": str(retry_error),
-                                "provider_response": result.raw_response,
-                            },
-                        ) from retry_error
-
-                # 如果不是群聊不存在的错误，或重试后仍然失败，抛出异常
-                if not result.success:
-                    raise MessageSendException(
-                        message=result.message or "消息发送失败",
-                        code="MESSAGE_SEND_FAILED",
-                        platform=platform.value,
-                        chat_id=chat.chat_id,
-                        error_code=result.error_code,
-                        errors={"provider_response": result.raw_response, "content_title": title},
-                    )
-
-            # 如果有文件且消息发送成功，逐个发送所有文件
             if document_paths and result.success:
                 logger.info(f"开始发送 {len(document_paths)} 个文件到群聊: chat_id={chat.chat_id}")
-
-                successful_files = 0
-                failed_files = 0
-
-                for i, file_path in enumerate(document_paths, 1):
-                    logger.debug(f"发送第 {i}/{len(document_paths)} 个文件: {file_path}")
-
-                    try:
-                        file_result = provider.send_file(chat.chat_id, file_path)
-
-                        if file_result.success:
-                            successful_files += 1
-                            logger.info(f"文件发送成功 ({i}/{len(document_paths)}): {file_path}")
-                        else:
-                            failed_files += 1
-                            logger.warning(
-                                f"文件发送失败 ({i}/{len(document_paths)}): {file_path}, 错误: {file_result.message}"
-                            )
-                    except Exception as e:
-                        failed_files += 1
-                        logger.error(f"文件发送异常 ({i}/{len(document_paths)}): {file_path}, 错误: {e!s}")
-
-                # 更新结果消息
-                if successful_files == len(document_paths):
-                    result.message = f"消息和所有文件发送成功 ({successful_files} 个文件)"
-                    logger.info(f"所有文件发送成功: chat_id={chat.chat_id}, 成功 {successful_files} 个")
-                elif successful_files > 0:
-                    result.message = f"消息发送成功，部分文件发送成功 ({successful_files}/{len(document_paths)} 个文件)"
-                    logger.warning(
-                        f"部分文件发送失败: chat_id={chat.chat_id}, 成功 {successful_files}/{len(document_paths)} 个"
-                    )
-                else:
-                    result.message = f"消息发送成功，但所有文件发送失败 ({failed_files} 个文件)"
-                    logger.error(f"所有文件发送失败: chat_id={chat.chat_id}, 失败 {failed_files} 个")
+                result.message = self._send_files_to_chat(provider, chat, document_paths)
 
             logger.info(f"文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}")
-
             return result
 
         except MessageSendException:
-            # 重新抛出业务异常
             raise
         except Exception as e:
-            logger.error(f"发送文书通知时发生未预期错误: case_id={case_id}, chat_id={chat.chat_id}, error={e!s}")
+            logger.error(
+                f"发送文书通知时发生未预期错误: case_id={case_id},"
+                f" chat_id={chat.chat_id}, error={e!s}"
+            )
             raise MessageSendException(
                 message="发送文书通知时发生系统错误",
                 code="SYSTEM_ERROR",

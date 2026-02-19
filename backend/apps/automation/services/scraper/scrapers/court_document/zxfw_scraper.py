@@ -717,160 +717,138 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
             "message": f"API 拦截方式:成功下载 {success_count}/{len(documents)} 份文书",
         }
 
+    def _find_pdf_iframe(self) -> Any | None:
+        """查找页面中的 PDF viewer iframe"""
+        try:
+            frame = self.page.frame_locator("#if")
+            logger.info("[DEBUG] 通过 #if 找到 iframe")
+            return frame
+        except Exception:
+            pass
+
+        iframes = self.page.locator("iframe").all()
+        for i, iframe in enumerate(iframes):
+            src = iframe.get_attribute("src") or ""
+            iframe_id = iframe.get_attribute("id") or ""
+            logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
+            if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
+                logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
+                return self.page.frame_locator(f"iframe >> nth={i}")
+        return None
+
+    def _click_doc_item(self, doc_index: int, doc_count: int) -> None:
+        """点击文书列表中的指定项"""
+        if doc_count <= 1 and doc_index == 1:
+            return
+        doc_item_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
+            f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
+        )
+        try:
+            doc_item = self.page.locator(f"xpath={doc_item_xpath}")
+            if doc_item.count() > 0:
+                doc_item.first.click()
+                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
+                self.random_wait(2, 3)  # type: ignore[attr-defined]
+            else:
+                logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
+        except Exception as e:
+            logger.warning(f"[DEBUG] 点击文书项失败: {e}")
+
+    def _download_single_doc(self, frame: Any, doc_index: int, download_dir: Path) -> str | None:
+        """
+        在 iframe 内下载单个文书，返回文件路径或 None
+
+        先尝试 #download，失败则用备用 XPath
+        """
+        filename_default = f"document_{doc_index}.pdf"
+        # 主方式：#download
+        try:
+            btn = frame.locator("#download")
+            btn.first.wait_for(state="visible", timeout=10000)
+            btn.first.scroll_into_view_if_needed()
+            self.random_wait(1, 2)  # type: ignore[attr-defined]
+            with self.page.expect_download(timeout=60000) as dl_info:
+                btn.first.click()
+                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
+            download = dl_info.value
+            filepath = download_dir / (download.suggested_filename or filename_default)
+            download.save_as(str(filepath))
+            logger.info(f"[DEBUG] 文件已保存: {filepath}")
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"[DEBUG] #download 方式失败: {e}，尝试备用 XPath")
+
+        # 备用方式
+        try:
+            fallback_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
+            btn = frame.locator(f"xpath={fallback_xpath}")
+            btn.first.wait_for(state="visible", timeout=5000)
+            with self.page.expect_download(timeout=60000) as dl_info:
+                btn.first.click()
+                logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
+            download = dl_info.value
+            filepath = download_dir / (download.suggested_filename or filename_default)
+            download.save_as(str(filepath))
+            return str(filepath)
+        except Exception as e2:
+            logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
+            return None
+
     def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:
         """
         通过传统页面点击方式下载文书(回退机制)
-
-        Args:
-            download_dir: 下载目录
-
-        Returns:
-            下载结果字典
-
-        Raises:
-            Exception: 下载失败时抛出异常
         """
         downloaded_files: list[str] = []
         success_count = 0
         failed_count = 0
 
-        # 检测文书列表数量
-        # 文书列表容器 XPath
         doc_list_xpath = (
             "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
             "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
             "/uni-view[1]/uni-view[1]/uni-view"
         )
-
         try:
             doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
             logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项")
         except Exception as e:
-            logger.warning(f"[DEBUG] 无法检测文书列表: {e},尝试单文件下载")
+            logger.warning(f"[DEBUG] 无法检测文书列表: {e}，尝试单文件下载")
             doc_count = 1
 
         if doc_count == 0:
-            # 没有检测到文书列表,尝试直接下载
-            logger.info("[DEBUG] 未检测到文书列表,尝试直接下载")
+            logger.info("[DEBUG] 未检测到文书列表，尝试直接下载")
             doc_count = 1
 
-        # 逐一下载每个文书
         for doc_index in range(1, doc_count + 1):
-            logger.info(f"\n{'=' * 40}")
             logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书")
-            logger.info(f"{'=' * 40}")
-
             try:
-                # 如果有多个文书,需要先点击对应的文书项
-                if doc_count > 1 or doc_index > 1:
-                    # 点击文书项
-                    doc_item_xpath = (
-                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
-                        f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
-                    )
+                self._click_doc_item(doc_index, doc_count)
 
-                    try:
-                        doc_item = self.page.locator(f"xpath={doc_item_xpath}")
-                        if doc_item.count() > 0:
-                            doc_item.first.click()
-                            logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
-                            self.random_wait(2, 3)  # type: ignore[attr-defined]  # 等待 PDF 加载
-                        else:
-                            logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
-                    except Exception as e:
-                        logger.warning(f"[DEBUG] 点击文书项失败: {e}")
-
-                # 查找 iframe(使用 ID #if)
-                frame = None
-                try:
-                    # 优先使用 ID 选择器
-                    frame = self.page.frame_locator("#if")
-                    logger.info("[DEBUG] 通过 #if 找到 iframe")
-                except Exception:
-                    logger.exception("操作失败")
-
-                    pass
-
+                frame = self._find_pdf_iframe()
                 if not frame:
-                    # 备用:查找包含 pdfjs 的 iframe
-                    iframes = self.page.locator("iframe").all()
-                    for i, iframe in enumerate(iframes):
-                        src = iframe.get_attribute("src") or ""
-                        iframe_id = iframe.get_attribute("id") or ""
-                        logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
-
-                        if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
-                            frame = self.page.frame_locator(f"iframe >> nth={i}")
-                            logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
-                            break
-
-                if not frame:
-                    logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe,跳过")
+                    logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
+                    failed_count += 1
                     continue
 
-                # 在 iframe 内点击下载按钮
-                try:
-                    # 使用 #download ID
-                    btn = frame.locator("#download")
-                    btn.first.wait_for(state="visible", timeout=10000)
-                    btn.first.scroll_into_view_if_needed()
-                    self.random_wait(1, 2)  # type: ignore[attr-defined]
-
-                    # 监听下载
-                    with self.page.expect_download(timeout=60000) as download_info:
-                        btn.first.click()
-                        logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
-
-                    download = download_info.value
-
-                    # 保存文件
-                    filename = download.suggested_filename or f"document_{doc_index}.pdf"
-                    filepath = download_dir / filename
-                    download.save_as(str(filepath))
-                    logger.info(f"[DEBUG] 文件已保存: {filepath}")
-                    downloaded_files.append(str(filepath))
+                filepath = self._download_single_doc(frame, doc_index, download_dir)
+                if filepath:
+                    downloaded_files.append(filepath)
                     success_count += 1
+                else:
+                    failed_count += 1
 
-                except Exception as e:
-                    logger.warning(f"[DEBUG] #download 方式失败: {e},尝试备用 XPath")
-
-                    # 备用:使用原来的 XPath
-                    try:
-                        download_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
-                        btn = frame.locator(f"xpath={download_xpath}")
-                        btn.first.wait_for(state="visible", timeout=5000)
-
-                        with self.page.expect_download(timeout=60000) as download_info:
-                            btn.first.click()
-                            logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
-
-                        download = download_info.value
-                        filename = download.suggested_filename or f"document_{doc_index}.pdf"
-                        filepath = download_dir / filename
-                        download.save_as(str(filepath))
-                        downloaded_files.append(str(filepath))
-                        success_count += 1
-
-                    except Exception as e2:
-                        logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
-                        failed_count += 1
-
-                # 下载完成后等待一下
                 self.random_wait(1, 2)  # type: ignore[attr-defined]
 
             except Exception as e:
                 logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错: {e}")
                 failed_count += 1
-                continue
 
         if not downloaded_files:
-            # 最终失败,保存详细调试信息
             self._save_page_state("zxfw_final_failed")
-            raise ValueError("所有下载策略均失败,请查看调试文件")
+            raise ValueError("所有下载策略均失败，请查看调试文件")
 
-        # 记录汇总日志
         logger.info(
             "回退方式下载完成",
             extra={

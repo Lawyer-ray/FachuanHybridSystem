@@ -255,18 +255,20 @@ class RetryManager:
         self.attempts: list[RetryAttempt] = []
         self.start_time: datetime | None = None
 
+    def _classify_by_message(self, error_message: str) -> RetryErrorType:
+        """根据错误消息分类"""
+        if "timeout" in error_message or "timed out" in error_message:
+            return RetryErrorType.TIMEOUT_ERROR
+        if "network" in error_message or "connection" in error_message:
+            return RetryErrorType.NETWORK_ERROR
+        if "permission" in error_message or "forbidden" in error_message:
+            return RetryErrorType.PERMISSION_ERROR
+        if "not found" in error_message or "does not exist" in error_message:
+            return RetryErrorType.NOT_FOUND_ERROR
+        return RetryErrorType.UNKNOWN_ERROR
+
     def classify_error(self, exception: Exception) -> RetryErrorType:
-        """分类错误类型
-
-        根据异常类型和错误消息分类错误类型，用于确定重试策略。
-
-        Args:
-            exception: 异常对象
-
-        Returns:
-            RetryErrorType: 错误类型
-        """
-        # 导入异常类（避免循环导入）
+        """分类错误类型"""
         import httpx
 
         from apps.core.exceptions import (
@@ -277,7 +279,6 @@ class RetryManager:
             ValidationException,
         )
 
-        # OwnerSettingException 通过 code 字段区分错误类型
         if isinstance(exception, OwnerSettingException):
             code = getattr(exception, "code", "")
             _owner_code_map = {
@@ -290,28 +291,15 @@ class RetryManager:
             if code in _owner_code_map:
                 return _owner_code_map[code]
 
-        # 根据异常类型分类（通用异常）
         if isinstance(exception, PermissionDenied):
             return RetryErrorType.PERMISSION_ERROR
-        elif isinstance(exception, NotFoundError):
+        if isinstance(exception, NotFoundError):
             return RetryErrorType.NOT_FOUND_ERROR
-        elif isinstance(exception, ValidationException):
+        if isinstance(exception, ValidationException):
             return RetryErrorType.VALIDATION_ERROR
-        elif isinstance(exception, (NetworkError, httpx.RequestError)):
+        if isinstance(exception, (NetworkError, httpx.RequestError)):
             return RetryErrorType.NETWORK_ERROR
-        else:
-            # 根据错误消息进一步分类
-            error_message = str(exception).lower()
-            if "timeout" in error_message or "timed out" in error_message:
-                return RetryErrorType.TIMEOUT_ERROR
-            elif "network" in error_message or "connection" in error_message:
-                return RetryErrorType.NETWORK_ERROR
-            elif "permission" in error_message or "forbidden" in error_message:
-                return RetryErrorType.PERMISSION_ERROR
-            elif "not found" in error_message or "does not exist" in error_message:
-                return RetryErrorType.NOT_FOUND_ERROR
-            else:
-                return RetryErrorType.UNKNOWN_ERROR
+        return self._classify_by_message(str(exception).lower())
 
     def execute_with_retry(
         self, operation: Callable[[], Any], operation_name: str = "operation", context: dict[str, Any] | None = None

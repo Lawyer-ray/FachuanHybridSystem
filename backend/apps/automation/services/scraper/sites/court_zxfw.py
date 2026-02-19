@@ -85,6 +85,90 @@ class CourtZxfwService:
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 
+    @staticmethod
+    def _extract_token_from_body(body: dict[str, Any]) -> str | None:
+        """从响应体中提取 token，尝试多个字段路径"""
+        token_keys = ("token", "access_token", "accessToken")
+        for wrapper in ("data", "result"):
+            if wrapper in body and isinstance(body[wrapper], dict):
+                for key in token_keys:
+                    if body[wrapper].get(key):
+                        return str(body[wrapper][key])  # type: ignore[return-value]
+        for key in token_keys:
+            if body.get(key):
+                return str(body[key])  # type: ignore[return-value]
+        return None
+
+    def _make_response_handler(self, captured_token: dict[str, Any]) -> Any:
+        """创建响应监听器，捕获登录 token"""
+        import json as _json
+
+        def handle_response(response: Any) -> None:
+            try:
+                url = response.url.lower()
+                if "/api/" in url:
+                    logger.info(f"API 响应: {response.url} (状态: {response.status})")
+                if "login" not in url or response.status != 200:
+                    return
+                content_type = response.headers.get("content-type", "").lower()
+                if not ("application/json" in content_type or "text/" in content_type):
+                    return
+                try:
+                    response_body = _json.loads(response.text())
+                    if not isinstance(response_body, dict):
+                        return
+                    token = self._extract_token_from_body(response_body)
+                    if token:
+                        captured_token["value"] = token
+                        logger.info(f"捕获到 Token: {token[:30]}... (长度: {len(token)})")
+                    else:
+                        logger.warning(f"未能从登录响应中提取 Token，响应结构: {list(response_body.keys())}")
+                except Exception as e:
+                    logger.error(f"解析登录响应失败: {e}", exc_info=True)
+            except Exception as e:
+                logger.error(f"响应监听器处理失败: {e}", exc_info=True)
+
+        return handle_response
+
+    def _fill_login_form(self, account: str, password: str, save_debug: bool) -> None:
+        """填写登录表单（账号、密码、点击密码登录标签）"""
+        password_login_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+            "/uni-view[1]/uni-view[2]/uni-view[2]"
+        )
+        try:
+            password_tab = self.page.locator(f"xpath={password_login_xpath}")
+            password_tab.wait_for(state="visible", timeout=10000)
+            password_tab.click()
+            self._random_wait(1, 2)
+            if save_debug:
+                self._save_screenshot("02_password_tab_clicked")
+        except Exception as e:
+            logger.warning(f"点击密码登录失败: {e}，可能已经在密码登录页面")
+
+        account_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+            "/uni-view[1]/uni-view[3]/uni-view[1]/uni-view/uni-view/uni-input/div/input"
+        )
+        account_input = self.page.locator(f"xpath={account_xpath}")
+        account_input.wait_for(state="visible", timeout=10000)
+        account_input.fill(account)
+        self._random_wait(0.5, 1)
+
+        password_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+            "/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"
+        )
+        password_input = self.page.locator(f"xpath={password_xpath}")
+        password_input.wait_for(state="visible", timeout=10000)
+        password_input.fill(password)
+        self._random_wait(0.5, 1)
+        if save_debug:
+            self._save_screenshot("03_credentials_filled")
+
     def login(
         self,
         account: str,
@@ -93,274 +177,99 @@ class CourtZxfwService:
         save_debug: bool = False,
         credential_id: int | None = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """
-        登录全国法院"一张网"
-
-        Args:
-            account: 账号
-            password: 密码
-            max_captcha_retries: 验证码识别最大重试次数
-            save_debug: 是否保存调试信息
-            credential_id: 凭证ID，用于记录Token获取历史
-
-        Returns:
-            登录结果字典
-
-        Raises:
-            ValueError: 登录失败
-        """
+        """登录全国法院"一张网" """
         logger.info("=" * 60)
         logger.info("开始登录全国法院'一张网'...")
         logger.info("=" * 60)
 
-        # 用于捕获 token
-        captured_token = {"value": None}
-
+        captured_token: dict[str, Any] = {"value": None}
         try:
-            # 使用响应监听器捕获登录接口的 token（更可靠的方式）
-            def handle_response(response: Any) -> None:
-                """监听响应，提取 token"""
-                try:
-                    url = response.url.lower()
-
-                    # 记录所有 API 响应（用于调试）
-                    if "/api/" in url:
-                        logger.info(f"🌐 API 响应: {response.url} (状态: {response.status})")
-
-                    # 检查是否是登录接口
-                    if "login" in url and response.status == 200:
-                        content_type = response.headers.get("content-type", "").lower()
-                        logger.info(f"📡 捕获到登录接口响应: {response.url}")
-                        logger.info(f"   状态码: {response.status}")
-                        logger.info(f"   Content-Type: {content_type}")
-
-                        # 跳过非JSON响应（如图片、CSS、JS等）
-                        if not ("application/json" in content_type or "text/" in content_type):
-                            logger.info(f"   跳过非文本响应: {content_type}")
-                            return
-
-                        try:
-                            # 获取响应体文本
-                            response_text = response.text()
-                            logger.info(f"📄 响应文本: {response_text[:500]}...")  # 只显示前500字符
-
-                            # 尝试解析为 JSON
-                            import json
-
-                            response_body = json.loads(response_text)
-                            logger.info("✅ JSON 解析成功")
-                            logger.info(f"📦 响应结构: {list(response_body.keys())}")
-
-                            # 尝试从不同的可能位置提取 token
-                            if isinstance(response_body, dict):
-                                # 方式1: data.token 或 data.access_token
-                                if "data" in response_body and isinstance(response_body["data"], dict):
-                                    logger.info(f"🔍 检查 data 字段: {list(response_body['data'].keys())}")
-                                    token = (
-                                        response_body["data"].get("token")
-                                        or response_body["data"].get("access_token")
-                                        or response_body["data"].get("accessToken")
-                                    )
-                                    if token:
-                                        captured_token["value"] = token
-                                        logger.info(f"✅✅✅ 从 data.token 捕获到 Token: {token[:30]}...")
-                                        logger.info(f"   Token 长度: {len(token)} 字符")
-                                        return
-
-                                # 方式2: result.token
-                                if "result" in response_body and isinstance(response_body["result"], dict):
-                                    logger.info(f"🔍 检查 result 字段: {list(response_body['result'].keys())}")
-                                    token = (
-                                        response_body["result"].get("token")
-                                        or response_body["result"].get("access_token")
-                                        or response_body["result"].get("accessToken")
-                                    )
-                                    if token:
-                                        captured_token["value"] = token
-                                        logger.info(f"✅✅✅ 从 result.token 捕获到 Token: {token[:30]}...")
-                                        logger.info(f"   Token 长度: {len(token)} 字符")
-                                        return
-
-                                # 方式3: 直接 token
-                                token = (
-                                    response_body.get("token")
-                                    or response_body.get("access_token")
-                                    or response_body.get("accessToken")
-                                )
-                                if token:
-                                    captured_token["value"] = token
-                                    logger.info(f"✅✅✅ 从根级别捕获到 Token: {token[:30]}...")
-                                    logger.info(f"   Token 长度: {len(token)} 字符")
-                                    return
-
-                                # 如果还是没找到，记录完整响应
-                                logger.warning("⚠️⚠️⚠️ 未能从响应中提取 Token")
-                                logger.warning(f"   响应结构: {list(response_body.keys())}")
-                                if "data" in response_body:
-                                    logger.warning(f"   data 字段类型: {type(response_body['data'])}")
-                                    if isinstance(response_body["data"], dict):
-                                        logger.warning(f"   data 字段内容: {list(response_body['data'].keys())}")
-
-                        except json.JSONDecodeError as e:
-                            logger.error(f"❌ JSON 解析失败: {e}")
-                            logger.error(f"   响应文本: {response_text[:200]}")
-                        except Exception as e:
-                            logger.error(f"❌ 解析登录响应失败: {e}", exc_info=True)
-
-                except Exception as e:
-                    logger.error(f"❌ 响应监听器处理失败: {e}", exc_info=True)
-
-            # 注册响应监听器
-            self.page.on("response", handle_response)
-            logger.info("=" * 80)
+            self.page.on("response", self._make_response_handler(captured_token))
             logger.info("✅✅✅ 已设置响应监听器，准备捕获 Token")
-            logger.info("=" * 80)
 
-            # 1. 导航到登录页
             logger.info(f"导航到登录页: {self.LOGIN_URL}")
             self.page.goto(self.LOGIN_URL, timeout=30000, wait_until="networkidle")
             self._random_wait(2, 3)
-
             if save_debug:
                 self._save_screenshot("01_login_page")
 
-            # 2. 点击"密码登录"
-            logger.info("点击'密码登录'")
-            password_login_xpath = (
-                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
-                "/uni-view[1]/uni-view[2]/uni-view[2]"
-            )
+            self._fill_login_form(account, password, save_debug)
 
-            try:
-                password_tab = self.page.locator(f"xpath={password_login_xpath}")
-                password_tab.wait_for(state="visible", timeout=10000)
-                password_tab.click()
-                self._random_wait(1, 2)
-
-                if save_debug:
-                    self._save_screenshot("02_password_tab_clicked")
-            except Exception as e:
-                logger.warning(f"点击密码登录失败: {e}，可能已经在密码登录页面")
-
-            # 3. 输入账号
-            logger.info(f"输入账号: {account}")
-            account_xpath = (
-                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
-                "/uni-view[1]/uni-view[3]/uni-view[1]/uni-view/uni-view/uni-input/div/input"
-            )
-
-            account_input = self.page.locator(f"xpath={account_xpath}")
-            account_input.wait_for(state="visible", timeout=10000)
-            account_input.fill(account)
-            self._random_wait(0.5, 1)
-
-            # 4. 输入密码
-            logger.info("输入密码")
-            password_xpath = (
-                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
-                "/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"
-            )
-
-            password_input = self.page.locator(f"xpath={password_xpath}")
-            password_input.wait_for(state="visible", timeout=10000)
-            password_input.fill(password)
-            self._random_wait(0.5, 1)
-
-            if save_debug:
-                self._save_screenshot("03_credentials_filled")
-
-            # 5. 识别并输入验证码（带重试）
-            captcha_success = False
-            for attempt in range(1, max_captcha_retries + 1):
-                logger.info(f"验证码识别尝试 {attempt}/{max_captcha_retries}")
-
-                try:
-                    captcha_text = self._recognize_captcha(save_debug=save_debug)
-
-                    if not captcha_text:
-                        logger.warning(f"验证码识别失败（尝试 {attempt}）")
-                        if attempt < max_captcha_retries:
-                            # 刷新验证码
-                            self._refresh_captcha()
-                            continue
-                        else:
-                            raise ValueError("验证码识别失败，已达最大重试次数")
-
-                    # 输入验证码
-                    logger.info(f"输入验证码: {captcha_text}")
-                    captcha_input_xpath = (
-                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
-                        "/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[1]/uni-view/uni-input/div/input"
-                    )
-
-                    captcha_input = self.page.locator(f"xpath={captcha_input_xpath}")
-                    captcha_input.wait_for(state="visible", timeout=10000)
-                    captcha_input.fill(captcha_text)
-                    self._random_wait(0.5, 1)
-
-                    if save_debug:
-                        self._save_screenshot(f"04_captcha_filled_attempt_{attempt}")
-
-                    # 6. 点击登录按钮
-                    logger.info("点击登录按钮")
-                    login_button_xpath = (
-                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
-                        "/uni-view[1]/uni-view[4]"
-                    )
-
-                    login_button = self.page.locator(f"xpath={login_button_xpath}")
-                    login_button.wait_for(state="visible", timeout=10000)
-                    login_button.click()
-
-                    # 7. 等待登录结果
-                    logger.info("等待登录结果...")
-                    self._random_wait(3, 5)
-
-                    if save_debug:
-                        self._save_screenshot(f"05_after_login_attempt_{attempt}")
-
-                    # 8. 检查是否登录成功
-                    if self._check_login_success():
-                        logger.info("✅ 登录成功！")
-                        self.is_logged_in = True
-                        captcha_success = True
-                        break
-                    else:
-                        logger.warning(f"登录失败（尝试 {attempt}），可能是验证码错误")
-                        if attempt < max_captcha_retries:
-                            # 清空验证码输入框，准备重试
-                            captcha_input.fill("")
-                            self._refresh_captcha()
-                            continue
-                        else:
-                            raise ValueError("登录失败，已达最大重试次数")
-
-                except Exception as e:
-                    logger.error(f"登录尝试 {attempt} 出错: {e}")
-                    if attempt >= max_captcha_retries:
-                        raise
-                    self._random_wait(2, 3)
-
-            if not captcha_success:
+            if not self._try_captcha_login(max_captcha_retries=max_captcha_retries, save_debug=save_debug):
                 raise ValueError("登录失败")
 
-            return {
-                "success": True,
-                "message": "登录成功",
-                "url": self.page.url,
-                "token": captured_token["value"],  # 返回捕获的 token
-            }
+            return {"success": True, "message": "登录成功", "url": self.page.url, "token": captured_token["value"]}
 
         except Exception as e:
             logger.error(f"登录失败: {e}", exc_info=True)
             if save_debug:
                 self._save_screenshot("error_login_failed")
             raise ValueError(f"登录失败: {e}") from e
+
+    def _try_captcha_login(self, max_captcha_retries: int, save_debug: bool) -> bool:
+        """
+        带重试的验证码识别和登录
+
+        Returns:
+            登录是否成功
+        """
+        captcha_input_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+            "/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[1]/uni-view/uni-input/div/input"
+        )
+        login_button_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+            "/uni-view[1]/uni-view[4]"
+        )
+
+        for attempt in range(1, max_captcha_retries + 1):
+            logger.info(f"验证码识别尝试 {attempt}/{max_captcha_retries}")
+            try:
+                captcha_text = self._recognize_captcha(save_debug=save_debug)
+                if not captcha_text:
+                    logger.warning(f"验证码识别失败（尝试 {attempt}）")
+                    if attempt < max_captcha_retries:
+                        self._refresh_captcha()
+                        continue
+                    raise ValueError("验证码识别失败，已达最大重试次数")
+
+                captcha_input = self.page.locator(f"xpath={captcha_input_xpath}")
+                captcha_input.wait_for(state="visible", timeout=10000)
+                captcha_input.fill(captcha_text)
+                self._random_wait(0.5, 1)
+
+                if save_debug:
+                    self._save_screenshot(f"04_captcha_filled_attempt_{attempt}")
+
+                login_button = self.page.locator(f"xpath={login_button_xpath}")
+                login_button.wait_for(state="visible", timeout=10000)
+                login_button.click()
+                self._random_wait(3, 5)
+
+                if save_debug:
+                    self._save_screenshot(f"05_after_login_attempt_{attempt}")
+
+                if self._check_login_success():
+                    logger.info("登录成功")
+                    self.is_logged_in = True
+                    return True
+
+                logger.warning(f"登录失败（尝试 {attempt}），可能是验证码错误")
+                if attempt < max_captcha_retries:
+                    captcha_input.fill("")
+                    self._refresh_captcha()
+                else:
+                    raise ValueError("登录失败，已达最大重试次数")
+
+            except Exception as e:
+                logger.error(f"登录尝试 {attempt} 出错: {e}")
+                if attempt >= max_captcha_retries:
+                    raise
+                self._random_wait(2, 3)
+
+        return False
 
     def _recognize_captcha(self, save_debug: bool = False) -> str | None:
         """
