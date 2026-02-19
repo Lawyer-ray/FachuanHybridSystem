@@ -79,7 +79,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
         >>> with open('captcha.png', 'rb') as f:
         ...     image_bytes = f.read()
         >>> result = recognizer.recognize(image_bytes)
-        >>> print(result)  # '1234'
+        >>> logger.info(result)  # '1234'
     """
 
     def __init__(self, show_ad: bool = False):
