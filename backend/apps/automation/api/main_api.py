@@ -9,6 +9,7 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 
 from apps.automation.schemas import MoonshotChatIn, MoonshotChatOut, OllamaChatIn, OllamaChatOut
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 from .performance_monitor_api import router as performance_router
 
 router = Router(tags=["Main API"])
@@ -94,6 +95,7 @@ def ai_moonshot(request: Any, payload: MoonshotChatIn) -> MoonshotChatOut:
 
 
 @router.post("/file/upload", response=dict)
+@rate_limit_from_settings("UPLOAD")
 def upload_file(
     request: Any,
     file: UploadedFile = File(...),  # type: ignore[arg-type]

@@ -16,12 +16,12 @@ class OllamaPartyExtractionProvider:
         self._base_url = base_url
 
     def extract(self, *, content: str) -> list[str]:
-        from apps.core.interfaces import ServiceLocator
         from apps.core.llm.config import LLMConfig
+        from apps.core.llm.service import get_llm_service
 
         model = self._model or LLMConfig.get_ollama_model()
         messages: list[Any] = []
-        llm_service = ServiceLocator.get_llm_service()
+        llm_service = get_llm_service()
         llm_resp = llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
         content_text = llm_resp.content or ""
         try:

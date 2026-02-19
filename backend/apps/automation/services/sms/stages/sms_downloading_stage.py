@@ -9,8 +9,6 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 import logging
 from typing import TYPE_CHECKING
 
-from django_q.tasks import async_task
-
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask, ScraperTaskType
 
 from .base import BaseSMSStage
@@ -132,7 +130,9 @@ class SMSDownloadingStage(BaseSMSStage):
 
             logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")
 
-            # 提交到 Django Q 队列执行
+            # 提交到 Django Q 队列执行（延迟导入避免 django_q.tasks 顶层导入）
+            from django_q.tasks import async_task  # noqa: PLC0415
+
             queue_task_id = async_task(
                 "apps.automation.tasks.execute_scraper_task", task.id, task_name=f"court_document_download_{task.id}"
             )

@@ -1,6 +1,8 @@
-apps/automation/admin/document/auto_namer_admin.py
 apps/automation/admin/scraper/test_admin.py
 apps/automation/admin/sms/court_sms_actions.py
+apps/automation/admin/sms/court_sms_admin_actions.py
+apps/automation/admin/sms/court_sms_admin_base.py
+apps/automation/admin/sms/court_sms_admin_themed_views.py
 apps/automation/admin/sms/court_sms_views.py
 apps/cases/admin/caseparty_admin.py
 apps/cases/admin/mixins/save.py

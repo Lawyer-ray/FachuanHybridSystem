@@ -9,8 +9,6 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
-from apps.core.interfaces import ServiceLocator
-
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, IDocumentProcessingService
 
@@ -48,14 +46,16 @@ class CaseNumberExtractorService:
     def document_processing_service(self) -> "IDocumentProcessingService":
         """延迟加载文档处理服务"""
         if self._document_processing_service is None:
-            self._document_processing_service = ServiceLocator.get_document_processing_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_document_processing_service
+            self._document_processing_service = build_sms_document_processing_service()
         return self._document_processing_service
 
     @property
     def case_service(self) -> "ICaseService":
         """延迟加载案件服务"""
         if self._case_service is None:
-            self._case_service = ServiceLocator.get_case_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+            self._case_service = build_sms_case_service()
         return self._case_service
 
     def extract_from_document(self, document_path: str) -> list[str]:

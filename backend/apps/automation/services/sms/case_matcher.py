@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.automation.utils.text_utils import TextUtils
 from apps.core.exceptions import ValidationException
-from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.matching import DocumentParserService, PartyMatchingService
@@ -39,7 +38,9 @@ class CaseMatcher:
     @property
     def case_service(self) -> "ICaseService":
         if self._case_service is None:
-            self._case_service = ServiceLocator.get_case_service()
+            from apps.core.dependencies.business_case import build_case_service
+
+            self._case_service = build_case_service()
         return self._case_service
 
     @property

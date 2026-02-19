@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING, Optional
 
 from django.conf import settings
 
-from apps.core.interfaces import ServiceLocator
-
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
     from apps.core.interfaces import ICaseService
@@ -46,7 +44,8 @@ class DocumentAttachmentService:
     def case_service(self) -> "ICaseService":
         """延迟加载案件服务"""
         if self._case_service is None:
-            self._case_service = ServiceLocator.get_case_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+            self._case_service = build_sms_case_service()
         return self._case_service
 
     @property

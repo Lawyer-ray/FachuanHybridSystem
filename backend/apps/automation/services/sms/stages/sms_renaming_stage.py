@@ -9,7 +9,6 @@ import logging
 from typing import TYPE_CHECKING, Optional, cast
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
-from apps.core.interfaces import ServiceLocator
 
 from .base import BaseSMSStage
 
@@ -64,7 +63,9 @@ class SMSRenamingStage(BaseSMSStage):
     @property
     def lawyer_service(self) -> "ILawyerService":
         if self._lawyer_service is None:
-            self._lawyer_service = ServiceLocator.get_lawyer_service()
+            from apps.core.dependencies.business_organization import build_lawyer_service
+
+            self._lawyer_service = build_lawyer_service()
         return self._lawyer_service
 
     @property
@@ -160,7 +161,9 @@ class SMSRenamingStage(BaseSMSStage):
         if not sms.case:
             return False
         try:
-            case_log_service = ServiceLocator.get_caselog_service()
+            from apps.core.dependencies.business_case import build_case_log_service
+
+            case_log_service = build_case_log_service()
             admin = self.lawyer_service.get_admin_lawyer_internal()
             if not admin:
                 logger.error("未找到管理员用户")

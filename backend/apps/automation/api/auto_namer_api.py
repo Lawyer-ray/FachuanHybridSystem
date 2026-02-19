@@ -10,6 +10,7 @@ from ninja.files import UploadedFile
 
 from apps.automation.schemas import AutoToolProcessIn, AutoToolProcessOut
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 router = Router(tags=["Auto Namer"])
 
@@ -29,6 +30,7 @@ def _get_auto_namer_service() -> Any:
 
 
 @router.post("/process", response=AutoToolProcessOut)
+@rate_limit_from_settings("UPLOAD")
 def auto_namer_process(
     request: Any,
     file: UploadedFile = File(...),  # type: ignore[arg-type]
@@ -52,6 +54,7 @@ def auto_namer_process(
 
 
 @router.post("/process-by-path", response=AutoToolProcessOut)
+@rate_limit_from_settings("UPLOAD")
 def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:
     """通过路径处理自动命名工具"""
     # 使用工厂函数获取服务
