@@ -204,7 +204,9 @@ def get_config_manager() -> Any:
     return None
 
 
-def register_config_change_listener(listener: Any, key_filter: str | None = None, prefix_filter: str | None = None) -> None:
+def register_config_change_listener(
+    listener: Any, key_filter: str | None = None, prefix_filter: str | None = None
+) -> None:
     """
     注册配置变更监听器
 

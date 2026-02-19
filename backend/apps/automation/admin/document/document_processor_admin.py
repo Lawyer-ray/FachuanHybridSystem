@@ -78,8 +78,10 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
                     {file_info}
                     <h2>🖼️ 预览图（无法提取文本）</h2>
                     <p><em>该文件无法直接提取文字内容，已生成预览图供查看：</em></p>
-                    <div style='text-align:center;background:#f8f9fa;padding:15px;border:1px solid #dee2e6;border-radius:5px;'>
-                        <img src='{extraction.image_url}' style='max-width:100%;max-height:600px;border:1px solid #ddd;'/>
+                    <div style='text-align:center;background:#f8f9fa;padding:15px;
+                        border:1px solid #dee2e6;border-radius:5px;'>
+                        <img src='{extraction.image_url}'
+                            style='max-width:100%;max-height:600px;border:1px solid #ddd;'/>
                     </div>
                     <p><a href='javascript:history.back()'>← 返回</a></p>
                     """
@@ -107,8 +109,10 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         <form method='post' enctype='multipart/form-data'>
             <input type='hidden' name='csrfmiddlewaretoken' value='{csrf_token}' />
             <p><label>上传文件：</label><br/><input type='file' name='upload' required/></p>
-            <p><label>文字提取限制：</label><br/><input type='number' name='limit' placeholder='留空使用默认值1500字' min='1'/></p>
-            <p><label>PDF预览页码：</label><br/><input type='number' name='preview_page' placeholder='留空使用默认值第1页' min='1'/></p>
+            <p><label>文字提取限制：</label><br/><input type='number' name='limit'
+                placeholder='留空使用默认值1500字' min='1'/></p>
+            <p><label>PDF预览页码：</label><br/><input type='number' name='preview_page'
+                placeholder='留空使用默认值第1页' min='1'/></p>
             <p><button type='submit' class='default'>提交处理</button></p>
         </form>
         """

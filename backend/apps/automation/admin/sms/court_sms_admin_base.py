@@ -325,7 +325,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         if cast(int, obj.id):
             retry_url = reverse("admin:automation_courtsms_retry", args=[cast(int, obj.id)])
             return format_html(
-                '<a href="{}" class="button" onclick="return confirm(\'确认要重新处理这条短信吗?这将重置状态并重新执行完整流程.\');">'
+                '<a href="{}" class="button" onclick="return confirm('
+                "'确认要重新处理这条短信吗?这将重置状态并重新执行完整流程.');"
+                '">'
                 "🔄 重新处理</a>",
                 retry_url,
             )

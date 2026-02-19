@@ -146,7 +146,8 @@ class CaseChatService:
                 case=case, platform=platform, chat_id=result.chat_id, name=result.chat_name or chat_name, is_active=True
             )
             logger.info(
-                f"群聊创建成功: case_id={case_id}, chat_id={result.chat_id}, platform={platform.value}, name={case_chat.name}"
+                f"群聊创建成功: case_id={case_id}, chat_id={result.chat_id},"
+                f" platform={platform.value}, name={case_chat.name}"
             )
             return case_chat
         except ChatCreationException:
@@ -264,7 +265,8 @@ class CaseChatService:
                 print("通知发送成功")
         """
         logger.info(
-            f"发送文书通知: case_id={case_id}, platform={platform.value}, file_count={(len(document_paths) if document_paths else 0)}"
+            f"发送文书通知: case_id={case_id}, platform={platform.value},"
+            f" file_count={(len(document_paths) if document_paths else 0)}"
         )
         if not sms_content or not sms_content.strip():
             raise ValidationException(

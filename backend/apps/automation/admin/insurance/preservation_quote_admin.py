@@ -127,14 +127,16 @@ class InsuranceQuoteInline(admin.TabularInline):
             return format_html(
                 '<details style="cursor: pointer;">'
                 '<summary style="color: #007bff; font-weight: bold;">📋 查看详情</summary>'
-                '<pre style="max-height: 400px; overflow: auto; background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>'
+                '<pre style="max-height: 400px; overflow: auto; background: #f5f5f5;'
+                ' padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>'
                 "</details>",
                 formatted,
             )
         except Exception:
             # 如果不是 JSON，直接显示
             return format_html(
-                '<pre style="max-height: 200px; overflow: auto; background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',
+                '<pre style="max-height: 200px; overflow: auto; background: #f5f5f5;'
+                ' padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',
                 obj.error_message[:500],
             )
 
@@ -397,7 +399,10 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             if quote.min_amount:
                 # 最低价高亮显示
                 if rank == 1:
-                    premium_html = f'<span style="color: #28a745; font-weight: bold; font-size: 16px;">¥{quote.min_amount:,.2f}</span> 🏆'
+                    premium_html = (
+                        f'<span style="color: #28a745; font-weight: bold; font-size: 16px;">'
+                        f"¥{quote.min_amount:,.2f}</span> 🏆"
+                    )
                 else:
                     premium_html = f'<span style="font-weight: bold;">¥{quote.min_amount:,.2f}</span>'
 

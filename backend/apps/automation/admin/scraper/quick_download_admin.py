@@ -132,21 +132,31 @@ class QuickDownloadAdmin(admin.ModelAdmin):
     <title>快速下载文书</title>
     <style>
         * {{ box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }}
-        .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+            sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }}
+        .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px;
+            border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }}
         h1 {{ color: #1a1a1a; margin-bottom: 8px; }}
         .subtitle {{ color: #666; margin-bottom: 24px; }}
         .form-group {{ margin-bottom: 20px; }}
         label {{ display: block; margin-bottom: 8px; font-weight: 600; color: #333; }}
-        input[type="url"], input[type="number"] {{ width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }}
-        .btn {{ background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 14px 32px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }}
+        input[type="url"], input[type="number"] {{ width: 100%; padding: 12px;
+            border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }}
+        .btn {{ background: linear-gradient(135deg, #28a745, #20c997); color: white;
+            padding: 14px 32px; border: none; border-radius: 8px; font-size: 16px;
+            font-weight: 600; cursor: pointer; width: 100%; }}
         .btn:hover {{ transform: translateY(-1px); box-shadow: 0 4px 12px rgba(40,167,69,0.4); }}
-        .error-msg {{ background: #fee; color: #c00; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #c00; }}
-        .info-box {{ background: linear-gradient(135deg, #e7f3ff, #f0f7ff); padding: 16px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #007bff; }}
+        .error-msg {{ background: #fee; color: #c00; padding: 12px 16px; border-radius: 8px;
+            margin-bottom: 20px; border-left: 4px solid #c00; }}
+        .info-box {{ background: linear-gradient(135deg, #e7f3ff, #f0f7ff); padding: 16px;
+            border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #007bff; }}
         .info-box h3 {{ margin: 0 0 10px 0; color: #0056b3; font-size: 14px; }}
-        .info-box ul {{ margin: 0; padding-left: 18px; color: #444; font-size: 13px; line-height: 1.6; }}
-        .link-examples {{ background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 8px; font-size: 12px; color: #666; }}
-        .link-examples code {{ background: white; padding: 2px 6px; border-radius: 3px; font-family: monospace; }}
+        .info-box ul {{ margin: 0; padding-left: 18px; color: #444; font-size: 13px;
+            line-height: 1.6; }}
+        .link-examples {{ background: #f8f9fa; padding: 12px; border-radius: 6px;
+            margin-top: 8px; font-size: 12px; color: #666; }}
+        .link-examples code {{ background: white; padding: 2px 6px; border-radius: 3px;
+            font-family: monospace; }}
         table {{ width: 100%; border-collapse: collapse; margin-top: 24px; }}
         th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }}
         th {{ background: #f8f9fa; font-weight: 600; }}
@@ -202,7 +212,9 @@ class QuickDownloadAdmin(admin.ModelAdmin):
                 </tr>
             </thead>
             <tbody>
-                {tasks_html if tasks_html else '<tr><td colspan="6" style="text-align:center;color:#999;">暂无任务</td></tr>'}
+                {
+            tasks_html if tasks_html else '<tr><td colspan="6" style="text-align:center;color:#999;">暂无任务</td></tr>'
+        }
             </tbody>
         </table>
     </div>
@@ -219,15 +231,18 @@ class QuickDownloadAdmin(admin.ModelAdmin):
 <head>
     <title>任务已创建</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }}
-        .container {{ max-width: 600px; margin: 50px auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); text-align: center; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+            sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }}
+        .container {{ max-width: 600px; margin: 50px auto; background: white; padding: 40px;
+            border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); text-align: center; }}
         .success-icon {{ font-size: 64px; margin-bottom: 20px; }}
         h1 {{ color: #28a745; margin-bottom: 16px; }}
         .task-id {{ font-size: 24px; color: #007bff; font-weight: bold; margin: 20px 0; }}
         .info {{ background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 20px 0; text-align: left; }}
         .info-item {{ margin: 8px 0; color: #666; }}
         .info-item strong {{ color: #333; }}
-        .btn {{ display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin: 10px; }}
+        .btn {{ display: inline-block; background: #007bff; color: white;
+            padding: 12px 24px; border-radius: 8px; text-decoration: none; margin: 10px; }}
         .btn:hover {{ background: #0056b3; }}
         .btn-secondary {{ background: #6c757d; }}
         .btn-secondary:hover {{ background: #5a6268; }}

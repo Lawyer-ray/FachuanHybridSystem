@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-"\n文书模板服务\n\n提供文书模板的 CRUD 操作、文件路径验证、版本管理和占位符提取功能.\n\nRequirements: 2.1, 2.2, 2.3, 2.5, 2.6, 2.7, 2.9, 2.10\n"
+"\n文书模板服务\n\n提供文书模板的 CRUD 操作、文件路径验证、版本管理和占位符提取功能.\n"
+"\nRequirements: 2.1, 2.2, 2.3, 2.5, 2.6, 2.7, 2.9, 2.10\n"
 import logging
 from typing import Any, cast
 

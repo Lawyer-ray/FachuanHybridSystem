@@ -292,7 +292,8 @@ class ConfigSchema:
                 if field.sensitive:
                     if include_comments:
                         lines.append(
-                            f"  # 敏感配置项，建议通过环境变量 {field.env_var or field.name.upper().replace('.', '_')} 设置"
+                            "  # 敏感配置项，建议通过环境变量"
+                            f" {field.env_var or field.name.upper().replace('.', '_')} 设置"
                         )
                     value = f"${{{field.env_var or field.name.upper().replace('.', '_')}}}"
                 else:

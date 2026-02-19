@@ -226,7 +226,11 @@ class CourtZxfwService:
 
             # 2. 点击"密码登录"
             logger.info("点击'密码登录'")
-            password_login_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[2]/uni-view[2]"  # noqa: S105
+            password_login_xpath = (
+                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                "/uni-view[1]/uni-view[2]/uni-view[2]"
+            )
 
             try:
                 password_tab = self.page.locator(f"xpath={password_login_xpath}")
@@ -241,7 +245,11 @@ class CourtZxfwService:
 
             # 3. 输入账号
             logger.info(f"输入账号: {account}")
-            account_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[1]/uni-view/uni-view/uni-input/div/input"
+            account_xpath = (
+                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                "/uni-view[1]/uni-view[3]/uni-view[1]/uni-view/uni-view/uni-input/div/input"
+            )
 
             account_input = self.page.locator(f"xpath={account_xpath}")
             account_input.wait_for(state="visible", timeout=10000)
@@ -250,7 +258,11 @@ class CourtZxfwService:
 
             # 4. 输入密码
             logger.info("输入密码")
-            password_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"  # noqa: S105
+            password_xpath = (
+                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                "/uni-view[1]/uni-view[3]/uni-view[2]/uni-view/uni-view/uni-input/div/input"
+            )
 
             password_input = self.page.locator(f"xpath={password_xpath}")
             password_input.wait_for(state="visible", timeout=10000)
@@ -279,7 +291,11 @@ class CourtZxfwService:
 
                     # 输入验证码
                     logger.info(f"输入验证码: {captcha_text}")
-                    captcha_input_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[1]/uni-view/uni-input/div/input"
+                    captcha_input_xpath = (
+                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                        "/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[1]/uni-view/uni-input/div/input"
+                    )
 
                     captcha_input = self.page.locator(f"xpath={captcha_input_xpath}")
                     captcha_input.wait_for(state="visible", timeout=10000)
@@ -291,7 +307,11 @@ class CourtZxfwService:
 
                     # 6. 点击登录按钮
                     logger.info("点击登录按钮")
-                    login_button_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[4]"
+                    login_button_xpath = (
+                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                        "/uni-view[1]/uni-view[4]"
+                    )
 
                     login_button = self.page.locator(f"xpath={login_button_xpath}")
                     login_button.wait_for(state="visible", timeout=10000)
@@ -354,7 +374,11 @@ class CourtZxfwService:
         """
         try:
             # 验证码图片 XPath
-            captcha_img_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[2]/uni-image/img"
+            captcha_img_xpath = (
+                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                "/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[2]/uni-image/img"
+            )
 
             # 等待验证码图片加载
             captcha_img = self.page.locator(f"xpath={captcha_img_xpath}")
@@ -390,7 +414,11 @@ class CourtZxfwService:
     def _refresh_captcha(self) -> None:
         """刷新验证码（点击验证码图片）"""
         try:
-            captcha_img_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[2]/uni-image/img"
+            captcha_img_xpath = (
+                "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                "/uni-page-wrapper/uni-page-body/uni-view/uni-view[2]/uni-view[2]"
+                "/uni-view[1]/uni-view[3]/uni-view[3]/uni-view[2]/uni-image/img"
+            )
             captcha_img = self.page.locator(f"xpath={captcha_img_xpath}")
             captcha_img.click()
             logger.info("已刷新验证码")

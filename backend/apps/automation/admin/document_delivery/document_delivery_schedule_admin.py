@@ -233,7 +233,9 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         if obj.id and obj.credential:
             trigger_url = reverse("admin:automation_documentdeliveryschedule_trigger", args=[obj.id])
             return format_html(
-                '<a href="{}" class="button" onclick="return confirm(\'确认要手动触发文书查询吗？这将立即执行一次查询任务。\');">'
+                '<a href="{}" class="button" onclick="return confirm('
+                "'确认要手动触发文书查询吗？这将立即执行一次查询任务。');"
+                '">'
                 "🚀 手动触发查询</a>",
                 trigger_url,
             )
