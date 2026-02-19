@@ -317,6 +317,21 @@ class SMSParserService:
 
         return []
 
+    # 排除关键词集合（类级别常量，避免重复创建）
+    _EXCLUDE_KEYWORDS = frozenset([
+        "法院", "人民法院", "中级法院", "高级法院", "最高法院", "政府", "委员会", "管理局", "监督局",
+        "书记员", "法官", "审判员", "执行员", "助理", "律师",
+        "通知", "短信", "系统", "平台", "网站", "服务",
+        "佛山市", "禅城区", "广东省", "深圳市", "北京市", "上海市",
+        "你好", "收到", "查收", "下载", "链接", "请于", "联系",
+        "裁定书", "判决书", "通知书", "执行书", "决定书",
+        "案件", "号码", "电话", "地址", "时间", "日期", "一案", "纠纷", "争议", "合同", "财产", "保全",
+        "关于", "涉及", "明日", "到庭", "立案", "已立案", "的案", "的",
+    ])
+
+    # 无效片段集合
+    _INVALID_FRAGMENTS = frozenset(["有限公司", "股份有限公司", "有限责任公司", "集团", "企业"])
+
     def _extract_party_names_with_regex(self, content: str) -> list[str]:
         """
         使用正则表达式提取当事人名称（降级方案）
@@ -327,191 +342,83 @@ class SMSParserService:
         Returns:
             List[str]: 当事人名称列表
         """
-        parties = []
+        parties: list[str] = []
+        self._collect_company_names(content, parties)
+        self._collect_versus_patterns(content, parties)
+        self._collect_name_contexts(content, parties)
 
-        # 1. 提取公司名称（精确匹配完整公司名）
+        filtered = self._filter_parties(list(set(parties)))
+
+        if filtered:
+            logger.info(f"正则提取到当事人: {filtered}")
+        else:
+            logger.info("正则未提取到有效当事人")
+        return filtered
+
+    def _collect_company_names(self, content: str, parties: list[str]) -> None:
+        """提取公司名称"""
         company_patterns = [
-            # 匹配完整的公司名称，避免截断
             r"[\u4e00-\u9fa5]{2,30}(?:有限责任公司|股份有限公司)",
             r"[\u4e00-\u9fa5]{2,20}有限公司(?![^\u4e00-\u9fa5])",
             r"[\u4e00-\u9fa5]{2,20}(?:集团|企业)(?![^\u4e00-\u9fa5])",
         ]
-
         for pattern in company_patterns:
-            matches = re.findall(pattern, content)
-            parties.extend(matches)
+            parties.extend(re.findall(pattern, content))
 
-        # 2. 特殊处理：从"A与B"模式中提取当事人
-        # 先处理公司与公司的情况
-        company_vs_company = re.findall(
-            r"([\u4e00-\u9fa5]{2,30}?(?:有限责任公司|股份有限公司|有限公司|集团|企业))与([\u4e00-\u9fa5]{2,30}?(?:有限责任公司|股份有限公司|有限公司|集团|企业))",
-            content,
-        )
-        for match in company_vs_company:
-            parties.extend(match)
+    def _collect_versus_patterns(self, content: str, parties: list[str]) -> None:
+        """提取"A与B"/"A诉B"模式中的当事人"""
+        co = r"[\u4e00-\u9fa5]{2,30}?(?:有限责任公司|股份有限公司|有限公司|集团|企业)"
+        pe = r"[\u4e00-\u9fa5]{2,4}?"
 
-        # 处理公司与个人的情况
-        company_vs_person = re.findall(
-            r"([\u4e00-\u9fa5]{2,30}?(?:有限责任公司|股份有限公司|有限公司|集团|企业))与([\u4e00-\u9fa5]{2,4}?)(?=\s|财产|合同|纠纷|争议|案|一案)",
-            content,
-        )
-        for match in company_vs_person:
-            parties.extend(match)
-
-        # 处理个人与公司的情况
-        person_vs_company = re.findall(
-            r"([\u4e00-\u9fa5]{2,4}?)与([\u4e00-\u9fa5]{2,30}?(?:有限责任公司|股份有限公司|有限公司|集团|企业))",
-            content,
-        )
-        for match in person_vs_company:
-            parties.extend(match)
-
-        # 处理个人与个人的情况（需要更严格的上下文）
-        person_vs_person_patterns = [
-            # 使用非贪婪匹配和更精确的边界
-            r"([\u4e00-\u9fa5]{2,4}?)与([\u4e00-\u9fa5]{2,4}?)(?=合同|纠纷|争议|案件)",
-            r"([\u4e00-\u9fa5]{2,4}?)诉([\u4e00-\u9fa5]{2,4}?)(?=案件|案)",
-            # 特殊处理：收到...与...的案件
-            r"收到\s*([\u4e00-\u9fa5]{2,4}?)与([\u4e00-\u9fa5]{2,4}?)的",
-            # 关于...诉...案件
-            r"关于\s*([\u4e00-\u9fa5]{2,4}?)诉([\u4e00-\u9fa5]{2,4}?)案件",
+        versus_patterns = [
+            rf"({co})与({co})",
+            rf"({co})与({pe})(?=\s|财产|合同|纠纷|争议|案|一案)",
+            rf"({pe})与({co})",
+            rf"({pe})与({pe})(?=合同|纠纷|争议|案件)",
+            rf"({pe})诉({pe})(?=案件|案)",
+            rf"收到\s*({pe})与({pe})的",
+            rf"关于\s*({pe})诉({pe})案件",
         ]
-
-        for pattern in person_vs_person_patterns:
-            matches = re.findall(pattern, content)
-            for match in matches:
+        for pattern in versus_patterns:
+            for match in re.findall(pattern, content):
                 if isinstance(match, tuple):
                     parties.extend(match)
                 else:
                     parties.append(match)
 
-        # 3. 提取个人姓名（在特定上下文中）
+    def _collect_name_contexts(self, content: str, parties: list[str]) -> None:
+        """提取特定上下文中的个人姓名"""
         name_contexts = [
-            # 明确的当事人角色
             r"(?:当事人|申请人|被申请人|原告|被告|上诉人|被上诉人|申请执行人|被执行人)[：:]\s*([\u4e00-\u9fa5]{2,4})",
-            # 案件描述中的姓名
             r"关于\s*([\u4e00-\u9fa5]{2,4})\s*(?:与|诉)",
             r"([\u4e00-\u9fa5]{2,4})\s*诉\s*([\u4e00-\u9fa5]{2,4})",
         ]
-
         for pattern in name_contexts:
-            matches = re.findall(pattern, content)
-            for match in matches:
+            for match in re.findall(pattern, content):
                 if isinstance(match, tuple):
                     parties.extend(match)
                 else:
                     parties.append(match)
 
-        # 4. 去重
-        parties = list(set(parties))
-
-        # 5. 过滤掉明显不是当事人的词汇
-        exclude_keywords = [
-            # 机构名称
-            "法院",
-            "人民法院",
-            "中级法院",
-            "高级法院",
-            "最高法院",
-            "政府",
-            "委员会",
-            "管理局",
-            "监督局",
-            # 职务人员
-            "书记员",
-            "法官",
-            "审判员",
-            "执行员",
-            "助理",
-            "律师",
-            # 系统词汇
-            "通知",
-            "短信",
-            "系统",
-            "平台",
-            "网站",
-            "服务",
-            # 地名（除非明确是公司名的一部分）
-            "佛山市",
-            "禅城区",
-            "广东省",
-            "深圳市",
-            "北京市",
-            "上海市",
-            # 问候语和动作
-            "你好",
-            "收到",
-            "查收",
-            "下载",
-            "链接",
-            "请于",
-            "联系",
-            # 文书类型
-            "裁定书",
-            "判决书",
-            "通知书",
-            "执行书",
-            "决定书",
-            # 其他
-            "案件",
-            "号码",
-            "电话",
-            "地址",
-            "时间",
-            "日期",
-            "一案",
-            "纠纷",
-            "争议",
-            "合同",
-            "财产",
-            "保全",
-            # 常见的非当事人词汇
-            "关于",
-            "涉及",
-            "明日",
-            "到庭",
-            "立案",
-            "已立案",
-            "的案",
-            "的",
-            "收到",  # 特殊过滤
-        ]
-
-        filtered_parties = []
+    def _filter_parties(self, parties: list[str]) -> list[str]:
+        """过滤无效当事人"""
+        result = []
         for party in parties:
-            if not party or len(party.strip()) == 0:
+            if not party:
                 continue
-
             party = party.strip()
-
-            # 检查是否包含排除关键词
-            should_exclude = False
-            for keyword in exclude_keywords:
-                if keyword in party:
-                    should_exclude = True
-                    break
-
-            # 检查长度合理性
-            if not should_exclude and 2 <= len(party) <= 30:
-                # 检查是否是纯中文（公司名可能包含数字）
-                if re.match(r"^[\u4e00-\u9fa5\d]+$", party):
-                    # 额外过滤：避免提取到"有限公司"这样的片段
-                    if party not in ["有限公司", "股份有限公司", "有限责任公司", "集团", "企业"]:
-                        # 避免提取到明显的片段
-                        if not (
-                            party.endswith("的")
-                            or party.startswith("的")
-                            or party.endswith("财")
-                            or party.endswith("案")
-                        ):
-                            filtered_parties.append(party)
-
-        if filtered_parties:
-            logger.info(f"正则提取到当事人: {filtered_parties}")
-        else:
-            logger.info("正则未提取到有效当事人")
-
-        return filtered_parties
+            if not (2 <= len(party) <= 30):
+                continue
+            if any(kw in party for kw in self._EXCLUDE_KEYWORDS):
+                continue
+            if not re.match(r"^[\u4e00-\u9fa5\d]+$", party):
+                continue
+            if party in self._INVALID_FRAGMENTS:
+                continue
+            if party.endswith(("的", "财", "案")) or party.startswith("的"):
+                continue
+            result.append(party)
+        return result
 
     def _is_document_delivery_without_parties(self, content: str) -> bool:
         """

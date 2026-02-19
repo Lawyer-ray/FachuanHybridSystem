@@ -567,19 +567,11 @@ class CourtSMSService:
             raise
 
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:
-        """
-        从文书中提取案号和当事人，并回写到 CourtSMS 记录
-
-        这样即使短信中没有提取到案号和当事人，也能在 Admin 列表中显示从文书中提取的信息。
-
-        Args:
-            sms: CourtSMS 实例
-        """
+        """从文书中提取案号和当事人，并回写到 CourtSMS 记录"""
         if not sms.scraper_task:
             logger.info(f"短信 {sms.id} 没有下载任务，跳过文书信息提取")
             return
 
-        # 获取所有下载成功的文书路径
         document_paths = self._get_document_paths_for_extraction(sms)
         if not document_paths:
             logger.info(f"短信 {sms.id} 没有已下载的文书，跳过文书信息提取")
@@ -587,52 +579,48 @@ class CourtSMSService:
 
         logger.info(f"开始从 {len(document_paths)} 个文书中提取案号和当事人: SMS ID={sms.id}")
 
-        # 收集从文书中提取的信息
-        extracted_case_numbers = list(sms.case_numbers) if sms.case_numbers else []
-        extracted_party_names = list(sms.party_names) if sms.party_names else []
+        case_numbers = list(sms.case_numbers) if sms.case_numbers else []
+        party_names = list(sms.party_names) if sms.party_names else []
         has_updates = False
 
         for doc_path in document_paths:
-            try:
-                # 提取案号（如果短信中没有案号）
-                if not extracted_case_numbers:
-                    case_numbers = self.case_number_extractor.extract_from_document(doc_path)
-                    if case_numbers:
-                        extracted_case_numbers.extend(case_numbers)
-                        logger.info(f"从文书 {doc_path} 提取到案号: {case_numbers}")
-                        has_updates = True
+            updated = self._extract_from_single_document(doc_path, case_numbers, party_names)
+            if updated:
+                has_updates = True
+            if case_numbers and party_names:
+                break
 
-                # 提取当事人（如果短信中没有当事人）
-                if not extracted_party_names:
-                    party_names = self.matcher.extract_parties_from_document(doc_path)
-                    if party_names:
-                        extracted_party_names.extend(party_names)
-                        logger.info(f"从文书 {doc_path} 提取到当事人: {party_names}")
-                        has_updates = True
-
-                # 如果已经提取到案号和当事人，停止遍历
-                if extracted_case_numbers and extracted_party_names:
-                    break
-
-            except Exception as e:
-                logger.warning(f"从文书提取信息失败: {doc_path}, 错误: {e!s}")
-                continue
-
-        # 去重并回写到 CourtSMS
         if has_updates:
-            # 去重案号
-            unique_case_numbers = list(dict.fromkeys(extracted_case_numbers))
-            # 去重当事人
-            unique_party_names = list(dict.fromkeys(extracted_party_names))
-
-            sms.case_numbers = unique_case_numbers
-            sms.party_names = unique_party_names
+            sms.case_numbers = list(dict.fromkeys(case_numbers))
+            sms.party_names = list(dict.fromkeys(party_names))
             sms.save()
-
             logger.info(
                 f"已更新短信记录的案号和当事人: SMS ID={sms.id}, "
-                f"案号={unique_case_numbers}, 当事人={unique_party_names}"
+                f"案号={sms.case_numbers}, 当事人={sms.party_names}"
             )
+
+    def _extract_from_single_document(
+        self, doc_path: str, case_numbers: list[str], party_names: list[str]
+    ) -> bool:
+        """从单个文书中提取案号和当事人，返回是否有更新"""
+        updated = False
+        try:
+            if not case_numbers:
+                nums = self.case_number_extractor.extract_from_document(doc_path)
+                if nums:
+                    case_numbers.extend(nums)
+                    logger.info(f"从文书 {doc_path} 提取到案号: {nums}")
+                    updated = True
+
+            if not party_names:
+                names = self.matcher.extract_parties_from_document(doc_path)
+                if names:
+                    party_names.extend(names)
+                    logger.info(f"从文书 {doc_path} 提取到当事人: {names}")
+                    updated = True
+        except Exception as e:
+            logger.warning(f"从文书提取信息失败: {doc_path}, 错误: {e!s}")
+        return updated
 
     def _get_document_paths_for_extraction(self, sms: CourtSMS) -> list[Any]:
         """
@@ -682,16 +670,13 @@ class CourtSMSService:
             sms.status = CourtSMSStatus.RENAMING
             sms.save()
 
-            # 获取下载的文书
             if not sms.scraper_task:
                 logger.info(f"短信 {sms.id} 无下载任务，跳过重命名")
                 sms.status = CourtSMSStatus.NOTIFYING
                 sms.save()
                 return sms
 
-            # 委托给 DocumentAttachmentService 获取文书路径
             document_paths = self.document_attachment.get_paths_for_renaming(sms)
-
             if not document_paths:
                 logger.info(f"短信 {sms.id} 无可重命名的文书，跳过重命名")
                 sms.status = CourtSMSStatus.NOTIFYING
@@ -699,99 +684,99 @@ class CourtSMSService:
                 return sms
 
             logger.info(f"短信 {sms.id} 找到 {len(document_paths)} 个文书待重命名")
-
-            # 委托给 DocumentAttachmentService 重命名文书
             renamed_paths = self.document_attachment.rename_documents(sms, document_paths)
 
-            # 保存重命名后的文件路径到 scraper_task.result，供后续阶段使用
-            if renamed_paths and sms.scraper_task:
-                result = sms.scraper_task.result or {}  # type: ignore[attr-defined]
-                if not isinstance(result, dict):
-                    result = {}
-                result["renamed_files"] = renamed_paths
-                sms.scraper_task.result = result  # type: ignore[attr-defined]
-                sms.scraper_task.save()  # type: ignore[attr-defined]
-                logger.info(f"保存重命名后的文件路径到任务结果: {len(renamed_paths)} 个文件")
-
-            # 委托给 DocumentAttachmentService 添加附件到案件日志
-            if renamed_paths:
-                if sms.case_log:
-                    # 案件日志已存在，直接添加附件
-                    self.document_attachment.add_to_case_log(sms, renamed_paths)
-                elif sms.case:
-                    # 案件日志不存在但有关联案件，先创建案件日志再添加附件
-                    logger.info(f"短信 {sms.id} 没有案件日志，先创建案件日志")
-                    success = self._create_case_binding(sms)
-                    if success and sms.case_log:
-                        self.document_attachment.add_to_case_log(sms, renamed_paths)
-                    else:
-                        logger.warning(f"短信 {sms.id} 创建案件日志失败，无法添加文书附件")
-
-            # 委托给 CaseNumberExtractorService 从文书中提取案号并同步到案件
-            if sms.case and renamed_paths:
-                logger.info(f"开始从文书中提取案号: SMS ID={sms.id}")
-
-                # 如果短信已有案号，直接同步
-                case_numbers_to_sync = list(sms.case_numbers) if sms.case_numbers else []
-                extracted_from_document = False
-
-                # 如果没有案号，从文书中提取
-                if not case_numbers_to_sync:
-                    for file_path in renamed_paths:
-                        try:
-                            extracted_numbers = self.case_number_extractor.extract_from_document(file_path)
-                            if extracted_numbers:
-                                case_numbers_to_sync.extend(extracted_numbers)
-                                extracted_from_document = True
-                                logger.info(f"从文书 {file_path} 提取到案号: {extracted_numbers}")
-                                break  # 提取到案号后停止，避免重复
-                        except Exception as e:
-                            logger.warning(f"从文书提取案号失败: {file_path}, 错误: {e!s}")
-                            continue
-
-                # 回写提取的案号到 CourtSMS 记录（用于 Admin 列表显示）
-                if extracted_from_document and case_numbers_to_sync:
-                    sms.case_numbers = list(dict.fromkeys(case_numbers_to_sync))  # 去重
-                    sms.save()
-                    logger.info(f"已将提取的案号回写到短信记录: SMS ID={sms.id}, 案号={sms.case_numbers}")
-
-                # 同步案号到案件
-                if case_numbers_to_sync:
-                    success_count = self.case_number_extractor.sync_to_case(
-                        case_id=sms.case.id,  # type: ignore[attr-defined]
-                        case_numbers=case_numbers_to_sync,
-                        sms_id=sms.id,
-                    )
-                    logger.info(f"案号同步完成: SMS ID={sms.id}, 写入 {success_count} 个新案号")
-
-            # 从文书中提取当事人并回写到 CourtSMS 记录（用于 Admin 列表显示）
-            if renamed_paths and not sms.party_names:
-                logger.info(f"开始从文书中提取当事人: SMS ID={sms.id}")
-                for file_path in renamed_paths:
-                    try:
-                        extracted_parties = self.matcher.extract_parties_from_document(file_path)
-                        if extracted_parties:
-                            sms.party_names = list(dict.fromkeys(extracted_parties))  # 去重
-                            sms.save()
-                            logger.info(f"已将提取的当事人回写到短信记录: SMS ID={sms.id}, 当事人={sms.party_names}")
-                            break  # 提取到当事人后停止
-                    except Exception as e:
-                        logger.warning(f"从文书提取当事人失败: {file_path}, 错误: {e!s}")
-                        continue
+            self._save_renamed_paths(sms, renamed_paths)
+            self._attach_to_case_log(sms, renamed_paths)
+            self._sync_case_numbers_from_documents(sms, renamed_paths)
+            self._sync_party_names_from_documents(sms, renamed_paths)
 
             logger.info(f"文书重命名阶段完成: SMS ID={sms.id}, 成功重命名 {len(renamed_paths)} 个文书")
-
             sms.status = CourtSMSStatus.NOTIFYING
             sms.save()
-
             return sms
 
         except Exception as e:
             logger.error(f"文书重命名阶段失败: SMS ID={sms.id}, 错误: {e!s}")
-            # 重命名失败不影响整体流程，继续下一阶段
             sms.status = CourtSMSStatus.NOTIFYING
             sms.save()
             return sms
+
+    def _save_renamed_paths(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+        """保存重命名后的文件路径到 scraper_task.result"""
+        if not renamed_paths or not sms.scraper_task:
+            return
+        result = sms.scraper_task.result or {}  # type: ignore[attr-defined]
+        if not isinstance(result, dict):
+            result = {}
+        result["renamed_files"] = renamed_paths
+        sms.scraper_task.result = result  # type: ignore[attr-defined]
+        sms.scraper_task.save()  # type: ignore[attr-defined]
+        logger.info(f"保存重命名后的文件路径到任务结果: {len(renamed_paths)} 个文件")
+
+    def _attach_to_case_log(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+        """将文书附件添加到案件日志"""
+        if not renamed_paths:
+            return
+        if sms.case_log:
+            self.document_attachment.add_to_case_log(sms, renamed_paths)
+        elif sms.case:
+            logger.info(f"短信 {sms.id} 没有案件日志，先创建案件日志")
+            success = self._create_case_binding(sms)
+            if success and sms.case_log:
+                self.document_attachment.add_to_case_log(sms, renamed_paths)
+            else:
+                logger.warning(f"短信 {sms.id} 创建案件日志失败，无法添加文书附件")
+
+    def _sync_case_numbers_from_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+        """从文书中提取案号并同步到案件"""
+        if not sms.case or not renamed_paths:
+            return
+
+        logger.info(f"开始从文书中提取案号: SMS ID={sms.id}")
+        case_numbers_to_sync = list(sms.case_numbers) if sms.case_numbers else []
+        extracted_from_document = False
+
+        if not case_numbers_to_sync:
+            for file_path in renamed_paths:
+                try:
+                    extracted = self.case_number_extractor.extract_from_document(file_path)
+                    if extracted:
+                        case_numbers_to_sync.extend(extracted)
+                        extracted_from_document = True
+                        logger.info(f"从文书 {file_path} 提取到案号: {extracted}")
+                        break
+                except Exception as e:
+                    logger.warning(f"从文书提取案号失败: {file_path}, 错误: {e!s}")
+
+        if extracted_from_document and case_numbers_to_sync:
+            sms.case_numbers = list(dict.fromkeys(case_numbers_to_sync))
+            sms.save()
+            logger.info(f"已将提取的案号回写到短信记录: SMS ID={sms.id}, 案号={sms.case_numbers}")
+
+        if case_numbers_to_sync:
+            count = self.case_number_extractor.sync_to_case(
+                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_numbers=case_numbers_to_sync,
+                sms_id=sms.id,
+            )
+            logger.info(f"案号同步完成: SMS ID={sms.id}, 写入 {count} 个新案号")
+
+    def _sync_party_names_from_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+        """从文书中提取当事人并回写到 CourtSMS"""
+        if not renamed_paths or sms.party_names:
+            return
+        logger.info(f"开始从文书中提取当事人: SMS ID={sms.id}")
+        for file_path in renamed_paths:
+            try:
+                parties = self.matcher.extract_parties_from_document(file_path)
+                if parties:
+                    sms.party_names = list(dict.fromkeys(parties))
+                    sms.save()
+                    logger.info(f"已将提取的当事人回写到短信记录: SMS ID={sms.id}, 当事人={sms.party_names}")
+                    break
+            except Exception as e:
+                logger.warning(f"从文书提取当事人失败: {file_path}, 错误: {e!s}")
 
     def _process_notifying(self, sms: CourtSMS) -> CourtSMS:
         """
@@ -889,127 +874,92 @@ class CourtSMSService:
         检查是否需要等待文书下载完成后再进行匹配
 
         Requirements 1.1: 当短信没有当事人信息但有下载链接时，需要等待文书下载完成
-
-        Args:
-            sms: CourtSMS 实例
-
-        Returns:
-            bool: 是否需要等待下载完成
         """
         try:
-            # 如果短信有当事人信息，不需要等待下载
-            if sms.party_names:
-                logger.info(f"短信 {sms.id} 有当事人信息，无需等待文书下载")
+            if sms.party_names or not sms.download_links or not sms.scraper_task:
                 return False
 
-            # 如果短信没有下载链接，不需要等待下载
-            if not sms.download_links:
-                logger.info(f"短信 {sms.id} 没有下载链接，无需等待文书下载")
+            fresh_task = self._refresh_scraper_task(sms)
+            if fresh_task is None:
                 return False
 
-            # 如果没有下载任务，不需要等待
-            if not sms.scraper_task:
-                logger.info(f"短信 {sms.id} 没有下载任务，无需等待文书下载")
+            # 任务已完成，不等待
+            if fresh_task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
+                self._log_completed_task_files(sms, fresh_task)
                 return False
 
-            # 重新从数据库获取最新的 ScraperTask 状态
-            try:
-                from apps.automation.models import ScraperTask
+            # 没有文书记录时，按任务状态决定
+            if not hasattr(fresh_task, "documents"):
+                return fresh_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
 
-                fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
-                sms.scraper_task = fresh_task  # 更新实例
-                logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
-            except ScraperTask.DoesNotExist:
-                logger.warning(f"短信 {sms.id} 的下载任务不存在，无需等待")
-                return False
-
-            # 检查下载任务状态 - 如果任务已完成（成功或失败），不再等待
-            # 即使没有文书记录（可能是保存失败），也应该继续匹配流程
-            if sms.scraper_task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
-                logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {sms.scraper_task.status}），不再等待")
-
-                # 尝试从任务结果中获取下载的文件路径
-                if sms.scraper_task.result and isinstance(sms.scraper_task.result, dict):
-                    files = sms.scraper_task.result.get("files", [])
-                    if files:
-                        logger.info(f"短信 {sms.id} 从任务结果中发现 {len(files)} 个已下载文件")
-
-                return False
-
-            # 检查下载任务状态
-            if not hasattr(sms.scraper_task, "documents"):
-                # 如果任务还在进行中，需要等待
-                if sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]:
-                    logger.info(f"短信 {sms.id} 的下载任务进行中但没有文书记录，需要等待下载")
-                    return True
-                else:
-                    logger.info(f"短信 {sms.id} 的下载任务没有文书记录且已结束，不再等待")
-                    return False
-
-            # 获取所有文书记录并记录详细状态
-            all_documents = sms.scraper_task.documents.all()  # type: ignore[attr-defined]
-            if not all_documents.exists():
-                # 如果任务还在进行中，需要等待
-                if sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]:
-                    logger.info(f"短信 {sms.id} 的下载任务进行中但没有文书记录，需要等待下载")
-                    return True
-                else:
-                    logger.info(f"短信 {sms.id} 的下载任务没有文书记录且已结束，不再等待")
-                    return False
-
-            # 统计各种状态的文书数量
-            successful_documents = all_documents.filter(download_status="success")
-            failed_documents = all_documents.filter(download_status="failed")
-            pending_documents = all_documents.filter(download_status="pending")
-            downloading_documents = all_documents.filter(download_status="downloading")
-
-            logger.info(
-                f"短信 {sms.id} 文书状态统计: 总数={all_documents.count()}, "
-                f"成功={successful_documents.count()}, 失败={failed_documents.count()}, "
-                f"待下载={pending_documents.count()}, 下载中={downloading_documents.count()}"
-            )
-
-            # 检查 ScraperTask 的状态
-            logger.info(f"短信 {sms.id} 的下载任务状态: {sms.scraper_task.status}")
-
-            # 如果有下载成功的文书，可以进行匹配
-            if successful_documents.exists():
-                logger.info(f"短信 {sms.id} 已有下载成功的文书，可以进行匹配")
-                return False
-
-            # 如果下载任务已经完成（成功或失败），不再等待
-            if sms.scraper_task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
-                logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {sms.scraper_task.status}），不再等待")
-                return False
-
-            # 如果任务状态是 RUNNING 但所有文书都失败了，也不再等待
-            if (
-                sms.scraper_task.status == ScraperTaskStatus.RUNNING
-                and all_documents.count() > 0
-                and successful_documents.count() == 0
-                and pending_documents.count() == 0
-                and downloading_documents.count() == 0
-            ):
-                logger.info(f"短信 {sms.id} 的下载任务运行中但所有文书都已失败，不再等待")
-                return False
-
-            # 还有文书在下载中或任务还在进行中，需要等待
-            if (
-                pending_documents.exists()
-                or downloading_documents.exists()
-                or sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
-            ):
-                logger.info(f"短信 {sms.id} 还有文书在下载中或任务进行中，需要等待下载完成")
-                return True
-
-            # 其他情况不等待
-            logger.info(f"短信 {sms.id} 下载状态检查完成，无需等待")
-            return False
+            return self._check_documents_wait_status(sms, fresh_task)
 
         except Exception as e:
             logger.error(f"检查下载状态失败: SMS ID={sms.id}, 错误: {e!s}")
-            # 出错时不等待，直接进行匹配
             return False
+
+    def _refresh_scraper_task(self, sms: CourtSMS) -> Any:
+        """刷新并返回最新的 ScraperTask，不存在则返回 None"""
+        try:
+            from apps.automation.models import ScraperTask
+
+            fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
+            sms.scraper_task = fresh_task
+            logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
+            return fresh_task
+        except Exception:
+            logger.warning(f"短信 {sms.id} 的下载任务不存在，无需等待")
+            return None
+
+    def _log_completed_task_files(self, sms: CourtSMS, task: Any) -> None:
+        """记录已完成任务的文件信息"""
+        logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+        if task.result and isinstance(task.result, dict):
+            files = task.result.get("files", [])
+            if files:
+                logger.info(f"短信 {sms.id} 从任务结果中发现 {len(files)} 个已下载文件")
+
+    def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:
+        """根据文书记录状态判断是否需要等待"""
+        all_docs = task.documents.all()  # type: ignore[attr-defined]
+        if not all_docs.exists():
+            running = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
+            logger.info(f"短信 {sms.id} 的下载任务{'进行中但' if running else ''}没有文书记录，{'需要' if running else '不再'}等待")
+            return running
+
+        successful = all_docs.filter(download_status="success")
+        pending = all_docs.filter(download_status="pending")
+        downloading = all_docs.filter(download_status="downloading")
+
+        logger.info(
+            f"短信 {sms.id} 文书状态统计: 总数={all_docs.count()}, "
+            f"成功={successful.count()}, 待下载={pending.count()}, 下载中={downloading.count()}"
+        )
+
+        if successful.exists():
+            logger.info(f"短信 {sms.id} 已有下载成功的文书，可以进行匹配")
+            return False
+
+        if task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
+            logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+            return False
+
+        # 任务运行中但所有文书都已失败
+        if (task.status == ScraperTaskStatus.RUNNING
+                and all_docs.count() > 0
+                and successful.count() == 0
+                and pending.count() == 0
+                and downloading.count() == 0):
+            logger.info(f"短信 {sms.id} 的下载任务运行中但所有文书都已失败，不再等待")
+            return False
+
+        should_wait = (
+            pending.exists()
+            or downloading.exists()
+            or task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
+        )
+        logger.info(f"短信 {sms.id} {'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}")
+        return should_wait
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:
         """
@@ -1059,55 +1009,49 @@ class CourtSMSService:
             return False
 
     def _add_case_numbers_to_case(self, sms: CourtSMS) -> None:
-        """
-        将短信中提取的案号写入案件（如果不存在）
-
-        Args:
-            sms: CourtSMS 实例（必须已绑定案件）
-        """
+        """将短信中提取的案号写入案件（如果不存在）"""
         if not sms.case or not sms.case_numbers:
             return
 
         try:
-            # 过滤掉明显不是案号的内容（如日期）
-            valid_case_numbers = []
-            for num in sms.case_numbers:
-                # 跳过日期格式（如 "2025年12月17号"）
-                if "年" in num and "月" in num and "日" in num:
-                    continue
-                if "年" in num and "月" in num and num.endswith("号"):
-                    # 检查是否是日期格式
-                    import re
+            import re
 
-                    if re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", num):
-                        continue
-                valid_case_numbers.append(num)
-
+            valid_case_numbers = self._filter_valid_case_numbers(sms.case_numbers)
             if not valid_case_numbers:
                 logger.info(f"短信 {sms.id} 没有有效的案号需要写入")
                 return
 
-            # 获取管理员用户ID
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
             user_id = admin_lawyer_dto.id if admin_lawyer_dto else None
 
-            # 逐个添加案号
-            added_count = 0
-            for case_number in valid_case_numbers:
-                success = self.case_service.add_case_number_internal(
+            added_count = sum(
+                1
+                for num in valid_case_numbers
+                if self.case_service.add_case_number_internal(
                     case_id=sms.case.id,  # type: ignore[attr-defined]
-                    case_number=case_number,
+                    case_number=num,
                     user_id=user_id,
                 )
-                if success:
-                    added_count += 1
+            )
 
             if added_count > 0:
                 logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")  # type: ignore[attr-defined]
 
         except Exception as e:
-            # 案号写入失败不影响主流程
             logger.warning(f"写入案号失败: SMS ID={sms.id}, 错误: {e!s}")
+
+    def _filter_valid_case_numbers(self, case_numbers: list[str]) -> list[str]:
+        """过滤掉日期格式等无效案号"""
+        import re
+
+        valid = []
+        for num in case_numbers:
+            if "年" in num and "月" in num and "日" in num:
+                continue
+            if "年" in num and "月" in num and num.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", num):
+                continue
+            valid.append(num)
+        return valid
 
 
 # 异步任务函数（需要在模块级别定义以便 Django Q 调用）

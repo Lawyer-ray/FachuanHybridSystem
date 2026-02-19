@@ -255,51 +255,66 @@ class CaseMatcher:
         if not cases or not case_numbers:
             return None
 
-        # 从案号中提取类型和阶段特征
-        case_type = None
-        case_stage = None
-        is_bankruptcy = False
+        case_type, case_stage, is_bankruptcy = self._extract_features_from_numbers(case_numbers)
 
-        for case_number in case_numbers:
-            if not case_type:
-                case_type = self._detect_case_type_from_number(case_number)
-            if not case_stage:
-                case_stage = self._detect_case_stage_from_number(case_number)
-            if not is_bankruptcy:
-                is_bankruptcy = self._is_bankruptcy_case_number(case_number)
-
-        # 破产案件特殊处理：筛选案件名称包含"破产"的案件
+        # 破产案件特殊处理
         if is_bankruptcy:
-            bankruptcy_filtered = [c for c in cases if "破产" in (c.name or "")]
-            if bankruptcy_filtered:
-                logger.debug(f"按破产案件筛选后剩余 {len(bankruptcy_filtered)} 个案件")
-                if len(bankruptcy_filtered) == 1:
-                    return bankruptcy_filtered[0]
-                cases = bankruptcy_filtered
+            cases = self._filter_bankruptcy(cases)
+            if len(cases) == 1:
+                return cases[0]
+            if not cases:
+                return None
 
         if not case_type and not case_stage and not is_bankruptcy:
             return None
 
-        filtered = cases
+        filtered = self._apply_type_filter(cases, case_type)
+        filtered = self._apply_stage_filter(filtered, case_stage)
 
-        # 按类型筛选
-        if case_type:
-            type_filtered = [c for c in filtered if c.case_type == case_type]
-            if type_filtered:
-                filtered = type_filtered
-                logger.debug(f"按案件类型 {case_type} 筛选后剩余 {len(filtered)} 个案件")
+        return filtered[0] if len(filtered) == 1 else None
 
-        # 按阶段筛选
-        if case_stage:
-            stage_filtered = [c for c in filtered if c.current_stage == case_stage]
-            if stage_filtered:
-                filtered = stage_filtered
-                logger.debug(f"按案件阶段 {case_stage} 筛选后剩余 {len(filtered)} 个案件")
+    def _extract_features_from_numbers(
+        self, case_numbers: list[str]
+    ) -> tuple[str | None, str | None, bool]:
+        """从案号列表中提取类型、阶段和是否破产"""
+        case_type = None
+        case_stage = None
+        is_bankruptcy = False
+        for num in case_numbers:
+            if not case_type:
+                case_type = self._detect_case_type_from_number(num)
+            if not case_stage:
+                case_stage = self._detect_case_stage_from_number(num)
+            if not is_bankruptcy:
+                is_bankruptcy = self._is_bankruptcy_case_number(num)
+        return case_type, case_stage, is_bankruptcy
 
-        if len(filtered) == 1:
-            return filtered[0]
+    def _filter_bankruptcy(self, cases: list[Any]) -> list[Any]:
+        """筛选破产案件"""
+        filtered = [c for c in cases if "破产" in (c.name or "")]
+        if filtered:
+            logger.debug(f"按破产案件筛选后剩余 {len(filtered)} 个案件")
+        return filtered if filtered else cases
 
-        return None
+    def _apply_type_filter(self, cases: list[Any], case_type: str | None) -> list[Any]:
+        """按案件类型筛选"""
+        if not case_type:
+            return cases
+        filtered = [c for c in cases if c.case_type == case_type]
+        if filtered:
+            logger.debug(f"按案件类型 {case_type} 筛选后剩余 {len(filtered)} 个案件")
+            return filtered
+        return cases
+
+    def _apply_stage_filter(self, cases: list[Any], case_stage: str | None) -> list[Any]:
+        """按案件阶段筛选"""
+        if not case_stage:
+            return cases
+        filtered = [c for c in cases if c.current_stage == case_stage]
+        if filtered:
+            logger.debug(f"按案件阶段 {case_stage} 筛选后剩余 {len(filtered)} 个案件")
+            return filtered
+        return cases
 
     def _get_all_cases_by_numbers(self, case_numbers: list[str]) -> list[Any]:
         """根据案号列表获取所有匹配的案件（包括在办和已结案）"""
@@ -480,38 +495,48 @@ class CaseMatcher:
         """检查是否有匹配的案件但状态为已结案"""
         from apps.core.enums import CaseStatus
 
-        closed_cases = set()
+        closed_cases: set[Any] = set()
 
         try:
-            if sms.case_numbers:
-                normalized_numbers = [TextUtils.normalize_case_number(num) for num in sms.case_numbers]
-                for case_number in normalized_numbers:
-                    try:
-                        cases = self.case_service.search_cases_by_case_number_internal(case_number)
-                        for case in cases:
-                            if case.status == CaseStatus.CLOSED:
-                                closed_cases.add(case)
-                                logger.warning(f"发现已结案案件（案号匹配）: {case.name}")
-                    except Exception:
-                        continue
-
-            if sms.party_names:
-                matched_clients = self.party_matching_service.find_existing_clients_in_sms(sms.party_names)
-                if matched_clients:
-                    client_names = [client.name for client in matched_clients]
-                    closed_party_cases = self.case_service.search_cases_by_party_internal(
-                        client_names, status=CaseStatus.CLOSED.value
-                    )
-                    for case in closed_party_cases:
-                        if case not in closed_cases:
-                            closed_cases.add(case)
-                            logger.warning(f"发现已结案案件（当事人匹配）: {case.name}")
+            self._collect_closed_cases_by_number(sms, closed_cases)
+            self._collect_closed_cases_by_party(sms, closed_cases)
 
             if closed_cases:
                 logger.info(f"共发现 {len(closed_cases)} 个已结案案件，等待人工处理")
 
         except Exception as e:
             logger.warning(f"检查已结案案件时发生错误: {e!s}")
+
+    def _collect_closed_cases_by_number(self, sms: Any, closed_cases: set[Any]) -> None:
+        """通过案号收集已结案案件"""
+        from apps.core.enums import CaseStatus
+
+        if not sms.case_numbers:
+            return
+        normalized = [TextUtils.normalize_case_number(n) for n in sms.case_numbers]
+        for num in normalized:
+            try:
+                for case in self.case_service.search_cases_by_case_number_internal(num):
+                    if case.status == CaseStatus.CLOSED:
+                        closed_cases.add(case)
+                        logger.warning(f"发现已结案案件（案号匹配）: {case.name}")
+            except Exception:
+                continue
+
+    def _collect_closed_cases_by_party(self, sms: Any, closed_cases: set[Any]) -> None:
+        """通过当事人收集已结案案件"""
+        from apps.core.enums import CaseStatus
+
+        if not sms.party_names:
+            return
+        matched_clients = self.party_matching_service.find_existing_clients_in_sms(sms.party_names)
+        if not matched_clients:
+            return
+        client_names = [c.name for c in matched_clients]
+        for case in self.case_service.search_cases_by_party_internal(client_names, status=CaseStatus.CLOSED.value):
+            if case not in closed_cases:
+                closed_cases.add(case)
+                logger.warning(f"发现已结案案件（当事人匹配）: {case.name}")
 
 
 def _get_case_matcher() -> CaseMatcher:

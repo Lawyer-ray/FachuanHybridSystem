@@ -7,7 +7,7 @@
 
 import logging
 import re
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from apps.core.interfaces import ServiceLocator
 
@@ -119,12 +119,6 @@ class CaseNumberExtractorService:
     def extract_from_content(self, content: str) -> list[str]:
         """
         从文本内容中提取案号（使用 Ollama AI）
-
-        Args:
-            content: 文书文本内容
-
-        Returns:
-            案号列表（已规范化、去重）
         """
         if not content or not content.strip():
             logger.warning("文书内容为空，无法提取案号")
@@ -136,8 +130,33 @@ class CaseNumberExtractorService:
             from apps.automation.services.ai import get_ollama_model
             from apps.automation.services.ai.ollama_client import chat
 
-            # 构建提示词
-            prompt = f"""
+            prompt = self._build_extract_prompt(content)
+            logger.info("开始调用 Ollama 提取案号")
+            model = get_ollama_model()
+            response = chat(model, [{"role": "user", "content": prompt}])
+
+            if not response or "message" not in response:
+                logger.warning("Ollama 返回空响应")
+                return []
+
+            content_text = response["message"].get("content", "")
+            logger.info(f"Ollama 案号提取响应: {content_text}")
+
+            return self._parse_ollama_response(content_text)
+
+        except ConnectionError as e:
+            logger.error(f"Ollama 服务不可用: {e!s}")
+            return []
+        except ImportError as e:
+            logger.error(f"无法导入 Ollama 相关模块: {e!s}")
+            return []
+        except Exception as e:
+            logger.error(f"使用 Ollama 提取案号失败: {e!s}")
+            return []
+
+    def _build_extract_prompt(self, content: str) -> str:
+        """构建案号提取提示词"""
+        return f"""
 请从以下法律文书内容中提取所有案号。
 
 案号格式规则：
@@ -153,76 +172,31 @@ class CaseNumberExtractorService:
 {content}
 """
 
-            logger.info("开始调用 Ollama 提取案号")
-            model = get_ollama_model()
-            messages = [{"role": "user", "content": prompt}]
+    def _parse_ollama_response(self, content_text: str) -> list[str]:
+        """解析 Ollama 响应，提取案号列表"""
+        import json
 
-            response = chat(model, messages)
+        try:
+            start_idx = content_text.find("{")
+            end_idx = content_text.rfind("}") + 1
 
-            if not response or "message" not in response:
-                logger.warning("Ollama 返回空响应")
-                return []
+            if start_idx >= 0 and end_idx > start_idx:
+                result = json.loads(content_text[start_idx:end_idx])
+                if isinstance(result, dict) and isinstance(result.get("case_numbers"), list):
+                    validated = self.validate_and_normalize(result["case_numbers"])
+                    logger.info(f"Ollama {'成功提取' if validated else '未提取到有效'}案号: {validated}")
+                    return validated
 
-            content_text = response["message"].get("content", "")
-            logger.info(f"Ollama 案号提取响应: {content_text}")
+            logger.warning(f"Ollama 返回格式不正确，尝试降级方案: {content_text[:100]}...")
+            return self._extract_fallback(content_text)
 
-            # 尝试解析 JSON 响应
-            try:
-                # 提取 JSON 部分（可能包含其他文本）
-                start_idx = content_text.find("{")
-                end_idx = content_text.rfind("}") + 1
-
-                if start_idx >= 0 and end_idx > start_idx:
-                    json_str = content_text[start_idx:end_idx]
-                    result = json.loads(json_str)
-
-                    if isinstance(result, dict) and "case_numbers" in result:
-                        case_numbers = result["case_numbers"]
-                        if isinstance(case_numbers, list):
-                            # 验证格式有效性、规范化并去重
-                            validated_numbers = self.validate_and_normalize(case_numbers)
-
-                            if validated_numbers:
-                                logger.info(f"Ollama 成功提取案号: {validated_numbers}")
-                            else:
-                                logger.info("Ollama 未提取到有效案号")
-                            return validated_numbers
-
-                logger.warning(f"Ollama 返回格式不正确，尝试降级方案: {content_text[:100]}...")
-
-                # 处理 Ollama 返回非标准格式的情况
-                return self._extract_fallback(content_text)
-
-            except json.JSONDecodeError as e:
-                logger.warning(f"解析 Ollama JSON 响应失败，尝试降级方案: {e!s}")
-
-                # 处理 Ollama 返回非标准格式的情况
-                return self._extract_fallback(content_text)
-
-        except ConnectionError as e:
-            logger.error(f"Ollama 服务不可用: {e!s}")
-            return []
-        except ImportError as e:
-            logger.error(f"无法导入 Ollama 相关模块: {e!s}")
-            return []
-        except Exception as e:
-            logger.error(f"使用 Ollama 提取案号失败: {e!s}")
-            return []
+        except json.JSONDecodeError as e:
+            logger.warning(f"解析 Ollama JSON 响应失败，尝试降级方案: {e!s}")
+            return self._extract_fallback(content_text)
 
     def validate_and_normalize(self, case_numbers: list[str]) -> list[str]:
         """
         验证案号格式有效性并规范化
-
-        支持的格式：
-        1. 标准案号格式：(2024)粤0604民初12345号
-        2. 简化案号格式：粤0604民初12345号
-        3. 包含全角字符的案号
-
-        Args:
-            case_numbers: 原始案号列表
-
-        Returns:
-            验证通过并规范化的案号列表（已去重）
         """
         if not case_numbers:
             logger.debug("案号列表为空，无需验证")
@@ -231,61 +205,17 @@ class CaseNumberExtractorService:
         try:
             from apps.cases.services.case_number_service import CaseNumberService
 
-            valid_numbers = []
-            seen = set()
-
-            # 案号格式验证正则
-            # 标准格式：(年份)法院代码案件类型序号
-            standard_pattern = r"^\（\d{4}\）[^）]*?\w+\d+[^0-9]*?\d+号$"
-            # 简化格式：法院代码案件类型序号
-            simple_pattern = r"^[^（）]*?\w+\d+[^0-9]*?\d+号$"
-
             logger.info(f"开始验证 {len(case_numbers)} 个案号")
+            valid_numbers: list[str] = []
+            seen: set[str] = set()
 
             for i, case_number in enumerate(case_numbers):
-                try:
-                    if not case_number or not isinstance(case_number, str):
-                        logger.warning(f"案号 {i + 1} 无效（空值或非字符串）: {case_number}")
-                        continue
-
-                    original_number = case_number.strip()
-                    if not original_number:
-                        logger.warning(f"案号 {i + 1} 为空字符串，跳过")
-                        continue
-
-                    # 使用 CaseNumberService 规范化
-                    try:
-                        normalized_number = CaseNumberService.normalize_case_number(original_number)
-                    except Exception as e:
-                        logger.warning(f"案号规范化失败: {original_number}, 错误: {e!s}")
-                        continue
-
-                    if not normalized_number:
-                        logger.warning(f"案号规范化后为空，跳过: {original_number}")
-                        continue
-
-                    # 验证格式
-                    try:
-                        is_valid = re.match(standard_pattern, normalized_number) or re.match(
-                            simple_pattern, normalized_number
-                        )
-                    except re.error as e:
-                        logger.warning(f"案号格式验证失败: {normalized_number}, 正则错误: {e!s}")
-                        continue
-
-                    if is_valid:
-                        if normalized_number not in seen:
-                            valid_numbers.append(normalized_number)
-                            seen.add(normalized_number)
-                            logger.debug(f"案号验证通过: {original_number} -> {normalized_number}")
-                        else:
-                            logger.debug(f"案号重复，跳过: {normalized_number}")
-                    else:
-                        logger.warning(f"案号格式不正确，跳过: {original_number} -> {normalized_number}")
-
-                except Exception as e:
-                    logger.warning(f"处理案号 {i + 1} 时发生错误: {case_number}, 错误: {e!s}")
-                    continue
+                normalized = self._normalize_single(case_number, i, CaseNumberService)
+                if normalized and normalized not in seen:
+                    valid_numbers.append(normalized)
+                    seen.add(normalized)
+                elif normalized:
+                    logger.debug(f"案号重复，跳过: {normalized}")
 
             logger.info(f"案号验证完成: 输入 {len(case_numbers)} 个，有效 {len(valid_numbers)} 个")
             return valid_numbers
@@ -297,19 +227,52 @@ class CaseNumberExtractorService:
             logger.error(f"案号验证和规范化失败: {e!s}")
             return []
 
+    def _normalize_single(self, case_number: str, idx: int, CaseNumberService: Any) -> str | None:
+        """规范化单个案号，返回规范化结果或 None"""
+        # 标准格式：(年份)法院代码案件类型序号
+        standard_pattern = r"^\（\d{4}\）[^）]*?\w+\d+[^0-9]*?\d+号$"
+        # 简化格式：法院代码案件类型序号
+        simple_pattern = r"^[^（）]*?\w+\d+[^0-9]*?\d+号$"
+
+        try:
+            if not case_number or not isinstance(case_number, str):
+                logger.warning(f"案号 {idx + 1} 无效（空值或非字符串）: {case_number}")
+                return None
+
+            original = case_number.strip()
+            if not original:
+                return None
+
+            try:
+                normalized = CaseNumberService.normalize_case_number(original)
+            except Exception as e:
+                logger.warning(f"案号规范化失败: {original}, 错误: {e!s}")
+                return None
+
+            if not normalized:
+                logger.warning(f"案号规范化后为空，跳过: {original}")
+                return None
+
+            try:
+                is_valid = re.match(standard_pattern, normalized) or re.match(simple_pattern, normalized)
+            except re.error as e:
+                logger.warning(f"案号格式验证失败: {normalized}, 正则错误: {e!s}")
+                return None
+
+            if is_valid:
+                logger.debug(f"案号验证通过: {original} -> {normalized}")
+                return normalized
+            else:
+                logger.warning(f"案号格式不正确，跳过: {original} -> {normalized}")
+                return None
+
+        except Exception as e:
+            logger.warning(f"处理案号 {idx + 1} 时发生错误: {case_number}, 错误: {e!s}")
+            return None
+
     def sync_to_case(self, case_id: int, case_numbers: list[str], sms_id: int) -> int:
         """
-        同步案号到案件
-
-        检查案件中是否已存在该案号，不存在则写入。
-
-        Args:
-            case_id: 案件 ID
-            case_numbers: 案号列表
-            sms_id: 短信 ID（用于备注）
-
-        Returns:
-            成功写入的案号数量
+        同步案号到案件，检查案件中是否已存在该案号，不存在则写入。
         """
         if not case_id:
             logger.warning("案件 ID 为空，无法同步案号")
@@ -322,76 +285,83 @@ class CaseNumberExtractorService:
         try:
             from apps.cases.services.case_number_service import CaseNumberService
 
-            # 去重处理
             case_numbers_to_sync = self._deduplicate(case_numbers)
-
             if not case_numbers_to_sync:
                 logger.info(f"去重后没有案号需要同步: Case ID={case_id}")
                 return 0
 
-            # 获取案件现有的案号（规范化后）
-            try:
-                existing_case_numbers = self.case_service.get_case_numbers_by_case_internal(case_id)
-                existing_numbers = set()
-                for cn in existing_case_numbers:
-                    normalized = CaseNumberService.normalize_case_number(cn)
-                    if normalized:
-                        existing_numbers.add(normalized)
-
-                logger.info(f"案件现有案号数量: {len(existing_numbers)}, Case ID={case_id}")
-
-            except Exception as e:
-                logger.error(f"获取案件现有案号失败: Case ID={case_id}, 错误: {e!s}")
+            existing_numbers = self._get_existing_numbers(case_id, CaseNumberService)
+            if existing_numbers is None:
                 return 0
 
-            # 检查案号是否已存在，不存在则写入
-            success_count = 0
-            case_number_service = CaseNumberService()
+            success_count = self._write_new_numbers(
+                case_id, case_numbers_to_sync, existing_numbers, sms_id, CaseNumberService
+            )
 
-            for case_number in case_numbers_to_sync:
-                normalized_number = CaseNumberService.normalize_case_number(case_number)
-
-                if not normalized_number:
-                    logger.warning(f"案号格式不正确，跳过: {case_number}")
-                    continue
-
-                if normalized_number not in existing_numbers:
-                    try:
-                        case_number_service.create_number(
-                            case_id=case_id, number=normalized_number, remarks=f"从法院短信自动提取 (SMS ID: {sms_id})"
-                        )
-
-                        logger.info(f"案号写入成功: Case ID={case_id}, 案号={normalized_number}")
-                        existing_numbers.add(normalized_number)  # 避免重复写入
-                        success_count += 1
-
-                    except Exception as e:
-                        logger.error(f"案号写入失败: Case ID={case_id}, 案号={normalized_number}, 错误: {e!s}")
-                else:
-                    logger.info(f"案号已存在，跳过: Case ID={case_id}, 案号={normalized_number}")
-
-            if success_count > 0:
-                logger.info(f"案号同步完成: SMS ID={sms_id}, 成功写入 {success_count} 个案号")
-            else:
-                logger.info(f"案号同步完成: SMS ID={sms_id}, 无新案号需要写入")
-
+            logger.info(
+                f"案号同步完成: SMS ID={sms_id}, {'成功写入' if success_count else '无新案号需要写入'}"
+                + (f" {success_count} 个案号" if success_count else "")
+            )
             return success_count
 
         except Exception as e:
             logger.error(f"同步案号失败: Case ID={case_id}, SMS ID={sms_id}, 错误: {e!s}")
             return 0
 
+    def _get_existing_numbers(self, case_id: int, CaseNumberService: Any) -> set[str] | None:
+        """获取案件现有的规范化案号集合"""
+        try:
+            existing_case_numbers = self.case_service.get_case_numbers_by_case_internal(case_id)
+            result: set[str] = set()
+            for cn in existing_case_numbers:
+                normalized = CaseNumberService.normalize_case_number(cn)
+                if normalized:
+                    result.add(normalized)
+            logger.info(f"案件现有案号数量: {len(result)}, Case ID={case_id}")
+            return result
+        except Exception as e:
+            logger.error(f"获取案件现有案号失败: Case ID={case_id}, 错误: {e!s}")
+            return None
+
+    def _write_new_numbers(
+        self,
+        case_id: int,
+        case_numbers: list[str],
+        existing: set[str],
+        sms_id: int,
+        CaseNumberService: Any,
+    ) -> int:
+        """将不存在的案号写入案件，返回成功数量"""
+        case_number_service = CaseNumberService()
+        success_count = 0
+
+        for case_number in case_numbers:
+            normalized = CaseNumberService.normalize_case_number(case_number)
+            if not normalized:
+                logger.warning(f"案号格式不正确，跳过: {case_number}")
+                continue
+
+            if normalized in existing:
+                logger.info(f"案号已存在，跳过: Case ID={case_id}, 案号={normalized}")
+                continue
+
+            try:
+                case_number_service.create_number(
+                    case_id=case_id,
+                    number=normalized,
+                    remarks=f"从法院短信自动提取 (SMS ID: {sms_id})",
+                )
+                logger.info(f"案号写入成功: Case ID={case_id}, 案号={normalized}")
+                existing.add(normalized)
+                success_count += 1
+            except Exception as e:
+                logger.error(f"案号写入失败: Case ID={case_id}, 案号={normalized}, 错误: {e!s}")
+
+        return success_count
+
     def _extract_fallback(self, response_text: str) -> list[str]:
         """
         降级方案：使用正则从响应中提取案号
-
-        当 Ollama 返回非标准格式时使用
-
-        Args:
-            response_text: Ollama 的原始响应文本
-
-        Returns:
-            案号列表（已规范化、去重）
         """
         if not response_text or not response_text.strip():
             logger.warning("降级方案：响应文本为空")
@@ -399,60 +369,42 @@ class CaseNumberExtractorService:
 
         try:
             logger.info("使用降级方案从响应中提取案号")
-
-            # 案号正则模式
-            patterns = [
-                # 标准格式：(2024)粤0604民初12345号
-                r"\((\d{4})\)([^)]*?\w+\d+[^0-9]*?\d+号)",
-                # 简化格式：粤0604民初12345号
-                r"([^()\s]*?[0-9]+[^0-9]*?[0-9]+号)",
-                # 更宽泛的模式
-                r"(\w*\d+\w*\d+号)",
-            ]
-
-            found_numbers = []
-
-            for i, pattern in enumerate(patterns):
-                try:
-                    matches = re.findall(pattern, response_text)
-                    logger.debug(f"正则模式 {i + 1} 匹配到 {len(matches)} 个结果")
-
-                    for match in matches:
-                        if isinstance(match, tuple):
-                            # 处理分组匹配
-                            if len(match) == 2:
-                                # 标准格式：重新组合
-                                case_number = f"({match[0]}){match[1]}"
-                            else:
-                                case_number = match[0]
-                        else:
-                            case_number = match
-
-                        if case_number and case_number.strip():
-                            found_numbers.append(case_number.strip())
-
-                except re.error as e:
-                    logger.warning(f"正则模式 {i + 1} 执行失败: {e!s}")
-                    continue
+            found_numbers = self._regex_extract_numbers(response_text)
 
             if found_numbers:
                 logger.info(f"降级方案原始提取结果: {found_numbers}")
             else:
                 logger.warning("降级方案未匹配到任何案号模式")
 
-            # 验证和规范化提取到的案号
-            validated_numbers = self.validate_and_normalize(found_numbers)
-
-            if validated_numbers:
-                logger.info(f"降级方案成功提取案号: {validated_numbers}")
-            else:
-                logger.warning("降级方案未能提取到有效案号")
-
-            return validated_numbers
+            validated = self.validate_and_normalize(found_numbers)
+            logger.info(f"降级方案{'成功提取' if validated else '未能提取到有效'}案号: {validated}")
+            return validated
 
         except Exception as e:
             logger.error(f"降级方案提取案号失败: {e!s}")
             return []
+
+    def _regex_extract_numbers(self, text: str) -> list[str]:
+        """使用正则从文本中提取候选案号"""
+        patterns = [
+            r"\((\d{4})\)([^)]*?\w+\d+[^0-9]*?\d+号)",
+            r"([^()\s]*?[0-9]+[^0-9]*?[0-9]+号)",
+            r"(\w*\d+\w*\d+号)",
+        ]
+        found: list[str] = []
+        for i, pattern in enumerate(patterns):
+            try:
+                for match in re.findall(pattern, text):
+                    if isinstance(match, tuple):
+                        case_number = f"({match[0]}){match[1]}" if len(match) == 2 else match[0]
+                    else:
+                        case_number = match
+                    if case_number and case_number.strip():
+                        found.append(case_number.strip())
+                logger.debug(f"正则模式 {i + 1} 匹配到 {len(found)} 个结果")
+            except re.error as e:
+                logger.warning(f"正则模式 {i + 1} 执行失败: {e!s}")
+        return found
 
     def _deduplicate(self, case_numbers: list[str]) -> list[str]:
         """
