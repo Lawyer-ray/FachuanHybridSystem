@@ -8,6 +8,7 @@ import sys
 
 import django
 import pytest
+from typing import Any, Generator, Iterator
 
 from apps.core.path import Path
 
@@ -19,7 +20,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
 
 @pytest.fixture(scope="session")
-def django_db_setup(django_db_setup, django_db_blocker):
+def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
     """
     设置测试数据库
 
@@ -49,7 +50,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
 
 @pytest.fixture(scope="session")
-def django_db_modify_db_settings():
+def django_db_modify_db_settings() -> None:
     """
     修改测试数据库设置
 
@@ -71,7 +72,7 @@ def django_db_modify_db_settings():
 
 
 @pytest.fixture
-def api_client():
+def api_client() -> Any:
     """提供 API 测试客户端"""
     from django.test import Client
 
@@ -79,7 +80,7 @@ def api_client():
 
 
 @pytest.fixture
-def authenticated_client(db):
+def authenticated_client(db: Any) -> Any:
     """提供已认证的测试客户端"""
     from django.test import Client
 
@@ -98,7 +99,7 @@ def authenticated_client(db):
 
 
 @pytest.fixture
-def law_firm(db):
+def law_firm(db: Any) -> Any:
     """提供测试律所"""
     from apps.organization.models import LawFirm
 
@@ -106,7 +107,7 @@ def law_firm(db):
 
 
 @pytest.fixture
-def lawyer(db, law_firm):
+def lawyer(db: Any, law_firm: Any) -> Any:
     """提供测试律师"""
     from apps.organization.models import Lawyer
 
@@ -119,7 +120,7 @@ def lawyer(db, law_firm):
 
 
 @pytest.fixture
-def admin_lawyer(db, law_firm):
+def admin_lawyer(db: Any, law_firm: Any) -> Any:
     """提供管理员律师"""
     from apps.organization.models import Lawyer
 
@@ -132,7 +133,7 @@ def admin_lawyer(db, law_firm):
 
 
 @pytest.fixture
-def client_entity(db):
+def client_entity(db: Any) -> Any:
     """提供测试客户"""
     from apps.client.models import Client
 
@@ -144,7 +145,7 @@ def client_entity(db):
 
 
 @pytest.fixture
-def contract(db, lawyer):
+def contract(db: Any, lawyer: Any) -> Any:
     """提供测试合同"""
     from apps.contracts.models import Contract
 
@@ -156,7 +157,7 @@ def contract(db, lawyer):
 
 
 @pytest.fixture
-def case(db, contract):
+def case(db: Any, contract: Any) -> Any:
     """提供测试案件"""
     from apps.cases.models import Case
 
@@ -185,7 +186,7 @@ settings.load_profile(profile)
 
 
 @pytest.fixture
-def mock_contract_service():
+def mock_contract_service() -> Any:
     """提供 Mock 合同服务"""
     from tests.mocks import MockContractService
 
@@ -193,7 +194,7 @@ def mock_contract_service():
 
 
 @pytest.fixture
-def mock_case_service():
+def mock_case_service() -> Any:
     """提供 Mock 案件服务"""
     from tests.mocks import MockCaseService
 
@@ -201,7 +202,7 @@ def mock_case_service():
 
 
 @pytest.fixture
-def mock_permission_service():
+def mock_permission_service() -> Any:
     """提供 Mock 权限服务"""
     from tests.mocks import MockPermissionService
 
@@ -209,7 +210,7 @@ def mock_permission_service():
 
 
 @pytest.fixture
-def mock_email_service():
+def mock_email_service() -> Any:
     """提供 Mock 邮件服务"""
     from tests.mocks import MockEmailService
 
@@ -217,7 +218,7 @@ def mock_email_service():
 
 
 @pytest.fixture
-def query_counter(db):
+def query_counter(db: Any) -> Any:
     """
     查询计数器
 
@@ -260,7 +261,7 @@ def query_counter(db):
 
 
 @pytest.fixture
-def assert_num_queries(db):
+def assert_num_queries(db: Any) -> Any:
     """
     断言查询次数
 

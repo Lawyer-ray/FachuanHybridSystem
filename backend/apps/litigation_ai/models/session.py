@@ -55,7 +55,7 @@ class LitigationSession(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        db_table: str = "documents_litigationsession"
+        db_table = "documents_litigationsession"
         verbose_name = _("AI文书生成会话")
         verbose_name_plural = _("AI文书生成会话")
         ordering: ClassVar = ["-created_at"]
@@ -73,16 +73,18 @@ class LitigationSession(models.Model):
 
     @property
     def litigation_goal(self) -> str:
-        return (self.metadata or {}).get("litigation_goal", "")
+        return str((self.metadata or {}).get("litigation_goal", ""))
 
     @property
     def evidence_list_ids(self) -> list[Any]:
-        return (self.metadata or {}).get("evidence_list_ids", [])
+        result = (self.metadata or {}).get("evidence_list_ids", [])
+        return list(result) if isinstance(result, list) else []
 
     @property
     def total_tokens(self) -> int:
-        return (self.metadata or {}).get("total_tokens", 0)
+        result = (self.metadata or {}).get("total_tokens", 0)
+        return int(result) if isinstance(result, int) else 0
 
     @property
     def model_name(self) -> str:
-        return (self.metadata or {}).get("model", "")
+        return str((self.metadata or {}).get("model", ""))

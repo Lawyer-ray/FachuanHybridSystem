@@ -21,7 +21,7 @@ class EvidenceChunk(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label: str = "litigation_ai"
+        app_label = "litigation_ai"
         indexes: ClassVar = [
             models.Index(fields=["evidence_item"]),
         ]
