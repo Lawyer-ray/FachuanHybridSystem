@@ -103,58 +103,70 @@ class TypeValidator(ConfigValidator):
     def _try_convert_type(self, value: Any, expected_type: type) -> Any:
         """尝试类型转换"""
         try:
-            # 字符串转换
             if expected_type is str:
                 return str(value)
-
-            # 数值转换
-            elif expected_type is int:
-                if isinstance(value, str):
-                    # 处理字符串数字
-                    if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                        return int(value)
-                elif isinstance(value, float):
-                    return int(value)
-
-            elif expected_type is float:
-                if isinstance(value, (str, int)):
-                    return float(value)
-
-            # 布尔转换
-            elif expected_type is bool:
-                if isinstance(value, str):
-                    lower_value = value.lower()
-                    if lower_value in ("true", "1", "yes", "on"):
-                        return True
-                    elif lower_value in ("false", "0", "no", "off"):
-                        return False
-                elif isinstance(value, (int, float)):
-                    return bool(value)
-
-            # 列表转换
-            elif expected_type is list:
-                if isinstance(value, str):
-                    # 尝试解析逗号分隔的字符串
-                    if "," in value:
-                        return [item.strip() for item in value.split(",")]
-                    # 单个值转为列表
-                    return [value]
-                elif not isinstance(value, list):
-                    return [value]
-
-            # 字典转换
-            elif expected_type is dict and isinstance(value, str):
-                # 尝试解析简单的键值对格式
-                try:
-                    import json
-
-                    return json.loads(value)
-                except json.JSONDecodeError:
-                    pass
-
+            if expected_type is int:
+                return self._convert_to_int(value)
+            if expected_type is float:
+                return self._convert_to_float(value)
+            if expected_type is bool:
+                return self._convert_to_bool(value)
+            if expected_type is list:
+                return self._convert_to_list(value)
+            if expected_type is dict and isinstance(value, str):
+                return self._convert_to_dict(value)
         except (ValueError, TypeError):
             pass
+        return None
 
+    def _convert_to_int(self, value: Any) -> int | None:
+        """转换为整数"""
+        if isinstance(value, str):
+            if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
+                return int(value)
+            return None
+        if isinstance(value, float):
+            return int(value)
+        return None
+
+    def _convert_to_float(self, value: Any) -> float | None:
+        """转换为浮点数"""
+        if isinstance(value, (str, int)):
+            return float(value)
+        return None
+
+    def _convert_to_bool(self, value: Any) -> bool | None:
+        """转换为布尔值"""
+        if isinstance(value, str):
+            lower = value.lower()
+            if lower in ("true", "1", "yes", "on"):
+                return True
+            if lower in ("false", "0", "no", "off"):
+                return False
+            return None
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return None
+
+    def _convert_to_list(self, value: Any) -> list[Any]:
+        """转换为列表"""
+        if isinstance(value, str):
+            if "," in value:
+                return [item.strip() for item in value.split(",")]
+            return [value]
+        if not isinstance(value, list):
+            return [value]
+        return value
+
+    def _convert_to_dict(self, value: str) -> dict[str, Any] | None:
+        """转换为字典"""
+        try:
+            import json
+            result = json.loads(value)
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
         return None
 
     def _get_type_name(self, type_obj: type) -> str:

@@ -289,50 +289,55 @@ class ConfigNotificationManager:
             old_value: 旧值
             new_value: 新值
         """
-        # 确定变更类型
-        if old_value is None and new_value is not None:
-            change_type = "added"
-        elif old_value is not None and new_value is None:
-            change_type = "removed"
-        else:
-            change_type = "modified"
-
-        # 创建事件
+        change_type = self._determine_change_type(old_value, new_value)
         event = ConfigChangeEvent(key, old_value, new_value, change_type)
+        listeners_to_notify = self._collect_listeners_for_key(key, event)
 
+        # 通知监听器（在锁外执行，避免死锁）
+        for listener in listeners_to_notify:
+            self._dispatch_to_listener(listener, key, old_value, new_value, change_type)
+
+    def _determine_change_type(self, old_value: Any, new_value: Any) -> str:
+        """确定变更类型"""
+        if old_value is None and new_value is not None:
+            return "added"
+        elif old_value is not None and new_value is None:
+            return "removed"
+        return "modified"
+
+    def _collect_listeners_for_key(self, key: str, event: "ConfigChangeEvent") -> set["ConfigChangeListener"]:
+        """收集需要通知的监听器并记录事件"""
         with self._lock:
-            # 添加到历史记录
             self._event_history.append(event)
             if len(self._event_history) > self._max_history:
                 self._event_history.pop(0)
 
-            # 收集需要通知的监听器
-            listeners_to_notify = set()
-
-            # 全局监听器
-            listeners_to_notify.update(self._listeners)
-
-            # 特定键监听器
+            listeners: set[ConfigChangeListener] = set(self._listeners)
             if key in self._key_listeners:
-                listeners_to_notify.update(self._key_listeners[key])
-
-            # 前缀监听器
+                listeners.update(self._key_listeners[key])
             for prefix, prefix_listeners in self._prefix_listeners.items():
                 if key.startswith(prefix):
-                    listeners_to_notify.update(prefix_listeners)
+                    listeners.update(prefix_listeners)
+            return listeners
 
-        # 通知监听器（在锁外执行，避免死锁）
-        for listener in listeners_to_notify:
-            try:
-                if change_type == "added" and hasattr(listener, "on_config_added"):
-                    listener.on_config_added(key, new_value)
-                elif change_type == "removed" and hasattr(listener, "on_config_removed"):
-                    listener.on_config_removed(key, old_value)
-                else:
-                    listener.on_config_changed(key, old_value, new_value)
-            except Exception as e:
-                # 记录错误但不影响其他监听器
-                print(f"配置变更通知失败 (key={key}, listener={listener.__class__.__name__}): {e}")
+    def _dispatch_to_listener(
+        self,
+        listener: "ConfigChangeListener",
+        key: str,
+        old_value: Any,
+        new_value: Any,
+        change_type: str,
+    ) -> None:
+        """向单个监听器派发变更通知"""
+        try:
+            if change_type == "added" and hasattr(listener, "on_config_added"):
+                listener.on_config_added(key, new_value)
+            elif change_type == "removed" and hasattr(listener, "on_config_removed"):
+                listener.on_config_removed(key, old_value)
+            else:
+                listener.on_config_changed(key, old_value, new_value)
+        except Exception as e:
+            logger.error(f"配置变更通知失败 (key={key}, listener={listener.__class__.__name__}): {e}")
 
     def notify_reload(self) -> None:
         """通知配置重载完成"""
@@ -349,7 +354,7 @@ class ConfigNotificationManager:
                 if hasattr(listener, "on_config_reloaded"):
                     listener.on_config_reloaded()
             except Exception as e:
-                print(f"配置重载通知失败 (listener={listener.__class__.__name__}): {e}")
+                logger.error(f"配置重载通知失败 (listener={listener.__class__.__name__}): {e}")
 
     def get_event_history(self, limit: int | None = None) -> list[ConfigChangeEvent]:
         """

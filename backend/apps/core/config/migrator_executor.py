@@ -38,37 +38,21 @@ class MigrationExecutor:
         step.start()
         try:
             # Django 核心配置
-            if hasattr(django_settings, "SECRET_KEY"):
-                self.config_manager.set("django.secret_key", django_settings.SECRET_KEY)
-
-            if hasattr(django_settings, "DEBUG"):
-                self.config_manager.set("django.debug", django_settings.DEBUG)
-
-            if hasattr(django_settings, "ALLOWED_HOSTS"):
-                self.config_manager.set("django.allowed_hosts", django_settings.ALLOWED_HOSTS)
-
-            # 国际化配置
-            if hasattr(django_settings, "LANGUAGE_CODE"):
-                self.config_manager.set("django.language_code", django_settings.LANGUAGE_CODE)
-
-            if hasattr(django_settings, "TIME_ZONE"):
-                self.config_manager.set("django.time_zone", django_settings.TIME_ZONE)
-
-            if hasattr(django_settings, "USE_I18N"):
-                self.config_manager.set("django.use_i18n", django_settings.USE_I18N)
-
-            if hasattr(django_settings, "USE_TZ"):
-                self.config_manager.set("django.use_tz", django_settings.USE_TZ)
-
-            # 静态文件配置
-            if hasattr(django_settings, "STATIC_URL"):
-                self.config_manager.set("django.static_url", django_settings.STATIC_URL)
-
-            if hasattr(django_settings, "MEDIA_URL"):
-                self.config_manager.set("django.media_url", django_settings.MEDIA_URL)
-
-            if hasattr(django_settings, "MEDIA_ROOT"):
-                self.config_manager.set("django.media_root", django_settings.MEDIA_ROOT)
+            core_attrs = [
+                ("SECRET_KEY", "django.secret_key"),
+                ("DEBUG", "django.debug"),
+                ("ALLOWED_HOSTS", "django.allowed_hosts"),
+                ("LANGUAGE_CODE", "django.language_code"),
+                ("TIME_ZONE", "django.time_zone"),
+                ("USE_I18N", "django.use_i18n"),
+                ("USE_TZ", "django.use_tz"),
+                ("STATIC_URL", "django.static_url"),
+                ("MEDIA_URL", "django.media_url"),
+                ("MEDIA_ROOT", "django.media_root"),
+            ]
+            for attr, key in core_attrs:
+                if hasattr(django_settings, attr):
+                    self.config_manager.set(key, getattr(django_settings, attr))
 
             step.complete()
             logger.info("核心配置迁移完成")
@@ -125,48 +109,25 @@ class MigrationExecutor:
         """
         step.start()
         try:
-            # 群聊平台配置
-            if hasattr(django_settings, "FEISHU"):
-                self.config_manager.set("chat_platforms.feishu", django_settings.FEISHU)
-
-            if hasattr(django_settings, "DINGTALK"):
-                self.config_manager.set("chat_platforms.dingtalk", django_settings.DINGTALK)
-
-            if hasattr(django_settings, "WECHAT_WORK"):
-                self.config_manager.set("chat_platforms.wechat_work", django_settings.WECHAT_WORK)
-
-            if hasattr(django_settings, "TELEGRAM"):
-                self.config_manager.set("chat_platforms.telegram", django_settings.TELEGRAM)
-
-            if hasattr(django_settings, "SLACK"):
-                self.config_manager.set("chat_platforms.slack", django_settings.SLACK)
-
-            # 业务功能配置
-            if hasattr(django_settings, "CASE_CHAT"):
-                self.config_manager.set("features.case_chat", django_settings.CASE_CHAT)
-
-            if hasattr(django_settings, "COURT_SMS_PROCESSING"):
-                self.config_manager.set("features.court_sms", django_settings.COURT_SMS_PROCESSING)
-
-            if hasattr(django_settings, "DOCUMENT_PROCESSING"):
-                self.config_manager.set("features.document_processing", django_settings.DOCUMENT_PROCESSING)
-
-            # 性能配置
-            if hasattr(django_settings, "Q_CLUSTER"):
-                self.config_manager.set("performance.q_cluster", django_settings.Q_CLUSTER)
-
-            if hasattr(django_settings, "RATE_LIMIT"):
-                self.config_manager.set("performance.rate_limit", django_settings.RATE_LIMIT)
-
-            if hasattr(django_settings, "CACHES"):
-                self.config_manager.set("performance.cache", django_settings.CACHES)
-
-            # 安全配置
-            if hasattr(django_settings, "SCRAPER_ENCRYPTION_KEY"):
-                self.config_manager.set("security.scraper_encryption_key", django_settings.SCRAPER_ENCRYPTION_KEY)
-
-            if hasattr(django_settings, "PERM_OPEN_ACCESS"):
-                self.config_manager.set("security.perm_open_access", django_settings.PERM_OPEN_ACCESS)
+            # 群聊平台 + 业务功能 + 性能 + 安全配置
+            simple_attrs = [
+                ("FEISHU", "chat_platforms.feishu"),
+                ("DINGTALK", "chat_platforms.dingtalk"),
+                ("WECHAT_WORK", "chat_platforms.wechat_work"),
+                ("TELEGRAM", "chat_platforms.telegram"),
+                ("SLACK", "chat_platforms.slack"),
+                ("CASE_CHAT", "features.case_chat"),
+                ("COURT_SMS_PROCESSING", "features.court_sms"),
+                ("DOCUMENT_PROCESSING", "features.document_processing"),
+                ("Q_CLUSTER", "performance.q_cluster"),
+                ("RATE_LIMIT", "performance.rate_limit"),
+                ("CACHES", "performance.cache"),
+                ("SCRAPER_ENCRYPTION_KEY", "security.scraper_encryption_key"),
+                ("PERM_OPEN_ACCESS", "security.perm_open_access"),
+            ]
+            for attr, key in simple_attrs:
+                if hasattr(django_settings, attr):
+                    self.config_manager.set(key, getattr(django_settings, attr))
 
             step.complete()
             logger.info("业务配置迁移完成")

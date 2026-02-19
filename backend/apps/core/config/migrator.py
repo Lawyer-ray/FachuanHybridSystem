@@ -340,76 +340,57 @@ class ConfigMigrator:
         migration_id = self._current_migration.migration_id
 
         try:
-            # 开始跟踪迁移
             self.tracker.start_migration(
                 migration_id, len(self._current_migration.steps), self._current_migration.total_configs
             )
-
-            # 创建初始回滚点
             self.create_rollback_point(migration_id, "migration_start")
 
-            # 执行各个迁移步骤
             for step in self._current_migration.steps:
-                step.start()
-                self.tracker.start_step(migration_id, step.name, step.description)
+                self._execute_single_step(step, migration_id)
 
-                try:
-                    if step.name == "backup_current_config":
-                        self._backup_current_config()
-                    elif step.name == "analyze_django_settings":
-                        self._analyze_django_settings()
-                    elif step.name == "create_config_schema":
-                        self._create_config_schema()
-                    elif step.name == "migrate_core_configs":
-                        self._migrate_core_configs()
-                    elif step.name == "migrate_service_configs":
-                        self._migrate_service_configs()
-                    elif step.name == "migrate_business_configs":
-                        self._migrate_business_configs()
-                    elif step.name == "validate_migrated_config":
-                        self._validate_migrated_config()
-                    elif step.name == "create_compatibility_layer":
-                        self._create_compatibility_layer()
-
-                    step.complete()
-                    self.tracker.complete_step(migration_id, step.name)
-
-                except Exception as e:
-                    step.fail(str(e))
-                    self.tracker.fail_step(migration_id, step.name, str(e))
-
-                    # 如果启用自动回滚，尝试回滚
-                    if self.enable_auto_rollback:
-                        self.auto_rollback_on_error(migration_id, e)
-
-                    raise e
-
-            # 迁移完成
             self._current_migration.status = MigrationStatus.COMPLETED
             self._current_migration.completed_at = datetime.now()
             self._current_migration.rollback_available = True
-
-            # 完成跟踪
             self.tracker.complete_migration(migration_id, self._current_migration.migrated_configs)
-
-            # 保存迁移日志
             self._save_migration_log()
-
             return True
 
         except Exception as e:
-            # 迁移失败
             self._current_migration.status = MigrationStatus.FAILED
             self._current_migration.error_message = str(e)
             self._current_migration.completed_at = datetime.now()
-
-            # 失败跟踪
             self.tracker.fail_migration(migration_id, str(e))
-
-            # 保存迁移日志
             self._save_migration_log()
-
             return False
+
+    # 步骤名称 -> 方法 映射
+    _STEP_HANDLERS: dict[str, str] = {
+        "backup_current_config": "_backup_current_config",
+        "analyze_django_settings": "_analyze_django_settings",
+        "create_config_schema": "_create_config_schema",
+        "migrate_core_configs": "_migrate_core_configs",
+        "migrate_service_configs": "_migrate_service_configs",
+        "migrate_business_configs": "_migrate_business_configs",
+        "validate_migrated_config": "_validate_migrated_config",
+        "create_compatibility_layer": "_create_compatibility_layer",
+    }
+
+    def _execute_single_step(self, step: MigrationStep, migration_id: str) -> None:
+        """执行单个迁移步骤"""
+        step.start()
+        self.tracker.start_step(migration_id, step.name, step.description)
+        try:
+            handler_name = self._STEP_HANDLERS.get(step.name)
+            if handler_name:
+                getattr(self, handler_name)()
+            step.complete()
+            self.tracker.complete_step(migration_id, step.name)
+        except Exception as e:
+            step.fail(str(e))
+            self.tracker.fail_step(migration_id, step.name, str(e))
+            if self.enable_auto_rollback:
+                self.auto_rollback_on_error(migration_id, e)
+            raise
 
     def _backup_current_config(self) -> None:
         """备份当前配置"""
@@ -754,34 +735,19 @@ class ConfigMigrator:
         django_configs = self.compatibility_layer.get_all_django_configs()
         migrated_count = 0
 
-        # 飞书配置
-        if "FEISHU" in django_configs:
-            feishu_config = django_configs["FEISHU"]
-            if isinstance(feishu_config, dict):
-                for key, value in feishu_config.items():
-                    config_key = f"chat_platforms.feishu.{key.lower()}"
-                    old_value = self.config_manager.get(config_key) if self.config_manager.has(config_key) else None
-                    self.config_manager.set(config_key, value)
-                    self._track_config_change(self._current_migration.migration_id, config_key, old_value, value)
-                migrated_count += 1
+        business_keys = {
+            "FEISHU": "chat_platforms.feishu",
+            "CASE_CHAT": "features.case_chat",
+            "COURT_SMS_PROCESSING": "features.court_sms",
+        }
 
-        # 案件群聊配置
-        if "CASE_CHAT" in django_configs:
-            case_chat_config = django_configs["CASE_CHAT"]
-            if isinstance(case_chat_config, dict):
-                for key, value in case_chat_config.items():
-                    config_key = f"features.case_chat.{key.lower()}"
-                    old_value = self.config_manager.get(config_key) if self.config_manager.has(config_key) else None
-                    self.config_manager.set(config_key, value)
-                    self._track_config_change(self._current_migration.migration_id, config_key, old_value, value)
-                migrated_count += 1
-
-        # 法院短信配置
-        if "COURT_SMS_PROCESSING" in django_configs:
-            sms_config = django_configs["COURT_SMS_PROCESSING"]
-            if isinstance(sms_config, dict):
-                for key, value in sms_config.items():
-                    config_key = f"features.court_sms.{key.lower()}"
+        for django_key, prefix in business_keys.items():
+            if django_key not in django_configs:
+                continue
+            cfg = django_configs[django_key]
+            if isinstance(cfg, dict):
+                for key, value in cfg.items():
+                    config_key = f"{prefix}.{key.lower()}"
                     old_value = self.config_manager.get(config_key) if self.config_manager.has(config_key) else None
                     self.config_manager.set(config_key, value)
                     self._track_config_change(self._current_migration.migration_id, config_key, old_value, value)
@@ -1319,61 +1285,64 @@ class ConfigMigrator:
         }
 
         try:
-            # 检查备份文件
-            backup_file = os.path.join(self.backup_dir, f"{migration_id}_backup.json")
-            if os.path.exists(backup_file):
-                result["rollback_available"] = True
-                result["backup_files"].append(backup_file)
-
-                # 验证备份文件完整性
-                try:
-                    with open(backup_file, encoding="utf-8") as f:
-                        backup_data = json.load(f)
-
-                    required_keys = ["backup_time", "django_settings", "config_manager_data"]
-                    for key in required_keys:
-                        if key not in backup_data:
-                            result["issues"].append(f"备份文件缺少必需字段: {key}")
-                            result["is_valid"] = False
-
-                except Exception as e:
-                    result["issues"].append(f"备份文件损坏: {e!s}")
-                    result["is_valid"] = False
-            else:
-                result["issues"].append("找不到备份文件")
-                result["is_valid"] = False
-
-            # 检查回滚点
-            for _point_key, rollback_point in self._rollback_points.items():
-                if rollback_point["migration_id"] == migration_id:
-                    result["rollback_points"].append(rollback_point["point_name"])
-
-            # 检查回滚栈
-            rollback_operations = [op for op in self._rollback_stack if op[0] == migration_id]
-
-            if rollback_operations:
-                result["rollback_operations_count"] = len(rollback_operations)
-            else:
-                result["issues"].append("没有可用的回滚操作")
-
-            # 检查迁移状态
-            migration_progress = self.tracker.get_migration_progress(migration_id)
-            if migration_progress:
-                if migration_progress.is_failed:
-                    result["migration_status"] = "failed"
-                elif migration_progress.is_completed:
-                    result["migration_status"] = "completed"
-                else:
-                    result["migration_status"] = "in_progress"
-            else:
-                result["issues"].append("找不到迁移进度信息")
-                result["is_valid"] = False
-
+            self._check_backup_file(migration_id, result)
+            self._collect_rollback_points(migration_id, result)
+            self._check_rollback_stack(migration_id, result)
+            self._check_migration_status(migration_id, result)
         except Exception as e:
             result["issues"].append(f"验证过程中发生错误: {e!s}")
             result["is_valid"] = False
 
         return result
+
+    def _check_backup_file(self, migration_id: str, result: dict[str, Any]) -> None:
+        """检查备份文件完整性"""
+        backup_file = os.path.join(self.backup_dir, f"{migration_id}_backup.json")
+        if not os.path.exists(backup_file):
+            result["issues"].append("找不到备份文件")
+            result["is_valid"] = False
+            return
+
+        result["rollback_available"] = True
+        result["backup_files"].append(backup_file)
+        try:
+            with open(backup_file, encoding="utf-8") as f:
+                backup_data = json.load(f)
+            for key in ("backup_time", "django_settings", "config_manager_data"):
+                if key not in backup_data:
+                    result["issues"].append(f"备份文件缺少必需字段: {key}")
+                    result["is_valid"] = False
+        except Exception as e:
+            result["issues"].append(f"备份文件损坏: {e!s}")
+            result["is_valid"] = False
+
+    def _collect_rollback_points(self, migration_id: str, result: dict[str, Any]) -> None:
+        """收集回滚点信息"""
+        for _point_key, rollback_point in self._rollback_points.items():
+            if rollback_point["migration_id"] == migration_id:
+                result["rollback_points"].append(rollback_point["point_name"])
+
+    def _check_rollback_stack(self, migration_id: str, result: dict[str, Any]) -> None:
+        """检查回滚栈"""
+        rollback_operations = [op for op in self._rollback_stack if op[0] == migration_id]
+        if rollback_operations:
+            result["rollback_operations_count"] = len(rollback_operations)
+        else:
+            result["issues"].append("没有可用的回滚操作")
+
+    def _check_migration_status(self, migration_id: str, result: dict[str, Any]) -> None:
+        """检查迁移状态"""
+        migration_progress = self.tracker.get_migration_progress(migration_id)
+        if not migration_progress:
+            result["issues"].append("找不到迁移进度信息")
+            result["is_valid"] = False
+            return
+        if migration_progress.is_failed:
+            result["migration_status"] = "failed"
+        elif migration_progress.is_completed:
+            result["migration_status"] = "completed"
+        else:
+            result["migration_status"] = "in_progress"
 
     def list_rollback_options(self, migration_id: str) -> dict[str, Any]:
         """
