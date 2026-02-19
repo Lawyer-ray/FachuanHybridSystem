@@ -11,7 +11,6 @@ apps/automation/services/document_delivery/delivery/document_processor.py:17:fro
 apps/automation/services/document_delivery/document_delivery_schedule_service.py:72:from apps.core.interfaces import ServiceLocator
 apps/automation/services/document_delivery/document_delivery_service.py:16:from apps.core.interfaces import ServiceLocator
 apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:15:from apps.core.interfaces import ServiceLocator
-apps/automation/services/document_delivery/processor/document_delivery_processor.py:20:from apps.core.interfaces import ServiceLocator
 apps/automation/services/document_delivery/token/document_delivery_token_service.py:13:from apps.core.interfaces import ServiceLocator
 apps/automation/services/insurance/_quote_execution_mixin.py:76:from apps.core.interfaces import ServiceLocator
 apps/automation/services/insurance/court_insurance_client.py:133:from apps.core.interfaces import ServiceLocator
