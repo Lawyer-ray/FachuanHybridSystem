@@ -4,11 +4,14 @@ Steering 集成测试
 简单测试 Steering 系统集成功能
 """
 
+import logging
 import os
 import tempfile
 
 from .manager import ConfigManager
 from .providers.yaml import YamlProvider
+
+logger = logging.getLogger(__name__)
 
 
 def test_steering_integration() -> None:
@@ -60,27 +63,27 @@ steering:
         integration = config_manager.get_steering_integration()
 
         if integration:
-            print("✓ Steering 集成初始化成功")
+            logger.info("✓ Steering 集成初始化成功")
 
             # 测试配置获取
             cache_enabled = config_manager.get("steering.cache.enabled", False)
-            print(f"✓ 缓存配置: {cache_enabled}")
+            logger.info("✓ 缓存配置: %s", cache_enabled)
 
             # 测试规范加载（模拟）
             specs = config_manager.load_steering_specifications("backend/apps/client/api/client_api.py")
-            print(f"✓ 规范加载测试完成，返回 {len(specs)} 个规范")
+            logger.info("✓ 规范加载测试完成，返回 %d 个规范", len(specs))
 
             # 获取统计信息
             stats = integration.get_integration_stats()
-            print(f"✓ 集成统计信息获取成功: {len(stats)} 个指标")
+            logger.info("✓ 集成统计信息获取成功: %d 个指标", len(stats))
 
-            print("✓ 所有 Steering 集成测试通过")
+            logger.info("✓ 所有 Steering 集成测试通过")
 
         else:
-            print("✗ Steering 集成初始化失败")
+            logger.warning("✗ Steering 集成初始化失败")
 
     except Exception as e:
-        print(f"✗ 测试失败: {e}")
+        logger.error("✗ 测试失败: %s", e)
 
     finally:
         # 清理临时文件
