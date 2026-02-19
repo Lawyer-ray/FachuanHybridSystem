@@ -50,6 +50,7 @@ class AccountCredentialAdminService:
     def __init__(self) -> None:
         self._auto_login_service = None
         self._token_service = None
+        self._automation_service = None
 
     @property
     def auto_login_service(self) -> "Any":
@@ -68,6 +69,15 @@ class AccountCredentialAdminService:
 
             self._token_service = build_auto_token_acquisition_service()
         return self._token_service
+
+    @property
+    def automation_service(self) -> "Any":
+        """延迟加载 AutomationService"""
+        if self._automation_service is None:
+            from apps.core.interfaces import ServiceLocator
+
+            self._automation_service = ServiceLocator.get_automation_service()
+        return self._automation_service
 
     def single_auto_login(
         self,
@@ -432,11 +442,9 @@ class AccountCredentialAdminService:
             error_message: 错误消息（失败时）
             error_details: 错误详情（失败时）
         """
-        # 通过ServiceLocator获取automation服务
-        from apps.core.interfaces import ServiceLocator
-
+        # 通过automation服务获取
         try:
-            automation_service = ServiceLocator.get_automation_service()
+            automation_service = self.automation_service
 
             # 构建历史记录数据
             history_data = {
