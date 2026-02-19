@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
-
 from ..data_classes import DocumentDeliveryRecord
 
 if TYPE_CHECKING:
@@ -27,12 +26,38 @@ class PlaywrightDeliveryService:
     DELIVERY_PAGE_URL = "https://zxfw.court.gov.cn/zxfw/#/pagesAjkj/common/wssd/index"
 
     # 选择器常量 (使用精确 xpath)
-    PENDING_TAB_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]/uni-view/uni-view[1]/uni-view/uni-text"
-    REVIEWED_TAB_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]/uni-view/uni-view[2]/uni-view/uni-text"
-    CASE_NUMBER_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view/uni-form/span/uni-view[1]/uni-view"
-    SEND_TIME_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view/uni-form/span/uni-view[3]/uni-view"
-    DOWNLOAD_BUTTON_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view[2]/uni-text[2]"
-    NEXT_PAGE_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-view/uni-view/uni-view[4]"
+    PENDING_TAB_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]"
+        "/uni-view/uni-view[1]/uni-view/uni-text"
+    )
+    REVIEWED_TAB_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]"
+        "/uni-view/uni-view[2]/uni-view/uni-text"
+    )
+    CASE_NUMBER_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view"
+        "/uni-form/span/uni-view[1]/uni-view"
+    )
+    SEND_TIME_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view"
+        "/uni-form/span/uni-view[3]/uni-view"
+    )
+    DOWNLOAD_BUTTON_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view[2]/uni-text[2]"
+    )
+    NEXT_PAGE_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-view/uni-view/uni-view[4]"
+    )
 
     # 页面加载等待时间(毫秒)
     PAGE_LOAD_WAIT = 3000

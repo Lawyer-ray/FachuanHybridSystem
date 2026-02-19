@@ -77,7 +77,8 @@ class RangeValidator(ConfigValidator):
             # 类型不匹配的警告
             elif not self._are_comparable_types(value, min_value):
                 result.add_warning(
-                    f"配置项 '{key}' 的类型 {type(value).__name__} 与最小值类型 {type(min_value).__name__} 不匹配，跳过最小值验证"
+                    f"配置项 '{key}' 的类型 {type(value).__name__}"
+                    f" 与最小值类型 {type(min_value).__name__} 不匹配，跳过最小值验证"
                 )
 
         except (TypeError, ValueError) as e:
@@ -109,7 +110,8 @@ class RangeValidator(ConfigValidator):
             # 类型不匹配的警告
             elif not self._are_comparable_types(value, max_value):
                 result.add_warning(
-                    f"配置项 '{key}' 的类型 {type(value).__name__} 与最大值类型 {type(max_value).__name__} 不匹配，跳过最大值验证"
+                    f"配置项 '{key}' 的类型 {type(value).__name__}"
+                    f" 与最大值类型 {type(max_value).__name__} 不匹配，跳过最大值验证"
                 )
 
         except (TypeError, ValueError) as e:

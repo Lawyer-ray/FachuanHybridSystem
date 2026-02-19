@@ -1,8 +1,8 @@
-from textwrap import dedent
 import time
+from textwrap import dedent
 
-
-DEFAULT_FILENAME_PROMPT = dedent("""
+DEFAULT_FILENAME_PROMPT = dedent(
+    """
 请你作为一名专业的文件管理员，按照以下严格规则为我提供的法律文件命名。
 
 1.  **命名结构**：`[文件核心类型]（[案件双方]）_[年月日]收`
@@ -13,7 +13,8 @@ DEFAULT_FILENAME_PROMPT = dedent("""
 2.  **文件核心类型**：
     *   从文件标题中提取最关键的法律文书类型。
     *   例如：`“交纳诉讼费用通知书”` -> `交纳诉讼费用通知书`；`“民事判决书（2023）粤01民终1234号”` -> `民事判决书`。
-    *   常见类型包括但不限于：`传票`、`通知书`、`判决书`、`裁定书`、`调解书`、`决定书`、`支付令`、`交纳诉讼费用通知书`、`反驳意见`、`质证意见`、`应诉通知书`、`举证通知书`等。
+    *   常见类型包括但不限于：`传票`、`通知书`、`判决书`、`裁定书`、`调解书`、`决定书`、`支付令`、
+        `交纳诉讼费用通知书`、`反驳意见`、`质证意见`、`应诉通知书`、`举证通知书`等。
 
 3.  **案件双方**：
     *   格式为 `[甲方]与[乙方]案件`。
@@ -35,10 +36,11 @@ DEFAULT_FILENAME_PROMPT = dedent("""
     *   请严格按照上述规则生成一个唯一的文件名。
     *   直接返回最终的文件名字符串，不要添加任何额外的解释、说明、标点符号或代码块标记。
     *   请删除所有空格。
-""").strip()
+"""
+).strip()
 
 # 2. 生成当前日期，并将其格式化到模板中
-current_date_str = time.strftime('%Y%m%d')
+current_date_str = time.strftime("%Y%m%d")
 DEFAULT_FILENAME_PROMPT = DEFAULT_FILENAME_PROMPT.format(current_date=current_date_str)
 
 

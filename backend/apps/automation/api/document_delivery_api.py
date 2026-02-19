@@ -9,7 +9,6 @@ from ninja import Router
 from ninja.pagination import PageNumberPagination, paginate
 from pydantic import BaseModel, Field
 
-
 router = Router(tags=["文书送达自动下载"])
 
 
@@ -215,7 +214,9 @@ def manual_query(request: Any, payload: DocumentDeliveryQueryIn) -> DocumentDeli
 
 @router.get("/document-delivery/schedules", response=list[DocumentDeliveryScheduleOut])
 @paginate(PageNumberPagination, page_size=20)
-def list_schedules(request: Any, credential_id: int | None = None, is_active: bool | None = None) -> list[DocumentDeliveryScheduleOut]:
+def list_schedules(
+    request: Any, credential_id: int | None = None, is_active: bool | None = None
+) -> list[DocumentDeliveryScheduleOut]:
     """
     查询定时任务列表
 
@@ -248,7 +249,9 @@ def create_schedule(request: Any, payload: DocumentDeliveryScheduleCreateIn) -> 
 
 
 @router.put("/document-delivery/schedules/{schedule_id}", response=DocumentDeliveryScheduleOut)
-def update_schedule(request: Any, schedule_id: int, payload: DocumentDeliveryScheduleUpdateIn) -> DocumentDeliveryScheduleOut:
+def update_schedule(
+    request: Any, schedule_id: int, payload: DocumentDeliveryScheduleUpdateIn
+) -> DocumentDeliveryScheduleOut:
     """
     更新定时任务
 

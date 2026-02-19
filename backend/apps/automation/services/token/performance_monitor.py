@@ -336,7 +336,10 @@ class PerformanceMonitor:
             alerts.append(
                 {
                     "type": "high_concurrency",
-                    "message": f"并发数过高: {metrics.concurrent_acquisitions} > {self.alert_thresholds.max_concurrent_acquisitions}",
+                    "message": (
+                        f"并发数过高: {metrics.concurrent_acquisitions}"
+                        f" > {self.alert_thresholds.max_concurrent_acquisitions}"
+                    ),
                     "severity": "medium",
                 }
             )
@@ -346,7 +349,9 @@ class PerformanceMonitor:
             alerts.append(
                 {
                     "type": "low_cache_hit_rate",
-                    "message": f"缓存命中率过低: {metrics.cache_hit_rate:.1f}% < {self.alert_thresholds.min_cache_hit_rate}%",
+                    "message": (
+                        f"缓存命中率过低: {metrics.cache_hit_rate:.1f}% < {self.alert_thresholds.min_cache_hit_rate}%"
+                    ),
                     "severity": "low",
                 }
             )

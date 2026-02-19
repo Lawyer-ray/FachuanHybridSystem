@@ -243,7 +243,8 @@ class DocumentTemplateAdminService:
                 row_style = ""
             html_parts.append(f'<tr style="{row_style}">')
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd; font-family: monospace;">{{{{ {placeholder} }}}}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd;'
+                f' font-family: monospace;">{{{{ {placeholder} }}}}</td>'
             )
             html_parts.append(f'<td style="padding: 8px; border: 1px solid #ddd;">{status}</td>')
             html_parts.append("</tr>")
@@ -267,7 +268,8 @@ class DocumentTemplateAdminService:
             '<div style="background: #fff3e0; padding: 10px; border-radius: 4px; border: 1px solid #ffcc80;">'
         ]
         html_parts.append(
-            f'<p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">⚠️ 发现 {len(undefined)} 个未定义的占位符:</p>'
+            f'<p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">'
+            f"⚠️ 发现 {len(undefined)} 个未定义的占位符:</p>"
         )
         html_parts.append('<ul style="margin: 0; padding-left: 20px;">')
         for placeholder in undefined:

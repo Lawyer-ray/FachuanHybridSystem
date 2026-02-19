@@ -50,22 +50,48 @@ class DocumentDeliveryPlaywrightService:
 
     # 选择器常量 (使用精确 xpath)
     # 待查阅标签页
-    PENDING_TAB_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]/uni-view/uni-view[1]/uni-view/uni-text"
+    PENDING_TAB_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]"
+        "/uni-view/uni-view[1]/uni-view/uni-text"
+    )
 
     # 已查阅标签页
-    REVIEWED_TAB_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]/uni-view/uni-view[2]/uni-view/uni-text"
+    REVIEWED_TAB_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[1]"
+        "/uni-view/uni-view[2]/uni-view/uni-text"
+    )
 
     # 案号选择器（遍历获取所有案号）
-    CASE_NUMBER_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view/uni-form/span/uni-view[1]/uni-view"
+    CASE_NUMBER_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view"
+        "/uni-form/span/uni-view[1]/uni-view"
+    )
 
     # 发送时间选择器（遍历获取所有时间）
-    SEND_TIME_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view/uni-form/span/uni-view[3]/uni-view"
+    SEND_TIME_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view"
+        "/uni-form/span/uni-view[3]/uni-view"
+    )
 
     # 下载按钮选择器（遍历获取所有下载按钮）
-    DOWNLOAD_BUTTON_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view[2]/uni-text[2]"
+    DOWNLOAD_BUTTON_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-scroll-view/div/div/div/uni-view/uni-view/uni-view[2]/uni-text[2]"
+    )
 
     # 翻页按钮
-    NEXT_PAGE_SELECTOR = "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]/uni-view/uni-view/uni-view/uni-view[4]"
+    NEXT_PAGE_SELECTOR = (
+        "xpath=/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view[2]"
+        "/uni-view/uni-view/uni-view/uni-view[4]"
+    )
 
     # 页面加载等待时间（毫秒）
     PAGE_LOAD_WAIT = 3000

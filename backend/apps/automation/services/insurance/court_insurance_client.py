@@ -571,7 +571,10 @@ class CourtInsuranceClient:
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+                " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+            ),
             "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"macOS"',
@@ -621,7 +624,9 @@ class CourtInsuranceClient:
         print(f"💰 【询价请求】保险公司: {institution}")
         print("=" * 120)
         print(
-            f"📍 完整 URL: {self.premium_query_url}?time={params['time']}&preserveAmount={params['preserveAmount']}&institution={params['institution']}&corpId={params['corpId']}"
+            f"📍 完整 URL: {self.premium_query_url}"
+            f"?time={params['time']}&preserveAmount={params['preserveAmount']}"
+            f"&institution={params['institution']}&corpId={params['corpId']}"
         )
         print(f"⏰ 时间戳: {current_time_ms}")
         print("\n📋 URL 查询参数:")

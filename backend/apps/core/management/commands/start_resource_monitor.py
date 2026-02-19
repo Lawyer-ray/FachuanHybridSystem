@@ -58,7 +58,9 @@ class Command(BaseCommand):
                         if "details" in status:
                             details = status["details"]
                             self.stdout.write(
-                                f"  CPU: {details.get('cpu_percent', 'N/A'):.1f}% | Memory: {details.get('memory_percent', 'N/A'):.1f}% | Disk: {details.get('disk_percent', 'N/A'):.1f}%"
+                                f"  CPU: {details.get('cpu_percent', 'N/A'):.1f}%"
+                                f" | Memory: {details.get('memory_percent', 'N/A'):.1f}%"
+                                f" | Disk: {details.get('disk_percent', 'N/A'):.1f}%"
                             )
                     except KeyboardInterrupt:
                         break

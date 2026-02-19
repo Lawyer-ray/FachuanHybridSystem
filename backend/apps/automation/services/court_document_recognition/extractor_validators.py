@@ -210,7 +210,8 @@ class ExtractorValidatorsMixin:
                 }
             )
             logger.debug(
-                f"正则候选: {dt}, 上下文={context_score}, 合理性={validity_score}({validity_reason}), 综合={combined_score:.1f}, 有效={is_valid}"
+                f"正则候选: {dt}, 上下文={context_score}, 合理性={validity_score}"
+                f"({validity_reason}), 综合={combined_score:.1f}, 有效={is_valid}"
             )
         valid_regex_results: list[Any] = []
         valid_regex_results.sort(key=lambda x: x["combined_score"], reverse=True)
@@ -222,7 +223,8 @@ class ExtractorValidatorsMixin:
                 ollama_datetime
             )
             logger.debug(
-                f"Ollama候选: {ollama_datetime}, 合理性={ollama_validity_score}({ollama_validity_reason}), 有效={ollama_valid}"
+                f"Ollama候选: {ollama_datetime}, 合理性={ollama_validity_score}"
+                f"({ollama_validity_reason}), 有效={ollama_valid}"
             )
         if not valid_regex_results:
             return self._handle_ollama_only_result(
@@ -233,7 +235,8 @@ class ExtractorValidatorsMixin:
         best_regex_combined = best_regex["combined_score"]
         if not ollama_datetime or not ollama_valid:
             logger.info(
-                f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f} (上下文={best_regex['context_score']}, 合理性={best_regex['validity_score']})"
+                f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f}"
+                f" (上下文={best_regex['context_score']}, 合理性={best_regex['validity_score']})"
             )
             return (best_regex_dt, f"regex(score={best_regex_combined:.0f})")
         return self._cross_validate_results(best_regex, valid_regex_results, ollama_datetime, ollama_validity_score)
@@ -257,7 +260,8 @@ class ExtractorValidatorsMixin:
             if validated_regex_results:
                 best_invalid = max(validated_regex_results, key=lambda x: x["combined_score"])
                 logger.warning(
-                    f"所有正则结果合理性较低,使用最佳候选: {best_invalid['datetime']} ({best_invalid['validity_reason']})"
+                    f"所有正则结果合理性较低,使用最佳候选: {best_invalid['datetime']}"
+                    f" ({best_invalid['validity_reason']})"
                 )
                 return (best_invalid["datetime"], f"regex(低合理性:{best_invalid['validity_reason']})")
             return (None, "无法提取")

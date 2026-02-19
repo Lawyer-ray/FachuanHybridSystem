@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-"\n交费通知书识别主服务\n\n协调整个识别流程:文本提取、通知书检测、费用金额提取.\n支持多文件批量处理、单PDF多份通知书识别.\n\nRequirements: 2.1, 4.1-4.4, 6.1-6.3, 7.1-7.6\n"
+"\n交费通知书识别主服务\n\n协调整个识别流程:文本提取、通知书检测、费用金额提取.\n"
+"支持多文件批量处理、单PDF多份通知书识别.\n\nRequirements: 2.1, 4.1-4.4, 6.1-6.3, 7.1-7.6\n"
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar

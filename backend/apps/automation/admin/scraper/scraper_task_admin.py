@@ -102,7 +102,8 @@ class ScraperTaskAdmin(admin.ModelAdmin):
         files = obj.result.get("files", [])
 
         html_parts = [
-            f'<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; max-height: 300px; overflow: auto;">{escaped_json}</pre>'
+            f'<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;'
+            f' max-height: 300px; overflow: auto;">{escaped_json}</pre>'
         ]
 
         # 显示下载的文件列表（带下载链接）
@@ -112,7 +113,8 @@ class ScraperTaskAdmin(admin.ModelAdmin):
             from django.conf import settings
 
             html_parts.append(
-                '<div style="margin-top: 10px;"><strong>📁 下载的文件:</strong><ul style="list-style: none; padding-left: 0;">'
+                '<div style="margin-top: 10px;"><strong>📁 下载的文件:</strong>'
+                '<ul style="list-style: none; padding-left: 0;">'
             )
             for f in files:
                 filename = f.split("/")[-1] if "/" in f else f
@@ -165,7 +167,8 @@ class ScraperTaskAdmin(admin.ModelAdmin):
                 if ss.startswith(str(settings.MEDIA_ROOT)):
                     ss_url = ss.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
                     html_parts.append(
-                        f'<br><img src="{escape(ss_url)}" style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">'
+                        f'<br><img src="{escape(ss_url)}" style="max-width: 600px;'
+                        f' border: 1px solid #ddd; margin-top: 10px;">'
                     )
 
         return mark_safe("".join(html_parts))

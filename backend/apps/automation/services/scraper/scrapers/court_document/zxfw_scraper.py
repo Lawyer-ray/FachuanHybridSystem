@@ -226,7 +226,10 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+            ),
         }
 
         payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
@@ -733,7 +736,11 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
 
         # 检测文书列表数量
         # 文书列表容器 XPath
-        doc_list_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view"
+        doc_list_xpath = (
+            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+            "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
+            "/uni-view[1]/uni-view[1]/uni-view"
+        )
 
         try:
             doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
@@ -758,7 +765,11 @@ class ZxfwCourtScraper(BaseCourtDocumentScraper):
                 # 如果有多个文书,需要先点击对应的文书项
                 if doc_count > 1 or doc_index > 1:
                     # 点击文书项
-                    doc_item_xpath = f"/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
+                    doc_item_xpath = (
+                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
+                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
+                        f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
+                    )
 
                     try:
                         doc_item = self.page.locator(f"xpath={doc_item_xpath}")
