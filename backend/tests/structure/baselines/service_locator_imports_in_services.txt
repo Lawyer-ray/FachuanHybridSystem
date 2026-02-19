@@ -37,8 +37,6 @@ apps/cases/services/case_party_service.py:13:from apps.core.interfaces import IC
 apps/cases/services/caselog_service.py:15:from apps.core.interfaces import ICaseService, ServiceLocator
 apps/cases/services/data/cause_court_data_service.py:430:from apps.core.interfaces import ServiceLocator
 apps/contracts/services/contract_admin_service.py:122:from apps.core.interfaces import ServiceLocator
-apps/contracts/services/contract_service.py:83:from apps.core.interfaces import ServiceLocator
-apps/contracts/services/contract_service.py:97:from apps.core.interfaces import ServiceLocator
 apps/contracts/services/lawyer_assignment_service.py:51:from apps.core.interfaces import ServiceLocator
 apps/contracts/services/supplementary_agreement_service.py:11:from apps.core.interfaces import IClientService, ServiceLocator
 apps/organization/services/account_credential_admin_service.py:441:from apps.core.interfaces import ServiceLocator
