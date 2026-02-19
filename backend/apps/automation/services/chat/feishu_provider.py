@@ -29,11 +29,12 @@ from apps.core.exceptions import (
     ChatProviderException,
     ConfigurationException,
     MessageSendException,
-    OwnerNetworkException,
-    OwnerNotFoundException,
-    OwnerPermissionException,
-    OwnerTimeoutException,
-    OwnerValidationException,
+    OwnerSettingException,
+    owner_network_error,
+    owner_not_found_error,
+    owner_permission_error,
+    owner_timeout_error,
+    owner_validation_error,
 )
 
 from .base import ChatProvider, ChatResult, MessageContent
@@ -366,22 +367,33 @@ class FeishuChatProvider(ChatProvider):
                 logger.error(f"完整响应: {data}")
 
                 # 根据错误代码分类异常类型
-                exception_class = self._classify_feishu_error(error_code, error_msg)
+                exc_or_class = self._classify_feishu_error(error_code, error_msg)
 
-                raise exception_class(  # type: ignore[call-arg]
-                    message=f"创建群聊失败: {error_msg}",
-                    platform="feishu",
-                    error_code=error_code,
-                    owner_id=effective_owner_id,
-                    chat_id=None,
-                    errors={
+                if isinstance(exc_or_class, OwnerSettingException):
+                    # 已是实例，补充上下文后抛出
+                    exc_or_class.platform = "feishu"
+                    exc_or_class.owner_id = effective_owner_id
+                    exc_or_class.errors = {
                         "api_response": data,
                         "chat_name": chat_name,
                         "specified_owner_id": owner_id,
                         "effective_owner_id": effective_owner_id,
                         "request_payload": payload,
-                    },
-                )
+                    }
+                    raise exc_or_class
+                else:
+                    raise exc_or_class(  # type: ignore[call-arg]
+                        message=f"创建群聊失败: {error_msg}",
+                        platform="feishu",
+                        error_code=error_code,
+                        errors={
+                            "api_response": data,
+                            "chat_name": chat_name,
+                            "specified_owner_id": owner_id,
+                            "effective_owner_id": effective_owner_id,
+                            "request_payload": payload,
+                        },
+                    )
 
             # 提取群聊信息
             chat_data = data.get("data", {})
@@ -414,7 +426,7 @@ class FeishuChatProvider(ChatProvider):
             raise
         except requests.RequestException as e:
             logger.error(f"创建飞书群聊网络请求失败: {e!s}")
-            raise OwnerNetworkException(
+            raise owner_network_error(
                 message=f"网络请求失败: {e!s}",
                 platform="feishu",
                 owner_id=effective_owner_id,
@@ -1102,9 +1114,9 @@ class FeishuChatProvider(ChatProvider):
             """验证群主设置的操作"""
             if not self.verify_owner_setting(chat_id, owner_id):
                 # 如果验证失败，抛出异常触发重试
-                from apps.core.exceptions import OwnerValidationException
+                from apps.core.exceptions import owner_validation_error
 
-                raise OwnerValidationException(
+                raise owner_validation_error(
                     message=f"群主设置验证失败: 期望群主 {owner_id}",
                     owner_id=owner_id,
                     chat_id=chat_id,
@@ -1133,7 +1145,9 @@ class FeishuChatProvider(ChatProvider):
 
             return False
 
-    def _classify_feishu_error(self, error_code: str, error_msg: str) -> type[Exception]:
+    def _classify_feishu_error(
+        self, error_code: str, error_msg: str
+    ) -> OwnerSettingException | type[ChatCreationException]:
         """分类飞书API错误
 
         根据飞书API返回的错误代码和错误消息，分类为相应的异常类型。
@@ -1143,7 +1157,7 @@ class FeishuChatProvider(ChatProvider):
             error_msg: 飞书API错误消息
 
         Returns:
-            Exception class: 相应的异常类
+            OwnerSettingException 实例或 ChatCreationException 类
         """
         # 飞书API常见错误代码映射
         # 参考：https://open.feishu.cn/document/ukTMukTMukTM/ugjM14COyUjL4ITN
@@ -1157,7 +1171,7 @@ class FeishuChatProvider(ChatProvider):
             or "forbidden" in error_msg_lower
             or "access denied" in error_msg_lower
         ):
-            return OwnerPermissionException
+            return owner_permission_error()
 
         # 用户不存在错误
         if (
@@ -1166,7 +1180,7 @@ class FeishuChatProvider(ChatProvider):
             or "invalid user" in error_msg_lower
             or "user does not exist" in error_msg_lower
         ):
-            return OwnerNotFoundException
+            return owner_not_found_error()
 
         # 参数验证错误
         if (
@@ -1175,17 +1189,17 @@ class FeishuChatProvider(ChatProvider):
             or "parameter error" in error_msg_lower
             or "validation failed" in error_msg_lower
         ):
-            return OwnerValidationException
+            return owner_validation_error()
 
         # 超时错误
         if "timeout" in error_msg_lower or "timed out" in error_msg_lower:
-            return OwnerTimeoutException
+            return owner_timeout_error()
 
         # 网络错误
         if "network" in error_msg_lower or "connection" in error_msg_lower or "request failed" in error_msg_lower:
-            return OwnerNetworkException
+            return owner_network_error()
 
-        # 默认返回通用群聊创建异常
+        # 默认返回通用群聊创建异常类
         return ChatCreationException
 
     def _convert_union_id_to_open_id(self, union_id: str) -> str | None:

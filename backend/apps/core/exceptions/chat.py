@@ -15,6 +15,15 @@ __all__: list[str] = [
     "MessageSendException",
     "ConfigurationException",
     "OwnerSettingException",
+    # 快捷构造函数（替代原子类）
+    "owner_permission_error",
+    "owner_not_found_error",
+    "owner_validation_error",
+    "owner_retry_error",
+    "owner_timeout_error",
+    "owner_network_error",
+    "owner_config_error",
+    # 向后兼容别名
     "OwnerPermissionException",
     "OwnerNotFoundException",
     "OwnerValidationException",
@@ -104,7 +113,18 @@ class ConfigurationException(ChatProviderException):
 
 
 class OwnerSettingException(ChatProviderException):
-    """群主设置异常基类"""
+    """
+    群主设置异常（统一基类）
+
+    通过 code 字段区分具体错误类型：
+    - OWNER_PERMISSION_ERROR: 群主权限不足
+    - OWNER_NOT_FOUND: 群主用户不存在
+    - OWNER_VALIDATION_ERROR: 群主验证失败
+    - OWNER_RETRY_ERROR: 群主设置重试失败
+    - OWNER_TIMEOUT_ERROR: 群主设置操作超时
+    - OWNER_NETWORK_ERROR: 群主设置网络错误
+    - OWNER_CONFIG_ERROR: 群主配置错误
+    """
 
     def __init__(
         self,
@@ -115,69 +135,60 @@ class OwnerSettingException(ChatProviderException):
         platform: str | None = None,
         owner_id: str | None = None,
         chat_id: str | None = None,
+        **extra: Any,
     ) -> None:
         super().__init__(
             message=message, code=code or "OWNER_SETTING_ERROR", errors=errors, error_code=error_code, platform=platform
         )
         self.owner_id = owner_id
         self.chat_id = chat_id
+        for key, value in extra.items():
+            setattr(self, key, value)
 
 
-class OwnerPermissionException(OwnerSettingException):
-    """群主权限异常"""
-
-    def __init__(self, message: str = "群主权限不足", **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_PERMISSION_ERROR"), **kwargs)
+# ── 快捷构造函数（替代原子类）──────────────────────────────────────────────────
 
 
-class OwnerNotFoundException(OwnerSettingException):
-    """群主用户不存在异常"""
-
-    def __init__(self, message: str = "群主用户不存在", **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_NOT_FOUND"), **kwargs)
+def owner_permission_error(message: str = "群主权限不足", **kwargs: Any) -> OwnerSettingException:
+    """群主权限不足"""
+    return OwnerSettingException(message=message, code="OWNER_PERMISSION_ERROR", **kwargs)
 
 
-class OwnerValidationException(OwnerSettingException):
-    """群主验证异常"""
-
-    def __init__(self, message: str = "群主验证失败", **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_VALIDATION_ERROR"), **kwargs)
+def owner_not_found_error(message: str = "群主用户不存在", **kwargs: Any) -> OwnerSettingException:
+    """群主用户不存在"""
+    return OwnerSettingException(message=message, code="OWNER_NOT_FOUND", **kwargs)
 
 
-class OwnerRetryException(OwnerSettingException):
-    """群主设置重试异常"""
-
-    def __init__(
-        self,
-        message: str = "群主设置重试失败",
-        retry_count: int | None = None,
-        max_retries: int | None = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_RETRY_ERROR"), **kwargs)
-        self.retry_count = retry_count
-        self.max_retries = max_retries
+def owner_validation_error(message: str = "群主验证失败", **kwargs: Any) -> OwnerSettingException:
+    """群主验证失败"""
+    return OwnerSettingException(message=message, code="OWNER_VALIDATION_ERROR", **kwargs)
 
 
-class OwnerTimeoutException(OwnerSettingException):
-    """群主设置超时异常"""
-
-    def __init__(self, message: str = "群主设置操作超时", timeout_seconds: float | None = None, **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_TIMEOUT_ERROR"), **kwargs)
-        self.timeout_seconds = timeout_seconds
+def owner_retry_error(message: str = "群主设置重试失败", **kwargs: Any) -> OwnerSettingException:
+    """群主设置重试失败"""
+    return OwnerSettingException(message=message, code="OWNER_RETRY_ERROR", **kwargs)
 
 
-class OwnerNetworkException(OwnerSettingException):
-    """群主设置网络异常"""
-
-    def __init__(self, message: str = "群主设置网络错误", network_error: str | None = None, **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_NETWORK_ERROR"), **kwargs)
-        self.network_error = network_error
+def owner_timeout_error(message: str = "群主设置操作超时", **kwargs: Any) -> OwnerSettingException:
+    """群主设置操作超时"""
+    return OwnerSettingException(message=message, code="OWNER_TIMEOUT_ERROR", **kwargs)
 
 
-class OwnerConfigException(OwnerSettingException):
-    """群主配置异常"""
+def owner_network_error(message: str = "群主设置网络错误", **kwargs: Any) -> OwnerSettingException:
+    """群主设置网络错误"""
+    return OwnerSettingException(message=message, code="OWNER_NETWORK_ERROR", **kwargs)
 
-    def __init__(self, message: str = "群主配置错误", config_key: str | None = None, **kwargs: Any) -> None:
-        super().__init__(message=message, code=kwargs.pop("code", "OWNER_CONFIG_ERROR"), **kwargs)
-        self.config_key = config_key
+
+def owner_config_error(message: str = "群主配置错误", **kwargs: Any) -> OwnerSettingException:
+    """群主配置错误"""
+    return OwnerSettingException(message=message, code="OWNER_CONFIG_ERROR", **kwargs)
+
+
+# ── 向后兼容别名（保持 isinstance 检查可用）────────────────────────────────────
+OwnerPermissionException = OwnerSettingException
+OwnerNotFoundException = OwnerSettingException
+OwnerValidationException = OwnerSettingException
+OwnerRetryException = OwnerSettingException
+OwnerTimeoutException = OwnerSettingException
+OwnerNetworkException = OwnerSettingException
+OwnerConfigException = OwnerSettingException
