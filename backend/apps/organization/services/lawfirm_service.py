@@ -72,7 +72,7 @@ class LawFirmService:
         page: int = 1,
         page_size: int = 20,
         filters: dict[str, Any] | None = None,
-        user: Lawyer = None,
+        user: Lawyer | None = None,
     ) -> "QuerySet[LawFirm, LawFirm]":
         """
         列表查询
@@ -89,12 +89,14 @@ class LawFirmService:
         filters = filters or {}
 
         # 构建基础查询（使用 prefetch_related 优化）
-        queryset = self.get_lawfirm_queryset().annotate(lawyer_count=Count("lawyers"))
+        qs: Any = self.get_lawfirm_queryset()
+        queryset = cast("QuerySet[LawFirm, LawFirm]", qs.annotate(lawyer_count=Count("lawyers")))
 
         # 应用权限过滤
         if user and not user.is_superuser:
             # 普通用户只能看到自己所属的律所
-            queryset = queryset.filter(id=user.law_firm_id)
+            if user.law_firm_id is not None:
+                queryset = queryset.filter(id=user.law_firm_id)
 
         # 应用业务过滤
         if filters.get("name"):
@@ -240,26 +242,21 @@ class LawFirmService:
 
     def _check_create_permission(self, user: Lawyer) -> bool:
         """检查创建权限（私有方法）"""
-        return cast(bool, user.is_authenticated and (user.is_superuser or user.is_admin))
+        return bool(user.is_authenticated and (user.is_superuser or user.is_admin))
 
     def _check_read_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查读取权限（私有方法）"""
-        # 超级管理员可以访问所有律所
         if user.is_superuser:
             return True
-
-        # 用户可以访问自己所属的律所
-        return cast(bool, user.law_firm_id == lawfirm.id)
+        return bool(user.law_firm_id == lawfirm.id)
 
     def _check_update_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查更新权限（私有方法）"""
-        # 超级管理员或律所管理员可以更新
-        return cast(bool, user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id))
+        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id))
 
     def _check_delete_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
         """检查删除权限（私有方法）"""
-        # 只有超级管理员可以删除律所
-        return cast(bool, user.is_superuser)
+        return bool(user.is_superuser)
 
     def _validate_create_data(self, data: Any) -> None:
         """验证创建数据（私有方法）"""

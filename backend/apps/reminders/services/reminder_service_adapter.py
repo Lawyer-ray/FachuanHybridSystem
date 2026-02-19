@@ -87,7 +87,13 @@ class ReminderServiceAdapter:
             reminder_type_label = ReminderType(reminder_type).label
 
             # 处理时间
-            if reminder_time and timezone.is_naive(reminder_time):
+            if not reminder_time:
+                logger.warning(
+                    "提醒时间为空，跳过创建",
+                    extra={"case_log_id": case_log_id, "reminder_type": reminder_type},
+                )
+                return None
+            if timezone.is_naive(reminder_time):
                 reminder_time = timezone.make_aware(reminder_time)
 
             # 创建提醒

@@ -22,7 +22,6 @@ class ReminderType(models.TextChoices):
 class Reminder(models.Model):
     id: int
     contract_id: int  # 外键ID字段
-    contract_id: int  # 外键ID字段
     contract = models.ForeignKey(
         "contracts.Contract",
         on_delete=models.CASCADE,
@@ -67,6 +66,6 @@ class Reminder(models.Model):
         if bool(self.contract_id) == bool(self.case_log_id):
             raise ValidationError(_("必须且只能绑定合同或案件日志之一"))
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         target = f"contract:{self.contract_id}" if self.contract_id else f"case_log:{self.case_log_id}"
         return f"{target}-{self.reminder_type}-{self.due_at}"
