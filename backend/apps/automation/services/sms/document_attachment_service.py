@@ -61,109 +61,77 @@ class DocumentAttachmentService:
     def get_paths_for_renaming(self, sms: "CourtSMS") -> list[str]:
         """
         获取待重命名的文书路径列表
-
-        优先从 CourtDocument 记录获取，如果没有则从 ScraperTask.result 获取
-
-        Args:
-            sms: CourtSMS 实例
-
-        Returns:
-            文书文件路径列表
         """
-        document_paths = []
+        if not sms.scraper_task:
+            logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
+            return []
 
+        document_paths: list[str] = []
         try:
-            if not sms.scraper_task:
-                logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
-                return document_paths
+            document_paths = self._paths_from_court_documents(sms)
 
-            # 方式1：从 CourtDocument 记录获取（优先）
-            if hasattr(sms.scraper_task, "documents"):
-                documents = sms.scraper_task.documents.filter(download_status="success")  # type: ignore[attr-defined]
-                for doc in documents:
-                    if doc.local_file_path and os.path.exists(doc.local_file_path):
-                        document_paths.append(doc.local_file_path)
-                        logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
-
-            # 方式2：如果没有从数据库获取到，尝试从任务结果中获取（降级）
             if not document_paths:
-                result = sms.scraper_task.result  # type: ignore[attr-defined]
-                if result and isinstance(result, dict):
-                    files = result.get("files", [])
-                    for file_path in files:
-                        if file_path and os.path.exists(file_path):
-                            document_paths.append(file_path)
-                            logger.debug(f"从 ScraperTask.result 获取路径: {file_path}")
-
-                    if files and not document_paths:
-                        logger.warning(f"任务结果中有 {len(files)} 个文件路径，但都不存在")
+                document_paths = self._paths_from_task_result(sms)
 
             logger.info(f"获取到 {len(document_paths)} 个待重命名的文书路径")
-
         except Exception as e:
             logger.warning(f"获取文书路径失败: {e!s}")
 
         return document_paths
 
+    def _paths_from_court_documents(self, sms: "CourtSMS") -> list[str]:
+        """从 CourtDocument 记录获取路径"""
+        paths: list[str] = []
+        if not hasattr(sms.scraper_task, "documents"):
+            return paths
+        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore[attr-defined]
+            if doc.local_file_path and os.path.exists(doc.local_file_path):
+                paths.append(doc.local_file_path)
+                logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
+        return paths
+
+    def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
+        """从 ScraperTask.result 获取路径（降级）"""
+        paths: list[str] = []
+        result = sms.scraper_task.result  # type: ignore[attr-defined]
+        if not result or not isinstance(result, dict):
+            return paths
+        files = result.get("files", [])
+        for file_path in files:
+            if file_path and os.path.exists(file_path):
+                paths.append(file_path)
+                logger.debug(f"从 ScraperTask.result 获取路径: {file_path}")
+        if files and not paths:
+            logger.warning(f"任务结果中有 {len(files)} 个文件路径，但都不存在")
+        return paths
+
     def get_paths_for_notification(self, sms: "CourtSMS") -> list[str]:
         """
-        获取待发送通知的文书路径列表
-
-        优先从 scraper_task.result['renamed_files'] 获取重命名后的路径
-
-        Args:
-            sms: CourtSMS 实例
-
-        Returns:
-            文书文件路径列表（已去重）
+        获取待发送通知的文书路径列表（已去重）
         """
-        document_paths = []
-        seen_paths = set()  # 用于去重
+        if not sms.scraper_task:
+            logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
+            return []
+
+        document_paths: list[str] = []
+        seen_paths: set[str] = set()
 
         try:
-            if not sms.scraper_task:
-                logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
-                return document_paths
-
-            # 优先从任务结果中获取重命名后的文件路径
             result = sms.scraper_task.result  # type: ignore[attr-defined]
-            if result and isinstance(result, dict):
-                # 方式1：优先使用 renamed_files（重命名后的路径）
-                renamed_files = result.get("renamed_files", [])
-                if renamed_files:
-                    for file_path in renamed_files:
-                        if file_path and os.path.exists(file_path):
-                            abs_path = os.path.abspath(file_path)
-                            if abs_path not in seen_paths:
-                                document_paths.append(file_path)
-                                seen_paths.add(abs_path)
-                                logger.debug(f"从 renamed_files 获取路径: {file_path}")
 
-                    if document_paths:
-                        logger.info(f"从 renamed_files 获取到 {len(document_paths)} 个文书路径")
-                        return document_paths
+            # 方式1：优先使用 renamed_files
+            if result and isinstance(result, dict):
+                renamed = self._collect_unique_paths(result.get("renamed_files", []), seen_paths)
+                if renamed:
+                    logger.info(f"从 renamed_files 获取到 {len(renamed)} 个文书路径")
+                    return renamed
 
             # 方式2：从 CourtDocument 记录获取
-            if hasattr(sms.scraper_task, "documents"):
-                documents = sms.scraper_task.documents.filter(download_status="success")  # type: ignore[attr-defined]
-                for doc in documents:
-                    if doc.local_file_path and os.path.exists(doc.local_file_path):
-                        abs_path = os.path.abspath(doc.local_file_path)
-                        if abs_path not in seen_paths:
-                            document_paths.append(doc.local_file_path)
-                            seen_paths.add(abs_path)
-                            logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
+            self._collect_from_court_documents(sms, document_paths, seen_paths)
 
             # 方式3：从原始 files 列表获取
             if not document_paths and result and isinstance(result, dict):
-                files = result.get("files", [])
-                for file_path in files:
-                    if file_path and os.path.exists(file_path):
-                        abs_path = os.path.abspath(file_path)
-                        if abs_path not in seen_paths:
-                            document_paths.append(file_path)
-                            seen_paths.add(abs_path)
-                            logger.debug(f"从原始 files 获取路径: {file_path}")
+                self._collect_unique_paths(result.get("files", []), seen_paths, document_paths)
 
             logger.info(f"获取到 {len(document_paths)} 个待发送通知的文书路径（已去重）")
 
@@ -171,6 +139,39 @@ class DocumentAttachmentService:
             logger.warning(f"获取通知文书路径失败: {e!s}")
 
         return document_paths
+
+    def _collect_unique_paths(
+        self,
+        file_list: list[str],
+        seen: set[str],
+        target: list[str] | None = None,
+    ) -> list[str]:
+        """收集不重复的有效路径，返回新增路径列表"""
+        added: list[str] = []
+        for fp in file_list:
+            if fp and os.path.exists(fp):
+                abs_path = os.path.abspath(fp)
+                if abs_path not in seen:
+                    seen.add(abs_path)
+                    added.append(fp)
+                    if target is not None:
+                        target.append(fp)
+                    logger.debug(f"收集路径: {fp}")
+        return added
+
+    def _collect_from_court_documents(
+        self, sms: "CourtSMS", target: list[str], seen: set[str]
+    ) -> None:
+        """从 CourtDocument 记录收集路径"""
+        if not hasattr(sms.scraper_task, "documents"):
+            return
+        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore[attr-defined]
+            if doc.local_file_path and os.path.exists(doc.local_file_path):
+                abs_path = os.path.abspath(doc.local_file_path)
+                if abs_path not in seen:
+                    target.append(doc.local_file_path)
+                    seen.add(abs_path)
+                    logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
 
     def rename_documents(self, sms: "CourtSMS", document_paths: list[str]) -> list[str]:
         """
@@ -224,87 +225,66 @@ class DocumentAttachmentService:
     def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:
         """
         将文书附件添加到案件日志
-
-        通过复制文件到目标目录并直接设置文件路径，避免 Django 自动生成随机后缀。
-
-        Args:
-            sms: CourtSMS 实例
-            file_paths: 文书文件路径列表
-
-        Returns:
-            是否成功添加附件
         """
         if not sms.case_log or not file_paths:
             logger.warning(f"短信 {sms.id} 没有案件日志或文件路径，无法添加附件")
             return False
 
         try:
-            success_count = 0
-
-            # 目标目录：MEDIA_ROOT/case_logs/
             target_dir = os.path.join(settings.MEDIA_ROOT, "case_logs")
             os.makedirs(target_dir, exist_ok=True)
+            success_count = 0
 
             for file_path in file_paths:
-                try:
-                    if not os.path.exists(file_path):
-                        logger.warning(f"文件不存在，跳过: {file_path}")
-                        continue
-
-                    # 获取重命名后的文件名（已经是正确格式）
-                    renamed_filename = os.path.basename(file_path)
-
-                    # 检查文件名是否符合预期格式（包含括号）
-                    if "（" not in renamed_filename or "）" not in renamed_filename:
-                        # 如果重命名没有成功，尝试手动生成正确的文件名
-                        logger.warning(f"文件名格式不正确，尝试修正: {renamed_filename}")
-                        renamed_filename = self.fix_filename_format(renamed_filename, sms)
-
-                    # 确保文件名不会太长
-                    max_name_length = 200
-                    if len(renamed_filename) > max_name_length:
-                        name_part, ext = os.path.splitext(renamed_filename)
-                        if not ext:
-                            ext = ".pdf"
-                        name_part = name_part[: max_name_length - len(ext)]
-                        renamed_filename = name_part + ext
-
-                    # 构建目标文件路径
-                    target_path = os.path.join(target_dir, renamed_filename)
-
-                    # 如果目标文件已存在，添加数字后缀（在"收"字后面）
-                    if os.path.exists(target_path):
-                        target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
-
-                    # 复制文件到目标目录
-                    shutil.copy2(file_path, target_path)
-
-                    # 计算相对路径（相对于 MEDIA_ROOT）
-                    relative_path = f"case_logs/{renamed_filename}"
-
-                    # 使用服务方法添加附件
-                    success = self.case_service.add_case_log_attachment_internal(
-                        case_log_id=sms.case_log.id,  # type: ignore[attr-defined]
-                        file_path=relative_path,
-                        file_name=renamed_filename,
-                    )
-
-                    if not success:
-                        logger.warning(f"添加案件日志附件失败: {renamed_filename}")
-                        continue
-
+                if self._add_single_attachment(sms, file_path, target_dir):
                     success_count += 1
-                    logger.info(f"成功添加文书附件到案件日志: {renamed_filename}")
-
-                except Exception as e:
-                    logger.warning(f"添加文书附件失败: {file_path}, 错误: {e!s}")
-                    # 不影响整体流程，继续执行
 
             logger.info(f"附件添加完成: 成功 {success_count}/{len(file_paths)} 个")
             return success_count > 0
 
         except Exception as e:
             logger.error(f"添加附件到案件日志失败: SMS ID={sms.id}, 错误: {e!s}")
+            return False
+
+    def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:
+        """添加单个附件，返回是否成功"""
+        try:
+            if not os.path.exists(file_path):
+                logger.warning(f"文件不存在，跳过: {file_path}")
+                return False
+
+            renamed_filename = os.path.basename(file_path)
+            if "（" not in renamed_filename or "）" not in renamed_filename:
+                logger.warning(f"文件名格式不正确，尝试修正: {renamed_filename}")
+                renamed_filename = self.fix_filename_format(renamed_filename, sms)
+
+            max_name_length = 200
+            if len(renamed_filename) > max_name_length:
+                name_part, ext = os.path.splitext(renamed_filename)
+                ext = ext or ".pdf"
+                renamed_filename = name_part[: max_name_length - len(ext)] + ext
+
+            target_path = os.path.join(target_dir, renamed_filename)
+            if os.path.exists(target_path):
+                target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
+
+            shutil.copy2(file_path, target_path)
+            relative_path = f"case_logs/{renamed_filename}"
+
+            success = self.case_service.add_case_log_attachment_internal(
+                case_log_id=sms.case_log.id,  # type: ignore[attr-defined]
+                file_path=relative_path,
+                file_name=renamed_filename,
+            )
+            if not success:
+                logger.warning(f"添加案件日志附件失败: {renamed_filename}")
+                return False
+
+            logger.info(f"成功添加文书附件到案件日志: {renamed_filename}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"添加文书附件失败: {file_path}, 错误: {e!s}")
             return False
 
     def _get_unique_filepath(self, target_dir: str, filename: str) -> tuple[str, str]:

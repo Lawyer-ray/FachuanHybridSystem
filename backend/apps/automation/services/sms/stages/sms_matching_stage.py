@@ -197,28 +197,37 @@ class SMSMatchingStage(BaseSMSStage):
         updated = False
 
         for path in doc_paths:
-            try:
-                if not case_numbers:
-                    nums = self.case_number_extractor.extract_from_document(path)
-                    if nums:
-                        case_numbers.extend(nums)
-                        updated = True
-
-                if not party_names:
-                    names = self.matcher.extract_parties_from_document(path)
-                    if names:
-                        party_names.extend(names)
-                        updated = True
-
-                if case_numbers and party_names:
-                    break
-            except Exception as e:
-                logger.warning(f"从文书提取失败: {path}, 错误: {e}")
+            changed = self._extract_from_single_doc(path, case_numbers, party_names)
+            if changed:
+                updated = True
+            if case_numbers and party_names:
+                break
 
         if updated:
             sms.case_numbers = list(dict.fromkeys(case_numbers))
             sms.party_names = list(dict.fromkeys(party_names))
             sms.save()
+
+    def _extract_from_single_doc(
+        self, path: str, case_numbers: list[str], party_names: list[str]
+    ) -> bool:
+        """从单个文书提取案号和当事人，返回是否有更新"""
+        changed = False
+        try:
+            if not case_numbers:
+                nums = self.case_number_extractor.extract_from_document(path)
+                if nums:
+                    case_numbers.extend(nums)
+                    changed = True
+
+            if not party_names:
+                names = self.matcher.extract_parties_from_document(path)
+                if names:
+                    party_names.extend(names)
+                    changed = True
+        except Exception as e:
+            logger.warning(f"从文书提取失败: {path}, 错误: {e}")
+        return changed
 
     def _get_document_paths_for_extraction(self, sms: CourtSMS) -> list[str]:
         """获取文书路径列表"""
@@ -275,15 +284,7 @@ class SMSMatchingStage(BaseSMSStage):
             return
 
         try:
-            valid_nums = [
-                n
-                for n in sms.case_numbers
-                if not (
-                    ("年" in n and "月" in n and "日" in n)
-                    or ("年" in n and "月" in n and n.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", n))
-                )
-            ]
-
+            valid_nums = self._filter_valid_case_numbers(sms.case_numbers)
             if not valid_nums:
                 return
 
@@ -298,6 +299,17 @@ class SMSMatchingStage(BaseSMSStage):
                 )
         except Exception as e:
             logger.warning(f"写入案号失败: SMS={sms.id}, 错误: {e}")
+
+    def _filter_valid_case_numbers(self, case_numbers: list[str]) -> list[str]:
+        """过滤掉日期格式等无效案号"""
+        valid = []
+        for n in case_numbers:
+            if "年" in n and "月" in n and "日" in n:
+                continue
+            if "年" in n and "月" in n and n.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", n):
+                continue
+            valid.append(n)
+        return valid
 
 
 def create_sms_matching_stage(

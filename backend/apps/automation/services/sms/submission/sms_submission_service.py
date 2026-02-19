@@ -8,6 +8,7 @@ Requirements: 2.1, 2.3, 5.1, 5.2, 5.5
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -293,52 +294,42 @@ class SMSSubmissionService:
             return False
 
     def _add_case_numbers_to_case(self, sms: CourtSMS) -> None:
-        """
-        将短信中提取的案号写入案件（如果不存在）
-
-        Args:
-            sms: CourtSMS 实例（必须已绑定案件）
-        """
-        import re
-
+        """将短信中提取的案号写入案件（如果不存在）"""
         if not sms.case or not sms.case_numbers:
             return
 
         try:
-            # 过滤掉明显不是案号的内容（如日期）
-            valid_case_numbers = []
-            for num in sms.case_numbers:
-                # 跳过日期格式（如 "2025年12月17号"）
-                if "年" in num and "月" in num and "日" in num:
-                    continue
-                if "年" in num and "月" in num and num.endswith("号"):
-                    # 检查是否是日期格式
-                    if re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", num):
-                        continue
-                valid_case_numbers.append(num)
-
+            valid_case_numbers = self._filter_valid_case_numbers(sms.case_numbers)
             if not valid_case_numbers:
                 logger.info(f"短信 {sms.id} 没有有效的案号需要写入")
                 return
 
-            # 获取管理员用户ID
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
             user_id = admin_lawyer_dto.id if admin_lawyer_dto else None
 
-            # 逐个添加案号
-            added_count = 0
-            for case_number in valid_case_numbers:
-                success = self.case_service.add_case_number_internal(
+            added_count = sum(
+                1
+                for num in valid_case_numbers
+                if self.case_service.add_case_number_internal(
                     case_id=sms.case.id,  # type: ignore[attr-defined]
-                    case_number=case_number,
+                    case_number=num,
                     user_id=user_id,
                 )
-                if success:
-                    added_count += 1
+            )
 
             if added_count > 0:
                 logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")  # type: ignore[attr-defined]
 
         except Exception as e:
-            # 案号写入失败不影响主流程
             logger.warning(f"写入案号失败: SMS ID={sms.id}, 错误: {e!s}")
+
+    def _filter_valid_case_numbers(self, case_numbers: list[str]) -> list[str]:
+        """过滤掉日期格式等无效案号"""
+        valid = []
+        for num in case_numbers:
+            if "年" in num and "月" in num and "日" in num:
+                continue
+            if "年" in num and "月" in num and num.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", num):
+                continue
+            valid.append(num)
+        return valid
