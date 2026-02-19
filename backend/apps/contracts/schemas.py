@@ -3,11 +3,8 @@ from typing import ClassVar
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
 
-from apps.cases.schemas import CaseOut
-from apps.client.schemas import ClientOut
 from apps.core.enums import CaseStage
 from apps.core.schemas import SchemaMixin
-from apps.organization.schemas import LawyerOut
 
 from .models import (
     Contract,
@@ -20,6 +17,35 @@ from .models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
+
+
+# ---- 跨模块引用的轻量 Schema（避免跨模块 schema 导入）----
+
+class ContractCaseRef(Schema):
+    """合同中引用的案件简要信息"""
+    id: int
+    name: str
+    status: str | None = None
+    case_type: str | None = None
+    contract_id: int | None = None
+
+
+class ContractClientRef(Schema):
+    """合同中引用的客户简要信息"""
+    id: int
+    name: str
+    is_our_client: bool = True
+    phone: str | None = None
+    client_type: str | None = None
+
+
+class ContractLawyerRef(Schema):
+    """合同中引用的律师简要信息"""
+    id: int
+    username: str
+    real_name: str | None = None
+    phone: str | None = None
+    is_admin: bool = False
 
 
 class ContractPartySourceOut(Schema):
@@ -131,7 +157,7 @@ class ContractIn(ModelSchema):
 
 
 class ContractPartyOut(ModelSchema):
-    client_detail: ClientOut
+    client_detail: ContractClientRef
     role_label: str
 
     class Meta:
@@ -139,8 +165,15 @@ class ContractPartyOut(ModelSchema):
         fields: ClassVar[list[str]] = ["id", "contract", "client", "role"]
 
     @staticmethod
-    def resolve_client_detail(obj: ContractParty) -> ClientOut:
-        return obj.client
+    def resolve_client_detail(obj: ContractParty) -> ContractClientRef:
+        c = obj.client
+        return ContractClientRef(
+            id=c.id,
+            name=c.name,
+            is_our_client=c.is_our_client,
+            phone=c.phone,
+            client_type=c.client_type,
+        )
 
     @staticmethod
     def resolve_role_label(obj: ContractParty) -> str:
@@ -173,7 +206,7 @@ class ContractAssignmentOut(Schema):
 
 
 class ContractOut(ModelSchema):
-    cases: list[CaseOut]
+    cases: list[ContractCaseRef]
     contract_parties: list[ContractPartyOut]
     case_type_label: str | None
     status_label: str | None
@@ -184,7 +217,7 @@ class ContractOut(ModelSchema):
     total_invoiced: float
     unpaid_amount: float | None
     assignments: list[ContractAssignmentOut]
-    primary_lawyer: LawyerOut | None
+    primary_lawyer: ContractLawyerRef | None
 
     class Meta:
         model = Contract
@@ -204,8 +237,17 @@ class ContractOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_cases(obj: Contract):
-        return list(obj.cases.all())
+    def resolve_cases(obj: Contract) -> list[ContractCaseRef]:
+        return [
+            ContractCaseRef(
+                id=c.id,
+                name=c.name,
+                status=c.get_status_display() if c.status else None,
+                case_type=c.case_type,
+                contract_id=c.contract_id,
+            )
+            for c in obj.cases.all()
+        ]
 
     @staticmethod
     def resolve_fee_mode(obj: Contract) -> str:
@@ -303,9 +345,18 @@ class ContractOut(ModelSchema):
         return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.select_related("lawyer").all()]
 
     @staticmethod
-    def resolve_primary_lawyer(obj: Contract) -> LawyerOut | None:
+    def resolve_primary_lawyer(obj: Contract) -> ContractLawyerRef | None:
         """解析主办律师"""
-        return obj.primary_lawyer
+        lawyer = obj.primary_lawyer
+        if lawyer is None:
+            return None
+        return ContractLawyerRef(
+            id=lawyer.id,
+            username=lawyer.username,
+            real_name=getattr(lawyer, "real_name", None),
+            phone=getattr(lawyer, "phone", None),
+            is_admin=getattr(lawyer, "is_admin", False),
+        )
 
 
 class ContractPaymentIn(Schema):

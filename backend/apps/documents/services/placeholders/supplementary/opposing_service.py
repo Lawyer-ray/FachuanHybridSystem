@@ -7,7 +7,6 @@
 import logging
 from typing import Any, ClassVar
 
-from apps.contracts.models import PartyRole
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
@@ -64,7 +63,7 @@ class SupplementaryAgreementOpposingService(BasePlaceholderService):
         try:
             opposing_parties: list[Any] = []
             for party in supplementary_agreement.parties.all():
-                if party.role == PartyRole.OPPOSING:
+                if party.role == "OPPOSING":
                     opposing_parties.append(party.client)
             return opposing_parties
         except Exception:

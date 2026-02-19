@@ -178,6 +178,6 @@ def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
 
     Requirements: 2.1, 2.2, 2.3, 2.4
     """
-    template = PropertyClueService.get_content_template(clue_type)
+    template = _get_property_clue_service().get_content_template(clue_type)
 
     return ContentTemplateOut(clue_type=clue_type, template=template)

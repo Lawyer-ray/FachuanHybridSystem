@@ -9,7 +9,6 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5, 9.4
 import logging
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from apps.contracts.models import PartyRole
 from apps.core.interfaces import IContractService
 from apps.core.path import Path
 
@@ -177,7 +176,7 @@ class SupplementaryAgreementGenerationService:
         Returns:
             委托人 Client 实例列表
         """
-        return [party.client for party in agreement.parties.filter(role=PartyRole.PRINCIPAL)]
+        return [party.client for party in agreement.parties.filter(role="PRINCIPAL")]
 
     def _get_contract_principals(self, contract: Any) -> Any:
         """
@@ -188,7 +187,7 @@ class SupplementaryAgreementGenerationService:
         Returns:
             委托人 Client 实例列表
         """
-        return [party.client for party in contract.contract_parties.filter(role=PartyRole.PRINCIPAL)]
+        return [party.client for party in contract.contract_parties.filter(role="PRINCIPAL")]
 
     def _get_agreement_opposing(self, agreement: Any) -> Any:
         """
@@ -199,7 +198,7 @@ class SupplementaryAgreementGenerationService:
         Returns:
             对方当事人 Client 实例列表
         """
-        return [party.client for party in agreement.parties.filter(role=PartyRole.OPPOSING)]
+        return [party.client for party in agreement.parties.filter(role="OPPOSING")]
 
     def _save_to_bound_folder_if_exists(
         self, contract_id: int, file_content: bytes, file_name: str, subdir_key: str

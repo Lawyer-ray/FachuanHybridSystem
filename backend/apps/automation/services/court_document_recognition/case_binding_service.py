@@ -209,18 +209,22 @@ class CaseBindingService:
             document_type: 文书类型
         """
         try:
-            from apps.cases.models import CaseLog
             from apps.core.enums import CaseLogReminderType
+            from apps.core.interfaces import ServiceLocator
 
             # 根据文书类型确定提醒类型
             if document_type == DocumentType.SUMMONS:
-                reminder_type = CaseLogReminderType.HEARING  # 开庭
+                reminder_type = CaseLogReminderType.HEARING
             elif document_type == DocumentType.EXECUTION_RULING:
-                reminder_type = CaseLogReminderType.ASSET_PRESERVATION  # 财产保全
+                reminder_type = CaseLogReminderType.ASSET_PRESERVATION
             else:
-                reminder_type = CaseLogReminderType.OTHER  # 其他
+                reminder_type = CaseLogReminderType.OTHER
 
-            CaseLog.objects.filter(id=case_log_id).update(reminder_time=reminder_time, reminder_type=reminder_type)
+            case_log = ServiceLocator.get_case_service().get_case_log_model_internal(case_log_id)
+            if case_log is not None:
+                case_log.reminder_time = reminder_time
+                case_log.reminder_type = reminder_type
+                case_log.save(update_fields=["reminder_time", "reminder_type"])
 
             logger.debug(
                 "更新日志提醒成功",
@@ -402,7 +406,6 @@ class CaseBindingService:
         Requirements: 3.1, 3.2, 4.1, 4.2, 4.3, 4.4
         """
         from apps.automation.models import DocumentRecognitionTask
-        from apps.cases.models import Case, CaseLog
 
         logger.info(
             "开始手动绑定文书到案件",
@@ -474,8 +477,8 @@ class CaseBindingService:
 
         # 8. 更新任务状态（使用外键字段）
         try:
-            case_obj = Case.objects.get(id=case_id)
-            case_log_obj = CaseLog.objects.get(id=case_log_id)
+            case_obj = self.case_service.get_case_model_internal(case_id)
+            case_log_obj = self.case_service.get_case_log_model_internal(case_log_id)
 
             task.case = case_obj
             task.case_log = case_log_obj

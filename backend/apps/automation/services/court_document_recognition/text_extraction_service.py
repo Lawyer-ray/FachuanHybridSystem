@@ -286,8 +286,7 @@ class TextExtractionService:
             logger.error(f"图片 OCR 提取异常: {e}")
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
 
-    @staticmethod
-    def is_supported_format(file_path: str) -> bool:
+    def is_supported_format(self, file_path: str) -> bool:
         """
         检查文件格式是否支持
 
@@ -304,8 +303,7 @@ class TextExtractionService:
         ext = Path(file_path).suffix.lower()
         return ext in SUPPORTED_EXTENSIONS
 
-    @staticmethod
-    def get_supported_extensions() -> tuple[str, ...]:
+    def get_supported_extensions(self) -> tuple[str, ...]:
         """
         获取支持的文件扩展名列表
 
@@ -322,4 +320,4 @@ def get_supported_extensions() -> tuple[str, ...]:
 
 def is_supported_format(file_path: str) -> bool:
     """模块级函数：检查文件格式是否支持"""
-    return TextExtractionService.is_supported_format(file_path)
+    return TextExtractionService().is_supported_format(file_path)

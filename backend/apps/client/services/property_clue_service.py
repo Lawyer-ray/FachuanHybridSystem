@@ -372,8 +372,7 @@ class PropertyClueService:
             },
         )
 
-    @staticmethod
-    def get_content_template(clue_type: str) -> str:
+    def get_content_template(self, clue_type: str) -> str:
         """
         获取指定线索类型的内容模板
 

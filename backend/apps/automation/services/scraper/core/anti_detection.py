@@ -22,13 +22,11 @@ class AntiDetection:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     ]
 
-    @staticmethod
-    def get_random_user_agent() -> str:
+    def get_random_user_agent(self) -> str:
         """获取随机 User-Agent"""
         return random.choice(AntiDetection.USER_AGENTS)
 
-    @staticmethod
-    def get_browser_context_options() -> dict[str, Any]:
+    def get_browser_context_options(self) -> dict[str, Any]:
         """
         获取浏览器上下文配置（反检测）
 
@@ -37,7 +35,7 @@ class AntiDetection:
         """
         return {
             "viewport": {"width": 1920, "height": 1080},
-            "user_agent": AntiDetection.get_random_user_agent(),
+            "user_agent": self.get_random_user_agent(),
             "locale": "zh-CN",
             "timezone_id": "Asia/Shanghai",
             # 伪装地理位置
@@ -50,8 +48,7 @@ class AntiDetection:
             },
         }
 
-    @staticmethod
-    def inject_stealth_script(page: Any) -> None:
+    def inject_stealth_script(self, page: Any) -> None:
         """
         注入反检测脚本
 
@@ -90,8 +87,7 @@ class AntiDetection:
         """
         )
 
-    @staticmethod
-    def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> None:
+    def random_delay(self, min_seconds: float = 0.5, max_seconds: float = 2.0) -> None:
         """
         随机延迟（模拟人类操作）
 
@@ -102,8 +98,7 @@ class AntiDetection:
         delay = random.uniform(min_seconds, max_seconds)
         time.sleep(delay)
 
-    @staticmethod
-    def human_like_typing(page: Any, selector: str, text: str, delay_range: tuple[float, float] = (0.05, 0.15)) -> None:
+    def human_like_typing(self, page: Any, selector: str, text: str, delay_range: tuple[float, float] = (0.05, 0.15)) -> None:
         """
         模拟人类打字
 
@@ -118,8 +113,7 @@ class AntiDetection:
             page.keyboard.type(char)
             time.sleep(random.uniform(*delay_range))
 
-    @staticmethod
-    def random_mouse_move(page: Any) -> None:
+    def random_mouse_move(self, page: Any) -> None:
         """
         随机鼠标移动（增加真实性）
 

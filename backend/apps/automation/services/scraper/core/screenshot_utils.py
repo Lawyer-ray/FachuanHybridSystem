@@ -15,8 +15,7 @@ logger = logging.getLogger("apps.automation")
 class ScreenshotUtils:
     """截图相关工具方法"""
 
-    @staticmethod
-    def collect_screenshots(limit: int = 5) -> list[str]:
+    def collect_screenshots(self, limit: int = 5) -> list[str]:
         """
         收集最新的截图
 
