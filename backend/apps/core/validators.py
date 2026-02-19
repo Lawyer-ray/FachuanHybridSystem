@@ -271,7 +271,7 @@ class Validators:
             size: int = getattr(uploaded_file, "size", 0) or 0
             if size > max_size_mb * 1024 * 1024:
                 raise ValidationException(
-                    f"文件大小超限",
+                    "文件大小超限",
                     errors={field_name: f"文件大小不能超过 {max_size_mb} MB"},
                 )
 
