@@ -488,11 +488,9 @@ class CaseChatService:
             service = CaseChatService()
             success = service.unbind_chat(chat_id=456)
             if success:
-                print("群聊绑定已解除")
+                logger.info("群聊绑定已解除")
         """
         logger.info(f"解除群聊绑定: chat_id={chat_id}")
-
-        # 验证参数
         if not chat_id or not isinstance(chat_id, int) or chat_id <= 0:
             raise ValidationException(
                 message="无效的群聊ID", code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID必须是正整数"}

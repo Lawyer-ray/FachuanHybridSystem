@@ -124,7 +124,7 @@ class CaseChatService:
                 case_id=123,
                 platform=ChatPlatform.FEISHU
             )
-            print(f"创建群聊成功: {chat.name}")
+            logger.info(f"创建群聊成功: {chat.name}")
         """
         logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
         case = self.repo.get_case(case_id=case_id)
@@ -262,7 +262,7 @@ class CaseChatService:
                 document_paths=["/path/to/document1.pd", "/path/to/document2.pdf"]
             )
             if result.success:
-                print("通知发送成功")
+            logger.info("通知发送成功")
         """
         logger.info(
             f"发送文书通知: case_id={case_id}, platform={platform.value},"
@@ -330,7 +330,7 @@ class CaseChatService:
             service = CaseChatService()
             success = service.unbind_chat(chat_id=456)
             if success:
-                print("群聊绑定已解除")
+                logger.info("群聊绑定已解除")
         """
         try:
             return self.repo.unbind_chat(chat_id=chat_id)
