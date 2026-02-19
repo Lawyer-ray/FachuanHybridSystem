@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -141,7 +141,7 @@ class FeeNoticeCheckService:
         logger.info(f"开始检查交费通知书: SMS ID={sms.id}, 文件数={len(document_paths)}")
 
         # 获取案件比对信息
-        case_info = self.comparison_service.get_case_info_for_comparison(sms.cast(int, case.id))  # type: ignore[name-defined, attr-defined]
+        case_info = self.comparison_service.get_case_info_for_comparison(cast(int, sms.case.id))
         result.case_name = case_info.case_name
         result.case_number = case_info.case_number
         result.cause_of_action = case_info.cause_of_action_name
@@ -158,7 +158,7 @@ class FeeNoticeCheckService:
 
         # 提取并比对每个文件
         for file_path in fee_notice_files:
-            check_item = self._check_single_file(file_path, sms.cast(int, case.id), case_info)  # type: ignore[name-defined, attr-defined]
+            check_item = self._check_single_file(file_path, cast(int, sms.case.id), case_info)
             if check_item:
                 result.items.append(check_item)
                 result.has_fee_notice = True

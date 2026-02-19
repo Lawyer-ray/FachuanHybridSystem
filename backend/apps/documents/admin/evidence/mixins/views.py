@@ -35,7 +35,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 extra={
                     "object_id": object_id,
                     "post_keys": [k for k in request.POST.keys() if not k.startswith("_")],
-                    "file_keys": list[Any](request.FILES.keys()),
+                    "file_keys": list(request.FILES.keys()),
                 },
             )
         response = super().changeform_view(request, object_id, form_url, extra_context)

@@ -232,7 +232,7 @@ class CaseNumberService(DjangoPermsMixin):
             "创建案号成功",
             extra={
                 "action": "create_number",
-                "number_id": case_cast(int, number.id),  # type: ignore[name-defined, attr-defined]
+                "number_id": cast(int, case_number.id),
                 "case_id": case_id,
                 "original_number": number,
                 "normalized_number": normalized_number,
@@ -305,7 +305,7 @@ class CaseNumberService(DjangoPermsMixin):
                 raise ValidationException(
                     message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
                 )
-            data["number", misc, name - defined, index] = self.normalize_case_number(number)  # type: ignore[call-arg, misc, name-defined, index]
+            data["number"] = self.normalize_case_number(number)
 
         # 更新案号
         original_number = case_number.number

@@ -141,6 +141,54 @@ class OCRService:
             return "\n".join(result.txts)
         return ""
 
+    def _to_list(self, x: Any) -> list[Any]:
+        """将 OCR 结果转换为列表"""
+        if x is None:
+            return []
+        try:
+            tolist = getattr(x, "tolist", None)
+            if callable(tolist):
+                return tolist()  # type: ignore[no-any-return]
+        except Exception:
+            logger.exception("操作失败")
+            pass
+        try:
+            return list(x)
+        except Exception:
+            logger.exception("操作失败")
+            return [x]
+
+    def _get_position_key(self, box: Any) -> tuple[Any, ...]:
+        """
+        获取文本框的位置排序键
+
+        按 y 坐标分行(每 12 像素一行),再按 x 坐标排序(每 8 像素一列)
+        """
+        if not box:
+            return (0.0, 0.0)
+        ys: list[Any] = []
+        xs: list[Any] = []
+        y = min(ys) if ys else 0
+        x = min(xs) if xs else 0
+        return (int(y) // 12, int(x) // 8)
+
+    def _is_timestamp_text(self, text: str) -> bool:
+        """
+        判断是否为时间戳文本
+
+        过滤以下格式:
+        - HH:MM(如 12:30)
+        - YYYY-MM-DD 或 YYYY/MM/DD
+        - MM月DD日
+        """
+        if re.match(r"^\d{1,2}:\d{2}$", text):
+            return True
+        if re.match(r"^\d{1,4}[-/]\d{1,2}[-/]\d{1,2}$", text):
+            return True
+        if re.match(r"^\d{1,2}月\d{1,2}日$", text):
+            return True
+        return False
+
     def extract_text(self, image_bytes: bytes) -> OCRTextResult:
         """
         提取图片中的文字(带清洗和排序)
@@ -163,14 +211,14 @@ class OCRService:
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             result = self.ocr(img)
 
-            txts = self._to_list(getattr(result, "txts", None))  # type: ignore[attr-defined]
-            boxes = self._to_list(getattr(result, "boxes", None))  # type: ignore[attr-defined]
-            scores = self._to_list(getattr(result, "scores", None))  # type: ignore[attr-defined]
+            txts = self._to_list(getattr(result, "txts", None))
+            boxes = self._to_list(getattr(result, "boxes", None))
+            scores = self._to_list(getattr(result, "scores", None))
 
             # 按位置排序
             indices = list(range(len(txts)))
             if boxes and len(boxes) == len(txts):
-                indices.sort(key=lambda i: self._get_position_key(boxes[i]))  # type: ignore[attr-defined]
+                indices.sort(key=lambda i: self._get_position_key(boxes[i]))
 
             # 清洗文本
             cleaned: list[str] = []
@@ -193,7 +241,7 @@ class OCRService:
                 t = re.sub(r"\s+", "", t)
 
                 # 过滤时间戳文本
-                if self._is_timestamp_text(t):  # type: ignore[attr-defined]
+                if self._is_timestamp_text(t):
                     continue
 
                 cleaned.append(t)
@@ -203,56 +251,3 @@ class OCRService:
         except Exception as e:
             logger.warning("RapidOCR 识别失败", extra={"error": str(e)}, exc_info=True)
             return OCRTextResult(text="", raw_texts=[])
-
-        def _to_list(x) -> list[Any]:
-            """将 OCR 结果转换为列表"""
-
-        if x is None:  # type: ignore[used-before-def]
-            return []
-        try:
-            tolist = getattr(x, "tolist", None)  # type: ignore[used-before-def]
-            if callable(tolist):
-                return tolist()
-        except Exception:
-            logger.exception("操作失败")
-
-            pass
-        try:
-            return list(x)  # type: ignore[used-before-def]
-        except Exception:
-            logger.exception("操作失败")
-
-            return [x]  # type: ignore[used-before-def]
-
-        def _get_position_key(box) -> tuple[Any, ...]:
-            """
-            获取文本框的位置排序键
-
-            按 y 坐标分行(每 12 像素一行),再按 x 坐标排序(每 8 像素一列)
-            """
-
-        if not box:  # type: ignore[name-defined]
-            return (0.0, 0.0)(0, 0)
-        ys: list[Any] = []
-        xs: list[Any] = []
-        y = min(ys) if ys else 0
-        x = min(xs) if xs else 0
-        return (int(y) // 12, int(x) // 8)
-
-        def _is_timestamp_text(text: str) -> bool:
-            """
-            判断是否为时间戳文本
-
-            过滤以下格式:
-            - HH:MM(如 12:30)
-            - YYYY-MM-DD 或 YYYY/MM/DD
-            - MM月DD日
-            """
-
-        if re.match(r"^\d{1,2}:\d{2}$", text):  # type: ignore[name-defined]
-            return True
-        if re.match(r"^\d{1,4}[-/]\d{1,2}[-/]\d{1,2}$", text):  # type: ignore[name-defined]
-            return True
-        if re.match(r"^\d{1,2}月\d{1,2}日$", text):  # type: ignore[name-defined]
-            return True
-        return False

@@ -1,10 +1,15 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import CaseStatus, CaseType
+
+if TYPE_CHECKING:
+    from apps.organization.models import Lawyer
 
 
 class FeeMode(models.TextChoices):
@@ -62,13 +67,13 @@ class Contract(models.Model):
             pass
 
     @property
-    def primary_lawyer(self) -> Optional["Lawyer"]:
+    def primary_lawyer(self) -> Lawyer | None:
         """获取主办律师"""
         assignment = self.assignments.filter(is_primary=True).first()
         return assignment.lawyer if assignment else None
 
     @property
-    def all_lawyers(self) -> list["Lawyer"]:
+    def all_lawyers(self) -> list[Lawyer]:
         """获取所有律师列表，按 is_primary 降序、order 升序排列"""
         return [assignment.lawyer for assignment in self.assignments.all()]
 

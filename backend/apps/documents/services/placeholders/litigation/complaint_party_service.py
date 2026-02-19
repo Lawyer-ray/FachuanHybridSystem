@@ -61,7 +61,8 @@ class ComplaintPartyService(BasePlaceholderService):
             if legal_status:
                 grouped_parties[legal_status].append(party)
 
-        # 按顺序处理:原告: list[Any] = []
+        # 按顺序处理
+        result_parts: list[Any] = []
 
         # 法律地位的中文映射
         legal_status_map = {LegalStatus.PLAINTIFF: "原告", LegalStatus.DEFENDANT: "被告", LegalStatus.THIRD: "第三人"}
@@ -85,11 +86,11 @@ class ComplaintPartyService(BasePlaceholderService):
                 else:
                     party_info = self.formatter.format_legal_entity_from_dict(role_label, party_dict)
 
-                result_parts.append(party_info)  # type: ignore[name-defined]
+                result_parts.append(party_info)
 
         # 用空行分隔各当事人
-        result = "\n\n".join(result_parts)  # type: ignore[name-defined]
+        result = "\n\n".join(result_parts)
 
-        logger.info(f"生成起诉状当事人信息成功: case_id={case_id}, 当事人数={len(result_parts)}")  # type: ignore[name-defined]
+        logger.info(f"生成起诉状当事人信息成功: case_id={case_id}, 当事人数={len(result_parts)}")
 
         return result

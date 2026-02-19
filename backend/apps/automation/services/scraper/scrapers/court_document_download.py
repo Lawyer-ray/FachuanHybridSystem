@@ -84,9 +84,9 @@ class CourtDocumentDownloadMixin(
             success, filepath, error = download_result
 
             document = self.document_service.create_document_from_api_data(
-                scraper_task_id=cast(int, self.cast(int, task.pk)),  # type: ignore[attr-defined, name-defined]
+                scraper_task_id=cast(int, self.task.pk),
                 api_data=document_data,
-                case_id=self.cast(int | None, self.cast(int, task.case_id)),  # type: ignore[name-defined, attr-defined]
+                case_id=cast(int | None, self.task.case_id),
             )
 
             if success:

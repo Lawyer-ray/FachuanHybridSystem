@@ -250,7 +250,7 @@ class BaseCourtDocumentScraper(BaseScraper):
 
             # 先创建文书记录
             task_id_value = cast(int, self.task.id)  # type: ignore[redundant-cast]
-            task_case_id = cast(int | None, self.cast(int, task.case_id)) if self.task.case else None  # type: ignore[name-defined, attr-defined]
+            task_case_id = cast(int | None, self.task.case_id) if self.task.case else None
             document = self.document_service.create_document_from_api_data(
                 scraper_task_id=task_id_value, api_data=document_data, case_id=task_case_id
             )

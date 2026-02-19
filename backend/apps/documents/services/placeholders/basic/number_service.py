@@ -66,9 +66,9 @@ class NumberPlaceholderService(BasePlaceholderService):
 
             decimal_part = decimal_part.ljust(2, "0")[:2]
 
-            result = self._convert_integer_part(integer_part)  # type: ignore
+            result = self._convert_integer_part(integer_part)
             result += "元"
-            result += self._convert_decimal_part(decimal_part)  # type: ignore
+            result += self._convert_decimal_part(decimal_part)
 
             return cast(str, result)
 
@@ -76,32 +76,29 @@ class NumberPlaceholderService(BasePlaceholderService):
             logger.warning(f"数字转换失败: {e}", extra={"amount": amount})
             return "零"
 
-        def _convert_integer_part(integer_part: str) -> str:
-            chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
-
+    def _convert_integer_part(self, integer_part: str) -> str:
+        chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
         chinese_units = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿"]
-
         integer_part = integer_part.zfill(9)
         result = ""
         for i, digit in enumerate(integer_part):
             digit_int = int(digit)
             if digit_int != 0:
-                result += chinese_nums[digit_int] + chinese_units[8 - i]  # type: ignore[name-defined]
+                result += chinese_nums[digit_int] + chinese_units[8 - i]
             elif result and not result.endswith("零"):
                 result += "零"
         result = result.rstrip("零")
         return result or "零"
 
-        def _convert_decimal_part(decimal_part: str) -> str:
-            chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
-
+    def _convert_decimal_part(self, decimal_part: str) -> str:
+        chinese_nums = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
         jiao = int(decimal_part[0])
         fen = int(decimal_part[1])
         if jiao == 0 and fen == 0:
             return "整"
         result = ""
         if jiao != 0:
-            result += chinese_nums[jiao] + "角"  # type: ignore[name-defined]
+            result += chinese_nums[jiao] + "角"
         if fen != 0:
-            result += chinese_nums[fen] + "分"  # type: ignore[name-defined]
+            result += chinese_nums[fen] + "分"
         return result

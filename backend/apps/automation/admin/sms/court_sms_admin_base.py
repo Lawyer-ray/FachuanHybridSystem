@@ -180,7 +180,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def case_display(self, obj) -> None:
         """案件显示"""
         if obj.case:
-            url = reverse("admin:cases_case_change", args=[obj.cast(int, case.id)])
+            url = reverse("admin:cases_case_change", args=[cast(int, obj.case.id)])
             return format_html(
                 '<a href="{}" target="_blank">{}</a>',
                 url,
@@ -240,11 +240,11 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def scraper_task_link(self, obj) -> None:
         """爬虫任务链接"""
         if obj.scraper_task:
-            url = reverse("admin:automation_scrapertask_change", args=[obj.cast(int, scraper_task.id)])
+            url = reverse("admin:automation_scrapertask_change", args=[cast(int, obj.scraper_task.id)])
             return format_html(
                 '<a href="{}" target="_blank">任务 #{} - {}</a>',
                 url,
-                obj.cast(int, scraper_task.id),
+                cast(int, obj.scraper_task.id),
                 obj.scraper_task.get_status_display(),
             )
         return "-"
@@ -254,8 +254,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def case_log_link(self, obj) -> None:
         """案件日志链接"""
         if obj.case_log:
-            url = reverse("admin:cases_caselog_change", args=[obj.cast(int, case_log.id)])
-            return format_html('<a href="{}" target="_blank">日志 #{}</a>', url, obj.cast(int, case_log.id))
+            url = reverse("admin:cases_caselog_change", args=[cast(int, obj.case_log.id)])
+            return format_html('<a href="{}" target="_blank">日志 #{}</a>', url, cast(int, obj.case_log.id))
         return "-"
 
     case_log_link.short_description = "案件日志"
