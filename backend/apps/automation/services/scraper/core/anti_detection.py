@@ -98,7 +98,13 @@ class AntiDetection:
         delay = random.uniform(min_seconds, max_seconds)
         time.sleep(delay)
 
-    def human_like_typing(self, page: Any, selector: str, text: str, delay_range: tuple[float, float] = (0.05, 0.15)) -> None:
+    def human_like_typing(
+        self,
+        page: Any,
+        selector: str,
+        text: str,
+        delay_range: tuple[float, float] = (0.05, 0.15),
+    ) -> None:
         """
         模拟人类打字
 

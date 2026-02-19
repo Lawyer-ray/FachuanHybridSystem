@@ -30,13 +30,22 @@ class ZxfwInterceptMixin:
                     response_time = (time.time() - start_time) * 1000
                     logger.info(
                         "成功拦截 API 响应",
-                        extra={"operation_type": "api_intercept", "timestamp": time.time(),
-                               "document_count": document_count, "response_time_ms": response_time, "api_url": api_url},
+                        extra={
+                            "operation_type": "api_intercept",
+                            "timestamp": time.time(),
+                            "document_count": document_count,
+                            "response_time_ms": response_time,
+                            "api_url": api_url,
+                        },
                     )
                 except Exception as e:
                     logger.error(
                         f"解析 API 响应失败: {e}",
-                        extra={"operation_type": "api_intercept_parse_error", "timestamp": time.time(), "error": str(e)},
+                        extra={
+                            "operation_type": "api_intercept_parse_error",
+                            "timestamp": time.time(),
+                            "error": str(e),
+                        },
                         exc_info=True,
                     )
 
@@ -60,8 +69,13 @@ class ZxfwInterceptMixin:
                 if intercepted_data is None:
                     logger.warning(
                         "API 拦截超时",
-                        extra={"operation_type": "api_intercept_timeout", "timestamp": time.time(),
-                               "timeout_ms": timeout, "elapsed_ms": elapsed * 1000, "api_url": api_url},
+                        extra={
+                            "operation_type": "api_intercept_timeout",
+                            "timestamp": time.time(),
+                            "timeout_ms": timeout,
+                            "elapsed_ms": elapsed * 1000,
+                            "api_url": api_url,
+                        },
                     )
         except Exception as e:
             logger.error(
@@ -99,7 +113,11 @@ class ZxfwInterceptMixin:
             raise ValueError("API 响应中没有文书数据")
         logger.info(
             f"成功获取文书列表,共 {len(documents)} 个文书",
-            extra={"operation_type": "api_intercept_parse_success", "timestamp": time.time(), "document_count": len(documents)},
+            extra={
+                "operation_type": "api_intercept_parse_success",
+                "timestamp": time.time(),
+                "document_count": len(documents),
+            },
         )
         downloaded_files: list[str] = []
         documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]] = []
@@ -121,15 +139,22 @@ class ZxfwInterceptMixin:
             if i < len(documents):
                 import random
                 import time as _time
+
                 delay = random.uniform(1, 2)
                 logger.info(f"等待 {delay:.2f} 秒后继续下载下一个文书")
                 _time.sleep(delay)
         db_save_result = self._save_documents_batch(documents_with_results)
         logger.info(
             "文书下载完成",
-            extra={"operation_type": "download_summary", "timestamp": time.time(),
-                   "total_count": len(documents), "success_count": success_count, "failed_count": failed_count,
-                   "db_saved_count": db_save_result.get("success", 0), "db_failed_count": db_save_result.get("failed", 0)},
+            extra={
+                "operation_type": "download_summary",
+                "timestamp": time.time(),
+                "total_count": len(documents),
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "db_saved_count": db_save_result.get("success", 0),
+                "db_failed_count": db_save_result.get("failed", 0),
+            },
         )
         return {
             "source": "zxfw.court.gov.cn",

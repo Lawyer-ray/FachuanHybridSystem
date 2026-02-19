@@ -5,8 +5,8 @@ import logging
 import os
 from typing import Any
 
-from .exceptions import ConfigException, ConfigValidationError
 from ._migration_models import MigrationLog
+from .exceptions import ConfigException, ConfigValidationError
 
 logger = logging.getLogger("apps.core")
 
@@ -26,7 +26,17 @@ class ConfigMigratorSchemaMixin:
     def _track_config_change(self, migration_id: str, key: str, old_value: Any, new_value: Any) -> None: ...
 
     def _is_sensitive_config_key(self, key: str) -> bool:
-        sensitive_keywords = ["SECRET", "KEY", "PASSWORD", "TOKEN", "CREDENTIAL", "PRIVATE", "AUTH", "API_KEY", "ACCESS_KEY"]
+        sensitive_keywords = [
+            "SECRET",
+            "KEY",
+            "PASSWORD",
+            "TOKEN",
+            "CREDENTIAL",
+            "PRIVATE",
+            "AUTH",
+            "API_KEY",
+            "ACCESS_KEY",
+        ]
         return any(kw in key.upper() for kw in sensitive_keywords)
 
     def _backup_current_config(self) -> None:
@@ -65,6 +75,7 @@ class ConfigMigratorSchemaMixin:
 
     def _create_config_schema(self) -> None:
         from .schema.schema import ConfigSchema
+
         schema = ConfigSchema()
         self._register_django_core_fields(schema)
         self._register_service_fields(schema)
@@ -73,26 +84,144 @@ class ConfigMigratorSchemaMixin:
 
     def _register_django_core_fields(self, schema: Any) -> None:
         from .schema.field import ConfigField
-        schema.register(ConfigField(name="django.secret_key", type=str, required=True, sensitive=True, description="Django 密钥", env_var="DJANGO_SECRET_KEY"))
-        schema.register(ConfigField(name="django.debug", type=bool, default=False, description="调试模式", env_var="DJANGO_DEBUG"))
-        schema.register(ConfigField(name="django.allowed_hosts", type=list, default=["localhost"], description="允许的主机列表", env_var="DJANGO_ALLOWED_HOSTS"))
-        schema.register(ConfigField(name="database.engine", type=str, default="django.db.backends.sqlite3", description="数据库引擎"))
-        schema.register(ConfigField(name="database.name", type=str, required=True, description="数据库名称", env_var="DB_NAME"))
+
+        schema.register(
+            ConfigField(
+                name="django.secret_key",
+                type=str,
+                required=True,
+                sensitive=True,
+                description="Django 密钥",
+                env_var="DJANGO_SECRET_KEY",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="django.debug",
+                type=bool,
+                default=False,
+                description="调试模式",
+                env_var="DJANGO_DEBUG",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="django.allowed_hosts",
+                type=list,
+                default=["localhost"],
+                description="允许的主机列表",
+                env_var="DJANGO_ALLOWED_HOSTS",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="database.engine",
+                type=str,
+                default="django.db.backends.sqlite3",
+                description="数据库引擎",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="database.name",
+                type=str,
+                required=True,
+                description="数据库名称",
+                env_var="DB_NAME",
+            )
+        )
 
     def _register_service_fields(self, schema: Any) -> None:
         from .schema.field import ConfigField
-        schema.register(ConfigField(name="services.moonshot.base_url", type=str, default="https://api.moonshot.cn/v1", description="Moonshot API 基础URL", env_var="MOONSHOT_BASE_URL"))
-        schema.register(ConfigField(name="services.moonshot.api_key", type=str, required=True, sensitive=True, description="Moonshot API 密钥", env_var="MOONSHOT_API_KEY"))
-        schema.register(ConfigField(name="services.ollama.model", type=str, default="qwen2.5:7b", description="Ollama 模型名称", env_var="OLLAMA_MODEL"))
-        schema.register(ConfigField(name="services.ollama.base_url", type=str, default="http://localhost:11434", description="Ollama 基础URL", env_var="OLLAMA_BASE_URL"))
+
+        schema.register(
+            ConfigField(
+                name="services.moonshot.base_url",
+                type=str,
+                default="https://api.moonshot.cn/v1",
+                description="Moonshot API 基础URL",
+                env_var="MOONSHOT_BASE_URL",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="services.moonshot.api_key",
+                type=str,
+                required=True,
+                sensitive=True,
+                description="Moonshot API 密钥",
+                env_var="MOONSHOT_API_KEY",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="services.ollama.model",
+                type=str,
+                default="qwen2.5:7b",
+                description="Ollama 模型名称",
+                env_var="OLLAMA_MODEL",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="services.ollama.base_url",
+                type=str,
+                default="http://localhost:11434",
+                description="Ollama 基础URL",
+                env_var="OLLAMA_BASE_URL",
+            )
+        )
 
     def _register_business_fields(self, schema: Any) -> None:
         from .schema.field import ConfigField
-        schema.register(ConfigField(name="chat_platforms.feishu.app_id", type=str, required=True, sensitive=True, description="飞书应用ID", env_var="FEISHU_APP_ID"))
-        schema.register(ConfigField(name="chat_platforms.feishu.app_secret", type=str, required=True, sensitive=True, description="飞书应用密钥", env_var="FEISHU_APP_SECRET"))
-        schema.register(ConfigField(name="chat_platforms.feishu.timeout", type=int, default=30, min_value=1, max_value=300, description="飞书API超时时间(秒)", env_var="FEISHU_TIMEOUT"))
-        schema.register(ConfigField(name="features.case_chat.default_platform", type=str, default="feishu", description="默认群聊平台"))
-        schema.register(ConfigField(name="features.case_chat.auto_create_on_push", type=bool, default=True, description="推送时自动创建群聊"))
+
+        schema.register(
+            ConfigField(
+                name="chat_platforms.feishu.app_id",
+                type=str,
+                required=True,
+                sensitive=True,
+                description="飞书应用ID",
+                env_var="FEISHU_APP_ID",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="chat_platforms.feishu.app_secret",
+                type=str,
+                required=True,
+                sensitive=True,
+                description="飞书应用密钥",
+                env_var="FEISHU_APP_SECRET",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="chat_platforms.feishu.timeout",
+                type=int,
+                default=30,
+                min_value=1,
+                max_value=300,
+                description="飞书API超时时间(秒)",
+                env_var="FEISHU_TIMEOUT",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="features.case_chat.default_platform",
+                type=str,
+                default="feishu",
+                description="默认群聊平台",
+            )
+        )
+        schema.register(
+            ConfigField(
+                name="features.case_chat.auto_create_on_push",
+                type=bool,
+                default=True,
+                description="推送时自动创建群聊",
+            )
+        )
 
     def _migrate_core_configs(self) -> None:
         if self._current_migration is None:
@@ -150,12 +279,20 @@ class ConfigMigratorSchemaMixin:
         if "OLLAMA" in django_configs:
             ollama_config = django_configs["OLLAMA"]
             if isinstance(ollama_config, dict):
-                for ollama_key, config_key in [("MODEL", "services.ollama.model"), ("BASE_URL", "services.ollama.base_url")]:
+                for ollama_key, config_key in [
+                    ("MODEL", "services.ollama.model"),
+                    ("BASE_URL", "services.ollama.base_url"),
+                ]:
                     if ollama_key in ollama_config:
                         old_value = self.config_manager.get(config_key) if self.config_manager.has(config_key) else None
                         new_value = ollama_config[ollama_key]
                         self.config_manager.set(config_key, new_value)
-                        self._track_config_change(self._current_migration.migration_id, config_key, old_value, new_value)
+                        self._track_config_change(
+                            self._current_migration.migration_id,
+                            config_key,
+                            old_value,
+                            new_value,
+                        )
                 migrated_count += 1
         self._current_migration.migrated_configs += migrated_count
 

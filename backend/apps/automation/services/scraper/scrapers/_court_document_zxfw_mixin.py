@@ -83,7 +83,10 @@ class CourtDocumentZxfwMixin:
                     time.sleep(0.5)
                     elapsed += 0.5
                 if intercepted_data is None:
-                    logger.warning("API 拦截超时", extra={"operation_type": "api_intercept_timeout", "timeout_ms": timeout})
+                    logger.warning(
+                        "API 拦截超时",
+                        extra={"operation_type": "api_intercept_timeout", "timeout_ms": timeout},
+                    )
         except Exception as e:
             logger.error(f"API 拦截过程出错: {e}", exc_info=True)
         finally:
@@ -156,7 +159,14 @@ class CourtDocumentZxfwMixin:
             file_extension = document_data.get("c_wjgs", "pdf")
             filename = f"{filename_base}.{file_extension}"
             filepath = download_dir / filename
-            logger.info("开始直接下载文书", extra={"operation_type": "download_document_direct_start", "url": url, "file_name": filename})
+            logger.info(
+                "开始直接下载文书",
+                extra={
+                    "operation_type": "download_document_direct_start",
+                    "url": url,
+                    "file_name": filename,
+                },
+            )
             try:
                 timeout_seconds = download_timeout / 1000.0
                 with httpx.Client(timeout=timeout_seconds, follow_redirects=True) as client:
@@ -179,7 +189,11 @@ class CourtDocumentZxfwMixin:
                 return True, str(filepath), None
             except Exception as e:
                 error_msg = f"下载失败: {e!s}"
-                logger.error(error_msg, extra={"operation_type": "download_document_direct_failed", "url": url}, exc_info=True)
+                logger.error(
+                    error_msg,
+                    extra={"operation_type": "download_document_direct_failed", "url": url},
+                    exc_info=True,
+                )
                 return False, None, error_msg
         except Exception as e:
             error_msg = f"处理下载请求失败: {e!s}"
@@ -222,7 +236,10 @@ class CourtDocumentZxfwMixin:
             response.raise_for_status()
             api_data = response.json()
             response_time = (time.time() - start_time) * 1000
-            logger.info("API 响应成功", extra={"operation_type": "direct_api_response", "response_time_ms": response_time})
+            logger.info(
+                "API 响应成功",
+                extra={"operation_type": "direct_api_response", "response_time_ms": response_time},
+            )
         if not isinstance(api_data, dict) or api_data.get("code") != 200:
             raise ValueError(f"API 响应错误: code={api_data.get('code')}, msg={api_data.get('msg')}")
         documents = api_data.get("data", [])
@@ -463,7 +480,10 @@ class CourtDocumentZxfwMixin:
             result = self._download_via_fallback(download_dir)
             result["method"] = "fallback"
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
-            result["api_intercept_error"] = {"type": type(api_intercept_error).__name__, "message": str(api_intercept_error)}
+            result["api_intercept_error"] = {
+                "type": type(api_intercept_error).__name__,
+                "message": str(api_intercept_error),
+            }
             logger.info("回退机制执行成功", extra={"operation_type": "fallback_success"})
             return result
         except Exception as fallback_error:
@@ -478,6 +498,7 @@ class CourtDocumentZxfwMixin:
                 exc_info=True,
             )
             from apps.core.exceptions import ExternalServiceError
+
             raise ExternalServiceError(
                 message="所有下载方式均失败",
                 code="DOWNLOAD_ALL_METHODS_FAILED",
