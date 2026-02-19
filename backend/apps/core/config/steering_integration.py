@@ -19,9 +19,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from .manager import ConfigChangeListener, ConfigManager
+from .steering.performance_monitor import SteeringPerformanceMonitor
 from .steering_cache_strategies import CacheStrategy, SteeringCacheStrategyManager
 from .steering_dependency_manager import SteeringDependencyManager
-from .steering_performance_monitor import SteeringPerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
