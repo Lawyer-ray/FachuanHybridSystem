@@ -170,14 +170,13 @@ class BrowserConfig:
             errors.append("user_agent 不能为空")
 
         # 验证截图目录（如果启用了截图保存）
-        if self.save_screenshots and self.screenshot_dir is not None:
-            if not self.screenshot_dir.exists():
-                # 尝试创建目录
-                try:
-                    self.screenshot_dir.mkdir(parents=True, exist_ok=True)
-                    logger.info(f"创建截图目录: {self.screenshot_dir}")
-                except OSError as e:
-                    errors.append(f"无法创建截图目录 {self.screenshot_dir}: {e}")
+        if self.save_screenshots and self.screenshot_dir is not None and not self.screenshot_dir.exists():
+            # 尝试创建目录
+            try:
+                self.screenshot_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"创建截图目录: {self.screenshot_dir}")
+            except OSError as e:
+                errors.append(f"无法创建截图目录 {self.screenshot_dir}: {e}")
 
         if errors:
             error_msg = "配置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)

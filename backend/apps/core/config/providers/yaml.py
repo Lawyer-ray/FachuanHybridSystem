@@ -12,7 +12,7 @@ from typing import Any
 
 import yaml
 
-from ..exceptions import ConfigException, ConfigFileError
+from apps.core.config.exceptions import ConfigException, ConfigFileError
 from .base import ConfigProvider
 
 

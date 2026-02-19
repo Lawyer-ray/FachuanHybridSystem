@@ -17,7 +17,7 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
+from apps.cases.schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
 
 router = Router()
 
@@ -29,7 +29,7 @@ def _get_case_access_service() -> Any:
     Returns:
         CaseAccessService 实例
     """
-    from ..services.case_access_service import CaseAccessService
+    from apps.cases.services.case_access_service import CaseAccessService
 
     return CaseAccessService()
 

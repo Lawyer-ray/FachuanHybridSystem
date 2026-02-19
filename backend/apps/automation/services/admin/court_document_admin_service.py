@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 
-from ...models import CourtDocument, DocumentDownloadStatus, ScraperTask
+from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 
 
 class CourtDocumentAdminService:
@@ -355,7 +355,7 @@ class CourtDocumentAdminService:
                 return {"orphaned_files": 0, "deleted_files": 0, "message": "文档目录不存在"}
 
             orphaned_files = []
-            for root, dirs, files in os.walk(documents_dir):
+            for root, _dirs, files in os.walk(documents_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
                     relative_path = os.path.relpath(file_path, media_root)

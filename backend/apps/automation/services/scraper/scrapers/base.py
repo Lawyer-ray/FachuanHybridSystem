@@ -8,10 +8,10 @@ from typing import Any
 
 from playwright.sync_api import BrowserContext, Page
 
-from ....models import ScraperTask, ScraperTaskStatus
+from apps.automation.models import ScraperTask, ScraperTaskStatus
 
 # 所有服务通过 ServiceLocator 获取
-from ..core.anti_detection import anti_detection
+from apps.automation.services.scraper.core.anti_detection import anti_detection
 
 logger = logging.getLogger("apps.automation")
 

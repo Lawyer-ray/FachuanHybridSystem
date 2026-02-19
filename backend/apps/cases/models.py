@@ -1,3 +1,5 @@
+from typing import Any, ClassVar
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -78,7 +80,7 @@ class Case(models.Model):
     class Meta:
         verbose_name = _("案件")
         verbose_name_plural = _("案件")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["contract"]),
             models.Index(fields=["is_archived"]),
             models.Index(fields=["start_date"]),
@@ -112,7 +114,7 @@ class CaseNumber(models.Model):
     class Meta:
         verbose_name = _("案件案号")
         verbose_name_plural = _("案件案号")
-        ordering = ["created_at"]
+        ordering: ClassVar[list[str]] = ["created_at"]
 
     def __str__(self):
         return f"{self.number}"
@@ -149,8 +151,8 @@ class SupervisingAuthority(models.Model):
     class Meta:
         verbose_name = _("主管机关")
         verbose_name_plural = _("主管机关")
-        ordering = ["created_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["created_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["case"]),
             models.Index(fields=["authority_type"]),
         ]
@@ -248,7 +250,7 @@ class CaseLog(models.Model):
     class Meta:
         verbose_name = _("案件日志")
         verbose_name_plural = _("案件日志")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["reminder_time"]),
             models.Index(fields=["actor"]),
@@ -320,8 +322,8 @@ class CaseChat(models.Model):
     class Meta:
         verbose_name = _("案件群聊")
         verbose_name_plural = _("案件群聊")
-        unique_together = [["case", "platform", "chat_id"]]
-        indexes = [
+        unique_together: ClassVar[list[list[str]]] = [["case", "platform", "chat_id"]]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["case", "platform"]),
             models.Index(fields=["chat_id"]),
             models.Index(fields=["is_active"]),
@@ -426,7 +428,7 @@ class ChatAuditLog(models.Model):
     """群聊审计日志"""
 
     # 操作类型选择
-    ACTION_CHOICES = [
+    ACTION_CHOICES: ClassVar[list[tuple[str, Any]]] = [
         ("CREATE_START", _("开始创建")),
         ("CREATE_SUCCESS", _("创建成功")),
         ("CREATE_FAILED", _("创建失败")),
@@ -490,8 +492,8 @@ class ChatAuditLog(models.Model):
     class Meta:
         verbose_name = _("群聊审计日志")
         verbose_name_plural = _("群聊审计日志")
-        ordering = ["-timestamp"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-timestamp"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["chat", "-timestamp"]),
             models.Index(fields=["case", "-timestamp"]),
             models.Index(fields=["action", "-timestamp"]),

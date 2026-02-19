@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, ServiceLocator
 
-from ..models import Case, CaseAssignment
+from apps.cases.models import Case, CaseAssignment
 
 logger = logging.getLogger("apps.cases")
 
@@ -256,17 +256,16 @@ class CaseAssignmentService:
         new_case_id = data.get("case_id", assignment.case_id)
         new_lawyer_id = data.get("lawyer_id", assignment.lawyer_id)
 
-        if new_case_id != assignment.case_id or new_lawyer_id != assignment.lawyer_id:
-            if (
-                CaseAssignment.objects.filter(case_id=new_case_id, lawyer_id=new_lawyer_id)
-                .exclude(id=assignment_id)
-                .exists()
-            ):
-                raise ConflictError(
-                    message="指派已存在",
-                    code="ASSIGNMENT_ALREADY_EXISTS",
-                    errors={"assignment": f"案件 {new_case_id} 已指派给律师 {new_lawyer_id}"},
-                )
+        if (new_case_id != assignment.case_id or new_lawyer_id != assignment.lawyer_id) and (
+            CaseAssignment.objects.filter(case_id=new_case_id, lawyer_id=new_lawyer_id)
+            .exclude(id=assignment_id)
+            .exists()
+        ):
+            raise ConflictError(
+                message="指派已存在",
+                code="ASSIGNMENT_ALREADY_EXISTS",
+                errors={"assignment": f"案件 {new_case_id} 已指派给律师 {new_lawyer_id}"},
+            )
 
         # 更新指派
         for key, value in data.items():

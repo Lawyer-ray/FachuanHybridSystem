@@ -23,7 +23,7 @@ class CasePartyInline(BaseTabularInline):
     extra = 1
     fields = ("client", "legal_status", "is_our_client_display")
     readonly_fields = ("is_our_client_display",)
-    classes = ["contract-party-inline"]  # noqa: RUF012
+    classes = ["contract-party-inline"]
 
     class UniqueClientInlineFormSet(BaseInlineFormSet):
         def clean(self) -> None:
@@ -165,7 +165,7 @@ class SupervisingAuthorityInline(BaseTabularInline):
     fields = ("name", "authority_type")
 
 
-def _make_custom_formset(base_formset: type) -> type:  # noqa: C901
+def _make_custom_formset(base_formset: type) -> type:
     """创建自定义 FormSet 类,用于 CaseLogAttachmentInline"""
 
     class CustomFormSet(base_formset):

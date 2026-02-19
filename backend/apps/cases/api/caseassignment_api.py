@@ -11,14 +11,14 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CaseAssignmentIn, CaseAssignmentOut, CaseAssignmentUpdate
+from apps.cases.schemas import CaseAssignmentIn, CaseAssignmentOut, CaseAssignmentUpdate
 
 router = Router()
 
 
 def _get_case_assignment_service() -> Any:
     """工厂函数：创建 CaseAssignmentService 实例"""
-    from ..services.case_assignment_service import CaseAssignmentService
+    from apps.cases.services.case_assignment_service import CaseAssignmentService
 
     return CaseAssignmentService()
 

@@ -1,6 +1,7 @@
 """
 爬虫核心服务
 """
+
 from .browser_service import BrowserService
 from .anti_detection import anti_detection, AntiDetection
 from .captcha_service import CaptchaService
@@ -18,19 +19,19 @@ from .exceptions import (
 )
 
 __all__ = [
-    'BrowserService',
-    'anti_detection',
-    'AntiDetection',
-    'CaptchaService',
-    'CaptchaRecognizer',
-    'DdddocrRecognizer',
-    'SecurityService',
-    'ValidatorService',
-    'MonitorService',
-    'ScreenshotUtils',
-    'ScraperException',
-    'BrowserCreationError',
-    'BrowserConfigurationError',
-    'CaptchaRecognitionError',
-    'LoginError',
+    "BrowserService",
+    "anti_detection",
+    "AntiDetection",
+    "CaptchaService",
+    "CaptchaRecognizer",
+    "DdddocrRecognizer",
+    "SecurityService",
+    "ValidatorService",
+    "MonitorService",
+    "ScreenshotUtils",
+    "ScraperException",
+    "BrowserCreationError",
+    "BrowserConfigurationError",
+    "CaptchaRecognitionError",
+    "LoginError",
 ]

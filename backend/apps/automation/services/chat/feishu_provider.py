@@ -18,7 +18,7 @@ API文档参考：
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import httpx
 from django.conf import settings
@@ -59,7 +59,7 @@ class FeishuChatProvider(ChatProvider):
     BASE_URL = "https://open.feishu.cn/open-apis"
 
     # API端点
-    ENDPOINTS = {
+    ENDPOINTS: ClassVar[dict[str, str]] = {
         # 使用内部应用获取 tenant_access_token 的端点
         "tenant_access_token": "/auth/v3/tenant_access_token/internal",
         "create_chat": "/im/v1/chats",

@@ -8,14 +8,14 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from ..schemas import (
+from apps.client.schemas import (
     ContentTemplateOut,
     PropertyClueAttachmentOut,
     PropertyClueIn,
     PropertyClueOut,
     PropertyClueUpdateIn,
 )
-from ..services.property_clue_service import PropertyClueService
+from apps.client.services.property_clue_service import PropertyClueService
 
 router = Router(tags=["PropertyClue"])
 

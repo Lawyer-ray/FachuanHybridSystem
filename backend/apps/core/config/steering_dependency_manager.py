@@ -210,9 +210,8 @@ class DependencyGraph:
                 dependencies = self.get_dependencies(node, [DependencyType.INHERITS, DependencyType.REQUIRES])
 
                 for dep in dependencies:
-                    if dep.target_spec in self.nodes:
-                        if dfs(dep.target_spec, path + [node]):
-                            return True
+                    if dep.target_spec in self.nodes and dfs(dep.target_spec, path + [node]):
+                        return True
 
                 rec_stack.remove(node)
                 return False

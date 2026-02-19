@@ -37,23 +37,23 @@ from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionT
 
 __all__ = [
     # 文档处理
-    'DocumentProcessorAdmin',
+    "DocumentProcessorAdmin",
     # 爬虫
-    'ScraperTaskAdmin',
-    'QuickDownloadAdmin',
-    'CourtDocumentAdmin',
-    'TestCourtAdmin',
+    "ScraperTaskAdmin",
+    "QuickDownloadAdmin",
+    "CourtDocumentAdmin",
+    "TestCourtAdmin",
     # Token 管理
-    'CourtTokenAdmin',
-    'TokenAcquisitionHistoryAdmin',
+    "CourtTokenAdmin",
+    "TokenAcquisitionHistoryAdmin",
     # 财产保全询价
-    'PreservationQuoteAdmin',
+    "PreservationQuoteAdmin",
     # 法院短信
-    'CourtSMSAdmin',
+    "CourtSMSAdmin",
     # 文书送达
-    'DocumentDeliveryScheduleAdmin',
-    'DocumentQueryHistoryAdmin',
+    "DocumentDeliveryScheduleAdmin",
+    "DocumentQueryHistoryAdmin",
     # 文书识别
-    'DocumentRecognitionAdmin',
-    'DocumentRecognitionTaskAdmin',
+    "DocumentRecognitionAdmin",
+    "DocumentRecognitionTaskAdmin",
 ]

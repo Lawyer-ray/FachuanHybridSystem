@@ -8,8 +8,8 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from ..schemas import AutoToolProcessIn, AutoToolProcessOut
-from ..services.ai.prompts import DEFAULT_FILENAME_PROMPT
+from apps.automation.schemas import AutoToolProcessIn, AutoToolProcessOut
+from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 
 router = Router(tags=["Auto Namer"])
 
@@ -64,7 +64,7 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
     if not file_path.exists():
         return AutoToolProcessOut(text=None, ollama_response=None, error=f"文件不存在: {payload.file_path}")
 
-    from ..services.document.document_processing import extract_document_content
+    from apps.automation.services.document.document_processing import extract_document_content
 
     extraction = extract_document_content(file_path.as_posix(), limit=payload.limit, preview_page=payload.preview_page)
 

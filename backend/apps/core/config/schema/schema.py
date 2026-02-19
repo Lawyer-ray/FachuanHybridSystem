@@ -6,7 +6,7 @@
 
 from typing import Any
 
-from ..exceptions import ConfigValidationError
+from apps.core.config.exceptions import ConfigValidationError
 from .field import ConfigField
 
 

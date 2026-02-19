@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 router = Router(tags=["文书送达自动下载"])
 
 
-from typing import Any
+from typing import Any, ClassVar
 
 
 def _get_document_delivery_service() -> Any:
@@ -24,7 +24,7 @@ def _get_document_delivery_service() -> Any:
     Returns:
         DocumentDeliveryService 实例
     """
-    from ..services.document_delivery.document_delivery_service import DocumentDeliveryService
+    from apps.automation.services.document_delivery.document_delivery_service import DocumentDeliveryService
 
     return DocumentDeliveryService()
 
@@ -38,7 +38,9 @@ def _get_document_delivery_schedule_service() -> Any:
     Returns:
         DocumentDeliveryScheduleService 实例
     """
-    from ..services.document_delivery.document_delivery_schedule_service import DocumentDeliveryScheduleService
+    from apps.automation.services.document_delivery.document_delivery_schedule_service import (
+        DocumentDeliveryScheduleService,
+    )
 
     return DocumentDeliveryScheduleService()
 
@@ -66,7 +68,9 @@ class DocumentDeliveryQueryIn(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {"example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}}
+        json_schema_extra: ClassVar[dict[str, str]] = {
+            "example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}
+        }
 
 
 class DocumentDeliveryQueryOut(BaseModel):
@@ -77,7 +81,7 @@ class DocumentDeliveryQueryOut(BaseModel):
     message: str = Field(..., description="响应消息")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, str]] = {
             "example": {
                 "success": True,
                 "data": {
@@ -111,7 +115,7 @@ class DocumentDeliveryScheduleCreateIn(BaseModel):
     is_active: bool = Field(default=True, description="是否启用", json_schema_extra={"example": True})
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, str]] = {
             "example": {
                 "credential_id": 1,
                 "runs_per_day": 2,
@@ -135,7 +139,9 @@ class DocumentDeliveryScheduleUpdateIn(BaseModel):
     is_active: bool | None = Field(None, description="是否启用", json_schema_extra={"example": False})
 
     class Config:
-        json_schema_extra = {"example": {"runs_per_day": 3, "hour_interval": 8, "cutoff_hours": 48, "is_active": False}}
+        json_schema_extra: ClassVar[dict[str, str]] = {
+            "example": {"runs_per_day": 3, "hour_interval": 8, "cutoff_hours": 48, "is_active": False}
+        }
 
 
 class DocumentDeliveryScheduleOut(BaseModel):
@@ -170,7 +176,7 @@ class DocumentDeliveryScheduleOut(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v is not None else None}
+        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
 # ============================================================================

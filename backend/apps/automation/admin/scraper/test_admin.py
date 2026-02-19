@@ -9,8 +9,8 @@ from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
 
-from ...models import TestCourt
-from ...services.scraper.test_service import TestService
+from apps.automation.models import TestCourt
+from apps.automation.services.scraper.test_service import TestService
 
 
 def _get_test_service():

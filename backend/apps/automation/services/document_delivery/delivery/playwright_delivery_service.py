@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
-from ..data_classes import DocumentDeliveryRecord
+from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
 
 if TYPE_CHECKING:
     pass

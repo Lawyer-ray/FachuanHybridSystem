@@ -7,7 +7,7 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import (
+from apps.contracts.schemas import (
     ContractIn,
     ContractOut,
     ContractPartySourceOut,
@@ -15,7 +15,7 @@ from ..schemas import (
     ContractUpdate,
     UpdateLawyersIn,
 )
-from ..services.contract_service import ContractService
+from apps.contracts.services.contract_service import ContractService
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
@@ -30,8 +30,8 @@ def _get_contract_service() -> ContractService:
     from apps.cases.services import CaseServiceAdapter
     from apps.client.services import ClientServiceAdapter
 
-    from ..services.contract_payment_service import ContractPaymentService
-    from ..services.supplementary_agreement_service import SupplementaryAgreementService
+    from apps.contracts.services.contract_payment_service import ContractPaymentService
+    from apps.contracts.services.supplementary_agreement_service import SupplementaryAgreementService
 
     case_service = CaseServiceAdapter()
     payment_service = ContractPaymentService()

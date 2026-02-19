@@ -11,7 +11,7 @@ from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
-from ..config.browser_config import BrowserConfig
+from apps.automation.services.scraper.config.browser_config import BrowserConfig
 from .exceptions import BrowserCreationError
 
 logger = logging.getLogger("apps.automation")

@@ -50,7 +50,7 @@ def get_config_manager() -> ConfigManager:
         _global_config_manager = ConfigManager()
         # 注册配置模式
         schema = ConfigSchema()
-        for key, field in CONFIG_REGISTRY.items():
+        for _key, field in CONFIG_REGISTRY.items():
             schema.register(field)
         _global_config_manager.set_schema(schema)
         # 添加提供者

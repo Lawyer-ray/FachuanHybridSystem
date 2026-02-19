@@ -16,7 +16,11 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
         model = Reminder
         fields: str = "__all__"
         help_texts: ClassVar[dict[str, str]] = {
-            "metadata": '用于存放"结构化扩展信息"的 JSON(不参与业务必填).可留空或填 {}.常见键:source(来源,如 court_sms / manual)、file_name(来源文件名)、external_id(外部ID)、note(备注).示例:{"source":"court_sms","file_name":"传票.pdf"}',  # noqa: E501
+            "metadata": (
+                '用于存放"结构化扩展信息"的 JSON(不参与业务必填).可留空或填 {}.'
+                "常见键:source(来源,如 court_sms / manual)、file_name(来源文件名)、"
+                'external_id(外部ID)、note(备注).示例:{"source":"court_sms","file_name":"传票.pdf"}'
+            ),
         }
         widgets: ClassVar[dict[str, Any]] = {
             "metadata": forms.Textarea(attrs={"rows": 4}),
@@ -36,8 +40,16 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
 @admin.register(Reminder)
 class ReminderAdmin(admin.ModelAdmin[Reminder]):
     form = ReminderAdminForm
-    list_display = ["id", "due_at", "reminder_type", "content", "contract", "case_log", "created_at"]
-    list_filter = ["reminder_type", "due_at", "created_at"]
-    search_fields = ["content"]
-    autocomplete_fields = ["contract", "case_log"]
-    ordering = ["-due_at", "-id"]
+    list_display: ClassVar[list[str]] = [
+        "id",
+        "due_at",
+        "reminder_type",
+        "content",
+        "contract",
+        "case_log",
+        "created_at",
+    ]
+    list_filter: ClassVar[list[str]] = ["reminder_type", "due_at", "created_at"]
+    search_fields: ClassVar[list[str]] = ["content"]
+    autocomplete_fields: ClassVar[list[str]] = ["contract", "case_log"]
+    ordering: ClassVar[list[str]] = ["-due_at", "-id"]

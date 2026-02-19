@@ -9,7 +9,7 @@ from typing import Any
 
 from ninja import Router
 
-from ..schemas import CaptchaRecognizeIn, CaptchaRecognizeOut
+from apps.automation.schemas import CaptchaRecognizeIn, CaptchaRecognizeOut
 
 logger = logging.getLogger("apps.automation")
 

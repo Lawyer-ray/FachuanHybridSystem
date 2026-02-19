@@ -3,11 +3,12 @@ Token 管理 Admin
 提供 Token 的查看、搜索、过滤功能
 """
 
+from typing import ClassVar
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
 
-from ...models import CourtToken
+from apps.automation.models import CourtToken
 
 
 @admin.register(CourtToken)
@@ -22,7 +23,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
     - 显示 Token 状态（有效/过期）
     """
 
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "site_name",
         "account",
@@ -34,20 +35,20 @@ class CourtTokenAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "site_name",
         "token_type",
         "created_at",
         "expires_at",
     ]
 
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "site_name",
         "account",
         "token",
     ]
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "token_full",
         "status_display",
@@ -62,8 +63,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
         ("时间信息", {"fields": ("expires_at", "created_at", "updated_at")}),
     )
 
-    ordering = ["-created_at"]
-
+    ordering: ClassVar[list[str]] = ["-created_at"]
     date_hierarchy = "created_at"
 
     # 每页显示数量

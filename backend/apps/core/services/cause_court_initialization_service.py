@@ -99,7 +99,7 @@ class CauseCourtInitializationService:
     # 法院系统站点名称(用于登录和案由 API)
     COURT_SITE_NAME = "court_zxfw"
     BAOQUAN_SITE_NAME = "court_baoquan"
-    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"  # noqa: S105
+    _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
 
     def __init__(
         self,
@@ -201,7 +201,7 @@ class CauseCourtInitializationService:
             token_store = get_court_token_store_service()
             token_info = await sync_to_async(token_store.get_latest_valid_token_internal)(
                 site_name=self.COURT_SITE_NAME,
-                token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",  # noqa: S106 — JWT header prefix, not a password
+                token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",
             )
             if token_info:
                 logger.info(f"✅ 找到现有有效一张网 Token: {token_info.account}")

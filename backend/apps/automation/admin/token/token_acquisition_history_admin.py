@@ -3,17 +3,18 @@ Token获取历史记录 Admin
 提供Token获取过程的详细历史记录查看功能
 """
 
+from typing import ClassVar
 from django.contrib import admin, messages
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.utils.html import format_html
 
-from ...models import TokenAcquisitionHistory, TokenAcquisitionStatus
+from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
 
 def _get_token_history_admin_service():
     """工厂函数：创建Token历史管理服务"""
-    from ...services.admin import TokenAcquisitionHistoryAdminService
+    from apps.automation.services.admin import TokenAcquisitionHistoryAdminService
 
     return TokenAcquisitionHistoryAdminService()
 
@@ -30,7 +31,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     - 查看错误详情和性能指标
     """
 
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "site_name",
         "account",
@@ -42,7 +43,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         "created_at",
     ]
 
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "status",
         "site_name",
         "trigger_reason",
@@ -50,14 +51,14 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         "finished_at",
     ]
 
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "site_name",
         "account",
         "trigger_reason",
         "error_message",
     ]
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "site_name",
         "account",
@@ -127,8 +128,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         ),
     )
 
-    ordering = ["-created_at"]
-
+    ordering: ClassVar[list[str]] = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 50
@@ -317,7 +317,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         return False
 
     # 定义批量操作
-    actions = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]
+    actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]
 
     def cleanup_old_records(self, request, queryset):
         """清理旧的历史记录"""

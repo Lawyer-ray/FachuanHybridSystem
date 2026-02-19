@@ -1,6 +1,7 @@
 """
 Client App API 模块
 """
+
 from ninja import Router
 
 from .client_api import router as client_router

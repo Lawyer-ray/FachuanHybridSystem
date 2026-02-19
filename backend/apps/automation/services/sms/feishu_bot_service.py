@@ -297,7 +297,7 @@ class FeishuBotService:
             return None
 
         try:
-            token_url = "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal"  # noqa: S105
+            token_url = "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal"
 
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(

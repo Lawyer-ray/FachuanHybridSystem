@@ -259,6 +259,7 @@ class JsonFormatter:
 
 import logging
 import re
+from typing import ClassVar
 
 
 class SensitiveDataFilter(logging.Filter):
@@ -268,7 +269,7 @@ class SensitiveDataFilter(logging.Filter):
     _SENSITIVE_KEYS = frozenset({"authorization", "token", "password", "secret", "api_key", "apikey"})
 
     # 消息中需要脱敏的正则模式
-    _MSG_PATTERNS = [
+    _MSG_PATTERNS: ClassVar[list[tuple[re.Pattern[str], str]]] = [
         (re.compile(r"(Authorization:\s*Bearer\s+)\S+", re.IGNORECASE), r"\1***"),
         (re.compile(r"(token\s*=\s*)sk-\S+", re.IGNORECASE), r"\1***"),
         (re.compile(r"sk-[A-Za-z0-9]{20,}", re.IGNORECASE), "***"),

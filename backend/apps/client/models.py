@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -6,7 +8,7 @@ class Client(models.Model):
     NATURAL = "natural"
     LEGAL = "legal"
     NON_LEGAL_ORG = "non_legal_org"
-    CLIENT_TYPE_CHOICES = [
+    CLIENT_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (NATURAL, "自然人"),
         (LEGAL, "法人"),
         (NON_LEGAL_ORG, "非法人组织"),
@@ -69,7 +71,7 @@ class ClientIdentityDoc(models.Model):
     BUSINESS_LICENSE = "business_license"
     LEGAL_REP_CERT = "legal_rep_certificate"
     LEGAL_REP_ID_CARD = "legal_rep_id_card"
-    DOC_TYPE_CHOICES = [
+    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (ID_CARD, "身份证"),
         (PASSPORT, "护照"),
         (HK_MACAO_PERMIT, "港澳通行证"),
@@ -142,7 +144,7 @@ class PropertyClue(models.Model):
     REAL_ESTATE = "real_estate"
     OTHER = "other"
 
-    CLUE_TYPE_CHOICES = [
+    CLUE_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (BANK, "银行"),
         (ALIPAY, "支付宝账户"),
         (WECHAT, "微信账户"),
@@ -150,7 +152,7 @@ class PropertyClue(models.Model):
         (OTHER, "其他"),
     ]
 
-    CONTENT_TEMPLATES = {
+    CONTENT_TEMPLATES: ClassVar[dict[str, str]] = {
         BANK: "户名：\n开户行：\n银行账号：",
         WECHAT: "微信号：\n微信实名：",
         ALIPAY: "支付宝账号：\n支付宝实名：",

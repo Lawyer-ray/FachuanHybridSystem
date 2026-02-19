@@ -11,7 +11,7 @@ from django.db import transaction
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import LawyerDTO
 
-from ..models import Contract, ContractAssignment
+from apps.contracts.models import Contract, ContractAssignment
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ILawyerService

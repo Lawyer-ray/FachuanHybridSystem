@@ -11,7 +11,7 @@ from django.db.models import Q, QuerySet
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
 
-from ..models import AccountCredential, Lawyer
+from apps.organization.models import AccountCredential, Lawyer
 
 logger = logging.getLogger("apps.organization")
 

@@ -11,8 +11,8 @@ from django.db.models import QuerySet
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 
-from ..models import LawFirm, Lawyer, Team, TeamType
-from ..schemas import TeamIn
+from apps.organization.models import LawFirm, Lawyer, Team, TeamType
+from apps.organization.schemas import TeamIn
 
 logger = logging.getLogger("apps.organization")
 

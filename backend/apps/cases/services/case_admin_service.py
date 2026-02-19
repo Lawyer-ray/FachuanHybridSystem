@@ -2,7 +2,7 @@
 
 from django.db import transaction
 
-from ..models import Case, CaseAssignment, CaseNumber, CaseParty, SupervisingAuthority
+from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty, SupervisingAuthority
 
 
 class CaseAdminService:

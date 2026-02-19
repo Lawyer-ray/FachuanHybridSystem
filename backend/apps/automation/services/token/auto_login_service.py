@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from apps.core.exceptions import AutoTokenAcquisitionError, LoginFailedError, NetworkError, TokenAcquisitionTimeoutError
 from apps.core.interfaces import AccountCredentialDTO, IBrowserService, LoginAttemptResult
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -370,10 +371,8 @@ class AutoLoginService:
         finally:
             # 清理浏览器上下文
             if "browser_context" in locals():
-                try:
+                with contextlib.suppress(Exception):
                     browser_context.close()
-                except Exception:
-                    pass
 
     def _get_browser_context(self) -> Any:
         """获取浏览器上下文"""

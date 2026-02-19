@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 from apps.automation.models import DocumentQueryHistory
 from apps.core.interfaces import ServiceLocator
 
-from ..data_classes import DocumentDeliveryRecord, DocumentProcessResult
+from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher
@@ -98,7 +98,7 @@ class DocumentProcessor:
 
             # 获取解压后的所有文件
             extracted_files: list[Any] = []
-            for root, dirs, files in Path(extract_dir).walk():
+            for root, _dirs, files in Path(extract_dir).walk():
                 for file in files:
                     file_full_path = root / file
                     extracted_files.append(str(file_full_path))

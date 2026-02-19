@@ -9,8 +9,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import path, reverse
 
-from ...models import AutomationTool
-from ...services.document.document_processing import process_uploaded_document
+from apps.automation.models import AutomationTool
+from apps.automation.services.document.document_processing import process_uploaded_document
 
 
 class DocumentProcessorForm(forms.Form):
@@ -32,7 +32,9 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         info = self.model._meta.app_label, self.model._meta.model_name
         custom = [
             path(
-                "process-document/", self.admin_site.admin_view(self.process_view), name="%s_%s_process_document" % info
+                "process-document/",
+                self.admin_site.admin_view(self.process_view),
+                name="{}_{}_process_document".format(*info),
             ),
             path("", self.admin_site.admin_view(self.redirect_to_process)),
         ]
@@ -40,7 +42,7 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
 
     def redirect_to_process(self, request):
         info = self.model._meta.app_label, self.model._meta.model_name
-        return HttpResponseRedirect(reverse("admin:%s_%s_process_document" % info))
+        return HttpResponseRedirect(reverse("admin:{}_{}_process_document".format(*info)))
 
     def process_view(self, request):
         """文档处理主视图"""

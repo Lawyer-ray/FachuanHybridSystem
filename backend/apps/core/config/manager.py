@@ -827,17 +827,17 @@ class ConfigManager:
         Raises:
             ValueError: 转换失败
         """
-        if target_type == bool:
+        if target_type is bool:
             if isinstance(value, str):
                 return value.lower() in ("true", "1", "yes", "on")
             return bool(value)
-        elif target_type == int:
+        elif target_type is int:
             return int(value)
-        elif target_type == float:
+        elif target_type is float:
             return float(value)
-        elif target_type == str:
+        elif target_type is str:
             return str(value)
-        elif target_type == list:
+        elif target_type is list:
             if isinstance(value, str):
                 # 简单的逗号分隔解析
                 return [item.strip() for item in value.split(",") if item.strip()]
@@ -1289,7 +1289,7 @@ class ConfigManager:
             current = nested
 
             # 构建嵌套结构
-            for i, k in enumerate(keys[:-1]):
+            for _i, k in enumerate(keys[:-1]):
                 if k not in current:
                     current[k] = {}
                 current = current[k]
@@ -1509,9 +1509,8 @@ class ConfigManager:
         if self._schema:
             for key, value in config_data.items():
                 field = self._schema.get_field(key)
-                if field:
-                    if not field.is_valid_value(value):
-                        errors.append(f"配置项 '{key}' 值无效: {value}")
+                if field and not field.is_valid_value(value):
+                    errors.append(f"配置项 '{key}' 值无效: {value}")
 
         # 使用验证器验证
         if self._validator:

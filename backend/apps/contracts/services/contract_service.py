@@ -18,14 +18,14 @@ from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationExce
 from apps.core.permissions import AccessContext, PermissionMixin
 from apps.core.querysets import ContractQuerySetManager
 
-from ..models import Contract, ContractAssignment, ContractParty, FeeMode
+from apps.contracts.models import Contract, ContractAssignment, ContractParty, FeeMode
 
 if TYPE_CHECKING:
     from apps.contracts.dtos import ContractDTO
     from apps.core.dtos import LawyerDTO
     from apps.core.interfaces import ICaseService
 
-    from ..models import ContractPayment
+    from apps.contracts.models import ContractPayment
     from .contract_payment_service import ContractPaymentService
     from .lawyer_assignment_service import LawyerAssignmentService
     from .supplementary_agreement_service import SupplementaryAgreementService
@@ -607,7 +607,7 @@ class ContractService(PermissionMixin):
 
         # 更新补充协议（完全替换，使用注入的服务实例）
         if supplementary_agreements_data is not None:
-            from ..models import SupplementaryAgreement
+            from apps.contracts.models import SupplementaryAgreement
 
             # 删除现有的所有补充协议
             SupplementaryAgreement.objects.filter(contract_id=contract_id).delete()
@@ -720,7 +720,7 @@ class ContractService(PermissionMixin):
             level: 日志级别
         """
         try:
-            from ..models import ContractFinanceLog
+            from apps.contracts.models import ContractFinanceLog
 
             ContractFinanceLog.objects.create(
                 contract_id=contract_id,
@@ -763,9 +763,8 @@ class ContractService(PermissionMixin):
             if not risk_rate or float(risk_rate) <= 0:
                 errors["risk_rate"] = "全风险需填写风险比例"
 
-        elif fee_mode == FeeMode.CUSTOM:
-            if not custom_terms or not str(custom_terms).strip():
-                errors["custom_terms"] = "自定义收费需填写条款文本"
+        elif fee_mode == FeeMode.CUSTOM and (not custom_terms or not str(custom_terms).strip()):
+            errors["custom_terms"] = "自定义收费需填写条款文本"
 
         if errors:
             raise ValidationException("收费模式验证失败", errors=errors)

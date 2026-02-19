@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from apps.automation.models import DocumentQueryHistory
 from apps.core.interfaces import ServiceLocator
 
-from ..data_classes import DocumentDeliveryRecord, DocumentProcessResult
+from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher
@@ -331,7 +331,7 @@ class DocumentDeliveryProcessor:
                 zip_ref.extractall(extract_dir)
 
             extracted_files = []
-            for root, dirs, files in os.walk(extract_dir):
+            for root, _dirs, files in os.walk(extract_dir):
                 for file in files:
                     extracted_files.append(os.path.join(root, file))
 

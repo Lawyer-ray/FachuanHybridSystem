@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
 
-from ..models import Case, CaseNumber
+from apps.cases.models import Case, CaseNumber
 
 logger = logging.getLogger("apps.cases")
 

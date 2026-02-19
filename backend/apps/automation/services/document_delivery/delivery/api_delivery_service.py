@@ -11,10 +11,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from ..data_classes import DocumentDeliveryRecord, DocumentQueryResult, DocumentRecord
+from apps.automation.services.document_delivery.data_classes import (
+    DocumentDeliveryRecord,
+    DocumentQueryResult,
+    DocumentRecord,
+)
 
 if TYPE_CHECKING:
-    from ..court_document_api_client import CourtDocumentApiClient
+    from apps.automation.services.document_delivery.court_document_api_client import CourtDocumentApiClient
 
 logger = logging.getLogger("apps.automation")
 

@@ -85,7 +85,7 @@ class OrganizationServiceAdapter(IOrganizationService):
             所有账号凭证的 DTO 列表
         """
         # 直接从数据库获取所有凭证，绕过权限检查
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         credentials = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").all()
         return [AccountCredentialDTO.from_model(credential) for credential in credentials]
@@ -122,7 +122,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         """
         from django.db.models import Q
 
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         # 站点名称到URL关键字的映射
         SITE_URL_MAPPING = {
@@ -155,7 +155,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         """
         from apps.core.exceptions import NotFoundError
 
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         credential = (
             AccountCredential.objects.filter(account=account, site_name=site_name)
@@ -180,7 +180,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         """
         from django.utils import timezone
 
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         AccountCredential.objects.filter(id=credential_id).update(
             login_success_count=models.F("login_success_count") + 1, last_login_success_at=timezone.now()
@@ -195,6 +195,6 @@ class OrganizationServiceAdapter(IOrganizationService):
         """
         from django.db.models import F
 
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         AccountCredential.objects.filter(id=credential_id).update(login_failure_count=F("login_failure_count") + 1)

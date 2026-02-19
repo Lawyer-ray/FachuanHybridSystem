@@ -134,7 +134,7 @@ class CourtSMSService:
             self._notification = SMSNotificationService()
         return self._notification
 
-    def submit_sms(self, content: str, received_at: datetime = None) -> CourtSMS:  # type: ignore[assignment]
+    def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:  # type: ignore[assignment]
         """
         提交短信，创建记录并触发异步处理
 

@@ -7,15 +7,15 @@ from typing import Any
 
 from ninja import Router
 
-from ..schemas import TeamIn, TeamOut
-from ..services import TeamService
+from apps.organization.schemas import TeamIn, TeamOut
+from apps.organization.services import TeamService
 
 router = Router()
 
 
 def _get_team_service() -> TeamService:
     """工厂函数：创建 TeamService 实例"""
-    from ..services import TeamService
+    from apps.organization.services import TeamService
 
     return TeamService()
 

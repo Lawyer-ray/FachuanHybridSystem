@@ -7,7 +7,7 @@
 import os
 from typing import Any
 
-from ..exceptions import ConfigException
+from apps.core.config.exceptions import ConfigException
 from .base import ConfigProvider
 
 
@@ -116,13 +116,13 @@ class EnvProvider(ConfigProvider):
         Returns:
             Any: 转换后的值
         """
-        if target_type == bool:
+        if target_type is bool:
             return self._parse_bool(value)
-        elif target_type == int:
+        elif target_type is int:
             return int(value)
-        elif target_type == float:
+        elif target_type is float:
             return float(value)
-        elif target_type == list:
+        elif target_type is list:
             return self._parse_list(value)
         elif target_type == dict:
             return self._parse_dict(value)

@@ -3,17 +3,18 @@
 提供文书记录的查看、搜索、过滤功能
 """
 
+from typing import ClassVar
 from django.contrib import admin, messages
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import format_html
 
-from ...models import CourtDocument, DocumentDownloadStatus
+from apps.automation.models import CourtDocument, DocumentDownloadStatus
 
 
 def _get_court_document_admin_service():
     """工厂函数：创建法院文书管理服务"""
-    from ...services.admin import CourtDocumentAdminService
+    from apps.automation.services.admin import CourtDocumentAdminService
 
     return CourtDocumentAdminService()
 
@@ -31,7 +32,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
     - 为已下载文书提供文件下载链接
     """
 
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "c_wsmc_display",
         "c_fymc_display",
@@ -41,21 +42,21 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         "download_link",
     ]
 
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "download_status",
         "c_fymc",
         "created_at",
         "downloaded_at",
     ]
 
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "c_wsmc",
         "c_fymc",
         "c_wsbh",
         "c_sdbh",
     ]
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "scraper_task",
         "case",
@@ -131,8 +132,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         ),
     )
 
-    ordering = ["-created_at"]
-
+    ordering: ClassVar[list[str]] = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20
@@ -257,7 +257,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         return True
 
     # 定义批量操作
-    actions = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
+    actions: ClassVar[list[str]] = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
 
     @admin.action(description="批量下载选中的文书")
     def batch_download_documents(self, request, queryset):

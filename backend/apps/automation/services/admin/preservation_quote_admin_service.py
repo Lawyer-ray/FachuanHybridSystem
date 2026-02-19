@@ -15,7 +15,7 @@ from django.utils import timezone
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
 
-from ...models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
+from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 
 
 class PreservationQuoteAdminService:

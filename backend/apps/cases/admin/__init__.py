@@ -13,10 +13,10 @@ from .case_chat_admin import CaseChatAdmin
 # 无需手动注册，admin/__init__.py中的类会自动处理
 
 __all__ = [
-    'CaseAdmin',
-    'CasePartyAdmin',
-    'CaseAssignmentAdmin',
-    'CaseLogAdmin',
-    'CaseLogAttachmentAdmin',
-    'CaseChatAdmin',
+    "CaseAdmin",
+    "CasePartyAdmin",
+    "CaseAssignmentAdmin",
+    "CaseLogAdmin",
+    "CaseLogAttachmentAdmin",
+    "CaseChatAdmin",
 ]

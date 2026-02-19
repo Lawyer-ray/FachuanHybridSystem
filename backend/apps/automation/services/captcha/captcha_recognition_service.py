@@ -59,7 +59,7 @@ class CaptchaRecognitionService:
             DdddocrRecognizer: 识别器实例
         """
         if self._recognizer is None:
-            from ...utils.logging import AutomationLogger
+            from apps.automation.utils.logging import AutomationLogger
 
             AutomationLogger.log_business_operation(
                 operation="initialize_recognizer", resource_type="ddddocr_recognizer", success=True
@@ -94,7 +94,7 @@ class CaptchaRecognitionService:
             # 解码 Base64
             image_bytes = base64.b64decode(image_base64, validate=True)
 
-            from ...utils.logging import AutomationLogger
+            from apps.automation.utils.logging import AutomationLogger
 
             AutomationLogger.log_business_operation(
                 operation="base64_decode", resource_type="captcha_image", success=True, image_size=len(image_bytes)
@@ -204,7 +204,7 @@ class CaptchaRecognitionService:
                 )
 
             # 5. 执行识别
-            from ...utils.logging import AutomationLogger
+            from apps.automation.utils.logging import AutomationLogger
 
             AutomationLogger.log_captcha_recognition_start(image_size=len(image_bytes))
             result = self.recognizer.recognize(image_bytes)
@@ -238,7 +238,7 @@ class CaptchaRecognitionService:
         except Exception as e:
             # 捕获所有未预期的异常
             processing_time = time.time() - start_time
-            from ...utils.logging import AutomationLogger
+            from apps.automation.utils.logging import AutomationLogger
 
             AutomationLogger.log_captcha_recognition_failed(
                 processing_time=processing_time,

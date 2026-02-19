@@ -1344,7 +1344,7 @@ class ConfigMigrator:
                 result["is_valid"] = False
 
             # 检查回滚点
-            for point_key, rollback_point in self._rollback_points.items():
+            for _point_key, rollback_point in self._rollback_points.items():
                 if rollback_point["migration_id"] == migration_id:
                     result["rollback_points"].append(rollback_point["point_name"])
 

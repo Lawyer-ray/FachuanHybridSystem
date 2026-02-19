@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from apps.core.exceptions import (
     AutoTokenAcquisitionError,
@@ -58,9 +58,9 @@ class AutoTokenAcquisitionService:
     """
 
     # 类级别的并发控制
-    _active_acquisitions: set[str] = set()
-    _acquisition_locks: dict[str, asyncio.Lock] = {}
-    _lock_creation_lock = asyncio.Lock()
+    _active_acquisitions: ClassVar[set[str]] = set()
+    _acquisition_locks: ClassVar[dict[str, asyncio.Lock]] = {}
+    _lock_creation_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     def __init__(
         self,

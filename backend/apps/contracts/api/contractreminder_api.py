@@ -14,8 +14,8 @@ from ninja import Router
 from apps.core.exceptions import ValidationException
 from apps.core.request_context import extract_request_context
 
-from ..schemas import ContractReminderIn, ContractReminderOut, ContractReminderUpdate
-from ..services.contract_reminder_service import ContractReminderService
+from apps.contracts.schemas import ContractReminderIn, ContractReminderOut, ContractReminderUpdate
+from apps.contracts.services.contract_reminder_service import ContractReminderService
 
 router = Router()
 

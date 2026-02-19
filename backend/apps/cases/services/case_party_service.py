@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, IClientService, IContractService, ServiceLocator
 
-from ..models import Case, CaseParty
+from apps.cases.models import Case, CaseParty
 
 if TYPE_CHECKING:
     pass

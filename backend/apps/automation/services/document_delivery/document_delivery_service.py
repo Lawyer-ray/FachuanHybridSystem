@@ -1646,7 +1646,7 @@ class DocumentDeliveryService:
 
             # 获取解压后的所有文件
             extracted_files = []
-            for root, dirs, files in os.walk(extract_dir):
+            for root, _dirs, files in os.walk(extract_dir):
                 for file in files:
                     file_full_path = os.path.join(root, file)
                     extracted_files.append(file_full_path)

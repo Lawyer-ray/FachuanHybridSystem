@@ -12,8 +12,8 @@ from django.db.models import Count, QuerySet
 from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
-from ..models import LawFirm, Lawyer
-from ..schemas import LawFirmIn, LawFirmUpdateIn
+from apps.organization.models import LawFirm, Lawyer
+from apps.organization.schemas import LawFirmIn, LawFirmUpdateIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -72,7 +72,7 @@ class LawFirmService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, Any] = None,  # type: ignore[assignment]
+        filters: dict[str, Any] | None = None,  # type: ignore[assignment]
         user: Lawyer = None,  # type: ignore[assignment]
     ) -> "QuerySet[LawFirm, LawFirm]":
         """
@@ -273,11 +273,10 @@ class LawFirmService:
     def _validate_update_data(self, lawfirm: LawFirm, data: LawFirmUpdateIn) -> None:
         """验证更新数据（私有方法）"""
         # 检查名称是否与其他律所重复
-        if data.name and data.name != lawfirm.name:
-            if LawFirm.objects.filter(name=data.name).exists():
-                raise ValidationException(
-                    message="律所名称已存在", code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
-                )
+        if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
+            raise ValidationException(
+                message="律所名称已存在", code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
+            )
 
     def _get_lawfirm_internal(self, lawfirm_id: int) -> LawFirm | None:
         """

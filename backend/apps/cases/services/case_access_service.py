@@ -12,7 +12,7 @@ from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, ServiceLocator
 from apps.organization.middleware import invalidate_user_org_cache
 
-from ..models import Case, CaseAccessGrant
+from apps.cases.models import Case, CaseAccessGrant
 
 
 class CaseAccessService:

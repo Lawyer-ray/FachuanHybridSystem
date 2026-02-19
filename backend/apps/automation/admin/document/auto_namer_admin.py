@@ -10,10 +10,10 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import path, reverse
 
-from ...models import NamerTool
-from ...services.ai.ollama_client import chat as ollama_chat
-from ...services.ai.prompts import DEFAULT_FILENAME_PROMPT
-from ...services.document.document_processing import process_uploaded_document
+from apps.automation.models import NamerTool
+from apps.automation.services.ai.ollama_client import chat as ollama_chat
+from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
+from apps.automation.services.document.document_processing import process_uploaded_document
 
 
 class AutoNamerToolForm(forms.Form):
@@ -41,14 +41,14 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
         custom = [
-            path("process/", self.admin_site.admin_view(self.process_view), name="%s_%s_process" % info),
+            path("process/", self.admin_site.admin_view(self.process_view), name="{}_{}_process".format(*info)),
             path("", self.admin_site.admin_view(self.redirect_to_process)),
         ]
         return custom + urls
 
     def redirect_to_process(self, request):
         info = self.model._meta.app_label, self.model._meta.model_name
-        return HttpResponseRedirect(reverse("admin:%s_%s_process" % info))
+        return HttpResponseRedirect(reverse("admin:{}_{}_process".format(*info)))
 
     def process_view(self, request):
         """自动命名工具主视图"""
@@ -62,7 +62,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
                 preview_page = form.cleaned_data.get("preview_page")
 
                 info = self.model._meta.app_label, self.model._meta.model_name
-                return_url = reverse("admin:%s_%s_process" % info)
+                return_url = reverse("admin:{}_{}_process".format(*info))
 
                 try:
                     # 处理文档

@@ -62,7 +62,7 @@ class CasePartyInline(BaseTabularInline):
     model = CaseParty
     extra = 1
     fields = ("client", "legal_status")
-    classes = ["contract-party-inline"]  # noqa: RUF012
+    classes = ["contract-party-inline"]
 
     class Media:
         js = (
@@ -116,12 +116,12 @@ class CaseAdmin(BaseModelAdmin):
     search_fields = ("name",)
     change_form_template = "admin/cases/case/change_form.html"
 
-    actions = ["create_feishu_chat_for_selected_cases"]  # noqa: RUF012
+    actions = ["create_feishu_chat_for_selected_cases"]
 
     class Media:
         js = ("cases/admin_case_form.js",)
 
-    inlines = [  # noqa: RUF012
+    inlines = [
         CasePartyInline,
         CaseAssignmentInline,
         SupervisingAuthorityInline,

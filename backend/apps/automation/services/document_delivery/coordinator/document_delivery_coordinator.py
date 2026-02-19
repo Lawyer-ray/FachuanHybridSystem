@@ -14,13 +14,19 @@ from typing import TYPE_CHECKING, Optional
 
 from apps.automation.utils.logging import AutomationLogger
 
-from ..data_classes import DocumentQueryResult
+from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
 
 if TYPE_CHECKING:
-    from ..api.document_delivery_api_service import DocumentDeliveryApiService
-    from ..playwright.document_delivery_playwright_service import DocumentDeliveryPlaywrightService
-    from ..processor.document_delivery_processor import DocumentDeliveryProcessor
-    from ..token.document_delivery_token_service import DocumentDeliveryTokenService
+    from apps.automation.services.document_delivery.api.document_delivery_api_service import DocumentDeliveryApiService
+    from apps.automation.services.document_delivery.playwright.document_delivery_playwright_service import (
+        DocumentDeliveryPlaywrightService,
+    )
+    from apps.automation.services.document_delivery.processor.document_delivery_processor import (
+        DocumentDeliveryProcessor,
+    )
+    from apps.automation.services.document_delivery.token.document_delivery_token_service import (
+        DocumentDeliveryTokenService,
+    )
 
 logger = logging.getLogger("apps.automation")
 
@@ -64,7 +70,9 @@ class DocumentDeliveryCoordinator:
     def token_service(self) -> "DocumentDeliveryTokenService":
         """延迟加载 Token 管理服务"""
         if self._token_service is None:
-            from ..token.document_delivery_token_service import DocumentDeliveryTokenService
+            from apps.automation.services.document_delivery.token.document_delivery_token_service import (
+                DocumentDeliveryTokenService,
+            )
 
             self._token_service = DocumentDeliveryTokenService()
         return self._token_service
@@ -73,7 +81,9 @@ class DocumentDeliveryCoordinator:
     def api_service(self) -> "DocumentDeliveryApiService":
         """延迟加载 API 查询服务"""
         if self._api_service is None:
-            from ..api.document_delivery_api_service import DocumentDeliveryApiService
+            from apps.automation.services.document_delivery.api.document_delivery_api_service import (
+                DocumentDeliveryApiService,
+            )
 
             self._api_service = DocumentDeliveryApiService()
         return self._api_service
@@ -82,7 +92,9 @@ class DocumentDeliveryCoordinator:
     def playwright_service(self) -> "DocumentDeliveryPlaywrightService":
         """延迟加载 Playwright 查询服务"""
         if self._playwright_service is None:
-            from ..playwright.document_delivery_playwright_service import DocumentDeliveryPlaywrightService
+            from apps.automation.services.document_delivery.playwright.document_delivery_playwright_service import (
+                DocumentDeliveryPlaywrightService,
+            )
 
             self._playwright_service = DocumentDeliveryPlaywrightService()
         return self._playwright_service
@@ -91,7 +103,9 @@ class DocumentDeliveryCoordinator:
     def processor(self) -> "DocumentDeliveryProcessor":
         """延迟加载文书处理服务"""
         if self._processor is None:
-            from ..processor.document_delivery_processor import DocumentDeliveryProcessor
+            from apps.automation.services.document_delivery.processor.document_delivery_processor import (
+                DocumentDeliveryProcessor,
+            )
 
             self._processor = DocumentDeliveryProcessor()
         return self._processor

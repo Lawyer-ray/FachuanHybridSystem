@@ -1,6 +1,7 @@
 """
 Automation App API 模块
 """
+
 from ninja import Router
 
 from .document_processor_api import router as document_processor_router

@@ -12,8 +12,8 @@ from django.db.models import Q, QuerySet
 from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawyerService, LawyerDTO
 
-from ..models import LawFirm, Lawyer, Team, TeamType
-from ..schemas import LawyerCreateIn, LawyerUpdateIn
+from apps.organization.models import LawFirm, Lawyer, Team, TeamType
+from apps.organization.schemas import LawyerCreateIn, LawyerUpdateIn
 
 logger = logging.getLogger("apps.organization")
 
@@ -370,11 +370,10 @@ class LawyerService:
     def _validate_update_data(self, lawyer: Lawyer, data: LawyerUpdateIn, user: Lawyer) -> None:
         """验证更新数据（私有方法）"""
         # 检查手机号是否与其他律师重复
-        if data.phone and data.phone != lawyer.phone:
-            if Lawyer.objects.filter(phone=data.phone).exists():
-                raise ValidationException(
-                    message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
-                )
+        if data.phone and data.phone != lawyer.phone and Lawyer.objects.filter(phone=data.phone).exists():
+            raise ValidationException(
+                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
+            )
 
     def _set_lawyer_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         """设置律师团队（私有方法）"""

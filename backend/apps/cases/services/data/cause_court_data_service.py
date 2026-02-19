@@ -27,7 +27,7 @@ class CauseCourtDataCache:
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir
 
-    @lru_cache(maxsize=128)  # noqa: B019 - 缓存类设计,实例生命周期与应用一致
+    @lru_cache(maxsize=128)
     def load_json_file(self, filename: str) -> dict[str, Any]:
         file_path = self.data_dir / filename
         try:

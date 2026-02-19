@@ -1,6 +1,7 @@
 """
 Contracts App API 模块
 """
+
 from ninja import Router
 
 from .contract_api import router as contract_router
