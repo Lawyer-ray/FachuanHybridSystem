@@ -79,9 +79,14 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
             ICaseService 实例
         """
         if self._case_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.business_case import build_case_service_with_deps
+            from apps.core.dependencies.business_client import build_client_service
+            from apps.core.dependencies.business_contract import build_contract_query_service
 
-            self._case_service = ServiceLocator.get_case_service()
+            self._case_service = build_case_service_with_deps(
+                contract_service=build_contract_query_service(),
+                client_service=build_client_service(),
+            )
         return self._case_service
 
     @property
@@ -93,14 +98,11 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
             LawyerAssignmentService 实例
         """
         if self._lawyer_assignment_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.business_organization import build_lawyer_service
 
             from .lawyer_assignment_service import LawyerAssignmentService
 
-            # 通过 ServiceLocator 获取 lawyer_service 并注入
-            self._lawyer_assignment_service = LawyerAssignmentService(
-                lawyer_service=ServiceLocator.get_lawyer_service()
-            )
+            self._lawyer_assignment_service = LawyerAssignmentService(lawyer_service=build_lawyer_service())
         return self._lawyer_assignment_service
 
     @property
@@ -126,13 +128,11 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
             SupplementaryAgreementService 实例
         """
         if self._supplementary_agreement_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.business_client import build_client_service
 
             from .supplementary_agreement_service import SupplementaryAgreementService
 
-            self._supplementary_agreement_service = SupplementaryAgreementService(
-                client_service=ServiceLocator.get_client_service()
-            )
+            self._supplementary_agreement_service = SupplementaryAgreementService(client_service=build_client_service())
         return self._supplementary_agreement_service
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
