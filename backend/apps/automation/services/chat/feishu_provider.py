@@ -86,75 +86,47 @@ class FeishuChatProvider(ChatProvider):
         """返回平台类型"""
         return ChatPlatform.FEISHU
 
-    def _load_config(self) -> dict[str, Any]:
-        """加载飞书配置
-
-        优先从 Admin 后台的 SystemConfig 读取配置，
-        如果没有则回退到 Django settings。
-
-        Returns:
-            Dict[str, Any]: 飞书配置字典
-
-        Raises:
-            ConfigurationException: 当配置格式错误时
-        """
+    def _load_config_from_db(self) -> dict[str, Any]:
+        """从 SystemConfig 加载飞书配置"""
         try:
-            config = {}
+            from apps.core.models import SystemConfig
+            db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
+            if not db_configs:
+                return {}
+            key_mapping = {
+                "FEISHU_APP_ID": "APP_ID",
+                "FEISHU_APP_SECRET": "APP_SECRET",
+                "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
+                "FEISHU_TIMEOUT": "TIMEOUT",
+                "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
+            }
+            config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
+            logger.debug(f"从 SystemConfig 加载飞书配置: {list(config.keys())}")
+            return config
+        except Exception as e:
+            logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {e!s}")
+            return {}
 
-            # 优先从 Admin 后台的 SystemConfig 读取配置
-            try:
-                from apps.core.models import SystemConfig
+    def _load_config(self) -> dict[str, Any]:
+        """加载飞书配置"""
+        try:
+            config = self._load_config_from_db()
 
-                # 获取飞书分类下的所有配置
-                db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
-
-                if db_configs:
-                    # 映射数据库配置键到内部配置键
-                    key_mapping = {
-                        "FEISHU_APP_ID": "APP_ID",
-                        "FEISHU_APP_SECRET": "APP_SECRET",
-                        "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
-                        "FEISHU_TIMEOUT": "TIMEOUT",
-                        "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
-                    }
-
-                    for db_key, internal_key in key_mapping.items():
-                        if db_configs.get(db_key):
-                            config[internal_key] = db_configs[db_key]
-
-                    logger.debug(f"从 SystemConfig 加载飞书配置: {list(config.keys())}")
-
-            except Exception as e:
-                logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {e!s}")
-
-            # 如果 SystemConfig 没有配置，回退到 Django settings
             if not config.get("APP_ID") or not config.get("APP_SECRET"):
                 settings_config = getattr(settings, "FEISHU", {})
-
                 if isinstance(settings_config, dict):
-                    # 合并 settings 配置（不覆盖已有的 SystemConfig 配置）
                     for key, value in settings_config.items():
                         if key not in config and value is not None and value != "":
                             config[key] = value
-
                     logger.debug(f"从 settings 补充飞书配置: {list(config.keys())}")
 
-            # 设置默认值
             config.setdefault("TIMEOUT", 30)
+            try:
+                config["TIMEOUT"] = int(config["TIMEOUT"])
+            except (ValueError, TypeError):
+                config["TIMEOUT"] = 30
 
-            # 确保 TIMEOUT 是整数类型（从数据库加载的可能是字符串）
-            if "TIMEOUT" in config:
-                try:
-                    config["TIMEOUT"] = int(config["TIMEOUT"])
-                except (ValueError, TypeError):
-                    config["TIMEOUT"] = 30
-
-            # 过滤掉空值配置
-            filtered_config = {}
-            for key, value in config.items():
-                if value is not None and value != "":
-                    filtered_config[key] = value
-
+            filtered_config = {k: v for k, v in config.items() if v is not None and v != ""}
             logger.debug(f"最终飞书配置: {list(filtered_config.keys())}")
             return filtered_config
 
@@ -252,29 +224,63 @@ class FeishuChatProvider(ChatProvider):
                 message=f"API响应格式错误: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e
 
+    def _build_owner_payload(self, effective_owner_id: str, payload: dict[str, Any]) -> None:
+        """将群主 ID 写入请求体"""
+        if self.owner_config.is_validation_enabled():
+            try:
+                self.owner_config.validate_owner_id_strict(effective_owner_id)
+            except Exception as e:
+                logger.warning(f"群主ID验证失败，继续使用: {effective_owner_id}, 错误: {e!s}")
+
+        if effective_owner_id.startswith("on_"):
+            open_id = self._convert_union_id_to_open_id(effective_owner_id)
+            if open_id:
+                payload["owner_id"] = open_id
+                payload["user_id_list"] = [open_id]
+                logger.debug(f"转换union_id为open_id: {effective_owner_id} -> {open_id}")
+            else:
+                logger.warning(f"无法转换union_id为open_id: {effective_owner_id}")
+        else:
+            payload["owner_id"] = effective_owner_id
+            payload["user_id_list"] = [effective_owner_id]
+
+    def _raise_feishu_api_error(
+        self,
+        data: dict[str, Any],
+        chat_name: str,
+        owner_id: str | None,
+        effective_owner_id: str | None,
+        payload: dict[str, Any],
+    ) -> None:
+        """根据飞书 API 错误码抛出对应异常"""
+        error_msg = data.get("msg", "未知错误")
+        error_code = str(data.get("code"))
+        logger.error(f"创建飞书群聊失败: {error_msg} (code: {error_code})")
+        logger.error(f"完整响应: {data}")
+
+        exc_or_class = self._classify_feishu_error(error_code, error_msg)
+        errors = {
+            "api_response": data,
+            "chat_name": chat_name,
+            "specified_owner_id": owner_id,
+            "effective_owner_id": effective_owner_id,
+            "request_payload": payload,
+        }
+
+        if isinstance(exc_or_class, OwnerSettingException):
+            exc_or_class.platform = "feishu"
+            exc_or_class.owner_id = effective_owner_id
+            exc_or_class.errors = errors
+            raise exc_or_class
+        raise exc_or_class(  # type: ignore[call-arg]
+            message=f"创建群聊失败: {error_msg}",
+            platform="feishu",
+            error_code=error_code,
+            errors=errors,
+        )
+
     def create_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:
         """创建群聊
-
-        调用飞书开放平台API创建群聊，支持群主设置功能。
-        集成OwnerConfigManager获取有效群主ID。
-
-        根据飞书开发文档：https://open.feishu.cn/document/server-docs/group/chat/create
-
-        注意：飞书创建群聊API要求：
-        1. 使用 user_id_type 查询参数指定用户ID类型
-        2. 如果不指定 owner_id，则机器人为群主
-        3. user_id_list 可以为空，创建只有机器人的群
-
-        Args:
-            chat_name: 群聊名称
-            owner_id: 群主ID（可选，飞书中为用户的open_id）
-
-        Returns:
-            ChatResult: 包含群聊ID和创建结果的响应对象
-
-        Raises:
-            ChatCreationException: 当群聊创建失败时
-            ConfigurationException: 当配置不完整时
 
         Requirements: 1.1, 1.4
         """
@@ -284,121 +290,43 @@ class FeishuChatProvider(ChatProvider):
             )
 
         try:
-            # 使用OwnerConfigManager获取有效的群主ID
             effective_owner_id = self.owner_config.get_effective_owner_id(owner_id)
-
             logger.info(f"创建飞书群聊: {chat_name}, 指定群主: {owner_id}, 有效群主: {effective_owner_id}")
 
-            # 获取访问令牌
             access_token = self._get_tenant_access_token()
-
-            # 构建请求URL（带查询参数）
             url = f"{self.BASE_URL}{self.ENDPOINTS['create_chat']}"
-
-            # 查询参数 - 指定用户ID类型
             params = {"user_id_type": "open_id"}
-
-            # 请求头
             headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json; charset=utf-8"}
 
-            # 根据飞书官方API文档构建请求体
             payload: dict[str, Any] = {
                 "name": chat_name,
-                "chat_mode": "group",  # 群聊模式
-                "chat_type": "private",  # 私有群聊
-                "add_member_permission": "all_members",  # 谁可以添加群成员
-                "share_card_permission": "allowed",  # 是否允许分享群名片
-                "at_all_permission": "all_members",  # 谁可以@所有人
-                "group_message_type": "chat",  # 群消息形式
+                "chat_mode": "group",
+                "chat_type": "private",
+                "add_member_permission": "all_members",
+                "share_card_permission": "allowed",
+                "at_all_permission": "all_members",
+                "group_message_type": "chat",
+                "description": f"案件群聊: {chat_name}",
             }
 
-            # 如果提供了描述，添加到请求体
-            description = f"案件群聊: {chat_name}"
-            if description:
-                payload["description"] = description
-
-            # 如果有有效的群主ID，添加到参数中
             if effective_owner_id:
-                # 验证群主ID格式（如果启用验证）
-                if self.owner_config.is_validation_enabled():
-                    try:
-                        self.owner_config.validate_owner_id_strict(effective_owner_id)
-                    except Exception as e:
-                        logger.warning(f"群主ID验证失败，继续使用: {effective_owner_id}, 错误: {e!s}")
+                self._build_owner_payload(effective_owner_id, payload)
 
-                # 如果是union_id格式，需要转换为open_id
-                if effective_owner_id.startswith("on_"):
-                    # 这是union_id，需要转换为open_id
-                    open_id = self._convert_union_id_to_open_id(effective_owner_id)
-                    if open_id:
-                        payload["owner_id"] = open_id
-                        payload["user_id_list"] = [open_id]
-                        logger.debug(f"转换union_id为open_id: {effective_owner_id} -> {open_id}")
-                    else:
-                        logger.warning(f"无法转换union_id为open_id: {effective_owner_id}")
-                else:
-                    # 直接使用提供的ID（假设是open_id）
-                    payload["owner_id"] = effective_owner_id
-                    payload["user_id_list"] = [effective_owner_id]
+            logger.debug(f"创建飞书群聊请求URL: {url}, 参数: {params}, 请求体: {payload}")
 
-            logger.debug(f"创建飞书群聊请求URL: {url}")
-            logger.debug(f"创建飞书群聊请求参数: {params}")
-            logger.debug(f"创建飞书群聊请求体: {payload}")
-
-            # 发送请求
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
-
-            # 记录响应详情用于调试
-            logger.debug(f"飞书API响应状态码: {response.status_code}")
-            logger.debug(f"飞书API响应内容: {response.text}")
-
+            logger.debug(f"飞书API响应状态码: {response.status_code}, 内容: {response.text}")
             response.raise_for_status()
 
             data = response.json()
             logger.debug(f"飞书API响应数据: {data}")
 
-            # 检查飞书API响应
             if data.get("code") != 0:
-                error_msg = data.get("msg", "未知错误")
-                error_code = str(data.get("code"))
+                self._raise_feishu_api_error(data, chat_name, owner_id, effective_owner_id, payload)
 
-                logger.error(f"创建飞书群聊失败: {error_msg} (code: {error_code})")
-                logger.error(f"完整响应: {data}")
-
-                # 根据错误代码分类异常类型
-                exc_or_class = self._classify_feishu_error(error_code, error_msg)
-
-                if isinstance(exc_or_class, OwnerSettingException):
-                    # 已是实例，补充上下文后抛出
-                    exc_or_class.platform = "feishu"
-                    exc_or_class.owner_id = effective_owner_id
-                    exc_or_class.errors = {
-                        "api_response": data,
-                        "chat_name": chat_name,
-                        "specified_owner_id": owner_id,
-                        "effective_owner_id": effective_owner_id,
-                        "request_payload": payload,
-                    }
-                    raise exc_or_class
-                else:
-                    raise exc_or_class(  # type: ignore[call-arg]
-                        message=f"创建群聊失败: {error_msg}",
-                        platform="feishu",
-                        error_code=error_code,
-                        errors={
-                            "api_response": data,
-                            "chat_name": chat_name,
-                            "specified_owner_id": owner_id,
-                            "effective_owner_id": effective_owner_id,
-                            "request_payload": payload,
-                        },
-                    )
-
-            # 提取群聊信息
             chat_data = data.get("data", {})
             chat_id = chat_data.get("chat_id")
-
             if not chat_id:
                 raise ChatCreationException(
                     message="API响应中缺少群聊ID", platform="feishu", errors={"api_response": data}
@@ -406,23 +334,18 @@ class FeishuChatProvider(ChatProvider):
 
             logger.info(f"成功创建飞书群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
 
-            # 构建包含群主信息的响应
             result = ChatResult(
                 success=True, chat_id=chat_id, chat_name=chat_name, message="群聊创建成功", raw_response=data
             )
-
-            # 在raw_response中添加群主信息，便于后续验证
             if result.raw_response:
                 result.raw_response["owner_info"] = {
                     "specified_owner_id": owner_id,
                     "effective_owner_id": effective_owner_id,
                     "owner_set": bool(effective_owner_id),
                 }
-
             return result
 
         except ChatCreationException:
-            # 重新抛出业务异常
             raise
         except httpx.HTTPError as e:
             logger.error(f"创建飞书群聊网络请求失败: {e!s}")

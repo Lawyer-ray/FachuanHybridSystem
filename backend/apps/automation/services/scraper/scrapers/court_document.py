@@ -1085,30 +1085,16 @@ class CourtDocumentScraper(BaseScraper):
         }
 
     def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:
-        """
-        通过传统页面点击方式下载文书（回退机制）
-
-        Args:
-            download_dir: 下载目录
-
-        Returns:
-            下载结果字典
-
-        Raises:
-            Exception: 下载失败时抛出异常
-        """
-        downloaded_files = []
+        """通过传统页面点击方式下载文书（回退机制）"""
+        downloaded_files: list[str] = []
         success_count = 0
         failed_count = 0
 
-        # 检测文书列表数量
-        # 文书列表容器 XPath
         doc_list_xpath = (
             "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
             "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
             "/uni-view[1]/uni-view[1]/uni-view"
         )
-
         try:
             doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
@@ -1118,124 +1104,33 @@ class CourtDocumentScraper(BaseScraper):
             doc_count = 1
 
         if doc_count == 0:
-            # 没有检测到文书列表，尝试直接下载
             logger.info("[DEBUG] 未检测到文书列表，尝试直接下载")
             doc_count = 1
 
-        # 逐一下载每个文书
         for doc_index in range(1, doc_count + 1):
-            logger.info(f"\n{'=' * 40}")
             logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书")
-            logger.info(f"{'=' * 40}")
-
             try:
-                # 如果有多个文书，需要先点击对应的文书项
-                if doc_count > 1 or doc_index > 1:
-                    # 点击文书项
-                    doc_item_xpath = (
-                        "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-                        "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
-                        f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
-                    )
-
-                    try:
-                        doc_item = self.page.locator(f"xpath={doc_item_xpath}")
-                        if doc_item.count() > 0:
-                            doc_item.first.click()
-                            logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
-                            self.random_wait(2, 3)  # 等待 PDF 加载
-                        else:
-                            logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
-                    except Exception as e:
-                        logger.warning(f"[DEBUG] 点击文书项失败: {e}")
-
-                # 查找 iframe（使用 ID #if）
-                frame = None
-                try:
-                    # 优先使用 ID 选择器
-                    frame = self.page.frame_locator("#if")
-                    logger.info("[DEBUG] 通过 #if 找到 iframe")
-                except Exception:
-                    pass
-
-                if not frame:
-                    # 备用：查找包含 pdfjs 的 iframe
-                    iframes = self.page.locator("iframe").all()
-                    for i, iframe in enumerate(iframes):
-                        src = iframe.get_attribute("src") or ""
-                        iframe_id = iframe.get_attribute("id") or ""
-                        logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
-
-                        if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
-                            frame = self.page.frame_locator(f"iframe >> nth={i}")
-                            logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
-                            break
-
+                self._click_doc_item_legacy(doc_index, doc_count)
+                frame = self._find_pdf_iframe_legacy()
                 if not frame:
                     logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
+                    failed_count += 1
                     continue
-
-                # 在 iframe 内点击下载按钮
-                try:
-                    # 使用 #download ID
-                    btn = frame.locator("#download")
-                    btn.first.wait_for(state="visible", timeout=10000)
-                    btn.first.scroll_into_view_if_needed()
-                    self.random_wait(1, 2)
-
-                    # 监听下载
-                    with self.page.expect_download(timeout=60000) as download_info:
-                        btn.first.click()
-                        logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
-
-                    download = download_info.value
-
-                    # 保存文件
-                    filename = download.suggested_filename or f"document_{doc_index}.pdf"
-                    filepath = download_dir / filename
-                    download.save_as(str(filepath))
-                    logger.info(f"[DEBUG] 文件已保存: {filepath}")
-                    downloaded_files.append(str(filepath))
+                filepath = self._download_single_doc_legacy(frame, doc_index, download_dir)
+                if filepath:
+                    downloaded_files.append(filepath)
                     success_count += 1
-
-                except Exception as e:
-                    logger.warning(f"[DEBUG] #download 方式失败: {e}，尝试备用 XPath")
-
-                    # 备用：使用原来的 XPath
-                    try:
-                        download_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
-                        btn = frame.locator(f"xpath={download_xpath}")
-                        btn.first.wait_for(state="visible", timeout=5000)
-
-                        with self.page.expect_download(timeout=60000) as download_info:
-                            btn.first.click()
-                            logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
-
-                        download = download_info.value
-                        filename = download.suggested_filename or f"document_{doc_index}.pdf"
-                        filepath = download_dir / filename
-                        download.save_as(str(filepath))
-                        downloaded_files.append(str(filepath))
-                        success_count += 1
-
-                    except Exception as e2:
-                        logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
-                        failed_count += 1
-
-                # 下载完成后等待一下
+                else:
+                    failed_count += 1
                 self.random_wait(1, 2)
-
             except Exception as e:
                 logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错: {e}")
                 failed_count += 1
-                continue
 
         if not downloaded_files:
-            # 最终失败，保存详细调试信息
             self._save_page_state("zxfw_final_failed")
             raise ValueError("所有下载策略均失败，请查看调试文件")
 
-        # 记录汇总日志
         logger.info(
             "回退方式下载完成",
             extra={
@@ -1246,7 +1141,6 @@ class CourtDocumentScraper(BaseScraper):
                 "failed_count": failed_count,
             },
         )
-
         return {
             "source": "zxfw.court.gov.cn",
             "document_count": doc_count,
@@ -1256,205 +1150,113 @@ class CourtDocumentScraper(BaseScraper):
             "message": f"回退方式：成功下载 {success_count}/{doc_count} 份文书",
         }
 
-    def _download_gdems(self, url: str) -> dict[str, Any]:
-        """
-        下载 sd.gdems.com 的文书
-
-        特点：
-        - 先进入封面页
-        - 需要点击"确认并预览材料"按钮
-        - 然后通过 XPath /html/body/div/div[1]/div[1]/label/a/img 下载压缩包
-
-        Args:
-            url: 文书链接
-
-        Returns:
-            下载结果
-        """
-        logger.info("=" * 60)
-        logger.info("处理 sd.gdems.com 链接...")
-        logger.info("=" * 60)
-
-        # 导航到目标页面
-        self.navigate_to_url()
-
-        # 等待页面加载
-        self.page.wait_for_load_state("networkidle", timeout=30000)
-        self.random_wait(3, 5)
-
-        # 截图保存封面页
-        screenshot_cover = self.screenshot("gdems_cover")
-
-        # 点击"确认并预览材料"按钮
-        try:
-            submit_button = None
-
-            # 方案 1: 使用 ID/class
+    def _find_visible_locator(self, selectors: list[str]) -> "Any | None":
+        """按顺序尝试多个选择器，返回第一个可见的定位器"""
+        for selector in selectors:
             try:
-                submit_button = self.page.locator("#submit-btn, #confirm-btn, .submit-btn, .confirm-btn")
-                if submit_button.count() > 0 and submit_button.first.is_visible():
-                    logger.info("通过 ID/class 找到确认按钮")
-                else:
-                    submit_button = None
+                loc = self.page.locator(selector)
+                if loc.count() > 0 and loc.first.is_visible():
+                    return loc
             except Exception:
                 pass
+        return None
 
-            # 方案 2: 使用文本
+    def _click_gdems_confirm_button(self) -> None:
+        """点击 gdems 确认按钮，尝试多种定位策略"""
+        try:
+            selectors = [
+                "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
+                "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')",
+            ]
+            submit_button = self._find_visible_locator(selectors)
             if not submit_button:
                 try:
-                    submit_button = self.page.get_by_text("确认并预览材料", exact=False)
-                    if submit_button.count() > 0 and submit_button.first.is_visible():
-                        logger.info("通过文本找到确认按钮")
-                    else:
-                        submit_button = None
-                except Exception:
-                    pass
-
-            # 方案 3: 使用按钮文本
-            if not submit_button:
-                try:
-                    submit_button = self.page.locator(
-                        "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')"
-                    )
-                    if submit_button.count() > 0 and submit_button.first.is_visible():
-                        logger.info("通过按钮选择器找到确认按钮")
-                    else:
-                        submit_button = None
+                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    if btn.count() > 0 and btn.first.is_visible():
+                        submit_button = btn
                 except Exception:
                     pass
 
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-
-                # 等待预览页加载
                 self.page.wait_for_load_state("networkidle", timeout=30000)
                 self.random_wait(5, 7)
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
-
         except Exception as e:
             logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
 
-        # 截图保存预览页
-        screenshot_preview = self.screenshot("gdems_preview")
-
-        # 准备下载目录
-        download_dir = self._prepare_download_dir()
-
-        # 点击下载按钮 - 多种方式尝试
+    def _download_gdems_zip(self, download_dir: Path) -> Path:
+        """下载 gdems ZIP 文件，返回文件路径"""
         download_xpath = "/html/body/div/div[1]/div[1]/label/a/img"
-
+        selectors = [
+            "a.downloadPackClass",
+            f"xpath={download_xpath}",
+            "label a:has(img)",
+            "a:has-text('送达材料')",
+            "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
+        ]
         try:
-            download_button = None
-
-            # 方式1: 使用 downloadPackClass 类名（最可靠）
-            try:
-                download_button = self.page.locator("a.downloadPackClass")
-                if download_button.count() > 0 and download_button.first.is_visible():
-                    logger.info("通过 a.downloadPackClass 找到下载按钮")
-                else:
-                    download_button = None
-            except Exception:
-                pass
-
-            # 方式2: 使用提供的 XPath
-            if not download_button:
-                try:
-                    download_button = self.page.locator(f"xpath={download_xpath}")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info(f"通过 XPath 找到下载按钮: {download_xpath}")
-                    else:
-                        download_button = None
-                except Exception:
-                    pass
-
-            # 方式3: 查找 label 下的 a 标签（包含 img）
-            if not download_button:
-                try:
-                    download_button = self.page.locator("label a:has(img)")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过 label a:has(img) 找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    pass
-
-            # 方式4: 查找包含"送达材料"文本的链接
-            if not download_button:
-                try:
-                    download_button = self.page.locator("a:has-text('送达材料')")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过文本'送达材料'找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    pass
-
-            # 方式5: 查找任何包含"下载"的元素
-            if not download_button:
-                try:
-                    download_button = self.page.locator("a:has-text('下载'), button:has-text('下载'), [title*='下载']")
-                    if download_button.count() > 0 and download_button.first.is_visible():
-                        logger.info("通过文本找到下载按钮")
-                    else:
-                        download_button = None
-                except Exception:
-                    pass
-
+            download_button = self._find_visible_locator(selectors)
             if not download_button or download_button.count() == 0:
-                # 保存页面 HTML 用于调试
                 self._save_page_state("gdems_no_download_button")
                 raise ValueError("找不到下载按钮")
 
-            # 滚动到按钮位置
             download_button.first.scroll_into_view_if_needed()
             self.random_wait(1, 2)
 
-            # 监听下载事件
             with self.page.expect_download(timeout=60000) as download_info:
                 download_button.first.click()
                 logger.info("已点击下载按钮，等待下载...")
 
             download = download_info.value
-
-            # 保存 ZIP 文件
             zip_filename = download.suggested_filename or "documents.zip"
             zip_filepath = download_dir / zip_filename
             download.save_as(str(zip_filepath))
-
             logger.info(f"ZIP 文件已保存: {zip_filepath}")
-
+            return zip_filepath
         except Exception as e:
             logger.error(f"下载失败: {e}")
             self._save_page_state("gdems_download_error")
             raise ValueError(f"文件下载失败: {e}") from e
 
-        # 解压 ZIP 文件
-        extracted_files = []
+    def _extract_gdems_zip(self, zip_filepath: Path, download_dir: Path) -> list[str]:
+        """解压 ZIP 文件，返回解压后的文件路径列表"""
         try:
             extract_dir = download_dir / "extracted"
             extract_dir.mkdir(exist_ok=True)
-
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
-                extracted_files = [str(extract_dir / name) for name in zip_ref.namelist()]
-
-            logger.info(f"ZIP 文件已解压，共 {len(extracted_files)} 个文件")
-
+                extracted = [str(extract_dir / name) for name in zip_ref.namelist()]
+            logger.info(f"ZIP 文件已解压，共 {len(extracted)} 个文件")
+            return extracted
         except Exception as e:
             logger.error(f"解压失败: {e}")
-            # 解压失败不影响主流程，返回 ZIP 文件
-            extracted_files = []
+            return []
 
-        # 构建文件列表（用于结果显示）
+    def _download_gdems(self, url: str) -> dict[str, Any]:
+        """下载 sd.gdems.com 的文书"""
+        logger.info("处理 sd.gdems.com 链接...")
+
+        self.navigate_to_url()
+        self.page.wait_for_load_state("networkidle", timeout=30000)
+        self.random_wait(3, 5)
+
+        screenshot_cover = self.screenshot("gdems_cover")
+        self._click_gdems_confirm_button()
+        screenshot_preview = self.screenshot("gdems_preview")
+
+        download_dir = self._prepare_download_dir()
+        zip_filepath = self._download_gdems_zip(download_dir)
+        extracted_files = self._extract_gdems_zip(zip_filepath, download_dir)
         all_files = [str(zip_filepath)] + extracted_files
 
         return {
             "source": "sd.gdems.com",
             "zip_file": str(zip_filepath),
             "extracted_files": extracted_files,
-            "files": all_files,  # 添加 files 字段，与 zxfw 保持一致
+            "files": all_files,
             "file_count": len(extracted_files),
             "screenshots": [screenshot_cover, screenshot_preview],
             "message": f"成功下载并解压 {len(extracted_files)} 个文件",

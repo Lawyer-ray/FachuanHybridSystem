@@ -924,7 +924,9 @@ class CourtSMSService:
         all_docs = task.documents.all()  # type: ignore[attr-defined]
         if not all_docs.exists():
             running = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
-            logger.info(f"短信 {sms.id} 的下载任务{'进行中但' if running else ''}没有文书记录，{'需要' if running else '不再'}等待")
+            wait_msg = "需要" if running else "不再"
+            running_msg = "进行中但" if running else ""
+            logger.info(f"短信 {sms.id} 的下载任务{running_msg}没有文书记录，{wait_msg}等待")
             return running
 
         successful = all_docs.filter(download_status="success")
@@ -958,7 +960,10 @@ class CourtSMSService:
             or downloading.exists()
             or task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
         )
-        logger.info(f"短信 {sms.id} {'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}")
+        logger.info(
+            f"短信 {sms.id} "
+            f"{'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}"
+        )
         return should_wait
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:

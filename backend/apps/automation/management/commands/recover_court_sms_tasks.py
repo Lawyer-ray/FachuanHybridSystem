@@ -191,13 +191,87 @@ class Command(BaseCommand):
 
         return reset_count
 
+    def _recover_single_downloading(self, sms: Any, async_task: Any) -> bool:
+        """处理 DOWNLOADING 状态的恢复，返回是否继续"""
+        from apps.automation.models import CourtSMSStatus, ScraperTaskStatus
+
+        if not sms.scraper_task:
+            sms.status = CourtSMSStatus.PARSING
+            sms.save()
+            async_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_reparse_recovery_{sms.id}",
+            )
+            return True
+
+        scraper_status = sms.scraper_task.status
+        if scraper_status == ScraperTaskStatus.SUCCESS:
+            sms.status = CourtSMSStatus.MATCHING
+            sms.save()
+            async_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_download_complete_recovery_{sms.id}",
+            )
+            return True
+        if scraper_status == ScraperTaskStatus.FAILED:
+            sms.status = CourtSMSStatus.DOWNLOAD_FAILED
+            sms.save()
+            if sms.retry_count < 3:
+                async_task(
+                    "apps.automation.services.sms.court_sms_service.retry_download_task",
+                    sms.id,
+                    task_name=f"court_sms_download_retry_recovery_{sms.id}",
+                )
+            return True
+        # 还在下载中，跳过
+        return False
+
+    def _recover_single_sms(self, sms: Any, async_task: Any) -> bool:
+        """恢复单条 SMS，返回是否成功提交恢复任务"""
+        from apps.automation.models import CourtSMSStatus
+
+        if sms.status == CourtSMSStatus.PENDING:
+            async_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_recovery_{sms.id}",
+            )
+        elif sms.status == CourtSMSStatus.DOWNLOAD_FAILED:
+            if sms.retry_count < 3:
+                async_task(
+                    "apps.automation.services.sms.court_sms_service.retry_download_task",
+                    sms.id,
+                    task_name=f"court_sms_retry_recovery_{sms.id}",
+                )
+            else:
+                sms.status = CourtSMSStatus.FAILED
+                sms.error_message = "恢复时发现重试次数已用完"
+                sms.save()
+                return False
+        elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
+            async_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_continue_recovery_{sms.id}",
+            )
+        elif sms.status == CourtSMSStatus.DOWNLOADING:
+            return self._recover_single_downloading(sms, async_task)
+        else:
+            async_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_general_recovery_{sms.id}",
+            )
+        return True
+
     def _recover_incomplete_tasks(self, max_age: Any, verbose: bool = True) -> int:
         """恢复未完成的任务"""
         from django_q.tasks import async_task
 
         from apps.automation.models import CourtSMS, CourtSMSStatus
 
-        # 查找需要恢复的任务
         incomplete_statuses = [
             CourtSMSStatus.PENDING,
             CourtSMSStatus.PARSING,
@@ -208,96 +282,16 @@ class Command(BaseCommand):
             CourtSMSStatus.NOTIFYING,
         ]
 
-        incomplete_tasks = CourtSMS.objects.filter(status__in=incomplete_statuses, created_at__gte=max_age).order_by(
-            "-created_at"
-        )
+        incomplete_tasks = CourtSMS.objects.filter(
+            status__in=incomplete_statuses, created_at__gte=max_age
+        ).order_by("-created_at")
 
         recovered_count = 0
         for sms in incomplete_tasks:
             try:
-                # 根据当前状态决定恢复策略
-                if sms.status == CourtSMSStatus.PENDING:
-                    # 待处理状态，直接提交处理任务
-                    async_task(
-                        "apps.automation.services.sms.court_sms_service.process_sms_async",
-                        sms.id,
-                        task_name=f"court_sms_recovery_{sms.id}",
-                    )
-
-                elif sms.status == CourtSMSStatus.DOWNLOAD_FAILED:
-                    # 下载失败，检查是否可以重试
-                    if sms.retry_count < 3:
-                        async_task(
-                            "apps.automation.services.sms.court_sms_service.retry_download_task",
-                            sms.id,
-                            task_name=f"court_sms_retry_recovery_{sms.id}",
-                        )
-                    else:
-                        # 重试次数用完，标记为失败
-                        sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "恢复时发现重试次数已用完"
-                        sms.save()
-                        continue
-
-                elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
-                    # 处理中状态，继续处理
-                    async_task(
-                        "apps.automation.services.sms.court_sms_service.process_sms_async",
-                        sms.id,
-                        task_name=f"court_sms_continue_recovery_{sms.id}",
-                    )
-
-                elif sms.status == CourtSMSStatus.DOWNLOADING:
-                    # 下载中状态，检查关联的 ScraperTask
-                    if sms.scraper_task:
-                        from apps.automation.models import ScraperTaskStatus
-
-                        if sms.scraper_task.status == ScraperTaskStatus.SUCCESS:
-                            # 下载已完成，继续后续处理
-                            sms.status = CourtSMSStatus.MATCHING
-                            sms.save()
-
-                            async_task(
-                                "apps.automation.services.sms.court_sms_service.process_sms_async",
-                                sms.id,
-                                task_name=f"court_sms_download_complete_recovery_{sms.id}",
-                            )
-                        elif sms.scraper_task.status == ScraperTaskStatus.FAILED:
-                            # 下载失败，触发重试逻辑
-                            sms.status = CourtSMSStatus.DOWNLOAD_FAILED
-                            sms.save()
-
-                            if sms.retry_count < 3:
-                                async_task(
-                                    "apps.automation.services.sms.court_sms_service.retry_download_task",
-                                    sms.id,
-                                    task_name=f"court_sms_download_retry_recovery_{sms.id}",
-                                )
-                        # 如果还在下载中，不做处理
-                        else:
-                            continue
-                    else:
-                        # 没有关联的下载任务，重新创建
-                        sms.status = CourtSMSStatus.PARSING
-                        sms.save()
-
-                        async_task(
-                            "apps.automation.services.sms.court_sms_service.process_sms_async",
-                            sms.id,
-                            task_name=f"court_sms_reparse_recovery_{sms.id}",
-                        )
-
-                else:
-                    # 其他状态，重新处理
-                    async_task(
-                        "apps.automation.services.sms.court_sms_service.process_sms_async",
-                        sms.id,
-                        task_name=f"court_sms_general_recovery_{sms.id}",
-                    )
-
-                recovered_count += 1
-                logger.info(f"恢复任务: SMS ID={sms.id}, 状态={sms.status}")
-
+                if self._recover_single_sms(sms, async_task):
+                    recovered_count += 1
+                    logger.info(f"恢复任务: SMS ID={sms.id}, 状态={sms.status}")
             except Exception as e:
                 logger.error(f"恢复任务失败: SMS ID={sms.id}, 错误: {e!s}")
                 if verbose:

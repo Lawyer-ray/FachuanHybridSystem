@@ -135,9 +135,8 @@ class ExtractorValidatorsMixin:
             score += 20
         return (score, reasons)
 
-        def _score_work_hours(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
-            """评估是否在工作时间"""
-
+    def _score_work_hours(self, dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
+        """评估是否在工作时间"""
         hour = dt.hour
         if 8 <= hour <= 18:
             score += 15
@@ -150,9 +149,8 @@ class ExtractorValidatorsMixin:
             reasons.append(f"非工作时间({hour}点)")
         return (score, reasons)
 
-        def _score_weekday(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
-            """评估是否是工作日"""
-
+    def _score_weekday(self, dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
+        """评估是否是工作日"""
         if dt.weekday() >= 5:
             score -= 10
             reasons.append("周末")
@@ -161,9 +159,8 @@ class ExtractorValidatorsMixin:
             reasons.append("工作日")
         return (score, reasons)
 
-        def _score_minute(dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
-            """评估分钟是否合理"""
-
+    def _score_minute(self, dt: datetime, score: int, reasons: list[Any]) -> tuple[int, list[Any]]:
+        """评估分钟是否合理"""
         minute = dt.minute
         if minute in {0, 30}:
             score += 10

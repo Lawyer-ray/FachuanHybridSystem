@@ -2,7 +2,7 @@
 爬虫任务 Admin
 """
 
-from typing import ClassVar
+from typing import Any, ClassVar
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -82,8 +82,62 @@ class ScraperTaskAdmin(admin.ModelAdmin):
                 return f"{minutes:.1f}分钟"
         return "-"
 
+    def _file_icon(self, filename: str) -> str:
+        """根据文件扩展名返回图标"""
+        if filename.endswith(".pdf"):
+            return "📄"
+        if filename.endswith(".zip"):
+            return "📦"
+        if filename.endswith((".doc", ".docx")):
+            return "📝"
+        return "📎"
+
+    def _render_files_html(self, files: list[str]) -> list[str]:
+        """渲染文件列表 HTML"""
+        from pathlib import Path
+
+        from django.conf import settings
+        from django.utils.html import escape
+
+        parts = [
+            '<div style="margin-top: 10px;"><strong>📁 下载的文件:</strong>'
+            '<ul style="list-style: none; padding-left: 0;">',
+        ]
+        for f in files:
+            filename = f.split("/")[-1] if "/" in f else f
+            try:
+                file_path = Path(f)
+                media_root = Path(settings.MEDIA_ROOT)
+                relative_path = file_path.relative_to(media_root)
+                file_url = settings.MEDIA_URL + str(relative_path)
+                icon = self._file_icon(filename)
+                parts.append(
+                    f'<li style="margin: 5px 0;">'
+                    f'<a href="{escape(file_url)}" target="_blank" style="color: #0066cc; text-decoration: none;">'
+                    f"{icon} {escape(filename)}</a></li>"
+                )
+            except (ValueError, Exception):
+                parts.append(f'<li style="margin: 5px 0;">📎 {escape(filename)}</li>')
+        parts.append("</ul></div>")
+        return parts
+
+    def _render_screenshots_html(self, screenshots: list[str]) -> list[str]:
+        """渲染截图列表 HTML"""
+        from django.conf import settings
+        from django.utils.html import escape
+
+        parts = []
+        for ss in screenshots:
+            if ss.startswith(str(settings.MEDIA_ROOT)):
+                ss_url = ss.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
+                parts.append(
+                    f'<br><img src="{escape(ss_url)}" '
+                    f'style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">'
+                )
+        return parts
+
     @admin.display(description="执行结果")
-    def result_display(self, obj):
+    def result_display(self, obj: Any) -> Any:
         """格式化显示结果"""
         if not obj.result:
             return "-"
@@ -94,10 +148,8 @@ class ScraperTaskAdmin(admin.ModelAdmin):
         from django.utils.safestring import mark_safe
 
         result_json = json.dumps(obj.result, indent=2, ensure_ascii=False)
-        # 转义 HTML 特殊字符，避免 format_html 的占位符问题
         escaped_json = escape(result_json)
 
-        # 如果结果中有截图，显示图片
         screenshot = obj.result.get("screenshot")
         screenshots = obj.result.get("screenshots", [])
         files = obj.result.get("files", [])
@@ -107,70 +159,19 @@ class ScraperTaskAdmin(admin.ModelAdmin):
             f' max-height: 300px; overflow: auto;">{escaped_json}</pre>'
         ]
 
-        # 显示下载的文件列表（带下载链接）
         if files:
-            from pathlib import Path
+            html_parts.extend(self._render_files_html(files))
 
-            from django.conf import settings
-
-            html_parts.append(
-                '<div style="margin-top: 10px;"><strong>📁 下载的文件:</strong>'
-                '<ul style="list-style: none; padding-left: 0;">'
-            )
-            for f in files:
-                filename = f.split("/")[-1] if "/" in f else f
-
-                # 尝试生成下载链接
-                try:
-                    file_path = Path(f)
-                    media_root = Path(settings.MEDIA_ROOT)
-                    relative_path = file_path.relative_to(media_root)
-                    file_url = settings.MEDIA_URL + str(relative_path)
-
-                    # 根据文件类型显示不同图标
-                    if filename.endswith(".pdf"):
-                        icon = "📄"
-                    elif filename.endswith(".zip"):
-                        icon = "📦"
-                    elif filename.endswith((".doc", ".docx")):
-                        icon = "📝"
-                    else:
-                        icon = "📎"
-
-                    html_parts.append(
-                        f'<li style="margin: 5px 0;">'
-                        f'<a href="{escape(file_url)}" target="_blank" style="color: #0066cc; text-decoration: none;">'
-                        f"{icon} {escape(filename)}"
-                        f"</a>"
-                        f"</li>"
-                    )
-                except (ValueError, Exception):
-                    # 如果无法生成链接，只显示文件名
-                    html_parts.append(f'<li style="margin: 5px 0;">📎 {escape(filename)}</li>')
-
-            html_parts.append("</ul></div>")
-
-        # 显示单个截图
         if screenshot:
             from django.conf import settings
-
             if screenshot.startswith(str(settings.MEDIA_ROOT)):
                 screenshot_url = screenshot.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
                 html_parts.append(
                     f'<br><img src="{escape(screenshot_url)}" style="max-width: 600px; border: 1px solid #ddd;">'
                 )
 
-        # 显示多个截图
         if screenshots:
-            from django.conf import settings
-
-            for ss in screenshots:
-                if ss.startswith(str(settings.MEDIA_ROOT)):
-                    ss_url = ss.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
-                    html_parts.append(
-                        f'<br><img src="{escape(ss_url)}" style="max-width: 600px;'
-                        f' border: 1px solid #ddd; margin-top: 10px;">'
-                    )
+            html_parts.extend(self._render_screenshots_html(screenshots))
 
         return mark_safe("".join(html_parts))
 

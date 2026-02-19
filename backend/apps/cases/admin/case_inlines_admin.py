@@ -172,7 +172,6 @@ def _make_custom_formset(base_formset: type) -> type:
         def clean(self) -> None:
             if any(self.errors):
                 return
-
             for form in self.forms:
                 if not hasattr(form, "cleaned_data"):
                     continue
@@ -182,8 +181,7 @@ def _make_custom_formset(base_formset: type) -> type:
                     continue
 
         def is_valid(self) -> bool:
-            result = super().is_valid()
-            if result:
+            if super().is_valid():
                 return True
             return bool(self._recheck_ignoring_empty_forms())
 
@@ -201,12 +199,11 @@ def _make_custom_formset(base_formset: type) -> type:
         @staticmethod
         def _form_has_data(form: Any) -> bool:
             skip_fields = {"DELETE", "id", "log"}
-            for field_name in form.fields:
-                if field_name in skip_fields:
-                    continue
-                if form.data.get(f"{form.prefix}-{field_name}"):
-                    return True
-            return False
+            return any(
+                form.data.get(f"{form.prefix}-{field_name}")
+                for field_name in form.fields
+                if field_name not in skip_fields
+            )
 
     return CustomFormSet
 

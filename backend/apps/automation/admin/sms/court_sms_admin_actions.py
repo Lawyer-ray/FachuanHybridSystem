@@ -99,93 +99,81 @@ class CourtSMSAdminActions:
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
 
-    def assign_case_view(self, request, sms_id) -> None:
+    def _get_suggested_cases(self, sms: Any, case_service: Any, sms_id: int) -> list[Any]:
+        """获取推荐案件"""
+        suggested_cases: list[Any] = []
+        try:
+            if sms.party_names:
+                for party_name in sms.party_names:
+                    if party_name.strip():
+                        suggested_cases.extend(case_service.search_cases_by_party_internal([party_name.strip()])[:5])
+            if sms.case_numbers:
+                for case_number in sms.case_numbers:
+                    if case_number.strip():
+                        suggested_cases.extend(case_service.search_cases_by_case_number_internal(case_number.strip())[:5])
+            seen_ids: set[int] = set()
+            unique: list[Any] = []
+            for case in suggested_cases:
+                if hasattr(case, "id") and cast(int, case.id) not in seen_ids:
+                    seen_ids.add(cast(int, case.id))
+                    unique.append(case)
+            return unique[:10]
+        except Exception as e:
+            logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            return []
+
+    def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:
+        """将 CaseDTO 转换为模板可用的格式"""
+        try:
+            case_service = _get_case_service()
+            case_detail = case_service.get_case_detail_internal(cast(int, case_dto.id))
+            return {
+                "id": cast(int, case_detail.id),
+                "name": case_detail.name,
+                "created_at": cast(Any, case_detail.created_at),
+                "case_numbers": getattr(case_detail, "case_numbers", []),
+                "parties": getattr(case_detail, "parties", []),
+            }
+        except Exception as e:
+            logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
+            return {
+                "id": cast(int, case_dto.id),
+                "name": case_dto.name,
+                "created_at": None,
+                "case_numbers": [],
+                "parties": [],
+            }
+
+    def assign_case_view(self, request: Any, sms_id: int) -> Any:
         """手动指定案件页面"""
         sms = get_object_or_404(CourtSMS, id=sms_id)
 
         if request.method == "POST":
             case_id = request.POST.get("case_id")
-
             if not case_id:
                 messages.error(request, "请选择一个案件")
             else:
                 try:
                     service = _get_court_sms_service()
                     service.assign_case(sms_id, int(case_id))
-
                     messages.success(request, "案件指定成功!已触发文书重命名和推送通知流程")
                     logger.info(f"管理员手动指定案件: SMS ID={sms_id}, Case ID={case_id}, User={request.user}")
-
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
-
                 except Exception as e:
                     messages.error(request, f"指定案件失败: {e!s}")
                     logger.error(f"管理员手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
 
         case_service = _get_case_service()
-
-        suggested_cases: list[Any] = []
-        try:
-            if sms.party_names:
-                for party_name in sms.party_names:
-                    if party_name.strip():
-                        cases = case_service.search_cases_by_party_internal([party_name.strip()])[:5]
-                        suggested_cases.extend(cases)
-
-            if sms.case_numbers:
-                for case_number in sms.case_numbers:
-                    if case_number.strip():
-                        cases = case_service.search_cases_by_case_number_internal(case_number.strip())[:5]
-                        suggested_cases.extend(cases)
-
-            seen_ids = set()
-            unique_suggested_cases: list[Any] = []
-            for case in suggested_cases:
-                if hasattr(case, "id") and cast(int, case.id) not in seen_ids:
-                    seen_ids.add(cast(int, case.id))
-                    unique_suggested_cases.append(case)
-
-            suggested_cases = unique_suggested_cases[:10]
-
-        except Exception as e:
-            logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
-            suggested_cases: list[Any] = []
-
-        def format_case_for_template(case_dto) -> None:
-            """将 CaseDTO 转换为模板可用的格式"""
-            try:
-                case_service = _get_case_service()
-                case_detail = case_service.get_case_detail_internal(cast(int, case_dto.id))
-
-                return {
-                    "id": cast(int, case_detail.id),
-                    "name": case_detail.name,
-                    "created_at": cast(Any, case_detail.created_at),
-                    "case_numbers": getattr(case_detail, "case_numbers", []),
-                    "parties": getattr(case_detail, "parties", []),
-                }
-            except Exception as e:
-                logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
-                return {
-                    "id": cast(int, case_dto.id),
-                    "name": case_dto.name,
-                    "created_at": None,
-                    "case_numbers": [],
-                    "parties": [],
-                }
-
-        formatted_suggested: list[Any] = []
-        formatted_recent: list[Any] = []
+        suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
 
         context = {
             "title": f"为短信 #{sms_id} 指定案件",
             "sms": sms,
-            "suggested_cases": formatted_suggested,
-            "recent_cases": formatted_recent,
+            "suggested_cases": [self._format_case_for_template(c) for c in suggested_cases],
+            "recent_cases": [],
             "opts": self.model._meta,
             "has_view_permission": True,
         }
-
         return render(request, "admin/automation/courtsms/assign_case.html", context)
 
     def search_cases_ajax(self, request, sms_id) -> None:

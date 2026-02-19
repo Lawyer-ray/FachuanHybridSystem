@@ -221,39 +221,14 @@ class EvidenceAdminService:
 
         return filename
 
-    def recount_pages(self, list_id: int) -> dict[str, Any]:
-        """重新识别证据清单中所有 PDF 文件的页数"""
+    def _recount_item_pages(self, item: Any) -> tuple[int, int, str | None]:
+        """重新计算单个证据项的页数，返回 (updated_count, page_count, error_msg)"""
         import os
-
-        from apps.documents.models import EvidenceList
 
         from .pdf_utils import get_pdf_page_count_with_error
 
-        evidence_list = EvidenceList.objects.get(pk=list_id)
-        items = evidence_list.items.all()  # type: ignore[attr-defined]
-
-        updated = 0
-        errors: list[Any] = []
-        total_pages = 0
-
-        for item in items:
-            item_updated, item_pages, item_error = self._recount_item_pages(item, os, get_pdf_page_count_with_error)  # type: ignore
-            updated += item_updated
-            total_pages += item_pages
-            if item_error:
-                errors.append(item_error)
-
-        if evidence_list.total_pages != total_pages:
-            evidence_list.total_pages = total_pages
-            evidence_list.save(update_fields=["total_pages"])
-
-        return {"updated": updated, "total_pages": total_pages, "errors": errors}
-
-        def _recount_item_pages(item, os, get_pdf_page_count_with_error) -> tuple[int, int, str | None]:
-            """重新计算单个证据项的页数,返回 (updated_count, page_count, error_msg)"""
-
         if not item.file:
-            update_fields: list[Any] = []
+            update_fields: list[str] = []
             if item.page_count != 0:
                 item.page_count = 0
                 update_fields.append("page_count")
@@ -281,3 +256,27 @@ class EvidenceAdminService:
             item.save(update_fields=["page_count"])
             updated = 1
         return updated, page_count, error_msg
+
+    def recount_pages(self, list_id: int) -> dict[str, Any]:
+        """重新识别证据清单中所有 PDF 文件的页数"""
+        from apps.documents.models import EvidenceList
+
+        evidence_list = EvidenceList.objects.get(pk=list_id)
+        items = evidence_list.items.all()  # type: ignore[attr-defined]
+
+        updated = 0
+        errors: list[Any] = []
+        total_pages = 0
+
+        for item in items:
+            item_updated, item_pages, item_error = self._recount_item_pages(item)
+            updated += item_updated
+            total_pages += item_pages
+            if item_error:
+                errors.append(item_error)
+
+        if evidence_list.total_pages != total_pages:
+            evidence_list.total_pages = total_pages
+            evidence_list.save(update_fields=["total_pages"])
+
+        return {"updated": updated, "total_pages": total_pages, "errors": errors}

@@ -38,85 +38,85 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Token性能优化任务完成 - {timezone.now()}"))
 
+    async def _task_cleanup_history(self, options: Any) -> None:
+        """清理历史记录"""
+        if options["cleanup_days"] <= 0:
+            return
+        self.stdout.write("正在清理历史记录...")
+        try:
+            deleted_count = await history_recorder.cleanup_old_records(days=options["cleanup_days"])
+            self.stdout.write(self.style.SUCCESS(f"清理了 {deleted_count} 条历史记录"))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"清理历史记录失败: {e}"))
+
+    async def _task_warm_cache(self, options: Any) -> None:
+        """预热缓存"""
+        if options["warm_cache"] is None:
+            return
+        for site_name in options["warm_cache"]:
+            self.stdout.write(f"正在预热 {site_name} 的缓存...")
+            try:
+                cache_manager.warm_up_cache(site_name)
+                self.stdout.write(self.style.SUCCESS(f"{site_name} 缓存预热完成"))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"{site_name} 缓存预热失败: {e}"))
+
+    def _task_health_check(self, options: Any) -> None:
+        """健康检查"""
+        if not options["health_check"]:
+            return
+        self.stdout.write("正在执行健康检查...")
+        try:
+            health_report = performance_monitor.check_health()
+            self.stdout.write(f"系统状态: {health_report['status']}")
+            if health_report["alerts"]:
+                self.stdout.write(self.style.WARNING(f"发现 {len(health_report['alerts'])} 个告警:"))
+                severity_map = {
+                    "high": self.style.ERROR,
+                    "medium": self.style.WARNING,
+                    "low": self.style.NOTICE,
+                }
+                for alert in health_report["alerts"]:
+                    style_fn = severity_map.get(alert["severity"], self.style.NOTICE)
+                    self.stdout.write(style_fn(f"  [{alert['severity'].upper()}] {alert['message']}"))
+            else:
+                self.stdout.write(self.style.SUCCESS("系统健康，无告警"))
+            metrics = health_report["metrics"]
+            self.stdout.write(f"成功率: {metrics['success_rate']:.1f}%")
+            self.stdout.write(f"平均耗时: {metrics['avg_duration']:.1f}秒")
+            self.stdout.write(f"并发数: {metrics['concurrent_acquisitions']}")
+            self.stdout.write(f"缓存命中率: {metrics['cache_hit_rate']:.1f}%")
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"健康检查失败: {e}"))
+
+    async def _task_optimize_concurrency(self, options: Any) -> None:
+        """并发优化分析"""
+        if not options["optimize_concurrency"]:
+            return
+        self.stdout.write("正在分析并发配置...")
+        try:
+            optimization_result = await concurrency_optimizer.optimize_concurrency()
+            if optimization_result["recommendations"]:
+                self.stdout.write(self.style.WARNING(f"发现 {len(optimization_result['recommendations'])} 个优化建议:"))
+                for rec in optimization_result["recommendations"]:
+                    self.stdout.write(f"  - {rec['reason']}")
+                    if "recommended" in rec:
+                        self.stdout.write(f"    建议: {rec['recommended']}")
+            else:
+                self.stdout.write(self.style.SUCCESS("并发配置已优化，无需调整"))
+            usage = optimization_result["current_usage"]
+            self.stdout.write(f"当前并发数: {usage['total_acquisitions']}")
+            self.stdout.write(f"队列大小: {usage['queue_size']}")
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"并发优化分析失败: {e}"))
+
     async def _run_optimization_tasks(self, options: Any) -> None:
         """运行优化任务"""
+        await self._task_cleanup_history(options)
+        await self._task_warm_cache(options)
+        self._task_health_check(options)
+        await self._task_optimize_concurrency(options)
 
-        # 1. 清理历史记录
-        if options["cleanup_days"] > 0:
-            self.stdout.write("正在清理历史记录...")
-            try:
-                deleted_count = await history_recorder.cleanup_old_records(days=options["cleanup_days"])
-                self.stdout.write(self.style.SUCCESS(f"清理了 {deleted_count} 条历史记录"))
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"清理历史记录失败: {e}"))
-
-        # 2. 预热缓存
-        if options["warm_cache"] is not None:
-            for site_name in options["warm_cache"]:
-                self.stdout.write(f"正在预热 {site_name} 的缓存...")
-                try:
-                    cache_manager.warm_up_cache(site_name)
-                    self.stdout.write(self.style.SUCCESS(f"{site_name} 缓存预热完成"))
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f"{site_name} 缓存预热失败: {e}"))
-
-        # 3. 健康检查
-        if options["health_check"]:
-            self.stdout.write("正在执行健康检查...")
-            try:
-                health_report = performance_monitor.check_health()
-
-                self.stdout.write(f"系统状态: {health_report['status']}")
-
-                if health_report["alerts"]:
-                    self.stdout.write(self.style.WARNING(f"发现 {len(health_report['alerts'])} 个告警:"))
-                    for alert in health_report["alerts"]:
-                        severity_style = {
-                            "high": self.style.ERROR,
-                            "medium": self.style.WARNING,
-                            "low": self.style.NOTICE,
-                        }.get(alert["severity"], self.style.NOTICE)
-
-                        self.stdout.write(severity_style(f"  [{alert['severity'].upper()}] {alert['message']}"))
-                else:
-                    self.stdout.write(self.style.SUCCESS("系统健康，无告警"))
-
-                # 显示关键指标
-                metrics = health_report["metrics"]
-                self.stdout.write(f"成功率: {metrics['success_rate']:.1f}%")
-                self.stdout.write(f"平均耗时: {metrics['avg_duration']:.1f}秒")
-                self.stdout.write(f"并发数: {metrics['concurrent_acquisitions']}")
-                self.stdout.write(f"缓存命中率: {metrics['cache_hit_rate']:.1f}%")
-
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"健康检查失败: {e}"))
-
-        # 4. 并发优化分析
-        if options["optimize_concurrency"]:
-            self.stdout.write("正在分析并发配置...")
-            try:
-                optimization_result = await concurrency_optimizer.optimize_concurrency()
-
-                if optimization_result["recommendations"]:
-                    self.stdout.write(
-                        self.style.WARNING(f"发现 {len(optimization_result['recommendations'])} 个优化建议:")
-                    )
-                    for rec in optimization_result["recommendations"]:
-                        self.stdout.write(f"  - {rec['reason']}")
-                        if "recommended" in rec:
-                            self.stdout.write(f"    建议: {rec['recommended']}")
-                else:
-                    self.stdout.write(self.style.SUCCESS("并发配置已优化，无需调整"))
-
-                # 显示资源使用情况
-                usage = optimization_result["current_usage"]
-                self.stdout.write(f"当前并发数: {usage['total_acquisitions']}")
-                self.stdout.write(f"队列大小: {usage['queue_size']}")
-
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"并发优化分析失败: {e}"))
-
-        # 5. 重置性能指标
         if options["reset_metrics"]:
             self.stdout.write("正在重置性能指标...")
             try:
@@ -125,7 +125,6 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"重置性能指标失败: {e}"))
 
-        # 6. 清理并发资源
         self.stdout.write("正在清理并发资源...")
         try:
             await concurrency_optimizer.cleanup_resources()
@@ -133,16 +132,13 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"清理并发资源失败: {e}"))
 
-        # 7. 显示最终统计
         self.stdout.write("\n=== 最终统计 ===")
         try:
             recent_stats = await history_recorder.get_recent_statistics(hours=24)
             self.stdout.write(f"最近24小时获取次数: {recent_stats['total_acquisitions']}")
             self.stdout.write(f"成功率: {recent_stats['success_rate']:.1f}%")
             self.stdout.write(f"平均耗时: {recent_stats['avg_duration']:.1f}秒")
-
             cache_stats = cache_manager.get_cache_statistics()
             self.stdout.write(f"缓存后端: {cache_stats.get('cache_backend', 'unknown')}")
-
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"获取统计信息失败: {e}"))

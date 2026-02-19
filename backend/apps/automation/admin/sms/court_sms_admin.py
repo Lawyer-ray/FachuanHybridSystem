@@ -4,7 +4,7 @@
 提供短信记录管理、状态查看、手动处理等功能。
 """
 
-from typing import ClassVar
+from typing import Any, ClassVar
 import logging
 
 from django.contrib import admin, messages
@@ -481,106 +481,85 @@ class CourtSMSAdmin(admin.ModelAdmin):
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
 
-    def assign_case_view(self, request, sms_id):
+    def _get_suggested_cases(self, sms: Any, case_service: Any, sms_id: int) -> list[Any]:
+        """获取推荐案件"""
+        suggested_cases: list[Any] = []
+        try:
+            if sms.party_names:
+                for party_name in sms.party_names:
+                    if party_name.strip():
+                        suggested_cases.extend(case_service.search_cases_by_party_internal([party_name.strip()])[:5])
+            if sms.case_numbers:
+                for case_number in sms.case_numbers:
+                    if case_number.strip():
+                        suggested_cases.extend(case_service.search_cases_by_case_number_internal(case_number.strip())[:5])
+            seen_ids: set[int] = set()
+            unique: list[Any] = []
+            for case in suggested_cases:
+                if hasattr(case, "id") and case.id not in seen_ids:
+                    seen_ids.add(case.id)
+                    unique.append(case)
+            return unique[:10]
+        except Exception as e:
+            logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            return []
+
+    def _get_recent_cases(self, case_service: Any, sms_id: int) -> list[Any]:
+        """获取最近案件"""
+        try:
+            all_recent = case_service.search_cases_by_party_internal([])
+            return all_recent[:20] if all_recent else []
+        except Exception as e:
+            logger.warning(f"获取最近案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            return []
+
+    def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:
+        """将 CaseDTO 转换为模板可用的格式"""
+        try:
+            case_service = _get_case_service()
+            case_detail = case_service.get_case_detail_internal(case_dto.id)
+            return {
+                "id": case_detail.id,
+                "name": case_detail.name,
+                "created_at": case_detail.created_at,
+                "case_numbers": getattr(case_detail, "case_numbers", []),
+                "parties": getattr(case_detail, "parties", []),
+            }
+        except Exception as e:
+            logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
+            return {"id": case_dto.id, "name": case_dto.name, "created_at": None, "case_numbers": [], "parties": []}
+
+    def assign_case_view(self, request: Any, sms_id: int) -> Any:
         """手动指定案件页面"""
         sms = get_object_or_404(CourtSMS, id=sms_id)
 
         if request.method == "POST":
             case_id = request.POST.get("case_id")
-
             if not case_id:
                 messages.error(request, "请选择一个案件")
             else:
                 try:
                     service = _get_court_sms_service()
                     service.assign_case(sms_id, int(case_id))
-
                     messages.success(request, "案件指定成功！已触发文书重命名和推送通知流程")
                     logger.info(f"管理员手动指定案件: SMS ID={sms_id}, Case ID={case_id}, User={request.user}")
-
-                    # 跳转回短信详情页
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
-
                 except Exception as e:
                     messages.error(request, f"指定案件失败: {e!s}")
                     logger.error(f"管理员手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
 
-        # 获取案件服务
         case_service = _get_case_service()
-
-        # 获取推荐案件（根据当事人名称或案号匹配）
-        suggested_cases = []
-        try:
-            if sms.party_names:
-                # 根据当事人名称搜索（只搜索在办案件）
-                for party_name in sms.party_names:
-                    if party_name.strip():
-                        cases = case_service.search_cases_by_party_internal([party_name.strip()])[:5]
-                        suggested_cases.extend(cases)
-
-            if sms.case_numbers:
-                # 根据案号搜索
-                for case_number in sms.case_numbers:
-                    if case_number.strip():
-                        cases = case_service.search_cases_by_case_number_internal(case_number.strip())[:5]
-                        suggested_cases.extend(cases)
-
-            # 去重（基于案件ID）
-            seen_ids = set()
-            unique_suggested_cases = []
-            for case in suggested_cases:
-                if hasattr(case, "id") and case.id not in seen_ids:
-                    seen_ids.add(case.id)
-                    unique_suggested_cases.append(case)
-
-            suggested_cases = unique_suggested_cases[:10]
-
-        except Exception as e:
-            logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
-            suggested_cases = []
-
-        # 获取最近的案件（限制数量避免性能问题）
-        recent_cases = []
-        try:
-            # 使用空列表搜索获取最近案件，但限制数量
-            all_recent = case_service.search_cases_by_party_internal([])
-            recent_cases = all_recent[:20] if all_recent else []
-        except Exception as e:
-            logger.warning(f"获取最近案件失败: SMS ID={sms_id}, 错误: {e!s}")
-            recent_cases = []
-
-        # 转换为模板可用的格式（确保有必要的属性）
-        def format_case_for_template(case_dto):
-            """将 CaseDTO 转换为模板可用的格式"""
-            # 通过 ServiceLocator 获取案件的详细信息
-            try:
-                case_service = _get_case_service()
-                case_detail = case_service.get_case_detail_internal(case_dto.id)
-
-                return {
-                    "id": case_detail.id,
-                    "name": case_detail.name,
-                    "created_at": case_detail.created_at,
-                    "case_numbers": getattr(case_detail, "case_numbers", []),
-                    "parties": getattr(case_detail, "parties", []),
-                }
-            except Exception as e:
-                logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
-                return {"id": case_dto.id, "name": case_dto.name, "created_at": None, "case_numbers": [], "parties": []}
-
-        # 格式化案件数据
-        formatted_suggested = [format_case_for_template(case) for case in suggested_cases]
-        formatted_recent = [format_case_for_template(case) for case in recent_cases]
+        suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
+        recent_cases = self._get_recent_cases(case_service, sms_id)
 
         context = {
             "title": f"为短信 #{sms_id} 指定案件",
             "sms": sms,
-            "suggested_cases": formatted_suggested,
-            "recent_cases": formatted_recent,
+            "suggested_cases": [self._format_case_for_template(c) for c in suggested_cases],
+            "recent_cases": [self._format_case_for_template(c) for c in recent_cases],
             "opts": self.model._meta,
             "has_view_permission": True,
         }
-
         return render(request, "admin/automation/courtsms/assign_case.html", context)
 
     def search_cases_ajax(self, request, sms_id):

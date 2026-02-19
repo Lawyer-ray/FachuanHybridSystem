@@ -832,21 +832,70 @@ class DocumentDeliveryService:
 
             return None
 
+    def _process_single_entry(
+        self,
+        page: Any,
+        entry: Any,
+        cutoff_time: datetime,
+        credential_id: int,
+        result: DocumentQueryResult,
+    ) -> bool:
+        """处理单个文书条目，返回是否需要继续翻页"""
+        if self._should_process(entry, cutoff_time, credential_id):
+            process_result = self._process_document_entry(page, entry, credential_id)
+            if process_result.success:
+                result.processed_count += 1
+                if process_result.case_log_id:
+                    result.case_log_ids.append(process_result.case_log_id)
+            else:
+                result.failed_count += 1
+                if process_result.error_message:
+                    result.errors.append(process_result.error_message)
+            return bool(entry.send_time > cutoff_time)  # type: ignore[operator]
+        else:
+            result.skipped_count += 1
+            if entry.send_time <= cutoff_time:  # type: ignore[operator]
+                return False
+            return False
+
+    def _process_playwright_page(
+        self,
+        page: Any,
+        cutoff_time: datetime,
+        credential_id: int,
+        result: DocumentQueryResult,
+    ) -> None:
+        """用 Playwright 页面方式分页处理文书"""
+        page_num = 1
+        while True:
+            logger.info(f"处理第 {page_num} 页")
+            entries = self._extract_document_entries(page)
+            result.total_found += len(entries)
+
+            if not entries:
+                logger.info("当前页面没有文书条目，结束处理")
+                break
+
+            should_continue = False
+            for entry in entries:
+                logger.info(f"🔍 检查文书条目: {entry.case_number} - {entry.send_time}")
+                if self._should_process(entry, cutoff_time, credential_id):
+                    should_continue = self._process_single_entry(page, entry, cutoff_time, credential_id, result)
+                else:
+                    result.skipped_count += 1
+                    if entry.send_time <= cutoff_time:  # type: ignore[operator]
+                        should_continue = False
+                        break
+
+            if not should_continue or not self._has_next_page(page):
+                break
+            self._go_to_next_page(page)
+            page_num += 1
+
     def _query_via_playwright(
         self, credential_id: int, cutoff_time: datetime, tab: str = "pending", debug_mode: bool = True
     ) -> DocumentQueryResult:
-        """
-        使用 Playwright 方式查询文书（原有逻辑）
-
-        Args:
-            credential_id: 账号凭证ID
-            cutoff_time: 截止时间
-            tab: 查询标签页
-            debug_mode: 调试模式
-
-        Returns:
-            DocumentQueryResult: 查询结果
-        """
+        """使用 Playwright 方式查询文书（原有逻辑）"""
         logger.info(f"Playwright 方式查询文书: credential_id={credential_id}")
 
         result = DocumentQueryResult(
@@ -856,7 +905,6 @@ class DocumentDeliveryService:
         page = None
 
         try:
-            # 获取凭证信息
             organization_service = ServiceLocator.get_organization_service()
             credential = organization_service.get_credential_internal(credential_id)
 
@@ -866,29 +914,21 @@ class DocumentDeliveryService:
                 result.errors.append(error_msg)
                 return result
 
-            # 使用同步的浏览器服务
             from apps.automation.services.scraper.core.browser_service import BrowserService
-
             browser_service = BrowserService()
-
-            # 获取同步浏览器实例
             browser = browser_service.get_browser()
             page = browser.new_page()
 
             try:
-                # 在同一个 page 上登录，保持登录状态
                 try:
                     token = self._sync_login_with_page(browser_service, credential, page)
                     logger.info(f"登录成功，获得token: {token[:20] if token else 'None'}...")
-
                 except Exception as login_error:
                     error_msg = f"登录失败: {login_error!s}"
                     logger.error(error_msg)
                     result.errors.append(error_msg)
                     return result
 
-                # 登录成功后，优先尝试 API 方式获取文书列表
-                # 如果 API 成功，直接返回结果；如果失败，继续用 Playwright 页面方式
                 if token:
                     api_result = self._try_api_after_login(
                         token=token, cutoff_time=cutoff_time, credential_id=credential_id
@@ -896,75 +936,12 @@ class DocumentDeliveryService:
                     if api_result is not None:
                         logger.info("✅ 登录后 API 方式成功，返回结果")
                         return api_result
-                    else:
-                        logger.info("🔄 登录后 API 方式失败，继续使用 Playwright 页面方式")
+                    logger.info("🔄 登录后 API 方式失败，继续使用 Playwright 页面方式")
 
-                # API 失败或无 token，继续用 Playwright 页面方式
-                # 导航到文书送达页面（同一个 page，保持登录状态）
                 self._navigate_to_delivery_page(page, tab)
-
-                # 分页处理文书
-                page_num = 1
-                while True:
-                    logger.info(f"处理第 {page_num} 页")
-
-                    # 提取当前页面的文书条目
-                    entries = self._extract_document_entries(page)
-                    result.total_found += len(entries)
-
-                    if not entries:
-                        logger.info("当前页面没有文书条目，结束处理")
-                        break
-
-                    # 检查是否需要继续翻页
-                    should_continue = False
-
-                    # 处理每个文书条目
-                    for entry in entries:
-                        logger.info(f"🔍 检查文书条目: {entry.case_number} - {entry.send_time}")
-                        logger.info(f"📅 截止时间: {cutoff_time}")
-
-                        if self._should_process(entry, cutoff_time, credential_id):
-                            logger.info(f"✅ 开始处理文书: {entry.case_number}")
-                            # 处理文书
-                            process_result = self._process_document_entry(page, entry, credential_id)
-
-                            if process_result.success:
-                                result.processed_count += 1
-                                if process_result.case_log_id:
-                                    result.case_log_ids.append(process_result.case_log_id)
-                                logger.info(f"✅ 文书处理成功: {entry.case_number}")
-                            else:
-                                result.failed_count += 1
-                                if process_result.error_message:
-                                    result.errors.append(process_result.error_message)
-                                logger.warning(
-                                    f"❌ 文书处理失败: {entry.case_number}, 错误: {process_result.error_message}"
-                                )
-
-                            # 如果文书时间晚于截止时间，需要继续翻页
-                            if entry.send_time > cutoff_time:  # type: ignore[operator]
-                                should_continue = True
-                        else:
-                            result.skipped_count += 1
-                            logger.info(f"⏭️ 跳过文书: {entry.case_number} - {entry.send_time}")
-
-                            # 如果文书时间早于或等于截止时间，停止翻页
-                            if entry.send_time <= cutoff_time:  # type: ignore[operator]
-                                logger.info(f"文书时间 {entry.send_time} 早于截止时间 {cutoff_time}，停止翻页")
-                                should_continue = False
-                                break
-
-                    # 检查是否需要翻页
-                    if not should_continue or not self._has_next_page(page):
-                        break
-
-                    # 翻到下一页
-                    self._go_to_next_page(page)
-                    page_num += 1
+                self._process_playwright_page(page, cutoff_time, credential_id, result)
 
             finally:
-                # 调试模式下不关闭浏览器，方便调试
                 if not debug_mode:
                     try:
                         page.close()
@@ -977,8 +954,6 @@ class DocumentDeliveryService:
             error_msg = f"查询文书失败: {e!s}"
             logger.error(error_msg)
             result.errors.append(error_msg)
-
-            # 记录详细错误信息
             AutomationLogger.log_api_error_detail(
                 api_name="playwright_document_query",
                 error_type=type(e).__name__,
@@ -986,7 +961,6 @@ class DocumentDeliveryService:
                 stack_trace=traceback.format_exc(),
             )
 
-        # 记录查询统计
         AutomationLogger.log_document_query_statistics(
             total_found=result.total_found,
             processed_count=result.processed_count,
@@ -1023,88 +997,73 @@ class DocumentDeliveryService:
         except Exception as e:
             logger.warning(f"切换到{tab_name}标签页失败: {e!s}")
 
+    def _parse_send_time_str(self, send_time_str: str, index: int) -> Any:
+        """解析发送时间字符串"""
+        import re as _re
+        if not send_time_str or send_time_str == "发送时间":
+            return None
+        time_pattern = r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$"
+        if not _re.match(time_pattern, send_time_str):
+            logger.debug(f"条目 {index} 时间格式不匹配: {send_time_str}")
+            return None
+        try:
+            from django.utils import timezone
+            naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
+            send_time = timezone.make_aware(naive_time)
+            logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
+            return send_time
+        except ValueError as e:
+            logger.warning(f"条目 {index} 时间解析失败: {send_time_str}, 错误: {e!s}")
+            return None
+
+    def _extract_single_doc_entry(
+        self, index: int, case_number_elements: list[Any], send_time_elements: list[Any]
+    ) -> Any:
+        """提取单个文书条目"""
+        case_number = None
+        if index < len(case_number_elements):
+            text = case_number_elements[index].inner_text()
+            case_number = text.strip() if text else None
+            if case_number in ("案号", "案件编号"):
+                case_number = None
+
+        send_time = None
+        send_time_str = None
+        if index < len(send_time_elements):
+            text = send_time_elements[index].inner_text()
+            send_time_str = text.strip() if text else None
+            if send_time_str:
+                send_time = self._parse_send_time_str(send_time_str, index)
+
+        if case_number and send_time:
+            entry = DocumentDeliveryRecord(case_number=case_number, send_time=send_time, element_index=index)
+            logger.info(f"✅ 提取文书条目: {entry.case_number} - {entry.send_time}")
+            return entry
+        logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
+        return None
+
     def _extract_document_entries(self, page: Page) -> list[DocumentDeliveryRecord]:
         """从页面提取文书条目 - 使用精确 XPath 遍历"""
         logger.info("开始提取文书条目")
-
-        entries = []
+        entries: list[Any] = []
 
         try:
-            # 等待页面加载
             page.wait_for_timeout(2000)
-
-            # 使用你提供的精确 XPath 获取所有案号
             case_number_elements = page.locator(self.CASE_NUMBER_SELECTOR).all()
-            logger.info(f"找到 {len(case_number_elements)} 个案号元素")
-
-            # 使用你提供的精确 XPath 获取所有发送时间
             send_time_elements = page.locator(self.SEND_TIME_SELECTOR).all()
-            logger.info(f"找到 {len(send_time_elements)} 个时间元素")
+            logger.info(f"找到 {len(case_number_elements)} 个案号元素, {len(send_time_elements)} 个时间元素")
 
-            # 确保案号和时间数量一致
             if len(case_number_elements) != len(send_time_elements):
                 logger.warning(f"案号数量({len(case_number_elements)})与时间数量({len(send_time_elements)})不匹配")
-                # 取较小的数量
-                count = min(len(case_number_elements), len(send_time_elements))
-            else:
-                count = len(case_number_elements)
 
+            count = min(len(case_number_elements), len(send_time_elements))
             logger.info(f"将处理 {count} 个文书条目")
 
-            # 遍历提取每个文书条目
             for index in range(count):
                 try:
-                    # 提取案号
-                    case_number = None
-                    if index < len(case_number_elements):
-                        case_number_text = case_number_elements[index].inner_text()
-                        case_number = case_number_text.strip() if case_number_text else None
-                        logger.info(f"条目 {index} 案号: {case_number}")
-
-                        # 过滤掉标签文本
-                        if case_number and case_number in ["案号", "案件编号"]:
-                            case_number = None
-                            logger.debug(f"条目 {index} 跳过案号标签文本")
-
-                    # 提取发送时间
-                    send_time = None
-                    send_time_str = None
-                    if index < len(send_time_elements):
-                        send_time_text = send_time_elements[index].inner_text()
-                        send_time_str = send_time_text.strip() if send_time_text else None
-                        logger.info(f"条目 {index} 时间文本: {send_time_str}")
-
-                        # 过滤掉标签文本，只处理实际的时间格式
-                        if send_time_str and send_time_str != "发送时间":
-                            # 检查是否符合时间格式 2025-12-16 10:58:52
-                            import re
-
-                            time_pattern = r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$"
-                            if re.match(time_pattern, send_time_str):
-                                try:
-                                    # 解析时间并添加时区信息
-                                    naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
-                                    from django.utils import timezone
-
-                                    send_time = timezone.make_aware(naive_time)
-                                    logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
-                                except ValueError as e:
-                                    logger.warning(f"条目 {index} 时间解析失败: {send_time_str}, 错误: {e!s}")
-                            else:
-                                logger.debug(f"条目 {index} 时间格式不匹配: {send_time_str}")
-                        else:
-                            logger.debug(f"条目 {index} 跳过标签文本: {send_time_str}")
-
-                    # 创建文书记录
-                    if case_number and send_time:
-                        entry = DocumentDeliveryRecord(
-                            case_number=case_number, send_time=send_time, element_index=index
-                        )
+                    entry = self._extract_single_doc_entry(index, case_number_elements, send_time_elements)
+                    if entry:
                         entries.append(entry)
-                        logger.info(f"✅ 提取文书条目: {entry.case_number} - {entry.send_time}")
-                    else:
-                        logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
-
                 except Exception as e:
                     logger.warning(f"提取第 {index} 个文书条目失败: {e!s}")
                     continue
