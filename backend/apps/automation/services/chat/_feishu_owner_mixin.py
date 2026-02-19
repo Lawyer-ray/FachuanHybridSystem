@@ -181,7 +181,7 @@ class FeishuOwnerMixin:
         """重试群主设置"""
         from .retry_config import RetryManager
 
-        if not self.owner_config.is_retry_enabled():  # type: ignore[attr-defined]
+        if not self.owner_config.is_retry_enabled():
             logger.info(f"重试机制已禁用，跳过群主设置重试: {chat_id}")
             return False
 
@@ -195,7 +195,7 @@ class FeishuOwnerMixin:
                     chat_id=chat_id,
                     validation_type="owner_verification",
                 )
-            return True  # type: ignore[return-value]
+            return True
 
         try:
             retry_manager.execute_with_retry(
@@ -269,7 +269,7 @@ class FeishuOwnerMixin:
                 open_id = user_data.get("open_id")
                 if open_id:
                     logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
-                    return open_id  # type: ignore[no-any-return]
+                    return open_id
                 else:
                     logger.warning(f"API响应中缺少open_id: {union_id}")
                     return None

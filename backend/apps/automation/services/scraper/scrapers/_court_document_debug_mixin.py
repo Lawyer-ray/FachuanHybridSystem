@@ -36,15 +36,15 @@ class CourtDocumentDebugMixin:
     def _analyze_page_elements(self) -> dict[str, Any]:
         """分析页面元素，用于调试"""
         analysis: dict[str, Any] = {
-            "url": self.page.url,  # type: ignore[attr-defined]
-            "title": self.page.title(),  # type: ignore[attr-defined]
+            "url": self.page.url,
+            "title": self.page.title(),
             "buttons": [],
             "links": [],
             "download_elements": [],
             "iframes": [],
         }
         try:
-            buttons = self.page.locator("button").all()  # type: ignore[attr-defined]
+            buttons = self.page.locator("button").all()
             for i, btn in enumerate(buttons[:10]):
                 with contextlib.suppress(Exception):
                     analysis["buttons"].append({
@@ -52,7 +52,7 @@ class CourtDocumentDebugMixin:
                         "text": btn.inner_text()[:50] if btn.inner_text() else "",
                         "visible": btn.is_visible(),
                     })
-            links = self.page.locator("a").all()  # type: ignore[attr-defined]
+            links = self.page.locator("a").all()
             for i, link in enumerate(links[:10]):
                 with contextlib.suppress(Exception):
                     analysis["links"].append({
@@ -61,7 +61,7 @@ class CourtDocumentDebugMixin:
                         "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",
                         "visible": link.is_visible(),
                     })
-            download_elements = self.page.locator('*:has-text("下载")').all()  # type: ignore[attr-defined]
+            download_elements = self.page.locator('*:has-text("下载")').all()
             for i, elem in enumerate(download_elements[:10]):
                 try:
                     tag = elem.evaluate("el => el.tagName")
@@ -73,7 +73,7 @@ class CourtDocumentDebugMixin:
                     })
                 except Exception:
                     pass
-            iframes = self.page.locator("iframe").all()  # type: ignore[attr-defined]
+            iframes = self.page.locator("iframe").all()
             for i, iframe in enumerate(iframes):
                 with contextlib.suppress(Exception):
                     analysis["iframes"].append({
@@ -90,7 +90,7 @@ class CourtDocumentDebugMixin:
         screenshot_path = self.screenshot(name)
         html_path = download_dir / f"{name}_page.html"
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(self.page.content())  # type: ignore[attr-defined]
+            f.write(self.page.content())
         analysis = self._analyze_page_elements()
         analysis_path = download_dir / f"{name}_analysis.json"
         with open(analysis_path, "w", encoding="utf-8") as f:

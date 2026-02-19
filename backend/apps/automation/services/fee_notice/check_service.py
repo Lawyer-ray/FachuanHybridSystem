@@ -295,7 +295,7 @@ class FeeNoticeCheckService:
                 continue
 
             self._format_acceptance_fee_line(item, lines)
-            self._format_preservation_fee_line(item, lines)  # type: ignore
+            self._format_preservation_fee_line(item, lines)
             lines.append("")
 
         return "\n".join(lines).strip()

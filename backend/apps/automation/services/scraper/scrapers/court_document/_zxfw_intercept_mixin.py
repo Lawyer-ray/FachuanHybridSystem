@@ -41,14 +41,14 @@ class ZxfwInterceptMixin:
                     )
 
         try:
-            self.page.on("response", handle_response)  # type: ignore[attr-defined]
+            self.page.on("response", handle_response)
             logger.info(f"已注册 API 响应监听器: {api_url}")
-            self._debug_log("开始导航到目标页面")  # type: ignore[attr-defined]
-            self.navigate_to_url()  # type: ignore[attr-defined]
-            self._debug_log("等待页面加载 (networkidle)")  # type: ignore[attr-defined]
-            self.page.wait_for_load_state("networkidle", timeout=30000)  # type: ignore[attr-defined]
-            self._debug_log("额外等待 3 秒,确保页面完全加载")  # type: ignore[attr-defined]
-            self.random_wait(3, 5)  # type: ignore[attr-defined]
+            self._debug_log("开始导航到目标页面")
+            self.navigate_to_url()
+            self._debug_log("等待页面加载 (networkidle)")
+            self.page.wait_for_load_state("networkidle", timeout=30000)
+            self._debug_log("额外等待 3 秒,确保页面完全加载")
+            self.random_wait(3, 5)
             if intercepted_data is None:
                 timeout_seconds = timeout / 1000.0
                 elapsed = 0.0
@@ -71,7 +71,7 @@ class ZxfwInterceptMixin:
             )
         finally:
             try:
-                self.page.remove_listener("response", handle_response)  # type: ignore[attr-defined]
+                self.page.remove_listener("response", handle_response)
                 logger.info("已移除 API 响应监听器")
             except Exception as e:
                 logger.warning(f"移除监听器失败: {e}")
@@ -80,8 +80,8 @@ class ZxfwInterceptMixin:
     def _download_via_api_intercept_with_navigation(self, download_dir: Path) -> dict[str, Any]:
         """通过 API 拦截方式下载文书（在导航前注册监听器）"""
         api_data = self._intercept_api_response_with_navigation(timeout=30000)
-        self._debug_log("保存页面状态")  # type: ignore[attr-defined]
-        self._save_page_state("zxfw_after_navigation")  # type: ignore[attr-defined]
+        self._debug_log("保存页面状态")
+        self._save_page_state("zxfw_after_navigation")
         return self._process_api_data_and_download(api_data, download_dir)
 
     def _process_api_data_and_download(self, api_data: dict[str, Any] | None, download_dir: Path) -> dict[str, Any]:
@@ -107,7 +107,7 @@ class ZxfwInterceptMixin:
         failed_count = 0
         for i, document_data in enumerate(documents, 1):
             logger.info(f"处理第 {i}/{len(documents)} 个文书: {document_data.get('c_wsmc', 'Unknown')}")
-            download_result = self._download_document_directly(  # type: ignore[attr-defined]
+            download_result = self._download_document_directly(
                 document_data=document_data, download_dir=download_dir, download_timeout=60000
             )
             success, filepath, _ = download_result
@@ -124,7 +124,7 @@ class ZxfwInterceptMixin:
                 delay = random.uniform(1, 2)
                 logger.info(f"等待 {delay:.2f} 秒后继续下载下一个文书")
                 _time.sleep(delay)
-        db_save_result = self._save_documents_batch(documents_with_results)  # type: ignore[attr-defined]
+        db_save_result = self._save_documents_batch(documents_with_results)
         logger.info(
             "文书下载完成",
             extra={"operation_type": "download_summary", "timestamp": time.time(),

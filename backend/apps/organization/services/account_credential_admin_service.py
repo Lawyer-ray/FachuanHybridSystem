@@ -57,7 +57,7 @@ class AccountCredentialAdminService:
         if self._auto_login_service is None:
             from apps.core.dependencies import build_auto_login_service
 
-            self._auto_login_service = build_auto_login_service()  # type: ignore[assignment]
+            self._auto_login_service = build_auto_login_service()
         return self._auto_login_service
 
     @property
@@ -66,7 +66,7 @@ class AccountCredentialAdminService:
         if self._token_service is None:
             from apps.core.dependencies import build_auto_token_acquisition_service
 
-            self._token_service = build_auto_token_acquisition_service()  # type: ignore[assignment]
+            self._token_service = build_auto_token_acquisition_service()
         return self._token_service
 
     def single_auto_login(

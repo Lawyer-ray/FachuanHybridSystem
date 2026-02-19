@@ -52,7 +52,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             if hasattr(self, "context"):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
-                self._scraper.browser = self.browser  # type: ignore[attr-defined]
+                self._scraper.browser = self.browser
             return self._scraper.run()
         elif "sd.gdems.com" in url:
             self._scraper = GdemsCourtScraper(self.task, self._document_service)
@@ -62,7 +62,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             if hasattr(self, "context"):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
-                self._scraper.browser = self.browser  # type: ignore[attr-defined]
+                self._scraper.browser = self.browser
             return self._scraper.run()
         else:
             raise ValueError(f"不支持的链接格式: {url}")

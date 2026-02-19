@@ -15,19 +15,19 @@ class ZxfwFallbackMixin:
     def _find_pdf_iframe(self) -> Any | None:
         """查找页面中的 PDF viewer iframe"""
         try:
-            frame = self.page.frame_locator("#if")  # type: ignore[attr-defined]
+            frame = self.page.frame_locator("#if")
             logger.info("[DEBUG] 通过 #if 找到 iframe")
             return frame
         except Exception:
             pass
-        iframes = self.page.locator("iframe").all()  # type: ignore[attr-defined]
+        iframes = self.page.locator("iframe").all()
         for i, iframe in enumerate(iframes):
             src = iframe.get_attribute("src") or ""
             iframe_id = iframe.get_attribute("id") or ""
             logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
             if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
                 logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
-                return self.page.frame_locator(f"iframe >> nth={i}")  # type: ignore[attr-defined]
+                return self.page.frame_locator(f"iframe >> nth={i}")
         return None
 
     def _click_doc_item(self, doc_index: int, doc_count: int) -> None:
@@ -40,11 +40,11 @@ class ZxfwFallbackMixin:
             f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
         )
         try:
-            doc_item = self.page.locator(f"xpath={doc_item_xpath}")  # type: ignore[attr-defined]
+            doc_item = self.page.locator(f"xpath={doc_item_xpath}")
             if doc_item.count() > 0:
                 doc_item.first.click()
                 logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
-                self.random_wait(2, 3)  # type: ignore[attr-defined]
+                self.random_wait(2, 3)
             else:
                 logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
         except Exception as e:
@@ -57,8 +57,8 @@ class ZxfwFallbackMixin:
             btn = frame.locator("#download")
             btn.first.wait_for(state="visible", timeout=10000)
             btn.first.scroll_into_view_if_needed()
-            self.random_wait(1, 2)  # type: ignore[attr-defined]
-            with self.page.expect_download(timeout=60000) as dl_info:  # type: ignore[attr-defined]
+            self.random_wait(1, 2)
+            with self.page.expect_download(timeout=60000) as dl_info:
                 btn.first.click()
                 logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
             download = dl_info.value
@@ -72,7 +72,7 @@ class ZxfwFallbackMixin:
             fallback_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
             btn = frame.locator(f"xpath={fallback_xpath}")
             btn.first.wait_for(state="visible", timeout=5000)
-            with self.page.expect_download(timeout=60000) as dl_info:  # type: ignore[attr-defined]
+            with self.page.expect_download(timeout=60000) as dl_info:
                 btn.first.click()
                 logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
             download = dl_info.value
@@ -94,7 +94,7 @@ class ZxfwFallbackMixin:
             "/uni-view[1]/uni-view[1]/uni-view"
         )
         try:
-            doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()  # type: ignore[attr-defined]
+            doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
             logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项")
         except Exception as e:
@@ -118,12 +118,12 @@ class ZxfwFallbackMixin:
                     success_count += 1
                 else:
                     failed_count += 1
-                self.random_wait(1, 2)  # type: ignore[attr-defined]
+                self.random_wait(1, 2)
             except Exception as e:
                 logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错: {e}")
                 failed_count += 1
         if not downloaded_files:
-            self._save_page_state("zxfw_final_failed")  # type: ignore[attr-defined]
+            self._save_page_state("zxfw_final_failed")
             raise ValueError("所有下载策略均失败，请查看调试文件")
         logger.info(
             "回退方式下载完成",

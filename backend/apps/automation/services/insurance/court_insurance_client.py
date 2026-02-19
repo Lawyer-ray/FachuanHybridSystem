@@ -179,7 +179,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         """支持异步上下文管理器"""
         await self.close()
 
-    async def fetch_insurance_companies(  # type: ignore[return]
+    async def fetch_insurance_companies(
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float | None = None, max_retries: int = 3
     ) -> list[InsuranceCompany]:
         """

@@ -67,7 +67,7 @@ class ContractServiceAdapter:
         try:
             contract = self.contract_service._get_contract_internal(contract_id)
             primary_lawyer = contract.primary_lawyer
-            return primary_lawyer.id if primary_lawyer else None  # type: ignore[attr-defined]
+            return primary_lawyer.id if primary_lawyer else None
         except NotFoundError:
             return None
 
@@ -84,7 +84,7 @@ class ContractServiceAdapter:
 
         parties_dict: dict[int, dict[str, Any]] = {}
 
-        for party in contract.contract_parties.select_related("client").all():  # type: ignore[attr-defined]
+        for party in contract.contract_parties.select_related("client").all():
             client = party.client
             if client.id not in parties_dict:
                 parties_dict[client.id] = {
@@ -93,7 +93,7 @@ class ContractServiceAdapter:
                     "source": "contract",
                 }
 
-        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():  # type: ignore[attr-defined]
+        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():
             for sa_party in sa.parties.all():
                 client = sa_party.client
                 if client.id not in parties_dict:

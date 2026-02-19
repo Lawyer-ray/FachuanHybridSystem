@@ -126,7 +126,7 @@ class CaseCommandService(PermissionMixin):
                 "user_id": getattr(user, "id", None) if user else None,
             },
         )
-        return Case.objects.create(**data)  # type: ignore[no-any-return]
+        return Case.objects.create(**data)
 
     @transaction.atomic
     def create_case_ctx(self, *, data: dict[str, Any], ctx: AccessContext) -> Case:
@@ -199,7 +199,7 @@ class CaseCommandService(PermissionMixin):
                 "user_id": getattr(user, "id", None) if user else None,
             },
         )
-        return case  # type: ignore[no-any-return]
+        return case
 
     @transaction.atomic
     def update_case_ctx(self, *, case_id: int, data: dict[str, Any], ctx: AccessContext) -> Case:

@@ -95,7 +95,7 @@ class ReminderServiceAdapter:
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
                 content=str(reminder_type_label),
-                due_at=reminder_time,  # type: ignore[misc]
+                due_at=reminder_time,
                 metadata={"created_by_user_id": user_id} if user_id else {},
             )
 

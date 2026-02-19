@@ -61,7 +61,7 @@ class CaseTemplateGenerationService:
         client = None
         clients = None
         if self._is_legal_rep_cert_template(template):
-            client = self._get_our_legal_client(case, client_id)  # type: ignore[arg-type]
+            client = self._get_our_legal_client(case, client_id)
         elif self._is_power_of_attorney_template(template):
             if mode == "combined" and client_ids:
                 clients = [self._get_our_client(case, cid) for cid in client_ids]

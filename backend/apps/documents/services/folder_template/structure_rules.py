@@ -19,8 +19,8 @@ class FolderTemplateStructureRules:
             return False, structure, []
 
         current_ids = self.id_service.collect_structure_ids(structure)
-        internal_duplicates = self.id_service.find_internal_duplicates(current_ids)  # type: ignore[arg-type]
-        global_duplicates = self.id_service.find_global_duplicates(current_ids, template_id)  # type: ignore[arg-type]
+        internal_duplicates = self.id_service.find_internal_duplicates(current_ids)
+        global_duplicates = self.id_service.find_global_duplicates(current_ids, template_id)
 
         all_duplicates = internal_duplicates | global_duplicates
         if not all_duplicates:
@@ -40,11 +40,11 @@ class FolderTemplateStructureRules:
             return True, []
 
         current_ids = self.id_service.collect_structure_ids(structure)
-        internal_duplicates = self.id_service.find_internal_duplicates(current_ids)  # type: ignore[arg-type]
+        internal_duplicates = self.id_service.find_internal_duplicates(current_ids)
         if internal_duplicates:
             return False, [f"结构内部存在重复ID: {', '.join(internal_duplicates)}"]
 
-        global_duplicates = self.id_service.find_global_duplicates(current_ids, template_id)  # type: ignore[arg-type]
+        global_duplicates = self.id_service.find_global_duplicates(current_ids, template_id)
         if global_duplicates:
             return False, [f"结构ID与其他模板重复: {', '.join(global_duplicates)}"]
 

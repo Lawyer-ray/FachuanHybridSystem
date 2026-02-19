@@ -15,7 +15,7 @@ class LawyerDtoAssembler:
             phone=lawyer.phone,
             is_admin=lawyer.is_admin,
             law_firm_id=cast(int, getattr(lawyer, "law_firm_id", 0)),
-            law_firm_name=str(lawyer.law_firm.name) if lawyer.law_firm else None,  # type: ignore[attr-defined]
+            law_firm_name=str(lawyer.law_firm.name) if lawyer.law_firm else None,
         )
 
 

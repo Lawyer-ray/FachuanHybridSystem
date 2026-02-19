@@ -35,8 +35,8 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
 
     def __init__(
         self,
-        parser: SMSParserService = None,  # type: ignore[assignment]
-        matcher: CaseMatcher = None,  # type: ignore[assignment]
+        parser: SMSParserService = None,
+        matcher: CaseMatcher = None,
         case_number_extractor: Optional["CaseNumberExtractorService"] = None,
         document_attachment: Optional["DocumentAttachmentService"] = None,
         notification: Optional["SMSNotificationService"] = None,
@@ -104,7 +104,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
             self._notification = SMSNotificationService()
         return self._notification
 
-    def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:  # type: ignore[assignment]
+    def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:
         """提交短信，创建记录并触发异步处理"""
         if not content or not content.strip():
             raise ValidationException(
@@ -150,7 +150,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
             raise NotFoundError(f"案件不存在: ID={case_id}")
 
         try:
-            sms.case_id = case_id  # type: ignore[attr-defined]
+            sms.case_id = case_id
             sms.error_message = None
             sms.save()
 
@@ -339,7 +339,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
             sms.save()
 
             if sms.case:
-                logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")  # type: ignore[attr-defined]
+                logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
                 success = self._create_case_binding(sms)
                 if success:
                     sms.status = CourtSMSStatus.RENAMING

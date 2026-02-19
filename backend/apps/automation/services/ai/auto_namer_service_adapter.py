@@ -90,7 +90,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     extra={"action": "generate_filename_success", "generated_filename": filename, "model": model},
                 )
 
-                return filename  # type: ignore[no-any-return]
+                return filename
             else:
                 raise Exception("AI服务返回格式异常")
 

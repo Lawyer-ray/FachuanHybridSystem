@@ -144,7 +144,7 @@ class ConversationService:
                 continue
 
             # 添加到记忆中
-            self._memory.chat_memory.add_message(message)  # type: ignore[union-attr]
+            self._memory.chat_memory.add_message(message)
 
     def add_user_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:
         """
@@ -219,11 +219,11 @@ class ConversationService:
 
         for message in self.memory.chat_memory.messages:
             if isinstance(message, HumanMessage):
-                messages.append({"role": "user", "content": message.content})  # type: ignore[attr-defined]
+                messages.append({"role": "user", "content": message.content})
             elif isinstance(message, AIMessage):
-                messages.append({"role": "assistant", "content": message.content})  # type: ignore[attr-defined]
+                messages.append({"role": "assistant", "content": message.content})
             elif isinstance(message, SystemMessage):
-                messages.append({"role": "system", "content": message.content})  # type: ignore[attr-defined]
+                messages.append({"role": "system", "content": message.content})
 
         return messages
 

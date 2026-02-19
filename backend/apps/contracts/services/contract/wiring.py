@@ -8,7 +8,7 @@ from apps.core.interfaces import ServiceLocator
 
 
 def get_contract_domain_service() -> Any:
-    return ServiceLocator.get_contract_service().contract_service  # type: ignore[attr-defined]
+    return ServiceLocator.get_contract_service().contract_service
 
 
 def get_contract_service_root() -> Any:

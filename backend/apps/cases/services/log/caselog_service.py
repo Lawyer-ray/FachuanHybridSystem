@@ -117,7 +117,7 @@ class CaseLogService:
         """
         return self.query_service.list_logs(
             case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access
-        )  # type: ignore[return-value]
+        )
 
     def get_log(
         self,

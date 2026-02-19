@@ -36,20 +36,20 @@ class CourtDocumentJysdDownloadMixin:
 
         screenshot_cover = self.screenshot("jysd_cover")
 
-        frame = self._jysd_get_iframe()  # type: ignore[attr-defined]
+        frame = self._jysd_get_iframe()
         page_ctx = frame if frame is not None else self.page
 
-        self._jysd_click_details_button(page_ctx, frame)  # type: ignore[attr-defined]
+        self._jysd_click_details_button(page_ctx, frame)
 
         screenshot_after_details = self.screenshot("jysd_after_details")
 
-        rows = self._jysd_get_table_rows(page_ctx, frame)  # type: ignore[attr-defined]
+        rows = self._jysd_get_table_rows(page_ctx, frame)
         row_count = rows.count()
 
         logger.info(f"检测到 {row_count} 份文书,开始逐条下载")
         download_dir = self._prepare_download_dir()
 
-        downloaded_files, documents, success_count, failed_count = self._jysd_download_all_rows(  # type: ignore[attr-defined]
+        downloaded_files, documents, success_count, failed_count = self._jysd_download_all_rows(
             rows, row_count, download_dir
         )
 
@@ -89,7 +89,7 @@ class CourtDocumentJysdDownloadMixin:
                 iframe_locator = self.page.locator("iframe").first
             iframe_locator.wait_for(state="attached", timeout=20000)
 
-            frame = self._jysd_resolve_frame()  # type: ignore[attr-defined]
+            frame = self._jysd_resolve_frame()
 
             if frame is not None:
                 with contextlib.suppress(Exception):
@@ -136,7 +136,7 @@ class CourtDocumentJysdDownloadMixin:
             details_button.first.click()
             logger.info("已点击「查看文书详情」按钮,等待页面跳转")
 
-            self._jysd_wait_after_click(frame)  # type: ignore[attr-defined]
+            self._jysd_wait_after_click(frame)
             self.random_wait(3, 5)
         except Exception as e:
             logger.warning(f"点击「查看文书详情」失败: {e},继续尝试在当前页查找文书表格")
@@ -172,7 +172,7 @@ class CourtDocumentJysdDownloadMixin:
             with contextlib.suppress(Exception):
                 self._save_page_state("jysd_no_table_rows")
             if frame is not None:
-                self._jysd_save_iframe_debug(frame)  # type: ignore[attr-defined]
+                self._jysd_save_iframe_debug(frame)
             raise ValueError("未找到文书列表表格行") from None
 
         row_count = rows.count()
@@ -223,7 +223,7 @@ class CourtDocumentJysdDownloadMixin:
                     logger.info(f"已点击下载按钮: 第 {index + 1}/{row_count} 份文书")
 
                 download = download_info.value
-                filepath = self._jysd_save_download(download, doc_name, index, download_dir)  # type: ignore[attr-defined]
+                filepath = self._jysd_save_download(download, doc_name, index, download_dir)
 
                 downloaded_files.append(str(filepath))
                 success_count += 1

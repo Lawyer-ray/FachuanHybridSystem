@@ -10,7 +10,7 @@ from typing import Any
 from django.utils import timezone
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
-from apps.core.exceptions import ValidationError  # type: ignore[attr-defined]
+from apps.core.exceptions import ValidationError
 from apps.core.interfaces import IAutomationService
 
 logger = logging.getLogger("apps.automation")

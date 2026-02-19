@@ -116,7 +116,7 @@ async def astream_with_fallback(
 ) -> AsyncIterator[LLMStreamChunk]:
     kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens)
     if backend and (not fallback):
-        async for chunk in get_backend(backend).astream(**kwargs):  # type: ignore
+        async for chunk in get_backend(backend).astream(**kwargs):  # type: ignore[attr-defined]
             yield chunk
         return
     backends_to_try = _resolve_backends(get_backend, get_backends_by_priority, backend, fallback)
@@ -126,7 +126,7 @@ async def astream_with_fallback(
             logger.debug("后端不可用,跳过", extra={"backend": name})
             continue
         try:
-            ait = backend_instance.astream(**kwargs).__aiter__()  # type: ignore
+            ait = backend_instance.astream(**kwargs).__aiter__()  # type: ignore[attr-defined]
             first = await ait.__anext__()
         except StopAsyncIteration:
             return

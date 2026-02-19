@@ -69,7 +69,7 @@ class AutoLoginUsecase:
                 site_name=credential.site_name,
                 account=credential.account,
                 login_duration=total_duration,
-                total_attempts=len(self._login_attempts),  # type: ignore
+                total_attempts=len(self._login_attempts),  # type: ignore[arg-type]
             )
             return token
 
@@ -82,7 +82,7 @@ class AutoLoginUsecase:
                     "site_name": credential.site_name,
                     "timeout": self.retry_config.login_timeout,
                     "total_duration": total_duration,
-                    "attempts": len(self._login_attempts),  # type: ignore
+                    "attempts": len(self._login_attempts),  # type: ignore[arg-type]
                 },
             )
             raise TokenAcquisitionTimeoutError(
@@ -90,7 +90,7 @@ class AutoLoginUsecase:
                 errors={
                     "timeout": self.retry_config.login_timeout,
                     "total_duration": total_duration,
-                    "attempts": len(self._login_attempts),  # type: ignore
+                    "attempts": len(self._login_attempts),  # type: ignore[arg-type]
                 },
             ) from None
         except Exception as e:
@@ -102,7 +102,7 @@ class AutoLoginUsecase:
                     "site_name": credential.site_name,
                     "error": str(e),
                     "total_duration": total_duration,
-                    "attempts": len(self._login_attempts),  # type: ignore
+                    "attempts": len(self._login_attempts),  # type: ignore[arg-type]
                 },
             )
             if isinstance(e, (LoginFailedError, NetworkError, AutoTokenAcquisitionError)):

@@ -64,7 +64,7 @@ class ContractHelpersMixin:
         """验证代理阶段"""
         if not stages:
             return []
-        valid_stages = [v for v, _ in self.config.get_stages_for_case_type(case_type)]  # type: ignore[attr-defined]
+        valid_stages = [v for v, _ in self.config.get_stages_for_case_type(case_type)]
         invalid = set(stages) - set(valid_stages)
         if invalid:
             raise ValidationException(
@@ -85,11 +85,11 @@ class ContractHelpersMixin:
             return False
         user_id = getattr(user, "id", None)
         has_access = (
-            contract.assignments.filter(  # type: ignore[attr-defined]
+            contract.assignments.filter(
                 lawyer_id__in=org_access.get("lawyers", set())
             ).exists()
-            or contract.assignments.filter(lawyer_id=user_id).exists()  # type: ignore[misc]
+            or contract.assignments.filter(lawyer_id=user_id).exists()
         )
         if not has_access:
-            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()  # type: ignore[attr-defined, misc]
+            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()
         return has_access

@@ -15,7 +15,7 @@ from apps.core.interfaces import IClientService, IContractService
 
 from .repo import CasePartyCommandRepo
 
-logger = logging.getLogger("apps.cases")  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")
 
 
 class CasePartyMutationService:
@@ -73,14 +73,14 @@ class CasePartyMutationService:
             .exclude(legal_status="")
             .values_list("legal_status", flat=True)
         )
-        is_compatible = business_config.is_legal_status_compatible(  # type: ignore[attr-defined]
+        is_compatible = business_config.is_legal_status_compatible(
             new_status=legal_status, existing_statuses=existing_statuses
         )
         if not is_compatible:
             constraining_status: str | None = None
             allowed_statuses: list[str] = []
             for status in existing_statuses:
-                config = business_config._compatibility_map.get(status)  # type: ignore[attr-defined]
+                config = business_config._compatibility_map.get(status)
                 if config and config.compatible_statuses is not None:
                     constraining_status = status
                     allowed_statuses = config.compatible_statuses
@@ -112,7 +112,7 @@ class CasePartyMutationService:
         client_dto = self.client_service.get_client_internal(client_id)
         if not client_dto or not client_dto.is_our_client:
             return
-        new_status_config = business_config._compatibility_map.get(legal_status)  # type: ignore[attr-defined]
+        new_status_config = business_config._compatibility_map.get(legal_status)
         if not new_status_config:
             return
         new_group = new_status_config.group
@@ -136,7 +136,7 @@ class CasePartyMutationService:
             .values_list("legal_status", "client__name")
         )
         for existing_status, client_name in our_party_statuses:
-            existing_config = business_config._compatibility_map.get(existing_status)  # type: ignore[attr-defined]
+            existing_config = business_config._compatibility_map.get(existing_status)
             if existing_config and existing_config.group == opposing_group:
                 new_status_label = business_config.get_legal_status_label(legal_status)
                 existing_status_label = business_config.get_legal_status_label(existing_status)

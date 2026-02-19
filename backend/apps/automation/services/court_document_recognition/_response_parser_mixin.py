@@ -62,28 +62,28 @@ class ResponseParserMixin:
         """从响应内容中提取 JSON"""
         content = content.strip()
         try:
-            return json.loads(content)  # type: ignore[no-any-return]
+            return json.loads(content)
         except json.JSONDecodeError:
             pass
         start_idx = content.find("{")
         end_idx = content.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             try:
-                return json.loads(content[start_idx : end_idx + 1])  # type: ignore[no-any-return]
+                return json.loads(content[start_idx : end_idx + 1])
             except json.JSONDecodeError:
                 pass
         if "```json" in content:
             try:
                 json_start = content.index("```json") + 7
                 json_end = content.index("```", json_start)
-                return json.loads(content[json_start:json_end].strip())  # type: ignore[no-any-return]
+                return json.loads(content[json_start:json_end].strip())
             except (ValueError, json.JSONDecodeError):
                 pass
         if "```" in content:
             try:
                 json_start = content.index("```") + 3
                 json_end = content.index("```", json_start)
-                return json.loads(content[json_start:json_end].strip())  # type: ignore[no-any-return]
+                return json.loads(content[json_start:json_end].strip())
             except (ValueError, json.JSONDecodeError):
                 pass
         return None

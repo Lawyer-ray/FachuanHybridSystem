@@ -101,7 +101,7 @@ class CaseDocumentTemplateAdminService:
 
         matched: list[dict[str, Any]] = []
         case_legal_statuses_set = set(legal_statuses) if legal_statuses else set()
-        sub_type_display = {}  # type: ignore[var-annotated]
+        sub_type_display = {}
 
         for template in templates:
             # 1. 匹配案件类型 (Requirements 1.3)
@@ -177,7 +177,7 @@ class CaseDocumentTemplateAdminService:
         ]
         templates.sort(key=lambda x: ((getattr(x, "case_sub_type", "") or ""), (getattr(x, "name", "") or "")))
 
-        sub_type_display = {}  # type: ignore[var-annotated]
+        sub_type_display = {}
 
         result = [
             {
@@ -241,12 +241,12 @@ class CaseDocumentTemplateAdminService:
         bindings = self.repo.get_bindings_by_case_id(case_id)
         manual_bindings = [b for b in bindings if b.binding_source == BindingSource.MANUAL_BOUND]
 
-        sub_type_display = {}  # type: ignore[var-annotated]
+        sub_type_display = {}
         manual_bound = []
         manual_bound_ids = set()
 
         for binding in manual_bindings:
-            template = binding.template  # type: ignore
+            template = binding.template
             manual_bound_ids.add(template.id)
             manual_bound.append(
                 {

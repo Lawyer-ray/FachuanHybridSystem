@@ -107,7 +107,7 @@ class QuoteQueryService:
             except PreservationQuote.DoesNotExist:
                 raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={}) from None
 
-            successful_quotes = quote.quotes.filter(status=QuoteItemStatus.SUCCESS, min_amount__isnull=False).order_by(  # type: ignore[attr-defined]
+            successful_quotes = quote.quotes.filter(status=QuoteItemStatus.SUCCESS, min_amount__isnull=False).order_by(
                 "min_amount"
             )
 
@@ -173,7 +173,7 @@ class QuoteQueryService:
         return (success_quotes.count() / total_quotes * 100) if total_quotes > 0 else 0
 
     def _build_amount_stats(self, queryset: Any) -> dict[str, Any]:
-        return queryset.aggregate(  # type: ignore[no-any-return]
+        return queryset.aggregate(
             total_amount=Count("preserve_amount"),
             min_amount=Min("preserve_amount"),
             max_amount=Max("preserve_amount"),

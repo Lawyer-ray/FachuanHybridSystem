@@ -83,8 +83,8 @@ class CourtDocumentApiMixin:
 
         try:
             self.page.on("response", handle_response)
-            self._navigate_and_wait()  # type: ignore[attr-defined]
-            intercepted_data = self._poll_for_data(intercepted_data, timeout)  # type: ignore[attr-defined]
+            self._navigate_and_wait()
+            intercepted_data = self._poll_for_data(intercepted_data, timeout)
         except Exception as e:
             self._logger.error(f"API 拦截过程出错: {e}", exc_info=True)
         finally:

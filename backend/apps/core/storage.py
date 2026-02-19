@@ -13,7 +13,7 @@ class KeepOriginalNameStorage(FileSystemStorage):
     如果文件名重复,添加序号而不是随机字符
     """
 
-    def generate_filename(self, filename: str) -> str:  # type: ignore
+    def generate_filename(self, filename: str) -> str:  # type: ignore[override]
         """
         重写 generate_filename,跳过 get_valid_filename 的清理
         保持原始文件名不变

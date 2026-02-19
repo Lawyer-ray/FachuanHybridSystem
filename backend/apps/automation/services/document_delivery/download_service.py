@@ -67,7 +67,7 @@ class DocumentDownloadService:
     @property
     def processor(self) -> DocumentDeliveryProcessor:
         if self._processor is None:
-            self._processor = DocumentDeliveryProcessor(  # type: ignore[call-arg, call-arg, call-arg]
+            self._processor = DocumentDeliveryProcessor(
                 case_matcher=self._case_matcher,
                 document_renamer=self._document_renamer,
                 notification_service=self._notification_service,
@@ -86,7 +86,7 @@ class DocumentDownloadService:
     @property
     def api_service(self) -> DocumentDeliveryApiService:
         if self._api_service is None:
-            self._api_service = DocumentDeliveryApiService(  # type: ignore[call-arg, call-arg]
+            self._api_service = DocumentDeliveryApiService(
                 api_client=self.api_client,
                 processor=self.processor,
                 history_repo=self.history_repo,
@@ -178,7 +178,7 @@ class DocumentDownloadService:
             download.save_as(file_path)
 
             logger.info(f"文书下载成功: {file_path}")
-            return file_path  # type: ignore[no-any-return]
+            return file_path
 
         except Exception as e:
             logger.error(f"下载文书失败: {e!s}")
@@ -226,7 +226,7 @@ class DocumentDownloadService:
             self.history_repo.enqueue_record_query_history(
                 credential_id=credential_id,
                 case_number=entry.case_number,
-                send_time=entry.send_time,  # type: ignore[arg-type]
+                send_time=entry.send_time,
             )
         except Exception as e:
             logger.warning("记录查询历史失败", extra={"credential_id": credential_id, "error": str(e)})

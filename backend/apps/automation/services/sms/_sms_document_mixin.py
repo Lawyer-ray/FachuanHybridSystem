@@ -66,7 +66,7 @@ class SMSDocumentMixin:
                     updated = True
 
             if not party_names:
-                names = self.matcher.extract_parties_from_document(doc_path)  # type: ignore[attr-defined]
+                names = self.matcher.extract_parties_from_document(doc_path)
                 if names:
                     party_names.extend(names)
                     logger.info(f"从文书 {doc_path} 提取到当事人: {names}")
@@ -81,13 +81,13 @@ class SMSDocumentMixin:
 
         try:
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
-                documents = sms.scraper_task.documents.filter(download_status="success")  # type: ignore[attr-defined]
+                documents = sms.scraper_task.documents.filter(download_status="success")
                 for doc in documents:
                     if doc.local_file_path and os.path.exists(doc.local_file_path):
                         document_paths.append(doc.local_file_path)
 
             if not document_paths and sms.scraper_task:
-                result = sms.scraper_task.result  # type: ignore[attr-defined]
+                result = sms.scraper_task.result
                 if result and isinstance(result, dict):
                     files = result.get("files", [])
                     for file_path in files:
@@ -143,12 +143,12 @@ class SMSDocumentMixin:
         """保存重命名后的文件路径到 scraper_task.result"""
         if not renamed_paths or not sms.scraper_task:
             return
-        result = sms.scraper_task.result or {}  # type: ignore[attr-defined]
+        result = sms.scraper_task.result or {}
         if not isinstance(result, dict):
             result = {}
         result["renamed_files"] = renamed_paths
-        sms.scraper_task.result = result  # type: ignore[attr-defined]
-        sms.scraper_task.save()  # type: ignore[attr-defined]
+        sms.scraper_task.result = result
+        sms.scraper_task.save()
         logger.info(f"保存重命名后的文件路径到任务结果: {len(renamed_paths)} 个文件")
 
     def _attach_to_case_log(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
@@ -159,7 +159,7 @@ class SMSDocumentMixin:
             self.document_attachment.add_to_case_log(sms, renamed_paths)
         elif sms.case:
             logger.info(f"短信 {sms.id} 没有案件日志，先创建案件日志")
-            success = self._create_case_binding(sms)  # type: ignore[attr-defined]
+            success = self._create_case_binding(sms)
             if success and sms.case_log:
                 self.document_attachment.add_to_case_log(sms, renamed_paths)
             else:
@@ -193,7 +193,7 @@ class SMSDocumentMixin:
 
         if case_numbers_to_sync:
             count = self.case_number_extractor.sync_to_case(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 case_numbers=case_numbers_to_sync,
                 sms_id=sms.id,
             )
@@ -206,7 +206,7 @@ class SMSDocumentMixin:
         logger.info(f"开始从文书中提取当事人: SMS ID={sms.id}")
         for file_path in renamed_paths:
             try:
-                parties = self.matcher.extract_parties_from_document(file_path)  # type: ignore[attr-defined]
+                parties = self.matcher.extract_parties_from_document(file_path)
                 if parties:
                     sms.party_names = list(dict.fromkeys(parties))
                     sms.save()

@@ -96,7 +96,7 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
     img = Image.open(io.BytesIO(image_data))
     pillow_angle = (360 - rotation) % 360
     if pillow_angle != 0:
-        img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
+        img = img.rotate(pillow_angle, expand=True)
 
     output = io.BytesIO()
     fmt = (img_format or "jpeg").upper()
@@ -108,9 +108,9 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
                 background.paste(img, mask=img.split()[3])
             else:
                 background.paste(img)
-            img = background  # type: ignore[assignment]
+            img = background
         elif img.mode != "RGB":
-            img = img.convert("RGB")  # type: ignore[assignment]
+            img = img.convert("RGB")
         img.save(output, format="JPEG", quality=95, optimize=True)
     else:
         img.save(output, format=fmt)

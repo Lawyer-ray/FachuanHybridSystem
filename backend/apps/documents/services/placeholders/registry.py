@@ -36,7 +36,7 @@ class PlaceholderRegistry:
     def __init__(self) -> None:
         """初始化注册表"""
         if not self._initialized:
-            self._services = {}  # type: ignore[misc]
+            self._services = {}
             self._initialized = True
 
     @classmethod

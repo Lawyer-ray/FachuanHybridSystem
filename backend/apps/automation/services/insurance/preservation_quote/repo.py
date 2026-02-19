@@ -21,7 +21,7 @@ logger = logging.getLogger("apps.automation")
 def _configure_db_settings() -> None:
     raw_settings = getattr(connections, "_settings", None)
     configured_settings = connections.configure_settings(raw_settings)
-    connections._settings = configured_settings  # type: ignore[attr-defined]
+    connections._settings = configured_settings
 
 
 async def _db_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
@@ -72,14 +72,14 @@ class PreservationQuoteRepository:
         if page_size is None:
             page_size = get_config("pagination.default_page_size", 20)
 
-        errors = ({},)  # type: ignore[var-annotated]
+        errors = ({},)
         max_page_size = get_config("pagination.max_page_size", 100)
         if page < 1:
-            errors["page"] = "页码必须大于 0"  # type: ignore[index]
+            errors["page"] = "页码必须大于 0"
         if page_size < 1 or page_size > max_page_size:
-            errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"  # type: ignore[index]
+            errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
         if errors:
-            raise ValidationError(message="参数验证失败", errors=errors)  # type: ignore
+            raise ValidationError(message="参数验证失败", errors=errors)
 
         queryset = PreservationQuote.objects.all()
         if status:
@@ -192,7 +192,7 @@ class PreservationQuoteRepository:
 
         for result in results:
             status = QuoteItemStatus.SUCCESS if result.status == "success" else QuoteItemStatus.FAILED
-            rate_data = {}  # type: ignore[var-annotated]
+            rate_data = {}
             if result.response_data and isinstance(result.response_data, dict):
                 rate_data = result.response_data.get("data") or {}
             if not isinstance(rate_data, dict):

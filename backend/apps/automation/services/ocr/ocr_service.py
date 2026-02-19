@@ -148,7 +148,7 @@ class OCRService:
         try:
             tolist = getattr(x, "tolist", None)
             if callable(tolist):
-                return tolist()  # type: ignore[no-any-return]
+                return tolist()
         except Exception:
             logger.exception("操作失败")
             pass

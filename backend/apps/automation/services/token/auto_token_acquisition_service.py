@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ConcurrencyConfig:  # type: ignore[no-redef]
+class ConcurrencyConfig:
     """并发控制配置"""
 
     max_concurrent_acquisitions: int = 1  # 最大并发获取数量
@@ -154,7 +154,7 @@ class AutoTokenAcquisitionService:
         performance_monitor.record_acquisition_start(
             acquisition_id,
             site_name,
-            credential_id or "auto",  # type: ignore[arg-type]
+            credential_id or "auto",
         )
 
         try:
@@ -162,7 +162,7 @@ class AutoTokenAcquisitionService:
             await concurrency_optimizer.acquire_resource(
                 acquisition_id,
                 site_name,
-                credential_id or "auto",  # type: ignore[arg-type]
+                credential_id or "auto",
             )
 
             try:
@@ -209,13 +209,13 @@ class AutoTokenAcquisitionService:
                         login_attempts=len(result.login_attempts),
                         success_rate=self._success_count / self._acquisition_count,
                     )
-                    return result.token  # type: ignore[return-value]
+                    return result.token
                 else:
                     self._failure_count += 1
-                    error_msg = f"Token获取失败: {result.error_details.get('message', '未知错误')}"  # type: ignore[union-attr]
+                    error_msg = f"Token获取失败: {result.error_details.get('message', '未知错误')}"
 
                     # 记录性能监控结束（失败）
-                    error_type = result.error_details.get("error_type", "unknown")  # type: ignore[union-attr]
+                    error_type = result.error_details.get("error_type", "unknown")
                     performance_monitor.record_acquisition_end(
                         acquisition_id, False, total_duration, error_type=error_type
                     )
@@ -250,7 +250,7 @@ class AutoTokenAcquisitionService:
                 await concurrency_optimizer.release_resource(
                     acquisition_id,
                     site_name,
-                    credential_id or "auto",  # type: ignore[arg-type]
+                    credential_id or "auto",
                 )
 
         except Exception as e:
@@ -316,10 +316,10 @@ class AutoTokenAcquisitionService:
                 return None
 
             # 检查该账号的token（token_service.get_token_internal 是异步方法）
-            token = await self.token_service.get_token_internal(site_name, available_accounts.account)  # type: ignore[attr-defined]
+            token = await self.token_service.get_token_internal(site_name, available_accounts.account)
             if token:
                 logger.info("找到有效Token", extra={"site_name": site_name, "account": available_accounts.account})
-                return token  # type: ignore[no-any-return]
+                return token
 
             return None
 
@@ -342,7 +342,7 @@ class AutoTokenAcquisitionService:
 
             organization_service = build_organization_service()
 
-            credential = await organization_service.get_credential_internal(credential_id)  # type: ignore[misc]
+            credential = await organization_service.get_credential_internal(credential_id)
             return AccountCredentialDTO.from_model(credential)
 
         except Exception:
@@ -352,10 +352,10 @@ class AutoTokenAcquisitionService:
         """先查缓存，再查数据库，命中时回填缓存"""
         token = cache_manager.get_cached_token(site_name, account)
         if not token:
-            token = await self.token_service.get_token_internal(site_name, account)  # type: ignore[attr-defined]
+            token = await self.token_service.get_token_internal(site_name, account)
             if token:
                 cache_manager.cache_token(site_name, account, token)
-        return token  # type: ignore[return-value]
+        return token
 
     async def _resolve_credential_and_token(
         self,
@@ -418,7 +418,7 @@ class AutoTokenAcquisitionService:
         超时后等待并检查 token 是否已保存，成功则返回结果，否则返回 None
         """
         await asyncio.sleep(2)
-        saved_token = await self.token_service.get_token_internal(site_name, account)  # type: ignore[attr-defined]
+        saved_token = await self.token_service.get_token_internal(site_name, account)
         if not saved_token:
             return None
         logger.info("超时但Token已保存成功", extra={"site_name": site_name, "account": account})
@@ -426,7 +426,7 @@ class AutoTokenAcquisitionService:
             success=True, token=saved_token, account=account,
             error_message="超时但Token已保存", attempt_duration=login_duration, retry_count=1,
         ))
-        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+        await self.account_selection_strategy.update_account_statistics(
             account=account, site_name=site_name, success=True
         )
         return TokenAcquisitionResult(
@@ -512,7 +512,7 @@ class AutoTokenAcquisitionService:
             success=False, token=None, account=credential.account,
             error_message=error_msg, attempt_duration=login_duration, retry_count=1,
         ))
-        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+        await self.account_selection_strategy.update_account_statistics(
             account=credential.account, site_name=site_name, success=False
         )
         logger.error(
@@ -543,14 +543,14 @@ class AutoTokenAcquisitionService:
         exc: Exception,
     ) -> "TokenAcquisitionResult":
         """处理登录失败"""
-        if hasattr(exc, "attempts") and exc.attempts:  # type: ignore[union-attr]
-            login_attempts.extend(exc.attempts)  # type: ignore[union-attr]
+        if hasattr(exc, "attempts") and exc.attempts:
+            login_attempts.extend(exc.attempts)
         else:
             login_attempts.append(LoginAttemptResult(
                 success=False, token=None, account=credential.account,
                 error_message=str(exc), attempt_duration=login_duration, retry_count=1,
             ))
-        await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+        await self.account_selection_strategy.update_account_statistics(
             account=credential.account, site_name=site_name, success=False
         )
         logger.error(
@@ -614,12 +614,12 @@ class AutoTokenAcquisitionService:
                         "account": credential.account,
                     },
                 )
-                await self.token_service.save_token_internal(  # type: ignore[attr-defined]
+                await self.token_service.save_token_internal(
                     site_name=site_name, account=credential.account,
                     token=token, expires_in=3600,
                 )
                 cache_manager.cache_token(site_name, credential.account, token)
-                await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+                await self.account_selection_strategy.update_account_statistics(
                     account=credential.account, site_name=site_name, success=True
                 )
 
@@ -674,7 +674,7 @@ class AutoTokenAcquisitionService:
                         "account": credential.account,
                     },
                 )
-                await self.account_selection_strategy.update_account_statistics(  # type: ignore[attr-defined]
+                await self.account_selection_strategy.update_account_statistics(
                     account=credential.account, site_name=site_name, success=False
                 )
                 return TokenAcquisitionResult(

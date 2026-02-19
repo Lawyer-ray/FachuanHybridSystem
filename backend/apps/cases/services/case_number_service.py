@@ -271,7 +271,7 @@ class CaseNumberService:
             },
         )
 
-        return case_number  # type: ignore[no-any-return]
+        return case_number
 
     @transaction.atomic
     def delete_number(

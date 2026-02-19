@@ -92,7 +92,7 @@ def get_baoquan_token_service() -> Any:
 
 
 def get_task_service() -> Any:
-    return ServiceLocator.get_task_service()  # type: ignore[attr-defined]
+    return ServiceLocator.get_task_service()
 
 
 def get_browser_service() -> Any:

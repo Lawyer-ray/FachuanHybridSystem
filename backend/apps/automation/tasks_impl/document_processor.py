@@ -13,7 +13,7 @@ def execute_document_process(
     from apps.core.dependencies import build_document_processing_service
 
     service = build_document_processing_service()
-    r = service.process_document(file_path=file_path, kind=kind, limit=limit, preview_page=preview_page)  # type: ignore
+    r = service.process_document(file_path=file_path, kind=kind, limit=limit, preview_page=preview_page)  # type: ignore[attr-defined]
     return {"image_url": r.image_url, "text_excerpt": r.text_excerpt}
 
 
@@ -25,7 +25,7 @@ def execute_document_process_by_path(
     from apps.core.dependencies import build_document_processing_service
 
     service = build_document_processing_service()
-    r = service.process_document_by_path(file_path=file_path, limit=limit, preview_page=preview_page or 1)  # type: ignore
+    r = service.process_document_by_path(file_path=file_path, limit=limit, preview_page=preview_page or 1)  # type: ignore[attr-defined]
     return {"image_url": r.image_url, "text_excerpt": r.text_excerpt}
 
 

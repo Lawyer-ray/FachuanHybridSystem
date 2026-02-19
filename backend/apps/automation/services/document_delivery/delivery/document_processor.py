@@ -257,7 +257,7 @@ class DocumentProcessor:
 
                 if matched_case:
                     # 直接设置外键 ID,避免跨模块 Model 导入
-                    sms.case_id = cast(int, matched_case.id)  # type: ignore[attr-defined]
+                    sms.case_id = cast(int, matched_case.id)
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
                     result["case_id"] = cast(int, matched_case.id)
@@ -277,7 +277,7 @@ class DocumentProcessor:
                         result["renamed_path"] = renamed_files[0] if renamed_files else file_path
                     if case_log_id:
                         result["case_log_id"] = case_log_id
-                        sms.case_log_id = case_log_id  # type: ignore[attr-defined]
+                        sms.case_log_id = case_log_id
 
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()

@@ -126,4 +126,4 @@ class CaseFilingNumberService:
             SimpleCaseType.EXECUTION: "申请执行",
             SimpleCaseType.BANKRUPTCY: "破产",
         }
-        return cast(Any, case_type_map.get(case_type, case_type))  # type: ignore
+        return cast(Any, case_type_map.get(case_type, case_type))

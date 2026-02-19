@@ -8,7 +8,7 @@ class ClientRelatedDtoAssembler:
     def property_clue_to_dto(self, clue: PropertyClue) -> PropertyClueDTO:
         return PropertyClueDTO(
             id=clue.pk,
-            client_id=clue.client_id,  # type: ignore[attr-defined]
+            client_id=clue.client_id,
             clue_type=clue.clue_type,
             content=clue.content,
             description=None,
@@ -22,7 +22,7 @@ class ClientRelatedDtoAssembler:
             id=doc.pk,
             client_id=doc.client_id,
             doc_type=doc.doc_type,
-            doc_type_display=doc.get_doc_type_display(),  # type: ignore[attr-defined]
+            doc_type_display=doc.get_doc_type_display(),
             file_path=doc.media_url(),
             expiry_date=str(doc.expiry_date) if doc.expiry_date else None,
             is_valid=True,

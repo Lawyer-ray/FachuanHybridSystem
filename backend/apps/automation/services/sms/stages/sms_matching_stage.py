@@ -136,7 +136,7 @@ class SMSMatchingStage(BaseSMSStage):
 
     def _handle_manual_case(self, sms: CourtSMS) -> CourtSMS:
         """处理已手动指定案件的情况"""
-        logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")  # type: ignore[attr-defined]
+        logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
         if self._create_case_binding(sms):
             sms.status = CourtSMSStatus.RENAMING
         else:
@@ -157,7 +157,7 @@ class SMSMatchingStage(BaseSMSStage):
             from apps.automation.models import ScraperTask
 
             try:
-                sms.scraper_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
+                sms.scraper_task = ScraperTask.objects.get(id=sms.scraper_task.id)
             except ScraperTask.DoesNotExist:
                 return False
 
@@ -169,7 +169,7 @@ class SMSMatchingStage(BaseSMSStage):
             if not hasattr(sms.scraper_task, "documents"):
                 return sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
 
-            docs = sms.scraper_task.documents.all()  # type: ignore[attr-defined]
+            docs = sms.scraper_task.documents.all()
             if not docs.exists():
                 return sms.scraper_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
 
@@ -237,12 +237,12 @@ class SMSMatchingStage(BaseSMSStage):
         paths = []
         try:
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
-                for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore[attr-defined]
+                for doc in sms.scraper_task.documents.filter(download_status="success"):
                     if doc.local_file_path and os.path.exists(doc.local_file_path):
                         paths.append(doc.local_file_path)
 
-            if not paths and sms.scraper_task and sms.scraper_task.result:  # type: ignore[attr-defined]
-                result = sms.scraper_task.result  # type: ignore[attr-defined]
+            if not paths and sms.scraper_task and sms.scraper_task.result:
+                result = sms.scraper_task.result
                 if isinstance(result, dict):
                     for f in result.get("files", []):
                         if f and os.path.exists(f):
@@ -265,13 +265,13 @@ class SMSMatchingStage(BaseSMSStage):
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore[attr-defined]
+            user = self.lawyer_service.get_lawyer_internal(admin.id)
 
             if sms.case_numbers:
                 self._add_case_numbers_to_case(sms)
 
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
                 user=user,
             )
@@ -298,7 +298,7 @@ class SMSMatchingStage(BaseSMSStage):
 
             for num in valid_nums:
                 self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                    case_id=sms.case.id,
                     case_number=num,
                     user_id=user_id,
                 )

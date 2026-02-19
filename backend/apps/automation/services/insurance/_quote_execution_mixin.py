@@ -35,8 +35,8 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
         ).order_by("-created_at")
         if valid_tokens.exists():
             token_obj = valid_tokens.first()
-            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")  # type: ignore[union-attr]
-            return token_obj.token  # type: ignore[no-any-return, union-attr]
+            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")
+            return token_obj.token
     except Exception as e:
         logger.error(f"查找 Token 失败: {e}", exc_info=True)
 
@@ -76,7 +76,7 @@ class QuoteExecutionMixin:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential_internal(credential_id)  # type: ignore[misc]
+                    credential = await organization_service.get_credential_internal(credential_id)
                     account = credential.account
 
                     from apps.automation.services.scraper.core.token_service import TokenService
@@ -87,7 +87,7 @@ class QuoteExecutionMixin:
                     )
                     if token:
                         logger.info(f"✅ 找到指定账号的有效 Token: {account}")
-                        return token  # type: ignore[return-value]
+                        return token
                     logger.info(f"指定账号 {account} 无有效Token，将自动获取")
                 except Exception as e:
                     logger.warning(f"凭证 {credential_id} 获取失败: {e}，将自动选择账号")
@@ -103,7 +103,7 @@ class QuoteExecutionMixin:
                 site_name=site_name, credential_id=credential_id
             )
             logger.info("✅ 自动Token获取成功", extra={"action": "get_valid_token_success"})
-            return token  # type: ignore[return-value]
+            return token
 
         except Exception as e:
             logger.error(
@@ -152,7 +152,7 @@ class QuoteExecutionMixin:
         companies: "list[InsuranceCompany]",
     ) -> "list[PremiumResult]":
         """并发查询所有保险公司报价"""
-        return await self.insurance_client.fetch_all_premiums(  # type: ignore[no-any-return]
+        return await self.insurance_client.fetch_all_premiums(
             bearer_token=token,
             preserve_amount=preserve_amount,
             corp_id=corp_id,

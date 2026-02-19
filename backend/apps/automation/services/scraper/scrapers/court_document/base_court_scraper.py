@@ -110,7 +110,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                         {
                             "index": i,
                             "text": link.inner_text()[:50] if link.inner_text() else "",
-                            "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",  # type: ignore[index]
+                            "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",
                             "visible": link.is_visible(),
                         }
                     )
@@ -144,7 +144,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     analysis["iframes"].append(
                         {
                             "index": i,
-                            "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",  # type: ignore[index]
+                            "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
                         }
                     )
                 except Exception:
@@ -211,11 +211,11 @@ class BaseCourtDocumentScraper(BaseScraper):
             下载目录路径
         """
         # 如果任务关联了案件,使用案件 ID 作为目录名
-        if self.cast(int, self.task.case_id):  # type: ignore[attr-defined]
+        if self.cast(int, self.task.case_id):
             download_dir = (
                 Path(settings.MEDIA_ROOT)
                 / "case_logs"
-                / str(cast(int, self.cast(int, self.task.case_id)))  # type: ignore[attr-defined]
+                / str(cast(int, self.cast(int, self.task.case_id)))
                 / "documents"
             )
         else:
@@ -249,7 +249,7 @@ class BaseCourtDocumentScraper(BaseScraper):
             success, filepath, error = download_result
 
             # 先创建文书记录
-            task_id_value = cast(int, self.task.id)  # type: ignore[redundant-cast]
+            task_id_value = cast(int, self.task.id)
             task_case_id = cast(int | None, self.task.case_id) if self.task.case else None
             document = self.document_service.create_document_from_api_data(
                 scraper_task_id=task_id_value, api_data=document_data, case_id=task_case_id

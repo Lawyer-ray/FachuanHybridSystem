@@ -138,12 +138,12 @@ class SMSRenamingStage(BaseSMSStage):
         if not renamed_paths or not sms.scraper_task:
             return
         try:
-            result = sms.scraper_task.result or {}  # type: ignore[attr-defined]
+            result = sms.scraper_task.result or {}
             if not isinstance(result, dict):
                 result = {}
             result["renamed_files"] = renamed_paths
-            sms.scraper_task.result = result  # type: ignore[attr-defined]
-            sms.scraper_task.save()  # type: ignore[attr-defined]
+            sms.scraper_task.result = result
+            sms.scraper_task.save()
         except Exception as e:
             logger.warning(f"保存重命名路径失败: SMS={sms.id}, 错误: {e}")
 
@@ -169,9 +169,9 @@ class SMSRenamingStage(BaseSMSStage):
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore[attr-defined]
+            user = self.lawyer_service.get_lawyer_internal(admin.id)
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
                 user=user,
             )
@@ -208,7 +208,7 @@ class SMSRenamingStage(BaseSMSStage):
         # 同步到案件
         if case_numbers:
             self.case_number_extractor.sync_to_case(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 case_numbers=case_numbers,
                 sms_id=sms.id,
             )

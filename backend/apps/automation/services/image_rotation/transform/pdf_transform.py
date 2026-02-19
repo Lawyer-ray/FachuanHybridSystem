@@ -18,7 +18,7 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
             if img.format == "JPEG":
                 return image_bytes
             output = io.BytesIO()
-            img = _ensure_rgb(img)  # type: ignore[assignment]
+            img = _ensure_rgb(img)
             img.save(output, format="JPEG", quality=85, optimize=True)
             return output.getvalue()
         except Exception:
@@ -30,10 +30,10 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
         img = Image.open(io.BytesIO(image_bytes))
         pillow_angle = (360 - rotation) % 360
         if pillow_angle != 0:
-            img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
+            img = img.rotate(pillow_angle, expand=True)
 
         output = io.BytesIO()
-        img = _ensure_rgb(img)  # type: ignore[assignment]
+        img = _ensure_rgb(img)
         img.save(output, format="JPEG", quality=85, optimize=True)
         return output.getvalue()
     except Exception as e:

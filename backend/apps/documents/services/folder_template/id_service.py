@@ -14,7 +14,7 @@ class FolderTemplateIdService:
     def collect_structure_ids(self, structure: dict[str, Any]) -> list[str] | None:
         ids: list[str] = []
 
-        def collect_from_node(node) -> None:  # type: ignore[no-untyped-def]
+        def collect_from_node(node) -> None:
             if not isinstance(node, dict):
                 return
             if node.get("id"):
@@ -49,16 +49,16 @@ class FolderTemplateIdService:
 
         other_templates = list(other_templates)
 
-        existing_ids = set()  # type: ignore[var-annotated]
+        existing_ids = set()
         for template in other_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
-                existing_ids.update(template_ids)  # type: ignore[arg-type]
+                existing_ids.update(template_ids)
 
         return set(ids) & existing_ids
 
     def replace_duplicate_ids_in_structure(self, structure: dict[str, Any], duplicate_ids: set[str]) -> None:
-        def replace_in_node(node) -> None:  # type: ignore[no-untyped-def]
+        def replace_in_node(node) -> None:
             if not isinstance(node, dict):
                 return
             if "id" in node and node["id"] in duplicate_ids:
@@ -88,7 +88,7 @@ class FolderTemplateIdService:
         for template in all_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
-                if id_val in template_ids:  # type: ignore[operator]
+                if id_val in template_ids:
                     return True
         return False
 
@@ -99,7 +99,7 @@ class FolderTemplateIdService:
         for template in all_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
-                for id_val in template_ids:  # type: ignore[union-attr]
+                for id_val in template_ids:
                     if id_val not in global_ids:
                         global_ids[id_val] = []
                     global_ids[id_val].append(template.name)

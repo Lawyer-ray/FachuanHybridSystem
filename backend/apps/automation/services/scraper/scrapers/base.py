@@ -58,9 +58,9 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: BrowserContext = None  # type: ignore[assignment]
-        self.page: Page = None  # type: ignore[assignment]
-        self.site_name: str = None  # type: ignore[assignment]  # 子类应设置网站名称
+        self.context: BrowserContext = None
+        self.page: Page = None
+        self.site_name: str = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:
         """
@@ -69,7 +69,7 @@ class BaseScraper:
         Returns:
             执行结果字典
         """
-        logger.info(f"开始执行任务 {self.task.id}: {self.task.get_task_type_display()}")  # type: ignore[attr-defined]
+        logger.info(f"开始执行任务 {self.task.id}: {self.task.get_task_type_display()}")
 
         # 更新状态为执行中
         self.task.status = ScraperTaskStatus.RUNNING
@@ -78,7 +78,7 @@ class BaseScraper:
 
         try:
             # 创建独立的浏览器上下文（启用反检测）
-            self.context = self.browser_service.create_context(use_anti_detection=True)  # type: ignore[attr-defined]
+            self.context = self.browser_service.create_context(use_anti_detection=True)
             self.page = self.context.new_page()
 
             # 注入反检测脚本

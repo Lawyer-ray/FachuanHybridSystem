@@ -28,14 +28,14 @@ class ContractCaseCreationWorkflow:
             perm_open_access=perm_open_access,
         )
 
-        for party in contract.contract_parties.all():  # type: ignore[attr-defined]
+        for party in contract.contract_parties.all():
             self.case_service.create_case_party(
                 case_id=case_dto.id,
                 client_id=party.client_id,
                 legal_status=None,
             )
 
-        for assignment in contract.assignments.all():  # type: ignore[attr-defined]
+        for assignment in contract.assignments.all():
             self.case_service.create_case_assignment(
                 case_id=case_dto.id,
                 lawyer_id=assignment.lawyer_id,

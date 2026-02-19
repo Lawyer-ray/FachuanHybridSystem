@@ -75,7 +75,7 @@ class CaseNumberExtractorService:
         try:
             # 读取 PDF 内容
             logger.info(f"开始从文书提取内容: {document_path}")
-            result = self.document_processing_service.extract_document_content_by_path_internal(  # type: ignore[attr-defined]
+            result = self.document_processing_service.extract_document_content_by_path_internal(
                 document_path,
                 limit=3000,  # 限制字符数以提高处理效率
             )

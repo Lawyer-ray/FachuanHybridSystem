@@ -97,30 +97,30 @@ class TestService:
             # 1. 获取凭证
             try:
                 credential = self.organization_service.get_credential_internal(credential_id)
-                result["logs"].append(f"✅ 获取凭证成功: {credential.site_name}")  # type: ignore[attr-defined]
-                result["logs"].append(f"   账号: {credential.account}")  # type: ignore[attr-defined]
+                result["logs"].append(f"✅ 获取凭证成功: {credential.site_name}")
+                result["logs"].append(f"   账号: {credential.account}")
             except Exception as e:
                 raise ValueError(f"凭证 ID {credential_id} 不存在: {e!s}") from e
 
             # 2. 加载浏览器配置
             if config is None:
                 config = self.browser_config.from_env()
-                result["logs"].append("✅ 使用环境变量配置")  # type: ignore[attr-defined]
+                result["logs"].append("✅ 使用环境变量配置")
             else:
-                result["logs"].append("✅ 使用自定义配置")  # type: ignore[attr-defined]
+                result["logs"].append("✅ 使用自定义配置")
 
             # 3. 使用 BrowserManager 启动浏览器
-            result["logs"].append("🚀 启动浏览器...")  # type: ignore[attr-defined]
+            result["logs"].append("🚀 启动浏览器...")
 
             with self.browser_manager.create_browser(config) as (page, context):
-                result["logs"].append("✅ 浏览器已启动")  # type: ignore[attr-defined]
+                result["logs"].append("✅ 浏览器已启动")
 
                 # 4. 创建服务
                 service = CourtZxfwService(page, context)
-                result["logs"].append("✅ 服务实例已创建")  # type: ignore[attr-defined]
+                result["logs"].append("✅ 服务实例已创建")
 
                 # 5. 执行登录
-                result["logs"].append("🔐 开始登录...")  # type: ignore[attr-defined]
+                result["logs"].append("🔐 开始登录...")
                 login_result = service.login(
                     account=credential.account,
                     password=credential.password,
@@ -132,34 +132,34 @@ class TestService:
                 result["success"] = login_result["success"]
                 result["message"] = login_result["message"]
                 result["token"] = login_result.get("token")  # 传递token
-                result["logs"].append(f"✅ 登录结果: {login_result['message']}")  # type: ignore[attr-defined]
+                result["logs"].append(f"✅ 登录结果: {login_result['message']}")
 
                 # 记录token信息
                 if result["token"]:
-                    result["logs"].append(f"🔑 捕获到 Token: {result['token'][:30]}...")  # type: ignore[attr-defined, index]
-                    result["logs"].append(f"   Token 长度: {len(result['token'])} 字符")  # type: ignore[arg-type, attr-defined]
+                    result["logs"].append(f"🔑 捕获到 Token: {result['token'][:30]}...")
+                    result["logs"].append(f"   Token 长度: {len(result['token'])} 字符")
                 else:
-                    result["logs"].append("⚠️ 未捕获到 Token")  # type: ignore[attr-defined]
+                    result["logs"].append("⚠️ 未捕获到 Token")
 
                 # 6. 收集截图
-                result["logs"].append("📸 收集调试截图...")  # type: ignore[attr-defined]
+                result["logs"].append("📸 收集调试截图...")
                 screenshot_limit = get_config("validation.screenshot_limit", 5)
                 result["screenshots"] = ScreenshotUtils.collect_screenshots(limit=screenshot_limit)
-                result["logs"].append(f"✅ 收集到 {len(result['screenshots'])} 张截图")  # type: ignore[arg-type, attr-defined]
+                result["logs"].append(f"✅ 收集到 {len(result['screenshots'])} 张截图")
 
                 # 7. 等待用户观察
-                result["logs"].append("⏳ 等待 30 秒供观察（用于检查浏览器）...")  # type: ignore[attr-defined]
+                result["logs"].append("⏳ 等待 30 秒供观察（用于检查浏览器）...")
                 time.sleep(30)
 
                 # 浏览器会自动清理（由 BrowserManager 处理）
 
-            result["logs"].append("✅ 浏览器已关闭")  # type: ignore[attr-defined]
+            result["logs"].append("✅ 浏览器已关闭")
 
         except Exception as e:
             result["success"] = False
             result["message"] = f"登录失败: {e!s}"
             result["error"] = traceback.format_exc()
-            result["logs"].append(f"❌ 错误: {e!s}")  # type: ignore[attr-defined]
+            result["logs"].append(f"❌ 错误: {e!s}")
             logger.error(f"测试登录失败: {e}", exc_info=True)
 
         return result

@@ -179,7 +179,7 @@ class ContractDisplayService:
 
     def batch_get_template_info(self, contracts: list["Contract"]) -> dict[int, dict[str, Any]]:
         """批量获取合同的模板信息"""
-        result = {}  # type: ignore[var-annotated]
+        result = {}
         if not contracts:
             return result
 
@@ -232,8 +232,8 @@ class ContractDisplayService:
                 self.template_cache.set_template_check(case_type, check_result)
 
             return {
-                "document_template": self._format_doc_templates(doc_templates),  # type: ignore[call-arg, misc]
-                "folder_template": self._format_folder_templates(folder_templates),  # type: ignore[call-arg, misc]
+                "document_template": self._format_doc_templates(doc_templates),
+                "folder_template": self._format_folder_templates(folder_templates),
                 "has_templates": check_result.get("has_folder", False) and check_result.get("has_document", False),
             }
         except Exception as e:
@@ -244,7 +244,7 @@ class ContractDisplayService:
         if not doc_templates:
             return "无匹配模板"
         displays = []
-        for t in doc_templates:  # type: ignore
+        for t in doc_templates:
             type_display = t.get("type_display", "")
             name = t.get("name", "")
             displays.append(f"{name}({type_display})" if type_display else name)
@@ -253,4 +253,4 @@ class ContractDisplayService:
     def _format_folder_templates(folder_templates) -> str:
         if not folder_templates:
             return "无匹配模板"
-        return "、".join(t.get("name", "") for t in folder_templates)  # type: ignore
+        return "、".join(t.get("name", "") for t in folder_templates)

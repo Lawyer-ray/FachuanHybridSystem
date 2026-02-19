@@ -170,7 +170,7 @@ class CaseMaterialService:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first()  # type: ignore[assignment]
+        t = qs.first()
         if t:
             return t
 
@@ -227,10 +227,10 @@ class CaseMaterialService:
         ordered_ids = order_map.get(key, [])
 
         ordered: list[dict[str, Any]] = []
-        remaining = dict[str, Any](groups_by_type_id)  # type: ignore[arg-type]
+        remaining = dict[str, Any](groups_by_type_id)
 
         for tid in ordered_ids:
-            g = remaining.pop(tid, None)  # type: ignore
+            g = remaining.pop(tid, None)
             if g:
                 ordered.append(g)
 
@@ -240,12 +240,12 @@ class CaseMaterialService:
         return ordered
 
     def _material_item_payload(self, m: CaseMaterial) -> dict[str, Any]:
-        att = m.source_attachment  # type: ignore
+        att = m.source_attachment
         file_name = getattr(getattr(att, "file", None), "name", "") if att else ""
         url = getattr(getattr(att, "file", None), "url", "") if att else ""
         uploaded_at = getattr(att, "uploaded_at", None)
         party_labels = []
-        for p in m.parties.all():  # type: ignore[attr-defined]
+        for p in m.parties.all():
             if p.client and p.client.name:
                 party_labels.append(p.client.name)
         return {

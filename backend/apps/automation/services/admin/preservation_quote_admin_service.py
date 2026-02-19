@@ -114,7 +114,7 @@ class PreservationQuoteAdminService:
 
             self.logger.info("批量执行询价任务完成", extra={"action": "execute_quotes", "result": result})
 
-            return result  # type: ignore[no-any-return]
+            return result
 
         except Exception as e:
             self.logger.error(
@@ -276,7 +276,7 @@ class PreservationQuoteAdminService:
             now = timezone.now()
             date_stats = []
             for i in range(30):
-                date = (now - timezone.timedelta(days=i)).date()  # type: ignore[attr-defined]
+                date = (now - timezone.timedelta(days=i)).date()
                 day_count = queryset.filter(created_at__date=date).count()
                 day_success = queryset.filter(created_at__date=date, status=QuoteStatus.SUCCESS).count()
 
@@ -420,7 +420,7 @@ class PreservationQuoteAdminService:
             # 检查状态
             if quote.status not in [QuoteStatus.PENDING, QuoteStatus.FAILED]:
                 raise ValidationException(
-                    message=f"任务当前状态为 {quote.get_status_display()}，无法执行",  # type: ignore[attr-defined]
+                    message=f"任务当前状态为 {quote.get_status_display()}，无法执行",
                     code="INVALID_QUOTE_STATUS",
                     errors={"status": quote.status},
                 )
@@ -465,7 +465,7 @@ class PreservationQuoteAdminService:
                 ) from e
 
             # 获取所有成功的报价
-            successful_quotes = quote.quotes.filter(  # type: ignore[attr-defined]
+            successful_quotes = quote.quotes.filter(
                 status=QuoteItemStatus.SUCCESS, min_amount__isnull=False
             ).order_by("min_amount")
 

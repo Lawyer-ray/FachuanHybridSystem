@@ -45,7 +45,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
 
         # 等待页面加载
         self.page.wait_for_load_state("networkidle", timeout=30000)
-        self.random_wait(3, 5)  # type: ignore[attr-defined]
+        self.random_wait(3, 5)
 
         # 截图保存封面页
         screenshot_cover = self.screenshot("gdems_cover")
@@ -122,7 +122,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
                 self.page.wait_for_load_state("networkidle", timeout=30000)
-                self.random_wait(5, 7)  # type: ignore[attr-defined]
+                self.random_wait(5, 7)
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
         except Exception as e:
@@ -158,7 +158,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
                 raise ValueError("找不到下载按钮")
 
             download_button.first.scroll_into_view_if_needed()
-            self.random_wait(1, 2)  # type: ignore[attr-defined]
+            self.random_wait(1, 2)
 
             with self.page.expect_download(timeout=60000) as download_info:
                 download_button.first.click()
@@ -195,11 +195,11 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
 
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
-                extracted_files: list[Any] = []  # type: ignore[no-redef]
+                extracted_files: list[Any] = []
             logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
 
         except Exception as e:
             logger.error(f"解压失败: {e}")
             # 解压失败不影响主流程,返回空列表
-            extracted_files: list[Any] = []  # type: ignore[no-redef]
+            extracted_files: list[Any] = []
         return extracted_files

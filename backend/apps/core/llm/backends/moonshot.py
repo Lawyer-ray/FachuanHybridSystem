@@ -457,7 +457,7 @@ class MoonshotBackend(HttpxErrorMixin):
     @property
     def _files_client(self) -> MoonshotFilesClient:
         if self._moonshot_files_client is None:
-            self._moonshot_files_client = MoonshotFilesClient(self)  # type: ignore
+            self._moonshot_files_client = MoonshotFilesClient(self)  # type: ignore[arg-type]
         return self._moonshot_files_client
 
     def upload_file(self, file_path: str) -> dict[str, Any]:

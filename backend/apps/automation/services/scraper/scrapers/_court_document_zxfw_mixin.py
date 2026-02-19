@@ -68,11 +68,11 @@ class CourtDocumentZxfwMixin:
                     logger.error(f"解析 API 响应失败: {e}", exc_info=True)
 
         try:
-            self.page.on("response", handle_response)  # type: ignore[attr-defined]
+            self.page.on("response", handle_response)
             self._debug_log("开始导航到目标页面")
             self.navigate_to_url()
             self._debug_log("等待页面加载 (networkidle)")
-            self.page.wait_for_load_state("networkidle", timeout=30000)  # type: ignore[attr-defined]
+            self.page.wait_for_load_state("networkidle", timeout=30000)
             self._debug_log("额外等待 3 秒，确保页面完全加载")
             self.random_wait(3, 5)
             if intercepted_data is None:
@@ -88,7 +88,7 @@ class CourtDocumentZxfwMixin:
             logger.error(f"API 拦截过程出错: {e}", exc_info=True)
         finally:
             try:
-                self.page.remove_listener("response", handle_response)  # type: ignore[attr-defined]
+                self.page.remove_listener("response", handle_response)
                 logger.info("已移除 API 响应监听器")
             except Exception as e:
                 logger.warning(f"移除监听器失败: {e}")
@@ -105,7 +105,7 @@ class CourtDocumentZxfwMixin:
             if _ZXFW_API_URL in response.url:
                 try:
                     intercepted_data = response.json()
-                    document_count = len(intercepted_data.get("data", []))  # type: ignore[union-attr]
+                    document_count = len(intercepted_data.get("data", []))
                     logger.info(
                         "成功拦截 API 响应",
                         extra={
@@ -119,7 +119,7 @@ class CourtDocumentZxfwMixin:
                     logger.error(f"解析 API 响应失败: {e}", exc_info=True)
 
         try:
-            self.page.on("response", handle_response)  # type: ignore[attr-defined]
+            self.page.on("response", handle_response)
             timeout_seconds = timeout / 1000.0
             elapsed = 0.0
             while intercepted_data is None and elapsed < timeout_seconds:
@@ -131,7 +131,7 @@ class CourtDocumentZxfwMixin:
             logger.error(f"API 拦截过程出错: {e}", exc_info=True)
         finally:
             try:
-                self.page.remove_listener("response", handle_response)  # type: ignore[attr-defined]
+                self.page.remove_listener("response", handle_response)
             except Exception as e:
                 logger.warning(f"移除监听器失败: {e}")
         return intercepted_data
@@ -229,7 +229,7 @@ class CourtDocumentZxfwMixin:
         if not isinstance(documents, list):
             raise ValueError(f"API 响应 data 字段格式错误: {type(documents)}")
         logger.info(f"直接 API 获取到 {len(documents)} 个文书")
-        return documents  # type: ignore[return-value]
+        return documents
 
     # ==================== 下载策略 ====================
 
@@ -365,12 +365,12 @@ class CourtDocumentZxfwMixin:
         for strategy in strategies:
             try:
                 logger.info(f"[DEBUG] 尝试策略: {strategy['name']}")
-                locator = self.page.locator(strategy["locator"]).first  # type: ignore[attr-defined]
+                locator = self.page.locator(strategy["locator"]).first
                 if locator.count() == 0 or not locator.is_visible():
                     continue
                 locator.scroll_into_view_if_needed()
                 self.random_wait(0.5, 1)
-                with self.page.expect_download(timeout=timeout) as download_info:  # type: ignore[attr-defined]
+                with self.page.expect_download(timeout=timeout) as download_info:
                     locator.click()
                 download = download_info.value
                 logger.info(f"[DEBUG] 策略 {strategy['name']}: 下载成功！文件: {download.suggested_filename}")
@@ -390,7 +390,7 @@ class CourtDocumentZxfwMixin:
             "/uni-view[1]/uni-view[1]/uni-view"
         )
         try:
-            doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()  # type: ignore[attr-defined]
+            doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
             logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项")
         except Exception as e:
@@ -401,13 +401,13 @@ class CourtDocumentZxfwMixin:
         for doc_index in range(1, doc_count + 1):
             logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书")
             try:
-                self._click_doc_item_legacy(doc_index, doc_count)  # type: ignore[attr-defined]
-                frame = self._find_pdf_iframe_legacy()  # type: ignore[attr-defined]
+                self._click_doc_item_legacy(doc_index, doc_count)
+                frame = self._find_pdf_iframe_legacy()
                 if not frame:
                     logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
                     failed_count += 1
                     continue
-                filepath = self._download_single_doc_legacy(frame, doc_index, download_dir)  # type: ignore[attr-defined]
+                filepath = self._download_single_doc_legacy(frame, doc_index, download_dir)
                 if filepath:
                     downloaded_files.append(filepath)
                     success_count += 1

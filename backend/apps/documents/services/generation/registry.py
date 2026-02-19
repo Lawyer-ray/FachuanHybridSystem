@@ -39,7 +39,7 @@ class GeneratorRegistry:
         """单例模式实现"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._generators = {}  # type: ignore[misc]
+            cls._instance._generators = {}
         return cls._instance
 
     @classmethod

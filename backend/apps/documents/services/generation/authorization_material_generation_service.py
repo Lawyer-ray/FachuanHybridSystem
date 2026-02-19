@@ -65,7 +65,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.AUTHORITY_LETTER_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[arg-type]
+        content = self._render_template(template_path, context)
         filename = self._build_authority_letter_filename(case_name=getattr(case, "name", "") or "")
         return content, filename
 
@@ -80,7 +80,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.LEGAL_REP_CERT_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[arg-type]
+        content = self._render_template(template_path, context)
         filename = self._build_legal_rep_certificate_filename(company_name=getattr(client, "name", "") or "")
         return content, filename
 
@@ -168,7 +168,7 @@ class AuthorizationMaterialGenerationService:
             parties = list(case.parties.select_related("client").all())
         except Exception as e:
             logger.warning("获取案件当事人失败", extra={"case_id": getattr(case, "id", None), "error": str(e)})
-            parties: list[Any] = []  # type: ignore[no-redef]
+            parties: list[Any] = []
         return [p for p in parties if getattr(getattr(p, "client", None), "is_our_client", False)]
 
     def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *, case: Any, our_parties: list[Any]) -> None:
@@ -239,7 +239,7 @@ class AuthorizationMaterialGenerationService:
         except Exception:
             logger.exception("操作失败")
 
-            identity_docs: list[Any] = []  # type: ignore[no-redef]
+            identity_docs: list[Any] = []
 
         for doc in identity_docs:
             self._zip_write_identity_doc(
@@ -251,7 +251,7 @@ class AuthorizationMaterialGenerationService:
                 missing_lines=missing_lines,
             )
 
-        self._check_missing_required_docs(  # type: ignore
+        self._check_missing_required_docs(
             identity_docs,
             client=client,
             client_name=client_name,
@@ -305,7 +305,7 @@ class AuthorizationMaterialGenerationService:
         except Exception:
             logger.exception("操作失败")
 
-            assignments: list[Any] = []  # type: ignore[no-redef]
+            assignments: list[Any] = []
 
         seen: set[int] = set()
         for assignment in assignments:
@@ -363,7 +363,7 @@ class AuthorizationMaterialGenerationService:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
-        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
+        return EnhancedContextBuilder().build_context(context_data)
 
     def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
@@ -376,7 +376,7 @@ class AuthorizationMaterialGenerationService:
             "指定日期",
             "年份",
         ]
-        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)  # type: ignore[arg-type]
+        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
         proxy_matters = (context.get("授权委托书_代理事项") or "").strip()
@@ -487,7 +487,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = []  # type: ignore[no-redef]
+            parties: list[Any] = []
 
         for party in parties:
             client = getattr(party, "client", None)
@@ -523,7 +523,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = []  # type: ignore[no-redef]
+            parties: list[Any] = []
 
         for party in parties:
             client = getattr(party, "client", None)

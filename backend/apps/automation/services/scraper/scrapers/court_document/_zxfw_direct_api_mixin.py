@@ -161,7 +161,7 @@ class ZxfwDirectApiMixin:
             if i < len(documents):
                 import random
                 time.sleep(random.uniform(0.5, 1.5))
-        db_save_result = self._save_documents_batch(documents_with_results)  # type: ignore[attr-defined]
+        db_save_result = self._save_documents_batch(documents_with_results)
         logger.info(
             "直接 API 方式下载完成",
             extra={"operation_type": "direct_api_download_summary", "timestamp": time.time(),

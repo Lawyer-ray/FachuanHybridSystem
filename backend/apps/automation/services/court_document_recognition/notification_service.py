@@ -171,7 +171,7 @@ class DocumentRecognitionNotificationService:
             chat_service = self.case_chat_service
 
             try:
-                chat = chat_service.get_or_create_chat(case_id=case_id, platform=platform)  # type: ignore[attr-defined]
+                chat = chat_service.get_or_create_chat(case_id=case_id, platform=platform)
                 logger.info(
                     "获取或创建群聊成功",
                     extra={
@@ -206,7 +206,7 @@ class DocumentRecognitionNotificationService:
 
             # Requirements 3.1, 3.3: 发送消息和文件
             try:
-                result = chat_service.send_document_notification(  # type: ignore[attr-defined]
+                result = chat_service.send_document_notification(
                     case_id=case_id,
                     sms_content=message_content,
                     document_paths=[file_path] if file_path else [],
@@ -231,7 +231,7 @@ class DocumentRecognitionNotificationService:
 
                     return NotificationResult.success_result(
                         sent_at=sent_at,
-                        file_sent=file_sent,  # type: ignore[arg-type]
+                        file_sent=file_sent,
                     )
                 else:
                     # Requirements 3.2: 消息发送失败

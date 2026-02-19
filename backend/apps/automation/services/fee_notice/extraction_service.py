@@ -380,7 +380,7 @@ class FeeNoticeExtractionService:
                 continue
             safe_name = f"{batch_id}_{uuid.uuid4().hex[:8]}_{original_name}"
             temp_path = temp_dir / safe_name
-            validator.ensure_within_base(temp_dir, temp_path)  # type: ignore[arg-type, arg-type]
+            validator.ensure_within_base(temp_dir, temp_path)
             try:
                 with open(str(temp_path), "wb") as f:
                     for chunk in uploaded_file.chunks():
@@ -405,4 +405,4 @@ class FeeNoticeExtractionService:
                     temp_path.unlink()
             except Exception:
                 logger.warning("清理临时文件失败", extra={})
-            return 0  # type: ignore[return-value]
+            return 0

@@ -125,7 +125,7 @@ class SupplementaryAgreementService:
         # 3. 更新当事人（如果提供）
         if party_ids is not None:
             # 删除现有当事人
-            agreement.parties.all().delete()  # type: ignore[attr-defined]
+            agreement.parties.all().delete()
             # 添加新当事人
             if party_ids:
                 self._add_parties(agreement, party_ids)
@@ -159,7 +159,7 @@ class SupplementaryAgreementService:
         try:
             qs = SupplementaryAgreement.objects
             if prefetch:
-                qs = qs.select_related("contract").prefetch_related("parties__client")  # type: ignore[assignment]
+                qs = qs.select_related("contract").prefetch_related("parties__client")
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist as e:
             raise NotFoundError("补充协议不存在") from e

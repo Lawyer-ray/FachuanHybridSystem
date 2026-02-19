@@ -110,7 +110,7 @@ class CourtSMSHelpersMixin:
             if not sms.download_links or not sms.scraper_task:
                 return False
 
-            if not self._refresh_scraper_task_status(sms):  # type: ignore[attr-defined]
+            if not self._refresh_scraper_task_status(sms):
                 return False
 
             task = sms.scraper_task
@@ -186,10 +186,10 @@ class CourtSMSHelpersMixin:
             system_user = self.lawyer_service.get_admin_lawyer_internal()
 
             if sms.case_numbers:
-                self._add_case_numbers_to_case(sms)  # type: ignore[attr-defined]
+                self._add_case_numbers_to_case(sms)
 
             case = sms.case
-            case_id = case.pk  # type: ignore[attr-defined]
+            case_id = case.pk
             case_log = self.caselog_service.create_log(
                 case_id=case_id, content=f"收到法院短信:{sms.content}", user=system_user
             )
@@ -220,7 +220,7 @@ class CourtSMSHelpersMixin:
             user_id = admin_lawyer_dto.id if admin_lawyer_dto else None
 
             case = sms.case
-            case_id = case.pk  # type: ignore[attr-defined]
+            case_id = case.pk
             added_count = 0
             for case_number in valid_case_numbers:
                 success = self.case_service.add_case_number_internal(
@@ -240,7 +240,7 @@ class CourtSMSHelpersMixin:
         if not sms.scraper_task:
             return
 
-        document_paths = self._get_document_paths_for_extraction(sms)  # type: ignore
+        document_paths = self._get_document_paths_for_extraction(sms)
         if not document_paths:
             return
 
@@ -249,7 +249,7 @@ class CourtSMSHelpersMixin:
         has_updates = False
 
         for doc_path in document_paths:
-            updated = self._extract_from_single_doc(doc_path, extracted_case_numbers, extracted_party_names)  # type: ignore[attr-defined]
+            updated = self._extract_from_single_doc(doc_path, extracted_case_numbers, extracted_party_names)
             has_updates = has_updates or updated
             if extracted_case_numbers and extracted_party_names:
                 break
@@ -293,14 +293,14 @@ class CourtSMSHelpersMixin:
 
         try:
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
-                documents = sms.scraper_task.documents.filter(download_status="success")  # type: ignore[attr-defined]
+                documents = sms.scraper_task.documents.filter(download_status="success")
                 for doc in documents:
                     abs_path = doc.absolute_file_path
                     if abs_path and Path(abs_path).exists():
                         document_paths.append(abs_path)
 
             if not document_paths and sms.scraper_task:
-                result = sms.scraper_task.result  # type: ignore[attr-defined]
+                result = sms.scraper_task.result
                 if result and isinstance(result, dict):
                     files = result.get("files", [])
                     for file_path in files:

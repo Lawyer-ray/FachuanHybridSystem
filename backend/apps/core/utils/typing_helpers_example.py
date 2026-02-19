@@ -5,9 +5,12 @@ Django ORM 类型辅助函数使用示例
 Requirements: 3.4
 """
 
+import logging
 from typing import Any
 
 from apps.core.utils import cast_model_id, get_model_attr  # type: ignore[attr-defined]
+
+logger = logging.getLogger(__name__)
 
 
 def example_cast_model_id() -> None:
@@ -21,7 +24,7 @@ def example_cast_model_id() -> None:
     case = Case.objects.first()
     if case:
         case_id = cast_model_id(case)  # ✅ 类型安全
-        print(f"Case ID: {case_id}")
+        logger.info("Case ID: %s", case_id)
 
 
 def example_get_model_attr() -> None:
@@ -35,7 +38,7 @@ def example_get_model_attr() -> None:
     case = Case.objects.first()
     if case:
         created_at = get_model_attr(case, "created_at")  # ✅ 类型安全
-        print(f"Created at: {created_at}")
+        logger.info("Created at: %s", created_at)
 
 
 def example_dto_conversion() -> None:
@@ -51,7 +54,7 @@ def example_dto_conversion() -> None:
             "status": get_model_attr(case, "status"),
             "created_at": get_model_attr(case, "created_at"),
         }
-        print(f"Case DTO: {case_dto}")
+        logger.info("Case DTO: %s", case_dto)
 
 
 def example_queryset_with_typing() -> Any:

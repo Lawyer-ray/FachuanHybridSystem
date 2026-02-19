@@ -56,7 +56,7 @@ def build_document_delivery_coordinator(
     api_client = api_client or CourtDocumentApiClient()
     token_service = token_service or DocumentDeliveryTokenService(
         cache_manager=cache_manager,
-        auto_token_service=auto_token_service,  # type: ignore[arg-type]
+        auto_token_service=auto_token_service,
     )
 
     if case_matcher is None:
@@ -78,13 +78,13 @@ def build_document_delivery_coordinator(
         document_renamer = DocumentRenamer()
 
     if notification_service is None:
-        notification_service = SMSNotificationService(  # type: ignore[call-arg, call-arg]
+        notification_service = SMSNotificationService(
             case_chat_service=case_chat_service,
             fee_check_service=FeeNoticeCheckService(),
             chat_message_sender=ChatProviderMessageSender(),
         )
 
-    processor = DocumentDeliveryProcessor(  # type: ignore[call-arg, call-arg, call-arg]
+    processor = DocumentDeliveryProcessor(
         case_matcher=case_matcher,
         document_renamer=document_renamer,
         notification_service=notification_service,
@@ -93,14 +93,14 @@ def build_document_delivery_coordinator(
         history_repo=history_repo,
     )
 
-    api_service = DocumentDeliveryApiService(  # type: ignore[call-arg, call-arg]
+    api_service = DocumentDeliveryApiService(
         api_client=api_client,
         processor=processor,
         history_repo=history_repo,
     )
 
-    playwright_service = DocumentDeliveryPlaywrightService(  # type: ignore[call-arg, call-arg, call-arg]
-        browser_service=browser_service,  # type: ignore[arg-type]
+    playwright_service = DocumentDeliveryPlaywrightService(
+        browser_service=browser_service,
         case_matcher=case_matcher,
         document_renamer=document_renamer,
         notification_service=notification_service,

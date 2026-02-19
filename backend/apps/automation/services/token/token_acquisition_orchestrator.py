@@ -84,7 +84,7 @@ class TokenAcquisitionOrchestrator:
                                     "acquisition_method": "existing",
                                 },
                             )
-                            return existing_token  # type: ignore[no-any-return]
+                            return existing_token
                     else:
                         logger.error(
                             "没有找到可用账号", extra={"acquisition_id": acquisition_id, "site_name": site_name}
@@ -130,7 +130,7 @@ class TokenAcquisitionOrchestrator:
                         login_attempts=len(result.login_attempts),
                         success_rate=svc._success_count / svc._acquisition_count,
                     )
-                    return result.token  # type: ignore[no-any-return]
+                    return result.token
 
                 svc._failure_count += 1
                 error_msg = f"Token获取失败({site_name}): {result.error_details.get('message', '未知错误')}"

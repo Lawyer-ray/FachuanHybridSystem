@@ -112,11 +112,11 @@ class CourtDocumentService:
                 # 记录已存在，更新 scraper_task 关联和其他可能变化的字段
                 logger.info(
                     f"文书记录已存在，更新关联: Document ID={document.id}, "
-                    f"旧 Task ID={document.scraper_task_id}, 新 Task ID={scraper_task_id}"  # type: ignore[attr-defined]
+                    f"旧 Task ID={document.scraper_task_id}, 新 Task ID={scraper_task_id}"
                 )
                 document.scraper_task = scraper_task
-                if case_id and not document.case_id:  # type: ignore[attr-defined]
-                    document.case_id = case_id  # type: ignore[attr-defined]
+                if case_id and not document.case_id:
+                    document.case_id = case_id
                 # 如果之前下载失败，重置状态以便重新下载
                 if document.download_status == DocumentDownloadStatus.FAILED:
                     document.download_status = DocumentDownloadStatus.PENDING
@@ -249,7 +249,7 @@ class CourtDocumentService:
         """
         try:
             document = CourtDocument.objects.select_related("scraper_task", "case").get(id=document_id)
-            return document  # type: ignore[no-any-return]
+            return document
         except CourtDocument.DoesNotExist:
             return None
 

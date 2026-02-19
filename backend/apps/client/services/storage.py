@@ -133,7 +133,7 @@ def save_uploaded_file(
     from apps.core.validators import Validators
 
     _max_size_bytes = int(max_size_bytes) if max_size_bytes is not None else 20 * 1024 * 1024
-    Validators.validate_uploaded_file(  # type: ignore[attr-defined]
+    Validators.validate_uploaded_file(
         uploaded_file,
         field_name="file",
         max_size_bytes=_max_size_bytes,

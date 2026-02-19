@@ -34,7 +34,7 @@ class EvidenceMutationService:
 
         # 如果没有提供标题但提供了 list_type,自动生成标题
         if (not title or not title.strip()) and list_type:
-            title = dict(ListType.choices).get(list_type, list_type)  # type: ignore
+            title = dict(ListType.choices).get(list_type, list_type)
 
         if not title or not title.strip():
             raise ValidationException(
@@ -44,7 +44,7 @@ class EvidenceMutationService:
             )
 
         # 自动设置顺序
-        order = LIST_TYPE_ORDER.get(list_type, 1) if list_type else 1  # type: ignore
+        order = LIST_TYPE_ORDER.get(list_type, 1) if list_type else 1
         if not list_type:
             # 如果没有 list_type,使用最大 order + 1
             max_order = EvidenceList.objects.filter(case_id=case.id).aggregate(max_order=Max("order"))["max_order"]
@@ -63,7 +63,7 @@ class EvidenceMutationService:
     def validate_list_type_creation(
         self, *, case_id: int, list_type: str
     ) -> tuple[bool, str | None, EvidenceList | None]:
-        required_previous_type = LIST_TYPE_PREVIOUS.get(list_type)  # type: ignore[call-overload]
+        required_previous_type = LIST_TYPE_PREVIOUS.get(list_type)
         if not required_previous_type:
             return True, None, None
 

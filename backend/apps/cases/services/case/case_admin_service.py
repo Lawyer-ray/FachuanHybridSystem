@@ -210,28 +210,28 @@ class CaseAdminService:
         if not is_archived:
             logger.info(
                 "取消案件建档,保留建档编号",
-                extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},  # type: ignore[attr-defined]
+                extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
             return None
 
         # 如果已建档且已有编号,返回现有编号
-        if case.filing_number:  # type: ignore[attr-defined]
+        if case.filing_number:
             logger.info(
                 "案件已有建档编号,返回现有编号",
-                extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},  # type: ignore[attr-defined]
+                extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
-            return case.filing_number  # type: ignore[no-any-return, attr-defined]
+            return case.filing_number
 
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
             case_id=case_id,
-            case_type=case.case_type,  # type: ignore[arg-type]
+            case_type=case.case_type,
             created_year=created_year,
         )
 
         # 保存编号到数据库
-        case.filing_number = filing_number  # type: ignore[attr-defined]
+        case.filing_number = filing_number
         case.save(update_fields=["filing_number"])
 
         logger.info(

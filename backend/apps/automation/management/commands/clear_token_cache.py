@@ -41,7 +41,7 @@ class Command(BaseCommand):
             manager.clear_all_cache()
             self.stdout.write(self.style.SUCCESS("已执行:全量清理 token 缓存"))
             return
-        manager.invalidate_site_cache(site, accounts=accounts or None)  # type: ignore
+        manager.invalidate_site_cache(site, accounts=accounts or None)  # type: ignore[arg-type]
         if do_blacklist:
             manager.invalidate_blacklist_cache()
         masked: list[Any] = []

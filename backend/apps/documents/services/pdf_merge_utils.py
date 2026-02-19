@@ -24,7 +24,7 @@ def convert_image_to_pdf(image_path: str) -> str:
 
         img = Image.open(image_path)
         if img.mode == "RGBA":
-            img = img.convert("RGB")  # type: ignore[assignment]
+            img = img.convert("RGB")
 
         page_width, page_height = A4
         margin = 50
@@ -131,8 +131,8 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
             page_num = start_page + i
 
             mediabox = page.mediabox
-            page_width = float(mediabox[2] - mediabox[0])  # type: ignore[operator]
-            page_height = float(mediabox[3] - mediabox[1])  # type: ignore[operator]
+            page_width = float(mediabox[2] - mediabox[0])
+            page_height = float(mediabox[3] - mediabox[1])
 
             overlay_buffer = BytesIO()
             c = canvas.Canvas(overlay_buffer, pagesize=(page_width, page_height))
@@ -154,7 +154,7 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
             overlay_pdf = pikepdf.open(overlay_buffer)
             overlay_page = overlay_pdf.pages[0]
 
-            page.add_overlay(overlay_page)  # type: ignore[call-arg]
+            page.add_overlay(overlay_page)
             output_pdf.pages.append(page)
 
         output_buffer = BytesIO()

@@ -173,7 +173,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
                 contract_id=contract_id,
                 action=action,
                 level=level,
-                actor_id=user_id,  # type: ignore[misc]
+                actor_id=user_id,
                 payload=changes,
             )
         except Exception:
@@ -201,7 +201,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             ),
         }
 
-        validator = _FEE_MODE_VALIDATORS.get(fee_mode)  # type: ignore[arg-type]
+        validator = _FEE_MODE_VALIDATORS.get(fee_mode)
         if validator:
             validator(data, errors)
 
