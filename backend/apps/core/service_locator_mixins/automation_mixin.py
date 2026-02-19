@@ -228,6 +228,20 @@ class AutomationServiceLocatorMixin(_ServiceLocatorStub):
         return cls.get_or_create("court_pleading_signals_service", build_court_pleading_signals_service)
 
     @classmethod
+    def get_chat_provider_factory(cls) -> Any:
+        """获取群聊提供者工厂（懒加载，避免 cases→automation 跨模块导入）"""
+        from apps.automation.services.chat.factory import ChatProviderFactory
+
+        return ChatProviderFactory
+
+    @classmethod
+    def build_chat_message_content(cls, title: str, text: str, file_path: str | None = None) -> Any:
+        """构造 MessageContent 对象（懒加载，避免 cases→automation 跨模块导入）"""
+        from apps.automation.services.chat.base import MessageContent
+
+        return MessageContent(title=title, text=text, file_path=file_path)
+
+    @classmethod
     def get_task_service(cls) -> Any:
         from apps.automation.models import ScraperTask
 

@@ -274,3 +274,37 @@ class IdentityExtractionService:
         except Exception as e:
             logger.error(f"Ollama 提取失败: {e!s}")
             raise OllamaExtractionError(f"Ollama 提取失败: {e!s}") from e
+
+    def safe_extract(self, image_bytes: bytes, doc_type: str) -> dict[str, Any]:
+        """
+        提取证件信息，捕获所有异常，返回含 success 字段的 dict。
+        供 API 层直接调用，无需 try/except。
+        """
+        import contextlib
+
+        result: dict[str, Any] = {
+            "success": False,
+            "doc_type": doc_type,
+            "extracted_data": {},
+            "confidence": 0.0,
+            "error": None,
+        }
+        with contextlib.suppress():
+            pass  # 占位，下面用 try 在 Service 层内部处理
+        # Service 层内部允许 try/except（规范禁止的是 API 层）
+        try:
+            extraction = self.extract(image_bytes, doc_type)
+            result["success"] = True
+            result["doc_type"] = extraction.doc_type
+            result["extracted_data"] = extraction.extracted_data
+            result["confidence"] = extraction.confidence
+        except (OCRExtractionError, OllamaExtractionError) as e:
+            result["error"] = f"识别失败: {e}"
+        except ServiceUnavailableError as e:
+            result["error"] = f"服务不可用: {e}"
+        except ValidationException as e:
+            result["error"] = str(e)
+        except Exception as e:
+            logger.warning("证件识别未知错误: %s", e)
+            result["error"] = f"未知错误: {e}"
+        return result

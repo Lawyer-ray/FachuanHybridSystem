@@ -21,17 +21,9 @@ router = Router(tags=["法院短信处理"])
 
 
 def _get_court_sms_service() -> Any:
-    """
-    工厂函数：创建法院短信服务实例
+    from apps.core.dependencies.automation_sms_entry import build_court_sms_service_ctx
 
-    通过ServiceLocator获取法院短信服务，确保依赖解耦
-
-    Returns:
-        CourtSMSService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_court_sms_service()
+    return build_court_sms_service_ctx()
 
 
 # ============================================================================

@@ -64,26 +64,20 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
 
     @method_decorator(csrf_protect)
     def upload_view(self, request):
-        """
-        文件上传 API（异步提交任务）
-
-        上传文件后立即返回任务ID，识别在后台异步执行
-        """
+        """文件上传 API（异步提交任务）"""
         if request.method != "POST":
             return JsonResponse({"error": {"message": "只支持 POST 请求", "code": "METHOD_NOT_ALLOWED"}}, status=405)
 
+        from apps.core.validators import Validators
+
         uploaded_file = request.FILES.get("file")
-        if not uploaded_file:
-            return JsonResponse({"error": {"message": "请选择要上传的文件", "code": "NO_FILE"}}, status=400)
 
-        # 验证文件格式
-        allowed_extensions = [".pdf", ".jpg", ".jpeg", ".png"]
+        try:
+            Validators.validate_uploaded_file(uploaded_file, allowed_extensions=[".pdf", ".jpg", ".jpeg", ".png"])
+        except Exception as e:
+            return JsonResponse({"error": {"message": str(e), "code": "UNSUPPORTED_FILE_FORMAT"}}, status=400)
+
         file_ext = "." + uploaded_file.name.split(".")[-1].lower() if "." in uploaded_file.name else ""
-
-        if file_ext not in allowed_extensions:
-            return JsonResponse(
-                {"error": {"message": f"不支持的文件格式: {file_ext}", "code": "UNSUPPORTED_FILE_FORMAT"}}, status=400
-            )
 
         try:
             import os
@@ -94,7 +88,6 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
 
             from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitionTask
 
-            # 保存文件
             upload_dir = os.path.join(settings.MEDIA_ROOT, "automation", "document_recognition")
             os.makedirs(upload_dir, exist_ok=True)
 
@@ -105,12 +98,10 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
                 for chunk in uploaded_file.chunks():
                     destination.write(chunk)
 
-            # 创建任务记录
             task = DocumentRecognitionTask.objects.create(
                 file_path=file_path, original_filename=uploaded_file.name, status=DocumentRecognitionStatus.PENDING
             )
 
-            # 提交异步任务
             async_task(
                 "apps.automation.tasks.execute_document_recognition_task",
                 task.id,
@@ -118,7 +109,6 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
             )
 
             logger.info(f"文书识别任务已提交: task_id={task.id}, file={uploaded_file.name}")
-
             return JsonResponse({"task_id": task.id, "status": "pending", "message": "任务已提交，正在后台处理"})
 
         except Exception as e:

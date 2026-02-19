@@ -55,23 +55,18 @@ class AccountCredentialAdminService:
     def auto_login_service(self) -> "Any":
         """延迟加载 AutoLoginService"""
         if self._auto_login_service is None:
-            from apps.automation.services.token.auto_login_service import AutoLoginService
+            from apps.core.dependencies import build_auto_login_service
 
-            self._auto_login_service = AutoLoginService()  # type: ignore[assignment]
+            self._auto_login_service = build_auto_login_service()  # type: ignore[assignment]
         return self._auto_login_service
 
     @property
     def token_service(self) -> "Any":
         """延迟加载 AutoTokenAcquisitionService"""
         if self._token_service is None:
-            from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
-            from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+            from apps.core.dependencies import build_auto_token_acquisition_service
 
-            account_strategy = AccountSelectionStrategy()
-            self._token_service = AutoTokenAcquisitionService(  # type: ignore[assignment]
-                auto_login_service=self.auto_login_service,
-                account_selection_strategy=account_strategy,
-            )
+            self._token_service = build_auto_token_acquisition_service()  # type: ignore[assignment]
         return self._token_service
 
     def single_auto_login(

@@ -232,6 +232,51 @@ class Validators:
 
         return value
 
+    @classmethod
+    def validate_uploaded_file(
+        cls,
+        uploaded_file: Any,
+        allowed_extensions: list[str] | None = None,
+        max_size_mb: float | None = None,
+        field_name: str = "file",
+    ) -> Any:
+        """
+        验证上传文件的格式和大小
+
+        Args:
+            uploaded_file: 上传的文件对象
+            allowed_extensions: 允许的扩展名列表，如 [".pdf", ".jpg"]
+            max_size_mb: 最大文件大小（MB），None 表示不限制
+            field_name: 字段名（用于错误信息）
+
+        Returns:
+            验证通过的文件对象
+
+        Raises:
+            ValidationException: 验证失败
+        """
+        if not uploaded_file:
+            raise ValidationException("请选择要上传的文件", errors={field_name: "文件不能为空"})
+
+        if allowed_extensions:
+            filename: str = getattr(uploaded_file, "name", "") or ""
+            ext = ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
+            if ext not in allowed_extensions:
+                raise ValidationException(
+                    f"不支持的文件格式: {ext}",
+                    errors={field_name: f"允许的格式: {', '.join(allowed_extensions)}"},
+                )
+
+        if max_size_mb is not None:
+            size: int = getattr(uploaded_file, "size", 0) or 0
+            if size > max_size_mb * 1024 * 1024:
+                raise ValidationException(
+                    f"文件大小超限",
+                    errors={field_name: f"文件大小不能超过 {max_size_mb} MB"},
+                )
+
+        return uploaded_file
+
 
 def validate_model_data(data: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
     """

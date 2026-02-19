@@ -24,12 +24,11 @@ from typing import Any, cast
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
-from apps.automation.services.chat.base import ChatResult, MessageContent
-from apps.automation.services.chat.factory import ChatProviderFactory
 from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.service_locator import ServiceLocator
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +48,12 @@ class CaseChatService:
 
     def __init__(self) -> None:
         """初始化案件群聊服务"""
-        self.factory = ChatProviderFactory
         logger.debug("CaseChatService 初始化完成")
+
+    @property
+    def factory(self) -> Any:
+        """懒加载群聊提供者工厂（通过 ServiceLocator 避免跨模块直接导入）"""
+        return ServiceLocator.get_chat_provider_factory()
 
     def _build_chat_name(self, case: Case) -> str:
         """构建群聊名称
@@ -340,7 +343,7 @@ class CaseChatService:
         document_paths: list[Any] | None = None,
         platform: ChatPlatform = ChatPlatform.FEISHU,
         title: str = "📋 法院文书通知",
-    ) -> ChatResult:
+    ) -> "ChatResult":
         """发送文书通知到群聊"""
         logger.info(
             f"发送文书通知: case_id={case_id}, platform={platform.value},"
@@ -368,7 +371,7 @@ class CaseChatService:
                 errors={"original_error": str(e)},
             ) from e
 
-        content = MessageContent(title=title, text=sms_content.strip(), file_path=None)
+        content = ServiceLocator.build_chat_message_content(title=title, text=sms_content.strip(), file_path=None)
 
         try:
             result = provider.send_message(chat.chat_id, content)
@@ -415,7 +418,7 @@ class CaseChatService:
                 errors={"case_id": case_id, "original_error": str(e)},
             ) from e
 
-    def _is_chat_not_found_error(self, result: ChatResult) -> bool:
+    def _is_chat_not_found_error(self, result: "ChatResult") -> bool:
         """检查是否是群聊不存在的错误
 
         根据不同平台的错误代码判断群聊是否已解散或不存在。

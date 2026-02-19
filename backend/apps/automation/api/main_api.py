@@ -16,45 +16,21 @@ router = Router(tags=["Main API"])
 
 
 def _get_ai_service() -> Any:
-    """
-    工厂函数：创建AI服务实例
+    from apps.core.dependencies.automation_adapters import build_ai_service
 
-    通过ServiceLocator获取AI服务，确保依赖解耦
-
-    Returns:
-        IAIService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_ai_service()  # type: ignore[attr-defined]
+    return build_ai_service()
 
 
 def _get_document_processor_service() -> Any:
-    """
-    工厂函数：创建文档处理服务实例
+    from apps.core.dependencies.automation_adapters import build_document_processing_service
 
-    通过ServiceLocator获取文档处理服务，确保依赖解耦
-
-    Returns:
-        IDocumentProcessorService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_document_processor_service()  # type: ignore[attr-defined]
+    return build_document_processing_service()
 
 
 def _get_config_service() -> Any:
-    """
-    工厂函数：创建配置服务实例
+    from apps.core.dependencies.automation_adapters import build_automation_config_service
 
-    通过ServiceLocator获取配置服务，确保依赖解耦
-
-    Returns:
-        IConfigService 实例
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    return ServiceLocator.get_config_service()  # type: ignore[attr-defined]
+    return build_automation_config_service()
 
 
 # 添加性能监控子路由
@@ -124,8 +100,12 @@ def upload_file(
 
 
 @router.get("/config")
+@rate_limit_from_settings("ADMIN")
 def get_config(request: Any) -> Any:
     """获取当前配置信息"""
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request)
     # 使用工厂函数获取服务
     service = _get_config_service()
 

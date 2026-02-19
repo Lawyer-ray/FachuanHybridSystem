@@ -1,2 +1,45 @@
-# Baseline for ServiceLocator imports in services
-# This file should ideally be empty.
+apps/automation/services/admin/preservation_quote_admin_service.py:16:from apps.core.interfaces import ServiceLocator
+apps/automation/services/admin/quote_command_service.py:22:from apps.core.interfaces import ServiceLocator
+apps/automation/services/ai/auto_namer_service_adapter.py:15:from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService, ServiceLocator
+apps/automation/services/court_document_recognition/case_binding_service.py:213:from apps.core.interfaces import ServiceLocator
+apps/automation/services/court_document_recognition/case_binding_service.py:59:from apps.core.interfaces import ServiceLocator
+apps/automation/services/court_document_recognition/notification_service.py:26:from apps.core.interfaces import ICaseChatService, ServiceLocator
+apps/automation/services/court_document_recognition/task_service.py:128:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/_matching_mixin.py:10:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/court_document_api_client.py:212:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/delivery/document_processor.py:17:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/document_delivery_schedule_service.py:72:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/document_delivery_service.py:16:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:15:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/processor/document_delivery_processor.py:20:from apps.core.interfaces import ServiceLocator
+apps/automation/services/document_delivery/token/document_delivery_token_service.py:13:from apps.core.interfaces import ServiceLocator
+apps/automation/services/insurance/_quote_execution_mixin.py:76:from apps.core.interfaces import ServiceLocator
+apps/automation/services/insurance/court_insurance_client.py:133:from apps.core.interfaces import ServiceLocator
+apps/automation/services/insurance/preservation_quote_service.py:65:from apps.core.interfaces import ServiceLocator
+apps/automation/services/insurance/preservation_quote_service.py:74:from apps.core.interfaces import ServiceLocator
+apps/automation/services/insurance/preservation_quote_service_adapter.py:12:from apps.core.interfaces import IAutoTokenAcquisitionService, IPreservationQuoteService, ServiceLocator
+apps/automation/services/scraper/core/monitor_service.py:38:from apps.core.interfaces import ServiceLocator
+apps/automation/services/scraper/scrapers/base.py:53:from apps.core.interfaces import ServiceLocator
+apps/automation/services/scraper/scrapers/court_document.py:49:from apps.core.interfaces import ServiceLocator
+apps/automation/services/scraper/scrapers/court_document/base_court_scraper.py:54:from apps.core.interfaces import ServiceLocator
+apps/automation/services/scraper/sites/court_zxfw.py:82:from apps.core.interfaces import ServiceLocator
+apps/automation/services/scraper/test_service.py:44:from apps.core.interfaces import ServiceLocator
+apps/automation/services/sms/sms_notification_service.py:24:from apps.core.interfaces import ICaseChatService, ServiceLocator
+apps/automation/services/token/account_selection_strategy.py:122:from apps.core.interfaces import ServiceLocator
+apps/automation/services/token/account_selection_strategy.py:241:from apps.core.interfaces import ServiceLocator
+apps/automation/services/token/auto_token_acquisition_service.py:104:from apps.core.interfaces import ServiceLocator
+apps/automation/services/token/auto_token_acquisition_service.py:113:from apps.core.interfaces import ServiceLocator
+apps/automation/services/token/auto_token_acquisition_service.py:342:from apps.core.interfaces import ServiceLocator
+apps/automation/services/token/auto_token_acquisition_service.py:95:from apps.core.interfaces import ServiceLocator
+apps/cases/services/case_access_service.py:12:from apps.core.interfaces import ICaseService, ServiceLocator
+apps/cases/services/case_assignment_service.py:13:from apps.core.interfaces import ICaseService, ServiceLocator
+apps/cases/services/case_number_service.py:13:from apps.core.interfaces import ICaseService, ServiceLocator
+apps/cases/services/case_party_service.py:13:from apps.core.interfaces import ICaseService, IClientService, IContractService, ServiceLocator
+apps/cases/services/caselog_service.py:15:from apps.core.interfaces import ICaseService, ServiceLocator
+apps/cases/services/data/cause_court_data_service.py:430:from apps.core.interfaces import ServiceLocator
+apps/contracts/services/contract_admin_service.py:122:from apps.core.interfaces import ServiceLocator
+apps/contracts/services/contract_service.py:83:from apps.core.interfaces import ServiceLocator
+apps/contracts/services/contract_service.py:97:from apps.core.interfaces import ServiceLocator
+apps/contracts/services/lawyer_assignment_service.py:51:from apps.core.interfaces import ServiceLocator
+apps/contracts/services/supplementary_agreement_service.py:11:from apps.core.interfaces import IClientService, ServiceLocator
+apps/organization/services/account_credential_admin_service.py:441:from apps.core.interfaces import ServiceLocator

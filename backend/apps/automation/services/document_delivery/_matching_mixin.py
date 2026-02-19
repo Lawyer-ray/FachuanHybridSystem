@@ -128,9 +128,9 @@ class DocumentDeliveryMatchingMixin:
     def _sync_case_number_to_case(self, case_id: int, case_number: str) -> bool:
         """将案号同步到案件"""
         try:
-            from apps.cases.services.case_number_service import CaseNumberService
+            from apps.core.interfaces import ServiceLocator
 
-            case_number_service = CaseNumberService()
+            case_number_service = ServiceLocator.get_case_number_service()
             existing_numbers = case_number_service.list_numbers(case_id=case_id)
             for num in existing_numbers:
                 if num.number == case_number:

@@ -34,20 +34,26 @@ def _get_case_service() -> CaseService:
     return CaseService(contract_service=ContractService())
 
 
+def _get_case_query_facade() -> CaseService:
+    """Query facade — 只读操作"""
+    from apps.contracts.services import ContractService
+    return CaseService(contract_service=ContractService())
+
+
+def _get_case_mutation_facade() -> CaseService:
+    """Mutation facade — 写操作"""
+    from apps.contracts.services import ContractService
+    return CaseService(contract_service=ContractService())
+
+
 @router.get("/cases/search", response=list[CaseOut])
 def search_cases(
     request: Any,
     q: str,
     limit: int | None = 10,
 ) -> list[CaseOut]:
-    """
-    搜索案件
-
-    Args:
-        q: 搜索关键词（案号、案件名称、当事人姓名）
-        limit: 返回结果数量限制
-    """
-    service = _get_case_service()
+    """搜索案件"""
+    service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
     return cast(
@@ -69,23 +75,10 @@ def list_cases(
     status: str | None = None,
     case_number: str | None = None,
 ) -> list[CaseOut]:
-    """
-    获取案件列表
-
-    API 层只负责：
-    1. 接收查询参数
-    2. 调用 Service
-    3. 返回结果
-
-    Args:
-        case_type: 案件类型过滤
-        status: 状态过滤
-        case_number: 案号搜索（支持模糊匹配）
-    """
-    service = _get_case_service()
+    """获取案件列表"""
+    service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    # 如果提供了案号，使用案号搜索
     if case_number:
         return cast(
             list[CaseOut],
@@ -97,7 +90,6 @@ def list_cases(
             ),
         )
 
-    # 否则使用常规列表查询
     return cast(
         list[CaseOut],
         service.list_cases(
@@ -112,15 +104,8 @@ def list_cases(
 
 @router.get("/cases/{case_id}", response=CaseOut)
 def get_case(request: Any, case_id: int) -> CaseOut:
-    """
-    获取单个案件
-
-    API 层只负责：
-    1. 接收路径参数
-    2. 调用 Service
-    3. 返回结果（Service 会抛出 NotFoundError 或 ForbiddenError）
-    """
-    service = _get_case_service()
+    """获取单个案件"""
+    service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
     return cast(
@@ -136,15 +121,8 @@ def get_case(request: Any, case_id: int) -> CaseOut:
 
 @router.post("/cases", response=CaseOut)
 def create_case(request: Any, payload: CaseIn) -> CaseOut:
-    """
-    创建案件
-
-    API 层只负责：
-    1. 接收请求数据
-    2. 调用 Service
-    3. 返回结果
-    """
-    service = _get_case_service()
+    """创建案件"""
+    service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
     data = payload.dict()
 
@@ -153,15 +131,8 @@ def create_case(request: Any, payload: CaseIn) -> CaseOut:
 
 @router.put("/cases/{case_id}", response=CaseOut)
 def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
-    """
-    更新案件
-
-    API 层只负责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回结果
-    """
-    service = _get_case_service()
+    """更新案件"""
+    service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
 
@@ -170,15 +141,8 @@ def update_case(request: Any, case_id: int, payload: CaseUpdate) -> CaseOut:
 
 @router.delete("/cases/{case_id}")
 def delete_case(request: Any, case_id: int) -> dict[str, bool]:
-    """
-    删除案件
-
-    API 层只负责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回 204 状态码
-    """
-    service = _get_case_service()
+    """删除案件"""
+    service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
 
     service.delete_case(case_id, user=ctx.user)
@@ -188,15 +152,8 @@ def delete_case(request: Any, case_id: int) -> dict[str, bool]:
 
 @router.post("/cases/full", response=CaseFullOut)
 def create_case_full(request: Any, payload: CaseCreateFull) -> CaseFullOut:
-    """
-    创建完整案件（包含当事人、指派、日志）
-
-    API 层只负责：
-    1. 接收请求数据
-    2. 调用 Service
-    3. 返回结果
-    """
-    service = _get_case_service()
+    """创建完整案件（包含当事人、指派、日志）"""
+    service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
     actor_id = getattr(ctx.user, "id", None) if ctx.user else None
 

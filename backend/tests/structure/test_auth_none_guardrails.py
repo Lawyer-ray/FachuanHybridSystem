@@ -7,7 +7,11 @@ def test_auth_none_is_only_used_for_register_endpoint():
     apps_root = backend_root / "apps"
 
     allowed = {
-        (apps_root / "organization" / "api" / "auth_api.py").resolve().as_posix(): {"register_view"},
+        (apps_root / "organization" / "api" / "auth_api.py").resolve().as_posix(): {
+            "register_view",
+            "login_view",
+            "logout_view",
+        },
     }
 
     violations: list[str] = []

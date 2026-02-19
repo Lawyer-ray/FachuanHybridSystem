@@ -75,7 +75,7 @@ def build_court_sms_service_with_deps(
     )
 
     parsing_stage = SMSParsingStage(parser=parser)
-    downloading_stage = SMSDownloadingStage(task_queue=task_queue, execute_scraper_task=execute_scraper_task)  # type: ignore[call-arg]
+    downloading_stage = SMSDownloadingStage(task_queue=task_queue, execute_scraper_task=execute_scraper_task)
     matching_stage = SMSMatchingStage(  # type: ignore[call-arg]
         matcher=matcher,
         case_number_extractor=case_number_extractor,

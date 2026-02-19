@@ -317,38 +317,18 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
 
     # 3. 调用服务层执行手动绑定
     binding_service = _get_case_binding_service()
+    result = binding_service.manual_bind_document_to_case(
+        task_id=task_id, case_id=payload.case_id, user=getattr(request, "user", None)
+    )
 
-    try:
-        result = binding_service.manual_bind_document_to_case(
-            task_id=task_id, case_id=payload.case_id, user=getattr(request, "user", None)
-        )
-
-        return ManualBindingResponseSchema(
-            success=result.success,
-            case_id=result.case_id,
-            case_name=result.case_name,
-            case_log_id=result.case_log_id,
-            message=result.message,
-            error_code=result.error_code,
-        )
-
-    except NotFoundError as e:
-        return ManualBindingResponseSchema(
-            success=False, case_id=None, case_name=None, case_log_id=None, message=str(e), error_code="CASE_NOT_FOUND"
-        )
-    except Exception as e:
-        logger.error(
-            f"手动绑定失败：{e}",
-            extra={"action": "manual_bind_case", "task_id": task_id, "case_id": payload.case_id, "error": str(e)},
-        )
-        return ManualBindingResponseSchema(
-            success=False,
-            case_id=None,
-            case_name=None,
-            case_log_id=None,
-            message=f"绑定失败：{e!s}",
-            error_code="BINDING_ERROR",
-        )
+    return ManualBindingResponseSchema(
+        success=result.success,
+        case_id=result.case_id,
+        case_name=result.case_name,
+        case_log_id=result.case_log_id,
+        message=result.message,
+        error_code=result.error_code,
+    )
 
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
