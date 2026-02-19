@@ -84,7 +84,7 @@ class CourtSMSDetailOut(BaseModel):
     updated_at: datetime = Field(..., description="更新时间")
 
     @classmethod
-    def from_model(cls, obj: Any) -> CourtSMSDetailSchema:  # type: ignore[name-defined]
+    def from_model(cls, obj: Any) -> CourtSMSDetailOut:
         """从 Django Model 创建 Schema"""
         return cls(
             id=cast(int, obj.id),
@@ -133,7 +133,7 @@ class CourtSMSListOut(BaseModel):
     created_at: datetime = Field(..., description="创建时间")
 
     @classmethod
-    def from_model(cls, obj: Any) -> CourtSMSDetailSchema:  # type: ignore[name-defined]
+    def from_model(cls, obj: Any) -> CourtSMSListOut:
         """从 Django Model 创建 Schema"""
         return cls(
             id=cast(int, obj.id),

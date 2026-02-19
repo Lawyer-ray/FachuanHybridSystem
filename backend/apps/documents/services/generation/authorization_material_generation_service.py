@@ -284,15 +284,14 @@ class AuthorizationMaterialGenerationService:
             identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
         ) -> None:
             doc_types = {doc.doc_type for doc in identity_docs}
-
-        if getattr(client, "client_type", "") == "natural":  # type: ignore[name-defined]
-            if "id_card" not in doc_types:  # type: ignore[name-defined]
-                missing_lines.append(f"缺少{client_name}的身份证")
-        else:
-            if "business_license" not in doc_types:  # type: ignore[name-defined]
-                missing_lines.append(f"缺少{client_name}的营业执照")
-            if "legal_rep_id_card" not in doc_types:  # type: ignore[name-defined]
-                missing_lines.append(f"缺少{client_name}的法定代表人身份证")
+            if getattr(client, "client_type", "") == "natural":
+                if "id_card" not in doc_types:
+                    missing_lines.append(f"缺少{client_name}的身份证")
+            else:
+                if "business_license" not in doc_types:
+                    missing_lines.append(f"缺少{client_name}的营业执照")
+                if "legal_rep_id_card" not in doc_types:
+                    missing_lines.append(f"缺少{client_name}的法定代表人身份证")
 
     def _zip_add_lawyer_licenses(
         self,

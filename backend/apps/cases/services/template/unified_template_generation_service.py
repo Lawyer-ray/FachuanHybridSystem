@@ -8,7 +8,7 @@ Requirements: 1.1, 1.2, 1.3, 1.4, 1.6
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -132,7 +132,7 @@ class UnifiedTemplateGenerationService:
             "统一模板生成成功",
             extra={
                 "case_id": case_id,
-                "template_id": resolved.cast(int, template.id),  # type: ignore[name-defined, union-attr]
+                "template_id": cast(int, resolved.template.id) if resolved.template else None,
                 "function_code": resolved.effective_function_code,
                 "client_id": client_id,
                 "mode": mode,

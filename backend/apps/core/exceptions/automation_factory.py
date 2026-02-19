@@ -8,7 +8,7 @@ from typing import Any
 
 from .base import BusinessException
 from .common import NotFoundError, ValidationException
-from .external import ServiceUnavailableError
+from .external import RecognitionTimeoutError, ServiceUnavailableError
 
 __all__: list[str] = ["AutomationExceptions"]
 
@@ -364,10 +364,8 @@ class AutomationExceptions:
         )
 
     @staticmethod
-    def recognition_timeout(timeout_seconds: float, operation: str | None = None) -> AutomationException:  # type: ignore[name-defined]
+    def recognition_timeout(timeout_seconds: float, operation: str | None = None) -> RecognitionTimeoutError:
         """识别超时异常"""
-        from .external import RecognitionTimeoutError
-
         errors: dict[str, Any] = {"timeout": f"识别超时({timeout_seconds}秒),请重试"}
         if operation:
             errors["operation"] = operation
