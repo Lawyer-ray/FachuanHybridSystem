@@ -4,14 +4,14 @@
 
 import random
 import time
-from typing import Any
+from typing import Any, ClassVar
 
 
 class AntiDetection:
     """反爬虫对抗工具"""
 
     # User-Agent 池
-    USER_AGENTS = [
+    USER_AGENTS: ClassVar[list[str]] = [
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
         " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"

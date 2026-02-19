@@ -14,14 +14,14 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import ContractPaymentIn, ContractPaymentOut, ContractPaymentUpdate
+from apps.contracts.schemas import ContractPaymentIn, ContractPaymentOut, ContractPaymentUpdate
 
 router = Router()
 
 
 def _get_payment_service() -> Any:
     """工厂函数：创建 ContractPaymentService 实例"""
-    from ..services.contract_payment_service import ContractPaymentService
+    from apps.contracts.services.contract_payment_service import ContractPaymentService
 
     return ContractPaymentService()
 

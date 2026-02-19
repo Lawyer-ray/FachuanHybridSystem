@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils import timezone
@@ -44,7 +44,7 @@ class Contract(models.Model):
     class Meta:
         verbose_name = _("合同")
         verbose_name_plural = _("合同")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["case_type"]),
             models.Index(fields=["status"]),
             models.Index(fields=["is_archived"]),
@@ -118,7 +118,7 @@ class ContractAssignment(models.Model):
         verbose_name = _("合同指派")
         verbose_name_plural = _("合同指派")
         unique_together = ("contract", "lawyer")
-        ordering = ["-is_primary", "order"]
+        ordering: ClassVar[list[str]] = ["-is_primary", "order"]
 
     def __str__(self):
         return f"{self.contract_id}-{self.lawyer_id}"
@@ -145,7 +145,7 @@ class ContractPayment(models.Model):
     class Meta:
         verbose_name = _("合同收款")
         verbose_name_plural = _("合同收款")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["contract", "received_at"]),
             models.Index(fields=["invoice_status"]),
         ]
@@ -175,7 +175,7 @@ class ContractFinanceLog(models.Model):
     class Meta:
         verbose_name = _("财务日志")
         verbose_name_plural = _("财务日志")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["contract", "created_at"]),
             models.Index(fields=["level"]),
         ]
@@ -221,7 +221,7 @@ class SupplementaryAgreement(models.Model):
     class Meta:
         verbose_name = _("补充协议")
         verbose_name_plural = _("补充协议")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["contract", "-created_at"]),
             models.Index(fields=["-created_at"]),
         ]

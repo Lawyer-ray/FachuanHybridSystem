@@ -3,6 +3,7 @@
 提供询价任务的创建、查看、执行功能
 """
 
+from typing import ClassVar
 import asyncio
 from decimal import Decimal
 
@@ -13,12 +14,12 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.html import format_html
 
-from ...models import InsuranceQuote, PreservationQuote, QuoteStatus
+from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
 
 
 def _get_preservation_quote_admin_service():
     """工厂函数：创建财产保全询价管理服务"""
-    from ...services.admin import PreservationQuoteAdminService
+    from apps.automation.services.admin import PreservationQuoteAdminService
 
     return PreservationQuoteAdminService()
 
@@ -30,7 +31,7 @@ class InsuranceQuoteInline(admin.TabularInline):
     extra = 0
     can_delete = False
 
-    fields = [
+    fields: ClassVar[list[str]] = [
         "company_name",
         "prices_display",
         "rates_display",
@@ -39,7 +40,7 @@ class InsuranceQuoteInline(admin.TabularInline):
         "error_message_display",
     ]
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "company_name",
         "prices_display",
         "rates_display",
@@ -160,7 +161,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
     - 重试失败任务
     """
 
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "preserve_amount_display",
         "status_display",
@@ -171,19 +172,19 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         "run_button",
     ]
 
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "status",
         "created_at",
         "finished_at",
     ]
 
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "id",
         "corp_id",
         "category_id",
     ]
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "status",
         "total_companies",
@@ -243,15 +244,13 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         ),
     )
 
-    inlines = [InsuranceQuoteInline]
-
-    ordering = ["-created_at"]
-
+    inlines: ClassVar[list[str]] = [InsuranceQuoteInline]
+    ordering: ClassVar[list[str]] = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20
 
-    actions = ["execute_quotes", "retry_failed_quotes"]
+    actions: ClassVar[list[str]] = ["execute_quotes", "retry_failed_quotes"]
 
     def preserve_amount_display(self, obj):
         """格式化显示保全金额"""

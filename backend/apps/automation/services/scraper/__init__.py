@@ -6,7 +6,7 @@ from .court_document_service import CourtDocumentService, CourtDocumentServiceAd
 from .test_service import TestService
 
 __all__ = [
-    'CourtDocumentService',
-    'CourtDocumentServiceAdapter',
-    'TestService',
+    "CourtDocumentService",
+    "CourtDocumentServiceAdapter",
+    "TestService",
 ]

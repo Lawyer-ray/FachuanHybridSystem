@@ -8,7 +8,7 @@ from typing import Any
 
 from django.conf import settings
 
-from ..exceptions import ConfigException
+from apps.core.config.exceptions import ConfigException
 from .base import ConfigProvider
 
 

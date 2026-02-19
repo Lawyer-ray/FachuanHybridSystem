@@ -8,15 +8,15 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from ..schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
-from ..services import LawyerService
+from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
+from apps.organization.services import LawyerService
 
 router = Router()
 
 
 def _get_lawyer_service() -> LawyerService:
     """工厂函数：创建 LawyerService 实例"""
-    from ..services import LawyerService
+    from apps.organization.services import LawyerService
 
     return LawyerService()
 

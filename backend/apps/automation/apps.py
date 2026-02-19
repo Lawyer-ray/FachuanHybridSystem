@@ -18,7 +18,7 @@ class AutomationConfig(AppConfig):
         customize_admin_index(admin.site)
 
         # 导入信号处理器（确保信号被注册）
-        from . import signals  # noqa: F401
+        from . import signals
 
         # 启动时自动恢复未完成的法院短信处理任务
         self._recover_court_sms_tasks()

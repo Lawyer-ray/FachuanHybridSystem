@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -432,10 +433,8 @@ class SteeringCacheStrategyManager:
             file_mtime = None
 
             if file_path:
-                try:
+                with contextlib.suppress(OSError, FileNotFoundError):
                     file_mtime = os.path.getmtime(file_path)
-                except (OSError, FileNotFoundError):
-                    pass
 
             entry = CacheEntry(
                 key=key,

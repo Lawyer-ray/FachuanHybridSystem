@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
-from ..models import AccountCredential, Lawyer
+from apps.organization.models import AccountCredential, Lawyer
 
 
 class LawyerAdminForm(forms.ModelForm[Lawyer]):
@@ -33,7 +33,7 @@ class AccountCredentialInlineForm(forms.ModelForm):
     class Meta:
         model = AccountCredential
         fields = "__all__"
-        widgets = {"password": forms.PasswordInput(render_value=True)}
+        widgets: ClassVar[dict[str, Any]] = {"password": forms.PasswordInput(render_value=True)}
 
 
 class AccountCredentialInline(admin.TabularInline):
@@ -51,4 +51,4 @@ class LawyerAdmin(admin.ModelAdmin):
     search_fields = ("username", "real_name", "phone")
     list_filter = ("is_admin", "is_active")
     filter_horizontal = ("lawyer_teams", "biz_teams")
-    inlines = [AccountCredentialInline]
+    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]

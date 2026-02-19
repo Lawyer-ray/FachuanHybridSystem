@@ -1,12 +1,12 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import transaction
 
 from apps.core.enums import CaseType
 
-from ..models import (
+from apps.contracts.models import (
     Contract,
     ContractAssignment,
     ContractParty,
@@ -94,7 +94,7 @@ class ContractAdminService:
         return new_contract
 
     # 允许创建案件的合同类型
-    CASE_ALLOWED_TYPES = {
+    CASE_ALLOWED_TYPES: ClassVar[set[CaseType]] = {
         CaseType.CIVIL,
         CaseType.CRIMINAL,
         CaseType.ADMINISTRATIVE,

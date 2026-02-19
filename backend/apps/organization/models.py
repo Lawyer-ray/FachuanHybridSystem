@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from typing import ClassVar
 
 
 class LawFirm(models.Model):
@@ -74,8 +75,8 @@ class AccountCredential(models.Model):
     class Meta:
         verbose_name = "账号密码"
         verbose_name_plural = "账号密码"
-        ordering = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["site_name", "-last_login_success_at"]),
             models.Index(fields=["site_name", "is_preferred"]),
         ]

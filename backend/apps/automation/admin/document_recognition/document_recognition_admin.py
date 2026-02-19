@@ -5,6 +5,7 @@
 Requirements: 1.1, 1.2, 5.1, 5.2, 5.3
 """
 
+from typing import ClassVar
 import logging
 
 from django.contrib import admin
@@ -241,7 +242,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     """
 
     # 列表显示字段
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "status_display",
         "original_filename",
@@ -255,7 +256,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     ]
 
     # 列表筛选器
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "status",
         "document_type",
         "binding_success",
@@ -264,20 +265,19 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     ]
 
     # 搜索字段
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "original_filename",
         "case_number",
         "case__name",
     ]
 
     # 排序
-    ordering = ["-created_at"]
-
+    ordering: ClassVar[list[str]] = ["-created_at"]
     # 分页
     list_per_page = 20
 
     # 只读字段
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "file_path",
         "original_filename",

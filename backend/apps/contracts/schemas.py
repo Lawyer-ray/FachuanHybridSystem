@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
 
@@ -84,7 +86,7 @@ class ContractIn(ModelSchema):
 
     class Meta:
         model = Contract
-        fields = [
+        fields: ClassVar[list[str]] = [
             "name",
             "case_type",
             "status",
@@ -123,9 +125,8 @@ class ContractIn(ModelSchema):
         elif m == FeeMode.FULL_RISK:
             if not (rr is not None and float(rr) > 0):
                 raise ValueError("全风险需填写风险比例")
-        elif m == FeeMode.CUSTOM:
-            if not (ct and str(ct).strip()):
-                raise ValueError("自定义收费需填写条款文本")
+        elif m == FeeMode.CUSTOM and not (ct and str(ct).strip()):
+            raise ValueError("自定义收费需填写条款文本")
         return self
 
 
@@ -135,7 +136,7 @@ class ContractPartyOut(ModelSchema):
 
     class Meta:
         model = ContractParty
-        fields = ["id", "contract", "client", "role"]
+        fields: ClassVar[list[str]] = ["id", "contract", "client", "role"]
 
     @staticmethod
     def resolve_client_detail(obj: ContractParty) -> ClientOut:
@@ -187,7 +188,7 @@ class ContractOut(ModelSchema):
 
     class Meta:
         model = Contract
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "name",
             "case_type",
@@ -322,7 +323,7 @@ class ContractPaymentOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = ContractPayment
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "contract",
             "amount",
@@ -388,7 +389,7 @@ class ContractReminderOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = ContractReminder
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "contract",
             "kind",
@@ -459,7 +460,7 @@ class SupplementaryAgreementPartyOut(ModelSchema):
 
     class Meta:
         model = SupplementaryAgreementParty
-        fields = ["id", "client", "role"]
+        fields: ClassVar[list[str]] = ["id", "client", "role"]
 
     @staticmethod
     def resolve_client_name(obj) -> str:
@@ -484,7 +485,7 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = SupplementaryAgreement
-        fields = ["id", "contract", "name", "created_at", "updated_at"]
+        fields: ClassVar[list[str]] = ["id", "contract", "name", "created_at", "updated_at"]
 
     @staticmethod
     def resolve_parties(obj) -> list[SupplementaryAgreementPartyOut]:

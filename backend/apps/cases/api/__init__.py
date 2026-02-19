@@ -1,6 +1,7 @@
 """
 Cases App API 模块
 """
+
 from ninja import Router
 
 from .case_api import router as case_router

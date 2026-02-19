@@ -143,15 +143,14 @@ class TypeValidator(ConfigValidator):
                     return [value]
 
             # 字典转换
-            elif expected_type is dict:
-                if isinstance(value, str):
-                    # 尝试解析简单的键值对格式
-                    try:
-                        import json
+            elif expected_type is dict and isinstance(value, str):
+                # 尝试解析简单的键值对格式
+                try:
+                    import json
 
-                        return json.loads(value)
-                    except json.JSONDecodeError:
-                        pass
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    pass
 
         except (ValueError, TypeError):
             pass

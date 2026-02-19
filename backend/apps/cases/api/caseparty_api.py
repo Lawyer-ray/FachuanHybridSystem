@@ -11,14 +11,14 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
+from apps.cases.schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
 
 router = Router()
 
 
 def _get_case_party_service() -> Any:
     """工厂函数：创建 CasePartyService 实例"""
-    from ..services.case_party_service import CasePartyService
+    from apps.cases.services.case_party_service import CasePartyService
 
     return CasePartyService()
 

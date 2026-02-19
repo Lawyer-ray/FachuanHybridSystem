@@ -19,7 +19,7 @@ class ClientIdentityDocService:
     @transaction.atomic
     def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> Any:
         """添加当事人证件"""
-        from ..models import Client, ClientIdentityDoc
+        from apps.client.models import Client, ClientIdentityDoc
 
         client = Client.objects.filter(id=client_id).first()
         if not client:

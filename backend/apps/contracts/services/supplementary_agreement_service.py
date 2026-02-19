@@ -10,7 +10,7 @@ from django.db import IntegrityError, transaction
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, ServiceLocator
 
-from ..models import Contract, SupplementaryAgreement, SupplementaryAgreementParty
+from apps.contracts.models import Contract, SupplementaryAgreement, SupplementaryAgreementParty
 
 logger = logging.getLogger("apps.contracts")
 

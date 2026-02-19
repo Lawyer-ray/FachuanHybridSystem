@@ -9,7 +9,7 @@ from django.middleware.csrf import get_token
 from django.urls import path, reverse
 from django.utils.html import escape
 
-from ...models import NamerTool, ScraperTask, ScraperTaskType
+from apps.automation.models import NamerTool, ScraperTask, ScraperTaskType
 
 
 class QuickDownloadTool(NamerTool):
@@ -31,14 +31,14 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
         custom = [
-            path("download/", self.admin_site.admin_view(self.download_view), name="%s_%s_download" % info),
+            path("download/", self.admin_site.admin_view(self.download_view), name="{}_{}_download".format(*info)),
             path("", self.admin_site.admin_view(self.redirect_to_download)),
         ]
         return custom + urls
 
     def redirect_to_download(self, request):
         info = self.model._meta.app_label, self.model._meta.model_name
-        return HttpResponseRedirect(reverse("admin:%s_%s_download" % info))
+        return HttpResponseRedirect(reverse("admin:{}_{}_download".format(*info)))
 
     def download_view(self, request):
         """快速下载主视图"""

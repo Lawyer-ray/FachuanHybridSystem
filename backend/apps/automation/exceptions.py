@@ -67,7 +67,7 @@ class AutomationExceptions:
     @staticmethod
     def captcha_recognition_error(
         error_message: str,
-        original_exception: Exception = None,  # type: ignore[assignment]
+        original_exception: Exception | None = None,  # type: ignore[assignment]
     ) -> ValidationException:
         errors: dict[str, Any] = {"error_message": error_message}
         if original_exception:

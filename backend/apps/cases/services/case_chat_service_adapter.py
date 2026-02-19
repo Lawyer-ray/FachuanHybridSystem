@@ -96,7 +96,7 @@ class CaseChatServiceAdapter(ICaseChatService):
             群聊 ID，未配置时返回 None
         """
         try:
-            from ..models import CaseChat
+            from apps.cases.models import CaseChat
 
             case_chat = CaseChat.objects.filter(case_id=case_id, is_active=True).first()
 

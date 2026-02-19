@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 
 from apps.core.exceptions import AuthenticationError
 
-from ..models import Lawyer
+from apps.organization.models import Lawyer
 
 
 class AuthService:

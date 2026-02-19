@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from apps.core.interfaces import IMonitorService
 
-from ....models import ScraperTask, ScraperTaskStatus
+from apps.automation.models import ScraperTask, ScraperTaskStatus
 
 logger = logging.getLogger("apps.automation")
 
@@ -41,7 +41,7 @@ class MonitorService:
                 self._task_service = ServiceLocator.get_task_service()  # type: ignore[attr-defined]
             except AttributeError:
                 # 如果ServiceLocator还没有task_service，直接使用Model
-                from ....models import ScraperTask
+                from apps.automation.models import ScraperTask
 
                 self._task_service = ScraperTask
         return self._task_service

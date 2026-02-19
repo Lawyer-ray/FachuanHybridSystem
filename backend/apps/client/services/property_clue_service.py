@@ -11,7 +11,7 @@ from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-from ..models import PropertyClue, PropertyClueAttachment
+from apps.client.models import PropertyClue, PropertyClueAttachment
 
 if TYPE_CHECKING:
     from .client_service import ClientService

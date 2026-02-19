@@ -5,6 +5,8 @@ Core 模块数据模型
 - SystemConfig: 系统配置项存储
 """
 
+from typing import ClassVar
+
 from django.core.cache import cache
 from django.db import models
 
@@ -51,8 +53,8 @@ class SystemConfig(models.Model):
     class Meta:
         verbose_name = "系统配置"
         verbose_name_plural = "系统配置"
-        ordering = ["category", "key"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["category", "key"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["category"]),
             models.Index(fields=["key"]),
         ]

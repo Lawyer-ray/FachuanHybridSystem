@@ -14,21 +14,21 @@ router = Router()
 
 def _get_identity_doc_service() -> Any:
     """工厂函数：创建 ClientIdentityDocService 实例"""
-    from ..services import ClientIdentityDocService
+    from apps.client.services import ClientIdentityDocService
 
     return ClientIdentityDocService()
 
 
 def _get_client_service() -> Any:
     """工厂函数：创建 ClientService 实例"""
-    from ..services import ClientService
+    from apps.client.services import ClientService
 
     return ClientService()
 
 
 def _get_identity_extraction_service() -> Any:
     """工厂函数：创建 IdentityExtractionService 实例"""
-    from ..services.identity_extraction.extraction_service import IdentityExtractionService
+    from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
     return IdentityExtractionService()
 

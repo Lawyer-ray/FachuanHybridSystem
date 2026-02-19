@@ -7,15 +7,15 @@ from typing import Any
 
 from ninja import Router
 
-from ..schemas import LawFirmIn, LawFirmOut, LawFirmUpdateIn
-from ..services import LawFirmService
+from apps.organization.schemas import LawFirmIn, LawFirmOut, LawFirmUpdateIn
+from apps.organization.services import LawFirmService
 
 router = Router()
 
 
 def _get_lawfirm_service() -> LawFirmService:
     """工厂函数：创建 LawFirmService 实例"""
-    from ..services import LawFirmService
+    from apps.organization.services import LawFirmService
 
     return LawFirmService()
 

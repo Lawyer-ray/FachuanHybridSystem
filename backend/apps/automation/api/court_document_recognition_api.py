@@ -242,14 +242,14 @@ def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
 
 def _get_case_binding_service() -> Any:
     """工厂函数：获取案件绑定服务"""
-    from ..services.court_document_recognition import CaseBindingService
+    from apps.automation.services.court_document_recognition import CaseBindingService
 
     return CaseBindingService()
 
 
 def _get_recognition_service() -> Any:
     """工厂函数：获取识别服务"""
-    from ..services.court_document_recognition import CourtDocumentRecognitionService
+    from apps.automation.services.court_document_recognition import CourtDocumentRecognitionService
 
     return CourtDocumentRecognitionService()
 

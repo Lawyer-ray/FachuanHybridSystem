@@ -4,6 +4,7 @@
 提供短信记录管理、状态查看、手动处理等功能。
 """
 
+from typing import ClassVar
 import logging
 
 from django.contrib import admin, messages
@@ -38,7 +39,7 @@ class CourtSMSAdmin(admin.ModelAdmin):
     """法院短信管理"""
 
     # 列表显示字段
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "status_display",
         "sms_type_display",
@@ -53,7 +54,7 @@ class CourtSMSAdmin(admin.ModelAdmin):
     ]
 
     # 列表筛选器
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "status",
         "sms_type",
         "received_at",
@@ -62,19 +63,18 @@ class CourtSMSAdmin(admin.ModelAdmin):
     ]
 
     # 搜索字段
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "content",
         "case__name",
     ]
 
     # 排序
-    ordering = ["-received_at"]
-
+    ordering: ClassVar[list[str]] = ["-received_at"]
     # 分页
     list_per_page = 20
 
     # 只读字段
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "created_at",
         "updated_at",
@@ -154,7 +154,7 @@ class CourtSMSAdmin(admin.ModelAdmin):
     )
 
     # 自定义操作
-    actions = ["retry_processing_action"]
+    actions: ClassVar[list[str]] = ["retry_processing_action"]
 
     def get_urls(self):
         """添加自定义URL"""

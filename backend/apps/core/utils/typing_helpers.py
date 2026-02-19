@@ -61,7 +61,7 @@ def cast_model_pk(model: Model | None) -> Any:
     return model.pk
 
 
-def get_queryset(manager: Manager[T]) -> QuerySet[T, T]:
+def get_queryset[T: Model](manager: Manager[T]) -> QuerySet[T, T]:
     """
     从 Manager 获取 QuerySet，提供正确的类型注解
 
@@ -115,7 +115,7 @@ def get_related_queryset(instance: Model, field_name: str) -> QuerySet[Any, Any]
     return get_queryset(manager)
 
 
-def cast_queryset(qs: Any, model_class: type[T]) -> QuerySet[T, T]:
+def cast_queryset[T: Model](qs: Any, model_class: type[T]) -> QuerySet[T, T]:
     """
     将未类型化的 QuerySet 转换为类型化的 QuerySet
 
@@ -134,7 +134,7 @@ def cast_queryset(qs: Any, model_class: type[T]) -> QuerySet[T, T]:
     return cast(QuerySet[model_class, model_class], qs)  # type: ignore[valid-type]
 
 
-def cast_manager(manager: Any, model_class: type[T]) -> Manager[T]:
+def cast_manager[T: Model](manager: Any, model_class: type[T]) -> Manager[T]:
     """
     将未类型化的 Manager 转换为类型化的 Manager
 

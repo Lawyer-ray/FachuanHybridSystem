@@ -2,7 +2,7 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -101,7 +101,7 @@ class CaptchaRecognizeOut(BaseModel):
     error: str | None = Field(None, description="错误信息")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "examples": [
                 {"success": True, "text": "AB12", "processing_time": 0.234, "error": None},
                 {"success": False, "text": None, "processing_time": 0.012, "error": "图片格式不支持"},
@@ -161,7 +161,7 @@ class InsuranceQuoteSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {
+        json_encoders: ClassVar[dict[str, str]] = {
             Decimal: lambda v: float(v) if v is not None else None,
             datetime: lambda v: v.isoformat() if v is not None else None,
         }
@@ -207,7 +207,7 @@ class PreservationQuoteSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {
+        json_encoders: ClassVar[dict[str, str]] = {
             Decimal: lambda v: float(v) if v is not None else None,
             datetime: lambda v: v.isoformat() if v is not None else None,
         }
@@ -249,7 +249,7 @@ class QuoteListItemSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {
+        json_encoders: ClassVar[dict[str, str]] = {
             Decimal: lambda v: float(v) if v is not None else None,
             datetime: lambda v: v.isoformat() if v is not None else None,
         }
@@ -265,7 +265,7 @@ class QuoteListSchema(BaseModel):
     items: list[QuoteListItemSchema] = Field(..., description="任务列表")
 
     class Config:
-        json_encoders = {
+        json_encoders: ClassVar[dict[str, str]] = {
             Decimal: lambda v: float(v) if v is not None else None,
             datetime: lambda v: v.isoformat() if v is not None else None,
         }
@@ -279,7 +279,7 @@ class QuoteExecuteResponseSchema(BaseModel):
     data: PreservationQuoteSchema | None = Field(None, description="询价结果")
 
     class Config:
-        json_encoders = {
+        json_encoders: ClassVar[dict[str, str]] = {
             Decimal: lambda v: float(v) if v is not None else None,
             datetime: lambda v: v.isoformat() if v is not None else None,
         }
@@ -342,7 +342,7 @@ class CourtDocumentSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v is not None else None}
+        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
 # ============================================================================
@@ -454,7 +454,7 @@ class CourtSMSSubmitOut(BaseModel):
     data: dict = Field(..., description="短信记录信息")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, str]] = {
             "example": {"success": True, "data": {"id": 123, "status": "pending", "created_at": "2025-12-14T10:30:05Z"}}
         }
 
@@ -523,7 +523,7 @@ class CourtSMSDetailOut(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v is not None else None}
+        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
 class CourtSMSListOut(BaseModel):
@@ -556,7 +556,7 @@ class CourtSMSListOut(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v is not None else None}
+        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
 class CourtSMSAssignCaseIn(BaseModel):
@@ -572,7 +572,7 @@ class CourtSMSAssignCaseOut(BaseModel):
     data: dict = Field(..., description="更新后的短信信息")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, str]] = {
             "example": {
                 "success": True,
                 "data": {"id": 123, "status": "matching", "case": {"id": 456, "name": "广州市鸡鸡百货有限公司诉..."}},

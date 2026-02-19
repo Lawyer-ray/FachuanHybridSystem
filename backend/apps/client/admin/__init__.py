@@ -11,11 +11,11 @@ from .property_clue_admin import PropertyClueAdmin, PropertyClueAttachmentInline
 # 无需手动注册，admin/__init__.py中的类会自动处理
 
 __all__ = [
-    'ClientAdmin',
-    'ClientAdminForm',
-    'ClientIdentityDocInline',
-    'ClientIdentityDocInlineForm',
-    'ClientIdentityDocAdmin',
-    'PropertyClueAdmin',
-    'PropertyClueAttachmentInline'
+    "ClientAdmin",
+    "ClientAdminForm",
+    "ClientIdentityDocInline",
+    "ClientIdentityDocInlineForm",
+    "ClientIdentityDocAdmin",
+    "PropertyClueAdmin",
+    "PropertyClueAttachmentInline",
 ]

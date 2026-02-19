@@ -11,14 +11,14 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
+from apps.cases.schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
 
 router = Router()
 
 
 def _get_case_number_service() -> Any:
     """工厂函数：创建 CaseNumberService 实例"""
-    from ..services.case_number_service import CaseNumberService
+    from apps.cases.services.case_number_service import CaseNumberService
 
     return CaseNumberService()
 

@@ -5,7 +5,7 @@
 
 from ninja import Router
 
-from ..schemas import DocumentProcessIn, DocumentProcessOut
+from apps.automation.schemas import DocumentProcessIn, DocumentProcessOut
 
 router = Router(tags=["Document Processor"])
 

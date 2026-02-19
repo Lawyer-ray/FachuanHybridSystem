@@ -46,7 +46,7 @@ class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
 
     ordering = ("-created_at",)
 
-    actions = ["unbind_selected_chats"]  # noqa: RUF012
+    actions = ["unbind_selected_chats"]
 
     change_form_template = "admin/cases/casechat/change_form.html"
 

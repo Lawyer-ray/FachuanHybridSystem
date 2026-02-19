@@ -8,7 +8,7 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from ..schemas import MoonshotChatIn, MoonshotChatOut, OllamaChatIn, OllamaChatOut
+from apps.automation.schemas import MoonshotChatIn, MoonshotChatOut, OllamaChatIn, OllamaChatOut
 from .performance_monitor_api import router as performance_router
 
 router = Router(tags=["Main API"])

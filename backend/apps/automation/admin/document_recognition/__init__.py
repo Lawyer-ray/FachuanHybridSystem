@@ -8,6 +8,6 @@ from .document_recognition_admin import (
 )
 
 __all__ = [
-    'DocumentRecognitionAdmin',
-    'DocumentRecognitionTaskAdmin',
+    "DocumentRecognitionAdmin",
+    "DocumentRecognitionTaskAdmin",
 ]

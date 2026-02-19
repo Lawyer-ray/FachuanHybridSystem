@@ -4,6 +4,7 @@
 提供查询历史记录管理、搜索、过滤等功能。
 """
 
+from typing import ClassVar
 import logging
 
 from django.contrib import admin
@@ -21,7 +22,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
     """文书查询历史管理"""
 
     # 列表显示字段
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "credential_display",
         "case_number",
@@ -31,7 +32,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
     ]
 
     # 列表筛选器
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "send_time",
         "queried_at",
         ("credential", admin.RelatedFieldListFilter),
@@ -39,20 +40,19 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
     ]
 
     # 搜索字段
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "case_number",
         "credential__account",
         "credential__site_name",
     ]
 
     # 排序
-    ordering = ["-queried_at"]
-
+    ordering: ClassVar[list[str]] = ["-queried_at"]
     # 分页
     list_per_page = 50
 
     # 只读字段（查询历史应该是只读的）
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "credential",
         "case_number",

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 
 class TokenTriggerReason:
-    TOKEN_EXPIRED = "token_expired"  # noqa: S105
-    NO_TOKEN = "no_token"  # noqa: S105
+    TOKEN_EXPIRED = "token_expired"
+    NO_TOKEN = "no_token"
     MANUAL_TRIGGER = "manual_trigger"
     AUTO_REFRESH = "auto_refresh"
     SYSTEM_STARTUP = "system_startup"
-    TOKEN_NEEDED = "token_needed"  # noqa: S105
+    TOKEN_NEEDED = "token_needed"
     MANUAL_LOGIN_TEST = "manual_login_test"
 
 

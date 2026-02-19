@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from ninja import ModelSchema, Schema
 
 from apps.client.schemas import ClientOut
@@ -33,7 +35,7 @@ class LawyerOutFromDTO(Schema):
 class CaseIn(ModelSchema):
     class Meta:
         model = Case
-        fields = [
+        fields: ClassVar[list[str]] = [
             "name",
             "status",
             "is_archived",
@@ -55,7 +57,7 @@ class CaseOut(ModelSchema):
 
     class Meta:
         model = Case
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "name",
             "status",
@@ -112,7 +114,7 @@ class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = SupervisingAuthority
-        fields = ["id", "name", "authority_type", "created_at"]
+        fields: ClassVar[list[str]] = ["id", "name", "authority_type", "created_at"]
 
     @staticmethod
     def resolve_authority_type_display(obj: SupervisingAuthority) -> str | None:
@@ -156,7 +158,7 @@ class CasePartyOut(ModelSchema):
 
     class Meta:
         model = CaseParty
-        fields = ["id", "case", "client", "legal_status"]
+        fields: ClassVar[list[str]] = ["id", "case", "client", "legal_status"]
 
     @staticmethod
     def resolve_client_detail(obj: CaseParty) -> ClientOut:
@@ -182,7 +184,7 @@ class CaseAssignmentOut(ModelSchema):
 
     class Meta:
         model = CaseAssignment
-        fields = ["id", "case", "lawyer"]
+        fields: ClassVar[list[str]] = ["id", "case", "lawyer"]
 
     @staticmethod
     def resolve_lawyer_detail(obj: CaseAssignment) -> LawyerOutFromDTO:
@@ -215,7 +217,7 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = CaseLogAttachment
-        fields = ["id", "log", "uploaded_at"]
+        fields: ClassVar[list[str]] = ["id", "log", "uploaded_at"]
 
     @staticmethod
     def resolve_file_path(obj: CaseLogAttachment) -> str | None:
@@ -250,7 +252,7 @@ class CaseLogOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = CaseLog
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "case",
             "content",
@@ -335,7 +337,7 @@ class CaseNumberIn(Schema):
 class CaseNumberOut(ModelSchema, SchemaMixin):
     class Meta:
         model = CaseNumber
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "number",
             "remarks",
@@ -378,7 +380,7 @@ class CaseAccessGrantIn(Schema):
 class CaseAccessGrantOut(ModelSchema, SchemaMixin):
     class Meta:
         model = CaseAccessGrant
-        fields = ["id", "case", "grantee", "created_at"]
+        fields: ClassVar[list[str]] = ["id", "case", "grantee", "created_at"]
 
     @staticmethod
     def resolve_created_at(obj: CaseAccessGrant):

@@ -26,7 +26,7 @@ class CoreConfig(AppConfig):
         # 只在主进程中执行初始化
         import os
 
-        from . import admin  # noqa: F401
+        from . import admin
 
         if os.environ.get("RUN_MAIN") != "true":
             return

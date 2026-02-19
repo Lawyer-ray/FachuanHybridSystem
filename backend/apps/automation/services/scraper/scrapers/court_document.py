@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 
 from .base import BaseScraper
+import contextlib
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICourtDocumentService
@@ -87,7 +88,7 @@ class CourtDocumentScraper(BaseScraper):
             # 分析按钮
             buttons = self.page.locator("button").all()
             for i, btn in enumerate(buttons[:10]):
-                try:
+                with contextlib.suppress(Exception):
                     analysis["buttons"].append(
                         {
                             "index": i,
@@ -95,13 +96,11 @@ class CourtDocumentScraper(BaseScraper):
                             "visible": btn.is_visible(),
                         }
                     )
-                except Exception:
-                    pass
 
             # 分析链接
             links = self.page.locator("a").all()
             for i, link in enumerate(links[:10]):
-                try:
+                with contextlib.suppress(Exception):
                     analysis["links"].append(
                         {
                             "index": i,
@@ -110,8 +109,6 @@ class CourtDocumentScraper(BaseScraper):
                             "visible": link.is_visible(),
                         }
                     )
-                except Exception:
-                    pass
 
             # 分析包含"下载"的元素
             download_elements = self.page.locator('*:has-text("下载")').all()
@@ -132,15 +129,13 @@ class CourtDocumentScraper(BaseScraper):
             # 分析 iframe
             iframes = self.page.locator("iframe").all()
             for i, iframe in enumerate(iframes):
-                try:
+                with contextlib.suppress(Exception):
                     analysis["iframes"].append(
                         {
                             "index": i,
                             "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
                         }
                     )
-                except Exception:
-                    pass
 
         except Exception as e:
             analysis["error"] = str(e)

@@ -7,13 +7,14 @@ from django import forms
 from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
+from typing import ClassVar
 
-from ..models import AccountCredential
+from apps.organization.models import AccountCredential
 
 
 def _get_admin_service():
     """工厂函数 - 创建 AccountCredentialAdminService 实例"""
-    from ..services import AccountCredentialAdminService
+    from apps.organization.services import AccountCredentialAdminService
 
     return AccountCredentialAdminService()
 
@@ -22,7 +23,7 @@ def _get_admin_service():
 class AccountCredentialAdmin(admin.ModelAdmin):
     """账号凭证管理 - 支持自动Token获取功能"""
 
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "lawyer",
         "site_name",
@@ -37,11 +38,11 @@ class AccountCredentialAdmin(admin.ModelAdmin):
 
     search_fields = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter = ["site_name", "is_preferred", "lawyer", "last_login_success_at", "created_at"]
+    list_filter: ClassVar[list[str]] = ["site_name", "is_preferred", "lawyer", "last_login_success_at", "created_at"]
 
     autocomplete_fields = ("lawyer",)
 
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "login_statistics_display",
         "success_rate_display",
@@ -59,13 +60,13 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         ("时间信息", {"fields": ("created_at", "updated_at")}),
     )
 
-    ordering = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+    ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
 
     date_hierarchy = "last_login_success_at"
 
     list_per_page = 50
 
-    actions = ["mark_as_preferred", "unmark_as_preferred"]
+    actions: ClassVar[list[str]] = ["mark_as_preferred", "unmark_as_preferred"]
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)

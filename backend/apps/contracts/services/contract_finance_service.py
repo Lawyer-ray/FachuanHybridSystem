@@ -8,7 +8,7 @@ from typing import Any
 
 from django.db.models import Sum
 
-from ..models import Contract, ContractPayment
+from apps.contracts.models import Contract, ContractPayment
 
 
 class ContractFinanceService:

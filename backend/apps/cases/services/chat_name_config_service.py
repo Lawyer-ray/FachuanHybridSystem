@@ -19,7 +19,7 @@
 
 import logging
 import re
-from typing import cast
+from typing import ClassVar, cast
 
 from apps.core.models import SystemConfig
 
@@ -51,7 +51,7 @@ class ChatNameConfigService:
     DEFAULT_MAX_LENGTH = 60
 
     # 支持的占位符
-    VALID_PLACEHOLDERS = {"stage", "case_name", "case_type"}
+    VALID_PLACEHOLDERS: ClassVar[set[str]] = {"stage", "case_name", "case_type"}
 
     def __init__(self) -> None:
         """初始化群聊名称配置服务"""

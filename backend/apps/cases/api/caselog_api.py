@@ -12,8 +12,8 @@ from ninja import Router
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
-from ..services.caselog_service import CaseLogService
+from apps.cases.schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
+from apps.cases.services.caselog_service import CaseLogService
 
 router = Router()
 

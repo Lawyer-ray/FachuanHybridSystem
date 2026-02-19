@@ -1,5 +1,6 @@
 from django.contrib import admin
-from ..models import LawFirm
+from apps.organization.models import LawFirm
+
 
 @admin.register(LawFirm)
 class LawFirmAdmin(admin.ModelAdmin):

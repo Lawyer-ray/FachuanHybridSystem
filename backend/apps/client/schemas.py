@@ -5,6 +5,8 @@ Client App Schemas
 
 from datetime import datetime
 
+from typing import ClassVar
+
 from ninja import ModelSchema, Schema
 
 from apps.core.schemas import SchemaMixin
@@ -29,7 +31,7 @@ class ClientOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = Client
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "name",
             "is_our_client",

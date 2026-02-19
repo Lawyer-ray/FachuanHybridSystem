@@ -2,15 +2,15 @@ from typing import Any
 
 from ninja import Router
 
-from ..schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
-from ..services import AccountCredentialService
+from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
+from apps.organization.services import AccountCredentialService
 
 router = Router()
 
 
 def _get_credential_service() -> AccountCredentialService:
     """工厂函数：创建 AccountCredentialService 实例"""
-    from ..services import AccountCredentialService
+    from apps.organization.services import AccountCredentialService
 
     return AccountCredentialService()
 

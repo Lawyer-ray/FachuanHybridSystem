@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -14,7 +14,7 @@ from django.db.models import Q, QuerySet
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
 
-from ..models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
+from apps.cases.models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
 
 
 class CaseLogService:
@@ -29,7 +29,18 @@ class CaseLogService:
     """
 
     # 允许的附件扩展名
-    ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".jpg", ".jpeg", ".png"}
+    ALLOWED_EXTENSIONS: ClassVar[set[str]] = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".jpg",
+        ".jpeg",
+        ".png",
+    }
 
     # 最大文件大小 (50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024

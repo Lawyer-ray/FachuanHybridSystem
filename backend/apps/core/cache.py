@@ -88,7 +88,7 @@ class CacheKeys:
     LEGAL_STATUS_CONFIG = "config:legal_status"  # 诉讼地位配置
 
     # 法院系统 Token 相关
-    COURT_TOKEN = "court_token:{site_name}:{account}"  # 法院系统 Token  # noqa: S105
+    COURT_TOKEN = "court_token:{site_name}:{account}"  # 法院系统 Token
 
     @classmethod
     def user_org_access(cls, user_id: int) -> str:

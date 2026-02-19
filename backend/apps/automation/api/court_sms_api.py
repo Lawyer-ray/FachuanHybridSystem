@@ -8,7 +8,7 @@ from typing import Any, cast
 from ninja import Form, Router
 from ninja.pagination import PageNumberPagination, paginate
 
-from ..schemas import (
+from apps.automation.schemas import (
     CourtSMSAssignCaseIn,
     CourtSMSAssignCaseOut,
     CourtSMSDetailOut,

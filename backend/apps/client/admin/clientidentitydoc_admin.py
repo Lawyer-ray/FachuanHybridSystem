@@ -94,7 +94,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
     list_display = ("id", "client", "doc_type", "uploaded_at", "file_link")
     search_fields = ("client__name", "file_path")
     list_filter = ("doc_type",)
-    actions = ["rename_files"]  # noqa: RUF012
+    actions = ["rename_files"]
     fields = ("client", "doc_type", "file_upload", "file_path")
 
     def file_link(self, obj: ClientIdentityDoc) -> str:

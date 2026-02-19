@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 
-from ..models import Contract, ContractFinanceLog, ContractPayment, InvoiceStatus
+from apps.contracts.models import Contract, ContractFinanceLog, ContractPayment, InvoiceStatus
 
 
 class ContractPaymentService:

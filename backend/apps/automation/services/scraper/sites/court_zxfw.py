@@ -62,7 +62,7 @@ class CourtZxfwService:
 
         # 依赖注入：验证码识别器
         if captcha_recognizer is None:
-            from ..core.captcha_recognizer import DdddocrRecognizer
+            from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
 
             self.captcha_recognizer = DdddocrRecognizer(show_ad=False)
             logger.info("使用默认的 DdddocrRecognizer")
@@ -91,7 +91,7 @@ class CourtZxfwService:
         password: str,
         max_captcha_retries: int = 3,
         save_debug: bool = False,
-        credential_id: int = None,  # type: ignore[assignment]
+        credential_id: int | None = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """
         登录全国法院"一张网"

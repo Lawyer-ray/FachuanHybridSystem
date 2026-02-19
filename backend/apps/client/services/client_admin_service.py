@@ -12,7 +12,7 @@ from django.db import transaction
 
 from apps.core.exceptions import ValidationException
 
-from ..models import Client, ClientIdentityDoc
+from apps.client.models import Client, ClientIdentityDoc
 
 if TYPE_CHECKING:
     from .client_service import ClientService

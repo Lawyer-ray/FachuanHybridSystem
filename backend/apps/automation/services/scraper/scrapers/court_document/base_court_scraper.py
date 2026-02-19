@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
 
-from ..base import BaseScraper
+from apps.automation.services.scraper.scrapers.base import BaseScraper
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICourtDocumentService

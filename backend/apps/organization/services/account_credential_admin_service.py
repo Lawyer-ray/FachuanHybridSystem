@@ -92,7 +92,7 @@ class AccountCredentialAdminService:
         Raises:
             NotFoundError: 凭证不存在
         """
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         start_time = timezone.now()
 
@@ -235,7 +235,7 @@ class AccountCredentialAdminService:
         Returns:
             BatchLoginResult: 批量登录结果
         """
-        from ..models import AccountCredential
+        from apps.organization.models import AccountCredential
 
         # 只处理法院一张网的账号
         court_credentials = AccountCredential.objects.filter(

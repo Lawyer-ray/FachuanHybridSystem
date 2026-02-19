@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from apps.core.exceptions import ValidationException
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -246,10 +247,8 @@ class TextExtractionService:
         finally:
             # 清理临时文件
             for temp_file in temp_files:
-                try:
+                with contextlib.suppress(Exception):
                     temp_file.unlink(missing_ok=True)
-                except Exception:
-                    pass
 
     def _extract_from_image(self, file_path: str) -> TextExtractionResult:
         """

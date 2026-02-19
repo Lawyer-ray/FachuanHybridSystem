@@ -5,6 +5,7 @@
 """
 
 import os
+from typing import ClassVar
 
 from django.contrib import admin, messages
 from django.core.cache import cache
@@ -13,18 +14,25 @@ from django.shortcuts import render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from ..models import SystemConfig
+from apps.core.models import SystemConfig
 
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(admin.ModelAdmin):
     """系统配置 Admin"""
 
-    list_display = ["key", "category_display", "masked_value", "is_secret", "is_active", "updated_at"]
-    list_filter = ["category", "is_secret", "is_active"]
-    search_fields = ["key", "description"]
-    list_editable = ["is_active"]
-    ordering = ["category", "key"]
+    list_display: ClassVar[list[str]] = [
+        "key",
+        "category_display",
+        "masked_value",
+        "is_secret",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter: ClassVar[list[str]] = ["category", "is_secret", "is_active"]
+    search_fields: ClassVar[list[str]] = ["key", "description"]
+    list_editable: ClassVar[list[str]] = ["is_active"]
+    ordering: ClassVar[list[str]] = ["category", "key"]
 
     fieldsets = (
         ("基本信息", {"fields": ("key", "value", "category", "description")}),
@@ -32,7 +40,7 @@ class SystemConfigAdmin(admin.ModelAdmin):
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
-    readonly_fields = ["created_at", "updated_at"]
+    readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
 
     def category_display(self, obj):
         """显示分类标签"""

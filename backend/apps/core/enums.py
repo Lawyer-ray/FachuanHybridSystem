@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 class CaseType(models.TextChoices):
     """案件类型"""
+
     CIVIL = "civil", _("民商事")
     CRIMINAL = "criminal", _("刑事")
     ADMINISTRATIVE = "administrative", _("行政")
@@ -25,6 +26,7 @@ class CaseType(models.TextChoices):
 
 class LegalStatus(models.TextChoices):
     """诉讼地位"""
+
     PLAINTIFF = "plaintiff", _("原告")
     DEFENDANT = "defendant", _("被告")
     THIRD = "third", _("第三人")
@@ -41,12 +43,14 @@ class LegalStatus(models.TextChoices):
 
 class CaseStatus(models.TextChoices):
     """案件状态"""
+
     ACTIVE = "active", _("在办")
     CLOSED = "closed", _("已结案")
 
 
 class CaseStage(models.TextChoices):
     """案件阶段"""
+
     FIRST_TRIAL = "first_trial", _("一审")
     SECOND_TRIAL = "second_trial", _("二审")
     ENFORCEMENT = "enforcement", _("执行")
@@ -69,6 +73,7 @@ class CaseStage(models.TextChoices):
 
 class AuthorityType(models.TextChoices):
     """主管机关性质"""
+
     INVESTIGATION = "investigation", _("侦查机关")
     PROSECUTION = "prosecution", _("审查起诉机关")
     TRIAL = "trial", _("审理机构")
@@ -77,6 +82,7 @@ class AuthorityType(models.TextChoices):
 
 class SimpleCaseType(models.TextChoices):
     """案件类型（简化版）"""
+
     CIVIL = "civil", _("民事")
     ADMINISTRATIVE = "administrative", _("行政")
     CRIMINAL = "criminal", _("刑事")
@@ -86,6 +92,7 @@ class SimpleCaseType(models.TextChoices):
 
 class CaseLogReminderType(models.TextChoices):
     """案件日志提醒类型"""
+
     HEARING = "hearing", _("开庭")
     ASSET_PRESERVATION = "asset_preservation", _("财产保全")
     EVIDENCE_DEADLINE = "evidence_deadline", _("举证期限")
@@ -96,10 +103,9 @@ class CaseLogReminderType(models.TextChoices):
 
 class ChatPlatform(models.TextChoices):
     """群聊平台枚举"""
-    FEISHU = 'feishu', _('飞书')
-    DINGTALK = 'dingtalk', _('钉钉')
-    WECHAT_WORK = 'wechat_work', _('企业微信')
-    TELEGRAM = 'telegram', _('Telegram')
-    SLACK = 'slack', _('Slack')
 
-
+    FEISHU = "feishu", _("飞书")
+    DINGTALK = "dingtalk", _("钉钉")
+    WECHAT_WORK = "wechat_work", _("企业微信")
+    TELEGRAM = "telegram", _("Telegram")
+    SLACK = "slack", _("Slack")

@@ -177,21 +177,18 @@ class NumericRangeValidator(ConfigValidator):
         min_val = getattr(field_def, "min_value", None)
         max_val = getattr(field_def, "max_value", None)
 
-        if min_val is not None and isinstance(min_val, (int, float)):
-            if value < min_val:
-                result.add_error(f"数值配置项 '{key}' 的值 {value} 小于最小值 {min_val}")
+        if min_val is not None and isinstance(min_val, (int, float)) and value < min_val:
+            result.add_error(f"数值配置项 '{key}' 的值 {value} 小于最小值 {min_val}")
 
-        if max_val is not None and isinstance(max_val, (int, float)):
-            if value > max_val:
-                result.add_error(f"数值配置项 '{key}' 的值 {value} 大于最大值 {max_val}")
+        if max_val is not None and isinstance(max_val, (int, float)) and value > max_val:
+            result.add_error(f"数值配置项 '{key}' 的值 {value} 大于最大值 {max_val}")
 
         # 验证步长
         step = getattr(field_def, "step", None)
-        if step is not None and isinstance(step, (int, float)) and step > 0:
-            if min_val is not None:
-                remainder = (value - min_val) % step
-                if abs(remainder) > 1e-10:  # 浮点数精度处理
-                    result.add_error(f"数值配置项 '{key}' 的值 {value} 不符合步长 {step} 的要求")
+        if step is not None and isinstance(step, (int, float)) and step > 0 and min_val is not None:
+            remainder = (value - min_val) % step
+            if abs(remainder) > 1e-10:  # 浮点数精度处理
+                result.add_error(f"数值配置项 '{key}' 的值 {value} 不符合步长 {step} 的要求")
 
         return result
 
@@ -232,13 +229,11 @@ class StringLengthValidator(ConfigValidator):
 
         value_length = len(value)
 
-        if min_length is not None and isinstance(min_length, int):
-            if value_length < min_length:
-                result.add_error(f"字符串配置项 '{key}' 的长度 {value_length} 小于最小长度 {min_length}")
+        if min_length is not None and isinstance(min_length, int) and value_length < min_length:
+            result.add_error(f"字符串配置项 '{key}' 的长度 {value_length} 小于最小长度 {min_length}")
 
-        if max_length is not None and isinstance(max_length, int):
-            if value_length > max_length:
-                result.add_error(f"字符串配置项 '{key}' 的长度 {value_length} 大于最大长度 {max_length}")
+        if max_length is not None and isinstance(max_length, int) and value_length > max_length:
+            result.add_error(f"字符串配置项 '{key}' 的长度 {value_length} 大于最大长度 {max_length}")
 
         return result
 

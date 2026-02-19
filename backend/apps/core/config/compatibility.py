@@ -301,9 +301,8 @@ class CompatibleSettings:
                 return "unified"
 
         # 检查 Django settings
-        if self._fallback_to_django:
-            if hasattr(django_settings, name) or name in self._django_settings_cache:
-                return "django"
+        if self._fallback_to_django and (hasattr(django_settings, name) or name in self._django_settings_cache):
+            return "django"
 
         return "not_found"
 
@@ -514,7 +513,7 @@ def patch_django_settings(config_manager: ConfigManager) -> SettingsProxy:
     django.conf.settings = proxy  # type: ignore[assignment]
 
     # 也替换 sys.modules 中的引用
-    for module_name, module in sys.modules.items():
+    for _module_name, module in sys.modules.items():
         if hasattr(module, "settings") and module.settings is django_settings:
             module.settings = proxy  # type: ignore[attr-defined]
 
@@ -535,7 +534,7 @@ def unpatch_django_settings() -> None:
     django.conf.settings = original_settings
 
     # 恢复 sys.modules 中的引用
-    for module_name, module in sys.modules.items():
+    for _module_name, module in sys.modules.items():
         if hasattr(module, "settings") and isinstance(module.settings, SettingsProxy):
             module.settings = module.settings.get_original_settings()  # type: ignore[attr-defined]
 

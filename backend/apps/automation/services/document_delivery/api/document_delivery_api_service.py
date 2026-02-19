@@ -18,8 +18,13 @@ from django.utils import timezone
 from apps.automation.models import DocumentQueryHistory
 from apps.core.interfaces import ServiceLocator
 
-from ..court_document_api_client import CourtDocumentApiClient
-from ..data_classes import DocumentDeliveryRecord, DocumentProcessResult, DocumentQueryResult, DocumentRecord
+from apps.automation.services.document_delivery.court_document_api_client import CourtDocumentApiClient
+from apps.automation.services.document_delivery.data_classes import (
+    DocumentDeliveryRecord,
+    DocumentProcessResult,
+    DocumentQueryResult,
+    DocumentRecord,
+)
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher

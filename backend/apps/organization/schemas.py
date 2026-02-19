@@ -3,6 +3,8 @@ Organization App Schemas
 提供组织模块的数据传输对象定义
 """
 
+from typing import ClassVar
+
 from ninja import ModelSchema, Schema
 
 from apps.core.schemas import SchemaMixin
@@ -15,7 +17,7 @@ class LawFirmOut(ModelSchema):
 
     class Meta:
         model = LawFirm
-        fields = ["id", "name", "address", "phone", "social_credit_code"]
+        fields: ClassVar[list[str]] = ["id", "name", "address", "phone", "social_credit_code"]
 
 
 class LawFirmIn(Schema):
@@ -44,7 +46,7 @@ class LawyerOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = Lawyer
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "username",
             "real_name",
@@ -113,7 +115,7 @@ class TeamOut(ModelSchema):
 
     class Meta:
         model = Team
-        fields = ["id", "name", "team_type", "law_firm"]
+        fields: ClassVar[list[str]] = ["id", "name", "team_type", "law_firm"]
 
 
 class TeamIn(Schema):
@@ -129,7 +131,7 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = AccountCredential
-        fields = [
+        fields: ClassVar[list[str]] = [
             "id",
             "lawyer",
             "site_name",

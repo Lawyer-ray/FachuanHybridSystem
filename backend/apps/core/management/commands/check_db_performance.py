@@ -8,10 +8,10 @@ from django.db import connection
 
 
 class Command(BaseCommand):
-    help = '检查数据库性能和索引使用情况'
+    help = "检查数据库性能和索引使用情况"
 
     def handle(self, *args: Any, **options: Any) -> None:
-        self.stdout.write(self.style.SUCCESS('=== 数据库性能检查 ===\n'))
+        self.stdout.write(self.style.SUCCESS("=== 数据库性能检查 ===\n"))
 
         # 检查数据库大小
         with connection.cursor() as cursor:
@@ -20,7 +20,7 @@ class Command(BaseCommand):
             self.stdout.write(f"数据库大小: {size / (1024 * 1024):.2f} MB\n")
 
         # 检查表大小
-        self.stdout.write(self.style.WARNING('表大小统计:'))
+        self.stdout.write(self.style.WARNING("表大小统计:"))
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT
@@ -37,7 +37,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {table_name}: {row_count} 行, {index_count} 个索引")
 
         # 检查未使用的索引
-        self.stdout.write(self.style.WARNING('\n索引列表:'))
+        self.stdout.write(self.style.WARNING("\n索引列表:"))
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT name, tbl_name, sql
@@ -49,4 +49,4 @@ class Command(BaseCommand):
                 index_name, table_name, sql = row
                 self.stdout.write(f"  [{table_name}] {index_name}")
 
-        self.stdout.write(self.style.SUCCESS('\n检查完成！'))
+        self.stdout.write(self.style.SUCCESS("\n检查完成！"))

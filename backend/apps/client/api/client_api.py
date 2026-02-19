@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from apps.core.request_context import extract_request_context
 
-from ..schemas import ClientIn, ClientOut, ClientUpdateIn
+from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
 
 
 class ParseTextRequest(BaseModel):
@@ -26,14 +26,14 @@ router = Router(tags=["Client"])
 
 def _get_client_service() -> Any:
     """工厂函数：创建 ClientService 实例"""
-    from ..services import ClientService
+    from apps.client.services import ClientService
 
     return ClientService()
 
 
 def _get_identity_doc_service() -> Any:
     """工厂函数：创建 ClientIdentityDocService 实例"""
-    from ..services import ClientIdentityDocService
+    from apps.client.services import ClientIdentityDocService
 
     return ClientIdentityDocService()
 
@@ -65,7 +65,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
     service = _get_client_service()
 
     if payload.parse_multiple:
-        from ..services.text_parser import parse_multiple_clients_text
+        from apps.client.services.text_parser import parse_multiple_clients_text
 
         parsed_clients = parse_multiple_clients_text(payload.text)
         results = [c for c in parsed_clients if c.get("name")]

@@ -165,9 +165,8 @@ class ConfigValidationListener(ConfigChangeListener):
             if not isinstance(value, int) or value < 0:
                 raise ValueError(f"重试次数配置必须是非负整数，当前值: {value}")
 
-        elif key.endswith(".port"):
-            if not isinstance(value, int) or not (1 <= value <= 65535):
-                raise ValueError(f"端口配置必须是1-65535之间的整数，当前值: {value}")
+        elif key.endswith(".port") and (not isinstance(value, int) or not (1 <= value <= 65535)):
+            raise ValueError(f"端口配置必须是1-65535之间的整数，当前值: {value}")
 
 
 class ConfigSecurityListener(ConfigChangeListener):

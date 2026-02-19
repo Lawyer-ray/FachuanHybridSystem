@@ -18,8 +18,8 @@ from ninja import Router
 from apps.core.interfaces import ServiceLocator
 from apps.core.request_context import extract_request_context
 
-from ..schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
-from ..services import CaseService
+from apps.cases.schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
+from apps.cases.services import CaseService
 
 router = Router()
 

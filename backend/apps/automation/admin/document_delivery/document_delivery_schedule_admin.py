@@ -4,6 +4,7 @@
 提供定时任务管理、手动触发查询等功能。
 """
 
+from typing import ClassVar
 import logging
 
 from django.contrib import admin, messages
@@ -32,7 +33,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     """文书送达定时任务管理"""
 
     # 列表显示字段
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "credential_display",
         "runs_per_day",
@@ -45,7 +46,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     ]
 
     # 列表筛选器
-    list_filter = [
+    list_filter: ClassVar[list[str]] = [
         "is_active",
         "runs_per_day",
         "hour_interval",
@@ -54,19 +55,18 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     ]
 
     # 搜索字段
-    search_fields = [
+    search_fields: ClassVar[list[str]] = [
         "credential__account",
         "credential__site_name",
     ]
 
     # 排序
-    ordering = ["-created_at"]
-
+    ordering: ClassVar[list[str]] = ["-created_at"]
     # 分页
     list_per_page = 20
 
     # 只读字段
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "last_run_at",
         "next_run_at",
@@ -121,7 +121,11 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     )
 
     # 自定义操作
-    actions = ["trigger_manual_query_action", "activate_schedules_action", "deactivate_schedules_action"]
+    actions: ClassVar[list[str]] = [
+        "trigger_manual_query_action",
+        "activate_schedules_action",
+        "deactivate_schedules_action",
+    ]
 
     def get_urls(self):
         """添加自定义URL"""

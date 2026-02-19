@@ -14,7 +14,7 @@ from apps.core.config import get_config
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ClientDTO, IClientService
 
-from ..models import Client
+from apps.client.models import Client
 
 if TYPE_CHECKING:
     from .client_identity_doc_service import ClientIdentityDocService

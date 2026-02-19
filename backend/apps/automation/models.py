@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from typing import ClassVar
 
 
 class AutomationTool(models.Model):
@@ -66,8 +67,8 @@ class CourtToken(models.Model):
         app_label = "automation"
         verbose_name = _("Token管理")
         verbose_name_plural = _("Token管理")
-        unique_together = [["site_name", "account"]]
-        indexes = [
+        unique_together: ClassVar[list[list[str]]] = [["site_name", "account"]]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["site_name", "account"]),
             models.Index(fields=["expires_at"]),
         ]
@@ -125,8 +126,8 @@ class TokenAcquisitionHistory(models.Model):
         app_label = "automation"
         verbose_name = _("Token获取历史")
         verbose_name_plural = _("Token获取历史")
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["site_name", "-created_at"]),
             models.Index(fields=["account", "-created_at"]),
             models.Index(fields=["status", "-created_at"]),
@@ -178,8 +179,8 @@ class ScraperTask(models.Model):
         app_label = "automation"
         verbose_name = _("任务管理")
         verbose_name_plural = _("任务管理")
-        ordering = ["priority", "-created_at"]  # 优先级优先，然后按创建时间
-        indexes = [
+        ordering: ClassVar[list[str]] = ["priority", "-created_at"]  # 优先级优先，然后按创建时间
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "priority", "-created_at"]),
             models.Index(fields=["task_type"]),
             models.Index(fields=["case"]),
@@ -249,8 +250,8 @@ class PreservationQuote(models.Model):
         app_label = "automation"
         verbose_name = _("财产保全询价")
         verbose_name_plural = _("财产保全询价")
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["credential_id"]),
             models.Index(fields=["created_at"]),
@@ -318,8 +319,8 @@ class InsuranceQuote(models.Model):
         app_label = "automation"
         verbose_name = _("保险公司报价")
         verbose_name_plural = _("保险公司报价")
-        ordering = ["min_amount"]  # 按最低报价排序
-        indexes = [
+        ordering: ClassVar[list[str]] = ["min_amount"]  # 按最低报价排序
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["preservation_quote", "status"]),
             models.Index(fields=["company_id"]),
             models.Index(fields=["premium"]),
@@ -395,8 +396,8 @@ class DocumentRecognitionTask(models.Model):
         app_label = "automation"
         verbose_name = _("文书识别任务")
         verbose_name_plural = _("文书识别任务")
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["case"]),
             models.Index(fields=["notification_sent"]),
@@ -485,8 +486,8 @@ class CourtDocument(models.Model):
         app_label = "automation"
         verbose_name = _("法院文书")
         verbose_name_plural = _("法院文书")
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["scraper_task", "download_status"]),
             models.Index(fields=["case"]),
             models.Index(fields=["c_wsbh"]),
@@ -494,7 +495,7 @@ class CourtDocument(models.Model):
             models.Index(fields=["download_status"]),
             models.Index(fields=["created_at"]),
         ]
-        unique_together = [["c_wsbh", "c_sdbh"]]  # 文书编号+送达编号唯一
+        unique_together: ClassVar[list[list[str]]] = [["c_wsbh", "c_sdbh"]]  # 文书编号+送达编号唯一
 
     def __str__(self):
         return f"{self.c_wsmc} - {self.get_download_status_display()}"
@@ -525,8 +526,8 @@ class DocumentQueryHistory(models.Model):
         app_label = "automation"
         verbose_name = _("文书查询历史")
         verbose_name_plural = _("文书查询历史")
-        unique_together = [["credential", "case_number", "send_time"]]
-        indexes = [
+        unique_together: ClassVar[list[list[str]]] = [["credential", "case_number", "send_time"]]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["credential", "case_number"]),
             models.Index(fields=["send_time"]),
         ]
@@ -561,7 +562,7 @@ class DocumentDeliverySchedule(models.Model):
         app_label = "automation"
         verbose_name = _("文书送达定时任务")
         verbose_name_plural = _("文书送达定时任务")
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["is_active", "next_run_at"]),
             models.Index(fields=["credential"]),
         ]
@@ -630,8 +631,8 @@ class CourtSMS(models.Model):
         app_label = "automation"
         verbose_name = _("法院短信")
         verbose_name_plural = _("法院短信")
-        ordering = ["-received_at"]
-        indexes = [
+        ordering: ClassVar[list[str]] = ["-received_at"]
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "-received_at"]),
             models.Index(fields=["sms_type"]),
             models.Index(fields=["case"]),
