@@ -12,6 +12,7 @@ import logging
 
 # Exceptions are handled by global exception handlers
 import math
+from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router
