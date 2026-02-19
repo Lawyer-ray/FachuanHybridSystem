@@ -7,14 +7,13 @@ import threading
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from apps.core.interfaces import ServiceLocator
-
 from .data_classes import DocumentDeliveryRecord
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
+    from apps.core.interfaces import ICaseLogService, ICaseNumberService
 
 logger = logging.getLogger("apps.automation")
 
@@ -26,6 +25,30 @@ class DocumentDeliveryMatchingMixin:
     case_matcher: "CaseMatcher"
     document_renamer: "DocumentRenamer"
     notification_service: "SMSNotificationService"
+
+    def __init__(
+        self,
+        caselog_service: "ICaseLogService | None" = None,
+        case_number_service: "ICaseNumberService | None" = None,
+    ) -> None:
+        self._caselog_service = caselog_service
+        self._case_number_service = case_number_service
+
+    @property
+    def caselog_service(self) -> "ICaseLogService":
+        if self._caselog_service is None:
+            from apps.core.dependencies import build_case_log_service
+
+            self._caselog_service = build_case_log_service()
+        return self._caselog_service
+
+    @property
+    def case_number_service(self) -> "ICaseNumberService":
+        if self._case_number_service is None:
+            from apps.core.dependencies import build_case_number_service
+
+            self._case_number_service = build_case_number_service()
+        return self._case_number_service
 
     def _match_case_by_number(self, case_number: str) -> Any:
         """通过案号匹配案件"""
@@ -57,9 +80,7 @@ class DocumentDeliveryMatchingMixin:
             logger.warning(f"从文书提取当事人匹配失败: {e!s}")
             return None
 
-    def _rename_and_attach_documents(
-        self, sms: Any, case: Any, extracted_files: list[str]
-    ) -> tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
         """重命名文书并添加到案件日志"""
         renamed_files: list[str] = []
         case_log_id = None
@@ -79,7 +100,7 @@ class DocumentDeliveryMatchingMixin:
                     renamed_files.append(file_path)
 
             if renamed_files:
-                case_log_service = ServiceLocator.get_caselog_service()
+                case_log_service = self.caselog_service
                 file_names = [f.split("/")[-1] for f in renamed_files]
                 case_log = case_log_service.create_log(
                     case_id=case.id,
@@ -128,9 +149,7 @@ class DocumentDeliveryMatchingMixin:
     def _sync_case_number_to_case(self, case_id: int, case_number: str) -> bool:
         """将案号同步到案件"""
         try:
-            from apps.core.interfaces import ServiceLocator
-
-            case_number_service = ServiceLocator.get_case_number_service()
+            case_number_service = self.case_number_service
             existing_numbers = case_number_service.list_numbers(case_id=case_id)
             for num in existing_numbers:
                 if num.number == case_number:
@@ -161,6 +180,7 @@ class DocumentDeliveryMatchingMixin:
             try:
                 from django.db import connection
                 from django.utils import timezone
+
                 from apps.automation.models import CourtSMS, CourtSMSStatus
 
                 connection.ensure_connection()
