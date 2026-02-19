@@ -24,9 +24,9 @@ class SMSCaseBindingMixin:
             return False
 
         try:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_log_service
 
-            case_log_service = ServiceLocator.get_caselog_service()
+            case_log_service = build_sms_case_log_service()
 
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
             if not admin_lawyer_dto:

@@ -7,6 +7,7 @@ from typing import Any
 from ninja import Router
 from apps.organization.schemas import LoginIn, LoginOut
 from apps.organization.services import AuthService
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 router = Router()
 
@@ -19,6 +20,7 @@ def _get_auth_service() -> AuthService:
 
 
 @router.post("/login", response=LoginOut, auth=None)
+@rate_limit_from_settings("AUTH")
 def login_view(request: Any, payload: LoginIn) -> dict[str, Any]:
     """用户登录"""
     service = _get_auth_service()

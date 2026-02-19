@@ -60,18 +60,16 @@ class SMSSubmissionService:
     def case_service(self) -> "ICaseService":
         """延迟加载案件服务"""
         if self._case_service is None:
-            from apps.core.interfaces import ServiceLocator
-
-            self._case_service = ServiceLocator.get_case_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+            self._case_service = build_sms_case_service()
         return self._case_service
 
     @property
     def lawyer_service(self) -> "ILawyerService":
         """延迟加载律师服务"""
         if self._lawyer_service is None:
-            from apps.core.interfaces import ServiceLocator
-
-            self._lawyer_service = ServiceLocator.get_lawyer_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_lawyer_service
+            self._lawyer_service = build_sms_lawyer_service()
         return self._lawyer_service
 
     def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:
@@ -259,9 +257,9 @@ class SMSSubmissionService:
 
         try:
             # 获取 CaseLogService
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_log_service
 
-            case_log_service = ServiceLocator.get_caselog_service()
+            case_log_service = build_sms_case_log_service()
 
             # 获取系统用户（使用管理员用户作为系统操作人）
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()

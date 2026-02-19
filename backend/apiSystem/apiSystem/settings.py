@@ -97,6 +97,7 @@ MIDDLEWARE = [
     "apps.organization.middleware.OrgAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.ApiRateLimitMiddleware",
 ]
 
 _request_timing_env = (os.environ.get("DJANGO_REQUEST_TIMING", "") or "").lower().strip()

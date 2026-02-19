@@ -1,3 +1,4 @@
+apps/automation/tasks.py
 apps/automation/tasks_impl/document_processor.py
 apps/automation/tasks_impl/document_recognition.py
 apps/automation/tasks_impl/monitoring.py

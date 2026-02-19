@@ -58,29 +58,29 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
     @property
     def case_service(self) -> "ICaseService":
         if self._case_service is None:
-            from apps.core.interfaces import ServiceLocator
-            self._case_service = ServiceLocator.get_case_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+            self._case_service = build_sms_case_service()
         return self._case_service
 
     @property
     def client_service(self) -> "IClientService":
         if self._client_service is None:
-            from apps.core.interfaces import ServiceLocator
-            self._client_service = ServiceLocator.get_client_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_client_service
+            self._client_service = build_sms_client_service()
         return self._client_service
 
     @property
     def lawyer_service(self) -> "ILawyerService":
         if self._lawyer_service is None:
-            from apps.core.interfaces import ServiceLocator
-            self._lawyer_service = ServiceLocator.get_lawyer_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_lawyer_service
+            self._lawyer_service = build_sms_lawyer_service()
         return self._lawyer_service
 
     @property
     def case_chat_service(self) -> "ICaseChatService":
         if self._case_chat_service is None:
-            from apps.core.interfaces import ServiceLocator
-            self._case_chat_service = ServiceLocator.get_case_chat_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_chat_service
+            self._case_chat_service = build_sms_case_chat_service()
         return self._case_chat_service
 
     @property

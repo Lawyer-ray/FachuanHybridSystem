@@ -8,8 +8,6 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any, Optional
 
-from apps.core.interfaces import ServiceLocator
-
 if TYPE_CHECKING:
     from apps.core.interfaces import IClientService, ILawyerService
 
@@ -38,14 +36,18 @@ class DocumentParserService:
     def client_service(self) -> "IClientService":
         """延迟加载客户服务"""
         if self._client_service is None:
-            self._client_service = ServiceLocator.get_client_service()
+            from apps.core.dependencies.business_client import build_client_service
+
+            self._client_service = build_client_service()
         return self._client_service
 
     @property
     def lawyer_service(self) -> "ILawyerService":
         """延迟加载律师服务"""
         if self._lawyer_service is None:
-            self._lawyer_service = ServiceLocator.get_lawyer_service()
+            from apps.core.dependencies.business_organization import build_lawyer_service
+
+            self._lawyer_service = build_lawyer_service()
         return self._lawyer_service
 
     def extract_parties_from_document(self, document_path: str) -> list[str]:
@@ -67,7 +69,9 @@ class DocumentParserService:
         """
         try:
             # 获取文档处理服务
-            doc_service = ServiceLocator.get_document_processing_service()
+            from apps.core.dependencies.automation_adapters import build_document_processing_service
+
+            doc_service = build_document_processing_service()
 
             # 读取 PDF 内容（增加限制到 3000 字符以获取更多内容）
             result = doc_service.extract_document_content_by_path_internal(  # type: ignore[attr-defined]

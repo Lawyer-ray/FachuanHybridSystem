@@ -11,9 +11,10 @@ import time
 from dataclasses import dataclass
 from typing import Any, cast
 
+import contextlib
+
 from apps.core.exceptions import AutoTokenAcquisitionError, LoginFailedError, NetworkError, TokenAcquisitionTimeoutError
 from apps.core.interfaces import AccountCredentialDTO, IBrowserService, LoginAttemptResult
-import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +57,9 @@ class AutoLoginService:
     def browser_service(self) -> IBrowserService:
         """获取浏览器服务（延迟加载）"""
         if self._browser_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.automation.services.scraper.core.browser_service import BrowserServiceAdapter
 
-            self._browser_service = ServiceLocator.get_browser_service()
+            self._browser_service = BrowserServiceAdapter()
         return self._browser_service
 
     async def login_and_get_token(self, credential: AccountCredentialDTO) -> str:

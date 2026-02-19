@@ -88,9 +88,8 @@ class SMSParserService:
     def client_service(self) -> "IClientService":
         """延迟加载客户服务"""
         if self._client_service is None:
-            from apps.core.interfaces import ServiceLocator
-
-            self._client_service = ServiceLocator.get_client_service()
+            from apps.core.dependencies.automation_sms_wiring import build_sms_client_service
+            self._client_service = build_sms_client_service()
         return self._client_service
 
     def parse(self, content: str) -> SMSParseResult:
