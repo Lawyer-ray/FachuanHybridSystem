@@ -17,14 +17,11 @@
 """
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import Any, cast
 
 from apps.automation.models import CourtSMS
 from apps.core.enums import ChatPlatform
 from apps.core.interfaces import ICaseChatService, ServiceLocator
-
-if TYPE_CHECKING:
-    from apps.cases.models import CaseChat
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +141,7 @@ class SMSNotificationService:
             logger.error(f"案件群聊通知处理失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
 
-    def _get_or_create_chat(self, case_id: int, platform: ChatPlatform) -> "CaseChat":
+    def _get_or_create_chat(self, case_id: int, platform: ChatPlatform) -> Any:
         """获取或创建群聊
 
         内部辅助方法，用于获取或创建指定案件和平台的群聊。
@@ -160,6 +157,6 @@ class SMSNotificationService:
             Exception: 群聊创建失败时抛出异常
         """
         return cast(
-            CaseChat,
+            Any,
             self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),  # type: ignore[attr-defined]
         )

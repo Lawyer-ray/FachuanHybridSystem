@@ -649,7 +649,7 @@ class DocumentDeliveryApiService:
             case_number_service = ServiceLocator.get_case_number_service()
 
             # 检查案件是否已有这个案号
-            existing_numbers = case_number_service.list_numbers_internal(case_id=case_id)
+            existing_numbers = case_number_service.list_numbers(case_id=case_id)
 
             for num in existing_numbers:
                 if num.number == case_number:
@@ -657,7 +657,7 @@ class DocumentDeliveryApiService:
                     return True
 
             # 创建新案号
-            case_number_service.create_number_internal(
+            case_number_service.create_number(
                 case_id=case_id, number=case_number, remarks="文书送达自动下载同步"
             )
 

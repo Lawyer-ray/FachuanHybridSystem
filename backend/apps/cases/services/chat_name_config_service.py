@@ -21,8 +21,6 @@ import logging
 import re
 from typing import ClassVar, cast
 
-from apps.core.models import SystemConfig
-
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +66,8 @@ class ChatNameConfigService:
 
         Requirements: 1.1, 1.2
         """
-        template = SystemConfig.get_value(  # type: ignore[attr-defined]
+        from apps.core.config.utils import get_system_config_value
+        template = get_system_config_value(
             self.CONFIG_KEY_TEMPLATE, default=self.DEFAULT_TEMPLATE
         )
 
@@ -90,7 +89,8 @@ class ChatNameConfigService:
 
         Requirements: 2.1, 2.3
         """
-        default_stage = SystemConfig.get_value(  # type: ignore[attr-defined]
+        from apps.core.config.utils import get_system_config_value
+        default_stage = get_system_config_value(
             self.CONFIG_KEY_DEFAULT_STAGE, default=self.DEFAULT_STAGE
         )
 
@@ -112,7 +112,8 @@ class ChatNameConfigService:
 
         Requirements: 3.1, 3.3
         """
-        max_length_str = SystemConfig.get_value(  # type: ignore[attr-defined]
+        from apps.core.config.utils import get_system_config_value
+        max_length_str = get_system_config_value(
             self.CONFIG_KEY_MAX_LENGTH, default=str(self.DEFAULT_MAX_LENGTH)
         )
 

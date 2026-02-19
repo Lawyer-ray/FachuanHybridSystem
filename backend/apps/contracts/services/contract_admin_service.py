@@ -1,6 +1,6 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import Any, ClassVar
 
 from django.db import transaction
 
@@ -14,9 +14,6 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-
-if TYPE_CHECKING:
-    from apps.cases.models import Case
 
 
 class ContractAdminService:
@@ -110,7 +107,7 @@ class ContractAdminService:
         return contract.case_type in self.CASE_ALLOWED_TYPES
 
     @transaction.atomic
-    def create_case_from_contract(self, contract_id: int) -> "Case":
+    def create_case_from_contract(self, contract_id: int) -> Any:
         """
         从合同创建案件
 
@@ -118,16 +115,16 @@ class ContractAdminService:
             contract_id: 合同ID
 
         Returns:
-            新创建的案件对象
+            新创建的案件 DTO
         """
-        from apps.cases.models import Case, CaseAssignment, CaseParty, SimpleCaseType
+        from apps.core.enums import SimpleCaseType
+        from apps.core.exceptions import ValidationException
+        from apps.core.interfaces import ServiceLocator
 
         contract = Contract.objects.get(pk=contract_id)
 
         # 检查合同类型是否允许创建案件
         if contract.case_type not in self.CASE_ALLOWED_TYPES:
-            from apps.core.exceptions import ValidationException
-
             raise ValidationException(
                 message="该合同类型不支持创建案件",
                 code="INVALID_CONTRACT_TYPE",
@@ -135,39 +132,41 @@ class ContractAdminService:
             )
 
         # 映射合同类型到案件类型
-        case_type_mapping = {
+        case_type_mapping: dict[CaseType, SimpleCaseType] = {
             CaseType.CIVIL: SimpleCaseType.CIVIL,
             CaseType.CRIMINAL: SimpleCaseType.CRIMINAL,
             CaseType.ADMINISTRATIVE: SimpleCaseType.ADMINISTRATIVE,
-            CaseType.LABOR: SimpleCaseType.CIVIL,  # 劳动仲裁映射到民事
-            CaseType.INTL: SimpleCaseType.CIVIL,  # 商事仲裁映射到民事
+            CaseType.LABOR: SimpleCaseType.CIVIL,
+            CaseType.INTL: SimpleCaseType.CIVIL,
         }
-
-        # 创建案件
         case_type_key = CaseType(contract.case_type) if contract.case_type else CaseType.CIVIL
-        case_type_value = case_type_mapping.get(case_type_key)
-        if case_type_value is None:
-            case_type_value = SimpleCaseType.CIVIL
-        case = Case.objects.create(
-            contract=contract,
-            name=f"{contract.name} - 案件",
-            case_type=case_type_value,
-            is_archived=False,
+        case_type_value = case_type_mapping.get(case_type_key, SimpleCaseType.CIVIL)
+
+        case_service = ServiceLocator.get_case_service()
+        case_dto = case_service.create_case(
+            data={
+                "contract_id": contract_id,
+                "name": f"{contract.name} - 案件",
+                "case_type": case_type_value,
+                "is_archived": False,
+            }
         )
 
         # 复制合同当事人到案件当事人
         for party in contract.contract_parties.all():
-            CaseParty.objects.create(
-                case=case,
-                client=party.client,
-                legal_status=None,  # 诉讼地位需要用户后续设置
-            )
+            if party.client_id:
+                case_service.create_case_party(
+                    case_id=case_dto.id,
+                    client_id=party.client_id,
+                    legal_status=None,
+                )
 
         # 复制合同律师指派到案件律师指派
         for assignment in contract.assignments.all():
-            CaseAssignment.objects.create(
-                case=case,
-                lawyer=assignment.lawyer,
-            )
+            if assignment.lawyer_id:
+                case_service.create_case_assignment(
+                    case_id=case_dto.id,
+                    lawyer_id=assignment.lawyer_id,
+                )
 
-        return case
+        return case_dto

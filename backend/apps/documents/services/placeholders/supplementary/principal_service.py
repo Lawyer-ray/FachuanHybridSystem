@@ -70,11 +70,9 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
             委托人 Client 实例列表
         """
         try:
-            from apps.contracts.models import PartyRole
-
             principals: list[Any] = []
             for party in supplementary_agreement.parties.all():
-                if party.role == PartyRole.PRINCIPAL:
+                if party.role == "PRINCIPAL":
                     principals.append(party.client)
             return principals
         except Exception:
@@ -95,11 +93,9 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
             委托人 Client 实例列表
         """
         try:
-            from apps.contracts.models import PartyRole
-
             principals: list[Any] = []
             for cp in contract.contract_parties.all():
-                if cp.role == PartyRole.PRINCIPAL:
+                if cp.role == "PRINCIPAL":
                     principals.append(cp.client)
             return principals
         except Exception:

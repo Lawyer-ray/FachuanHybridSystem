@@ -67,8 +67,9 @@ class OwnerConfigManager:
     def _load_config_from_db(self) -> dict[str, Any]:
         """从 SystemConfig 加载飞书配置"""
         try:
-            from apps.core.models import SystemConfig
-            db_configs = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
+            from apps.core.config.utils import get_feishu_category_configs
+
+            db_configs = get_feishu_category_configs()
             if not db_configs:
                 return {}
             key_mapping = {

@@ -73,8 +73,7 @@ class SecurityService:
             logger.error(f"解密失败: {e}")
             raise
 
-    @staticmethod
-    def mask_sensitive_data(data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
+    def mask_sensitive_data(self, data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """
         脱敏敏感数据（用于日志）
 
@@ -100,8 +99,7 @@ class SecurityService:
 
         return masked
 
-    @staticmethod
-    def encrypt_config(config: dict[str, Any]) -> dict[str, Any]:
+    def encrypt_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         加密配置中的敏感字段
 
@@ -111,20 +109,18 @@ class SecurityService:
         Returns:
             加密后的配置
         """
-        service = SecurityService()
         encrypted = config.copy()
 
         sensitive_keys = ["password", "passwd", "pwd"]
 
         for key in sensitive_keys:
             if encrypted.get(key):
-                encrypted[key] = service.encrypt(encrypted[key])
+                encrypted[key] = self.encrypt(encrypted[key])
                 encrypted[f"{key}_encrypted"] = True
 
         return encrypted
 
-    @staticmethod
-    def decrypt_config(config: dict[str, Any]) -> dict[str, Any]:
+    def decrypt_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         解密配置中的敏感字段
 
@@ -134,7 +130,6 @@ class SecurityService:
         Returns:
             解密后的配置
         """
-        service = SecurityService()
         decrypted = config.copy()
 
         sensitive_keys = ["password", "passwd", "pwd"]
@@ -142,7 +137,7 @@ class SecurityService:
         for key in sensitive_keys:
             if f"{key}_encrypted" in decrypted and decrypted.get(f"{key}_encrypted"):
                 if decrypted.get(key):
-                    decrypted[key] = service.decrypt(decrypted[key])
+                    decrypted[key] = self.decrypt(decrypted[key])
                 del decrypted[f"{key}_encrypted"]
 
         return decrypted

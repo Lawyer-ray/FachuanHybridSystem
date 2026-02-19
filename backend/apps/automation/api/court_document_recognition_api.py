@@ -9,7 +9,6 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 
 import logging
 import os
-from datetime import datetime
 from typing import Any
 
 from ninja import File, Router
@@ -161,8 +160,6 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     """
     from django_q.tasks import async_task
 
-    from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitionTask
-
     logger.info(f"收到文书识别请求: {file.name}, 大小: {file.size}")
 
     # 1. 验证文件格式
@@ -172,9 +169,7 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     file_path = _save_uploaded_file(file)
 
     # 3. 创建任务记录
-    task = DocumentRecognitionTask.objects.create(
-        file_path=file_path, original_filename=file.name, status=DocumentRecognitionStatus.PENDING
-    )
+    task = _get_task_service().create_task(file_path=file_path, original_filename=file.name)  # type: ignore[arg-type]
 
     # 4. 提交异步任务
     async_task(
@@ -191,14 +186,7 @@ def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
     """
     查询识别任务状态和结果
     """
-    from apps.automation.models import DocumentRecognitionTask
-
-    try:
-        task = DocumentRecognitionTask.objects.select_related("case").get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist as e:
-        raise NotFoundError(
-            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
-        ) from e
+    task = _get_task_service().get_task(task_id, select_case=True)
 
     # 构建响应
     recognition = None
@@ -254,6 +242,13 @@ def _get_recognition_service() -> Any:
     return CourtDocumentRecognitionService()
 
 
+def _get_task_service() -> Any:
+    """工厂函数：获取任务管理服务"""
+    from apps.automation.services.court_document_recognition.task_service import DocumentRecognitionTaskService
+
+    return DocumentRecognitionTaskService()
+
+
 @router.get("/court-document/search-cases", response=list[CaseSearchResultSchema])
 def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:
     """
@@ -270,57 +265,20 @@ def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list
 
     Requirements: 1.3, 2.3
     """
-    from django.db.models import Q
-
-    from apps.cases.models import Case, CaseNumber, CaseParty
-
-    # 限制返回数量
     limit = min(limit, 20)
+    task_service = _get_task_service()
+    raw_results = task_service.search_cases_for_binding(search_term=q.strip() if q else "", limit=limit)
 
-    if not q or not q.strip():
-        # 无搜索词时返回最近的案件
-        cases = (
-            Case.objects.select_related().prefetch_related("case_numbers", "parties__client").order_by("-id")[:limit]
+    results = [
+        CaseSearchResultSchema(
+            id=r["id"],
+            name=r["name"],
+            case_numbers=r.get("case_numbers", []),
+            parties=r.get("parties", []),
+            created_at=r.get("created_at"),
         )
-    else:
-        search_term = q.strip()
-
-        # 构建搜索条件：案件名称、案号、当事人
-        # 1. 按案件名称搜索
-        name_query = Q(name__icontains=search_term)
-
-        # 2. 按案号搜索
-        case_ids_by_number = CaseNumber.objects.filter(number__icontains=search_term).values_list("case_id", flat=True)
-
-        # 3. 按当事人搜索
-        case_ids_by_party = CaseParty.objects.filter(client__name__icontains=search_term).values_list(
-            "case_id", flat=True
-        )
-
-        # 合并查询
-        cases = (
-            Case.objects.filter(name_query | Q(id__in=case_ids_by_number) | Q(id__in=case_ids_by_party))
-            .select_related()
-            .prefetch_related("case_numbers", "parties__client")
-            .distinct()
-            .order_by("-id")[:limit]
-        )
-
-    # 构建响应
-    results = []
-    for case in cases:
-        case_numbers = [cn.number for cn in case.case_numbers.all()]
-        parties = [p.client.name for p in case.parties.all() if p.client]
-
-        results.append(
-            CaseSearchResultSchema(
-                id=case.id,
-                name=case.name,
-                case_numbers=case_numbers,
-                parties=parties,
-                created_at=case.start_date.isoformat() if case.start_date else None,
-            )
-        )
+        for r in raw_results
+    ]
 
     logger.info("案件搜索完成", extra={"action": "search_cases_for_binding", "query": q, "result_count": len(results)})
 
@@ -343,15 +301,8 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
 
     Requirements: 3.1
     """
-    from apps.automation.models import DocumentRecognitionTask
-
     # 1. 获取任务
-    try:
-        task = DocumentRecognitionTask.objects.select_related("case").get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist as e:
-        raise NotFoundError(
-            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
-        ) from e
+    task = _get_task_service().get_task(task_id, select_case=True)
 
     # 2. 检查任务是否已绑定
     if task.binding_success:
@@ -415,48 +366,11 @@ def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchem
         更新结果
     """
 
-    from apps.automation.models import DocumentRecognitionTask
-
-    # 1. 获取任务
-    try:
-        task = DocumentRecognitionTask.objects.get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist as e:
-        raise NotFoundError(
-            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
-        ) from e
-
-    # 2. 更新字段
-    updated_fields = []
-
-    if payload.case_number is not None:
-        task.case_number = payload.case_number if payload.case_number else None
-        updated_fields.append("case_number")
-
-    if payload.key_time is not None:
-        if payload.key_time:
-            try:
-                # 解析 ISO 格式时间
-                task.key_time = datetime.fromisoformat(payload.key_time.replace("Z", "+00:00"))
-            except ValueError as e:
-                raise ValidationException(
-                    message="时间格式不正确", code="INVALID_TIME_FORMAT", errors={"key_time": "请使用正确的时间格式"}
-                ) from e
-        else:
-            task.key_time = None
-        updated_fields.append("key_time")
-
-    if updated_fields:
-        task.save(update_fields=updated_fields)
-        logger.info(
-            "识别信息已更新",
-            extra={
-                "action": "update_task_info",
-                "task_id": task_id,
-                "updated_fields": updated_fields,
-                "case_number": task.case_number,
-                "key_time": str(task.key_time) if task.key_time else None,
-            },
-        )
+    task = _get_task_service().update_task_info(
+        task_id,
+        case_number=payload.case_number,
+        key_time=payload.key_time,
+    )
 
     return UpdateInfoResponseSchema(
         success=True,

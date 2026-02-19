@@ -327,8 +327,7 @@ class CaseNumberService:
 
         return {"success": True}
 
-    @staticmethod
-    def normalize_case_number(number: str) -> str:
+    def normalize_case_number(self, number: str) -> str:
         """
         规范化案号：统一括号、删除空格
 

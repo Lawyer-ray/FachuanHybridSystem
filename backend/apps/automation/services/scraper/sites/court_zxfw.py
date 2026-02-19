@@ -85,8 +85,7 @@ class CourtZxfwService:
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 
-    @staticmethod
-    def _extract_token_from_body(body: dict[str, Any]) -> str | None:
+    def _extract_token_from_body(self, body: dict[str, Any]) -> str | None:
         """从响应体中提取 token，尝试多个字段路径"""
         token_keys = ("token", "access_token", "accessToken")
         for wrapper in ("data", "result"):

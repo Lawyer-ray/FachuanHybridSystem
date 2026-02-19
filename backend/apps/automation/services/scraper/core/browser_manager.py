@@ -29,9 +29,10 @@ class BrowserManager:
             # 自动清理
     """
 
-    @staticmethod
+    @classmethod
     @contextmanager
     def create_browser(
+        cls,
         config: BrowserConfig | None = None,
         use_anti_detection: bool = True,
     ) -> Iterator[tuple[Page, BrowserContext]]:
@@ -95,7 +96,7 @@ class BrowserManager:
 
             # 应用反检测配置
             if use_anti_detection:
-                context_args = BrowserManager._apply_anti_detection(context_args)
+                context_args = cls._apply_anti_detection(context_args)
 
             # 创建上下文
             logger.debug(f"创建浏览器上下文: {context_args}")
@@ -115,7 +116,7 @@ class BrowserManager:
 
             # 注入反检测脚本
             if use_anti_detection:
-                BrowserManager._inject_stealth_script(page)
+                cls._inject_stealth_script(page)
 
             logger.info("✅ 浏览器已启动")
 
@@ -131,10 +132,10 @@ class BrowserManager:
             ) from e
         finally:
             # 确保资源被清理
-            BrowserManager._cleanup(page, context, browser, playwright)
+            cls._cleanup(page, context, browser, playwright)
 
-    @staticmethod
-    def _apply_anti_detection(context_args: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    def _apply_anti_detection(cls, context_args: dict[str, Any]) -> dict[str, Any]:
         """
         应用反检测配置
 
@@ -147,7 +148,7 @@ class BrowserManager:
         from .anti_detection import AntiDetection
 
         # 获取反检测配置
-        anti_detection_config = AntiDetection.get_browser_context_options()
+        anti_detection_config = AntiDetection().get_browser_context_options()
 
         # 合并配置（原始配置优先）
         merged = anti_detection_config.copy()
@@ -155,8 +156,8 @@ class BrowserManager:
 
         return merged
 
-    @staticmethod
-    def _inject_stealth_script(page: Page) -> None:
+    @classmethod
+    def _inject_stealth_script(cls, page: Page) -> None:
         """
         注入反检测脚本
 
@@ -165,11 +166,12 @@ class BrowserManager:
         """
         from .anti_detection import AntiDetection
 
-        AntiDetection.inject_stealth_script(page)
+        AntiDetection().inject_stealth_script(page)
         logger.debug("已注入反检测脚本")
 
-    @staticmethod
+    @classmethod
     def _cleanup(
+        cls,
         page: Page | None,
         context: BrowserContext | None,
         browser: Browser | None,
