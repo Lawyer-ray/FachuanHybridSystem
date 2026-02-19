@@ -149,7 +149,7 @@ class SMSSubmissionService:
 
         try:
             # 更新短信记录 - 直接设置外键 ID，避免跨模块 Model 导入
-            sms.case_id = case_id  # type: ignore[attr-defined]
+            sms.case_id = case_id
             sms.error_message = None  # 清除之前的错误信息
             sms.save()
 
@@ -268,7 +268,7 @@ class SMSSubmissionService:
                 return False
 
             # 通过 ServiceLocator 获取 Lawyer 服务，避免跨模块 Model 导入
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore[attr-defined]
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)
 
             # 如果短信提取到案号，自动写入案件（如果不存在）
             if sms.case_numbers:
@@ -276,7 +276,7 @@ class SMSSubmissionService:
 
             # 创建案件日志（只包含短信内容，附件在重命名后添加）
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
                 user=system_user,
             )
@@ -309,14 +309,14 @@ class SMSSubmissionService:
                 1
                 for num in valid_case_numbers
                 if self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                    case_id=sms.case.id,
                     case_number=num,
                     user_id=user_id,
                 )
             )
 
             if added_count > 0:
-                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")  # type: ignore[attr-defined]
+                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")
 
         except Exception as e:
             logger.warning(f"写入案号失败: SMS ID={sms.id}, 错误: {e!s}")

@@ -19,7 +19,7 @@ from apps.core.interfaces import ICaseService
 from apps.core.protocols import IContractAssignmentQueryService
 from apps.core.security import DjangoPermsMixin
 
-logger = logging.getLogger("apps.cases")  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")
 
 
 class CaseAssignmentService(DjangoPermsMixin):
@@ -313,7 +313,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             },
         )
 
-        return assignment  # type: ignore[no-any-return]
+        return assignment
 
     @transaction.atomic
     def delete_assignment(

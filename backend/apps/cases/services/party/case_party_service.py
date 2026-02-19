@@ -211,7 +211,7 @@ class CasePartyService:
             return
 
         # 获取新诉讼地位的阵营
-        new_status_config = business_config._compatibility_map.get(legal_status)  # type: ignore[attr-defined]
+        new_status_config = business_config._compatibility_map.get(legal_status)
         if not new_status_config:
             return
 
@@ -244,7 +244,7 @@ class CasePartyService:
 
         # 检查是否有我方当事人处于对立阵营
         for existing_status, client_name in our_party_statuses:
-            existing_config = business_config._compatibility_map.get(existing_status)  # type: ignore[attr-defined]
+            existing_config = business_config._compatibility_map.get(existing_status)
             if existing_config and existing_config.group == opposing_group:
                 new_status_label = business_config.get_legal_status_label(legal_status)
                 existing_status_label = business_config.get_legal_status_label(existing_status)

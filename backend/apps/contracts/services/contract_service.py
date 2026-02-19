@@ -138,7 +138,7 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
         """获取带预加载的合同查询集（委托给 ContractQuerySetManager）。"""
-        return ContractQuerySetManager.with_standard_prefetch()  # type: ignore[return-value]
+        return ContractQuerySetManager.with_standard_prefetch()
 
     def list_contracts(
         self,
@@ -353,7 +353,7 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
         contract = self._get_contract_internal(contract_id)
 
         # 计算收款和开票总额
-        payments = contract.payments.all()  # type: ignore[attr-defined]
+        payments = contract.payments.all()
         total_received = sum(p.amount or Decimal(0) for p in payments)
         total_invoiced = sum(p.invoiced_amount or Decimal(0) for p in payments)
 
@@ -641,7 +641,7 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
             if changes:
                 self._log_finance_change(
                     contract_id=contract.id,
-                    user_id=user_id,  # type: ignore[arg-type]
+                    user_id=user_id,
                     action="update_contract_finance",
                     changes=changes,
                 )
@@ -738,7 +738,7 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
         parties_dict: dict[int, dict[str, Any]] = {}
 
         # 聚合合同当事人 (Requirements 2.2)
-        for party in contract.contract_parties.select_related("client").all():  # type: ignore[attr-defined]
+        for party in contract.contract_parties.select_related("client").all():
             client = party.client
             if client.id not in parties_dict:
                 parties_dict[client.id] = {
@@ -749,7 +749,7 @@ class ContractService(ContractHelpersMixin, PermissionMixin):
                 }
 
         # 聚合补充协议当事人 (Requirements 2.3)
-        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():  # type: ignore[attr-defined]
+        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():
             for sa_party in sa.parties.all():
                 client = sa_party.client
                 if client.id not in parties_dict:

@@ -30,7 +30,7 @@ class CourtDocumentRecognitionServiceAdapter:
         if self._service is None:
             from .recognition_service import CourtDocumentRecognitionService
 
-            self._service = CourtDocumentRecognitionService()  # type: ignore[assignment]
+            self._service = CourtDocumentRecognitionService()
         return self._service
 
     def recognize_document(self, file_path: str, user: Any | None = None) -> RecognitionResponse:

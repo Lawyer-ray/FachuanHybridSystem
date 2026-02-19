@@ -36,7 +36,7 @@ class CaseMaterialBindingWorkflow:
         perm_open_access: bool = False,
     ) -> list[CaseMaterial]:
         self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
-        attachment_ids = [int(x.get("attachment_id")) for x in items if x.get("attachment_id")]  # type: ignore[arg-type]
+        attachment_ids = [int(x.get("attachment_id")) for x in items if x.get("attachment_id")]
         attachments = {
             a.id: a
             for a in CaseLogAttachment.objects.filter(log__case_id=case_id, id__in=attachment_ids).select_related("log")
@@ -51,7 +51,7 @@ class CaseMaterialBindingWorkflow:
         saved: list[CaseMaterial] = []
         with transaction.atomic():
             for payload in items:
-                att_id = int(payload.get("attachment_id"))  # type: ignore[arg-type]
+                att_id = int(payload.get("attachment_id"))
                 category = (payload.get("category") or "").strip()
                 type_id = payload.get("type_id")
                 type_name = (payload.get("type_name") or "").strip()
@@ -110,11 +110,11 @@ class CaseMaterialBindingWorkflow:
         law_firm_id: int | None,
     ) -> CaseMaterialType:
         cache_key = ("id", int(type_id)) if type_id else ("name", category, type_name, law_firm_id)
-        cached = cache.get(cache_key)  # type: ignore
+        cached = cache.get(cache_key)
         if cached:
             return cached
         resolved = self._resolve_type(category=category, type_id=type_id, type_name=type_name, law_firm_id=law_firm_id)
-        cache[cache_key] = resolved  # type: ignore
+        cache[cache_key] = resolved
         return resolved
 
     def _resolve_type(
@@ -134,7 +134,7 @@ class CaseMaterialBindingWorkflow:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first()  # type: ignore[assignment]
+        t = qs.first()
         if t:
             return t
         return CaseMaterialType.objects.create(

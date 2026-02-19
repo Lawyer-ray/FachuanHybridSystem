@@ -227,3 +227,17 @@ class SecurityHeadersMiddleware:
             response["Content-Security-Policy"] = csp
         if csp_ro:
             response["Content-Security-Policy-Report-Only"] = csp_ro
+
+
+class PermissionsPolicyMiddleware:
+    """设置 Permissions-Policy 响应头的中间件"""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.get_response(request)
+        policy = getattr(settings, "PERMISSIONS_POLICY", "")
+        if policy:
+            response["Permissions-Policy"] = policy
+        return response

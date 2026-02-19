@@ -31,6 +31,6 @@ class CookieService:
         p = Path(path)
         p.parent.makedirs_p()
         context.cookies()
-        payload = ({},)  # type: ignore[var-annotated]
+        payload = ({},)
         p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(p)

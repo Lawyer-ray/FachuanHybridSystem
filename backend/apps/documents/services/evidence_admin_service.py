@@ -157,7 +157,7 @@ class EvidenceAdminService:
             证据清单数据
         """
         evidence_list = self.evidence_service.get_evidence_list(list_id)
-        items = list(evidence_list.items.order_by("order"))  # type: ignore[attr-defined]
+        items = list(evidence_list.items.order_by("order"))
 
         return {
             "id": evidence_list.pk,
@@ -262,7 +262,7 @@ class EvidenceAdminService:
         from apps.documents.models import EvidenceList
 
         evidence_list = EvidenceList.objects.get(pk=list_id)
-        items = evidence_list.items.all()  # type: ignore[attr-defined]
+        items = evidence_list.items.all()
 
         updated = 0
         errors: list[Any] = []

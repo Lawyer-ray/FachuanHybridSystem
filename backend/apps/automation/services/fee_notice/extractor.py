@@ -154,7 +154,7 @@ class FeeAmountExtractor:
                     amount_cells = re.split(r"[|｜\t]+", line_stripped)
                 else:
                     amount_cells = self._split_amount_row_by_space(line_stripped)
-                amount_cells: list[Any] = []  # type: ignore[no-redef]
+                amount_cells: list[Any] = []
                 for idx, field_name in column_mapping.items():
                     if idx < len(amount_cells):
                         cell_value = amount_cells[idx]

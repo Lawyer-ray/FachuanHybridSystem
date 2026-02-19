@@ -189,7 +189,7 @@ class DocumentDeliveryMatchingMixin:
                     matched_case = self._match_case_by_document_parties(extracted_files)
 
                 if matched_case:
-                    sms.case_id = matched_case.id  # type: ignore[attr-defined]
+                    sms.case_id = matched_case.id
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
                     result["case_id"] = matched_case.id
@@ -204,7 +204,7 @@ class DocumentDeliveryMatchingMixin:
                         result["renamed_path"] = renamed_files[0]
                     if case_log_id:
                         result["case_log_id"] = case_log_id
-                        sms.case_log_id = case_log_id  # type: ignore[attr-defined]
+                        sms.case_log_id = case_log_id
 
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()

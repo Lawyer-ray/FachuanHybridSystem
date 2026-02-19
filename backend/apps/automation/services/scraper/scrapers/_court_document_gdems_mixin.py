@@ -22,7 +22,7 @@ class CourtDocumentGdemsMixin:
         """按顺序尝试多个选择器，返回第一个可见的定位器"""
         for selector in selectors:
             try:
-                loc = self.page.locator(selector)  # type: ignore[attr-defined]
+                loc = self.page.locator(selector)
                 if loc.count() > 0 and loc.first.is_visible():
                     return loc
             except Exception:
@@ -39,7 +39,7 @@ class CourtDocumentGdemsMixin:
             submit_button = self._find_visible_locator(selectors)
             if not submit_button:
                 try:
-                    btn = self.page.get_by_text("确认并预览材料", exact=False)  # type: ignore[attr-defined]
+                    btn = self.page.get_by_text("确认并预览材料", exact=False)
                     if btn.count() > 0 and btn.first.is_visible():
                         submit_button = btn
                 except Exception:
@@ -47,7 +47,7 @@ class CourtDocumentGdemsMixin:
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-                self.page.wait_for_load_state("networkidle", timeout=30000)  # type: ignore[attr-defined]
+                self.page.wait_for_load_state("networkidle", timeout=30000)
                 self.random_wait(5, 7)
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
@@ -71,7 +71,7 @@ class CourtDocumentGdemsMixin:
                 raise ValueError("找不到下载按钮")
             download_button.first.scroll_into_view_if_needed()
             self.random_wait(1, 2)
-            with self.page.expect_download(timeout=60000) as download_info:  # type: ignore[attr-defined]
+            with self.page.expect_download(timeout=60000) as download_info:
                 download_button.first.click()
                 logger.info("已点击下载按钮，等待下载...")
             download = download_info.value
@@ -103,7 +103,7 @@ class CourtDocumentGdemsMixin:
         """下载 sd.gdems.com 的文书"""
         logger.info("处理 sd.gdems.com 链接...")
         self.navigate_to_url()
-        self.page.wait_for_load_state("networkidle", timeout=30000)  # type: ignore[attr-defined]
+        self.page.wait_for_load_state("networkidle", timeout=30000)
         self.random_wait(3, 5)
         screenshot_cover = self.screenshot("gdems_cover")
         self._click_gdems_confirm_button()

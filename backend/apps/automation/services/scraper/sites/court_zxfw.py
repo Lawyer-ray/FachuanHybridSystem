@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from playwright.sync_api import BrowserContext, Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import (  # type: ignore[attr-defined]
+    from apps.automation.services.captcha.captcha_recognition_service import (
         CaptchaRecognizer,
     )
     from apps.automation.services.scraper.core.token_service import TokenService
@@ -81,7 +81,7 @@ class CourtZxfwService:
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._token_service = ServiceLocator.get_token_service()  # type: ignore[assignment]
+            self._token_service = ServiceLocator.get_token_service()
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 
@@ -92,10 +92,10 @@ class CourtZxfwService:
             if wrapper in body and isinstance(body[wrapper], dict):
                 for key in token_keys:
                     if body[wrapper].get(key):
-                        return str(body[wrapper][key])  # type: ignore[return-value]
+                        return str(body[wrapper][key])
         for key in token_keys:
             if body.get(key):
-                return str(body[key])  # type: ignore[return-value]
+                return str(body[key])
         return None
 
     def _make_response_handler(self, captured_token: dict[str, Any]) -> Any:
@@ -174,7 +174,7 @@ class CourtZxfwService:
         password: str,
         max_captcha_retries: int = 3,
         save_debug: bool = False,
-        credential_id: int | None = None,  # type: ignore[assignment]
+        credential_id: int | None = None,
     ) -> dict[str, Any]:
         """登录全国法院"一张网" """
         logger.info("=" * 60)

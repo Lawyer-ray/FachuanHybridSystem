@@ -93,25 +93,25 @@ class SMSNotificationService:
             # 默认使用飞书平台（可以从配置中读取）
             platform = ChatPlatform.FEISHU
 
-            logger.info(f"开始发送案件群聊通知: SMS ID={sms.id}, Case ID={sms.case.id}, Platform={platform.value}")  # type: ignore[attr-defined]
+            logger.info(f"开始发送案件群聊通知: SMS ID={sms.id}, Case ID={sms.case.id}, Platform={platform.value}")
 
             # Requirements 3.2: 检查群聊是否存在，不存在则自动创建
             try:
-                chat = chat_service.get_or_create_chat(  # type: ignore[attr-defined]
-                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                chat = chat_service.get_or_create_chat(
+                    case_id=sms.case.id,
                     platform=platform,
                 )
                 logger.info(f"获取或创建群聊成功: SMS ID={sms.id}, Chat ID={chat.chat_id}")
 
             except Exception as e:
                 # Requirements 3.4: 自动创建群聊失败时记录错误日志，返回 False
-                logger.error(f"获取或创建群聊失败: SMS ID={sms.id}, Case ID={sms.case.id}, 错误: {e!s}")  # type: ignore[attr-defined]
+                logger.error(f"获取或创建群聊失败: SMS ID={sms.id}, Case ID={sms.case.id}, 错误: {e!s}")
                 return False
 
             # Requirements 3.3: 将文书内容和短信内容推送到群聊
             try:
-                result = chat_service.send_document_notification(  # type: ignore[attr-defined]
-                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                result = chat_service.send_document_notification(
+                    case_id=sms.case.id,
                     sms_content=sms.content,
                     document_paths=document_paths or [],
                     platform=platform,
@@ -158,5 +158,5 @@ class SMSNotificationService:
         """
         return cast(
             Any,
-            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),  # type: ignore[attr-defined]
+            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),
         )

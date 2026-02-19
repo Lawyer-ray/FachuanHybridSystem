@@ -84,7 +84,7 @@ class FeishuFileMixin:
                 )
 
             file_data = resp_data.get("data", {})
-            file_key = file_data.get("file_key")  # type: ignore[union-attr]
+            file_key = file_data.get("file_key")
 
             if not file_key:
                 raise MessageSendException(
@@ -92,7 +92,7 @@ class FeishuFileMixin:
                 )
 
             logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")
-            return file_key  # type: ignore[no-any-return]
+            return file_key
 
         except MessageSendException:
             raise

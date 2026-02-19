@@ -435,7 +435,7 @@ class CasePartyService:
             },
         )
 
-        return party  # type: ignore[no-any-return]
+        return party
 
     @transaction.atomic
     def delete_party(

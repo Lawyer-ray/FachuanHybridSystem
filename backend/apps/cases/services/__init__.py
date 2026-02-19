@@ -34,9 +34,9 @@ class CaseService(CaseQueryService, CaseCommandService):
         from .case.case_search_service import CaseSearchService
 
         resolved_policy = access_policy or CaseAccessPolicy()
-        resolved_search = search_service or CaseSearchService(access_policy=resolved_policy)  # type: ignore[arg-type]
-        CaseQueryService.__init__(self, search_service=resolved_search, access_policy=resolved_policy)  # type: ignore[arg-type]
-        CaseCommandService.__init__(self, contract_service=contract_service, access_policy=resolved_policy)  # type: ignore[arg-type]
+        resolved_search = search_service or CaseSearchService(access_policy=resolved_policy)
+        CaseQueryService.__init__(self, search_service=resolved_search, access_policy=resolved_policy)
+        CaseCommandService.__init__(self, contract_service=contract_service, access_policy=resolved_policy)
 
 
 __all__ = [

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EnhancedContextBuilder:
     """增强的上下文构建器"""
 
-    def __init__(self, registry: PlaceholderRegistry = None) -> None:  # type: ignore[assignment]
+    def __init__(self, registry: PlaceholderRegistry = None) -> None:
         """
         初始化上下文构建器
 

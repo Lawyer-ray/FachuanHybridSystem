@@ -36,7 +36,7 @@ class FolderTemplateUsecases:
     def get_duplicate_id_report(self) -> dict[str, Any]:
         return self.query_service.get_duplicate_id_report()
 
-    def create_template(  # type: ignore
+    def create_template(  # type: ignore[override]
         self,
         *,
         name: str,

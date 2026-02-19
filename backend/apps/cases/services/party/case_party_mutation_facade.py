@@ -65,7 +65,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        return self.mutation_service.create_party(  # type: ignore[return-value]
+        return self.mutation_service.create_party(
             case_id=case_id, client_id=client_id, legal_status=legal_status, user=user
         )
 
@@ -95,7 +95,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
                 org_access=org_access,
                 perm_open_access=perm_open_access,
             )
-        return self.mutation_service.update_party(party_id=party_id, data=data, user=user)  # type: ignore[return-value]
+        return self.mutation_service.update_party(party_id=party_id, data=data, user=user)
 
     def delete_party(
         self,
@@ -114,7 +114,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        return self.mutation_service.delete_party(party_id=party_id, user=user)  # type: ignore[return-value]
+        return self.mutation_service.delete_party(party_id=party_id, user=user)
 
     def create_party_internal(self, *, case_id: int, client_id: int, legal_status: str | None = None) -> bool:
         return self.mutation_service.create_party_internal(

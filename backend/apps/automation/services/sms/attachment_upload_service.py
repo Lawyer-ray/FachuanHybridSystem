@@ -71,7 +71,7 @@ class AttachmentUploadService:
             logger.info("短信 %s 无文书需要重命名", sms_id)
             return []
 
-        case_name: str = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+        case_name: str = sms.case.name if sms.case else "未知案件"
         received_date = sms.received_at.date()
         renamed_paths: list[str] = []
 
@@ -224,7 +224,7 @@ class AttachmentUploadService:
             if "." in filename:
                 name_without_ext = filename.rsplit(".", 1)[0]
 
-            case_name: str = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+            case_name: str = sms.case.name if sms.case else "未知案件"
             received_date = sms.received_at.date()
             date_str = received_date.strftime("%Y%m%d")
 
@@ -255,7 +255,7 @@ class AttachmentUploadService:
             return fixed_filename
         except Exception as e:
             logger.warning("修正文件名格式失败: %s, 错误: %s", filename, e)
-            case_name = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+            case_name = sms.case.name if sms.case else "未知案件"
             date_str = sms.received_at.strftime("%Y%m%d")
             return f"司法文书({case_name})_{date_str}收.pdf"
 

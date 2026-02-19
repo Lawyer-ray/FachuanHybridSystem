@@ -269,7 +269,7 @@ class CourtDocumentApiClient:
                 raise NetworkError(message=f"请求超时: {e!s}", errors={"url": url, "timeout": self._timeout}) from e
 
             except httpx.RequestError as e:
-                last_error = e  # type: ignore[assignment]
+                last_error = e
                 logger.warning(f"网络错误: {url}, attempt={attempt + 1}, error={e!s}")
                 if attempt < retry_count:
                     continue
@@ -280,7 +280,7 @@ class CourtDocumentApiClient:
                 raise
 
             except Exception as e:
-                last_error = e  # type: ignore[assignment]
+                last_error = e
                 logger.error(f"未知错误: {url}, error={e!s}")
                 raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": url}) from e
 

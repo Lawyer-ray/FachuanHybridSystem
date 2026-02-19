@@ -24,7 +24,7 @@ class ContractValidator:
             FeeMode.CUSTOM: self._validate_custom,
         }
 
-        validator = validators.get(fee_mode)  # type: ignore[arg-type]
+        validator = validators.get(fee_mode)
         if validator:
             validator(data, errors)
 

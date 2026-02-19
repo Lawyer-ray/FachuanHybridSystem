@@ -46,7 +46,7 @@ class CasePartyQueryService:
             .values_list("legal_status", flat=True)
         )
 
-        compatible_statuses = business_config.get_compatible_legal_statuses(  # type: ignore
+        compatible_statuses = business_config.get_compatible_legal_statuses(
             existing_statuses=existing_statuses,
             case_type=case.case_type,
         )

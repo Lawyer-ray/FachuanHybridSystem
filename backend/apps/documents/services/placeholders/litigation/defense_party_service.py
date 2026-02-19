@@ -90,7 +90,7 @@ class DefensePartyService(BasePlaceholderService):
         """
         from apps.core.enums import LegalStatus
 
-        role_map = {"答辩人": [], "被答辩人": [], "第三人": [], "被告": []}  # type: ignore[var-annotated]
+        role_map = {"答辩人": [], "被答辩人": [], "第三人": [], "被告": []}
 
         scenario_handlers = {
             "defendant_only": self._map_defendant_only,
@@ -173,7 +173,7 @@ class DefensePartyService(BasePlaceholderService):
         for index, party_dict in enumerate(respondents):
             respondent_label = self._numbered_label("答辩人", index, total)
             original_role = party_dict.get("legal_status")
-            chinese_role = legal_status_map.get(original_role, original_role)  # type: ignore[arg-type, arg-type]
+            chinese_role = legal_status_map.get(original_role, original_role)
 
             if total > 1:
                 original_parties = [p for p in parties if p.get("legal_status") == original_role]

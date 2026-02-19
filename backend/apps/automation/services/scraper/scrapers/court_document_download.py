@@ -52,11 +52,11 @@ class CourtDocumentDownloadMixin(
             raise RuntimeError("django.media_root 未配置")
         media_root_path = Path(str(media_root))
 
-        if self.cast(int | None, self.cast(int, self.task.case_id)):  # type: ignore[attr-defined]
+        if self.cast(int | None, self.cast(int, self.task.case_id)):
             download_dir = (
                 media_root_path
                 / "case_logs"
-                / str(self.cast(int | None, self.cast(int, self.task.case_id)))  # type: ignore[attr-defined]
+                / str(self.cast(int | None, self.cast(int, self.task.case_id)))
                 / "documents"
             )
         else:
@@ -156,7 +156,7 @@ class CourtDocumentDownloadMixin(
         logger.info(f"开始批量保存文书记录,共 {total} 条")
 
         for document_data, download_result in documents_with_results:
-            document_id = self._save_document_to_db(document_data, download_result)  # type: ignore
+            document_id = self._save_document_to_db(document_data, download_result)
 
             if document_id is not None:
                 success_count += 1

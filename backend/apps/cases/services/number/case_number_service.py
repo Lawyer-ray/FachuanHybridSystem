@@ -22,7 +22,7 @@ from apps.core.security import DjangoPermsMixin
 
 from .wiring import get_case_service
 
-logger = logging.getLogger("apps.cases")  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases")
 
 
 class CaseNumberService(DjangoPermsMixin):
@@ -223,7 +223,7 @@ class CaseNumberService(DjangoPermsMixin):
             )
 
         # 规范化案号
-        normalized_number = self.normalize_case_number(number)  # type: ignore[call-arg, misc]
+        normalized_number = self.normalize_case_number(number)
 
         # 创建案号
         case_number = CaseNumber.objects.create(case=case, number=normalized_number, remarks=remarks)
@@ -327,7 +327,7 @@ class CaseNumberService(DjangoPermsMixin):
             },
         )
 
-        return case_number  # type: ignore[no-any-return]
+        return case_number
 
     @transaction.atomic
     def delete_number(
@@ -389,7 +389,7 @@ class CaseNumberService(DjangoPermsMixin):
 
         return {"success": True}
 
-    def normalize_case_number(number: str) -> str:  # type: ignore[misc]
+    def normalize_case_number(number: str) -> str:
         """
         规范化案号:统一括号、删除空格
 

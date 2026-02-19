@@ -43,7 +43,7 @@ class FolderTemplateStructureIdRepairService:
                 new_id = self.id_service.generate_unique_id()
             return new_id
 
-        def repair_node(node) -> None:  # type: ignore[no-untyped-def]
+        def repair_node(node) -> None:
             nonlocal changes
             if not isinstance(node, dict):
                 return cast(None, node)
@@ -59,13 +59,13 @@ class FolderTemplateStructureIdRepairService:
 
             children = node.get("children")
             if isinstance(children, list):
-                node["children"] = [repair_node(child) for child in children]  # type: ignore[func-returns-value]
+                node["children"] = [repair_node(child) for child in children]
 
-            return node  # type: ignore[return-value]
+            return node
 
         fixed_structure = structure.copy()
         children = fixed_structure.get("children")
         if isinstance(children, list):
-            fixed_structure["children"] = [repair_node(child) for child in children]  # type: ignore[func-returns-value]
+            fixed_structure["children"] = [repair_node(child) for child in children]
 
         return fixed_structure, changes

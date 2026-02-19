@@ -116,7 +116,7 @@ class QuoteCommandService:
 
             self.logger.info("批量执行询价任务完成", extra={"action": "execute_quotes", "result": result})
 
-            return result  # type: ignore[no-any-return]
+            return result
 
         except Exception as e:
             self.logger.error(
@@ -171,7 +171,7 @@ class QuoteCommandService:
 
                 retried_count += 1
 
-            result = {}  # type: ignore[var-annotated]
+            result = {}
 
             self.logger.info("重试失败询价任务完成", extra={})
 
@@ -285,7 +285,7 @@ class QuoteCommandService:
 
             if quote.status not in [QuoteStatus.PENDING, QuoteStatus.FAILED]:
                 raise ValidationException(
-                    message=f"任务当前状态为 {quote.get_status_display()},无法执行",  # type: ignore[attr-defined]
+                    message=f"任务当前状态为 {quote.get_status_display()},无法执行",
                     code="INVALID_QUOTE_STATUS",
                     errors={},
                 )

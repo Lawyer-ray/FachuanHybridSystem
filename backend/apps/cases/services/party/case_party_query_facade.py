@@ -89,7 +89,7 @@ class CasePartyQueryFacade(DjangoPermsMixin):
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        return party  # type: ignore[return-value]
+        return party
 
     def get_available_legal_statuses(
         self,

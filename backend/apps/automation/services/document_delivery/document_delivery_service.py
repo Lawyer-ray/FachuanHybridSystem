@@ -158,7 +158,7 @@ class DocumentDeliveryService(
                 return result
             total_pages = math.ceil(total / page_size)
             self._process_document_page(
-                documents=first_response.documents,  # type: ignore[arg-type]
+                documents=first_response.documents,
                 token=token, cutoff_time=cutoff_time, credential_id=credential_id, result=result,
             )
             for page_num in range(2, total_pages + 1):
@@ -168,7 +168,7 @@ class DocumentDeliveryService(
                         token=token, page_num=page_num, page_size=page_size
                     )
                     self._process_document_page(
-                        documents=page_response.documents,  # type: ignore[arg-type]
+                        documents=page_response.documents,
                         token=token, cutoff_time=cutoff_time, credential_id=credential_id, result=result,
                     )
                 except Exception as e:
@@ -460,7 +460,7 @@ class DocumentDeliveryService(
 
     def _should_process(self, record: DocumentDeliveryRecord, cutoff_time: datetime, credential_id: int) -> bool:
         """判断是否需要处理该文书（Playwright 上下文）"""
-        if record.send_time <= cutoff_time:  # type: ignore[operator]
+        if record.send_time <= cutoff_time:
             logger.info(f"⏰ 文书时间 {record.send_time} 早于截止时间 {cutoff_time}，跳过")
             return False
         return self._check_not_processed_in_thread(credential_id, record)
@@ -484,7 +484,7 @@ class DocumentDeliveryService(
                 result.failed_count += 1
                 if process_result.error_message:
                     result.errors.append(process_result.error_message)
-            return bool(entry.send_time > cutoff_time)  # type: ignore[operator]
+            return bool(entry.send_time > cutoff_time)
         else:
             result.skipped_count += 1
             return False
@@ -512,7 +512,7 @@ class DocumentDeliveryService(
                     should_continue = self._process_single_entry(page, entry, cutoff_time, credential_id, result)
                 else:
                     result.skipped_count += 1
-                    if entry.send_time <= cutoff_time:  # type: ignore[operator]
+                    if entry.send_time <= cutoff_time:
                         should_continue = False
                         break
             if not should_continue or not self._has_next_page(page):

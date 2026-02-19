@@ -45,7 +45,7 @@ class TokenServiceAdapter:
                 await self._maybe_await(save_token(**kwargs))
                 return None
 
-            kwargs: dict[str, Any] = {}  # type: ignore[no-redef]
+            kwargs: dict[str, Any] = {}
             if "expires_in" in params:
                 kwargs["expires_in"] = 3600
             await self._maybe_await(save_token(**kwargs))

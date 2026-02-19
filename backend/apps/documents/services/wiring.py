@@ -16,7 +16,7 @@ def get_contract_service() -> Any:
 
 
 def get_contract_query_service() -> Any:
-    return ServiceLocator.get_contract_query_service()  # type: ignore[attr-defined]
+    return ServiceLocator.get_contract_query_service()
 
 
 def get_client_service() -> Any:
@@ -40,7 +40,7 @@ def get_evidence_query_service() -> Any:
 
 
 def get_file_storage() -> Any:
-    return ServiceLocator.get_file_storage()  # type: ignore[attr-defined]
+    return ServiceLocator.get_file_storage()
 
 
 def get_preservation_quote_service() -> Any:

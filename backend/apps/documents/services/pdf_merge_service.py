@@ -23,7 +23,7 @@ class PDFMergeValidator:
     WORD_FORMATS: ClassVar = [".doc", ".docx"]
 
     def get_items(self, evidence_list: EvidenceList) -> Any:
-        items = evidence_list.items.filter(file__isnull=False).exclude(file="").order_by("order")  # type: ignore[attr-defined]
+        items = evidence_list.items.filter(file__isnull=False).exclude(file="").order_by("order")
         if not items.exists():
             raise ValidationException(
                 message="证据清单没有任何文件",
@@ -72,7 +72,7 @@ class PDFMergeWorkflow:
             pdf_with_pages = self.add_page_numbers(output_buffer, evidence_list.start_page)
             file_name = self._generate_merged_filename(evidence_list)
             self._save_merged_pdf(evidence_list, file_name, pdf_with_pages)
-            self._cleanup_temp_files(temp_files)  # type: ignore[attr-defined]
+            self._cleanup_temp_files(temp_files)
             return cast(str, evidence_list.merged_pdf.path)
         except (ValidationException, BusinessException):
             raise
@@ -114,7 +114,7 @@ class PDFMergeWorkflow:
         evidence_list.total_pages = self.get_pdf_page_count(io.BytesIO(pdf_with_pages))
         evidence_list.save(update_fields=["merged_pdf", "total_pages", "updated_at"])
 
-        def _cleanup_temp_files(temp_files) -> None:  # type: ignore[no-untyped-def]
+        def _cleanup_temp_files(temp_files) -> None:
             for temp_file in temp_files:
                 with contextlib.suppress(Exception):
                     os.remove(temp_file)
@@ -135,7 +135,7 @@ class PDFMergeWorkflow:
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
         from datetime import datetime
 
-        case_name = evidence_list.case.name  # type: ignore[attr-defined]
+        case_name = evidence_list.case.name
         date_str = datetime.now().strftime("%Y%m%d")
         list_suffix = ""
         title = evidence_list.title

@@ -56,7 +56,7 @@ class AuthorityLetterPlaceholderService(BasePlaceholderService):
                 "获取案件律师列表失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            assignments: list[Any] = []  # type: ignore[no-redef]
+            assignments: list[Any] = []
 
         parts: list[str] = []
         for assignment in assignments:

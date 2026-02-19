@@ -65,7 +65,7 @@ class CourtFilingScraper(BaseScraper):
         screenshot_path = self.screenshot("filing_result")
 
         return {
-            "case_id": self.task.case_id if self.task.case else None,  # type: ignore[attr-defined]
+            "case_id": self.task.case_id if self.task.case else None,
             "screenshot": screenshot_path,
             "message": "立案提交成功（需根据实际网站完善逻辑）",
         }

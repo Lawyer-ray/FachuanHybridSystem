@@ -132,7 +132,7 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message="该合同类型不支持创建案件",
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型 {cast(str, contract.get_case_type_display())} 不支持创建案件"},  # type: ignore[attr-defined]
+                errors={"case_type": f"合同类型 {cast(str, contract.get_case_type_display())} 不支持创建案件"},
             )
 
         from apps.core.enums import SimpleCaseType
@@ -148,7 +148,7 @@ class ContractAdminMutationService:
         case_data = {
             "name": f"{contract.name} - 案件",
             "contract_id": cast(int, contract.pk),
-            "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),  # type: ignore
+            "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
             "is_archived": False,
         }
         return self.case_creation_workflow.create_case_from_contract(
@@ -174,7 +174,7 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message="只有常法顾问合同才能续签",
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型为 {cast(str, original.get_case_type_display())},不是常法顾问合同"},  # type: ignore[attr-defined]
+                errors={"case_type": f"合同类型为 {cast(str, original.get_case_type_display())},不是常法顾问合同"},
             )
 
         new_start_date = original.start_date + relativedelta(years=1) if original.start_date else None
@@ -202,7 +202,7 @@ class ContractAdminMutationService:
 
         return new_contract
 
-    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str:  # type: ignore
+    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str:
         principals_str = "、".join(principal_names)
         start_str = start_date.strftime("%Y年%m月%d日")
         end_str = end_date.strftime("%Y年%m月%d日")
@@ -239,7 +239,7 @@ class ContractAdminMutationService:
                     "action": "handle_contract_filing_change",
                 },
             )
-            return contract.filing_number  # type: ignore[no-any-return]
+            return contract.filing_number
 
         filing_number = self.filing_number_workflow.ensure_filing_number(contract=contract)
 
@@ -252,4 +252,4 @@ class ContractAdminMutationService:
             },
         )
 
-        return filing_number  # type: ignore[no-any-return]
+        return filing_number

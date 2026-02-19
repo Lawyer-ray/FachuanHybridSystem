@@ -167,7 +167,7 @@ class CourtDocumentZxfwDownloadMixin:
         for i, document_data in enumerate(documents, 1):
             self._logger.info(f"下载第 {i}/{len(documents)} 个文书: {document_data.get('c_wsmc', 'Unknown')}")
 
-            download_result = self._download_document_directly(  # type: ignore[attr-defined]
+            download_result = self._download_document_directly(
                 document_data=document_data, download_dir=download_dir, download_timeout=60000
             )
 
@@ -218,14 +218,14 @@ class CourtDocumentZxfwDownloadMixin:
         return self._process_api_data_and_download(api_data, download_dir)
 
     def _download_via_api_intercept(self: "_ZxfwHost", download_dir: Path) -> dict[str, Any]:
-        return cast(dict[str, Any], self._download_via_api_intercept_with_navigation(download_dir))  # type: ignore[attr-defined]
+        return cast(dict[str, Any], self._download_via_api_intercept_with_navigation(download_dir))
 
     def _download_via_fallback(self: "_ZxfwHost", download_dir: Path) -> dict[str, Any]:
         downloaded_files: list[str] = []
         success_count = 0
         failed_count = 0
 
-        doc_count = self._zxfw_detect_doc_count()  # type: ignore[attr-defined]
+        doc_count = self._zxfw_detect_doc_count()
 
         for doc_index in range(1, doc_count + 1):
             logger.info(f"\n{'=' * 40}")
@@ -233,14 +233,14 @@ class CourtDocumentZxfwDownloadMixin:
             logger.info(f"{'=' * 40}")
 
             try:
-                self._zxfw_click_doc_item(doc_index, doc_count)  # type: ignore[attr-defined]
-                frame = self._zxfw_find_pdf_iframe()  # type: ignore[attr-defined]
+                self._zxfw_click_doc_item(doc_index, doc_count)
+                frame = self._zxfw_find_pdf_iframe()
 
                 if not frame:
                     logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe,跳过")
                     continue
 
-                filepath = self._zxfw_download_from_frame(frame, doc_index, download_dir)  # type: ignore[attr-defined]
+                filepath = self._zxfw_download_from_frame(frame, doc_index, download_dir)
                 if filepath:
                     downloaded_files.append(filepath)
                     success_count += 1
@@ -366,7 +366,7 @@ class CourtDocumentZxfwDownloadMixin:
         except Exception as e:
             logger.warning(f"[DEBUG] #download 方式失败: {e},尝试备用 XPath")
 
-        return self._zxfw_download_from_frame_fallback(frame, doc_index, download_dir)  # type: ignore[no-any-return, attr-defined]
+        return self._zxfw_download_from_frame_fallback(frame, doc_index, download_dir)
 
     def _zxfw_download_from_frame_fallback(
         self: "_ZxfwHost", frame: Any, doc_index: int, download_dir: Path

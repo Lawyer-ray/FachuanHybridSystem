@@ -285,7 +285,7 @@ class CaseAssignmentService:
             },
         )
 
-        return assignment  # type: ignore[no-any-return]
+        return assignment
 
     @transaction.atomic
     def delete_assignment(

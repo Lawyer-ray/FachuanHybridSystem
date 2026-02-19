@@ -19,7 +19,7 @@ class EvidenceFileService:
     MAX_FILE_SIZE = 50 * 1024 * 1024
 
     @transaction.atomic
-    def upload_file(self, *, item: EvidenceItem, file) -> EvidenceItem:  # type: ignore[no-untyped-def]
+    def upload_file(self, *, item: EvidenceItem, file) -> EvidenceItem:
         file_name = getattr(file, "name", "")
         file_size = getattr(file, "size", 0)
 
@@ -71,7 +71,7 @@ class EvidenceFileService:
         item.save()
         return True
 
-    def _get_page_count(self, *, ext: str, file) -> int:  # type: ignore[no-untyped-def]
+    def _get_page_count(self, *, ext: str, file) -> int:
         if ext == ".pdf":
             from apps.documents.services.pdf_utils import get_pdf_page_count
 

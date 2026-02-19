@@ -204,7 +204,7 @@ class CaseChatService:
         existing_chat = self.repo.get_active_chat(case_id=case_id, platform=platform)
         if existing_chat:
             logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
-            return existing_chat  # type: ignore[return-value]
+            return existing_chat
         logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
         return cast(
             None,
@@ -278,7 +278,7 @@ class CaseChatService:
         try:
             chat = self.get_or_create_chat(
                 case_id, platform, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
-            )  # type: ignore[func-returns-value]
+            )
             from apps.cases.dependencies import create_message_content
 
             content = create_message_content(title=title, text=sms_content.strip(), file_path=None)
@@ -306,7 +306,7 @@ class CaseChatService:
                 provider_facade=self.provider_facade,
                 recreate_policy=self.recreate_policy,
                 chat_creator=lambda case_id, platform: self.create_chat_for_case(case_id, platform),
-            )  # type: ignore[assignment]
+            )
         return cast(SendNotificationUsecase, self._send_notification_usecase)
 
     def unbind_chat(self, chat_id: int) -> bool:
@@ -404,7 +404,7 @@ class CaseChatService:
             logger.info(
                 f"群聊绑定成功: case_id={case_id}, chat_id={chat_id}, platform={platform.value}, name={chat_name}"
             )
-            return case_chat  # type: ignore[return-value]
+            return case_chat
         except ValidationException:
             raise
         except Exception as e:

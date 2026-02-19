@@ -83,7 +83,7 @@ class DocumentAttachmentService:
         paths: list[str] = []
         if not hasattr(sms.scraper_task, "documents"):
             return paths
-        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore[attr-defined]
+        for doc in sms.scraper_task.documents.filter(download_status="success"):
             if doc.local_file_path and os.path.exists(doc.local_file_path):
                 paths.append(doc.local_file_path)
                 logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
@@ -92,7 +92,7 @@ class DocumentAttachmentService:
     def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
         """从 ScraperTask.result 获取路径（降级）"""
         paths: list[str] = []
-        result = sms.scraper_task.result  # type: ignore[attr-defined]
+        result = sms.scraper_task.result
         if not result or not isinstance(result, dict):
             return paths
         files = result.get("files", [])
@@ -116,7 +116,7 @@ class DocumentAttachmentService:
         seen_paths: set[str] = set()
 
         try:
-            result = sms.scraper_task.result  # type: ignore[attr-defined]
+            result = sms.scraper_task.result
 
             # 方式1：优先使用 renamed_files
             if result and isinstance(result, dict):
@@ -164,7 +164,7 @@ class DocumentAttachmentService:
         """从 CourtDocument 记录收集路径"""
         if not hasattr(sms.scraper_task, "documents"):
             return
-        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore[attr-defined]
+        for doc in sms.scraper_task.documents.filter(download_status="success"):
             if doc.local_file_path and os.path.exists(doc.local_file_path):
                 abs_path = os.path.abspath(doc.local_file_path)
                 if abs_path not in seen:
@@ -189,7 +189,7 @@ class DocumentAttachmentService:
             logger.info(f"短信 {sms.id} 无文书需要重命名")
             return []
 
-        case_name = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+        case_name = sms.case.name if sms.case else "未知案件"
         received_date = sms.received_at.date()
         renamed_paths = []
 
@@ -271,7 +271,7 @@ class DocumentAttachmentService:
             relative_path = f"case_logs/{renamed_filename}"
 
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=sms.case_log.id,  # type: ignore[attr-defined]
+                case_log_id=sms.case_log.id,
                 file_path=relative_path,
                 file_name=renamed_filename,
             )
@@ -357,7 +357,7 @@ class DocumentAttachmentService:
                 name_without_ext = filename.rsplit(".", 1)[0]
 
             # 获取案件名称和日期
-            case_name = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+            case_name = sms.case.name if sms.case else "未知案件"
             received_date = sms.received_at.date()
             date_str = received_date.strftime("%Y%m%d")
 
@@ -394,7 +394,7 @@ class DocumentAttachmentService:
         except Exception as e:
             logger.warning(f"修正文件名格式失败: {filename}, 错误: {e!s}")
             # 返回一个基本的格式
-            case_name = sms.case.name if sms.case else "未知案件"  # type: ignore[attr-defined]
+            case_name = sms.case.name if sms.case else "未知案件"
             date_str = sms.received_at.strftime("%Y%m%d")
             return f"司法文书（{case_name}）_{date_str}收.pdf"
 
@@ -451,7 +451,7 @@ class DocumentAttachmentService:
             if not os.path.exists(directory):
                 return None
 
-            case_name = sms.case.name if sms.case else None  # type: ignore[attr-defined]
+            case_name = sms.case.name if sms.case else None
             if not case_name:
                 return None
 

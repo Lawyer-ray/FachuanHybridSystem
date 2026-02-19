@@ -105,9 +105,9 @@ class ExtractorValidatorsMixin:
         score = 50
         reasons: list[Any] = []
         score, reasons = self._score_date_range(dt, now, score, reasons)
-        score, reasons = self._score_work_hours(dt, score, reasons)  # type: ignore[attr-defined]
-        score, reasons = self._score_weekday(dt, score, reasons)  # type: ignore[attr-defined]
-        score, reasons = self._score_minute(dt, score, reasons)  # type: ignore[attr-defined]
+        score, reasons = self._score_work_hours(dt, score, reasons)
+        score, reasons = self._score_weekday(dt, score, reasons)
+        score, reasons = self._score_minute(dt, score, reasons)
         score = max(0, min(100, score))
         is_valid = score > 30
         return (is_valid, score, "; ".join(reasons))

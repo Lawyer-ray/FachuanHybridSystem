@@ -137,7 +137,7 @@ class GenerationService:
             return False, "文书模板已禁用"
         return True, ""
 
-    def create_task(  # type: ignore[no-untyped-def]
+    def create_task(
         self,
         folder_template_id: int | None = None,
         output_path: str | None = None,

@@ -122,7 +122,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             exc_or_class.owner_id = effective_owner_id
             exc_or_class.errors = errors
             raise exc_or_class
-        raise exc_or_class(  # type: ignore[call-arg]
+        raise exc_or_class(
             message=f"创建群聊失败: {error_msg}",
             platform="feishu",
             error_code=error_code,

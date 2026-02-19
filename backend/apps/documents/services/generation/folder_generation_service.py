@@ -103,7 +103,7 @@ class FolderGenerationService:
 
         # 获取合同类型中文显示名
         case_type = getattr(contract, "case_type", None)
-        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型")  # type: ignore[arg-type]
+        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型")
 
         # 获取合同名称
         contract_name = getattr(contract, "name", None) or "未命名合同"

@@ -185,7 +185,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             raise
 
     @transaction.atomic
-    def create_binding(  # type: ignore
+    def create_binding(
         self,
         case_id: int,
         folder_path: str,
@@ -229,7 +229,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def update_binding(  # type: ignore
+    def update_binding(
         self,
         case_id: int,
         folder_path: str,
@@ -262,7 +262,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def delete_binding(  # type: ignore
+    def delete_binding(
         self,
         case_id: int,
         user: Any | None = None,
@@ -294,7 +294,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def get_binding(  # type: ignore
+    def get_binding(
         self,
         case_id: int,
         user: Any | None = None,
@@ -325,7 +325,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def save_file_to_bound_folder(  # type: ignore
+    def save_file_to_bound_folder(
         self,
         case_id: int,
         file_content: bytes,
@@ -359,7 +359,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def extract_zip_to_bound_folder(  # type: ignore
+    def extract_zip_to_bound_folder(
         self,
         case_id: int,
         zip_content: bytes,

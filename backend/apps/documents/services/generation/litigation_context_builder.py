@@ -57,7 +57,7 @@ class LitigationContextBuilder:
             "defense_reasons": "答辩理由待补充",
         }
 
-    def build_complaint_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:  # type: ignore
+    def build_complaint_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,
@@ -68,7 +68,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.COMPLAINT_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)  # type: ignore[arg-type]
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_LITIGATION_REQUEST: self.convert_to_paragraphs(
@@ -81,7 +81,7 @@ class LitigationContextBuilder:
         )
         return context
 
-    def build_defense_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:  # type: ignore
+    def build_defense_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,
@@ -93,7 +93,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.DEFENSE_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)  # type: ignore[arg-type]
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_DEFENSE_OPINION: llm_result.defense_opinion,

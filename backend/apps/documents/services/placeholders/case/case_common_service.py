@@ -78,7 +78,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         except Exception:
             logger.exception("操作失败")
 
-            authorities: list[Any] = []  # type: ignore[no-redef]
+            authorities: list[Any] = []
 
         names: list[str] = []
         seen = set()
@@ -98,7 +98,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         except Exception:
             logger.exception("操作失败")
 
-            parties: list[Any] = []  # type: ignore[no-redef]
+            parties: list[Any] = []
 
         names: list[str] = []
         seen = set()
@@ -121,9 +121,9 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         except Exception:
             logger.exception("操作失败")
 
-            assignments: list[Any] = []  # type: ignore[no-redef]
+            assignments: list[Any] = []
 
-        def sort_key(a) -> tuple[Any, ...]:  # type: ignore
+        def sort_key(a) -> tuple[Any, ...]:
             return (0 if getattr(a, "is_primary", False) else 1, getattr(a, "id", 0))
 
         assignments = sorted(assignments, key=sort_key)

@@ -151,7 +151,7 @@ class IdentityExtractionService:
         try:
             img = Image.open(BytesIO(image_bytes))
             if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")  # type: ignore[assignment]
+                img = img.convert("RGB")
         except Exception as e:
             logger.error(f"图片格式无效: {e!s}")
             raise OCRExtractionError("图片格式无效,请上传 JPG 或 PNG 格式的图片") from e

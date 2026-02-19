@@ -198,8 +198,8 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 "Token获取性能指标获取成功",
                 extra={
                     "action": "get_token_acquisition_metrics_success",
-                    "total_attempts": metrics["overall"]["total_attempts"],  # type: ignore[index]
-                    "success_rate": metrics["overall"]["success_rate"],  # type: ignore[index]
+                    "total_attempts": metrics["overall"]["total_attempts"],
+                    "success_rate": metrics["overall"]["success_rate"],
                 },
             )
 

@@ -42,7 +42,7 @@ def execute_document_recognition_task(task_id: int) -> None:
             if result.binding.case_id:
                 task.case_id = result.binding.case_id  # type: ignore[attr-defined]
             if result.binding.case_log_id:
-                task.case_log_id = result.binding.case_log_id  # type: ignore
+                task.case_log_id = result.binding.case_log_id  # type: ignore[attr-defined]
         task.status = DocumentRecognitionStatus.SUCCESS
         task.finished_at = timezone.now()
         task.save()

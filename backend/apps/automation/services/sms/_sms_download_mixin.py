@@ -57,7 +57,7 @@ class SMSDownloadMixin:
                 return False
 
             if not hasattr(fresh_task, "documents"):
-                return fresh_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]  # type: ignore[no-any-return]
+                return fresh_task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
 
             return self._check_documents_wait_status(sms, fresh_task)
 
@@ -68,7 +68,7 @@ class SMSDownloadMixin:
     def _refresh_scraper_task(self, sms: CourtSMS) -> Any:
         """刷新并返回最新的 ScraperTask，不存在则返回 None"""
         try:
-            fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)  # type: ignore[attr-defined]
+            fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)
             sms.scraper_task = fresh_task
             logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
             return fresh_task
@@ -86,7 +86,7 @@ class SMSDownloadMixin:
 
     def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:
         """根据文书记录状态判断是否需要等待"""
-        all_docs = task.documents.all()  # type: ignore[attr-defined]
+        all_docs = task.documents.all()
         if not all_docs.exists():
             running = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
             wait_msg = "需要" if running else "不再"

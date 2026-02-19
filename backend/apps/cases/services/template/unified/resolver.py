@@ -11,7 +11,7 @@ from apps.core.path import Path
 
 from .wiring import get_document_service
 
-logger = logging.getLogger("apps.cases.services")  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases.services")
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ class TemplateResolver:
             template = self._get_template_by_id(template_id)
             effective_function_code = getattr(template, "function_code", None) or function_code
         else:
-            template = self._get_template_by_function_code(function_code)  # type: ignore[arg-type]
+            template = self._get_template_by_function_code(function_code)
             effective_function_code = function_code
 
         template_path = self._get_template_path(template)

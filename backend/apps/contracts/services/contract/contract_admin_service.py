@@ -155,7 +155,7 @@ class ContractAdminService:
     def renew_advisor_contract(self, contract_id: int) -> Contract:
         return self.mutation_service.renew_advisor_contract(contract_id)
 
-    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str:  # type: ignore[misc]
+    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str:
         from .contract_admin_mutation_service import ContractAdminMutationService
 
         return ContractAdminMutationService.generate_advisor_contract_name(principal_names, start_date, end_date)

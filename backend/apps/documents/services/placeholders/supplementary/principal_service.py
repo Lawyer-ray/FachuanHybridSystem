@@ -233,7 +233,7 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
 
         try:
             # 使用 core.enums 中的枚举类型
-            from apps.core.enums import ClientType  # type: ignore[attr-defined]
+            from apps.core.enums import ClientType
 
             if hasattr(client, "client_type"):
                 if client.client_type == ClientType.NATURAL:

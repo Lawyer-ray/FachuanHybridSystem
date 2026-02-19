@@ -219,7 +219,7 @@ class ContractGenerationService:
         context_builder = EnhancedContextBuilder()
         context_data = {"contract": contract}
 
-        return context_builder.build_context(context_data)  # type: ignore[arg-type]
+        return context_builder.build_context(context_data)
 
     def generate_filename(self, contract: Any, template: "DocumentTemplate") -> str:
         """

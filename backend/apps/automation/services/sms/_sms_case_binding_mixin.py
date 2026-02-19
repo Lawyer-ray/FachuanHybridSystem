@@ -33,13 +33,13 @@ class SMSCaseBindingMixin:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
 
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore[attr-defined]
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)
 
             if sms.case_numbers:
                 self._add_case_numbers_to_case(sms)
 
             case_log = case_log_service.create_log(
-                case_id=sms.case.id,  # type: ignore[attr-defined]
+                case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
                 user=system_user,
             )
@@ -72,14 +72,14 @@ class SMSCaseBindingMixin:
                 1
                 for num in valid_case_numbers
                 if self.case_service.add_case_number_internal(
-                    case_id=sms.case.id,  # type: ignore[attr-defined]
+                    case_id=sms.case.id,
                     case_number=num,
                     user_id=user_id,
                 )
             )
 
             if added_count > 0:
-                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")  # type: ignore[attr-defined]
+                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")
 
         except Exception as e:
             logger.warning(f"写入案号失败: SMS ID={sms.id}, 错误: {e!s}")

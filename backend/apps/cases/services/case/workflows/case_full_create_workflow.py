@@ -61,7 +61,7 @@ class CaseFullCreateWorkflow:
             seen_assignment_lawyer_ids.add(lawyer_id)
         assignments = self.repo.bulk_create_case_assignments(case=case, assignments=assignments_data)
 
-        logs = self.repo.bulk_create_case_logs(case=case, logs=logs_data, actor_id=actor_id) if logs_data else []  # type: ignore[arg-type]
+        logs = self.repo.bulk_create_case_logs(case=case, logs=logs_data, actor_id=actor_id) if logs_data else []
 
         supervising_authorities = (
             self.repo.bulk_create_supervising_authorities(case=case, authorities=supervising_authorities_data)

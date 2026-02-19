@@ -370,4 +370,4 @@ class CaseTemplateBindingService:
             case_stage=case_stage,
             legal_statuses=set(legal_statuses or []),
         )
-        return [t.id for t in self.match_policy.filter(templates, match_input)]  # type: ignore[attr-defined]
+        return [t.id for t in self.match_policy.filter(templates, match_input)]

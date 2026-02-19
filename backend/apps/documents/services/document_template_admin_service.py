@@ -103,17 +103,17 @@ class DocumentTemplateAdminService:
         sources = sum([bool(existing_file), bool(uploaded_file), bool(file_path and file_path.strip())])
         if sources > 1:
             result["is_valid"] = False
-            result["error"] = _("只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径")  # type: ignore[assignment]
+            result["error"] = _("只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径")
             return result
         if existing_file:
-            result["cleaned_data"]["file_path"] = existing_file  # type: ignore
-            result["cleaned_data"]["file"] = None  # type: ignore
-            result["cleaned_data"]["existing_file"] = ""  # type: ignore
+            result["cleaned_data"]["file_path"] = existing_file
+            result["cleaned_data"]["file"] = None
+            result["cleaned_data"]["existing_file"] = ""
         has_file_source = bool(existing_file) or bool(uploaded_file) or bool(file_path and file_path.strip())
         has_existing_file = is_editing and (instance.file or instance.file_path)
         if not has_file_source and (not has_existing_file):
             result["is_valid"] = False
-            result["error"] = _("必须选择一种文件来源")  # type: ignore[assignment]
+            result["error"] = _("必须选择一种文件来源")
         return result
 
     def validate_template_type(
@@ -143,7 +143,7 @@ class DocumentTemplateAdminService:
         if template_type == "contract":
             if not contract_sub_type:
                 result["is_valid"] = False
-                result["errors"]["contract_sub_type"] = _("选择合同文书模板时,必须选择合同子类型")  # type: ignore[index]
+                result["errors"]["contract_sub_type"] = _("选择合同文书模板时,必须选择合同子类型")
             result["case_sub_type"] = None
         elif template_type == "case":
             result["contract_sub_type"] = None
@@ -152,7 +152,7 @@ class DocumentTemplateAdminService:
             )
             if should_require_case_sub_type and (not case_sub_type):
                 result["is_valid"] = False
-                result["errors"]["case_sub_type"] = _("选择案件文书模板时,必须选择案件文件子类型")  # type: ignore[index]
+                result["errors"]["case_sub_type"] = _("选择案件文书模板时,必须选择案件文件子类型")
         return result
 
     def prepare_save_data(

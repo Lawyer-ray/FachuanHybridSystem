@@ -164,7 +164,7 @@ class CauseCourtQueryService:
             return results
 
         qs = base.filter(parent_id=parent_id).order_by("code")
-        results: list[Any] = []  # type: ignore[no-redef]
+        results: list[Any] = []
         for cause in qs:
             has_children = base.filter(parent_id=cause.id).exists()
             results.append(

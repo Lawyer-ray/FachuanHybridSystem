@@ -39,16 +39,16 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
         logger.info("处理 zxfw.court.gov.cn 链接...")
         logger.info("=" * 60)
 
-        download_dir: Path = self._prepare_download_dir()  # type: ignore[attr-defined]
+        download_dir: Path = self._prepare_download_dir()
 
         # ========== 第一优先级:直接调用 API ==========
         direct_api_error: Exception | None = None
         try:
             logger.info(
                 "尝试直接调用 API 获取文书列表(无需浏览器)",
-                extra={"operation_type": "direct_api_attempt", "timestamp": time.time(), "url": self.task.url},  # type: ignore[attr-defined]
+                extra={"operation_type": "direct_api_attempt", "timestamp": time.time(), "url": self.task.url},
             )
-            result = self._download_via_direct_api(self.task.url, download_dir)  # type: ignore[attr-defined]
+            result = self._download_via_direct_api(self.task.url, download_dir)
             logger.info(
                 "直接 API 调用成功",
                 extra={"operation_type": "direct_api_success", "timestamp": time.time(),
@@ -68,7 +68,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
         try:
             logger.info(
                 "尝试使用 Playwright API 拦截方式",
-                extra={"operation_type": "api_intercept_attempt", "timestamp": time.time(), "url": self.task.url},  # type: ignore[attr-defined]
+                extra={"operation_type": "api_intercept_attempt", "timestamp": time.time(), "url": self.task.url},
             )
             result = self._download_via_api_intercept_with_navigation(download_dir)
             result["method"] = "api_intercept"

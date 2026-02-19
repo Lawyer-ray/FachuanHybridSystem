@@ -54,7 +54,7 @@ class PropertyClueService:
         self,
         client_id: int,
         data: dict[str, Any],
-        user: User | None = None,  # type: ignore[valid-type]
+        user: User | None = None,
     ) -> PropertyClue:
         """
         创建财产线索
@@ -101,14 +101,14 @@ class PropertyClueService:
                 "clue_id": clue.id,
                 "client_id": client_id,
                 "clue_type": clue_type,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "create_clue",
             },
         )
 
         return clue
 
-    def get_clue(self, clue_id: int, user: User | None = None) -> PropertyClue:  # type: ignore[valid-type]
+    def get_clue(self, clue_id: int, user: User | None = None) -> PropertyClue:
         """
         获取单个财产线索
 
@@ -139,7 +139,7 @@ class PropertyClueService:
     def list_clues_by_client(
         self,
         client_id: int,
-        user: User | None = None,  # type: ignore[valid-type]
+        user: User | None = None,
     ) -> list[PropertyClue]:
         """
         获取当事人的所有财产线索
@@ -172,7 +172,7 @@ class PropertyClueService:
         self,
         clue_id: int,
         data: dict[str, Any],
-        user: User | None = None,  # type: ignore[valid-type]
+        user: User | None = None,
     ) -> PropertyClue:
         """
         更新财产线索
@@ -217,7 +217,7 @@ class PropertyClueService:
             "财产线索更新成功",
             extra={
                 "clue_id": clue.id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "update_clue",
             },
         )
@@ -225,7 +225,7 @@ class PropertyClueService:
         return clue
 
     @transaction.atomic
-    def delete_clue(self, clue_id: int, user: User | None = None) -> None:  # type: ignore[valid-type]
+    def delete_clue(self, clue_id: int, user: User | None = None) -> None:
         """
         删除财产线索及其所有附件
 
@@ -249,7 +249,7 @@ class PropertyClueService:
             "财产线索删除成功",
             extra={
                 "clue_id": clue_id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "delete_clue",
             },
         )
@@ -260,7 +260,7 @@ class PropertyClueService:
         clue_id: int,
         file_path: str,
         file_name: str,
-        user: User | None = None,  # type: ignore[valid-type]
+        user: User | None = None,
     ) -> PropertyClueAttachment:
         """
         为财产线索添加附件
@@ -304,7 +304,7 @@ class PropertyClueService:
                 "attachment_id": attachment.id,
                 "clue_id": clue_id,
                 "file_name": file_name,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "add_attachment",
             },
         )
@@ -336,7 +336,7 @@ class PropertyClueService:
         )
 
     @transaction.atomic
-    def delete_attachment(self, attachment_id: int, user: User | None = None) -> None:  # type: ignore[valid-type]
+    def delete_attachment(self, attachment_id: int, user: User | None = None) -> None:
         """
         删除财产线索附件
 
@@ -367,7 +367,7 @@ class PropertyClueService:
             "财产线索附件删除成功",
             extra={
                 "attachment_id": attachment_id,
-                "user_id": user.id if user else None,  # type: ignore[union-attr]
+                "user_id": user.id if user else None,
                 "action": "delete_attachment",
             },
         )

@@ -67,7 +67,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
         """获取核心服务实例（延迟加载）"""
         if self._service is None:
             # 创建增强版的PreservationQuoteService
-            self._service = EnhancedPreservationQuoteService(  # type: ignore[assignment]
+            self._service = EnhancedPreservationQuoteService(
                 token_service=self.token_service,
                 insurance_client=self.insurance_client,
                 auto_token_service=self.auto_token_service,
@@ -124,7 +124,7 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
         # 如果需要强制刷新Token，可以在这里处理
         if force_refresh_token:
             # 清除现有Token，强制重新获取
-            self.token_service.delete_token("court_zxfw")  # type: ignore[call-arg]
+            self.token_service.delete_token("court_zxfw")
 
         # 调用异步方法
         loop = asyncio.get_event_loop()
@@ -259,7 +259,7 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
         """
         # 使用父类的构造函数，传递 auto_token_service 作为参数
         super().__init__(
-            token_service=token_service,  # type: ignore[arg-type]
+            token_service=token_service,
             auto_token_service=auto_token_service,
             insurance_client=insurance_client,
         )
@@ -368,11 +368,11 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
         **kwargs: Any,
     ) -> Any:
         """创建询价任务（内部接口，无权限检查）"""
-        return self.create_quote(  # type: ignore[call-arg]
-            case_name,  # type: ignore[arg-type]
+        return self.create_quote(
+            case_name,
             target_amount,
             applicant_name,
-            respondent_name,  # type: ignore[arg-type]
+            respondent_name,
             court_name,
             case_type,
             **kwargs,
@@ -380,11 +380,11 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
 
     def execute_quote_internal(self, quote_id: int, force_refresh_token: bool = False) -> dict[str, Any]:
         """执行询价任务（内部接口，无权限检查）"""
-        return self.execute_quote(quote_id, force_refresh_token)  # type: ignore[call-arg, return-value]
+        return self.execute_quote(quote_id, force_refresh_token)
 
     def get_quote_by_id_internal(self, quote_id: int) -> Any:
         """根据ID获取询价记录（内部接口，无权限检查）"""
-        return self.get_quote_by_id(quote_id)  # type: ignore[attr-defined]
+        return self.get_quote_by_id(quote_id)
 
     def list_quotes_internal(
         self,
@@ -395,4 +395,4 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
         page_size: int | None = None,
     ) -> dict[str, Any]:
         """获取询价记录列表（内部接口，无权限检查）"""
-        return self.list_quotes(status, limit, offset, page, page_size)  # type: ignore[arg-type, call-arg, return-value]
+        return self.list_quotes(status, limit, offset, page, page_size)

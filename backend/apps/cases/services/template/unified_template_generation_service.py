@@ -14,7 +14,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 from .wiring import get_case_service
 
-logger = logging.getLogger("apps.cases.services")  # type: ignore[call-arg]
+logger = logging.getLogger("apps.cases.services")
 
 
 class UnifiedTemplateGenerationService:

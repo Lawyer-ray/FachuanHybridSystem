@@ -19,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="只显示需要修复的问题,不实际修改数据")
         parser.add_argument("--template-id", type=int, help="只修复指定 ID 的模板")
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore
+    def handle(self, *args, **options: Any) -> None:  # type: ignore[override]
         dry_run = options.get("dry_run", False)
         template_id = options.get("template_id")
         self.stdout.write(self.style.SUCCESS("=== 文件夹模板 ID 修复工具 ===\n"))

@@ -41,7 +41,7 @@ class DocumentDeliveryApiStrategy:
                 query_method="api",
                 credential_id=credential_id,
             )
-            return result  # type: ignore[no-any-return]
+            return result
         except Exception as e:
             logger.exception("操作失败")
             error_type = type(e).__name__

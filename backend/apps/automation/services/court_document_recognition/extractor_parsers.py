@@ -120,7 +120,7 @@ class ExtractorParsersMixin:
 
         # 直接尝试解析
         try:
-            return json.loads(content)  # type: ignore[no-any-return]
+            return json.loads(content)
         except json.JSONDecodeError:
             pass
 
@@ -131,7 +131,7 @@ class ExtractorParsersMixin:
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_str = content[start_idx : end_idx + 1]
             try:
-                return json.loads(json_str)  # type: ignore[no-any-return]
+                return json.loads(json_str)
             except json.JSONDecodeError:
                 pass
 
@@ -141,7 +141,7 @@ class ExtractorParsersMixin:
                 json_start = content.index("```json") + 7
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)  # type: ignore[no-any-return]
+                return json.loads(json_str)
             except (ValueError, json.JSONDecodeError):
                 pass
 
@@ -150,7 +150,7 @@ class ExtractorParsersMixin:
                 json_start = content.index("```") + 3
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)  # type: ignore[no-any-return]
+                return json.loads(json_str)
             except (ValueError, json.JSONDecodeError):
                 pass
 

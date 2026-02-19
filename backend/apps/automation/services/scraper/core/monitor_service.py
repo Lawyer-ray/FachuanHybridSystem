@@ -38,7 +38,7 @@ class MonitorService:
             from apps.core.interfaces import ServiceLocator
 
             try:
-                self._task_service = ServiceLocator.get_task_service()  # type: ignore[attr-defined]
+                self._task_service = ServiceLocator.get_task_service()
             except AttributeError:
                 # 如果ServiceLocator还没有task_service，直接使用Model
                 from apps.automation.models import ScraperTask

@@ -156,17 +156,19 @@ RUFF_RATCHET_PATHS = \
 	apps/litigation_ai/chains/litigation_goal_intake_chain.py \
 	apps/litigation_ai/chains/user_choice_parse_chain.py
 
-lint: ## 代码检查
+lint-ratchet: ## 代码检查（仅棘轮路径）
 	$(PYTHON) -m ruff check $(RUFF_RATCHET_PATHS) --config ruff.toml
 
-lint-full: ## 全量代码检查（历史存量可能不通过）
+lint: ## 全量代码检查 apps/
 	$(PYTHON) -m ruff check apps --config ruff.toml
+
+lint-full: lint ## 全量代码检查（lint 别名）
 
 format: ## 格式化代码
 	$(PYTHON) -m black apps --line-length=120
 	$(PYTHON) -m isort apps
 
-typecheck: ## 类型检查
+typecheck-ratchet: ## 类型检查（仅棘轮路径）
 	$(PYTHON) -m mypy \
 		apps/core/infrastructure/throttling.py \
 		apps/core/middleware_request_id.py \
@@ -194,8 +196,10 @@ typecheck: ## 类型检查
 		--follow-imports=skip \
 		--config-file mypy.ini
 
-typecheck-full: ## 全量类型检查（历史存量可能不通过）
+typecheck: ## 全量类型检查 apps/
 	$(PYTHON) -m mypy apps --config-file mypy.ini
+
+typecheck-full: typecheck ## 全量类型检查（typecheck 别名）
 
 check: lint typecheck ## 运行所有检查
 

@@ -90,7 +90,7 @@ class LawyerService:
         # 应用权限过滤
         if user and not user.is_superuser:
             # 普通用户只能看到同律所的律师
-            queryset = queryset.filter(law_firm_id=user.law_firm_id)  # type: ignore[attr-defined]
+            queryset = queryset.filter(law_firm_id=user.law_firm_id)
 
         # 应用业务过滤
         if filters.get("search"):
@@ -130,8 +130,8 @@ class LawyerService:
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
-                f"用户 {user.id} 尝试创建律师但权限不足",  # type: ignore[attr-defined]
-                extra={"user_id": user.id, "action": "create_lawyer"},  # type: ignore[attr-defined]
+                f"用户 {user.id} 尝试创建律师但权限不足",
+                extra={"user_id": user.id, "action": "create_lawyer"},
             )
             raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
 
@@ -172,7 +172,7 @@ class LawyerService:
             self._set_biz_teams(lawyer, data.biz_team_ids, law_firm)
 
         # 6. 记录日志
-        logger.info("律师创建成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "create_lawyer"})  # type: ignore[attr-defined]
+        logger.info("律师创建成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "create_lawyer"})
 
         return lawyer
 
@@ -210,8 +210,8 @@ class LawyerService:
 
         if not self._check_update_permission(user, lawyer):
             logger.warning(
-                f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",  # type: ignore[attr-defined]
-                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},  # type: ignore[attr-defined]
+                f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",
+                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},
             )
             raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
 
@@ -224,7 +224,7 @@ class LawyerService:
         if data.biz_team_ids is not None:
             self._set_biz_teams(lawyer, data.biz_team_ids, lawyer.law_firm)
 
-        logger.info("律师更新成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "update_lawyer"})  # type: ignore[attr-defined]
+        logger.info("律师更新成功", extra={"lawyer_id": lawyer.id, "user_id": user.id, "action": "update_lawyer"})
         return lawyer
 
     @transaction.atomic
@@ -247,8 +247,8 @@ class LawyerService:
         # 2. 权限检查
         if not self._check_delete_permission(user, lawyer):
             logger.warning(
-                f"用户 {user.id} 尝试删除律师 {lawyer_id} 但权限不足",  # type: ignore[attr-defined]
-                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "delete_lawyer"},  # type: ignore[attr-defined]
+                f"用户 {user.id} 尝试删除律师 {lawyer_id} 但权限不足",
+                extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "delete_lawyer"},
             )
             raise PermissionDenied(message="无权限删除该律师", code="PERMISSION_DENIED")
 
@@ -261,7 +261,7 @@ class LawyerService:
         lawyer.delete()
 
         # 5. 记录日志
-        logger.info("律师删除成功", extra={"lawyer_id": lawyer_id, "user_id": user.id, "action": "delete_lawyer"})  # type: ignore[attr-defined]
+        logger.info("律师删除成功", extra={"lawyer_id": lawyer_id, "user_id": user.id, "action": "delete_lawyer"})
 
     def get_lawyers_by_ids(self, lawyer_ids: list[int]) -> list[Lawyer]:
         """批量获取律师"""
@@ -293,7 +293,7 @@ class LawyerService:
                 member_ids.add(member.id)
 
         if not member_ids:
-            member_ids.add(user.id)  # type: ignore[attr-defined]
+            member_ids.add(user.id)
 
         return member_ids
 
@@ -310,7 +310,7 @@ class LawyerService:
             return True
 
         # 用户可以访问同律所的律师
-        return bool(user.law_firm_id == lawyer.law_firm_id)  # type: ignore[attr-defined]
+        return bool(user.law_firm_id == lawyer.law_firm_id)
 
     def _check_update_permission(self, user: Lawyer, lawyer: Lawyer) -> bool:
         """检查更新权限（私有方法）"""
@@ -319,16 +319,16 @@ class LawyerService:
             return True
 
         # 律所管理员可以更新同律所的律师
-        if user.is_admin and user.law_firm_id == lawyer.law_firm_id:  # type: ignore[attr-defined]
+        if user.is_admin and user.law_firm_id == lawyer.law_firm_id:
             return True
 
         # 用户可以更新自己的信息
-        return bool(user.id == lawyer.id)  # type: ignore[attr-defined]
+        return bool(user.id == lawyer.id)
 
     def _check_delete_permission(self, user: Lawyer, lawyer: Lawyer) -> bool:
         """检查删除权限（私有方法）"""
         # 只有超级管理员或律所管理员可以删除律师
-        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id))  # type: ignore[attr-defined]
+        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id))
 
     def _validate_create_data(self, data: Any, user: Lawyer) -> None:
         """验证创建数据（私有方法）"""
@@ -414,13 +414,13 @@ class LawyerServiceAdapter(ILawyerService):
     def _to_dto(self, lawyer: Lawyer) -> LawyerDTO:
         """将 Model 转换为 DTO"""
         return LawyerDTO(
-            id=lawyer.id,  # type: ignore[attr-defined]
+            id=lawyer.id,
             username=lawyer.username,
             real_name=lawyer.real_name,
             phone=lawyer.phone,
             is_admin=lawyer.is_admin,
-            law_firm_id=lawyer.law_firm_id,  # type: ignore[attr-defined]
-            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,  # type: ignore[attr-defined]
+            law_firm_id=lawyer.law_firm_id,
+            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,
         )
 
     def get_lawyer(self, lawyer_id: int) -> LawyerDTO | None:

@@ -99,7 +99,7 @@ class CaseMaterialQueryService:
             .select_related("type", "supervising_authority")
             .order_by("sort_index", "id")
         )
-        order_map = self._build_group_order_map(group_orders)  # type: ignore[arg-type]
+        order_map = self._build_group_order_map(group_orders)
         our_statuses = []
         opp_statuses = []
         for p in case.parties.select_related("client").all():
@@ -177,9 +177,9 @@ class CaseMaterialQueryService:
         key = (category, side or "", supervising_authority_id or 0)
         ordered_ids = order_map.get(key, [])
         ordered: list[dict[str, Any]] = []
-        remaining = dict[str, Any](groups_by_type_id)  # type: ignore[arg-type]
+        remaining = dict[str, Any](groups_by_type_id)
         for tid in ordered_ids:
-            g = remaining.pop(tid, None)  # type: ignore
+            g = remaining.pop(tid, None)
             if g:
                 ordered.append(g)
         tail = list(remaining.values())

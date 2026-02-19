@@ -79,7 +79,7 @@ class ContractWorkflowService:
                     "case_type": case_data.get("case_type"),
                     "target_amount": case_data.get("target_amount"),
                 }
-                case_dto = self.case_service.create_case(case_create_data, user=user)  # type: ignore[call-arg]
+                case_dto = self.case_service.create_case(case_create_data, user=user)
 
                 for lawyer_id in all_lawyer_ids:
                     self.case_service.create_case_assignment(case_dto.id, lawyer_id)

@@ -105,7 +105,7 @@ class CaseChatService:
         case_type_display = None
         if hasattr(case, "case_type") and case.case_type:
             try:
-                case_type_display = case.get_case_type_display()  # type: ignore[attr-defined]
+                case_type_display = case.get_case_type_display()
             except (AttributeError, ValueError):
                 case_type_display = case.case_type
                 logger.warning(f"无法获取案件类型显示名称: {case.case_type}, 使用原始值")

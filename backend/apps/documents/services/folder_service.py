@@ -65,7 +65,7 @@ class FolderTemplateService:
     def get_duplicate_id_report(self) -> dict[str, Any]:
         return self.usecases.get_duplicate_id_report()
 
-    def create_template(  # type: ignore[no-untyped-def]
+    def create_template(
         self,
         name: str,
         case_type: str,
@@ -169,7 +169,7 @@ class FolderTemplateService:
         if visited_ids is None:
             visited_ids = set()
         if path is None:
-            path: list[Any] = []  # type: ignore[no-redef]
+            path: list[Any] = []
 
         children = structure.get("children", [])
         if not isinstance(children, list):
@@ -181,7 +181,7 @@ class FolderTemplateService:
 
             node_id = child.get("id")
             node_name = child.get("name", "unknown")
-            current_path = path + [node_name]  # type: ignore[operator]
+            current_path = path + [node_name]
 
             if node_id is not None:
                 if node_id in visited_ids:
@@ -210,7 +210,7 @@ class FolderTemplateService:
             (has_invalid, invalid_info) 元组
         """
         if path is None:
-            path: list[Any] = []  # type: ignore[no-redef]
+            path: list[Any] = []
 
         children = structure.get("children", [])
         if not isinstance(children, list):
@@ -221,7 +221,7 @@ class FolderTemplateService:
                 continue
 
             name = child.get("name", "")
-            current_path = path + [name]  # type: ignore[operator]
+            current_path = path + [name]
 
             # 检查名称是否包含无效字符
             if name and self.INVALID_CHARS_PATTERN.search(name):

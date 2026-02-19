@@ -106,7 +106,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
         try:
             if not cases:
                 return ""
-            opposing_client_ids, our_client_ids = self._get_contract_party_ids(contract)  # type: ignore
+            opposing_client_ids, our_client_ids = self._get_contract_party_ids(contract)
             case_parts: list[Any] = []
             for case in cases:
                 part = self._format_single_case(case, opposing_client_ids, our_client_ids)

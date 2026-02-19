@@ -18,7 +18,7 @@ class CourtDocumentDbMixin:
 
     # 子类提供
     @property
-    def task(self) -> Any: ...  # type: ignore[misc]
+    def task(self) -> Any: ...
 
     def _save_document_to_db(
         self,
@@ -59,7 +59,7 @@ class CourtDocumentDbMixin:
                     "file_path": filepath,
                 },
             )
-            return document.id  # type: ignore[no-any-return]
+            return document.id
         except Exception as e:
             logger.error(
                 f"保存文书记录到数据库失败: {e}",
