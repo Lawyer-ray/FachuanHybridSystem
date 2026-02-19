@@ -432,7 +432,7 @@ class CourtZxfwService:
                         error_text = error_elem.first.inner_text()
                         logger.warning(f"发现错误提示: {error_text}")
                         return False
-            except:
+            except Exception:
                 pass
 
             # 方法3: 检查是否有用户信息元素（登录后才有）
@@ -450,7 +450,7 @@ class CourtZxfwService:
                     if elem.count() > 0:
                         logger.info(f"找到登录后的元素: {selector}")
                         return True
-            except:
+            except Exception:
                 pass
 
             # 默认：如果没有明确的错误，且 URL 变化了，认为成功

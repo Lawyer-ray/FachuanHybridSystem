@@ -693,7 +693,7 @@ class CourtInsuranceClient:
             try:
                 response_json = response.json()
                 print(json.dumps(response_json, ensure_ascii=False, indent=2))
-            except:
+            except Exception:
                 print("   (无法解析为 JSON)")
 
             print("=" * 120 + "\n")
