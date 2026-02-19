@@ -143,36 +143,44 @@ class ConfigField:
         if value is None:
             return not self.required
 
-        # 检查可选值限制
         if self.choices and value not in self.choices:
             return False
 
-        # 检查数值范围
-        if isinstance(value, (int, float)):
-            if self.min_value is not None and value < self.min_value:
-                return False
-            if self.max_value is not None and value > self.max_value:
-                return False
+        if not self._check_numeric_range(value):
+            return False
 
-        # 检查长度限制
-        if hasattr(value, "__len__"):
-            length = len(value)
-            if self.min_length is not None and length < self.min_length:
-                return False
-            if self.max_length is not None and length > self.max_length:
-                return False
+        if not self._check_length(value):
+            return False
 
-        # 检查正则表达式模式
         if self.pattern and isinstance(value, str):
             import re
-
             if not re.match(self.pattern, value):
                 return False
 
-        # 执行自定义验证
         if self.validator and not self.validator(value):
             return False
 
+        return True
+
+    def _check_numeric_range(self, value: Any) -> bool:
+        """检查数值范围"""
+        if not isinstance(value, (int, float)):
+            return True
+        if self.min_value is not None and value < self.min_value:
+            return False
+        if self.max_value is not None and value > self.max_value:
+            return False
+        return True
+
+    def _check_length(self, value: Any) -> bool:
+        """检查长度限制"""
+        if not hasattr(value, "__len__"):
+            return True
+        length = len(value)
+        if self.min_length is not None and length < self.min_length:
+            return False
+        if self.max_length is not None and length > self.max_length:
+            return False
         return True
 
     def transform_value(self, value: Any) -> Any:

@@ -311,34 +311,29 @@ class SteeringConditionalLoader:
             if spec_pattern in self._file_pattern_cache:
                 return self._file_pattern_cache[spec_pattern]
 
-            patterns = []
-
-            if "api-layer" in spec_pattern:
-                patterns = ["**/api/**/*.py", "**/apis/**/*.py"]
-            elif "service-layer" in spec_pattern:
-                patterns = ["**/services/**/*.py", "**/service/**/*.py"]
-            elif "admin-layer" in spec_pattern:
-                patterns = ["**/admin/**/*.py", "**/admins/**/*.py"]
-            elif "model-layer" in spec_pattern:
-                patterns = ["**/models.py", "**/model/**/*.py"]
-            elif "client-module" in spec_pattern:
-                patterns = ["**/client/**/*.py", "**/clients/**/*.py"]
-            elif "cases-module" in spec_pattern:
-                patterns = ["**/cases/**/*.py", "**/case/**/*.py"]
-            elif "contracts-module" in spec_pattern:
-                patterns = ["**/contracts/**/*.py", "**/contract/**/*.py"]
-            elif "organization-module" in spec_pattern:
-                patterns = ["**/organization/**/*.py", "**/org/**/*.py"]
-            elif "automation-module" in spec_pattern:
-                patterns = ["**/automation/**/*.py", "**/auto/**/*.py"]
-            elif "sms-module" in spec_pattern:
-                patterns = ["**/sms/**/*.py"]
-            else:
-                # 默认匹配所有 Python 文件
-                patterns = ["**/*.py"]
-
+            patterns = self._resolve_file_patterns(spec_pattern)
             self._file_pattern_cache[spec_pattern] = patterns
             return patterns
+
+    _SPEC_PATTERN_MAP: dict[str, list[str]] = {
+        "api-layer": ["**/api/**/*.py", "**/apis/**/*.py"],
+        "service-layer": ["**/services/**/*.py", "**/service/**/*.py"],
+        "admin-layer": ["**/admin/**/*.py", "**/admins/**/*.py"],
+        "model-layer": ["**/models.py", "**/model/**/*.py"],
+        "client-module": ["**/client/**/*.py", "**/clients/**/*.py"],
+        "cases-module": ["**/cases/**/*.py", "**/case/**/*.py"],
+        "contracts-module": ["**/contracts/**/*.py", "**/contract/**/*.py"],
+        "organization-module": ["**/organization/**/*.py", "**/org/**/*.py"],
+        "automation-module": ["**/automation/**/*.py", "**/auto/**/*.py"],
+        "sms-module": ["**/sms/**/*.py"],
+    }
+
+    def _resolve_file_patterns(self, spec_pattern: str) -> list[str]:
+        """根据规范模式解析文件模式"""
+        for key, patterns in self._SPEC_PATTERN_MAP.items():
+            if key in spec_pattern:
+                return patterns
+        return ["**/*.py"]
 
 
 class SteeringCacheManager:

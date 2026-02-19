@@ -215,26 +215,20 @@ class ConfigSchema:
         Returns:
             List[str]: 建议的配置项名称列表
         """
-        suggestions = []
         key_lower = key.lower()
+        suggestions: list[str] = []
 
-        # 精确匹配（忽略大小写）
-        for field_name in self._fields:
-            if field_name.lower() == key_lower:
-                suggestions.append(field_name)
-
-        # 前缀匹配
-        if len(suggestions) < max_suggestions:
+        # 精确匹配 -> 前缀匹配 -> 包含匹配，按优先级依次填充
+        matchers = [
+            lambda name: name.lower() == key_lower,
+            lambda name: name.lower().startswith(key_lower),
+            lambda name: key_lower in name.lower(),
+        ]
+        for matcher in matchers:
+            if len(suggestions) >= max_suggestions:
+                break
             for field_name in self._fields:
-                if field_name.lower().startswith(key_lower) and field_name not in suggestions:
-                    suggestions.append(field_name)
-                    if len(suggestions) >= max_suggestions:
-                        break
-
-        # 包含匹配
-        if len(suggestions) < max_suggestions:
-            for field_name in self._fields:
-                if key_lower in field_name.lower() and field_name not in suggestions:
+                if field_name not in suggestions and matcher(field_name):
                     suggestions.append(field_name)
                     if len(suggestions) >= max_suggestions:
                         break
@@ -255,83 +249,64 @@ class ConfigSchema:
         Returns:
             str: YAML 格式的配置模板
         """
-        lines = []
+        lines: list[str] = []
 
         if include_comments:
-            lines.append("# 统一配置管理系统配置文件")
-            lines.append("# 此文件由系统自动生成，请根据实际需要修改配置值")
-            lines.append("")
+            lines += ["# 统一配置管理系统配置文件", "# 此文件由系统自动生成，请根据实际需要修改配置值", ""]
 
-        # 按分组生成配置
         for group in sorted(self.get_groups()):
             if group_filter and group not in group_filter:
                 continue
-
-            fields = self.get_fields_by_group(group)
+            fields = self._filter_fields(self.get_fields_by_group(group), include_sensitive)
             if not fields:
                 continue
+            self._append_group_lines(lines, group, fields, include_comments)
 
-            # 过滤敏感字段
-            if not include_sensitive:
-                fields = [f for f in fields if not f.sensitive]
-
-            if not fields:
-                continue
-
-            if include_comments:
-                lines.append(f"# {group.upper()} 配置")
-
-            lines.append(f"{group}:")
-
-            for field in fields:
-                field_name = field.name.split(".", 1)[1] if "." in field.name else field.name
-
-                if include_comments and field.description:
-                    lines.append(f"  # {field.description}")
-
-                if field.sensitive:
-                    if include_comments:
-                        lines.append(
-                            "  # 敏感配置项，建议通过环境变量"
-                            f" {field.env_var or field.name.upper().replace('.', '_')} 设置"
-                        )
-                    value = f"${{{field.env_var or field.name.upper().replace('.', '_')}}}"
-                else:
-                    value = self._format_value(field.default)
-
-                lines.append(f"  {field_name}: {value}")
-
-                if include_comments:
-                    lines.append("")
-
-            lines.append("")
-
-        # 处理没有分组的字段
-        ungrouped_fields = [f for f in self._fields.values() if "." not in f.name]
-        if not include_sensitive:
-            ungrouped_fields = [f for f in ungrouped_fields if not f.sensitive]
-
-        if ungrouped_fields:
+        ungrouped = self._filter_fields(
+            [f for f in self._fields.values() if "." not in f.name], include_sensitive
+        )
+        if ungrouped:
             if include_comments:
                 lines.append("# 通用配置")
-
-            for field in ungrouped_fields:
-                if include_comments and field.description:
-                    lines.append(f"# {field.description}")
-
-                if field.sensitive:
-                    if include_comments:
-                        lines.append(f"# 敏感配置项，建议通过环境变量 {field.env_var or field.name.upper()} 设置")
-                    value = f"${{{field.env_var or field.name.upper()}}}"
-                else:
-                    value = self._format_value(field.default)
-
-                lines.append(f"{field.name}: {value}")
-
-                if include_comments:
-                    lines.append("")
+            for field in ungrouped:
+                self._append_field_lines(lines, field, field.name, include_comments)
 
         return "\n".join(lines)
+
+    def _filter_fields(self, fields: list[ConfigField], include_sensitive: bool) -> list[ConfigField]:
+        """过滤敏感字段"""
+        if include_sensitive:
+            return fields
+        return [f for f in fields if not f.sensitive]
+
+    def _append_group_lines(
+        self, lines: list[str], group: str, fields: list[ConfigField], include_comments: bool
+    ) -> None:
+        """追加分组配置行"""
+        if include_comments:
+            lines.append(f"# {group.upper()} 配置")
+        lines.append(f"{group}:")
+        for field in fields:
+            field_name = field.name.split(".", 1)[1] if "." in field.name else field.name
+            self._append_field_lines(lines, field, field_name, include_comments, indent="  ")
+        lines.append("")
+
+    def _append_field_lines(
+        self, lines: list[str], field: ConfigField, field_name: str, include_comments: bool, indent: str = ""
+    ) -> None:
+        """追加单个字段行"""
+        if include_comments and field.description:
+            lines.append(f"{indent}# {field.description}")
+        if field.sensitive:
+            env_key = field.env_var or field.name.upper().replace(".", "_")
+            if include_comments:
+                lines.append(f"{indent}# 敏感配置项，建议通过环境变量 {env_key} 设置")
+            value = f"${{{env_key}}}"
+        else:
+            value = self._format_value(field.default)
+        lines.append(f"{indent}{field_name}: {value}")
+        if include_comments:
+            lines.append("")
 
     def _format_value(self, value: Any) -> str:
         """
