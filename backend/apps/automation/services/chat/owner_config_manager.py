@@ -168,7 +168,7 @@ class OwnerConfigManager:
             manager = OwnerConfigManager()
             default_owner = manager.get_default_owner_id()
             if default_owner:
-                print(f"默认群主: {default_owner}")
+                logger.info(f"默认群主: {default_owner}")
         """
         return self._default_owner_id
 
@@ -242,7 +242,7 @@ class OwnerConfigManager:
         Example:
             manager = OwnerConfigManager()
             if manager.validate_owner_id("ou_abc123def456"):
-                print("群主ID格式有效")
+                logger.info("群主ID格式有效")
         """
         if not owner_id or not isinstance(owner_id, str):
             return False
@@ -278,7 +278,7 @@ class OwnerConfigManager:
             try:
                 manager.validate_owner_id_strict("invalid_id")
             except ValidationException as e:
-                print(f"验证失败: {e.message}")
+                logger.info(f"验证失败: {e.message}")
         """
         if not self.validate_owner_id(owner_id):
             raise ValidationException(
@@ -303,7 +303,7 @@ class OwnerConfigManager:
         Example:
             manager = OwnerConfigManager()
             if manager.is_test_environment():
-                print("当前运行在测试环境")
+                logger.info("当前运行在测试环境")
         """
         return cast(bool, self._config.get("TEST_MODE", False))
 
@@ -372,7 +372,7 @@ class OwnerConfigManager:
         Example:
             manager = OwnerConfigManager()
             summary = manager.get_config_summary()
-            print(f"配置摘要: {summary}")
+            logger.info(f"配置摘要: {summary}")
         """
         return {
             "has_default_owner": bool(self._default_owner_id),

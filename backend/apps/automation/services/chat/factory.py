@@ -148,7 +148,7 @@ class ChatProviderFactory:
         Example:
             platforms = ChatProviderFactory.get_available_platforms()
             for platform in platforms:
-                print(f"可用平台: {platform.label}")
+                logger.info(f"可用平台: {platform.label}")
         """
         available_platforms = []
 
