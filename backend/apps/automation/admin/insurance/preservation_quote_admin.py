@@ -131,7 +131,7 @@ class InsuranceQuoteInline(admin.TabularInline):
                 "</details>",
                 formatted,
             )
-        except:
+        except Exception:
             # 如果不是 JSON，直接显示
             return format_html(
                 '<pre style="max-height: 200px; overflow: auto; background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',

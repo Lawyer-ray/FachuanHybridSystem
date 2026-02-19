@@ -150,7 +150,7 @@ class TypeValidator(ConfigValidator):
                         import json
 
                         return json.loads(value)
-                    except:
+                    except json.JSONDecodeError:
                         pass
 
         except (ValueError, TypeError):

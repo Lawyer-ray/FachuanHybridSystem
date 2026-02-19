@@ -95,7 +95,7 @@ class CourtDocumentScraper(BaseScraper):
                             "visible": btn.is_visible(),
                         }
                     )
-                except:
+                except Exception:
                     pass
 
             # 分析链接
@@ -110,7 +110,7 @@ class CourtDocumentScraper(BaseScraper):
                             "visible": link.is_visible(),
                         }
                     )
-                except:
+                except Exception:
                     pass
 
             # 分析包含"下载"的元素
@@ -126,7 +126,7 @@ class CourtDocumentScraper(BaseScraper):
                             "visible": elem.is_visible(),
                         }
                     )
-                except:
+                except Exception:
                     pass
 
             # 分析 iframe
@@ -139,7 +139,7 @@ class CourtDocumentScraper(BaseScraper):
                             "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
                         }
                     )
-                except:
+                except Exception:
                     pass
 
         except Exception as e:
@@ -1290,7 +1290,7 @@ class CourtDocumentScraper(BaseScraper):
                     logger.info("通过 ID/class 找到确认按钮")
                 else:
                     submit_button = None
-            except:
+            except Exception:
                 pass
 
             # 方案 2: 使用文本
@@ -1301,7 +1301,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info("通过文本找到确认按钮")
                     else:
                         submit_button = None
-                except:
+                except Exception:
                     pass
 
             # 方案 3: 使用按钮文本
@@ -1314,7 +1314,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info("通过按钮选择器找到确认按钮")
                     else:
                         submit_button = None
-                except:
+                except Exception:
                     pass
 
             if submit_button and submit_button.count() > 0:
@@ -1349,7 +1349,7 @@ class CourtDocumentScraper(BaseScraper):
                     logger.info("通过 a.downloadPackClass 找到下载按钮")
                 else:
                     download_button = None
-            except:
+            except Exception:
                 pass
 
             # 方式2: 使用提供的 XPath
@@ -1360,7 +1360,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info(f"通过 XPath 找到下载按钮: {download_xpath}")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             # 方式3: 查找 label 下的 a 标签（包含 img）
@@ -1371,7 +1371,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info("通过 label a:has(img) 找到下载按钮")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             # 方式4: 查找包含"送达材料"文本的链接
@@ -1382,7 +1382,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info("通过文本'送达材料'找到下载按钮")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             # 方式5: 查找任何包含"下载"的元素
@@ -1393,7 +1393,7 @@ class CourtDocumentScraper(BaseScraper):
                         logger.info("通过文本找到下载按钮")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             if not download_button or download_button.count() == 0:

@@ -372,7 +372,7 @@ class AutoLoginService:
             if "browser_context" in locals():
                 try:
                     browser_context.close()
-                except:
+                except Exception:
                     pass
 
     def _get_browser_context(self) -> Any:

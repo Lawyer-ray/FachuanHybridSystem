@@ -936,7 +936,7 @@ class PreservationQuoteService:
                     from decimal import Decimal
 
                     return Decimal(str(value))
-                except:
+                except (ValueError, TypeError, ArithmeticError):
                     return None
 
             insurance_quote = InsuranceQuote(
