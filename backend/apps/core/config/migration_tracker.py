@@ -4,6 +4,7 @@
 负责记录和跟踪配置迁移的状态和进度，生成详细的迁移日志。
 """
 
+import json
 import os
 import sqlite3
 import threading
@@ -12,15 +13,10 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
-from .exceptions import ConfigException
 from ._migration_export_mixin import MigrationExportMixin
+from ._migration_models import MigrationEvent, MigrationEventType, MigrationProgress, MigrationStatistics
 from ._migration_query_mixin import MigrationQueryMixin
-from ._migration_models import (
-    MigrationEvent,
-    MigrationEventType,
-    MigrationProgress,
-    MigrationStatistics,
-)
+from .exceptions import ConfigException
 
 __all__ = [
     "MigrationStateTracker",
@@ -501,11 +497,3 @@ class MigrationStateTracker(MigrationQueryMixin, MigrationExportMixin):
         except Exception:
             # 忽略日志写入错误
             pass
-
-
-
-
-
-
-
-
