@@ -272,25 +272,32 @@ class RetryManager:
         from apps.core.exceptions import (
             NetworkError,
             NotFoundError,
-            OwnerNetworkException,
-            OwnerNotFoundException,
-            OwnerPermissionException,
-            OwnerTimeoutException,
-            OwnerValidationException,
+            OwnerSettingException,
             PermissionDenied,
             ValidationException,
         )
 
-        # 根据异常类型分类
-        if isinstance(exception, (OwnerPermissionException, PermissionDenied)):
+        # OwnerSettingException 通过 code 字段区分错误类型
+        if isinstance(exception, OwnerSettingException):
+            code = getattr(exception, "code", "")
+            _owner_code_map = {
+                "OWNER_PERMISSION_ERROR": RetryErrorType.PERMISSION_ERROR,
+                "OWNER_NOT_FOUND": RetryErrorType.NOT_FOUND_ERROR,
+                "OWNER_VALIDATION_ERROR": RetryErrorType.VALIDATION_ERROR,
+                "OWNER_TIMEOUT_ERROR": RetryErrorType.TIMEOUT_ERROR,
+                "OWNER_NETWORK_ERROR": RetryErrorType.NETWORK_ERROR,
+            }
+            if code in _owner_code_map:
+                return _owner_code_map[code]
+
+        # 根据异常类型分类（通用异常）
+        if isinstance(exception, PermissionDenied):
             return RetryErrorType.PERMISSION_ERROR
-        elif isinstance(exception, (OwnerNotFoundException, NotFoundError)):
+        elif isinstance(exception, NotFoundError):
             return RetryErrorType.NOT_FOUND_ERROR
-        elif isinstance(exception, (OwnerValidationException, ValidationException)):
+        elif isinstance(exception, ValidationException):
             return RetryErrorType.VALIDATION_ERROR
-        elif isinstance(exception, (OwnerTimeoutException,)):
-            return RetryErrorType.TIMEOUT_ERROR
-        elif isinstance(exception, (OwnerNetworkException, NetworkError, requests.RequestException)):
+        elif isinstance(exception, (NetworkError, requests.RequestException)):
             return RetryErrorType.NETWORK_ERROR
         else:
             # 根据错误消息进一步分类
@@ -336,9 +343,9 @@ class RetryManager:
                 # 检查总超时
                 if self._is_total_timeout():
                     logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
-                    from apps.core.exceptions import OwnerTimeoutException
+                    from apps.core.exceptions import owner_timeout_error
 
-                    raise OwnerTimeoutException(
+                    raise owner_timeout_error(
                         message=f"操作总超时: {operation_name}",
                         timeout_seconds=self.config.get_timeout_seconds(),
                         errors={
@@ -402,9 +409,9 @@ class RetryManager:
         if last_exception:
             raise last_exception
         else:
-            from apps.core.exceptions import OwnerRetryException
+            from apps.core.exceptions import owner_retry_error
 
-            raise OwnerRetryException(
+            raise owner_retry_error(
                 message=f"操作重试失败: {operation_name}",
                 retry_count=len(self.attempts),
                 max_retries=self.config.max_retries,

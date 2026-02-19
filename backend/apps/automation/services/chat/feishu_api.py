@@ -28,11 +28,12 @@ from apps.core.exceptions import (
     ChatProviderException,
     ConfigurationException,
     MessageSendException,
-    OwnerNetworkException,
-    OwnerNotFoundException,
-    OwnerPermissionException,
-    OwnerTimeoutException,
-    OwnerValidationException,
+    OwnerSettingException,
+    owner_network_error,
+    owner_not_found_error,
+    owner_permission_error,
+    owner_timeout_error,
+    owner_validation_error,
 )
 from apps.core.httpx_clients import get_sync_http_client
 from apps.core.path import Path
@@ -354,7 +355,9 @@ class FeishuApiMixin:
                 message=f"发送文件消息网络请求失败: {e!s}", platform="feishu", chat_id=chat_id, errors={}
             ) from e
 
-    def _classify_feishu_error(self, error_code: str, error_msg: str) -> type[Exception]:
+    def _classify_feishu_error(
+        self, error_code: str, error_msg: str
+    ) -> OwnerSettingException | type[ChatCreationException]:
         """分类飞书API错误
 
         根据飞书API返回的错误代码和错误消息,分类为相应的异常类型.
@@ -364,7 +367,7 @@ class FeishuApiMixin:
             error_msg: 飞书API错误消息
 
         Returns:
-            Exception class: 相应的异常类
+            OwnerSettingException 实例或 ChatCreationException 类
         """
         error_msg_lower = error_msg.lower()
 
@@ -375,7 +378,7 @@ class FeishuApiMixin:
             or "forbidden" in error_msg_lower
             or "access denied" in error_msg_lower
         ):
-            return OwnerPermissionException
+            return owner_permission_error()
 
         # 用户不存在错误
         if (
@@ -384,7 +387,7 @@ class FeishuApiMixin:
             or "invalid user" in error_msg_lower
             or "user does not exist" in error_msg_lower
         ):
-            return OwnerNotFoundException
+            return owner_not_found_error()
 
         # 参数验证错误
         if (
@@ -393,17 +396,17 @@ class FeishuApiMixin:
             or "parameter error" in error_msg_lower
             or "validation failed" in error_msg_lower
         ):
-            return OwnerValidationException
+            return owner_validation_error()
 
         # 超时错误
         if "timeout" in error_msg_lower or "timed out" in error_msg_lower:
-            return OwnerTimeoutException
+            return owner_timeout_error()
 
         # 网络错误
         if "network" in error_msg_lower or "connection" in error_msg_lower or "request failed" in error_msg_lower:
-            return OwnerNetworkException
+            return owner_network_error()
 
-        # 默认返回通用群聊创建异常
+        # 默认返回通用群聊创建异常类
         return ChatCreationException
 
     def _convert_union_id_to_open_id(self, union_id: str) -> str | None:

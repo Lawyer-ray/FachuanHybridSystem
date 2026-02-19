@@ -25,6 +25,13 @@ from .chat import (
     OwnerTimeoutException,
     OwnerValidationException,
     UnsupportedPlatformException,
+    owner_config_error,
+    owner_network_error,
+    owner_not_found_error,
+    owner_permission_error,
+    owner_retry_error,
+    owner_timeout_error,
+    owner_validation_error,
 )
 
 # 通用异常
@@ -117,6 +124,14 @@ __all__ = [
     "OwnerTimeoutException",
     "OwnerNetworkException",
     "OwnerConfigException",
+    # 快捷构造函数
+    "owner_permission_error",
+    "owner_not_found_error",
+    "owner_validation_error",
+    "owner_retry_error",
+    "owner_timeout_error",
+    "owner_network_error",
+    "owner_config_error",
     # Automation 异常工厂
     "AutomationExceptions",
     # 异常处理器
