@@ -111,7 +111,7 @@ class CaseNumberService:
             )
 
             return cast(CaseNumber, case_number)
-        except CaseNumber.DoesNotExist:
+        except CaseNumber.DoesNotExist as e:
             logger.warning(
                 "案号不存在",
                 extra={
@@ -124,7 +124,7 @@ class CaseNumberService:
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
-            )
+            ) from e
 
     @transaction.atomic
     def create_number(
@@ -153,7 +153,7 @@ class CaseNumberService:
         # 验证案件是否存在
         try:
             case = Case.objects.get(id=case_id)
-        except Case.DoesNotExist:
+        except Case.DoesNotExist as e:
             logger.warning(
                 "创建案号失败：案件不存在",
                 extra={
@@ -165,7 +165,7 @@ class CaseNumberService:
             )
             raise NotFoundError(
                 message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-            )
+            ) from e
 
         # 验证案号不能为空
         if not number or not number.strip():
@@ -217,7 +217,7 @@ class CaseNumberService:
         """
         try:
             case_number = CaseNumber.objects.select_related("case").get(id=number_id)
-        except CaseNumber.DoesNotExist:
+        except CaseNumber.DoesNotExist as e:
             logger.warning(
                 "更新案号失败：案号不存在",
                 extra={
@@ -230,17 +230,17 @@ class CaseNumberService:
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
-            )
+            ) from e
 
         # 验证案件是否存在（如果更新了 case_id）
         case_id = data.get("case_id")
         if case_id and case_id != case_number.case_id:
             try:
                 Case.objects.get(id=case_id)
-            except Case.DoesNotExist:
+            except Case.DoesNotExist as e:
                 raise NotFoundError(
                     message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-                )
+                ) from e
 
         # 规范化案号（如果更新了 number）
         number = data.get("number")
@@ -294,7 +294,7 @@ class CaseNumberService:
         """
         try:
             case_number = CaseNumber.objects.get(id=number_id)
-        except CaseNumber.DoesNotExist:
+        except CaseNumber.DoesNotExist as e:
             logger.warning(
                 "删除案号失败：案号不存在",
                 extra={
@@ -307,7 +307,7 @@ class CaseNumberService:
                 message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
-            )
+            ) from e
 
         case_id = case_number.case_id
         number = case_number.number

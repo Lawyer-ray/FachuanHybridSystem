@@ -4,12 +4,12 @@
 
 import base64
 import logging
+from typing import Any
 
 from cryptography.fernet import Fernet
 from django.conf import settings
 
 from apps.core.interfaces import ISecurityService
-from typing import Any, Dict
 
 logger = logging.getLogger("apps.automation")
 
@@ -74,7 +74,7 @@ class SecurityService:
             raise
 
     @staticmethod
-    def mask_sensitive_data(data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
+    def mask_sensitive_data(data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """
         脱敏敏感数据（用于日志）
 
@@ -101,7 +101,7 @@ class SecurityService:
         return masked
 
     @staticmethod
-    def encrypt_config(config: Dict[str, Any]) -> dict[str, Any]:
+    def encrypt_config(config: dict[str, Any]) -> dict[str, Any]:
         """
         加密配置中的敏感字段
 
@@ -124,7 +124,7 @@ class SecurityService:
         return encrypted
 
     @staticmethod
-    def decrypt_config(config: Dict[str, Any]) -> dict[str, Any]:
+    def decrypt_config(config: dict[str, Any]) -> dict[str, Any]:
         """
         解密配置中的敏感字段
 
@@ -173,15 +173,15 @@ class SecurityServiceAdapter(ISecurityService):
         """解密文本"""
         return self.service.decrypt(encrypted_text)
 
-    def mask_sensitive_data(self, data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
+    def mask_sensitive_data(self, data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """脱敏敏感数据"""
         return self.service.mask_sensitive_data(data, keys)
 
-    def encrypt_config(self, config: Dict[str, Any]) -> dict[str, Any]:
+    def encrypt_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """加密配置中的敏感字段"""
         return self.service.encrypt_config(config)
 
-    def decrypt_config(self, config: Dict[str, Any]) -> dict[str, Any]:
+    def decrypt_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """解密配置中的敏感字段"""
         return self.service.decrypt_config(config)
 
@@ -194,15 +194,15 @@ class SecurityServiceAdapter(ISecurityService):
         """解密文本（内部接口，无权限检查）"""
         return self.service.decrypt(encrypted_text)
 
-    def mask_sensitive_data_internal(self, data: Dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
+    def mask_sensitive_data_internal(self, data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:
         """脱敏敏感数据（内部接口，无权限检查）"""
         return self.service.mask_sensitive_data(data, keys)
 
-    def encrypt_config_internal(self, config: Dict[str, Any]) -> dict[str, Any]:
+    def encrypt_config_internal(self, config: dict[str, Any]) -> dict[str, Any]:
         """加密配置中的敏感字段（内部接口，无权限检查）"""
         return self.service.encrypt_config(config)
 
-    def decrypt_config_internal(self, config: Dict[str, Any]) -> dict[str, Any]:
+    def decrypt_config_internal(self, config: dict[str, Any]) -> dict[str, Any]:
         """解密配置中的敏感字段（内部接口，无权限检查）"""
         return self.service.decrypt_config(config)
 

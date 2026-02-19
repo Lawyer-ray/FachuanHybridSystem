@@ -57,12 +57,12 @@ class CourtDocumentService:
         # 验证爬虫任务存在
         try:
             scraper_task = ScraperTask.objects.get(id=scraper_task_id)
-        except ScraperTask.DoesNotExist:
+        except ScraperTask.DoesNotExist as e:
             raise NotFoundError(
                 message=f"爬虫任务不存在: {scraper_task_id}",
                 code="SCRAPER_TASK_NOT_FOUND",
                 errors={"scraper_task_id": scraper_task_id},
-            )
+            ) from e
 
         # 验证必需字段
         required_fields = ["c_sdbh", "c_stbh", "wjlj", "c_wsbh", "c_wsmc", "c_fybh", "c_fymc", "c_wjgs", "dt_cjsj"]
@@ -170,10 +170,10 @@ class CourtDocumentService:
         # 验证文书记录存在
         try:
             document = CourtDocument.objects.get(id=document_id)
-        except CourtDocument.DoesNotExist:
+        except CourtDocument.DoesNotExist as e:
             raise NotFoundError(
                 message=f"文书记录不存在: {document_id}", code="DOCUMENT_NOT_FOUND", errors={"document_id": document_id}
-            )
+            ) from e
 
         # 验证状态值
         valid_statuses = [choice[0] for choice in DocumentDownloadStatus.choices]

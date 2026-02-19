@@ -97,7 +97,7 @@ class CasePartyService:
         # 获取案件
         try:
             case = Case.objects.select_related("contract").get(id=case_id)
-        except Case.DoesNotExist:
+        except Case.DoesNotExist as e:
             logger.warning(
                 "验证当事人范围失败：案件不存在",
                 extra={
@@ -108,7 +108,7 @@ class CasePartyService:
             )
             raise NotFoundError(
                 message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-            )
+            ) from e
 
         # 如果案件未绑定合同，允许任意当事人 (Requirements 4.3)
         if case.contract_id is None:
@@ -125,7 +125,7 @@ class CasePartyService:
         # 获取合同的所有当事人
         try:
             all_parties = self.contract_service.get_all_parties(case.contract_id)
-        except NotFoundError:
+        except NotFoundError as e:
             # 合同不存在，理论上不应该发生（外键约束）
             logger.error(
                 "验证当事人范围失败：合同不存在",
@@ -140,7 +140,7 @@ class CasePartyService:
                 message="关联合同不存在",
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"案件关联的合同 {case.contract_id} 不存在"},
-            )
+            ) from e
 
         # 检查 client_id 是否在合同当事人范围内 (Requirements 4.1)
         valid_client_ids = {party["id"] for party in all_parties}
@@ -240,7 +240,7 @@ class CasePartyService:
             )
 
             return cast(CaseParty, party)
-        except CaseParty.DoesNotExist:
+        except CaseParty.DoesNotExist as e:
             logger.warning(
                 "当事人不存在",
                 extra={
@@ -251,7 +251,7 @@ class CasePartyService:
             )
             raise NotFoundError(
                 message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
-            )
+            ) from e
 
     @transaction.atomic
     def create_party(
@@ -281,7 +281,7 @@ class CasePartyService:
         # 验证案件是否存在
         try:
             case = Case.objects.get(id=case_id)
-        except Case.DoesNotExist:
+        except Case.DoesNotExist as e:
             logger.warning(
                 "创建当事人失败：案件不存在",
                 extra={
@@ -293,7 +293,7 @@ class CasePartyService:
             )
             raise NotFoundError(
                 message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-            )
+            ) from e
 
         # 验证客户是否存在
         if not self.client_service.validate_client_exists(client_id):
@@ -372,7 +372,7 @@ class CasePartyService:
         """
         try:
             party = CaseParty.objects.select_related("case").get(id=party_id)
-        except CaseParty.DoesNotExist:
+        except CaseParty.DoesNotExist as e:
             logger.warning(
                 "更新当事人失败：当事人不存在",
                 extra={
@@ -383,17 +383,17 @@ class CasePartyService:
             )
             raise NotFoundError(
                 message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
-            )
+            ) from e
 
         # 验证案件是否存在（如果更新了 case_id）
         case_id = data.get("case_id")
         if case_id and case_id != party.case_id:
             try:
                 Case.objects.get(id=case_id)
-            except Case.DoesNotExist:
+            except Case.DoesNotExist as e:
                 raise NotFoundError(
                     message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-                )
+                ) from e
 
         # 验证客户是否存在（如果更新了 client_id）
         client_id = data.get("client_id")
@@ -458,7 +458,7 @@ class CasePartyService:
         """
         try:
             party = CaseParty.objects.get(id=party_id)
-        except CaseParty.DoesNotExist:
+        except CaseParty.DoesNotExist as e:
             logger.warning(
                 "删除当事人失败：当事人不存在",
                 extra={
@@ -469,7 +469,7 @@ class CasePartyService:
             )
             raise NotFoundError(
                 message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
-            )
+            ) from e
 
         case_id = party.case_id
         client_id = party.client_id

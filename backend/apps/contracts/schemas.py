@@ -1,48 +1,60 @@
-from ninja import Schema, ModelSchema
-from typing import Optional, List
-from pydantic import model_validator, field_validator
-from .models import (
-    Contract, FeeMode, ContractParty, ContractPayment, InvoiceStatus, 
-    ContractReminder, SupplementaryAgreement, SupplementaryAgreementParty, PartyRole
-)
-from apps.core.enums import CaseStage
+from ninja import ModelSchema, Schema
+from pydantic import field_validator, model_validator
+
 from apps.cases.schemas import CaseOut
-from apps.organization.schemas import LawyerOut
 from apps.client.schemas import ClientOut
+from apps.core.enums import CaseStage
 from apps.core.schemas import SchemaMixin
+from apps.organization.schemas import LawyerOut
+
+from .models import (
+    Contract,
+    ContractParty,
+    ContractPayment,
+    ContractReminder,
+    FeeMode,
+    InvoiceStatus,
+    PartyRole,
+    SupplementaryAgreement,
+    SupplementaryAgreementParty,
+)
 
 
 class ContractPartySourceOut(Schema):
     """合同当事人（含来源）输出 Schema
-    
+
     用于 API 端点 /contracts/{contract_id}/all-parties/
     返回合同及其补充协议的所有当事人
-    
+
     Requirements: 5.2, 5.4
     """
-    id: int           # Client ID
-    name: str         # Client 名称
-    source: str       # 来源: "contract" | "supplementary"
-    role: Optional[str] = None  # 当事人角色: "PRINCIPAL" | "BENEFICIARY" | "OPPOSING"
+
+    id: int  # Client ID
+    name: str  # Client 名称
+    source: str  # 来源: "contract" | "supplementary"
+    role: str | None = None  # 当事人角色: "PRINCIPAL" | "BENEFICIARY" | "OPPOSING"
 
 
 class SupplementaryAgreementPartyInput(Schema):
     """补充协议当事人输入（用于嵌套）"""
+
     client_id: int
     role: str = "PRINCIPAL"
 
 
 class SupplementaryAgreementInput(Schema):
     """补充协议输入（用于嵌套在合同创建/更新中）"""
-    name: Optional[str] = None
-    party_ids: Optional[List[int]] = None  # 兼容旧接口
-    parties: Optional[List[SupplementaryAgreementPartyInput]] = None  # 新接口（含身份）
+
+    name: str | None = None
+    party_ids: list[int] | None = None  # 兼容旧接口
+    parties: list[SupplementaryAgreementPartyInput] | None = None  # 新接口（含身份）
 
 
 class UpdateLawyersIn(Schema):
     """更新合同律师指派输入 Schema"""
-    lawyer_ids: List[int]
-    
+
+    lawyer_ids: list[int]
+
     @field_validator("lawyer_ids")
     @classmethod
     def validate_lawyer_ids(cls, v):
@@ -54,20 +66,21 @@ class UpdateLawyersIn(Schema):
 
 class ContractPartyIn(Schema):
     """合同当事人输入"""
+
     client_id: int
     role: str = PartyRole.PRINCIPAL
 
 
 class ContractIn(ModelSchema):
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    fee_mode: Optional[str] = FeeMode.FIXED
-    fixed_amount: Optional[float] = None
-    risk_rate: Optional[float] = None
-    custom_terms: Optional[str] = None
-    lawyer_ids: List[int]  # 律师 ID 列表，第一个为主办律师
-    parties: Optional[List[ContractPartyIn]] = None  # 当事人列表（含身份）
-    supplementary_agreements: Optional[List[SupplementaryAgreementInput]] = None  # 补充协议列表
+    start_date: str | None = None
+    end_date: str | None = None
+    fee_mode: str | None = FeeMode.FIXED
+    fixed_amount: float | None = None
+    risk_rate: float | None = None
+    custom_terms: str | None = None
+    lawyer_ids: list[int]  # 律师 ID 列表，第一个为主办律师
+    parties: list[ContractPartyIn] | None = None  # 当事人列表（含身份）
+    supplementary_agreements: list[SupplementaryAgreementInput] | None = None  # 补充协议列表
 
     class Meta:
         model = Contract
@@ -119,7 +132,7 @@ class ContractIn(ModelSchema):
 class ContractPartyOut(ModelSchema):
     client_detail: ClientOut
     role_label: str
-    
+
     class Meta:
         model = ContractParty
         fields = ["id", "contract", "client", "role"]
@@ -135,6 +148,7 @@ class ContractPartyOut(ModelSchema):
 
 class ContractAssignmentOut(Schema):
     """合同律师指派输出 Schema"""
+
     id: int
     lawyer_id: int
     lawyer_name: str
@@ -147,26 +161,30 @@ class ContractAssignmentOut(Schema):
         return ContractAssignmentOut(
             id=obj.id,
             lawyer_id=obj.lawyer_id,
-            lawyer_name=obj.lawyer.real_name if obj.lawyer and obj.lawyer.real_name else (obj.lawyer.username if obj.lawyer else ""),
+            lawyer_name=(
+                obj.lawyer.real_name
+                if obj.lawyer and obj.lawyer.real_name
+                else (obj.lawyer.username if obj.lawyer else "")
+            ),
             is_primary=obj.is_primary,
-            order=obj.order
+            order=obj.order,
         )
 
 
 class ContractOut(ModelSchema):
-    cases: List[CaseOut]
-    contract_parties: List[ContractPartyOut]
+    cases: list[CaseOut]
+    contract_parties: list[ContractPartyOut]
     case_type_label: str | None
     status_label: str | None
-    reminders: List["ContractReminderOut"]
-    payments: List["ContractPaymentOut"]
-    supplementary_agreements: List["SupplementaryAgreementOut"]
+    reminders: list["ContractReminderOut"]
+    payments: list["ContractPaymentOut"]
+    supplementary_agreements: list["SupplementaryAgreementOut"]
     total_received: float
     total_invoiced: float
     unpaid_amount: float | None
-    assignments: List[ContractAssignmentOut]
-    primary_lawyer: Optional[LawyerOut]
-    
+    assignments: list[ContractAssignmentOut]
+    primary_lawyer: LawyerOut | None
+
     class Meta:
         model = Contract
         fields = [
@@ -193,11 +211,11 @@ class ContractOut(ModelSchema):
         return obj.get_fee_mode_display()
 
     @staticmethod
-    def resolve_contract_parties(obj: Contract) -> List[ContractPartyOut]:
+    def resolve_contract_parties(obj: Contract) -> list[ContractPartyOut]:
         return list(obj.contract_parties.all())
 
     @staticmethod
-    def resolve_representation_stages(obj: Contract) -> List[str]:
+    def resolve_representation_stages(obj: Contract) -> list[str]:
         label_map = {m.value: m.label for m in CaseStage}
         return [label_map.get(code, code) for code in (obj.representation_stages or [])]
 
@@ -233,7 +251,15 @@ class ContractOut(ModelSchema):
     def resolve_total_received(obj: Contract) -> float:
         try:
             items = getattr(obj, "payments", None)
-            qs = items.all() if hasattr(items, "all") else getattr(obj, "contractpayment_set", []).all() if hasattr(getattr(obj, "contractpayment_set", []), "all") else []
+            qs = (
+                items.all()
+                if hasattr(items, "all")
+                else (
+                    getattr(obj, "contractpayment_set", []).all()
+                    if hasattr(getattr(obj, "contractpayment_set", []), "all")
+                    else []
+                )
+            )
             return float(sum(float(p.amount or 0) for p in qs))
         except Exception:
             return 0.0
@@ -242,7 +268,15 @@ class ContractOut(ModelSchema):
     def resolve_total_invoiced(obj: Contract) -> float:
         try:
             items = getattr(obj, "payments", None)
-            qs = items.all() if hasattr(items, "all") else getattr(obj, "contractpayment_set", []).all() if hasattr(getattr(obj, "contractpayment_set", []), "all") else []
+            qs = (
+                items.all()
+                if hasattr(items, "all")
+                else (
+                    getattr(obj, "contractpayment_set", []).all()
+                    if hasattr(getattr(obj, "contractpayment_set", []), "all")
+                    else []
+                )
+            )
             return float(sum(float(p.invoiced_amount or 0) for p in qs))
         except Exception:
             return 0.0
@@ -263,12 +297,12 @@ class ContractOut(ModelSchema):
         return list(obj.supplementary_agreements.prefetch_related("parties__client").all())
 
     @staticmethod
-    def resolve_assignments(obj: Contract) -> List[ContractAssignmentOut]:
+    def resolve_assignments(obj: Contract) -> list[ContractAssignmentOut]:
         """解析律师指派列表"""
         return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.select_related("lawyer").all()]
 
     @staticmethod
-    def resolve_primary_lawyer(obj: Contract) -> Optional[LawyerOut]:
+    def resolve_primary_lawyer(obj: Contract) -> LawyerOut | None:
         """解析主办律师"""
         return obj.primary_lawyer
 
@@ -276,15 +310,16 @@ class ContractOut(ModelSchema):
 class ContractPaymentIn(Schema):
     contract_id: int
     amount: float
-    received_at: Optional[str] = None
-    invoice_status: Optional[str] = InvoiceStatus.UNINVOICED
-    invoiced_amount: Optional[float] = 0
-    note: Optional[str] = None
+    received_at: str | None = None
+    invoice_status: str | None = InvoiceStatus.UNINVOICED
+    invoiced_amount: float | None = 0
+    note: str | None = None
     confirm: bool = False
 
 
 class ContractPaymentOut(ModelSchema, SchemaMixin):
     invoice_status_label: str
+
     class Meta:
         model = ContractPayment
         fields = [
@@ -313,11 +348,11 @@ class ContractPaymentOut(ModelSchema, SchemaMixin):
 
 
 class ContractPaymentUpdate(Schema):
-    amount: Optional[float] = None
-    received_at: Optional[str] = None
-    invoice_status: Optional[str] = None
-    invoiced_amount: Optional[float] = None
-    note: Optional[str] = None
+    amount: float | None = None
+    received_at: str | None = None
+    invoice_status: str | None = None
+    invoiced_amount: float | None = None
+    note: str | None = None
     confirm: bool = False
 
 
@@ -329,7 +364,7 @@ class FinanceStatsItem(Schema):
 
 
 class FinanceStatsOut(Schema):
-    items: List[FinanceStatsItem]
+    items: list[FinanceStatsItem]
     total_received_all: float
     total_invoiced_all: float
 
@@ -342,14 +377,15 @@ class ContractReminderIn(Schema):
 
 
 class ContractReminderUpdate(Schema):
-    contract_id: Optional[int] = None
-    kind: Optional[str] = None
-    content: Optional[str] = None
-    due_date: Optional[str] = None
+    contract_id: int | None = None
+    kind: str | None = None
+    content: str | None = None
+    due_date: str | None = None
 
 
 class ContractReminderOut(ModelSchema, SchemaMixin):
     kind_label: str
+
     class Meta:
         model = ContractReminder
         fields = [
@@ -371,20 +407,20 @@ class ContractReminderOut(ModelSchema, SchemaMixin):
 
 
 class ContractUpdate(Schema):
-    name: Optional[str] = None
-    case_type: Optional[str] = None
-    status: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    assigned_lawyer: Optional[int] = None
-    is_archived: Optional[bool] = None
-    fee_mode: Optional[str] = None
-    fixed_amount: Optional[float] = None
-    risk_rate: Optional[float] = None
-    custom_terms: Optional[str] = None
-    representation_stages: Optional[list] = None
-    parties: Optional[List[ContractPartyIn]] = None  # 当事人列表（含身份）
-    supplementary_agreements: Optional[List[SupplementaryAgreementInput]] = None  # 补充协议列表
+    name: str | None = None
+    case_type: str | None = None
+    status: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    assigned_lawyer: int | None = None
+    is_archived: bool | None = None
+    fee_mode: str | None = None
+    fixed_amount: float | None = None
+    risk_rate: float | None = None
+    custom_terms: str | None = None
+    representation_stages: list | None = None
+    parties: list[ContractPartyIn] | None = None  # 当事人列表（含身份）
+    supplementary_agreements: list[SupplementaryAgreementInput] | None = None  # 补充协议列表
 
 
 # ==================== 补充协议 Schemas ====================
@@ -392,27 +428,31 @@ class ContractUpdate(Schema):
 
 class SupplementaryAgreementIn(Schema):
     """补充协议创建输入 Schema"""
+
     contract_id: int
-    name: Optional[str] = None
-    party_ids: Optional[List[int]] = None  # 兼容旧接口
-    parties: Optional[List[SupplementaryAgreementPartyInput]] = None  # 新接口（含身份）
+    name: str | None = None
+    party_ids: list[int] | None = None  # 兼容旧接口
+    parties: list[SupplementaryAgreementPartyInput] | None = None  # 新接口（含身份）
 
 
 class SupplementaryAgreementUpdate(Schema):
     """补充协议更新输入 Schema"""
-    name: Optional[str] = None
-    party_ids: Optional[List[int]] = None  # 兼容旧接口
-    parties: Optional[List[SupplementaryAgreementPartyInput]] = None  # 新接口（含身份）
+
+    name: str | None = None
+    party_ids: list[int] | None = None  # 兼容旧接口
+    parties: list[SupplementaryAgreementPartyInput] | None = None  # 新接口（含身份）
 
 
 class SupplementaryAgreementPartyIn(Schema):
     """补充协议当事人输入"""
+
     client_id: int
     role: str = PartyRole.PRINCIPAL
 
 
 class SupplementaryAgreementPartyOut(ModelSchema):
     """补充协议当事人输出 Schema"""
+
     client_name: str
     is_our_client: bool
     role_label: str
@@ -439,14 +479,15 @@ class SupplementaryAgreementPartyOut(ModelSchema):
 
 class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
     """补充协议输出 Schema"""
-    parties: List[SupplementaryAgreementPartyOut]
+
+    parties: list[SupplementaryAgreementPartyOut]
 
     class Meta:
         model = SupplementaryAgreement
         fields = ["id", "contract", "name", "created_at", "updated_at"]
 
     @staticmethod
-    def resolve_parties(obj) -> List[SupplementaryAgreementPartyOut]:
+    def resolve_parties(obj) -> list[SupplementaryAgreementPartyOut]:
         """解析当事人列表"""
         return list(obj.parties.select_related("client").all())
 

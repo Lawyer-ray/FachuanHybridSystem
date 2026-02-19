@@ -439,10 +439,10 @@ class SiliconFlowBackend:
         )
 
     def get_structured_llm(
-        self, 
-        schema: type, 
-        model: str | None = None, 
-        method: Literal["function_calling", "json_mode", "json_schema"] = "json_mode"
+        self,
+        schema: type,
+        model: str | None = None,
+        method: Literal["function_calling", "json_mode", "json_schema"] = "json_mode",
     ) -> Any:
         """
         获取支持结构化输出的 LLM 实例

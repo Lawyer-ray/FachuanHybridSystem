@@ -6,12 +6,12 @@
 
 import json
 import re
+from argparse import ArgumentParser
 from collections import defaultdict
 from datetime import datetime, timedelta
-from argparse import ArgumentParser
+from typing import Any
 
 from django.core.management.base import BaseCommand
-from typing import Any, Dict
 
 
 class Command(BaseCommand):
@@ -104,7 +104,7 @@ class Command(BaseCommand):
 
         return api_stats
 
-    def _analyze_performance(self, api_stats: Dict[str, Any], threshold: int, top_n: int) -> None:
+    def _analyze_performance(self, api_stats: dict[str, Any], threshold: int, top_n: int) -> None:
         """
         分析性能数据
 

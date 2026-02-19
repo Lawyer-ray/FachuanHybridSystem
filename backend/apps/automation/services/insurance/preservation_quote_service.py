@@ -227,7 +227,7 @@ class PreservationQuoteService:
         # 获取任务
         try:
             quote = await sync_to_async(PreservationQuote.objects.get)(id=quote_id)
-        except PreservationQuote.DoesNotExist:
+        except PreservationQuote.DoesNotExist as e:
             logger.error(
                 "询价任务不存在",
                 extra={
@@ -235,7 +235,7 @@ class PreservationQuoteService:
                     "action": "execute_quote",
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id})
+            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
         # 记录任务开始日志（包含任务 ID 和参数）
         logger.info(
@@ -400,7 +400,7 @@ class PreservationQuoteService:
             )
 
             return cast(PreservationQuote, quote)
-        except PreservationQuote.DoesNotExist:
+        except PreservationQuote.DoesNotExist as e:
             logger.error(
                 "询价任务不存在",
                 extra={
@@ -408,7 +408,7 @@ class PreservationQuoteService:
                     "quote_id": quote_id,
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id})
+            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
     @transaction.atomic
     async def retry_quote(self, quote_id: int) -> dict[str, Any]:
@@ -432,7 +432,7 @@ class PreservationQuoteService:
         # 获取任务
         try:
             quote = await sync_to_async(PreservationQuote.objects.get)(id=quote_id)
-        except PreservationQuote.DoesNotExist:
+        except PreservationQuote.DoesNotExist as e:
             logger.error(
                 "询价任务不存在",
                 extra={
@@ -440,7 +440,7 @@ class PreservationQuoteService:
                     "action": "retry_quote",
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id})
+            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
         # 检查任务状态是否允许重试
         if quote.status not in [QuoteStatus.FAILED, QuoteStatus.PARTIAL_SUCCESS]:
@@ -779,7 +779,7 @@ class PreservationQuoteService:
                     "4. 重新执行询价任务\n"
                 )
 
-            raise TokenError(error_msg)
+            raise TokenError(error_msg) from e
 
     async def _fetch_insurance_companies(
         self,
@@ -853,7 +853,7 @@ class PreservationQuoteService:
                 },
                 exc_info=True,  # 记录完整堆栈信息
             )
-            raise APIError(message=f"获取保险公司列表失败: {e!s}")
+            raise APIError(message=f"获取保险公司列表失败: {e!s}") from e
 
     async def _fetch_all_premiums(
         self,

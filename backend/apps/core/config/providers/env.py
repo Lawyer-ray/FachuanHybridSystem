@@ -5,7 +5,7 @@
 """
 
 import os
-from typing import Any, Dict
+from typing import Any
 
 from ..exceptions import ConfigException
 from .base import ConfigProvider
@@ -63,7 +63,7 @@ class EnvProvider(ConfigProvider):
                 converted_value = self._convert_type(key, value)
                 config[config_key] = converted_value
             except Exception as e:
-                raise ConfigException(f"环境变量 {key} 类型转换失败: {e}")
+                raise ConfigException(f"环境变量 {key} 类型转换失败: {e}") from e
 
         return config
 

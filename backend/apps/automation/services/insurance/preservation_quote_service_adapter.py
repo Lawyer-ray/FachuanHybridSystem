@@ -351,7 +351,7 @@ class EnhancedPreservationQuoteService(PreservationQuoteService):
                     "4. 查看详细日志获取更多信息"
                 )
 
-                raise TokenError(error_msg)
+                raise TokenError(error_msg) from e
             else:
                 # 其他异常直接重新抛出
                 raise

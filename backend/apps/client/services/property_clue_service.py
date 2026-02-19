@@ -352,12 +352,12 @@ class PropertyClueService:
         # 1. 获取附件
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
-        except PropertyClueAttachment.DoesNotExist:
+        except PropertyClueAttachment.DoesNotExist as e:
             raise NotFoundError(
                 message="附件不存在",
                 code="ATTACHMENT_NOT_FOUND",
                 errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
-            )
+            ) from e
 
         # 2. 删除附件
         attachment.delete()

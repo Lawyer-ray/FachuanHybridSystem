@@ -50,7 +50,7 @@ def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None
                     if last_valid_json:
                         return cast(dict[str, Any], last_valid_json)
 
-                raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}")
+                raise ValueError(f"无法解析Ollama响应: {e!s}\n响应内容: {text[:500]}") from e
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             raise ConnectionError(
@@ -58,9 +58,9 @@ def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None
                 f"1. Ollama服务是否运行在 {base}\n"
                 f"2. 模型 '{model}' 是否已安装 (运行: ollama pull {model})\n"
                 f"3. API路径是否正确"
-            )
-        raise ConnectionError(f"Ollama API错误 ({e.response.status_code}): {e.response.text}")
+            ) from e
+        raise ConnectionError(f"Ollama API错误 ({e.response.status_code}): {e.response.text}") from e
     except httpx.ConnectError as e:
-        raise ConnectionError(f"无法连接到Ollama服务 ({base})。请确保Ollama服务正在运行。\n错误详情: {e!s}")
+        raise ConnectionError(f"无法连接到Ollama服务 ({base})。请确保Ollama服务正在运行。\n错误详情: {e!s}") from e
     except Exception as e:
-        raise RuntimeError(f"调用Ollama API时发生错误: {e!s}")
+        raise RuntimeError(f"调用Ollama API时发生错误: {e!s}") from e

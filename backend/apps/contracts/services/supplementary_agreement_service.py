@@ -69,8 +69,8 @@ class SupplementaryAgreementService:
         # 1. 验证合同存在
         try:
             contract = Contract.objects.get(id=contract_id)
-        except Contract.DoesNotExist:
-            raise NotFoundError("合同不存在")
+        except Contract.DoesNotExist as e:
+            raise NotFoundError("合同不存在") from e
 
         # 2. 创建补充协议
         agreement = SupplementaryAgreement.objects.create(contract=contract, name=name)
@@ -114,8 +114,8 @@ class SupplementaryAgreementService:
         # 1. 获取补充协议
         try:
             agreement = SupplementaryAgreement.objects.get(id=agreement_id)
-        except SupplementaryAgreement.DoesNotExist:
-            raise NotFoundError("补充协议不存在")
+        except SupplementaryAgreement.DoesNotExist as e:
+            raise NotFoundError("补充协议不存在") from e
 
         # 2. 更新名称
         if name is not None:
@@ -161,8 +161,8 @@ class SupplementaryAgreementService:
             if prefetch:
                 qs = qs.select_related("contract").prefetch_related("parties__client")  # type: ignore[assignment]
             return qs.get(id=agreement_id)
-        except SupplementaryAgreement.DoesNotExist:
-            raise NotFoundError("补充协议不存在")
+        except SupplementaryAgreement.DoesNotExist as e:
+            raise NotFoundError("补充协议不存在") from e
 
     def list_by_contract(self, contract_id: int, prefetch: bool = True) -> list[SupplementaryAgreement]:
         """
@@ -198,8 +198,8 @@ class SupplementaryAgreementService:
             logger.info(
                 "补充协议删除成功", extra={"agreement_id": agreement_id, "action": "delete_supplementary_agreement"}
             )
-        except SupplementaryAgreement.DoesNotExist:
-            raise NotFoundError("补充协议不存在")
+        except SupplementaryAgreement.DoesNotExist as e:
+            raise NotFoundError("补充协议不存在") from e
 
     def _add_parties(self, agreement: SupplementaryAgreement, party_ids: list[int]) -> None:
         """
@@ -226,5 +226,5 @@ class SupplementaryAgreementService:
 
         try:
             SupplementaryAgreementParty.objects.bulk_create(parties, batch_size=100)
-        except IntegrityError:
-            raise ValidationException("不能重复添加同一客户")
+        except IntegrityError as e:
+            raise ValidationException("不能重复添加同一客户") from e

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Document Delivery Processor 模块
 

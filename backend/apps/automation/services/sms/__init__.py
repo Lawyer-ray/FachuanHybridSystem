@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 SMS 处理服务模块
 
@@ -22,25 +21,19 @@ SMS 处理服务模块
 
 # 原有核心服务（保持向后兼容）
 from .case_matcher import CaseMatcher, _get_case_matcher
-from .sms_parser_service import SMSParserService
-from .feishu_bot_service import FeishuBotService
-from .court_sms_service import CourtSMSService
-from .document_renamer import DocumentRenamer
 from .case_number_extractor_service import CaseNumberExtractorService
-from .document_attachment_service import DocumentAttachmentService
-from .sms_notification_service import SMSNotificationService
-from .task_recovery_service import TaskRecoveryService
 
 # 异步任务入口函数（向后兼容 - 保持原有导入路径）
 from .court_sms_service import (
+    CourtSMSService,
     process_sms_async,
     process_sms_from_matching,
     process_sms_from_renaming,
     retry_download_task,
 )
-
-# 拆分后的提交服务
-from .submission import SMSSubmissionService
+from .document_attachment_service import DocumentAttachmentService
+from .document_renamer import DocumentRenamer
+from .feishu_bot_service import FeishuBotService
 
 # 拆分后的匹配服务
 from .matching import (
@@ -49,22 +42,28 @@ from .matching import (
     _get_document_parser_service,
     _get_party_matching_service,
 )
+from .sms_notification_service import SMSNotificationService
+from .sms_parser_service import SMSParserService
 
 # 拆分后的阶段处理器
 from .stages import (
-    ISMSStage,
     BaseSMSStage,
-    SMSParsingStage,
-    create_sms_parsing_stage,
+    ISMSStage,
     SMSDownloadingStage,
-    create_sms_downloading_stage,
     SMSMatchingStage,
-    create_sms_matching_stage,
-    SMSRenamingStage,
-    create_sms_renaming_stage,
     SMSNotifyingStage,
+    SMSParsingStage,
+    SMSRenamingStage,
+    create_sms_downloading_stage,
+    create_sms_matching_stage,
     create_sms_notifying_stage,
+    create_sms_parsing_stage,
+    create_sms_renaming_stage,
 )
+
+# 拆分后的提交服务
+from .submission import SMSSubmissionService
+from .task_recovery_service import TaskRecoveryService
 
 __all__ = [
     # ===== 原有核心服务（向后兼容）=====

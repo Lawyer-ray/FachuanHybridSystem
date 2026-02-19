@@ -5,26 +5,21 @@
 本文件保留向后兼容的导入，新代码请直接从 apps.core.exceptions 导入
 """
 
-from typing import Optional, Dict, Any
-
 # 向后兼容：从 core.exceptions 重新导出群聊相关异常
 from apps.core.exceptions import (
-    BusinessException,
-    ExternalServiceError,
-    # 群聊相关异常（已迁移到 core）
-    ChatProviderException,
-    UnsupportedPlatformException,
     ChatCreationException,
-    MessageSendException,
+    ChatProviderException,
     ConfigurationException,
-    OwnerSettingException,
-    OwnerPermissionException,
-    OwnerNotFoundException,
-    OwnerValidationException,
-    OwnerRetryException,
-    OwnerTimeoutException,
-    OwnerNetworkException,
+    MessageSendException,
     OwnerConfigException,
+    OwnerNetworkException,
+    OwnerNotFoundException,
+    OwnerPermissionException,
+    OwnerRetryException,
+    OwnerSettingException,
+    OwnerTimeoutException,
+    OwnerValidationException,
+    UnsupportedPlatformException,
 )
 
 __all__ = [

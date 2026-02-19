@@ -115,7 +115,7 @@ class CaseAssignmentService:
             )
 
             return cast(CaseAssignment, assignment)
-        except CaseAssignment.DoesNotExist:
+        except CaseAssignment.DoesNotExist as e:
             logger.warning(
                 "指派不存在",
                 extra={
@@ -128,7 +128,7 @@ class CaseAssignmentService:
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
                 errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
-            )
+            ) from e
 
     @transaction.atomic
     def create_assignment(
@@ -156,7 +156,7 @@ class CaseAssignmentService:
         # 验证案件是否存在
         try:
             case = Case.objects.get(id=case_id)
-        except Case.DoesNotExist:
+        except Case.DoesNotExist as e:
             logger.warning(
                 "创建指派失败：案件不存在",
                 extra={
@@ -168,7 +168,7 @@ class CaseAssignmentService:
             )
             raise NotFoundError(
                 message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-            )
+            ) from e
 
         # 检查是否已存在相同的指派
         if CaseAssignment.objects.filter(case_id=case_id, lawyer_id=lawyer_id).exists():
@@ -227,7 +227,7 @@ class CaseAssignmentService:
         """
         try:
             assignment = CaseAssignment.objects.select_related("case").get(id=assignment_id)
-        except CaseAssignment.DoesNotExist:
+        except CaseAssignment.DoesNotExist as e:
             logger.warning(
                 "更新指派失败：指派不存在",
                 extra={
@@ -240,17 +240,17 @@ class CaseAssignmentService:
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
                 errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
-            )
+            ) from e
 
         # 验证案件是否存在（如果更新了 case_id）
         case_id = data.get("case_id")
         if case_id and case_id != assignment.case_id:
             try:
                 Case.objects.get(id=case_id)
-            except Case.DoesNotExist:
+            except Case.DoesNotExist as e:
                 raise NotFoundError(
                     message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
-                )
+                ) from e
 
         # 检查重复指派（如果更新了 case_id 或 lawyer_id）
         new_case_id = data.get("case_id", assignment.case_id)
@@ -309,7 +309,7 @@ class CaseAssignmentService:
         """
         try:
             assignment = CaseAssignment.objects.get(id=assignment_id)
-        except CaseAssignment.DoesNotExist:
+        except CaseAssignment.DoesNotExist as e:
             logger.warning(
                 "删除指派失败：指派不存在",
                 extra={
@@ -322,7 +322,7 @@ class CaseAssignmentService:
                 message="指派不存在",
                 code="ASSIGNMENT_NOT_FOUND",
                 errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
-            )
+            ) from e
 
         case_id = assignment.case_id
         lawyer_id = assignment.lawyer_id

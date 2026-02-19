@@ -1,10 +1,10 @@
-from typing import Optional, List
+from typing import Optional
 
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import CaseType, CaseStatus
+from apps.core.enums import CaseStatus, CaseType
 
 
 class FeeMode(models.TextChoices):
@@ -17,14 +17,22 @@ class FeeMode(models.TextChoices):
 class Contract(models.Model):
     name = models.CharField(max_length=100, verbose_name=_("合同名称"))
     case_type = models.CharField(max_length=32, choices=CaseType.choices, verbose_name=_("合同类型"))
-    status = models.CharField(max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("合同状态"))
+    status = models.CharField(
+        max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("合同状态")
+    )
     specified_date = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
     start_date = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
     end_date = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
     is_archived = models.BooleanField(default=False, verbose_name=_("是否已建档"))
-    fee_mode = models.CharField(max_length=16, choices=FeeMode.choices, default=FeeMode.FIXED, verbose_name=_("收费模式"))
-    fixed_amount = models.DecimalField(max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("固定/前期律师费"))
-    risk_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name=_("风险比例(%)"))
+    fee_mode = models.CharField(
+        max_length=16, choices=FeeMode.choices, default=FeeMode.FIXED, verbose_name=_("收费模式")
+    )
+    fixed_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("固定/前期律师费")
+    )
+    risk_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True, verbose_name=_("风险比例(%)")
+    )
     custom_terms = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
     representation_stages = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
 
@@ -44,6 +52,7 @@ class Contract(models.Model):
 
     def clean(self):
         from apps.cases.validators import normalize_stages
+
         ctype = getattr(self, "case_type", None)
         rep = getattr(self, "representation_stages", None)
         try:
@@ -59,22 +68,29 @@ class Contract(models.Model):
         return assignment.lawyer if assignment else None
 
     @property
-    def all_lawyers(self) -> List["Lawyer"]:
+    def all_lawyers(self) -> list["Lawyer"]:
         """获取所有律师列表，按 is_primary 降序、order 升序排列"""
         return [assignment.lawyer for assignment in self.assignments.all()]
 
 
 class PartyRole(models.TextChoices):
     """当事人身份"""
+
     PRINCIPAL = "PRINCIPAL", _("委托人")
     BENEFICIARY = "BENEFICIARY", _("受益人")
     OPPOSING = "OPPOSING", _("对方当事人")
 
 
 class ContractParty(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="contract_parties", verbose_name=_("合同"))
-    client = models.ForeignKey("client.Client", on_delete=models.CASCADE, related_name="contracts", verbose_name=_("当事人"))
-    role = models.CharField(max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name=_("身份"))
+    contract = models.ForeignKey(
+        Contract, on_delete=models.CASCADE, related_name="contract_parties", verbose_name=_("合同")
+    )
+    client = models.ForeignKey(
+        "client.Client", on_delete=models.CASCADE, related_name="contracts", verbose_name=_("当事人")
+    )
+    role = models.CharField(
+        max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name=_("身份")
+    )
 
     class Meta:
         unique_together = ("contract", "client")
@@ -87,7 +103,9 @@ class ContractParty(models.Model):
 
 class ContractAssignment(models.Model):
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("合同"))
-    lawyer = models.ForeignKey("organization.Lawyer", on_delete=models.CASCADE, related_name="contract_assignments", verbose_name=_("律师"))
+    lawyer = models.ForeignKey(
+        "organization.Lawyer", on_delete=models.CASCADE, related_name="contract_assignments", verbose_name=_("律师")
+    )
     is_primary = models.BooleanField(default=False, verbose_name=_("是否主办律师"))
     order = models.IntegerField(default=0, verbose_name=_("排序"))
 
@@ -95,7 +113,7 @@ class ContractAssignment(models.Model):
         verbose_name = _("合同指派")
         verbose_name_plural = _("合同指派")
         unique_together = ("contract", "lawyer")
-        ordering = ['-is_primary', 'order']
+        ordering = ["-is_primary", "order"]
 
     def __str__(self):
         return f"{self.contract_id}-{self.lawyer_id}"
@@ -111,7 +129,9 @@ class ContractPayment(models.Model):
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="payments", verbose_name=_("合同"))
     amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("收款金额"))
     received_at = models.DateField(default=timezone.localdate, verbose_name=_("收款日期"))
-    invoice_status = models.CharField(max_length=32, choices=InvoiceStatus.choices, default=InvoiceStatus.UNINVOICED, verbose_name=_("开票状态"))
+    invoice_status = models.CharField(
+        max_length=32, choices=InvoiceStatus.choices, default=InvoiceStatus.UNINVOICED, verbose_name=_("开票状态")
+    )
     invoiced_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name=_("已开票金额"))
     note = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
@@ -136,10 +156,14 @@ class LogLevel(models.TextChoices):
 
 
 class ContractFinanceLog(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="finance_logs", verbose_name=_("合同"))
+    contract = models.ForeignKey(
+        Contract, on_delete=models.CASCADE, related_name="finance_logs", verbose_name=_("合同")
+    )
     action = models.CharField(max_length=64, verbose_name=_("动作"))
     level = models.CharField(max_length=16, choices=LogLevel.choices, default=LogLevel.INFO, verbose_name=_("级别"))
-    actor = models.ForeignKey("organization.Lawyer", on_delete=models.PROTECT, related_name="finance_logs", verbose_name=_("操作者"))
+    actor = models.ForeignKey(
+        "organization.Lawyer", on_delete=models.PROTECT, related_name="finance_logs", verbose_name=_("操作者")
+    )
     payload = models.JSONField(default=dict, blank=True, verbose_name=_("数据"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
@@ -181,26 +205,13 @@ class ContractReminder(models.Model):
 
 class SupplementaryAgreement(models.Model):
     """补充协议模型"""
+
     contract = models.ForeignKey(
-        Contract,
-        on_delete=models.CASCADE,
-        related_name="supplementary_agreements",
-        verbose_name=_("合同")
+        Contract, on_delete=models.CASCADE, related_name="supplementary_agreements", verbose_name=_("合同")
     )
-    name = models.CharField(
-        max_length=200,
-        blank=True,
-        null=True,
-        verbose_name=_("补充协议名称")
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("创建时间")
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("修改时间")
-    )
+    name = models.CharField(max_length=200, blank=True, null=True, verbose_name=_("补充协议名称"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改时间"))
 
     class Meta:
         verbose_name = _("补充协议")
@@ -216,23 +227,15 @@ class SupplementaryAgreement(models.Model):
 
 class SupplementaryAgreementParty(models.Model):
     """补充协议当事人模型"""
+
     supplementary_agreement = models.ForeignKey(
-        SupplementaryAgreement,
-        on_delete=models.CASCADE,
-        related_name="parties",
-        verbose_name=_("补充协议")
+        SupplementaryAgreement, on_delete=models.CASCADE, related_name="parties", verbose_name=_("补充协议")
     )
     client = models.ForeignKey(
-        "client.Client",
-        on_delete=models.CASCADE,
-        related_name="supplementary_agreements",
-        verbose_name=_("当事人")
+        "client.Client", on_delete=models.CASCADE, related_name="supplementary_agreements", verbose_name=_("当事人")
     )
     role = models.CharField(
-        max_length=16,
-        choices=PartyRole.choices,
-        default=PartyRole.PRINCIPAL,
-        verbose_name=_("身份")
+        max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name=_("身份")
     )
 
     class Meta:

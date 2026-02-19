@@ -2,10 +2,11 @@
 快速下载文书 Admin
 提供一个简单的表单，快速创建文书下载任务
 """
+
 from django.contrib import admin
 from django.http import HttpResponse, HttpResponseRedirect
-from django.urls import path, reverse
 from django.middleware.csrf import get_token
+from django.urls import path, reverse
 from django.utils.html import escape
 
 from ...models import NamerTool, ScraperTask, ScraperTaskType
@@ -23,6 +24,7 @@ class QuickDownloadTool(NamerTool):
 # @admin.register(QuickDownloadTool)  # 隐藏快速下载页面，保留功能代码
 class QuickDownloadAdmin(admin.ModelAdmin):
     """快速下载文书管理类"""
+
     change_list_template = None
 
     def get_urls(self):
@@ -48,51 +50,50 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         """处理POST请求"""
         url = request.POST.get("url", "").strip()
         case_id = request.POST.get("case_id", "").strip()
-        
+
         if not url:
             return self._render_form(request, error="请输入文书链接")
-        
+
         # 验证链接格式
         if not ("zxfw.court.gov.cn" in url or "sd.gdems.com" in url):
             return self._render_form(request, error="不支持的链接格式，仅支持 zxfw.court.gov.cn 和 sd.gdems.com")
-        
+
         try:
             # 创建下载任务
             task_data = {
                 "task_type": ScraperTaskType.COURT_DOCUMENT,
                 "url": url,
                 "priority": 3,  # 高优先级
-                "config": {}
+                "config": {},
             }
-            
+
             # 如果指定了案件 ID，关联案件
             if case_id:
                 try:
                     task_data["case_id"] = int(case_id)
                 except ValueError:
                     return self._render_form(request, error="案件 ID 必须是数字")
-            
+
             task = ScraperTask.objects.create(**task_data)
-            
+
             # 提交到后台队列
             from django_q.tasks import async_task
+
             async_task("apps.automation.tasks.execute_scraper_task", task.id)
-            
+
             return self._render_result(task)
-            
+
         except Exception as e:
-            return self._render_form(request, error=f"创建任务失败: {str(e)}")
+            return self._render_form(request, error=f"创建任务失败: {e!s}")
 
     def _render_form(self, request, error=None):
         """渲染下载表单"""
         csrf_token = get_token(request)
-        error_html = f'<div class="error-msg">❌ {escape(error)}</div>' if error else ''
-        
+        error_html = f'<div class="error-msg">❌ {escape(error)}</div>' if error else ""
+
         # 获取最近的下载任务
-        recent_tasks = ScraperTask.objects.filter(
-            task_type=ScraperTaskType.COURT_DOCUMENT
-        ).order_by("-created_at")[:10]
-        
+        recent_tasks = ScraperTask.objects.filter(task_type=ScraperTaskType.COURT_DOCUMENT).order_by("-created_at")[:10]
+
         tasks_html = ""
         for task in recent_tasks:
             status_color = {
@@ -101,13 +102,17 @@ class QuickDownloadAdmin(admin.ModelAdmin):
                 "success": "#28a745",
                 "failed": "#dc3545",
             }.get(task.status, "#666")
-            
+
             # 提取链接类型
             link_type = "zxfw" if "zxfw.court.gov.cn" in task.url else "gdems"
             link_icon = "⚖️" if link_type == "zxfw" else "📧"
-            
-            case_info = f'<a href="/admin/cases/case/{task.case_id}/change/" target="_blank">{task.case.name}</a>' if task.case else "-"
-            
+
+            case_info = (
+                f'<a href="/admin/cases/case/{task.case_id}/change/" target="_blank">{task.case.name}</a>'
+                if task.case
+                else "-"
+            )
+
             tasks_html += f"""
             <tr>
                 <td>{task.id}</td>
@@ -120,8 +125,8 @@ class QuickDownloadAdmin(admin.ModelAdmin):
                 </td>
             </tr>
             """
-        
-        html = f'''<!DOCTYPE html>
+
+        html = f"""<!DOCTYPE html>
 <html>
 <head>
     <title>快速下载文书</title>
@@ -152,9 +157,9 @@ class QuickDownloadAdmin(admin.ModelAdmin):
     <div class="container">
         <h1>⚡ 快速下载文书</h1>
         <p class="subtitle">粘贴法院发送的链接，一键下载司法文书</p>
-        
+
         {error_html}
-        
+
         <div class="info-box">
             <h3>💡 支持的链接类型</h3>
             <ul>
@@ -167,23 +172,23 @@ class QuickDownloadAdmin(admin.ModelAdmin):
                 <code>https://sd.gdems.com/v3/dzsd/B0MBNGh</code>
             </div>
         </div>
-        
+
         <form method="post">
             <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}" />
-            
+
             <div class="form-group">
                 <label>🔗 文书链接 *</label>
                 <input type="url" name="url" placeholder="粘贴法院发送的链接" required />
             </div>
-            
+
             <div class="form-group">
                 <label>📁 关联案件 ID（可选）</label>
                 <input type="number" name="case_id" placeholder="如果知道案件 ID，可以填写" />
             </div>
-            
+
             <button type="submit" class="btn">🚀 立即下载</button>
         </form>
-        
+
         <h2 style="margin-top: 40px;">最近的下载任务</h2>
         <table>
             <thead>
@@ -202,14 +207,14 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         </table>
     </div>
 </body>
-</html>'''
+</html>"""
         return HttpResponse(html)
 
     def _render_result(self, task):
         """渲染任务创建结果"""
         link_type = "zxfw.court.gov.cn" if "zxfw.court.gov.cn" in task.url else "sd.gdems.com"
-        
-        html = f'''<!DOCTYPE html>
+
+        html = f"""<!DOCTYPE html>
 <html>
 <head>
     <title>任务已创建</title>
@@ -234,19 +239,19 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         <h1>下载任务已创建</h1>
         <p>任务正在后台执行中，请稍候查看结果...</p>
         <div class="task-id">任务 ID: {task.id}</div>
-        
+
         <div class="info">
             <div class="info-item"><strong>链接类型:</strong> {link_type}</div>
             <div class="info-item"><strong>优先级:</strong> 高（3）</div>
             <div class="info-item"><strong>关联案件:</strong> {task.case.name if task.case else "无"}</div>
             <div class="info-item"><strong>预计耗时:</strong> 30-60 秒</div>
         </div>
-        
+
         <div style="margin-top: 30px;">
             <a href="/admin/automation/scrapertask/{task.id}/change/" class="btn">查看任务详情</a>
             <a href="javascript:history.back()" class="btn btn-secondary">继续下载</a>
         </div>
     </div>
 </body>
-</html>'''
+</html>"""
         return HttpResponse(html)

@@ -70,7 +70,7 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
             委托人 Client 实例列表
         """
         try:
-            from apps.core.enums import PartyRole  # type: ignore[attr-defined]
+            from apps.contracts.models import PartyRole
 
             principals: list[Any] = []
             for party in supplementary_agreement.parties.all():
@@ -95,7 +95,7 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
             委托人 Client 实例列表
         """
         try:
-            from apps.core.enums import PartyRole  # type: ignore[attr-defined]
+            from apps.contracts.models import PartyRole
 
             principals: list[Any] = []
             for cp in contract.contract_parties.all():

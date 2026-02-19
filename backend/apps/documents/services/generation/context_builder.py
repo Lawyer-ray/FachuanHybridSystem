@@ -17,8 +17,12 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast
 
-from apps.core.enums import PartyRole  # type: ignore[attr-defined]
 from apps.documents.utils.formatters import format_currency, format_date, format_percentage, get_choice_display
+
+# 当事人角色常量（对应 apps.contracts.models.PartyRole）
+_ROLE_PRINCIPAL = "PRINCIPAL"
+_ROLE_BENEFICIARY = "BENEFICIARY"
+_ROLE_OPPOSING = "OPPOSING"
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractService
@@ -141,9 +145,9 @@ class ContextBuilder:
 
         # 处理当事人信息
         parties = contract_dto.get("contract_parties") or []
-        principals = [p for p in parties if p.get("role") == PartyRole.PRINCIPAL]
-        beneficiaries = [p for p in parties if p.get("role") == PartyRole.BENEFICIARY]
-        opposing = [p for p in parties if p.get("role") == PartyRole.OPPOSING]
+        principals = [p for p in parties if p.get("role") == _ROLE_PRINCIPAL]
+        beneficiaries = [p for p in parties if p.get("role") == _ROLE_BENEFICIARY]
+        opposing = [p for p in parties if p.get("role") == _ROLE_OPPOSING]
 
         if principals:
             principal_client = principals[0].get("client") or {}
@@ -263,10 +267,10 @@ class ContextBuilder:
         parties = contract_data.get("contract_parties") or []
 
         # 按角色分组当事人
-        parties_by_role = {  # type: ignore[var-annotated]
-            PartyRole.PRINCIPAL: [],
-            PartyRole.BENEFICIARY: [],
-            PartyRole.OPPOSING: [],
+        parties_by_role: dict[str, list[Any]] = {
+            _ROLE_PRINCIPAL: [],
+            _ROLE_BENEFICIARY: [],
+            _ROLE_OPPOSING: [],
         }
 
         for party in parties:
@@ -275,7 +279,7 @@ class ContextBuilder:
                 parties_by_role[role].append(party)
 
         # 委托人(取第一个)
-        principals = parties_by_role[PartyRole.PRINCIPAL]
+        principals = parties_by_role[_ROLE_PRINCIPAL]
         if principals:
             principal = principals[0]
             client = principal.get("client") or {}
@@ -304,7 +308,7 @@ class ContextBuilder:
             )
 
         # 受益人
-        beneficiaries = parties_by_role[PartyRole.BENEFICIARY]
+        beneficiaries = parties_by_role[_ROLE_BENEFICIARY]
         if beneficiaries:
             beneficiary = beneficiaries[0]
             client = beneficiary.get("client") or {}
@@ -323,7 +327,7 @@ class ContextBuilder:
             )
 
         # 对方当事人
-        opposing = parties_by_role[PartyRole.OPPOSING]
+        opposing = parties_by_role[_ROLE_OPPOSING]
         if opposing:
             context["opposing_party_name"] = opposing[0].get("client", {}).get("name") or ""
             context["all_opposing_parties"] = [p.get("client", {}).get("name") for p in opposing]

@@ -195,8 +195,10 @@ def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
 
     try:
         task = DocumentRecognitionTask.objects.select_related("case").get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist:
-        raise NotFoundError(message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"})
+    except DocumentRecognitionTask.DoesNotExist as e:
+        raise NotFoundError(
+            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
+        ) from e
 
     # 构建响应
     recognition = None
@@ -346,8 +348,10 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
     # 1. 获取任务
     try:
         task = DocumentRecognitionTask.objects.select_related("case").get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist:
-        raise NotFoundError(message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"})
+    except DocumentRecognitionTask.DoesNotExist as e:
+        raise NotFoundError(
+            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
+        ) from e
 
     # 2. 检查任务是否已绑定
     if task.binding_success:
@@ -416,8 +420,10 @@ def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchem
     # 1. 获取任务
     try:
         task = DocumentRecognitionTask.objects.get(id=task_id)
-    except DocumentRecognitionTask.DoesNotExist:
-        raise NotFoundError(message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"})
+    except DocumentRecognitionTask.DoesNotExist as e:
+        raise NotFoundError(
+            message="任务不存在", code="TASK_NOT_FOUND", errors={"task_id": f"任务 {task_id} 不存在"}
+        ) from e
 
     # 2. 更新字段
     updated_fields = []
@@ -431,10 +437,10 @@ def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchem
             try:
                 # 解析 ISO 格式时间
                 task.key_time = datetime.fromisoformat(payload.key_time.replace("Z", "+00:00"))
-            except ValueError:
+            except ValueError as e:
                 raise ValidationException(
                     message="时间格式不正确", code="INVALID_TIME_FORMAT", errors={"key_time": "请使用正确的时间格式"}
-                )
+                ) from e
         else:
             task.key_time = None
         updated_fields.append("key_time")

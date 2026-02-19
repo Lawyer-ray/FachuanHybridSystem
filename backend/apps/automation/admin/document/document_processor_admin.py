@@ -6,41 +6,34 @@
 from django import forms
 from django.contrib import admin
 from django.http import HttpResponse, HttpResponseRedirect
-from django.urls import path, reverse
 from django.middleware.csrf import get_token
+from django.urls import path, reverse
 
-from ...services.document.document_processing import process_uploaded_document
 from ...models import AutomationTool
+from ...services.document.document_processing import process_uploaded_document
 
 
 class DocumentProcessorForm(forms.Form):
     """文档处理工具表单"""
-    upload = forms.FileField(
-        required=True,
-        help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）"
-    )
-    limit = forms.IntegerField(
-        required=False,
-        help_text="文字提取限制（留空使用默认值1500字）"
-    )
-    preview_page = forms.IntegerField(
-        required=False,
-        min_value=1,
-        help_text="PDF预览页码（留空使用默认值第1页）"
-    )
+
+    upload = forms.FileField(required=True, help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）")
+    limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
+    preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")
 
 
 # @admin.register(AutomationTool)  # 隐藏文档处理模块，不在Django后台显示
 class DocumentProcessorAdmin(admin.ModelAdmin):
     """文档处理工具管理类"""
-    
+
     change_list_template = None
 
     def get_urls(self):
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
         custom = [
-            path("process-document/", self.admin_site.admin_view(self.process_view), name="%s_%s_process_document" % info),
+            path(
+                "process-document/", self.admin_site.admin_view(self.process_view), name="%s_%s_process_document" % info
+            ),
             path("", self.admin_site.admin_view(self.redirect_to_process)),
         ]
         return custom + urls
@@ -57,16 +50,16 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
                 fp = form.cleaned_data["upload"]
                 limit = form.cleaned_data.get("limit")
                 preview_page = form.cleaned_data.get("preview_page")
-                
+
                 try:
                     extraction = process_uploaded_document(fp, limit=limit, preview_page=preview_page)
                 except ValueError as e:
                     return HttpResponse(str(e))
-                
+
                 # 构建响应信息
                 file_info = f"<p><strong>文件类型:</strong> {extraction.kind.upper()}</p>"
                 file_info += f"<p><strong>文件路径:</strong> {extraction.file_path}</p>"
-                
+
                 if extraction.text:
                     html = f"""
                     <h1>文档处理（文件预览/文本抽取）</h1>
@@ -107,7 +100,7 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
                     return HttpResponse(html)
         else:
             form = DocumentProcessorForm()
-        
+
         csrf_token = get_token(request)
         html = f"""
         <h1>文档处理（文件预览/文本抽取）</h1>

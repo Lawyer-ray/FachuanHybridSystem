@@ -153,8 +153,8 @@ class DocumentDeliveryScheduleService:
         # 获取定时任务
         try:
             schedule = DocumentDeliverySchedule.objects.get(id=schedule_id)
-        except DocumentDeliverySchedule.DoesNotExist:
-            raise NotFoundError(f"定时任务不存在: {schedule_id}")
+        except DocumentDeliverySchedule.DoesNotExist as e:
+            raise NotFoundError(f"定时任务不存在: {schedule_id}") from e
 
         # 验证更新参数
         runs_per_day = kwargs.get("runs_per_day", schedule.runs_per_day)
@@ -217,8 +217,8 @@ class DocumentDeliveryScheduleService:
         # 获取定时任务
         try:
             schedule = DocumentDeliverySchedule.objects.get(id=schedule_id)
-        except DocumentDeliverySchedule.DoesNotExist:
-            raise NotFoundError(f"定时任务不存在: {schedule_id}")
+        except DocumentDeliverySchedule.DoesNotExist as e:
+            raise NotFoundError(f"定时任务不存在: {schedule_id}") from e
 
         if not schedule.is_active:
             logger.warning(f"定时任务已禁用: {schedule_id}")
@@ -425,9 +425,9 @@ class DocumentDeliveryScheduleService:
             schedule = DocumentDeliverySchedule.objects.get(id=schedule_id)
             logger.debug(f"找到定时任务: {schedule_id}")
             return schedule
-        except DocumentDeliverySchedule.DoesNotExist:
+        except DocumentDeliverySchedule.DoesNotExist as e:
             logger.warning(f"定时任务不存在: {schedule_id}")
-            raise NotFoundError(f"定时任务 {schedule_id} 不存在")
+            raise NotFoundError(f"定时任务 {schedule_id} 不存在") from e
 
     def delete_schedule(self, schedule_id: int) -> None:
         """
@@ -445,6 +445,6 @@ class DocumentDeliveryScheduleService:
             schedule = DocumentDeliverySchedule.objects.get(id=schedule_id)
             schedule.delete()
             logger.info(f"定时任务删除成功: {schedule_id}")
-        except DocumentDeliverySchedule.DoesNotExist:
+        except DocumentDeliverySchedule.DoesNotExist as e:
             logger.warning(f"定时任务不存在: {schedule_id}")
-            raise NotFoundError(f"定时任务 {schedule_id} 不存在")
+            raise NotFoundError(f"定时任务 {schedule_id} 不存在") from e

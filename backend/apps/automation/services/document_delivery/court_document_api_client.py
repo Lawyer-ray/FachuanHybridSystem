@@ -266,14 +266,14 @@ class CourtDocumentApiClient:
                 logger.warning(f"请求超时: {url}, attempt={attempt + 1}, error={e!s}")
                 if attempt < retry_count:
                     continue
-                raise NetworkError(message=f"请求超时: {e!s}", errors={"url": url, "timeout": self._timeout})
+                raise NetworkError(message=f"请求超时: {e!s}", errors={"url": url, "timeout": self._timeout}) from e
 
             except httpx.RequestError as e:
                 last_error = e  # type: ignore[assignment]
                 logger.warning(f"网络错误: {url}, attempt={attempt + 1}, error={e!s}")
                 if attempt < retry_count:
                     continue
-                raise NetworkError(message=f"网络错误: {e!s}", errors={"url": url})
+                raise NetworkError(message=f"网络错误: {e!s}", errors={"url": url}) from e
 
             except (TokenExpiredError, ApiResponseError):
                 # 这些错误不重试
@@ -282,7 +282,7 @@ class CourtDocumentApiClient:
             except Exception as e:
                 last_error = e  # type: ignore[assignment]
                 logger.error(f"未知错误: {url}, error={e!s}")
-                raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": url})
+                raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": url}) from e
 
         # 不应该到达这里
         raise NetworkError(message=f"请求失败: {last_error!s}", errors={"url": url})

@@ -103,8 +103,8 @@ class CaseAccessService:
         """
         try:
             return cast(CaseAccessGrant, CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id))
-        except CaseAccessGrant.DoesNotExist:
-            raise NotFoundError(f"授权 {grant_id} 不存在")
+        except CaseAccessGrant.DoesNotExist as e:
+            raise NotFoundError(f"授权 {grant_id} 不存在") from e
 
     def create_grant(
         self,
@@ -285,8 +285,8 @@ class CaseAccessService:
         """
         try:
             grant = CaseAccessGrant.objects.get(case_id=case_id, grantee_id=grantee_id)
-        except CaseAccessGrant.DoesNotExist:
-            raise NotFoundError("授权记录不存在")
+        except CaseAccessGrant.DoesNotExist as e:
+            raise NotFoundError("授权记录不存在") from e
 
         grant.delete()
 

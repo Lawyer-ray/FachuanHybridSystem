@@ -251,7 +251,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         except Exception as e:
             logger.error(f"下载失败: {e}")
             self._save_page_state("gdems_download_error")
-            raise ValueError(f"文件下载失败: {e}")
+            raise ValueError(f"文件下载失败: {e}") from e
 
     def _extract_zip_file(self, zip_filepath: Path, download_dir: Path) -> list[str]:
         """

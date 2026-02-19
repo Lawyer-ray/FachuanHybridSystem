@@ -118,7 +118,7 @@ class SMSSubmissionService:
             logger.error(f"提交短信处理失败: {e!s}")
             raise ValidationException(
                 message=f"提交短信处理失败: {e!s}", code="SMS_SUBMIT_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     @transaction.atomic
     def assign_case(self, sms_id: int, case_id: int) -> CourtSMS:
@@ -140,8 +140,8 @@ class SMSSubmissionService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         # 验证案件是否存在
         case_dto = self.case_service.get_case_by_id_internal(case_id)
@@ -184,7 +184,7 @@ class SMSSubmissionService:
             logger.error(f"手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
             raise ValidationException(
                 message=f"手动指定案件失败: {e!s}", code="CASE_ASSIGNMENT_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def retry_processing(self, sms_id: int) -> CourtSMS:
         """
@@ -202,8 +202,8 @@ class SMSSubmissionService:
         """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
-        except CourtSMS.DoesNotExist:
-            raise NotFoundError(f"短信记录不存在: ID={sms_id}")
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         try:
             # 重置状态和错误信息
@@ -237,7 +237,7 @@ class SMSSubmissionService:
             logger.error(f"重新处理短信失败: SMS ID={sms_id}, 错误: {e!s}")
             raise ValidationException(
                 message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
-            )
+            ) from e
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:
         """

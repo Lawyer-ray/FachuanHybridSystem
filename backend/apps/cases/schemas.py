@@ -1,29 +1,33 @@
-from ninja import Schema, ModelSchema
-from typing import Optional, List
-from .models import Case, CaseParty, CaseAssignment, CaseLog, CaseLogAttachment, CaseNumber, SupervisingAuthority
+from ninja import ModelSchema, Schema
+
 from apps.client.schemas import ClientOut
-from .models import CaseStage
-from .models import CaseAccessGrant
-from apps.core.schemas import SchemaMixin
 from apps.core.interfaces import LawyerDTO, ServiceLocator
+from apps.core.schemas import SchemaMixin
+
+from .models import (
+    Case,
+    CaseAccessGrant,
+    CaseAssignment,
+    CaseLog,
+    CaseLogAttachment,
+    CaseNumber,
+    CaseParty,
+    SupervisingAuthority,
+)
 
 
 class LawyerOutFromDTO(Schema):
     """基于 LawyerDTO 的律师输出 Schema"""
+
     id: int
     username: str
-    real_name: Optional[str] = None
-    phone: Optional[str] = None
+    real_name: str | None = None
+    phone: str | None = None
 
     @classmethod
     def from_dto(cls, dto: LawyerDTO) -> "LawyerOutFromDTO":
         """从 LawyerDTO 转换为 Schema"""
-        return cls(
-            id=dto.id,
-            username=dto.username,
-            real_name=dto.real_name,
-            phone=dto.phone
-        )
+        return cls(id=dto.id, username=dto.username, real_name=dto.real_name, phone=dto.phone)
 
 
 class CaseIn(ModelSchema):
@@ -42,12 +46,13 @@ class CaseIn(ModelSchema):
 
 
 class CaseOut(ModelSchema):
-    parties: List["CasePartyOut"]
-    assignments: List["CaseAssignmentOut"]
-    logs: List["CaseLogOut"]
-    case_numbers: List["CaseNumberOut"]
-    supervising_authorities: List["SupervisingAuthorityOut"]
+    parties: list["CasePartyOut"]
+    assignments: list["CaseAssignmentOut"]
+    logs: list["CaseLogOut"]
+    case_numbers: list["CaseNumberOut"]
+    supervising_authorities: list["SupervisingAuthorityOut"]
     contract_id: int | None
+
     class Meta:
         model = Case
         fields = [
@@ -89,21 +94,22 @@ class CaseOut(ModelSchema):
         return obj.contract_id
 
     @staticmethod
-    def resolve_case_numbers(obj: Case) -> List["CaseNumberOut"]:
+    def resolve_case_numbers(obj: Case) -> list["CaseNumberOut"]:
         return list(obj.case_numbers.all())
 
     @staticmethod
-    def resolve_supervising_authorities(obj: Case) -> List["SupervisingAuthorityOut"]:
+    def resolve_supervising_authorities(obj: Case) -> list["SupervisingAuthorityOut"]:
         return list(obj.supervising_authorities.all())
 
 
 class SupervisingAuthorityIn(Schema):
-    name: Optional[str] = None
-    authority_type: Optional[str] = None
+    name: str | None = None
+    authority_type: str | None = None
 
 
 class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
     authority_type_display: str | None
+
     class Meta:
         model = SupervisingAuthority
         fields = ["id", "name", "authority_type", "created_at"]
@@ -118,35 +124,36 @@ class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
 
 
 class SupervisingAuthorityUpdate(Schema):
-    name: Optional[str] = None
-    authority_type: Optional[str] = None
+    name: str | None = None
+    authority_type: str | None = None
 
 
 class CaseUpdate(Schema):
-    name: Optional[str] = None
-    status: Optional[str] = None
-    is_archived: Optional[bool] = None
-    case_type: Optional[str] = None
-    target_amount: Optional[float] = None
-    cause_of_action: Optional[str] = None
-    current_stage: Optional[str] = None
-    effective_date: Optional[str] = None
+    name: str | None = None
+    status: str | None = None
+    is_archived: bool | None = None
+    case_type: str | None = None
+    target_amount: float | None = None
+    cause_of_action: str | None = None
+    current_stage: str | None = None
+    effective_date: str | None = None
 
 
 class CasePartyIn(Schema):
     case_id: int
     client_id: int
-    legal_status: Optional[str] = None
+    legal_status: str | None = None
 
 
 class CasePartyUpdate(Schema):
-    case_id: Optional[int] = None
-    client_id: Optional[int] = None
-    legal_status: Optional[str] = None
+    case_id: int | None = None
+    client_id: int | None = None
+    legal_status: str | None = None
 
 
 class CasePartyOut(ModelSchema):
     client_detail: ClientOut
+
     class Meta:
         model = CaseParty
         fields = ["id", "case", "client", "legal_status"]
@@ -166,12 +173,13 @@ class CaseAssignmentIn(Schema):
 
 
 class CaseAssignmentUpdate(Schema):
-    case_id: Optional[int] = None
-    lawyer_id: Optional[int] = None
+    case_id: int | None = None
+    lawyer_id: int | None = None
 
 
 class CaseAssignmentOut(ModelSchema):
     lawyer_detail: LawyerOutFromDTO
+
     class Meta:
         model = CaseAssignment
         fields = ["id", "case", "lawyer"]
@@ -184,31 +192,27 @@ class CaseAssignmentOut(ModelSchema):
         if lawyer_dto:
             return LawyerOutFromDTO.from_dto(lawyer_dto)
         # 如果通过服务获取失败，使用基本信息
-        return LawyerOutFromDTO(
-            id=obj.lawyer_id,
-            username=f"lawyer_{obj.lawyer_id}",
-            real_name=None,
-            phone=None
-        )
+        return LawyerOutFromDTO(id=obj.lawyer_id, username=f"lawyer_{obj.lawyer_id}", real_name=None, phone=None)
 
 
 class CaseLogIn(Schema):
     case_id: int
     content: str
-    reminder_type: Optional[str] = None
-    reminder_time: Optional[str] = None
+    reminder_type: str | None = None
+    reminder_time: str | None = None
 
 
 class CaseLogUpdate(Schema):
-    case_id: Optional[int] = None
-    content: Optional[str] = None
-    reminder_type: Optional[str] = None
-    reminder_time: Optional[str] = None
+    case_id: int | None = None
+    content: str | None = None
+    reminder_type: str | None = None
+    reminder_time: str | None = None
 
 
 class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
     file_path: str | None
     media_url: str | None
+
     class Meta:
         model = CaseLogAttachment
         fields = ["id", "log", "uploaded_at"]
@@ -228,25 +232,22 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
 
 class CaseLogActorOut(Schema):
     """案件日志操作者信息"""
+
     id: int
     username: str
-    real_name: Optional[str] = None
-    phone: Optional[str] = None
+    real_name: str | None = None
+    phone: str | None = None
 
     @classmethod
     def from_dto(cls, dto: LawyerDTO) -> "CaseLogActorOut":
         """从 LawyerDTO 转换为 Schema"""
-        return cls(
-            id=dto.id,
-            username=dto.username,
-            real_name=dto.real_name,
-            phone=dto.phone
-        )
+        return cls(id=dto.id, username=dto.username, real_name=dto.real_name, phone=dto.phone)
 
 
 class CaseLogOut(ModelSchema, SchemaMixin):
-    attachments: List[CaseLogAttachmentOut]
+    attachments: list[CaseLogAttachmentOut]
     actor_detail: CaseLogActorOut
+
     class Meta:
         model = CaseLog
         fields = [
@@ -261,7 +262,7 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         ]
 
     @staticmethod
-    def resolve_attachments(obj: CaseLog) -> List[CaseLogAttachmentOut]:
+    def resolve_attachments(obj: CaseLog) -> list[CaseLogAttachmentOut]:
         return list(obj.attachments.all())
 
     @staticmethod
@@ -276,12 +277,7 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         if lawyer_dto:
             return CaseLogActorOut.from_dto(lawyer_dto)
         # 如果通过服务获取失败，使用基本信息
-        return CaseLogActorOut(
-            id=obj.actor_id,
-            username=f"lawyer_{obj.actor_id}",
-            real_name=None,
-            phone=None
-        )
+        return CaseLogActorOut(id=obj.actor_id, username=f"lawyer_{obj.actor_id}", real_name=None, phone=None)
 
     @staticmethod
     def resolve_created_at(obj: CaseLog):
@@ -301,7 +297,7 @@ class CaseLogAttachmentIn(Schema):
 
 
 class CaseLogAttachmentUpdate(Schema):
-    log_id: Optional[int] = None
+    log_id: int | None = None
 
 
 class CaseLogVersionOut(Schema):
@@ -313,7 +309,7 @@ class CaseLogVersionOut(Schema):
 
 class CasePartyCreate(Schema):
     client_id: int
-    legal_status: Optional[str] = None
+    legal_status: str | None = None
 
 
 class CaseAssignmentCreate(Schema):
@@ -326,14 +322,14 @@ class CaseLogAttachmentCreate(Schema):
 
 class CaseLogCreate(Schema):
     content: str
-    reminder_type: Optional[str] = None
-    reminder_time: Optional[str] = None
+    reminder_type: str | None = None
+    reminder_time: str | None = None
 
 
 class CaseNumberIn(Schema):
     case_id: int
     number: str
-    remarks: Optional[str] = None
+    remarks: str | None = None
 
 
 class CaseNumberOut(ModelSchema, SchemaMixin):
@@ -352,17 +348,17 @@ class CaseNumberOut(ModelSchema, SchemaMixin):
 
 
 class CaseNumberUpdate(Schema):
-    number: Optional[str] = None
-    remarks: Optional[str] = None
+    number: str | None = None
+    remarks: str | None = None
 
 
 class CaseCreateFull(Schema):
     case: CaseIn
-    parties: Optional[list[CasePartyCreate]] = None
-    assignments: Optional[list[CaseAssignmentCreate]] = None
-    logs: Optional[list[CaseLogCreate]] = None
-    case_numbers: Optional[list[CaseNumberIn]] = None
-    supervising_authorities: Optional[list[SupervisingAuthorityIn]] = None
+    parties: list[CasePartyCreate] | None = None
+    assignments: list[CaseAssignmentCreate] | None = None
+    logs: list[CaseLogCreate] | None = None
+    case_numbers: list[CaseNumberIn] | None = None
+    supervising_authorities: list[SupervisingAuthorityIn] | None = None
 
 
 class CaseFullOut(Schema):
@@ -390,8 +386,5 @@ class CaseAccessGrantOut(ModelSchema, SchemaMixin):
 
 
 class CaseAccessGrantUpdate(Schema):
-    case_id: Optional[int] = None
-    grantee_id: Optional[int] = None
-
-
-
+    case_id: int | None = None
+    grantee_id: int | None = None

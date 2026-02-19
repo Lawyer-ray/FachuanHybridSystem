@@ -340,7 +340,7 @@ class CourtZxfwService:
             logger.error(f"登录失败: {e}", exc_info=True)
             if save_debug:
                 self._save_screenshot("error_login_failed")
-            raise ValueError(f"登录失败: {e}")
+            raise ValueError(f"登录失败: {e}") from e
 
     def _recognize_captcha(self, save_debug: bool = False) -> str | None:
         """

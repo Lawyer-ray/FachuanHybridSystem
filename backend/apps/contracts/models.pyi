@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import models
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager
 
 from apps.client.models import Client
 from apps.organization.models import Lawyer

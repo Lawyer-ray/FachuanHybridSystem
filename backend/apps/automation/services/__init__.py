@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Automation 服务模块
 
@@ -20,62 +19,50 @@ Automation 服务模块
 - 异步任务入口函数保持原有路径兼容
 """
 
-# Token 管理服务
-from .token import (
-    AccountSelectionStrategy,
-    AutoLoginService,
-    AutoTokenAcquisitionService,
-)
-
 # 文书送达服务（原有 + 拆分后）
-from .document_delivery import (
-    # 原有服务
-    DocumentDeliveryService,
-    DocumentDeliveryScheduleService,
-    # 数据类
-    DocumentDeliveryRecord,
-    DocumentQueryResult,
-    DocumentProcessResult,
-    # API 客户端
+from .document_delivery import (  # 原有服务; 数据类; API 客户端; 拆分后的服务
     CourtDocumentApiClient,
-    # 拆分后的服务
-    DocumentDeliveryCoordinator,
-    DocumentDeliveryTokenService,
     DocumentDeliveryApiService,
+    DocumentDeliveryCoordinator,
     DocumentDeliveryPlaywrightService,
     DocumentDeliveryProcessor,
+    DocumentDeliveryRecord,
+    DocumentDeliveryScheduleService,
+    DocumentDeliveryService,
+    DocumentDeliveryTokenService,
+    DocumentProcessResult,
+    DocumentQueryResult,
 )
 
 # 短信处理服务（原有 + 拆分后）
-from .sms import (
-    # 原有服务
+from .sms import (  # 原有服务; 异步任务入口函数（向后兼容）; 拆分后的服务; 阶段处理器
+    BaseSMSStage,
     CaseMatcher,
-    SMSParserService,
-    FeishuBotService,
-    CourtSMSService,
-    DocumentRenamer,
     CaseNumberExtractorService,
+    CourtSMSService,
     DocumentAttachmentService,
+    DocumentParserService,
+    DocumentRenamer,
+    FeishuBotService,
+    ISMSStage,
+    PartyMatchingService,
+    SMSDownloadingStage,
+    SMSMatchingStage,
     SMSNotificationService,
+    SMSNotifyingStage,
+    SMSParserService,
+    SMSParsingStage,
+    SMSRenamingStage,
+    SMSSubmissionService,
     TaskRecoveryService,
-    # 异步任务入口函数（向后兼容）
     process_sms_async,
     process_sms_from_matching,
     process_sms_from_renaming,
     retry_download_task,
-    # 拆分后的服务
-    SMSSubmissionService,
-    DocumentParserService,
-    PartyMatchingService,
-    # 阶段处理器
-    ISMSStage,
-    BaseSMSStage,
-    SMSParsingStage,
-    SMSDownloadingStage,
-    SMSMatchingStage,
-    SMSRenamingStage,
-    SMSNotifyingStage,
 )
+
+# Token 管理服务
+from .token import AccountSelectionStrategy, AutoLoginService, AutoTokenAcquisitionService
 
 __all__ = [
     # ===== Token 管理服务 =====

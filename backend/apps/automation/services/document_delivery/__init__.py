@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 文书送达服务模块
 
@@ -21,42 +20,38 @@
 - processor/ - 文书处理服务
 """
 
-# 原有核心服务（保持向后兼容）
-from .document_delivery_service import DocumentDeliveryService
-from .document_delivery_schedule_service import DocumentDeliveryScheduleService
-
-# 数据类
-from .data_classes import (
-    DocumentDeliveryRecord,
-    DocumentQueryResult,
-    DocumentProcessResult,
-)
-
-# API 客户端和相关类
-from .court_document_api_client import (
-    CourtDocumentApiClient,
-    DocumentRecord,
-    DocumentDetail,
-    DocumentListResponse,
-    CourtApiError,
-    TokenExpiredError,
-    ApiResponseError,
-)
+# 拆分后的服务 - API 查询
+from .api import DocumentDeliveryApiService
 
 # 拆分后的服务 - 协调器
 from .coordinator import DocumentDeliveryCoordinator
 
-# 拆分后的服务 - Token 管理
-from .token import DocumentDeliveryTokenService
+# API 客户端和相关类
+from .court_document_api_client import (
+    ApiResponseError,
+    CourtApiError,
+    CourtDocumentApiClient,
+    DocumentDetail,
+    DocumentListResponse,
+    DocumentRecord,
+    TokenExpiredError,
+)
 
-# 拆分后的服务 - API 查询
-from .api import DocumentDeliveryApiService
+# 数据类
+from .data_classes import DocumentDeliveryRecord, DocumentProcessResult, DocumentQueryResult
+from .document_delivery_schedule_service import DocumentDeliveryScheduleService
+
+# 原有核心服务（保持向后兼容）
+from .document_delivery_service import DocumentDeliveryService
 
 # 拆分后的服务 - Playwright 查询
 from .playwright import DocumentDeliveryPlaywrightService
 
 # 拆分后的服务 - 文书处理
 from .processor import DocumentDeliveryProcessor
+
+# 拆分后的服务 - Token 管理
+from .token import DocumentDeliveryTokenService
 
 __all__ = [
     # ===== 原有核心服务（向后兼容）=====

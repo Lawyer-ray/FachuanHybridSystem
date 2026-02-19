@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from django.db import models
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager
 from django.db.models.fields.files import FieldFile
 
 from apps.organization.models import Lawyer
