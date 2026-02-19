@@ -14,10 +14,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper
 from ._zxfw_direct_api_mixin import ZxfwDirectApiMixin
 from ._zxfw_fallback_mixin import ZxfwFallbackMixin
 from ._zxfw_intercept_mixin import ZxfwInterceptMixin
+from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
 
@@ -51,16 +51,24 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             result = self._download_via_direct_api(self.task.url, download_dir)
             logger.info(
                 "直接 API 调用成功",
-                extra={"operation_type": "direct_api_success", "timestamp": time.time(),
-                       "document_count": result.get("document_count", 0), "downloaded_count": result.get("downloaded_count", 0)},
+                extra={
+                    "operation_type": "direct_api_success",
+                    "timestamp": time.time(),
+                    "document_count": result.get("document_count", 0),
+                    "downloaded_count": result.get("downloaded_count", 0),
+                },
             )
             return result
         except Exception as e:
             direct_api_error = e
             logger.warning(
                 "直接 API 调用失败,尝试 Playwright 拦截方式",
-                extra={"operation_type": "direct_api_failed", "timestamp": time.time(),
-                       "error": str(e), "error_type": type(e).__name__},
+                extra={
+                    "operation_type": "direct_api_failed",
+                    "timestamp": time.time(),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
             )
 
         # ========== 第二优先级:Playwright 拦截 API ==========
@@ -75,16 +83,24 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
             logger.info(
                 "Playwright API 拦截成功",
-                extra={"operation_type": "api_intercept_success", "timestamp": time.time(),
-                       "document_count": result.get("document_count", 0), "downloaded_count": result.get("downloaded_count", 0)},
+                extra={
+                    "operation_type": "api_intercept_success",
+                    "timestamp": time.time(),
+                    "document_count": result.get("document_count", 0),
+                    "downloaded_count": result.get("downloaded_count", 0),
+                },
             )
             return result
         except Exception as e:
             api_intercept_error = e
             logger.warning(
                 "Playwright API 拦截失败,回退到传统方式",
-                extra={"operation_type": "api_intercept_failed", "timestamp": time.time(),
-                       "error": str(e), "error_type": type(e).__name__},
+                extra={
+                    "operation_type": "api_intercept_failed",
+                    "timestamp": time.time(),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
             )
 
         # ========== 第三优先级:传统页面点击 ==========
@@ -96,11 +112,17 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             result = self._download_via_fallback(download_dir)
             result["method"] = "fallback"
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
-            result["api_intercept_error"] = {"type": type(api_intercept_error).__name__, "message": str(api_intercept_error)}
+            result["api_intercept_error"] = {
+                "type": type(api_intercept_error).__name__,
+                "message": str(api_intercept_error),
+            }
             logger.info(
                 "回退机制执行成功",
-                extra={"operation_type": "fallback_success", "timestamp": time.time(),
-                       "downloaded_count": result.get("downloaded_count", 0)},
+                extra={
+                    "operation_type": "fallback_success",
+                    "timestamp": time.time(),
+                    "downloaded_count": result.get("downloaded_count", 0),
+                },
             )
             return result
         except Exception as fallback_error:
@@ -116,6 +138,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
                 exc_info=True,
             )
             from apps.core.exceptions import ExternalServiceError
+
             raise ExternalServiceError(
                 message="所有下载方式均失败",
                 code="DOWNLOAD_ALL_METHODS_FAILED",

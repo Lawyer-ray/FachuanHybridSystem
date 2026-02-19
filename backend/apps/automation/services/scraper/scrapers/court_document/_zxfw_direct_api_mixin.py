@@ -92,7 +92,11 @@ class ZxfwDirectApiMixin:
                 error_msg = "文书数据中缺少下载链接 (wjlj)"
                 logger.error(
                     error_msg,
-                    extra={"operation_type": "download_document_direct", "timestamp": time.time(), "document_data": document_data},
+                    extra={
+                        "operation_type": "download_document_direct",
+                        "timestamp": time.time(),
+                        "document_data": document_data,
+                    },
                 )
                 return False, None, error_msg
             filename_base = re.sub(r'[<>:"/\\|?*]', "_", document_data.get("c_wsmc", "document"))
@@ -101,10 +105,16 @@ class ZxfwDirectApiMixin:
             filepath = download_dir / filename
             logger.info(
                 "开始直接下载文书",
-                extra={"operation_type": "download_document_direct_start", "timestamp": time.time(), "url": url, "file_name": filename},
+                extra={
+                    "operation_type": "download_document_direct_start",
+                    "timestamp": time.time(),
+                    "url": url,
+                    "file_name": filename,
+                },
             )
             try:
                 import httpx
+
                 with httpx.Client(timeout=download_timeout / 1000.0, follow_redirects=True) as client:
                     response = client.get(url)
                     response.raise_for_status()
@@ -114,22 +124,36 @@ class ZxfwDirectApiMixin:
                 download_time = (time.time() - start_time) * 1000
                 logger.info(
                     "文书下载成功",
-                    extra={"operation_type": "download_document_direct_success", "timestamp": time.time(),
-                           "file_name": filename, "file_size": file_size, "download_time_ms": download_time},
+                    extra={
+                        "operation_type": "download_document_direct_success",
+                        "timestamp": time.time(),
+                        "file_name": filename,
+                        "file_size": file_size,
+                        "download_time_ms": download_time,
+                    },
                 )
                 return True, str(filepath), None
             except Exception as e:
                 error_msg = f"下载失败: {e!s}"
                 logger.error(
                     error_msg,
-                    extra={"operation_type": "download_document_direct_failed", "timestamp": time.time(),
-                           "url": url, "file_name": filename, "download_time_ms": (time.time() - start_time) * 1000},
+                    extra={
+                        "operation_type": "download_document_direct_failed",
+                        "timestamp": time.time(),
+                        "url": url,
+                        "file_name": filename,
+                        "download_time_ms": (time.time() - start_time) * 1000,
+                    },
                     exc_info=True,
                 )
                 return False, None, error_msg
         except Exception as e:
             error_msg = f"处理下载请求失败: {e!s}"
-            logger.error(error_msg, extra={"operation_type": "download_document_direct_error", "timestamp": time.time()}, exc_info=True)
+            logger.error(
+                error_msg,
+                extra={"operation_type": "download_document_direct_error", "timestamp": time.time()},
+                exc_info=True,
+            )
             return False, None, error_msg
 
     def _download_via_direct_api(self, url: str, download_dir: Path) -> dict[str, Any]:
@@ -160,12 +184,18 @@ class ZxfwDirectApiMixin:
             documents_with_results.append((document_data, download_result))
             if i < len(documents):
                 import random
+
                 time.sleep(random.uniform(0.5, 1.5))
         db_save_result = self._save_documents_batch(documents_with_results)
         logger.info(
             "直接 API 方式下载完成",
-            extra={"operation_type": "direct_api_download_summary", "timestamp": time.time(),
-                   "total_count": len(documents), "success_count": success_count, "failed_count": failed_count},
+            extra={
+                "operation_type": "direct_api_download_summary",
+                "timestamp": time.time(),
+                "total_count": len(documents),
+                "success_count": success_count,
+                "failed_count": failed_count,
+            },
         )
         return {
             "source": "zxfw.court.gov.cn",
