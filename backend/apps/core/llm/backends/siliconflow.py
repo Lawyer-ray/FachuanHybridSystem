@@ -31,7 +31,7 @@ class SiliconFlowBackend:
     Example:
         backend = SiliconFlowBackend()
         response = backend.chat([{"role": "user", "content": "你好"}])
-        print(response.content)
+        logger.info(response.content)
 
     Requirements: 1.2, 1.5
     """

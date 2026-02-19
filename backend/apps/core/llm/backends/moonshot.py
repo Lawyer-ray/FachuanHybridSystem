@@ -42,15 +42,15 @@ class MoonshotBackend(HttpxErrorMixin):
 
         # 聊天
         response = backend.chat([{"role": "user", "content": "你好"}])
-        print(response.content)
+        logger.info(response.content)
 
         # 文件上传
         file_info = backend.upload_file("/path/to/file.pdf")
-        print(file_info["id"])
+        logger.info(file_info["id"])
 
         # 文件提取
         extraction = backend.extract_result(file_info["id"])
-        print(extraction["content"])
+        logger.info(extraction["content"])
 
     Requirements: 3.1, 3.2, 3.3
     """
