@@ -168,3 +168,9 @@ def build_sms_document_processing_service() -> Any:
     from apps.core.service_locator import ServiceLocator
 
     return ServiceLocator.get_document_processing_service()
+
+
+def build_sms_case_number_service() -> Any:
+    from apps.core.service_locator import ServiceLocator
+
+    return ServiceLocator.get_case_number_service()

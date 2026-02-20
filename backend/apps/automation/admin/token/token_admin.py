@@ -7,6 +7,7 @@ from typing import ClassVar
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from apps.automation.models import CourtToken
 
@@ -91,16 +92,16 @@ class CourtTokenAdmin(admin.ModelAdmin):
     def status_display(self, obj):
         """显示 Token 状态（有效/过期）"""
         if obj.is_expired():
-            return format_html('<span style="color: red; font-weight: bold;">❌ 已过期</span>')
+            return mark_safe('<span style="color: red; font-weight: bold;">❌ 已过期</span>')
         else:
-            return format_html('<span style="color: green; font-weight: bold;">✅ 有效</span>')
+            return mark_safe('<span style="color: green; font-weight: bold;">✅ 有效</span>')
 
     status_display.short_description = "状态"
 
     def remaining_time(self, obj):
         """剩余有效时间"""
         if obj.is_expired():
-            return format_html('<span style="color: red;">已过期</span>')
+            return mark_safe('<span style="color: red;">已过期</span>')
 
         now = timezone.now()
         remaining = obj.expires_at - now

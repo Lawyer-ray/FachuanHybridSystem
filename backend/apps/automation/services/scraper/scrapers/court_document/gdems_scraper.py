@@ -194,8 +194,14 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             extract_dir.mkdir(exist_ok=True)
 
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
-                extracted_files: list[Any] = []
+                for member in zip_ref.infolist():
+                    target = (extract_dir / member.filename).resolve()
+                    if not str(target).startswith(str(extract_dir.resolve())):
+                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        continue
+                    zip_ref.extract(member, extract_dir)
+                    if not member.is_dir():
+                        extracted_files.append(str(target))
             logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
 
         except Exception as e:

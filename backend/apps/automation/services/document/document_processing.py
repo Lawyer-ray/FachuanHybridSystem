@@ -172,6 +172,7 @@ def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | Non
             pix.save(temp_path.as_posix())
 
             ocr_text = extract_text_from_image_with_rapidocr(temp_path.as_posix())
+            temp_path.relative_to(Path(settings.MEDIA_ROOT))  # 边界检查
             temp_path.unlink(missing_ok=True)
 
             if ocr_text.strip():

@@ -2,6 +2,7 @@
 
 import logging
 import os
+from pathlib import Path
 import queue
 import tempfile
 import threading
@@ -109,13 +110,19 @@ class DocumentDeliveryDownloadingMixin:
         return result
 
     def _extract_zip_if_needed(self, file_path: str) -> list[str] | None:
-        """如果是 ZIP 文件则解压，返回解压后的文件列表"""
+        """如果是 ZIP 文件则解压，返回解压后的文件列表（安全逐文件解压，防 zip slip）"""
         if not file_path.lower().endswith(".zip"):
             return None
         try:
             extract_dir = tempfile.mkdtemp(prefix="extracted_documents_")
+            extract_path = Path(extract_dir)
             with zipfile.ZipFile(file_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+                for member in zip_ref.infolist():
+                    target = (extract_path / member.filename).resolve()
+                    if not str(target).startswith(str(extract_path.resolve())):
+                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        continue
+                    zip_ref.extract(member, extract_path)
             extracted_files = []
             for root, _dirs, files in os.walk(extract_dir):
                 for file in files:

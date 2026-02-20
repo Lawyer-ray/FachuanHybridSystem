@@ -17,6 +17,7 @@ def test_api_layer_no_direct_io_task_or_db_writes():
         "apps/automation/api/fee_notice_extraction_api.py",
         "apps/automation/api/preservation_date_extraction_api.py",
         "apps/automation/services/document_delivery/api/document_delivery_api_service.py",
+        "apps/automation/services/document_delivery/api/document_delivery_api_service/_matching.py",
     }
     allow_async_task = {
         "apps/automation/api/court_document_recognition_api.py",
@@ -24,6 +25,7 @@ def test_api_layer_no_direct_io_task_or_db_writes():
     allow_db_writes = {
         "apps/automation/api/court_document_recognition_api.py",
         "apps/automation/services/document_delivery/api/document_delivery_api_service.py",
+        "apps/automation/services/document_delivery/api/document_delivery_api_service/_process.py",
     }
 
     errors = []

@@ -1,5 +1,6 @@
 from .auth import LoginAttemptResult, TokenAcquisitionResult
 from .cases import CaseDTO, CasePartyDTO, CaseSearchResultDTO, CaseTemplateBindingDTO
+from .chat import ChatResult, MessageContent
 from .client import ClientDTO, ClientIdentityDocDTO, PropertyClueDTO
 from .contracts import ContractDTO, PartyRoleDTO, SupplementaryAgreementDTO
 from .conversation import ConversationHistoryDTO
@@ -14,6 +15,7 @@ __all__ = [
     "CasePartyDTO",
     "CaseSearchResultDTO",
     "CaseTemplateBindingDTO",
+    "ChatResult",
     "ClientDTO",
     "ClientIdentityDocDTO",
     "ContractDTO",
@@ -25,6 +27,7 @@ __all__ = [
     "LawFirmDTO",
     "LawyerDTO",
     "LoginAttemptResult",
+    "MessageContent",
     "PartyRoleDTO",
     "PropertyClueDTO",
     "ReminderDTO",

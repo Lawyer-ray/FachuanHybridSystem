@@ -9,6 +9,7 @@ Requirements: 1.1, 1.3, 3.3, 5.1, 5.2, 5.5
 
 import logging
 import os
+from pathlib import Path
 import queue
 import tempfile
 import threading
@@ -78,18 +79,18 @@ class DocumentDeliveryProcessor:
     def caselog_service(self) -> "ICaseLogService":
         """延迟加载案件日志服务"""
         if self._caselog_service is None:
-            from apps.cases.services.caselog_service_adapter import CaseLogServiceAdapter
+            from apps.core.dependencies.business_case import build_caselog_service
 
-            self._caselog_service = CaseLogServiceAdapter()
+            self._caselog_service = build_caselog_service()
         return self._caselog_service
 
     @property
     def case_number_service(self) -> "ICaseNumberService":
         """延迟加载案号服务"""
         if self._case_number_service is None:
-            from apps.cases.services.case_number_service_adapter import CaseNumberServiceAdapter
+            from apps.core.dependencies.business_case import build_case_number_service
 
-            self._case_number_service = CaseNumberServiceAdapter()
+            self._case_number_service = build_case_number_service()
         return self._case_number_service
 
     def process_downloaded_document(
@@ -348,8 +349,14 @@ class DocumentDeliveryProcessor:
 
         try:
             extract_dir = tempfile.mkdtemp(prefix="extracted_documents_")
+            extract_path = Path(extract_dir)
             with zipfile.ZipFile(file_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+                for member in zip_ref.infolist():
+                    target = (extract_path / member.filename).resolve()
+                    if not str(target).startswith(str(extract_path.resolve())):
+                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        continue
+                    zip_ref.extract(member, extract_path)
 
             extracted_files = []
             for root, _dirs, files in os.walk(extract_dir):

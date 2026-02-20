@@ -90,15 +90,19 @@ class DocumentProcessor:
             return None
 
         try:
-            # 创建解压目录
             extract_dir = tempfile.mkdtemp(prefix="extracted_documents_")
+            extract_path = Path(extract_dir)
 
             with zipfile.ZipFile(file_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+                for member in zip_ref.infolist():
+                    target = (extract_path / member.filename).resolve()
+                    if not str(target).startswith(str(extract_path.resolve())):
+                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        continue
+                    zip_ref.extract(member, extract_path)
 
-            # 获取解压后的所有文件
             extracted_files: list[Any] = []
-            for root, _dirs, files in Path(extract_dir).walk():
+            for root, _dirs, files in extract_path.walk():
                 for file in files:
                     file_full_path = root / file
                     extracted_files.append(str(file_full_path))

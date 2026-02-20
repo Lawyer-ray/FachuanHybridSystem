@@ -11,6 +11,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from apps.automation.models import DocumentQueryHistory
 
@@ -169,7 +170,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
                 color,
                 obj.court_sms.get_status_display(),
             )
-        return format_html('<span style="color: gray;">无关联短信</span>')
+        return mark_safe('<span style="color: gray;">无关联短信</span>')
 
     court_sms_display.short_description = "关联短信"
 
