@@ -9,7 +9,7 @@ from django.http import HttpRequest
 from apps.cases.models import CaseLog, CaseLogAttachment
 
 if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin
+    BaseModelAdmin = admin.ModelAdmin[CaseLog]
 else:
     try:
         import nested_admin

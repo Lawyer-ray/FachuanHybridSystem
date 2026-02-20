@@ -29,7 +29,7 @@ from apps.contracts.models import ContractAssignment, ContractParty, Supplementa
 Reminder = django_apps.get_model("reminders", "Reminder")
 
 
-class ContractPartyInline(BaseTabularInline):
+class ContractPartyInline(BaseTabularInline[ContractParty, ContractParty]):
     model = ContractParty
     extra = 1
     fields = ("client", "role")
@@ -37,13 +37,13 @@ class ContractPartyInline(BaseTabularInline):
     show_change_link = True
 
 
-class ContractReminderInline(BaseTabularInline):
+class ContractReminderInline(BaseTabularInline[Any, Any]):
     model = Reminder
     extra = 1
     fields = ("reminder_type", "content", "due_at")
 
 
-class ContractAssignmentInline(BaseTabularInline):
+class ContractAssignmentInline(BaseTabularInline[ContractAssignment, ContractAssignment]):
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
@@ -51,7 +51,7 @@ class ContractAssignmentInline(BaseTabularInline):
     ordering = ("order",)
 
 
-class SupplementaryAgreementPartyInlineAdmin(BaseTabularInline):
+class SupplementaryAgreementPartyInlineAdmin(BaseTabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):
     """补充协议当事人内联管理"""
 
     model = SupplementaryAgreementParty
@@ -60,7 +60,7 @@ class SupplementaryAgreementPartyInlineAdmin(BaseTabularInline):
     autocomplete_fields: ClassVar = ["client"]
 
 
-class SupplementaryAgreementInlineAdmin(BaseStackedInline):
+class SupplementaryAgreementInlineAdmin(BaseStackedInline[SupplementaryAgreement, SupplementaryAgreement]):
     """合同补充协议内联管理
 
     Requirements: 5.1, 5.3

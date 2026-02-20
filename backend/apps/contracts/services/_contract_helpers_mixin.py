@@ -10,11 +10,15 @@ from apps.core.exceptions import ValidationException
 if TYPE_CHECKING:
     from apps.contracts.models import Contract, FeeMode
 
+from apps.core.business_config import BusinessConfig
+
 logger = logging.getLogger("apps.contracts")
 
 
 class ContractHelpersMixin:
     """合同验证、权限检查、日志记录辅助方法"""
+
+    config: BusinessConfig
 
     def _log_finance_change(
         self, contract_id: int, user_id: int, action: str, changes: dict[str, Any], level: str = "INFO"
@@ -86,8 +90,8 @@ class ContractHelpersMixin:
         user_id = getattr(user, "id", None)
         has_access = (
             contract.assignments.filter(lawyer_id__in=org_access.get("lawyers", set())).exists()
-            or contract.assignments.filter(lawyer_id=user_id).exists()
+            or (user_id is not None and contract.assignments.filter(lawyer_id=user_id).exists())
         )
         if not has_access:
-            has_access = contract.cases.filter(assignments__lawyer_id=user_id).exists()
+            has_access = user_id is not None and contract.cases.filter(assignments__lawyer_id=user_id).exists()
         return has_access

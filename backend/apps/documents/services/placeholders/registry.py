@@ -37,8 +37,8 @@ class PlaceholderRegistry:
     def __init__(self) -> None:
         """初始化注册表"""
         if not self._initialized:
-            self._services = {}
-            self._initialized = True
+            PlaceholderRegistry._services = {}
+            PlaceholderRegistry._initialized = True
 
     @classmethod
     def register(cls, service_class: type[T]) -> type[T]:

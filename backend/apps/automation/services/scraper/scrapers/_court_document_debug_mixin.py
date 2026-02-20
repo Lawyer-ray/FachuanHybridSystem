@@ -4,7 +4,10 @@ import contextlib
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
 
@@ -13,10 +16,14 @@ class CourtDocumentDebugMixin:
     """调试和页面分析相关方法"""
 
     debug_info: dict[str, Any]
+    page: "Page"
 
     # 子类提供
-    def _prepare_download_dir(self) -> Path: ...
-    def screenshot(self, name: str) -> Any: ...
+    def _prepare_download_dir(self) -> Path:
+        raise NotImplementedError
+
+    def screenshot(self, name: str) -> Any:
+        raise NotImplementedError
 
     def _debug_log(self, message: str, data: Any = None) -> None:
         """调试日志"""
@@ -58,7 +65,7 @@ class CourtDocumentDebugMixin:
                     analysis["links"].append({
                         "index": i,
                         "text": link.inner_text()[:50] if link.inner_text() else "",
-                        "href": link.get_attribute("href")[:100] if link.get_attribute("href") else "",
+                        "href": (link.get_attribute("href") or "")[:100],
                         "visible": link.is_visible(),
                     })
             download_elements = self.page.locator('*:has-text("下载")').all()
@@ -78,7 +85,7 @@ class CourtDocumentDebugMixin:
                 with contextlib.suppress(Exception):
                     analysis["iframes"].append({
                         "index": i,
-                        "src": iframe.get_attribute("src")[:100] if iframe.get_attribute("src") else "",
+                        "src": (iframe.get_attribute("src") or "")[:100],
                     })
         except Exception as e:
             analysis["error"] = str(e)

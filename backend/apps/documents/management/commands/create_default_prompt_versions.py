@@ -16,7 +16,7 @@ from apps.documents.models import PromptVersion
 class Command(BaseCommand):
     help: str = "创建 AI 诉状生成的默认提示词版本"
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         self.stdout.write("开始创建默认提示词版本...")
 
         # 定义默认提示词

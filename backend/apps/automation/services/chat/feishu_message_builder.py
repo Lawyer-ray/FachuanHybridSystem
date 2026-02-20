@@ -143,7 +143,7 @@ class FeishuMessageBuilderMixin:
         Returns:
             str: JSON格式的文件消息内容
         """
-        content = ({},)
+        content: dict[str, str] = {"file_key": file_key}
         return json.dumps(content, ensure_ascii=False)
 
     def _build_text_content(self, text: str) -> str:

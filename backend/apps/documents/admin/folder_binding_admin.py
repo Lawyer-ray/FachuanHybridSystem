@@ -82,7 +82,7 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin[DocumentTemplateFolder
     """文书模板文件夹绑定管理"""
 
     form = DocumentTemplateFolderBindingForm
-    change_form_template: str = "admin/documents/documenttemplatefolderbinding/change_form.html"
+    change_form_template = "admin/documents/documenttemplatefolderbinding/change_form.html"
 
     list_display = (
         "document_template",

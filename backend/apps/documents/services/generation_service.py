@@ -141,7 +141,7 @@ class GenerationService:
         self,
         folder_template_id: int | None = None,
         output_path: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> GenerationTask:
         if folder_template_id is not None:
             exists = FolderTemplate.objects.filter(id=folder_template_id).exists()

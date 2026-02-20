@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
 
 
 class ZxfwFallbackMixin:
     """传统页面点击回退下载方法"""
+
+    page: "Page"
+
+    def _save_page_state(self, name: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def random_wait(self, min_s: float, max_s: float) -> None:
+        raise NotImplementedError
 
     def _find_pdf_iframe(self) -> Any | None:
         """查找页面中的 PDF viewer iframe"""

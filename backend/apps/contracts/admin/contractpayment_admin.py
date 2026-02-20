@@ -22,7 +22,7 @@ else:
         BaseTabularInline = admin.TabularInline
 
 
-class ContractPaymentInline(BaseTabularInline):
+class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment]):
     model = ContractPayment
     extra = 0
     fields = ("amount", "received_at", "invoiced_amount", "invoice_status", "note")

@@ -69,7 +69,7 @@ def expose_placeholders(
                 )
             )
 
-        target.__code_placeholder_definitions__ = defs
+        setattr(target, "__code_placeholder_definitions__", defs)
         CodePlaceholderRegistry().register(defs)
         return target
 

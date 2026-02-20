@@ -11,7 +11,7 @@ if _project_root_str not in sys.path:
     sys.path.insert(0, _project_root_str)
 
 
-def main():
+def main() -> None:
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
     try:

@@ -6,7 +6,9 @@ import io
 import logging
 import os
 import tempfile
-from typing import Any
+from typing import Any, cast
+
+from PIL import Image as _PILImage
 
 from apps.core.exceptions import BusinessException
 
@@ -22,7 +24,7 @@ def convert_image_to_pdf(image_path: str) -> str:
         fd, pdf_path = tempfile.mkstemp(suffix=".pdf")
         os.close(fd)
 
-        img = Image.open(image_path)
+        img: _PILImage.Image = Image.open(image_path)
         if img.mode == "RGBA":
             img = img.convert("RGB")
 
@@ -131,8 +133,8 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
             page_num = start_page + i
 
             mediabox = page.mediabox
-            page_width = float(mediabox[2] - mediabox[0])
-            page_height = float(mediabox[3] - mediabox[1])
+            page_width = float(mediabox[2]) - float(mediabox[0])
+            page_height = float(mediabox[3]) - float(mediabox[1])
 
             overlay_buffer = BytesIO()
             c = canvas.Canvas(overlay_buffer, pagesize=(page_width, page_height))
@@ -154,7 +156,7 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
             overlay_pdf = pikepdf.open(overlay_buffer)
             overlay_page = overlay_pdf.pages[0]
 
-            page.add_overlay(overlay_page)
+            page.add_overlay(overlay_page)  # type: ignore[call-arg]
             output_pdf.pages.append(page)
 
         output_buffer = BytesIO()

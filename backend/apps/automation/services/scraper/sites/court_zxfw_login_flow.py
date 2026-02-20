@@ -123,7 +123,7 @@ class LoginTokenCapture:
         self._token: str | None = None
         self._success: bool = False
 
-        def handle_response(response) -> None:
+        def handle_response(response: Any) -> None:
             try:
                 url = (response.url or "").lower()
                 if "login" not in url or response.status != 200:

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Union
+
+from django.utils.functional import Promise
 
 from apps.core.exceptions import ForbiddenError
+
+_StrOrPromise = Union[str, Promise]
 
 
 class AuthzUserMixin:
@@ -31,24 +35,24 @@ class OrgAllowedLawyersMixin(AuthzUserMixin):
 
 
 class DjangoPermsMixin(AuthzUserMixin):
-    def ensure_authenticated(self, user: Any | None, message: str = "用户未认证") -> None:
+    def ensure_authenticated(self, user: Any | None, message: _StrOrPromise = "用户未认证") -> None:
         if self.is_authenticated(user):
             return
-        raise ForbiddenError(message)
+        raise ForbiddenError(str(message))
 
     def ensure_admin(
         self,
         user: Any | None,
         *,
         perm_open_access: bool = False,
-        message: str = "权限不足",
+        message: _StrOrPromise = "权限不足",
     ) -> None:
         if perm_open_access:
             return
         self.ensure_authenticated(user)
         if self.is_admin(user) or self.is_superuser(user):
             return
-        raise ForbiddenError(message)
+        raise ForbiddenError(str(message))
 
     def has_perm(self, user: Any | None, perm: str) -> bool:
         return bool(
@@ -57,8 +61,8 @@ class DjangoPermsMixin(AuthzUserMixin):
             and (user.has_perm(perm) or self.is_admin(user) or self.is_superuser(user))
         )
 
-    def ensure_has_perm(self, user: Any | None, perm: str, message: str) -> None:
+    def ensure_has_perm(self, user: Any | None, perm: str, message: _StrOrPromise) -> None:
         self.ensure_authenticated(user)
         if self.has_perm(user, perm):
             return
-        raise ForbiddenError(message)
+        raise ForbiddenError(str(message))

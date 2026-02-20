@@ -57,17 +57,17 @@ class AutomationExceptions:
     def captcha_recognition_failed(
         details: str | None = None, processing_time: float | None = None
     ) -> ValidationException:
-        errors = ({},)  # type: ignore[var-annotated]
+        errors: dict[str, Any] = {}
         if details:
-            errors["details"] = details  # type: ignore[index]
+            errors["details"] = details
         if processing_time is not None:
-            errors["processing_time"] = processing_time  # type: ignore[index]
-        return ValidationException(message="验证码识别失败", code="CAPTCHA_RECOGNITION_FAILED", errors=errors)  # type: ignore[arg-type]
+            errors["processing_time"] = processing_time
+        return ValidationException(message="验证码识别失败", code="CAPTCHA_RECOGNITION_FAILED", errors=errors)
 
     @staticmethod
     def captcha_recognition_error(
         error_message: str,
-        original_exception: Exception | None = None,  # type: ignore[assignment]
+        original_exception: Exception | None = None,
     ) -> ValidationException:
         errors: dict[str, Any] = {"error_message": error_message}
         if original_exception:
@@ -261,14 +261,13 @@ class AutomationExceptions:
 
     @staticmethod
     def unsupported_file_format(file_ext: str, supported_formats: list[str] | None = None) -> ValidationException:
-        if supported_formats is None:
-            supported_formats: list[Any] = []  # type: ignore[no-redef]
+        fmt: list[str] = supported_formats if supported_formats is not None else []
         return ValidationException(
             message="不支持的文件格式",
             code="UNSUPPORTED_FILE_FORMAT",
             errors={
                 "file": f"不支持 {file_ext} 格式,请上传 PDF 或图片(jpg, jpeg, png)",
-                "supported_formats": supported_formats,
+                "supported_formats": fmt,
             },
         )
 

@@ -3,7 +3,10 @@
 import logging
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
 
@@ -11,12 +14,23 @@ logger = logging.getLogger("apps.automation")
 class CourtDocumentGdemsMixin:
     """sd.gdems.com 文书下载相关方法"""
 
+    page: "Page"
+
     # 子类提供
-    def _prepare_download_dir(self) -> Path: ...
-    def _save_page_state(self, name: str) -> dict[str, Any]: ...
-    def navigate_to_url(self) -> None: ...
-    def screenshot(self, name: str) -> Any: ...
-    def random_wait(self, min_s: float, max_s: float) -> None: ...
+    def _prepare_download_dir(self) -> Path:
+        raise NotImplementedError
+
+    def _save_page_state(self, name: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def navigate_to_url(self) -> None:
+        raise NotImplementedError
+
+    def screenshot(self, name: str) -> Any:
+        raise NotImplementedError
+
+    def random_wait(self, min_s: float, max_s: float) -> None:
+        raise NotImplementedError
 
     def _find_visible_locator(self, selectors: list[str]) -> Any:
         """按顺序尝试多个选择器，返回第一个可见的定位器"""

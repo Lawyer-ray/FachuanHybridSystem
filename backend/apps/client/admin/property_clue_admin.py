@@ -47,7 +47,7 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
         return instance
 
 
-class PropertyClueAttachmentInline(admin.TabularInline):
+class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):
     """财产线索附件内联编辑"""
 
     model = PropertyClueAttachment

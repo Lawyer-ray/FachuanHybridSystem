@@ -39,16 +39,16 @@ class TokenServiceAdapter:
             accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
 
             if "account" in params or accepts_kwargs:
-                kwargs: dict[str, Any] = {"site_name": site_name, "account": account, "token": token}
+                kw: dict[str, Any] = {"site_name": site_name, "account": account, "token": token}
                 if "expires_in" in params and params["expires_in"].default is inspect._empty:
-                    kwargs["expires_in"] = 3600
-                await self._maybe_await(save_token(**kwargs))
+                    kw["expires_in"] = 3600
+                await self._maybe_await(save_token(**kw))
                 return None
 
-            kwargs: dict[str, Any] = {}
+            kw2: dict[str, Any] = {}
             if "expires_in" in params:
-                kwargs["expires_in"] = 3600
-            await self._maybe_await(save_token(**kwargs))
+                kw2["expires_in"] = 3600
+            await self._maybe_await(save_token(**kw2))
             return None
         except (TypeError, ValueError):
             await self._maybe_await(save_token(site_name=site_name, token=token, expires_in=3600))

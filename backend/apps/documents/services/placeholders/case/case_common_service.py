@@ -73,12 +73,12 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         }
 
     def _get_trial_authorities(self, case: Any) -> str:
+        authorities: list[Any]
         try:
             authorities = list(case.supervising_authorities.all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
-
-            authorities: list[Any] = []
+            authorities = []
 
         names: list[str] = []
         seen = set()
@@ -93,12 +93,12 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         return "、".join(names)
 
     def _get_party_names(self, case: Any, *, is_our_client: bool) -> str:
+        parties: list[Any]
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
-
-            parties: list[Any] = []
+            parties = []
 
         names: list[str] = []
         seen = set()
@@ -116,12 +116,12 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         return "、".join(names)
 
     def _get_lawyer_names(self, case: Any) -> str:
+        assignments: list[Any]
         try:
             assignments = list(case.assignments.select_related("lawyer").all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
-
-            assignments: list[Any] = []
+            assignments = []
 
         def sort_key(a) -> tuple[Any, ...]:
             return (0 if getattr(a, "is_primary", False) else 1, getattr(a, "id", 0))

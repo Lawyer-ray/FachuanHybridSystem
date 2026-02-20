@@ -11,10 +11,10 @@ from apps.documents.models import FolderTemplate
 
 
 class FolderTemplateIdService:
-    def collect_structure_ids(self, structure: dict[str, Any]) -> list[str] | None:
+    def collect_structure_ids(self, structure: dict[str, Any]) -> list[str]:
         ids: list[str] = []
 
-        def collect_from_node(node) -> None:
+        def collect_from_node(node: Any) -> None:
             if not isinstance(node, dict):
                 return
             if node.get("id"):
@@ -49,7 +49,7 @@ class FolderTemplateIdService:
 
         other_templates = list(other_templates)
 
-        existing_ids = set()
+        existing_ids: set[str] = set()
         for template in other_templates:
             if template.structure:
                 template_ids = self.collect_structure_ids(template.structure)
@@ -58,7 +58,7 @@ class FolderTemplateIdService:
         return set(ids) & existing_ids
 
     def replace_duplicate_ids_in_structure(self, structure: dict[str, Any], duplicate_ids: set[str]) -> None:
-        def replace_in_node(node) -> None:
+        def replace_in_node(node: Any) -> None:
             if not isinstance(node, dict):
                 return
             if "id" in node and node["id"] in duplicate_ids:
