@@ -7,7 +7,7 @@ from typing import ClassVar
 from django.contrib import admin, messages
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html, format_html_join, mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
@@ -312,7 +312,6 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         html_parts.append(f'<p style="margin-top: 10px;">性能评级: {rating}</p>')
 
-        from django.utils.safestring import mark_safe
         return mark_safe("".join(html_parts))
 
     performance_summary.short_description = _("性能汇总")
