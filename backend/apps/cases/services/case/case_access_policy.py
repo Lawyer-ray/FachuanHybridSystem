@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from django.utils.functional import _StrOrPromise
+
 from django.db.models import Q, QuerySet
 
 from apps.core.exceptions import ForbiddenError
@@ -69,7 +71,7 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
         case: Any | None = None,
-        message: str = "无权限访问此案件",
+        message: _StrOrPromise = "无权限访问此案件",
     ) -> None:
         if self.has_access(
             case_id=case_id,
@@ -116,7 +118,7 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
         )
 
     def ensure_access_ctx(
-        self, *, case_id: int, ctx: AccessContext, case: Any | None = None, message: str = "无权限访问此案件"
+        self, *, case_id: int, ctx: AccessContext, case: Any | None = None, message: _StrOrPromise = "无权限访问此案件"
     ) -> None:
         return self.ensure_access(
             case_id=case_id,

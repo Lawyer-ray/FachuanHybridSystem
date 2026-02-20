@@ -78,7 +78,7 @@ class CaseNumberService(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[Case, Case]:
+    ) -> QuerySet[CaseNumber, CaseNumber]:
         """
         获取案号列表
 
@@ -140,7 +140,7 @@ class CaseNumberService(DjangoPermsMixin):
             NotFoundError: 案号不存在
         """
         try:
-            case_number = CaseNumber.objects.select_related("case").get(id=number_id)
+            case_number: CaseNumber = CaseNumber.objects.select_related("case").get(id=number_id)
             self._require_case_access(
                 case_number.case_id, user=user, org_access=org_access, perm_open_access=perm_open_access
             )
@@ -224,7 +224,7 @@ class CaseNumberService(DjangoPermsMixin):
             )
 
         # 规范化案号
-        normalized_number = self.normalize_case_number(number)
+        normalized_number = normalize_case_number_util(number, ensure_hao=False)
 
         # 创建案号
         case_number = CaseNumber.objects.create(case=case, number=normalized_number, remarks=remarks)
@@ -233,7 +233,7 @@ class CaseNumberService(DjangoPermsMixin):
             "创建案号成功",
             extra={
                 "action": "create_number",
-                "number_id": cast(int, case_number.id),
+                "number_id": case_number.id,
                 "case_id": case_id,
                 "original_number": number,
                 "normalized_number": normalized_number,
@@ -268,7 +268,7 @@ class CaseNumberService(DjangoPermsMixin):
             ValidationException: 数据验证失败
         """
         try:
-            case_number = CaseNumber.objects.select_related("case").get(id=number_id)
+            case_number: CaseNumber = CaseNumber.objects.select_related("case").get(id=number_id)
         except CaseNumber.DoesNotExist:
             logger.warning(
                 "更新案号失败:案号不存在",
@@ -306,7 +306,7 @@ class CaseNumberService(DjangoPermsMixin):
                 raise ValidationException(
                     message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
                 )
-            data["number"] = self.normalize_case_number(number)
+            data["number"] = normalize_case_number_util(number, ensure_hao=False)
 
         # 更新案号
         original_number = case_number.number
@@ -390,7 +390,7 @@ class CaseNumberService(DjangoPermsMixin):
 
         return {"success": True}
 
-    def normalize_case_number(number: str) -> str:
+    def normalize_case_number(self, number: str) -> str:
         """
         规范化案号:统一括号、删除空格
 
