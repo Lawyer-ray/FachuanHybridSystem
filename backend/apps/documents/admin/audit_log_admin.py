@@ -10,8 +10,7 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.http import HttpRequest
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import TemplateAuditLog
@@ -95,16 +94,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
         if not obj.changes:
             return _("无变更记录")
 
-        html_parts = [
-            '<div style="background: #f5f5f5; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto;">'
-        ]
-        html_parts.append('<table style="width: 100%; border-collapse: collapse;">')
-        html_parts.append('<tr style="background: #e0e0e0;">')
-        html_parts.append('<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">字段</th>')
-        html_parts.append('<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">旧值</th>')
-        html_parts.append('<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">新值</th>')
-        html_parts.append("</tr>")
-
+        rows: list[tuple[Any, Any, Any]] = []
         for field, change in obj.changes.items():
             old_val = change.get("old", "-")
             new_val = change.get("new", "-")
@@ -115,22 +105,33 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
             if isinstance(new_val, str) and len(new_val) > 100:
                 new_val = new_val[:100] + "..."
 
-            html_parts.append(
-                format_html(
-                    "<tr>"
-                    '<td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">{}</td>'
-                    '<td style="padding: 8px; border: 1px solid #ccc; color: #c62828;">{}</td>'
-                    '<td style="padding: 8px; border: 1px solid #ccc; color: #2e7d32;">{}</td>'
-                    "</tr>",
-                    field,
-                    old_val,
-                    new_val,
-                )
-            )
+            rows.append((field, old_val, new_val))
 
-        html_parts.append("</table>")
-        html_parts.append("</div>")
+        rows_html = format_html_join(
+            "",
+            "<tr>"
+            '<td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">{}</td>'
+            '<td style="padding: 8px; border: 1px solid #ccc; color: #c62828;">{}</td>'
+            '<td style="padding: 8px; border: 1px solid #ccc; color: #2e7d32;">{}</td>'
+            "</tr>",
+            rows,
+        )
 
-        return mark_safe("".join(str(p) for p in html_parts))
+        return format_html(
+            '<div style="background: #f5f5f5; padding: 10px; border-radius: 4px;'
+            ' max-height: 400px; overflow-y: auto;">'
+            '<table style="width: 100%; border-collapse: collapse;">'
+            '<tr style="background: #e0e0e0;">'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">{}</th>'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">{}</th>'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ccc;">{}</th>'
+            "</tr>"
+            "{}"
+            "</table></div>",
+            _("字段"),
+            _("旧值"),
+            _("新值"),
+            rows_html,
+        )
 
     changes_display.short_description = _("变更详情")  # type: ignore[attr-defined]

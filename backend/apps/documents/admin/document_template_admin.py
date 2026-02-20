@@ -11,7 +11,6 @@ from django import forms
 from django.contrib import admin
 from django.core.files.base import ContentFile
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import LegalStatus
@@ -447,7 +446,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             # 如果是相对路径,转换为绝对路径
             absolute_path = Path(obj.file_path).resolve() if not Path(obj.file_path).is_absolute() else obj.file_path
             return format_html('<span style="color: #1565c0;" title="{}">📁 {}</span>', absolute_path, obj.file_path)
-        return mark_safe('<span style="color: #c62828;">⚠️ 未设置文件</span>')
+        return format_html('<span style="color: #c62828;">{}</span>', "⚠️ 未设置文件")
 
     current_file_display.short_description = _("当前文件")
 
@@ -476,7 +475,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
                 absolute_path,
                 obj.file_path,
             )
-        return mark_safe('<span style="color: #999;">未设置</span>')
+        return format_html('<span style="color: #999;">{}</span>', "未设置")
 
     file_location_display.short_description = _("文件位置")
 
