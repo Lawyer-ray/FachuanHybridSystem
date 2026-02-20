@@ -1,7 +1,7 @@
 """API endpoints."""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 """
 飞书API通信模块

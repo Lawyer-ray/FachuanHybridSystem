@@ -1,7 +1,7 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 from dataclasses import dataclass
 from typing import Any

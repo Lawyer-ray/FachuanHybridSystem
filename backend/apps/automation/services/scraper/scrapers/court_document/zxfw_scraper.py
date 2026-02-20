@@ -7,8 +7,8 @@
 3. 回退:传统页面点击下载
 """
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 import logging
 import time

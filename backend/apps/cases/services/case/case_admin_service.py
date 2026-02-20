@@ -1,7 +1,7 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 """案件 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
