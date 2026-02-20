@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import glob
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -77,8 +77,8 @@ class AttachmentQueryService:
         """从路径列表中收集存在的文件路径(去重)"""
         collected: list[str] = []
         for file_path in file_paths:
-            if file_path and os.path.exists(file_path):
-                abs_path = os.path.abspath(file_path)
+            if file_path and Path(file_path).exists():
+                abs_path = str(Path(file_path).resolve())
                 if abs_path not in seen_paths:
                     collected.append(file_path)
                     seen_paths.add(abs_path)
@@ -107,35 +107,24 @@ class AttachmentQueryService:
         return self.collect_existing_paths(files, seen_paths)
 
     def find_renamed_file(self, original_path: str, sms: CourtSMS) -> str | None:
-        """
-        查找重命名后的文件
-
-        当原始文件路径不存在时,尝试在同目录下查找重命名后的文件
-
-        Args:
-            original_path: 原始文件路径
-            sms: CourtSMS 实例
-
-        Returns:
-            重命名后的文件路径,如果找不到则返回 None
-        """
+        """查找重命名后的文件"""
         try:
             if not original_path:
                 return None
 
-            directory = os.path.dirname(original_path)
-            if not os.path.exists(directory):
+            directory = Path(original_path).parent
+            if not directory.exists():
                 return None
 
             case_name: str | None = sms.case.name if sms.case else None
             if not case_name:
                 return None
 
-            pattern = os.path.join(directory, f"*{case_name[:10]}*.pdf")
+            pattern = str(directory / f"*{case_name[:10]}*.pdf")
             matches = glob.glob(pattern)
 
             if matches:
-                matches.sort(key=os.path.getmtime, reverse=True)
+                matches.sort(key=lambda p: Path(p).stat().st_mtime, reverse=True)
                 logger.info("找到重命名后的文件: %s", matches[0])
                 return matches[0]
 

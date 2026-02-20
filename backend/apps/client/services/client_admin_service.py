@@ -390,7 +390,7 @@ class ClientAdminService:
         Returns:
             保存后的相对文件路径（相对于 MEDIA_ROOT）
         """
-        import os
+        from pathlib import Path
 
         from django.conf import settings
 
@@ -398,11 +398,11 @@ class ClientAdminService:
             return ""
 
         # 创建目录
-        upload_dir = os.path.join(settings.MEDIA_ROOT, "client_docs")
-        os.makedirs(upload_dir, exist_ok=True)
+        upload_dir = Path(settings.MEDIA_ROOT) / "client_docs"
+        upload_dir.mkdir(parents=True, exist_ok=True)
 
         # 获取文件扩展名
-        _, ext = os.path.splitext(uploaded_file.name)
+        ext = Path(uploaded_file.name).suffix
 
         # 生成新文件名：当事人名称_证件类型.扩展名
         if client_name and doc_type:
@@ -413,12 +413,12 @@ class ClientAdminService:
             new_filename = uploaded_file.name
 
         # 处理重名文件
-        file_path = os.path.join(upload_dir, new_filename)
+        file_path = upload_dir / new_filename
         counter = 1
-        base_name = os.path.splitext(new_filename)[0]
-        while os.path.exists(file_path):
+        base_name = Path(new_filename).stem
+        while file_path.exists():
             new_filename = f"{base_name}_{counter}{ext}"
-            file_path = os.path.join(upload_dir, new_filename)
+            file_path = upload_dir / new_filename
             counter += 1
 
         # 保存文件

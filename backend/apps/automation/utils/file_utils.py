@@ -5,7 +5,6 @@
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -30,13 +29,13 @@ class FileUtils:
         result: dict[str, Any] = {"valid": True, "error": None, "info": {}}
 
         # 检查文件是否存在
-        if not os.path.exists(file_path):
+        if not Path(file_path).exists():
             result["valid"] = False
             result["error"] = "文件不存在"
             return result
 
         # 检查文件大小
-        file_size = os.path.getsize(file_path)
+        file_size = Path(file_path).stat().st_size
         result["info"]["size"] = file_size
 
         if file_size == 0:

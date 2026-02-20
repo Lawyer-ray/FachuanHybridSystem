@@ -10,8 +10,8 @@ Requirements: 5.1, 5.2, 5.3, 5.4, 5.6
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from django.db import transaction
@@ -170,7 +170,7 @@ class CaseBindingService:
 
         # 3. 添加文件附件
         if file_path:
-            file_name = os.path.basename(file_path)
+            file_name = Path(file_path).name
             success = self.case_service.add_case_log_attachment_internal(
                 case_log_id=case_log_id, file_path=file_path, file_name=file_name
             )

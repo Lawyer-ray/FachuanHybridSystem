@@ -82,19 +82,19 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
         file_ext = "." + uploaded_file.name.split(".")[-1].lower() if "." in uploaded_file.name else ""
 
         try:
-            import os
             import uuid
+            from pathlib import Path
 
             from django.conf import settings
             from django_q.tasks import async_task
 
             from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitionTask
 
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "automation", "document_recognition")
-            os.makedirs(upload_dir, exist_ok=True)
+            upload_dir = Path(settings.MEDIA_ROOT) / "automation" / "document_recognition"
+            upload_dir.mkdir(parents=True, exist_ok=True)
 
             unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-            file_path = os.path.join(upload_dir, unique_filename)
+            file_path = str(upload_dir / unique_filename)
 
             with open(file_path, "wb+") as destination:
                 for chunk in uploaded_file.chunks():

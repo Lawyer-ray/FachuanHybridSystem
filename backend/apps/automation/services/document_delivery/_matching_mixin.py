@@ -2,7 +2,7 @@
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
+from pathlib import Path
 import queue
 import threading
 from datetime import date
@@ -115,11 +115,11 @@ class DocumentDeliveryMatchingMixin:
 
                     for file_path in renamed_files:
                         try:
-                            if os.path.exists(file_path):
+                            if Path(file_path).exists():
                                 with open(file_path, "rb") as f:
                                     file_content = f.read()
                                 uploaded_file = SimpleUploadedFile(
-                                    name=os.path.basename(file_path),
+                                    name=Path(file_path).name,
                                     content=file_content,
                                     content_type="application/octet-stream",
                                 )
@@ -129,7 +129,7 @@ class DocumentDeliveryMatchingMixin:
                                     user=None,
                                     perm_open_access=True,
                                 )
-                                logger.info(f"附件上传成功: {os.path.basename(file_path)}")
+                                logger.info(f"附件上传成功: {Path(file_path).name}")
                         except Exception as e:
                             logger.warning(f"添加附件失败: {file_path}, 错误: {e!s}")
         except Exception as e:

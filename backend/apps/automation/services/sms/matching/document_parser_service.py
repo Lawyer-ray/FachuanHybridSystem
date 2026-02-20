@@ -5,7 +5,7 @@
 """
 
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -162,7 +162,7 @@ class DocumentParserService:
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
                 documents = sms.scraper_task.documents.filter(download_status="success")
                 for doc in documents:
-                    if doc.local_file_path and os.path.exists(doc.local_file_path):
+                    if doc.local_file_path and Path(doc.local_file_path).exists():
                         document_paths.append(doc.local_file_path)
 
             # 方式2：如果没有从数据库获取到，尝试从任务结果中获取
@@ -171,7 +171,7 @@ class DocumentParserService:
                 if result and isinstance(result, dict):
                     files = result.get("files", [])
                     for file_path in files:
-                        if file_path and os.path.exists(file_path):
+                        if file_path and Path(file_path).exists():
                             document_paths.append(file_path)
 
                     if files and not document_paths:

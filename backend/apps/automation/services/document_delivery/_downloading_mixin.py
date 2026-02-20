@@ -1,7 +1,6 @@
 """文书送达下载 Mixin — 文件下载、解压、历史记录"""
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 import queue
@@ -60,8 +59,8 @@ class DocumentDeliveryDownloadingMixin:
                 download_button.click()
             download = download_info.value
             temp_dir = tempfile.mkdtemp(prefix="court_document_")
-            file_path = os.path.join(
-                temp_dir, download.suggested_filename or f"{entry.case_number}.pdf"
+            file_path = str(
+                Path(temp_dir) / (download.suggested_filename or f"{entry.case_number}.pdf")
             )
             download.save_as(file_path)
             logger.info(f"文书下载成功: {file_path}")
@@ -123,9 +122,9 @@ class DocumentDeliveryDownloadingMixin:
                         continue
                     zip_ref.extract(member, extract_path)
             extracted_files = []
-            for root, _dirs, files in os.walk(extract_dir):
+            for root, _dirs, files in Path(extract_dir).walk():
                 for file in files:
-                    extracted_files.append(os.path.join(root, file))
+                    extracted_files.append(str(root / file))
             logger.info(f"ZIP 解压成功: {len(extracted_files)} 个文件")
             return extracted_files
         except Exception as e:

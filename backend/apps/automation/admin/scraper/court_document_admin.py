@@ -229,9 +229,9 @@ class CourtDocumentAdmin(admin.ModelAdmin):
     def download_link_detail(self, obj):
         """详情页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
-            import os
+            from pathlib import Path
 
-            filename = os.path.basename(obj.local_file_path)
+            filename = Path(obj.local_file_path).name
 
             return format_html(
                 '<a href="/media/{}" target="_blank" '

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 
 import logging
-import os
 import re
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
@@ -79,11 +79,11 @@ class AttachmentUploadService:
 
         for file_path in document_paths:
             try:
-                if not os.path.exists(file_path):
+                if not Path(file_path).exists():
                     logger.warning("文书文件不存在,跳过: %s", file_path)
                     continue
 
-                original_name = os.path.basename(file_path)
+                original_name = Path(file_path).name
 
                 new_path = self.renamer.rename_with_fallback(
                     file_path, case_name, received_date, original_name=original_name
@@ -93,7 +93,7 @@ class AttachmentUploadService:
                 logger.info("文书重命名成功: %s", new_path)
             except Exception as e:
                 logger.warning("文书重命名失败,保持原名: %s, 错误: %s", file_path, e)
-                if os.path.exists(file_path):
+                if Path(file_path).exists():
                     renamed_paths.append(file_path)
 
         logger.info("文书重命名完成: SMS ID=%s, 成功重命名 %d 个文书", sms_id, len(renamed_paths))
@@ -107,10 +107,10 @@ class AttachmentUploadService:
             return False
 
         try:
-            target_dir = os.path.join(settings.MEDIA_ROOT, "case_logs")
-            os.makedirs(target_dir, exist_ok=True)
+            target_dir = Path(settings.MEDIA_ROOT) / "case_logs"
+            target_dir.mkdir(parents=True, exist_ok=True)
 
-            success_count = sum(1 for fp in file_paths if self._add_single_attachment(fp, target_dir, sms))
+            success_count = sum(1 for fp in file_paths if self._add_single_attachment(fp, str(target_dir), sms))
 
             logger.info("附件添加完成: 成功 %d/%d 个", success_count, len(file_paths))
             return success_count > 0
@@ -121,18 +121,18 @@ class AttachmentUploadService:
     def _add_single_attachment(self, file_path: str, target_dir: str, sms: CourtSMS) -> bool:
         """添加单个文书附件到案件日志"""
         try:
-            if not os.path.exists(file_path):
+            if not Path(file_path).exists():
                 logger.warning("文件不存在,跳过: %s", file_path)
                 return False
 
-            renamed_filename = os.path.basename(file_path)
+            renamed_filename = Path(file_path).name
             if "(" not in renamed_filename or ")" not in renamed_filename:
                 renamed_filename = self.fix_filename_format(renamed_filename, sms)
 
             renamed_filename = self._truncate_filename(renamed_filename)
-            target_path = os.path.join(target_dir, renamed_filename)
+            target_path = str(Path(target_dir) / renamed_filename)
 
-            if os.path.exists(target_path):
+            if Path(target_path).exists():
                 target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
 
             shutil.copy2(file_path, target_path)
@@ -155,10 +155,9 @@ class AttachmentUploadService:
         """确保文件名不超过最大长度"""
         if len(filename) <= max_length:
             return filename
-        name_part, ext = os.path.splitext(filename)
-        if not ext:
-            ext = ".pdf"
-        return name_part[: max_length - len(ext)] + ext
+        p = Path(filename)
+        ext = p.suffix or ".pdf"
+        return p.stem[: max_length - len(ext)] + ext
 
     def _get_unique_filepath(self, target_dir: str, filename: str) -> tuple[str, str]:
         """
@@ -184,20 +183,21 @@ class AttachmentUploadService:
 
             while True:
                 new_filename = f"{base_name}{counter}.{ext}"
-                new_path = os.path.join(target_dir, new_filename)
-                if not os.path.exists(new_path):
+                new_path = str(Path(target_dir) / new_filename)
+                if not Path(new_path).exists():
                     return new_path, new_filename
                 counter += 1
                 if counter > 100:
                     break
 
         # 降级方案:在扩展名前添加数字
-        name_part, ext = os.path.splitext(filename)
+        p = Path(filename)
+        name_part, ext = p.stem, p.suffix
         counter = 1
         while True:
             new_filename = f"{name_part}_{counter}{ext}"
-            new_path = os.path.join(target_dir, new_filename)
-            if not os.path.exists(new_path):
+            new_path = str(Path(target_dir) / new_filename)
+            if not Path(new_path).exists():
                 return new_path, new_filename
             counter += 1
             if counter > 100:
@@ -205,7 +205,7 @@ class AttachmentUploadService:
 
                 timestamp = int(time.time())
                 new_filename = f"{name_part}_{timestamp}{ext}"
-                new_path = os.path.join(target_dir, new_filename)
+                new_path = str(Path(target_dir) / new_filename)
                 return new_path, new_filename
 
     def fix_filename_format(self, filename: str, sms: CourtSMS) -> str:

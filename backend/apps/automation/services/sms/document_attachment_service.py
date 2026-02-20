@@ -6,9 +6,9 @@
 """
 
 import logging
-import os
 import re
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from django.conf import settings
@@ -84,7 +84,7 @@ class DocumentAttachmentService:
         if not hasattr(sms.scraper_task, "documents"):
             return paths
         for doc in sms.scraper_task.documents.filter(download_status="success"): # type: ignore
-            if doc.local_file_path and os.path.exists(doc.local_file_path):
+            if doc.local_file_path and Path(doc.local_file_path).exists():
                 paths.append(doc.local_file_path)
                 logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
         return paths
@@ -97,7 +97,7 @@ class DocumentAttachmentService:
             return paths
         files = result.get("files", [])
         for file_path in files:
-            if file_path and os.path.exists(file_path):
+            if file_path and Path(file_path).exists():
                 paths.append(file_path)
                 logger.debug(f"从 ScraperTask.result 获取路径: {file_path}")
         if files and not paths:
@@ -148,8 +148,8 @@ class DocumentAttachmentService:
         """收集不重复的有效路径，返回新增路径列表"""
         added: list[str] = []
         for fp in file_list:
-            if fp and os.path.exists(fp):
-                abs_path = os.path.abspath(fp)
+            if fp and Path(fp).exists():
+                abs_path = str(Path(fp).resolve())
                 if abs_path not in seen:
                     seen.add(abs_path)
                     added.append(fp)
@@ -165,8 +165,8 @@ class DocumentAttachmentService:
         if not hasattr(sms.scraper_task, "documents"):
             return
         for doc in sms.scraper_task.documents.filter(download_status="success"): # type: ignore
-            if doc.local_file_path and os.path.exists(doc.local_file_path):
-                abs_path = os.path.abspath(doc.local_file_path)
+            if doc.local_file_path and Path(doc.local_file_path).exists():
+                abs_path = str(Path(doc.local_file_path).resolve())
                 if abs_path not in seen:
                     target.append(doc.local_file_path)
                     seen.add(abs_path)
@@ -197,12 +197,12 @@ class DocumentAttachmentService:
 
         for file_path in document_paths:
             try:
-                if not os.path.exists(file_path):
+                if not Path(file_path).exists():
                     logger.warning(f"文书文件不存在，跳过: {file_path}")
                     continue
 
                 # 获取原始文件名用于降级
-                original_name = os.path.basename(file_path)
+                original_name = Path(file_path).name
 
                 # 使用带降级方案的重命名
                 new_path = self.renamer.rename_with_fallback(
@@ -215,7 +215,7 @@ class DocumentAttachmentService:
             except Exception as e:
                 logger.warning(f"文书重命名失败，保持原名: {file_path}, 错误: {e!s}")
                 # 重命名失败不影响流程，继续使用原路径
-                if os.path.exists(file_path):
+                if Path(file_path).exists():
                     renamed_paths.append(file_path)
 
         logger.info(f"文书重命名完成: SMS ID={sms.id}, 成功重命名 {len(renamed_paths)} 个文书")
@@ -230,12 +230,12 @@ class DocumentAttachmentService:
             return False
 
         try:
-            target_dir = os.path.join(settings.MEDIA_ROOT, "case_logs")
-            os.makedirs(target_dir, exist_ok=True)
+            target_dir = Path(settings.MEDIA_ROOT) / "case_logs"
+            target_dir.mkdir(parents=True, exist_ok=True)
             success_count = 0
 
             for file_path in file_paths:
-                if self._add_single_attachment(sms, file_path, target_dir):
+                if self._add_single_attachment(sms, file_path, str(target_dir)):
                     success_count += 1
 
             logger.info(f"附件添加完成: 成功 {success_count}/{len(file_paths)} 个")
@@ -248,23 +248,23 @@ class DocumentAttachmentService:
     def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:
         """添加单个附件，返回是否成功"""
         try:
-            if not os.path.exists(file_path):
+            if not Path(file_path).exists():
                 logger.warning(f"文件不存在，跳过: {file_path}")
                 return False
 
-            renamed_filename = os.path.basename(file_path)
+            renamed_filename = Path(file_path).name
             if "（" not in renamed_filename or "）" not in renamed_filename:
                 logger.warning(f"文件名格式不正确，尝试修正: {renamed_filename}")
                 renamed_filename = self.fix_filename_format(renamed_filename, sms)
 
             max_name_length = 200
             if len(renamed_filename) > max_name_length:
-                name_part, ext = os.path.splitext(renamed_filename)
-                ext = ext or ".pdf"
-                renamed_filename = name_part[: max_name_length - len(ext)] + ext
+                p = Path(renamed_filename)
+                ext = p.suffix or ".pdf"
+                renamed_filename = p.stem[: max_name_length - len(ext)] + ext
 
-            target_path = os.path.join(target_dir, renamed_filename)
-            if os.path.exists(target_path):
+            target_path = str(Path(target_dir) / renamed_filename)
+            if Path(target_path).exists():
                 target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
 
             shutil.copy2(file_path, target_path)
@@ -314,20 +314,21 @@ class DocumentAttachmentService:
 
             while True:
                 new_filename = f"{base_name}{counter}.{ext}"
-                new_path = os.path.join(target_dir, new_filename)
-                if not os.path.exists(new_path):
+                new_path = str(Path(target_dir) / new_filename)
+                if not Path(new_path).exists():
                     return new_path, new_filename
                 counter += 1
                 if counter > 100:  # 防止无限循环
                     break
 
         # 降级方案：在扩展名前添加数字
-        name_part, ext = os.path.splitext(filename)
+        p = Path(filename)
+        name_part, ext = p.stem, p.suffix
         counter = 1
         while True:
             new_filename = f"{name_part}_{counter}{ext}"
-            new_path = os.path.join(target_dir, new_filename)
-            if not os.path.exists(new_path):
+            new_path = str(Path(target_dir) / new_filename)
+            if not Path(new_path).exists():
                 return new_path, new_filename
             counter += 1
             if counter > 100:
@@ -336,7 +337,7 @@ class DocumentAttachmentService:
 
                 timestamp = int(time.time())
                 new_filename = f"{name_part}_{timestamp}{ext}"
-                new_path = os.path.join(target_dir, new_filename)
+                new_path = str(Path(target_dir) / new_filename)
                 return new_path, new_filename
 
     def fix_filename_format(self, filename: str, sms: "CourtSMS") -> str:
@@ -428,40 +429,26 @@ class DocumentAttachmentService:
         return text
 
     def _find_renamed_file(self, original_path: str, sms: "CourtSMS") -> str | None:
-        """
-        查找重命名后的文件
-
-        当原始文件路径不存在时，尝试在同目录下查找重命名后的文件
-
-        Args:
-            original_path: 原始文件路径
-            sms: CourtSMS 实例
-
-        Returns:
-            重命名后的文件路径，如果找不到则返回 None
-        """
+        """查找重命名后的文件"""
         import glob
 
         try:
             if not original_path:
                 return None
 
-            # 获取目录和案件名称
-            directory = os.path.dirname(original_path)
-            if not os.path.exists(directory):
+            directory = str(Path(original_path).parent)
+            if not Path(directory).exists():
                 return None
 
             case_name = sms.case.name if sms.case else None
             if not case_name:
                 return None
 
-            # 在目录中查找包含案件名称的文件
-            pattern = os.path.join(directory, f"*{case_name[:10]}*.pdf")
+            pattern = str(Path(directory) / f"*{case_name[:10]}*.pdf")
             matches = glob.glob(pattern)
 
             if matches:
-                # 返回最新的文件
-                matches.sort(key=os.path.getmtime, reverse=True)
+                matches.sort(key=lambda p: Path(p).stat().st_mtime, reverse=True)
                 logger.info(f"找到重命名后的文件: {matches[0]}")
                 return matches[0]
 
