@@ -51,7 +51,9 @@ class ContractAssignmentInline(BaseTabularInline[ContractAssignment, ContractAss
     ordering = ("order",)
 
 
-class SupplementaryAgreementPartyInlineAdmin(BaseTabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):
+class SupplementaryAgreementPartyInlineAdmin(
+    BaseTabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]
+):
     """补充协议当事人内联管理"""
 
     model = SupplementaryAgreementParty

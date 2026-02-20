@@ -129,7 +129,10 @@ class CaseMaterialService:
         else:
             side = None
             if not supervising_authority_id:
-                raise ValidationException(message=_("必须选择主管机关"), errors={"supervising_authority_id": "required"})
+                raise ValidationException(
+                    message=_("必须选择主管机关"),
+                    errors={"supervising_authority_id": "required"},
+                )
 
         types = {
             t.id: t

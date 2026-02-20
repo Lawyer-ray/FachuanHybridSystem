@@ -27,7 +27,9 @@ class CasePartyQueryService:
         party = self.base_queryset().filter(id=party_id).first()
         if not party:
             raise NotFoundError(
-                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"),
+                code="PARTY_NOT_FOUND",
+                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             )
         return party
 

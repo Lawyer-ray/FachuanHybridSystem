@@ -94,7 +94,11 @@ class DocumentRecognitionTaskService:
                 try:
                     task.key_time = datetime.fromisoformat(key_time.replace("Z", "+00:00"))
                 except ValueError:
-                    raise ValidationException(message=_("时间格式不正确"), code="INVALID_TIME_FORMAT", errors={}) from None
+                    raise ValidationException(
+                        message=_("时间格式不正确"),
+                        code="INVALID_TIME_FORMAT",
+                        errors={},
+                    ) from None
             else:
                 task.key_time = None
             updated_fields.append("key_time")

@@ -251,7 +251,9 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"),
+                code="PARTY_NOT_FOUND",
+                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             ) from e
 
     @transaction.atomic
@@ -308,7 +310,9 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message=_("客户不存在"), code="CLIENT_NOT_FOUND", errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
+                message=_("客户不存在"),
+                code="CLIENT_NOT_FOUND",
+                errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )
 
         # 检查是否已存在相同的当事人（重复检测）
@@ -383,7 +387,9 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"),
+                code="PARTY_NOT_FOUND",
+                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             ) from e
 
         # 验证案件是否存在（如果更新了 case_id）
@@ -469,7 +475,9 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"),
+                code="PARTY_NOT_FOUND",
+                errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             ) from e
 
         case_id = party.case_id

@@ -440,9 +440,9 @@ class PreservationQuoteAdminService:
             }
 
         except PreservationQuote.DoesNotExist as e:
-            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
-
-    def get_quote_comparison(self, quote_id: int) -> dict[str, Any]:
+            raise NotFoundError(
+                message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
+            ) from e
         """
         获取询价结果对比分析
 

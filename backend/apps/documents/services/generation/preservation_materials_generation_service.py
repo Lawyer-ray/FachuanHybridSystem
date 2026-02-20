@@ -143,7 +143,9 @@ class PreservationMaterialsGenerationService:
         respondents = self._get_respondents(case_id)
         if not respondents:
             raise ValidationException(
-                message=_("案件没有被申请人,无法生成财产保全材料"), code="NO_RESPONDENTS", errors={"case_id": str(case_id)}
+                message=_("案件没有被申请人,无法生成财产保全材料"),
+                code="NO_RESPONDENTS",
+                errors={"case_id": str(case_id)},
             )
         missing_clue_respondents = self.property_clue_service.get_respondents_without_clues(case_id)
         now = datetime.now()

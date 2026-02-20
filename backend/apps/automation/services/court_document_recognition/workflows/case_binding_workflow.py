@@ -75,7 +75,10 @@ class CaseBindingWorkflow:
         user: Any | None = None,
     ) -> BindingResult:
         if not case_number:
-            return BindingResult.failure_result(message=_("未识别到案号,无法绑定案件"), error_code="CASE_NUMBER_NOT_FOUND")
+            return BindingResult.failure_result(
+                message=_("未识别到案号,无法绑定案件"),
+                error_code="CASE_NUMBER_NOT_FOUND",
+            )
 
         case_id = self.case_lookup_repo.find_case_id_by_number(case_number)
         if case_id is None:

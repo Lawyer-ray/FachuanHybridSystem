@@ -161,7 +161,10 @@ class AutoTokenAcquisitionError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str | Promise = "自动Token获取失败", code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: str | Promise = "自动Token获取失败",
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "AUTO_TOKEN_ACQUISITION_ERROR", errors=errors)
 

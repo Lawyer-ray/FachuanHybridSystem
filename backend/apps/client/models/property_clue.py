@@ -42,7 +42,9 @@ class PropertyClue(models.Model):
         OTHER: "",
     }
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人"))
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人")
+    )
     clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name=_("线索类型"))
     content = models.TextField(blank=True, default="", verbose_name=_("线索内容"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
