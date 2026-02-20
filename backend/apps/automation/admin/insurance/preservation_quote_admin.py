@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.urls import path
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html, format_html_join, mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
@@ -395,6 +395,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             "<tbody>",
         ]
 
+        from django.utils.html import escape
+
         rank = 1
         for quote in quotes:
             # 状态显示
@@ -423,7 +425,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             html_parts.append(
                 f"<tr>"
                 f'<td style="padding: 8px; border: 1px solid #ddd;">{rank_display}</td>'
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{quote.company_name}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(quote.company_name)}</td>'
                 f'<td style="padding: 8px; text-align: right; border: 1px solid #ddd;">{premium_html}</td>'
                 f'<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{status_html}</td>'
                 f"</tr>"
@@ -447,8 +449,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
                 "</div>"
             )
 
-        from django.utils.safestring import mark_safe
-        return mark_safe("".join(html_parts))
+        return format_html("{}", mark_safe("".join(html_parts)))
 
     quotes_summary.short_description = _("报价汇总")
 
