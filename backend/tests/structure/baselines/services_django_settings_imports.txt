@@ -12,6 +12,7 @@ apps/automation/services/fee_notice/extraction_service.py
 apps/automation/services/preservation_date/extraction_service.py
 apps/automation/services/scraper/core/screenshot_utils.py
 apps/automation/services/scraper/core/security_service.py
+apps/automation/services/scraper/core/browser_service.py
 apps/automation/services/scraper/scrapers/_court_document_debug_mixin.py
 apps/automation/services/scraper/scrapers/base.py
 apps/automation/services/scraper/scrapers/court_document.py

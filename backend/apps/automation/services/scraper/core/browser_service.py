@@ -47,7 +47,7 @@ class BrowserService:
         if self._browser is None:
             # 从配置读取默认值
             if headless is None:
-                from django.conf import settings
+                from django.conf import settings  # 懒加载：仅在首次启动浏览器时读取，避免模块加载时的循环导入
 
                 headless = getattr(settings, "SCRAPER_HEADLESS", not settings.DEBUG)
 
