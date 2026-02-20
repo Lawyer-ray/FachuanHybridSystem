@@ -398,7 +398,7 @@ class CaseAssignmentService(DjangoPermsMixin):
 
         lawyer_ids = self.contract_assignment_query_service.list_lawyer_ids_by_contract_internal(contract_id)
 
-        deleted, _ = CaseAssignment.objects.filter(case_id=case_id).delete()
+        deleted, _count = CaseAssignment.objects.filter(case_id=case_id).delete()
         if not lawyer_ids:
             return {"created": 0, "deleted": deleted}
 

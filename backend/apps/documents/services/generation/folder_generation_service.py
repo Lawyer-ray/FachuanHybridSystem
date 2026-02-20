@@ -316,7 +316,7 @@ class FolderGenerationService:
         for placement in document_placements:
             try:
                 # 使用模板生成合同文书
-                content, _, error = contract_service.generate_contract_document(contract_id)
+                content, _filename, error = contract_service.generate_contract_document(contract_id)
 
                 if content:
                     documents.append((placement.folder_path, content, placement.file_name))
