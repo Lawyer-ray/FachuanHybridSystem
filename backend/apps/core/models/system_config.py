@@ -45,7 +45,11 @@ class SystemConfig(models.Model):
     description = models.CharField(
         max_length=255, blank=True, default="", verbose_name=_("描述"), help_text=_("配置项的说明")
     )
-    is_secret = models.BooleanField(default=False, verbose_name=_("敏感信息"), help_text=_("是否为敏感信息(如密钥、密码等)"))
+    is_secret = models.BooleanField(
+        default=False,
+        verbose_name=_("敏感信息"),
+        help_text=_("是否为敏感信息(如密钥、密码等)"),
+    )
     is_active = models.BooleanField(default=True, verbose_name=_("启用"), help_text=_("是否启用此配置项"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))

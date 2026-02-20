@@ -138,7 +138,9 @@ class CaseTemplateGenerationService:
         client_dto = client_service.get_client_internal(client_id)
         if not client_dto:
             raise ValidationException(
-                message=_("当事人不存在"), code="INVALID_CLIENT", errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
+                message=_("当事人不存在"),
+                code="INVALID_CLIENT",
+                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
         is_party = case.parties.filter(client_id=client_id, client__is_our_client=True).exists()
         if not is_party:

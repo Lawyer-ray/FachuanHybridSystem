@@ -29,7 +29,9 @@ class Client(models.Model):
     name = models.CharField(max_length=255, verbose_name=_("名称"))
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("联系电话"))
     address = models.CharField(max_length=255, blank=True, null=True, default="", verbose_name=_("住所地"))
-    client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name=_("主体类型"))
+    client_type = models.CharField(
+        max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name=_("主体类型")
+    )
     id_number = models.CharField(
         max_length=64, blank=True, null=True, unique=True, verbose_name=_("身份证号码或统一社会信用代码")
     )

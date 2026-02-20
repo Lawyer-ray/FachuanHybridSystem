@@ -120,7 +120,9 @@ class FeishuOwnerMixin:
         """获取群聊群主信息"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法获取群聊群主信息"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message=_("飞书配置不完整，无法获取群聊群主信息"),
+                platform="feishu",
+                missing_config="APP_ID, APP_SECRET",
             )
 
         try:

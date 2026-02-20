@@ -145,7 +145,11 @@ class CourtTokenAdmin(admin.ModelAdmin):
         actions = super().get_actions(request)
 
         # 添加批量删除过期 Token 的操作
-        actions["delete_expired_tokens"] = (self.delete_expired_tokens, "delete_expired_tokens", _("删除已过期的 Token"))
+        actions["delete_expired_tokens"] = (
+            self.delete_expired_tokens,
+            "delete_expired_tokens",
+            _("删除已过期的 Token"),
+        )
 
         return actions
 

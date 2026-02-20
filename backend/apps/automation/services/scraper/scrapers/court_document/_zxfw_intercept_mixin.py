@@ -30,10 +30,18 @@ class ZxfwInterceptMixin:
     def _save_page_state(self, name: str) -> dict[str, Any]:
         raise NotImplementedError
 
-    def _download_document_directly(self, document_data: dict[str, Any], download_dir: Path, download_timeout: int) -> tuple[bool, str | None, str | None]:
+    def _download_document_directly(
+        self,
+        document_data: dict[str, Any],
+        download_dir: Path,
+        download_timeout: int,
+    ) -> tuple[bool, str | None, str | None]:
         raise NotImplementedError
 
-    def _save_documents_batch(self, documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]) -> dict[str, Any]:
+    def _save_documents_batch(
+        self,
+        documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]],
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     def _intercept_api_response_with_navigation(self, timeout: int = 30000) -> dict[str, Any] | None:

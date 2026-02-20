@@ -138,7 +138,9 @@ class CourtAdmin(admin.ModelAdmin[Court]):
 
         # mypy 1.8.0 对 values().annotate() 链有内部错误，用 getattr 绕过
         _court_mgr: Any = Court.objects
-        province_stats: list[Any] = list(_court_mgr.values("province").annotate(count=Count("id")).order_by("-count")[:10])
+        province_stats: list[Any] = list(
+            _court_mgr.values("province").annotate(count=Count("id")).order_by("-count")[:10]
+        )
         level_stats: list[Any] = list(_court_mgr.values("level").annotate(count=Count("id")).order_by("level"))
 
         ctx["statistics"] = {
@@ -169,7 +171,10 @@ class CourtAdmin(admin.ModelAdmin[Court]):
                 for warning in result.warnings:
                     messages.warning(request, warning)
             else:
-                msg = f"法院数据初始化部分失败.新增 {result.created} 条,更新 {result.updated} 条,失败 {result.failed} 条."
+                msg = (
+                    f"法院数据初始化部分失败.新增 {result.created} 条,"
+                    f"更新 {result.updated} 条,失败 {result.failed} 条."
+                )
                 messages.warning(request, msg)
                 for error in result.errors[:5]:
                     messages.error(request, error)

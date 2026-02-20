@@ -187,7 +187,11 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "action": "execute_quote",
                 },
             )
-            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(
+                message=_("询价任务不存在"),
+                code="QUOTE_NOT_FOUND",
+                errors={"quote_id": quote_id},
+            ) from e
 
         # 记录任务开始日志（包含任务 ID 和参数）
         logger.info(
@@ -360,7 +364,11 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "quote_id": quote_id,
                 },
             )
-            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(
+                message=_("询价任务不存在"),
+                code="QUOTE_NOT_FOUND",
+                errors={"quote_id": quote_id},
+            ) from e
 
     @transaction.atomic
     async def retry_quote(self, quote_id: int) -> dict[str, Any]:
@@ -392,7 +400,11 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "action": "retry_quote",
                 },
             )
-            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(
+                message=_("询价任务不存在"),
+                code="QUOTE_NOT_FOUND",
+                errors={"quote_id": quote_id},
+            ) from e
 
         # 检查任务状态是否允许重试
         if quote.status not in [QuoteStatus.FAILED, QuoteStatus.PARTIAL_SUCCESS]:

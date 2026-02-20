@@ -18,7 +18,9 @@ class Client(models.Model):
     name = models.CharField(max_length=255, verbose_name=_("名称"))
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("联系电话"))
     address = models.CharField(max_length=255, blank=True, null=True, default="", verbose_name=_("住所地"))
-    client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name=_("主体类型"))
+    client_type = models.CharField(
+        max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name=_("主体类型")
+    )
     id_number = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("身份证号码或统一社会信用代码"))
     legal_representative = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("法定代表人或负责人"))
     is_our_client = models.BooleanField(default=False, verbose_name=_("是否为我方当事人"))
@@ -161,7 +163,9 @@ class PropertyClue(models.Model):
         OTHER: "",
     }
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人"))
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人")
+    )
     clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name=_("线索类型"))
     content = models.TextField(blank=True, default="", verbose_name=_("线索内容"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
