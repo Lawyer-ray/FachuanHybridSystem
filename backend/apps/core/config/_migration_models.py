@@ -168,3 +168,76 @@ class MigrationStatistics:
             ),
             "success_rate": self.success_rate,
         }
+
+
+class MigrationStatus(Enum):
+    """迁移状态"""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ROLLED_BACK = "rolled_back"
+
+
+@dataclass
+class MigrationStep:
+    """迁移步骤"""
+
+    name: str
+    description: str
+    status: MigrationStatus = MigrationStatus.PENDING
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
+
+    def start(self) -> None:
+        self.status = MigrationStatus.IN_PROGRESS
+        self.started_at = datetime.now()
+
+    def complete(self) -> None:
+        self.status = MigrationStatus.COMPLETED
+        self.completed_at = datetime.now()
+
+    def fail(self, error: str) -> None:
+        self.status = MigrationStatus.FAILED
+        self.completed_at = datetime.now()
+        self.error_message = error
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "status": self.status.value,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "error_message": self.error_message,
+        }
+
+
+@dataclass
+class MigrationLog:
+    """迁移日志"""
+
+    migration_id: str
+    started_at: datetime
+    status: MigrationStatus = MigrationStatus.PENDING
+    completed_at: datetime | None = None
+    error_message: str | None = None
+    steps: list[MigrationStep] = field(default_factory=list)
+    migrated_configs: int = 0
+    total_configs: int = 0
+    rollback_available: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "migration_id": self.migration_id,
+            "started_at": self.started_at.isoformat(),
+            "status": self.status.value,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "error_message": self.error_message,
+            "steps": [s.to_dict() for s in self.steps],
+            "migrated_configs": self.migrated_configs,
+            "total_configs": self.total_configs,
+            "rollback_available": self.rollback_available,
+        }
