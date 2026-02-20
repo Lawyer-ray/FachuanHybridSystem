@@ -133,7 +133,7 @@ class ContractAdmin(BaseModelAdmin):
     )
     list_filter = ("case_type", "status", "fee_mode", "is_archived")
     search_fields = ("name",)
-    readonly_fields = ("get_primary_lawyer_display",)
+    readonly_fields = ("get_primary_lawyer_display", "filing_number")
 
     def get_primary_lawyer(self, obj: Contract) -> str:
         """显示主办律师"""
