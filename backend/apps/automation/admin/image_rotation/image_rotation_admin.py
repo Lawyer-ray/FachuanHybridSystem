@@ -45,14 +45,14 @@ class ImageRotationAdmin(admin.ModelAdmin):
             context,
         )
 
-    def has_add_permission(self, request) -> None:
-        """禁用添加功能"""
+    def has_add_permission(self, request: Any) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None) -> None:
-        """禁用删除功能"""
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None) -> None:
-        """禁用修改功能"""
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
         return False
+
+    def get_model_perms(self, request: Any) -> dict[str, bool]:
+        return {"view": True}
