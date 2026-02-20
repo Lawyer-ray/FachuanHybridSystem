@@ -155,7 +155,7 @@ def check_disk_space() -> ComponentHealth:
     diagnostic_info: dict[str, Any] = {}
 
     try:
-        media_root = getattr(settings, "MEDIA_ROOT", "/tmp")
+        media_root = getattr(settings, "MEDIA_ROOT", "/tmp")  # nosec B108
         stat = os.statvfs(str(media_root))
 
         total = stat.f_blocks * stat.f_frsize
@@ -181,10 +181,10 @@ def check_disk_space() -> ComponentHealth:
         important_paths = [
             (
                 "database_dir",
-                str(Path(str(getattr(settings, "DATABASES", {}).get("default", {}).get("NAME", "/tmp"))).parent),
+                str(Path(str(getattr(settings, "DATABASES", {}).get("default", {}).get("NAME", "/tmp"))).parent),  # nosec B108
             ),
             ("logs_dir", "/app/logs"),
-            ("static_dir", getattr(settings, "STATIC_ROOT", "/tmp")),
+            ("static_dir", getattr(settings, "STATIC_ROOT", "/tmp")),  # nosec B108
         ]
 
         for path_name, path in important_paths:

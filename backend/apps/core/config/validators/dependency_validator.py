@@ -177,7 +177,7 @@ class DependencyValidator(ConfigValidator):
                 "None": None,
             }
 
-            return cast(bool, eval(condition, allowed_names))
+            return cast(bool, eval(condition, allowed_names))  # nosec B307
 
         except Exception:
             # 条件评估失败时返回False

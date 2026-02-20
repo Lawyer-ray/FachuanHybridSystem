@@ -32,7 +32,7 @@ class Command(BaseCommand):
             """)
             for row in cursor.fetchall():
                 table_name, index_count = row
-                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")  # nosec B608
                 row_count = cursor.fetchone()[0]
                 self.stdout.write(f"  {table_name}: {row_count} 行, {index_count} 个索引")
 

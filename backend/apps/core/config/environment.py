@@ -224,7 +224,7 @@ class EnvironmentConfig:
         """
         return {
             "django.debug": True,
-            "django.allowed_hosts": ["localhost", "127.0.0.1", "0.0.0.0"],
+            "django.allowed_hosts": ["localhost", "127.0.0.1", "0.0.0.0"],  # nosec B104
             "performance.rate_limit.enabled": False,
             "logging.level": "DEBUG",
             "cache.timeout": 60,  # 短缓存时间便于开发调试

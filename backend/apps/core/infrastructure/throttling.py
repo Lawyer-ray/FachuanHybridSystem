@@ -102,7 +102,7 @@ class RateLimiter:
             identifier = f"{ip}:{path}"
 
         # 生成 hash 避免 key 过长
-        key_hash = hashlib.md5(identifier.encode()).hexdigest()[:16]
+        key_hash = hashlib.md5(identifier.encode(), usedforsecurity=False).hexdigest()[:16]
         return f"{self.key_prefix}:{key_hash}"
 
     def is_allowed(

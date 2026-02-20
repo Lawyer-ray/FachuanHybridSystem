@@ -58,7 +58,7 @@ def _last_minutes(*, window_minutes: int) -> list[str]:
 
 def _stable_hash(data: dict[str, Any]) -> str:
     payload = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(payload.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 def _normalize_label(value: str, *, default: str, max_len: int) -> str:

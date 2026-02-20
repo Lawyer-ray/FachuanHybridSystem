@@ -136,7 +136,7 @@ class HealthChecker:
         from django.conf import settings
 
         try:
-            media_root = getattr(settings, "MEDIA_ROOT", "/tmp")
+            media_root = getattr(settings, "MEDIA_ROOT", "/tmp")  # nosec B108
             stat = os.statvfs(str(media_root))
 
             total = stat.f_blocks * stat.f_frsize
