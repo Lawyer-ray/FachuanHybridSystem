@@ -281,3 +281,13 @@ health: ## 检查服务健康状态
 
 health-detail: ## 详细健康检查
 	@curl -s http://localhost:8002/api/v1/health/detail | python -m json.tool || echo "服务未运行"
+
+# ============================================================
+# 国际化 (i18n)
+# ============================================================
+
+messages: ## 提取翻译字符串，生成 .po 文件
+	cd apiSystem && ../$(PYTHON) manage.py makemessages -l en -l zh_Hans --ignore='.venv/*' --ignore='venv312/*'
+
+compilemessages: ## 编译 .po 为 .mo 文件
+	cd apiSystem && ../$(PYTHON) manage.py compilemessages
