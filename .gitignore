@@ -113,3 +113,4 @@ docker-volumes/
 backend/scripts/
 backend/tests/screenshots/
 backend/tests/
+*.mo
