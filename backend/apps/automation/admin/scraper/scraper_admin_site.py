@@ -47,8 +47,9 @@ def _is_tool_model(model: dict[str, Any]) -> bool:
     tool_names = {
         "DocumentDeliverySchedule", "CourtSMS", "PreservationQuote",
         "InsuranceQuote", "TestCourt", "DocumentRecognitionProxy",
+        "ImageRotation",
     }
-    tool_verbose = {"文书送达定时任务", "法院短信", "财产保全询价", "测试法院", "文书智能识别"}
+    tool_verbose = {"文书送达定时任务", "法院短信", "财产保全询价", "测试法院", "文书智能识别", "图片自动旋转"}
     return (
         any(n in model_name for n in tool_names)
         or any(v in model_verbose_name for v in tool_verbose)
