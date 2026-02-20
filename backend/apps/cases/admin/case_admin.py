@@ -116,6 +116,7 @@ class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
     list_filter = ("status", "is_archived")
     search_fields = ("name",)
     change_form_template = "admin/cases/case/change_form.html"
+    readonly_fields = ("filing_number",)
 
     actions = ["create_feishu_chat_for_selected_cases"]
 
