@@ -59,6 +59,7 @@ def _register_app_routers() -> None:
     from apps.client.api import router as client_router
     from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router
+    from apps.core.api.i18n_api import i18n_router
     from apps.core.api.ninja_llm_api import llm_router
     from apps.documents.api import (
         authorization_material_router,
@@ -74,7 +75,8 @@ def _register_app_routers() -> None:
     from apps.reminders.api import router as reminders_router
 
     api_v1.add_router("/config", config_router)
-    api_v1.add_router("/llm", llm_router)  # LLM 服务路由
+    api_v1.add_router("/llm", llm_router)
+    api_v1.add_router("/i18n", i18n_router)
     api_v1.add_router("/organization", organization_router)
     api_v1.add_router("/client", client_router)
     api_v1.add_router("/cases", cases_router)

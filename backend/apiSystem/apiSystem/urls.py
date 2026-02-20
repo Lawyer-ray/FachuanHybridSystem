@@ -51,6 +51,7 @@ def favicon_view(request):
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),
     path("admin/", admin.site.urls),
+    path("i18n/", include("django.conf.urls.i18n")),
     path("onboarding/", include("apps.onboarding.urls")),
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
