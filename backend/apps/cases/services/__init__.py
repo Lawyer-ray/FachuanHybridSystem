@@ -5,6 +5,14 @@ Cases Services Module
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.core.interfaces import IContractService
+
+    from .case.case_access_policy import CaseAccessPolicy
+    from .case.case_search_service import CaseSearchService
+
 from .case.case_command_service import CaseCommandService
 from .case.case_query_service import CaseQueryService
 from .case.case_service_adapter import CaseServiceAdapter
@@ -26,15 +34,15 @@ class CaseService(CaseQueryService, CaseCommandService):
 
     def __init__(
         self,
-        contract_service: object | None = None,
-        search_service: object | None = None,
-        access_policy: object | None = None,
+        contract_service: IContractService | None = None,
+        search_service: CaseSearchService | None = None,
+        access_policy: CaseAccessPolicy | None = None,
     ) -> None:
-        from .case.case_access_policy import CaseAccessPolicy
-        from .case.case_search_service import CaseSearchService
+        from .case.case_access_policy import CaseAccessPolicy as _CaseAccessPolicy
+        from .case.case_search_service import CaseSearchService as _CaseSearchService
 
-        resolved_policy = access_policy or CaseAccessPolicy()
-        resolved_search = search_service or CaseSearchService(access_policy=resolved_policy)
+        resolved_policy: _CaseAccessPolicy = access_policy or _CaseAccessPolicy()
+        resolved_search: _CaseSearchService = search_service or _CaseSearchService(access_policy=resolved_policy)
         CaseQueryService.__init__(self, search_service=resolved_search, access_policy=resolved_policy)
         CaseCommandService.__init__(self, contract_service=contract_service, access_policy=resolved_policy)
 
