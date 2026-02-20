@@ -82,7 +82,7 @@ class CaseMaterialBindingWorkflow:
                 resolved_type = self._resolve_type_cached(
                     cache=type_cache, category=category, type_id=type_id, type_name=type_name, law_firm_id=law_firm_id
                 )
-                material, _ = CaseMaterial.objects.update_or_create(
+                material, _created = CaseMaterial.objects.update_or_create(
                     source_attachment=attachments[att_id],
                     defaults={
                         "case_id": case_id,
