@@ -11,8 +11,18 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import Placeholder
-from apps.documents.services.code_placeholder_catalog_service import CodePlaceholderCatalogService
-from apps.documents.services.placeholder_usage_service import PlaceholderUsageService
+
+
+def _get_placeholder_usage_service() -> Any:
+    from apps.documents.services.placeholder_usage_service import PlaceholderUsageService
+
+    return PlaceholderUsageService()
+
+
+def _get_code_placeholder_catalog_service() -> Any:
+    from apps.documents.services.code_placeholder_catalog_service import CodePlaceholderCatalogService
+
+    return CodePlaceholderCatalogService()
 
 
 class PlaceholderUsageFilter(admin.SimpleListFilter):
@@ -34,7 +44,7 @@ class PlaceholderUsageFilter(admin.SimpleListFilter):
 
         usage_map = getattr(self, "_usage_map_cache", None)
         if usage_map is None:
-            usage_map = PlaceholderUsageService().get_usage_map()
+            usage_map = _get_placeholder_usage_service().get_usage_map()
             self._usage_map_cache = usage_map
 
         contract_only = {k for k, v in usage_map.items() if v == {"contract"}}
@@ -94,7 +104,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
     def _catalog_cache(self) -> None:
         if not hasattr(self, "_cached_code_placeholder_catalog"):
-            catalog = CodePlaceholderCatalogService()
+            catalog = _get_code_placeholder_catalog_service()
             definitions = {d.key: d for d in catalog.list_definitions()}
             self._cached_code_placeholder_catalog = definitions
         return self._cached_code_placeholder_catalog
@@ -102,7 +112,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
     def _usage_map_cache(self, request) -> None:
         if request is not None and getattr(request, "_placeholder_usage_map_cached", None) is not None:
             return request._placeholder_usage_map_cached
-        usage_map = PlaceholderUsageService().get_usage_map()
+        usage_map = _get_placeholder_usage_service().get_usage_map()
         if request is not None:
             request._placeholder_usage_map_cached = usage_map
         self._usage_map_for_changelist = usage_map
@@ -140,7 +150,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
     def usage_display(self, obj) -> None:
         usage_map = getattr(self, "_usage_map_for_changelist", None)
         if usage_map is None:
-            usage_map = PlaceholderUsageService().get_usage_map()
+            usage_map = _get_placeholder_usage_service().get_usage_map()
         types = usage_map.get(obj.key, set()) or set()
         parts: list[Any] = []
         if "contract" in types:
