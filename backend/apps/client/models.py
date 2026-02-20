@@ -2,6 +2,7 @@ from typing import ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Client(models.Model):
@@ -14,13 +15,13 @@ class Client(models.Model):
         (NON_LEGAL_ORG, "非法人组织"),
     ]
 
-    name = models.CharField(max_length=255, verbose_name="名称")
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="联系电话")
-    address = models.CharField(max_length=255, blank=True, null=True, default="", verbose_name="住所地")
-    client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name="主体类型")
-    id_number = models.CharField(max_length=64, blank=True, null=True, verbose_name="身份证号码或统一社会信用代码")
-    legal_representative = models.CharField(max_length=255, blank=True, null=True, verbose_name="法定代表人或负责人")
-    is_our_client = models.BooleanField(default=False, verbose_name="是否为我方当事人")
+    name = models.CharField(max_length=255, verbose_name=_("名称"))
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("联系电话"))
+    address = models.CharField(max_length=255, blank=True, null=True, default="", verbose_name=_("住所地"))
+    client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name=_("主体类型"))
+    id_number = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("身份证号码或统一社会信用代码"))
+    legal_representative = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("法定代表人或负责人"))
+    is_our_client = models.BooleanField(default=False, verbose_name=_("是否为我方当事人"))
 
     def __str__(self) -> str:
         return self.name
@@ -33,8 +34,8 @@ class Client(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = "当事人"
-        verbose_name_plural = "当事人"
+        verbose_name = _("当事人")
+        verbose_name_plural = _("当事人")
         db_table = "cases_client"
         managed = True
 
@@ -82,10 +83,10 @@ class ClientIdentityDoc(models.Model):
         (LEGAL_REP_ID_CARD, "法定代表人身份证"),
     ]
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人")
-    doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型")
-    file_path = models.CharField(max_length=512, verbose_name="文件路径")
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name=_("当事人"))
+    doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name=_("证件类型"))
+    file_path = models.CharField(max_length=512, verbose_name=_("文件路径"))
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     def __str__(self) -> str:
         return f"{self.client.name}-{self.doc_type}"
@@ -129,8 +130,8 @@ class ClientIdentityDoc(models.Model):
                 raise ValidationError({"doc_type": "Invalid doc type for organization"})
 
     class Meta:
-        verbose_name = "当事人证件文件"
-        verbose_name_plural = "当事人证件文件"
+        verbose_name = _("当事人证件文件")
+        verbose_name_plural = _("当事人证件文件")
         db_table = "cases_clientidentitydoc"
         managed = True
 
@@ -160,18 +161,18 @@ class PropertyClue(models.Model):
         OTHER: "",
     }
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
-    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
-    content = models.TextField(blank=True, default="", verbose_name="线索内容")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人"))
+    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name=_("线索类型"))
+    content = models.TextField(blank=True, default="", verbose_name=_("线索内容"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     def __str__(self) -> str:
         return f"{self.client.name}-{self.get_clue_type_display()}"
 
     class Meta:
-        verbose_name = "财产线索"
-        verbose_name_plural = "财产线索"
+        verbose_name = _("财产线索")
+        verbose_name_plural = _("财产线索")
         db_table = "cases_propertyclue"
         managed = True
 
@@ -180,11 +181,11 @@ class PropertyClueAttachment(models.Model):
     """财产线索附件模型"""
 
     property_clue = models.ForeignKey(
-        PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name="财产线索"
+        PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("财产线索")
     )
-    file_path = models.CharField(max_length=512, verbose_name="文件路径")
-    file_name = models.CharField(max_length=255, verbose_name="文件名")
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    file_path = models.CharField(max_length=512, verbose_name=_("文件路径"))
+    file_name = models.CharField(max_length=255, verbose_name=_("文件名"))
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
@@ -207,7 +208,7 @@ class PropertyClueAttachment(models.Model):
         return None
 
     class Meta:
-        verbose_name = "财产线索附件"
-        verbose_name_plural = "财产线索附件"
+        verbose_name = _("财产线索附件")
+        verbose_name_plural = _("财产线索附件")
         db_table = "cases_propertyclueattachment"
         managed = True

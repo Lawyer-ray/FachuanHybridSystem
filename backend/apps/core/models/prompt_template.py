@@ -7,6 +7,7 @@ Prompt 模板数据模型
 from typing import ClassVar
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.infrastructure import CacheKeys, delete_cache_key
 
@@ -18,20 +19,20 @@ class PromptTemplate(models.Model):
     """
 
     id: int
-    name = models.CharField(max_length=100, unique=True, verbose_name="模板名称")
-    title = models.CharField(max_length=200, verbose_name="显示标题")
-    template = models.TextField(verbose_name="模板内容")
-    description = models.TextField(blank=True, verbose_name="模板描述")
-    variables = models.JSONField(default=list, verbose_name="变量列表")
-    category = models.CharField(default="general", max_length=50, verbose_name="分类")
-    is_active = models.BooleanField(default=True, verbose_name="启用")
-    version = models.CharField(default="1.0", max_length=20, verbose_name="版本")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    name = models.CharField(max_length=100, unique=True, verbose_name=_("模板名称"))
+    title = models.CharField(max_length=200, verbose_name=_("显示标题"))
+    template = models.TextField(verbose_name=_("模板内容"))
+    description = models.TextField(blank=True, verbose_name=_("模板描述"))
+    variables = models.JSONField(default=list, verbose_name=_("变量列表"))
+    category = models.CharField(default="general", max_length=50, verbose_name=_("分类"))
+    is_active = models.BooleanField(default=True, verbose_name=_("启用"))
+    version = models.CharField(default="1.0", max_length=20, verbose_name=_("版本"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        verbose_name = "Prompt 模板"
-        verbose_name_plural = "Prompt 模板"
+        verbose_name = _("Prompt 模板")
+        verbose_name_plural = _("Prompt 模板")
         db_table = "core_prompt_template"
         ordering: ClassVar = ["category", "name"]
 

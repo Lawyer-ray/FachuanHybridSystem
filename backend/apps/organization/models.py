@@ -10,8 +10,8 @@ class LawFirm(models.Model):
     address = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     social_credit_code = models.CharField(max_length=64, blank=True)
-    bank_name = models.CharField(max_length=255, blank=True, verbose_name="开户行")
-    bank_account = models.CharField(max_length=64, blank=True, verbose_name="银行账号")
+    bank_name = models.CharField(max_length=255, blank=True, verbose_name=_("开户行"))
+    bank_account = models.CharField(max_length=64, blank=True, verbose_name=_("银行账号"))
 
     def __str__(self) -> str:
         return self.name
@@ -58,23 +58,23 @@ Lawyer.add_to_class(
 
 
 class AccountCredential(models.Model):
-    lawyer = models.ForeignKey(Lawyer, on_delete=models.CASCADE, related_name="credentials", verbose_name="律师")
-    site_name = models.CharField(max_length=255, verbose_name="网站名称")
-    url = models.URLField(blank=True, verbose_name="URL")
-    account = models.CharField(max_length=255, verbose_name="账号")
-    password = models.CharField(max_length=255, verbose_name="密码")
+    lawyer = models.ForeignKey(Lawyer, on_delete=models.CASCADE, related_name="credentials", verbose_name=_("律师"))
+    site_name = models.CharField(max_length=255, verbose_name=_("网站名称"))
+    url = models.URLField(blank=True, verbose_name=_("URL"))
+    account = models.CharField(max_length=255, verbose_name=_("账号"))
+    password = models.CharField(max_length=255, verbose_name=_("密码"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     # 新增登录统计字段
-    last_login_success_at = models.DateTimeField(null=True, blank=True, verbose_name="最后成功登录时间")
-    login_success_count = models.PositiveIntegerField(default=0, verbose_name="成功登录次数")
-    login_failure_count = models.PositiveIntegerField(default=0, verbose_name="失败登录次数")
-    is_preferred = models.BooleanField(default=False, verbose_name="是否优先使用")
+    last_login_success_at = models.DateTimeField(null=True, blank=True, verbose_name=_("最后成功登录时间"))
+    login_success_count = models.PositiveIntegerField(default=0, verbose_name=_("成功登录次数"))
+    login_failure_count = models.PositiveIntegerField(default=0, verbose_name=_("失败登录次数"))
+    is_preferred = models.BooleanField(default=False, verbose_name=_("是否优先使用"))
 
     class Meta:
-        verbose_name = "账号密码"
-        verbose_name_plural = "账号密码"
+        verbose_name = _("账号密码")
+        verbose_name_plural = _("账号密码")
         ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["site_name", "-last_login_success_at"]),
