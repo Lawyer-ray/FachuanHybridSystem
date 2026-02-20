@@ -7,6 +7,7 @@ from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import (
     Contract,
@@ -141,7 +142,7 @@ class ContractAdmin(BaseModelAdmin):
             return lawyer.real_name or lawyer.username
         return "-"
 
-    get_primary_lawyer.short_description = "主办律师"  # type: ignore[attr-defined]
+    get_primary_lawyer.short_description = _("主办律师")  # type: ignore[attr-defined]
 
     def get_primary_lawyer_display(self, obj: Contract) -> str:
         """详情页显示主办律师（只读）"""
@@ -151,7 +152,7 @@ class ContractAdmin(BaseModelAdmin):
             return f"{name} (ID: {lawyer.id})"
         return "无"
 
-    get_primary_lawyer_display.short_description = "主办律师"  # type: ignore[attr-defined]
+    get_primary_lawyer_display.short_description = _("主办律师")  # type: ignore[attr-defined]
 
     inlines: ClassVar = [
         ContractPartyInline,

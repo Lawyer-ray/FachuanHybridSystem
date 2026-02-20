@@ -13,6 +13,7 @@ from django.http import HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import SystemConfig
 
@@ -37,9 +38,9 @@ class SystemConfigAdmin(admin.ModelAdmin):
     ordering: ClassVar[list[str]] = ["category", "key"]
 
     fieldsets = (
-        ("基本信息", {"fields": ("key", "value", "category", "description")}),
-        ("安全设置", {"fields": ("is_secret", "is_active"), "classes": ("collapse",)}),
-        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        (_("基本信息"), {"fields": ("key", "value", "category", "description")}),
+        (_("安全设置"), {"fields": ("is_secret", "is_active"), "classes": ("collapse",)}),
+        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
@@ -63,7 +64,7 @@ class SystemConfigAdmin(admin.ModelAdmin):
             obj.get_category_display(),
         )
 
-    category_display.short_description = "分类"  # type: ignore[attr-defined]
+    category_display.short_description = _("分类")  # type: ignore[attr-defined]
     category_display.admin_order_field = "category"  # type: ignore[attr-defined]
 
     def masked_value(self, obj: Any) -> Any:
@@ -82,7 +83,7 @@ class SystemConfigAdmin(admin.ModelAdmin):
                 return format_html('<span title="{}">{}</span>', obj.value, obj.value[:50] + "...")
             return obj.value
 
-    masked_value.short_description = "配置值"  # type: ignore[attr-defined]
+    masked_value.short_description = _("配置值")  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[Any]:
         """添加自定义 URL"""

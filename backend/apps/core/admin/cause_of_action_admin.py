@@ -12,6 +12,7 @@ from django.http import HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import CauseOfAction
 
@@ -68,7 +69,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
     fieldsets: tuple[Any, ...] = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "code",
@@ -80,7 +81,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "状态",
+            _("状态"),
             {
                 "fields": (
                     "is_active",
@@ -91,7 +92,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": (
                     "created_at",
@@ -121,7 +122,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             obj.get_case_type_display(),
         )
 
-    case_type_display.short_description = "案件类型"
+    case_type_display.short_description = _("案件类型")
     case_type_display.admin_order_field = "case_type"
 
     def parent_display(self, obj) -> None:
@@ -134,7 +135,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: #999;">—</span>')
 
-    parent_display.short_description = "上级案由"
+    parent_display.short_description = _("上级案由")
 
     def status_display(self, obj) -> None:
         """状态显示"""
@@ -144,7 +145,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             return mark_safe('<span style="color: #ffc107;">⏸️ 已禁用</span>')
         return mark_safe('<span style="color: #28a745;">✅ 正常</span>')
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def get_urls(self) -> None:
         """添加自定义 URL"""

@@ -8,6 +8,7 @@ from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtToken
 
@@ -59,9 +60,9 @@ class CourtTokenAdmin(admin.ModelAdmin):
     ]
 
     fieldsets = (
-        ("基本信息", {"fields": ("id", "site_name", "account", "token_type")}),
-        ("Token 信息", {"fields": ("token_full", "status_display", "remaining_time")}),
-        ("时间信息", {"fields": ("expires_at", "created_at", "updated_at")}),
+        (_("基本信息"), {"fields": ("id", "site_name", "account", "token_type")}),
+        (_("Token 信息"), {"fields": ("token_full", "status_display", "remaining_time")}),
+        (_("时间信息"), {"fields": ("expires_at", "created_at", "updated_at")}),
     )
 
     ordering: ClassVar[list[str]] = ["-created_at"]
@@ -76,7 +77,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
             return f"{obj.token[:20]}..."
         return obj.token
 
-    token_preview.short_description = "Token 预览"
+    token_preview.short_description = _("Token 预览")
 
     def token_full(self, obj):
         """完整的 Token（在详情页显示）"""
@@ -87,7 +88,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
             obj.token,
         )
 
-    token_full.short_description = "完整 Token"
+    token_full.short_description = _("完整 Token")
 
     def status_display(self, obj):
         """显示 Token 状态（有效/过期）"""
@@ -96,7 +97,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: green; font-weight: bold;">✅ 有效</span>')
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def remaining_time(self, obj):
         """剩余有效时间"""
@@ -129,7 +130,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
-    remaining_time.short_description = "剩余时间"
+    remaining_time.short_description = _("剩余时间")
 
     def has_add_permission(self, request):
         """禁用添加功能（Token 应该由系统自动创建）"""
@@ -144,7 +145,7 @@ class CourtTokenAdmin(admin.ModelAdmin):
         actions = super().get_actions(request)
 
         # 添加批量删除过期 Token 的操作
-        actions["delete_expired_tokens"] = (self.delete_expired_tokens, "delete_expired_tokens", "删除已过期的 Token")
+        actions["delete_expired_tokens"] = (self.delete_expired_tokens, "delete_expired_tokens", _("删除已过期的 Token"))
 
         return actions
 
@@ -156,6 +157,6 @@ class CourtTokenAdmin(admin.ModelAdmin):
         for token in expired_tokens:
             token.delete()
 
-        self.message_user(request, f"成功删除 {count} 个已过期的 Token")
+        self.message_user(request, _(f"成功删除 {count} 个已过期的 Token"))
 
-    delete_expired_tokens.short_description = "删除已过期的 Token"
+    delete_expired_tokens.short_description = _("删除已过期的 Token")

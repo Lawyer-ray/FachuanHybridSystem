@@ -14,6 +14,7 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
 
@@ -67,7 +68,7 @@ class InsuranceQuoteInline(admin.TabularInline):
             return mark_safe("<br>".join(parts))
         return mark_safe('<span style="color: #999;">-</span>')
 
-    prices_display.short_description = "收费标准"
+    prices_display.short_description = _("收费标准")
 
     def rates_display(self, obj):
         """显示两个费率"""
@@ -84,7 +85,7 @@ class InsuranceQuoteInline(admin.TabularInline):
             return mark_safe("<br>".join(parts))
         return mark_safe('<span style="color: #999;">-</span>')
 
-    rates_display.short_description = "费率"
+    rates_display.short_description = _("费率")
 
     def max_apply_amount_display(self, obj):
         """显示最高保全金额"""
@@ -102,7 +103,7 @@ class InsuranceQuoteInline(admin.TabularInline):
 
         return format_html('<span style="color: #007bff; font-weight: bold;">¥{}</span>', display)
 
-    max_apply_amount_display.short_description = "最高保全金额"
+    max_apply_amount_display.short_description = _("最高保全金额")
 
     def status_display(self, obj):
         """带颜色的状态显示"""
@@ -111,7 +112,7 @@ class InsuranceQuoteInline(admin.TabularInline):
         else:
             return mark_safe('<span style="color: #dc3545; font-weight: bold;">❌ 失败</span>')
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def error_message_display(self, obj):
         """格式化显示错误信息（请求和响应）"""
@@ -142,7 +143,7 @@ class InsuranceQuoteInline(admin.TabularInline):
                 obj.error_message[:500],
             )
 
-    error_message_display.short_description = "请求/响应详情"
+    error_message_display.short_description = _("请求/响应详情")
 
     def has_add_permission(self, request, obj=None):
         """禁用添加功能"""
@@ -202,7 +203,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -213,7 +214,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "任务状态",
+            _("任务状态"),
             {
                 "fields": (
                     "status",
@@ -226,7 +227,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": (
                     "created_at",
@@ -237,7 +238,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "报价汇总",
+            _("报价汇总"),
             {
                 "fields": ("quotes_summary",),
                 "classes": ("wide",),
@@ -258,7 +259,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         amount_str = f"{obj.preserve_amount:,.2f}"
         return format_html('<span style="font-weight: bold; font-size: 14px;">¥{}</span>', amount_str)
 
-    preserve_amount_display.short_description = "保全金额"
+    preserve_amount_display.short_description = _("保全金额")
 
     def status_display(self, obj):
         """带颜色的状态显示"""
@@ -283,7 +284,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_status_display()
         )
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def statistics_display(self, obj):
         """显示统计信息"""
@@ -299,7 +300,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             obj.total_companies,
         )
 
-    statistics_display.short_description = "成功/失败/总数"
+    statistics_display.short_description = _("成功/失败/总数")
 
     def success_rate_display(self, obj):
         """显示成功率"""
@@ -319,7 +320,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, rate_str)
 
-    success_rate_display.short_description = "成功率"
+    success_rate_display.short_description = _("成功率")
 
     def duration_display(self, obj):
         """显示执行时长"""
@@ -343,7 +344,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return mark_safe('<span style="color: #999;">-</span>')
 
-    duration_display.short_description = "执行时长"
+    duration_display.short_description = _("执行时长")
 
     def run_button(self, obj):
         """立即运行按钮"""
@@ -360,7 +361,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: #999;">已完成</span>')
 
-    run_button.short_description = "操作"
+    run_button.short_description = _("操作")
 
     def quotes_summary(self, obj):
         """报价汇总表格"""
@@ -440,7 +441,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return mark_safe("".join(html_parts))
 
-    quotes_summary.short_description = "报价汇总"
+    quotes_summary.short_description = _("报价汇总")
 
     @admin.action(description="执行选中的询价任务")
     def execute_quotes(self, request, queryset):

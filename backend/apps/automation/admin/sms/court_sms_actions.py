@@ -8,6 +8,7 @@ import logging
 from typing import Any, cast
 
 from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger("apps.automation")
 
@@ -46,4 +47,4 @@ class CourtSMSActionsMixin:
         if error_count > 0:
             messages.error(request, f"重新处理失败 {error_count} 条短信")
 
-    retry_processing_action.short_description = "🔄 重新处理选中的短信"
+    retry_processing_action.short_description = _("🔄 重新处理选中的短信")

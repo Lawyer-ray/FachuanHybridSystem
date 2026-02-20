@@ -8,6 +8,7 @@ from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from typing import ClassVar
 
 from apps.organization.models import AccountCredential
@@ -53,12 +54,12 @@ class AccountCredentialAdmin(admin.ModelAdmin):
     ]
 
     fieldsets = (
-        ("基本信息", {"fields": ("id", "lawyer", "site_name", "url", "account", "password")}),
+        (_("基本信息"), {"fields": ("id", "lawyer", "site_name", "url", "account", "password")}),
         (
-            "登录统计",
+            _("登录统计"),
             {"fields": ("login_statistics_display", "success_rate_display", "last_login_display", "is_preferred")},
         ),
-        ("时间信息", {"fields": ("created_at", "updated_at")}),
+        (_("时间信息"), {"fields": ("created_at", "updated_at")}),
     )
 
     ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
@@ -83,7 +84,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
             obj.login_failure_count,
         )
 
-    login_statistics_display.short_description = "成功/失败次数"
+    login_statistics_display.short_description = _("成功/失败次数")
 
     def success_rate_display(self, obj):
         """显示登录成功率"""
@@ -100,7 +101,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, rate_str)
 
-    success_rate_display.short_description = "成功率"
+    success_rate_display.short_description = _("成功率")
 
     def last_login_display(self, obj):
         """显示最后登录时间"""
@@ -131,7 +132,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
-    last_login_display.short_description = "最后成功登录"
+    last_login_display.short_description = _("最后成功登录")
 
     def auto_login_button(self, obj):
         """操作按钮 - 查看历史"""
@@ -146,19 +147,19 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: #999;">不支持</span>')
 
-    auto_login_button.short_description = "操作"
+    auto_login_button.short_description = _("操作")
 
-    @admin.action(description="标记为优先账号")
+    @admin.action(description=_("标记为优先账号"))
     def mark_as_preferred(self, request, queryset):
         """标记为优先账号"""
         count = queryset.update(is_preferred=True)
-        self.message_user(request, f"已将 {count} 个账号标记为优先使用")
+        self.message_user(request, _(f"已将 {count} 个账号标记为优先使用"))
 
-    @admin.action(description="取消优先标记")
+    @admin.action(description=_("取消优先标记"))
     def unmark_as_preferred(self, request, queryset):
         """取消优先标记"""
         count = queryset.update(is_preferred=False)
-        self.message_user(request, f"已取消 {count} 个账号的优先标记")
+        self.message_user(request, _(f"已取消 {count} 个账号的优先标记"))
 
     def get_queryset(self, request):
         """优化查询性能"""

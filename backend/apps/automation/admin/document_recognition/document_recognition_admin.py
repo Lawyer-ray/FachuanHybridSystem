@@ -15,6 +15,7 @@ from django.urls import path, reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_protect
 
 from apps.automation.models import CourtSMS  # 使用现有模型作为代理
@@ -298,7 +299,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     # 字段分组
     fieldsets = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -309,7 +310,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "识别结果",
+            _("识别结果"),
             {
                 "fields": (
                     "document_type",
@@ -322,14 +323,14 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "原始文本",
+            _("原始文本"),
             {
                 "fields": ("raw_text_display",),
                 "classes": ("collapse",),
             },
         ),
         (
-            "绑定结果",
+            _("绑定结果"),
             {
                 "fields": (
                     "binding_success",
@@ -341,7 +342,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "通知状态",
+            _("通知状态"),
             {
                 "fields": (
                     "notification_sent",
@@ -353,14 +354,14 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "错误信息",
+            _("错误信息"),
             {
                 "fields": ("error_message",),
                 "classes": ("collapse",),
             },
         ),
         (
-            "时间戳",
+            _("时间戳"),
             {
                 "fields": (
                     "created_at",
@@ -383,7 +384,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         color = status_colors.get(obj.status, "gray")
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = "任务状态"
+    status_display.short_description = _("任务状态")
     status_display.admin_order_field = "status"
 
     def document_type_display(self, obj):
@@ -401,7 +402,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         icon = type_icons.get(obj.document_type, "📄")
         return f"{icon} {obj.document_type}"
 
-    document_type_display.short_description = "文书类型"
+    document_type_display.short_description = _("文书类型")
     document_type_display.admin_order_field = "document_type"
 
     def case_display(self, obj):
@@ -414,7 +415,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">{}</a>', url, case_name)
         return "-"
 
-    case_display.short_description = "关联案件"
+    case_display.short_description = _("关联案件")
 
     def binding_status_display(self, obj):
         """绑定状态显示"""
@@ -429,7 +430,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
                 error_preview,
             )
 
-    binding_status_display.short_description = "绑定状态"
+    binding_status_display.short_description = _("绑定状态")
 
     def notification_status_display(self, obj):
         """
@@ -457,7 +458,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: orange;">⏳ 待发送</span>')
 
-    notification_status_display.short_description = "通知状态"
+    notification_status_display.short_description = _("通知状态")
 
     def raw_text_display(self, obj):
         """原始文本显示（带滚动）"""
@@ -470,7 +471,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    raw_text_display.short_description = "原始文本"
+    raw_text_display.short_description = _("原始文本")
 
     def get_queryset(self, request):
         """优化查询性能"""

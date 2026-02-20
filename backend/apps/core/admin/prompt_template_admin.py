@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import path
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import PromptTemplate
 
@@ -46,10 +47,10 @@ class PromptTemplateAdmin(admin.ModelAdmin):
     ordering: ClassVar = ["category", "name"]
 
     fieldsets: tuple[Any, ...] = (
-        ("基本信息", {"fields": ("name", "title", "category", "description", "version")}),
-        ("模板内容", {"fields": ("template", "variables"), "classes": ("wide",)}),
-        ("设置", {"fields": ("is_active",), "classes": ("collapse",)}),
-        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        (_("基本信息"), {"fields": ("name", "title", "category", "description", "version")}),
+        (_("模板内容"), {"fields": ("template", "variables"), "classes": ("wide",)}),
+        (_("设置"), {"fields": ("is_active",), "classes": ("collapse",)}),
+        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     readonly_fields: ClassVar = ["created_at", "updated_at"]
@@ -71,7 +72,7 @@ class PromptTemplateAdmin(admin.ModelAdmin):
             obj.category.title(),
         )
 
-    category_display.short_description = "分类"
+    category_display.short_description = _("分类")
     category_display.admin_order_field = "category"
 
     def variables_display(self, obj) -> None:
@@ -93,7 +94,7 @@ class PromptTemplateAdmin(admin.ModelAdmin):
 
         return format_html(" ".join(["{}"] * len(variables_html)), *variables_html)
 
-    variables_display.short_description = "变量"
+    variables_display.short_description = _("变量")
 
     def get_urls(self) -> None:
         """添加自定义 URL"""

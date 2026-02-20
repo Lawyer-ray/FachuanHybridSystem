@@ -9,6 +9,7 @@ from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
@@ -82,7 +83,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -94,7 +95,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "执行结果",
+            _("执行结果"),
             {
                 "fields": (
                     "status",
@@ -105,7 +106,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "性能指标",
+            _("性能指标"),
             {
                 "fields": (
                     "performance_summary",
@@ -118,7 +119,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": (
                     "created_at",
@@ -160,7 +161,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_status_display()
         )
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def trigger_reason_display(self, obj):
         """格式化触发原因"""
@@ -176,7 +177,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return format_html('<span style="font-weight: bold;">{}</span>', display_text)
 
-    trigger_reason_display.short_description = "触发原因"
+    trigger_reason_display.short_description = _("触发原因")
 
     def performance_display(self, obj):
         """显示性能指标"""
@@ -193,7 +194,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         duration_text = f"{duration:.1f}s"
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, duration_text)
 
-    performance_display.short_description = "总耗时"
+    performance_display.short_description = _("总耗时")
 
     def attempts_display(self, obj):
         """显示尝试次数统计"""
@@ -213,7 +214,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return mark_safe('<span style="color: #28a745;">一次成功</span>')
 
-    attempts_display.short_description = "尝试统计"
+    attempts_display.short_description = _("尝试统计")
 
     def duration_display(self, obj):
         """显示详细耗时信息"""
@@ -229,7 +230,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return mark_safe("<br>".join(parts))
 
-    duration_display.short_description = "耗时详情"
+    duration_display.short_description = _("耗时详情")
 
     def error_details_display(self, obj):
         """格式化显示错误详情"""
@@ -256,7 +257,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
                 str(obj.error_details)[:500],
             )
 
-    error_details_display.short_description = "错误详情"
+    error_details_display.short_description = _("错误详情")
 
     def performance_summary(self, obj):
         """性能汇总信息"""
@@ -305,7 +306,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return mark_safe("".join(html_parts))
 
-    performance_summary.short_description = "性能汇总"
+    performance_summary.short_description = _("性能汇总")
 
     def has_add_permission(self, request):
         """禁用添加功能（历史记录由系统自动创建）"""
@@ -325,13 +326,13 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             count = service.cleanup_old_records(days=30)
 
             if count > 0:
-                self.message_user(request, f"✅ 成功清理 {count} 条30天前的历史记录")
+                self.message_user(request, _(f"✅ 成功清理 {count} 条30天前的历史记录"))
             else:
-                self.message_user(request, "ℹ️ 没有找到需要清理的历史记录")
+                self.message_user(request, _("ℹ️ 没有找到需要清理的历史记录"))
         except Exception as e:
-            self.message_user(request, f"❌ 清理失败: {e!s}", level=messages.ERROR)
+            self.message_user(request, _(f"❌ 清理失败: {e!s}"), level=messages.ERROR)
 
-    cleanup_old_records.short_description = "清理30天前的历史记录"
+    cleanup_old_records.short_description = _("清理30天前的历史记录")
 
     def export_to_csv(self, request, queryset):
         """导出选中记录为CSV"""
@@ -339,13 +340,13 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             service = _get_token_history_admin_service()
             response = service.export_to_csv(queryset)
 
-            self.message_user(request, f"✅ 成功导出 {queryset.count()} 条记录")
+            self.message_user(request, _(f"✅ 成功导出 {queryset.count()} 条记录"))
 
             return response
         except Exception as e:
-            self.message_user(request, f"❌ 导出失败: {e!s}", level=messages.ERROR)
+            self.message_user(request, _(f"❌ 导出失败: {e!s}"), level=messages.ERROR)
 
-    export_to_csv.short_description = "导出为CSV文件"
+    export_to_csv.short_description = _("导出为CSV文件")
 
     def reanalyze_performance(self, request, queryset):
         """重新分析性能数据"""
@@ -381,7 +382,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         if result["avg_duration"] > 30:
             self.message_user(request, "💡 建议：平均耗时较长，请检查网络连接和服务器性能", level=messages.WARNING)
 
-    reanalyze_performance.short_description = "重新分析性能数据"
+    reanalyze_performance.short_description = _("重新分析性能数据")
 
     def get_urls(self):
         """添加自定义URL"""

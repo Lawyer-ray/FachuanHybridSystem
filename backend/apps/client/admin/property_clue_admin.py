@@ -7,6 +7,7 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
 
@@ -63,7 +64,7 @@ class PropertyClueAttachmentInline(admin.TabularInline):
                 return format_html('<a href="{}" target="_blank">{}</a>', url, obj.file_name)
         return obj.file_name if obj.file_name else ""
 
-    file_link.short_description = "文件"  # type: ignore[attr-defined]
+    file_link.short_description = _("文件")  # type: ignore[attr-defined]
 
 
 @admin.register(PropertyClue)
@@ -85,15 +86,15 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
     inlines: ClassVar = [PropertyClueAttachmentInline]
 
     fieldsets = (
-        ("基本信息", {"fields": ("client", "clue_type", "content")}),
-        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        (_("基本信息"), {"fields": ("client", "clue_type", "content")}),
+        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     def clue_type_display(self, obj: PropertyClue) -> str:
         """显示线索类型标签"""
         return obj.get_clue_type_display()
 
-    clue_type_display.short_description = "线索类型"  # type: ignore[attr-defined]
+    clue_type_display.short_description = _("线索类型")  # type: ignore[attr-defined]
 
     def content_preview(self, obj: PropertyClue) -> str:
         """显示内容摘要"""
@@ -104,7 +105,7 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
             return preview
         return ""
 
-    content_preview.short_description = "内容摘要"  # type: ignore[attr-defined]
+    content_preview.short_description = _("内容摘要")  # type: ignore[attr-defined]
 
     def attachment_count(self, obj: PropertyClue) -> str:
         """显示附件数量"""
@@ -113,4 +114,4 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
             return format_html('<span style="color: green;">{} 个附件</span>', count)
         return "无附件"
 
-    attachment_count.short_description = "附件"  # type: ignore[attr-defined]
+    attachment_count.short_description = _("附件")  # type: ignore[attr-defined]

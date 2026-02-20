@@ -68,7 +68,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
         detail_url = reverse("admin:cases_case_detail", args=[obj.pk])
         return mark_safe(f'<a href="{detail_url}">{obj.name}</a>')
 
-    name_link.short_description = "案件名称"  # type: ignore[attr-defined]
+    name_link.short_description = _("案件名称")  # type: ignore[attr-defined]
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[Any]:
@@ -398,14 +398,14 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
             logger.exception("操作失败")
             return "未绑定文件夹"
 
-    contract_folder_path_display.short_description = "合同文件夹路径"  # type: ignore[attr-defined]
+    contract_folder_path_display.short_description = _("合同文件夹路径")  # type: ignore[attr-defined]
 
     def filing_number_display(self, obj: Case) -> str:
         if obj and obj.filing_number:
             return str(obj.filing_number)
         return "未生成"
 
-    filing_number_display.short_description = "建档编号"  # type: ignore[attr-defined]
+    filing_number_display.short_description = _("建档编号")  # type: ignore[attr-defined]
 
     def has_folder_binding(self, obj: Case) -> str:
         try:
@@ -416,7 +416,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
             logger.exception("操作失败")
             return "未绑定"
 
-    has_folder_binding.short_description = "文件夹绑定"  # type: ignore[attr-defined]
+    has_folder_binding.short_description = _("文件夹绑定")  # type: ignore[attr-defined]
 
     def get_matched_folder_templates_display(self, obj: Case) -> str:
         if not obj or not obj.case_type:
@@ -424,7 +424,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
         service = self._get_case_admin_service()
         return str(service.get_matched_folder_templates(obj.case_type))
 
-    get_matched_folder_templates_display.short_description = "匹配的文件夹模板"  # type: ignore[attr-defined]
+    get_matched_folder_templates_display.short_description = _("匹配的文件夹模板")  # type: ignore[attr-defined]
 
 
 __all__: list[str] = ["CaseAdminServiceMixin", "CaseAdminViewsMixin"]

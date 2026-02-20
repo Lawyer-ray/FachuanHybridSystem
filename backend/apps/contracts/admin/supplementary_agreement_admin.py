@@ -9,6 +9,7 @@ from typing import ClassVar
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
 
@@ -43,9 +44,9 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):
     inlines: ClassVar = [SupplementaryAgreementPartyInline]
 
     fieldsets = (
-        ("基本信息", {"fields": ("contract", "name")}),
+        (_("基本信息"), {"fields": ("contract", "name")}),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": ("created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -57,7 +58,7 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):
         """当事人数量"""
         return obj.parties.count()
 
-    party_count.short_description = "当事人数量"  # type: ignore[attr-defined]
+    party_count.short_description = _("当事人数量")  # type: ignore[attr-defined]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:
         """优化查询"""
