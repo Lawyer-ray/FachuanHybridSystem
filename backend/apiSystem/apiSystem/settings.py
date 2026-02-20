@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import django_stubs_ext
+from django.utils.translation import gettext_lazy as _
 
 django_stubs_ext.monkeypatch()
 
@@ -89,6 +90,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware_request_id.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "apps.organization.middleware.ApiTrailingSlashMiddleware",
     "django.middleware.common.CommonMiddleware",
     "ninja.compatibility.files.fix_request_files_middleware",
@@ -231,6 +233,15 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = "zh-hans"
+
+LANGUAGES = [
+    ("zh-hans", _("简体中文")),
+    ("en", _("English")),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / "locale",
+]
 
 TIME_ZONE = "Asia/Shanghai"
 
