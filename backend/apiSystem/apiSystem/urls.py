@@ -13,15 +13,16 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import include, path
+from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
 
 from .api import api_v1
 
 # 配置 Django Admin 界面标题
-admin.site.site_header = getattr(settings, "ADMIN_SITE_HEADER", "法穿AI案件管理系统")
-admin.site.site_title = getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件管理系统")
-admin.site.index_title = getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统")
+admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI案件管理系统"))
+admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件管理系统"))
+admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统"))
 
 
 def index_view(request):
