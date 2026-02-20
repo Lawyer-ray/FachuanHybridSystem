@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any
 
 from django.utils.functional import Promise
 
 from apps.core.exceptions import ForbiddenError
 
-_StrOrPromise = Union[str, Promise]
+_StrOrPromise = str | Promise
 
 
 class AuthzUserMixin:

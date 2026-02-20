@@ -16,7 +16,7 @@ logger = logging.getLogger("apps.automation")
 class ZxfwInterceptMixin:
     """Playwright API 拦截下载方法"""
 
-    page: "Page"
+    page: Page
 
     def _debug_log(self, message: str, data: Any = None) -> None:
         raise NotImplementedError

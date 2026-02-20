@@ -69,11 +69,6 @@ class CasePartyMutationService:
         parties_qs = CaseParty.objects.filter(case_id=case_id).select_related("client")
         if exclude_party_id:
             parties_qs = parties_qs.exclude(id=exclude_party_id)
-        existing_statuses: list[str] = list(
-            parties_qs.exclude(legal_status__isnull=True)
-            .exclude(legal_status="")
-            .values_list("legal_status", flat=True)
-        )
         is_compatible = business_config.is_legal_status_valid_for_case_type(legal_status, None)
         # 检查与现有诉讼地位的兼容性（简单检查：同一案件不能有完全相同的诉讼地位组合冲突）
         if not is_compatible:

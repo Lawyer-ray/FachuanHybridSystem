@@ -7,7 +7,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -36,15 +36,15 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
 
     def __init__(
         self,
-        parser: Optional[SMSParserService] = None,
-        matcher: Optional[CaseMatcher] = None,
-        case_number_extractor: Optional["CaseNumberExtractorService"] = None,
-        document_attachment: Optional["DocumentAttachmentService"] = None,
-        notification: Optional["SMSNotificationService"] = None,
-        case_service: Optional["ICaseService"] = None,
-        client_service: Optional["IClientService"] = None,
-        lawyer_service: Optional["ILawyerService"] = None,
-        case_chat_service: Optional["ICaseChatService"] = None,
+        parser: SMSParserService | None = None,
+        matcher: CaseMatcher | None = None,
+        case_number_extractor: "CaseNumberExtractorService | None" = None,
+        document_attachment: "DocumentAttachmentService | None" = None,
+        notification: "SMSNotificationService | None" = None,
+        case_service: "ICaseService | None" = None,
+        client_service: "IClientService | None" = None,
+        lawyer_service: "ILawyerService | None" = None,
+        case_chat_service: "ICaseChatService | None" = None,
     ):
         self.parser = parser or SMSParserService()
         self.matcher = matcher or CaseMatcher() # type: ignore

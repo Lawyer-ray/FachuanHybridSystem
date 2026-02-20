@@ -69,7 +69,7 @@ def expose_placeholders(
                 )
             )
 
-        setattr(target, "__code_placeholder_definitions__", defs)
+        setattr(target, "__code_placeholder_definitions__", defs)  # noqa: B010  # target 是泛型 T，无法用显式属性赋值替代
         CodePlaceholderRegistry().register(defs)
         return target
 

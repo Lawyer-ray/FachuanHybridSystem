@@ -198,3 +198,4 @@ class FeishuFileMixin:
         """根据文件扩展名确定 MIME 类型"""
         mime_type, _ = mimetypes.guess_type(file_path)
         return mime_type or "application/octet-stream"
+
