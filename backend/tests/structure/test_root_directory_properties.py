@@ -39,6 +39,8 @@ ALLOWED_ROOT_FILES = {
     ".secrets.baseline",
     ".coverage",
     ".DS_Store",
+    # uv 包管理器的锁文件，项目使用 uv 替代 pip
+    "uv.lock",
 }
 
 # 根目录允许的目录
@@ -226,6 +228,8 @@ def test_root_directory_simplicity_property(item_name):
         "requirements-dev.txt",
         "requirements-test.txt",
         ".dockerignore",
+        # uv 包管理器的锁文件，项目使用 uv 替代 pip
+        "uv.lock",
     }
 
     # 断言：项目应该在白名单中
@@ -287,7 +291,8 @@ def test_essential_config_files_exist():
 
     验证根目录包含必需的配置文件
     """
-    essential_files = ["requirements.txt", "pytest.ini", "Makefile", "README.md"]
+    # backend/ 目录下必需的配置文件（requirements.txt 和 README.md 在项目根目录，不在 backend/）
+    essential_files = ["pytest.ini", "Makefile"]
 
     missing_files = []
     for file_name in essential_files:
