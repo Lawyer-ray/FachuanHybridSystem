@@ -5,7 +5,7 @@
 """
 
 import os
-from typing import Any, cast
+from typing import Any
 
 from django.core.management.base import BaseCommand
 
@@ -92,4 +92,4 @@ class Command(BaseCommand):
         from apps.core.admin.system_config_admin import SystemConfigAdmin
 
         admin_instance = SystemConfigAdmin(SystemConfig, None)  # type: ignore[arg-type]
-        return cast(list[dict[str, Any]], admin_instance._get_default_configs())
+        return admin_instance._get_default_configs()
