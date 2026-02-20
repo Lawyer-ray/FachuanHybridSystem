@@ -1,5 +1,6 @@
 """Business workflow orchestration."""
 
+from django.utils.translation import gettext_lazy as _
 from collections.abc import Sequence
 from typing import Any
 
@@ -59,23 +60,23 @@ class CaseMaterialBindingWorkflow:
                 party_ids = payload.get("party_ids") or []
                 supervising_authority_id = payload.get("supervising_authority_id")
                 if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
-                    raise ValidationException(message="材料大类不合法", errors={"category": category})
+                    raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
                 if not type_name:
-                    raise ValidationException(message="类型名称不能为空", errors={"type_name": "required"})
+                    raise ValidationException(message=_("类型名称不能为空"), errors={"type_name": "required"})
                 if category == CaseMaterialCategory.PARTY:
                     if side not in {CaseMaterialSide.OUR, CaseMaterialSide.OPPONENT}:
-                        raise ValidationException(message="当事人方向不合法", errors={"side": side})
+                        raise ValidationException(message=_("当事人方向不合法"), errors={"side": side})
                     supervising_authority_id = None
                 else:
                     side = None
                     if not supervising_authority_id:
                         raise ValidationException(
-                            message="必须选择主管机关", errors={"supervising_authority_id": "required"}
+                            message=_("必须选择主管机关"), errors={"supervising_authority_id": "required"}
                         )
                     supervising_authority_id = int(supervising_authority_id)
                     if supervising_authority_id not in authorities_by_id:
                         raise ValidationException(
-                            message="主管机关不属于该案件",
+                            message=_("主管机关不属于该案件"),
                             errors={"supervising_authority_id": supervising_authority_id},
                         )
                 resolved_type = self._resolve_type_cached(
@@ -124,7 +125,7 @@ class CaseMaterialBindingWorkflow:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)
             except CaseMaterialType.DoesNotExist:
-                raise ValidationException(message="材料类型不存在", errors={"type_id": type_id}) from None
+                raise ValidationException(message=_("材料类型不存在"), errors={"type_id": type_id}) from None
             return t
         qs = CaseMaterialType.objects.filter(category=category, name=type_name, is_active=True).order_by(
             models.Case(
@@ -152,11 +153,11 @@ class CaseMaterialBindingWorkflow:
                 continue
             party = parties_by_id.get(pid_int)
             if not party:
-                raise ValidationException(message="包含无效当事人", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("包含无效当事人"), errors={"party_ids": pid_int})
             is_our = bool(getattr(getattr(party, "client", None), "is_our_client", False))
             if side == CaseMaterialSide.OUR and (not is_our):
-                raise ValidationException(message="当事人不属于我方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于我方"), errors={"party_ids": pid_int})
             if side == CaseMaterialSide.OPPONENT and is_our:
-                raise ValidationException(message="当事人不属于对方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于对方"), errors={"party_ids": pid_int})
             validated.append(pid_int)
         return validated

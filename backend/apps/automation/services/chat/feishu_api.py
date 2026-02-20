@@ -1,5 +1,6 @@
 """API endpoints."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -143,7 +144,7 @@ class FeishuApiMixin:
 
         if not app_id or not app_secret:
             raise ConfigurationException(
-                message="飞书APP_ID或APP_SECRET未配置", platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message=_("飞书APP_ID或APP_SECRET未配置"), platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         # 请求新的访问令牌
@@ -245,7 +246,7 @@ class FeishuApiMixin:
 
             if not file_key:
                 raise MessageSendException(
-                    message="API响应中缺少文件key", platform="feishu", errors={"api_response": resp_data}
+                    message=_("API响应中缺少文件key"), platform="feishu", errors={"api_response": resp_data}
                 )
 
             logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")

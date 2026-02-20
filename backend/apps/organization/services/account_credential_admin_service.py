@@ -3,6 +3,7 @@ AccountCredentialAdminService - 账号凭证管理服务
 封装 Admin 层的业务逻辑，包括自动登录功能
 """
 
+from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -167,7 +168,7 @@ class AccountCredentialAdminService:
                     credential=credential,
                     success=False,
                     duration=duration,
-                    error_message="登录失败，未返回Token",
+                    error_message=_("登录失败，未返回Token"),
                     trigger_reason="manual_trigger_admin",
                     start_time=start_time,
                     end_time=end_time,
@@ -186,7 +187,7 @@ class AccountCredentialAdminService:
                 return LoginResult(
                     success=False,
                     duration=duration,
-                    error_message="登录失败，未返回Token",
+                    error_message=_("登录失败，未返回Token"),
                 )
 
         except Exception as e:
@@ -253,7 +254,7 @@ class AccountCredentialAdminService:
                 success_count=0,
                 error_count=0,
                 total_duration=0,
-                message="没有找到法院一张网账号",
+                message=_("没有找到法院一张网账号"),
             )
 
         logger.info(
@@ -371,7 +372,7 @@ class AccountCredentialAdminService:
                     credential=credential,
                     success=False,
                     duration=duration,
-                    error_message="登录失败，未返回Token",
+                    error_message=_("登录失败，未返回Token"),
                     trigger_reason=trigger_reason,
                     start_time=start_time,
                     end_time=end_time,
@@ -380,7 +381,7 @@ class AccountCredentialAdminService:
                 return LoginResult(
                     success=False,
                     duration=duration,
-                    error_message="登录失败，未返回Token",
+                    error_message=_("登录失败，未返回Token"),
                 )
 
         except Exception as e:

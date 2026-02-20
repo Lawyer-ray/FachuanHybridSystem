@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 "\n文书模板服务\n\n提供文书模板的 CRUD 操作、文件路径验证、版本管理和占位符提取功能.\n"
@@ -159,7 +160,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message="文书模板不存在",
+                message=_("文书模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -288,7 +289,7 @@ class DocumentTemplateService:
             return self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message="文书模板不存在",
+                message=_("文书模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -333,7 +334,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message="文书模板不存在",
+                message=_("文书模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -386,7 +387,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message="文书模板不存在",
+                message=_("文书模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None

@@ -7,6 +7,7 @@
 Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
@@ -54,7 +55,7 @@ class PlaceholderService:
         # 验证必填参数
         if not key or not display_name:
             raise ValidationException(
-                message="占位符键和显示名称不能为空",
+                message=_("占位符键和显示名称不能为空"),
                 code="INVALID_PLACEHOLDER_DATA",
                 errors={"key": "占位符键不能为空", "display_name": "显示名称不能为空"},
             )
@@ -71,7 +72,7 @@ class PlaceholderService:
             return placeholder
         except IntegrityError as e:
             raise ValidationException(
-                message="创建占位符失败",
+                message=_("创建占位符失败"),
                 code="PLACEHOLDER_CREATE_FAILED",
                 errors={"key": f"占位符键 '{key}' 可能已存在: {e!s}"},
             ) from e
@@ -124,7 +125,7 @@ class PlaceholderService:
             return Placeholder.objects.get(id=placeholder_id)
         except Placeholder.DoesNotExist:
             raise NotFoundError(
-                message="占位符不存在",
+                message=_("占位符不存在"),
                 code="PLACEHOLDER_NOT_FOUND",
                 errors={"placeholder_id": f"ID 为 {placeholder_id} 的占位符不存在"},
             ) from None
@@ -146,7 +147,7 @@ class PlaceholderService:
             return Placeholder.objects.get(key=key)
         except Placeholder.DoesNotExist:
             raise NotFoundError(
-                message="占位符不存在",
+                message=_("占位符不存在"),
                 code="PLACEHOLDER_NOT_FOUND",
                 errors={"key": f"键为 '{key}' 的占位符不存在"},
             ) from None
@@ -182,7 +183,7 @@ class PlaceholderService:
             placeholder = Placeholder.objects.get(id=placeholder_id)
         except Placeholder.DoesNotExist:
             raise NotFoundError(
-                message="占位符不存在",
+                message=_("占位符不存在"),
                 code="PLACEHOLDER_NOT_FOUND",
                 errors={"placeholder_id": f"ID 为 {placeholder_id} 的占位符不存在"},
             ) from None
@@ -204,7 +205,7 @@ class PlaceholderService:
             return placeholder
         except IntegrityError as e:
             raise ValidationException(
-                message="更新占位符失败",
+                message=_("更新占位符失败"),
                 code="PLACEHOLDER_UPDATE_FAILED",
                 errors={"key": f"占位符键可能已存在: {e!s}"},
             ) from e
@@ -226,7 +227,7 @@ class PlaceholderService:
             placeholder = Placeholder.objects.get(id=placeholder_id)
         except Placeholder.DoesNotExist:
             raise NotFoundError(
-                message="占位符不存在",
+                message=_("占位符不存在"),
                 code="PLACEHOLDER_NOT_FOUND",
                 errors={"placeholder_id": f"ID 为 {placeholder_id} 的占位符不存在"},
             ) from None

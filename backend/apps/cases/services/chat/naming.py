@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -25,11 +26,11 @@ class ChatNameBuilder:
     def build(self, *, case: Any) -> str:
         if not case:
             raise ValidationException(
-                message="案件对象不能为空", code="INVALID_CASE", errors={"case": "案件对象为必填项"}
+                message=_("案件对象不能为空"), code="INVALID_CASE", errors={"case": "案件对象为必填项"}
             )
         if not getattr(case, "name", None):
             raise ValidationException(
-                message="案件名称不能为空",
+                message=_("案件名称不能为空"),
                 code="INVALID_CASE_NAME",
                 errors={"case_name": "案件名称为必填项"},
             )

@@ -4,6 +4,7 @@ Token 登录处理器
 封装自动登录流程中的登录执行、超时处理、失败处理等逻辑。
 """
 
+from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 import time
@@ -117,7 +118,7 @@ class LoginHandler:
                 success=True,
                 token=saved_token,
                 account=account,
-                error_message="超时但Token已保存",
+                error_message=_("超时但Token已保存"),
                 attempt_duration=login_duration,
                 retry_count=1,
             )

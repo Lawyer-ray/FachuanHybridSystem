@@ -1,5 +1,6 @@
 """External service client."""
 
+from django.utils.translation import gettext_lazy as _
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -24,5 +25,5 @@ class ClientGetQueryService:
     def get_client(self, *, client_id: int, user: Any | None = None) -> Client:
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
-            raise NotFoundError(message="客户不存在", code="CLIENT_NOT_FOUND")
+            raise NotFoundError(message=_("客户不存在"), code="CLIENT_NOT_FOUND")
         return client

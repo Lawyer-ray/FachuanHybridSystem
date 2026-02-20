@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -82,7 +83,7 @@ class QuoteQueryService:
             from apps.core.exceptions import BusinessException
 
             raise BusinessException(
-                message="获取询价统计数据失败",
+                message=_("获取询价统计数据失败"),
                 code="GET_QUOTE_STATS_FAILED",
                 errors={},
             ) from e
@@ -105,7 +106,7 @@ class QuoteQueryService:
             try:
                 quote = PreservationQuote.objects.get(id=quote_id)
             except PreservationQuote.DoesNotExist:
-                raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={}) from None
+                raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={}) from None
 
             successful_quotes = quote.quotes.filter(status=QuoteItemStatus.SUCCESS, min_amount__isnull=False).order_by(
                 "min_amount"
@@ -150,7 +151,7 @@ class QuoteQueryService:
                 exc_info=True,
             )
             raise BusinessException(
-                message="获取询价对比分析失败", code="GET_QUOTE_COMPARISON_FAILED", errors={"error": str(e)}
+                message=_("获取询价对比分析失败"), code="GET_QUOTE_COMPARISON_FAILED", errors={"error": str(e)}
             ) from e
 
     # ---- 内部辅助方法 ----

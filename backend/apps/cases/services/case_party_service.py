@@ -3,6 +3,7 @@
 处理案件当事人相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
@@ -107,7 +108,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from e
 
         # 如果案件未绑定合同，允许任意当事人 (Requirements 4.3)
@@ -137,7 +138,7 @@ class CasePartyService:
                 },
             )
             raise ValidationException(
-                message="关联合同不存在",
+                message=_("关联合同不存在"),
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"案件关联的合同 {case.contract_id} 不存在"},
             ) from e
@@ -158,7 +159,7 @@ class CasePartyService:
             )
             # Requirements 4.2: 抛出 ValidationException
             raise ValidationException(
-                message="当事人必须属于绑定合同的当事人范围",
+                message=_("当事人必须属于绑定合同的当事人范围"),
                 code="PARTY_NOT_IN_CONTRACT_SCOPE",
                 errors={"client_id": "当事人必须属于绑定合同的当事人范围"},
             )
@@ -250,7 +251,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             ) from e
 
     @transaction.atomic
@@ -292,7 +293,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from e
 
         # 验证客户是否存在
@@ -307,7 +308,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="客户不存在", code="CLIENT_NOT_FOUND", errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
+                message=_("客户不存在"), code="CLIENT_NOT_FOUND", errors={"client_id": f"ID 为 {client_id} 的客户不存在"}
             )
 
         # 检查是否已存在相同的当事人（重复检测）
@@ -322,7 +323,7 @@ class CasePartyService:
                 },
             )
             raise ConflictError(
-                message="当事人已存在",
+                message=_("当事人已存在"),
                 code="PARTY_ALREADY_EXISTS",
                 errors={"party": f"案件 {case_id} 中已存在客户 {client_id} 的当事人记录"},
             )
@@ -382,7 +383,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             ) from e
 
         # 验证案件是否存在（如果更新了 case_id）
@@ -392,7 +393,7 @@ class CasePartyService:
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist as e:
                 raise NotFoundError(
-                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 ) from e
 
         # 验证客户是否存在（如果更新了 client_id）
@@ -400,7 +401,7 @@ class CasePartyService:
         if client_id and client_id != party.client_id:
             if not self.client_service.validate_client_exists(client_id):
                 raise NotFoundError(
-                    message="客户不存在",
+                    message=_("客户不存在"),
                     code="CLIENT_NOT_FOUND",
                     errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
                 )
@@ -412,7 +413,7 @@ class CasePartyService:
         if new_case_id != party.case_id or new_client_id != party.client_id:
             if CaseParty.objects.filter(case_id=new_case_id, client_id=new_client_id).exclude(id=party_id).exists():
                 raise ConflictError(
-                    message="当事人已存在",
+                    message=_("当事人已存在"),
                     code="PARTY_ALREADY_EXISTS",
                     errors={"party": f"案件 {new_case_id} 中已存在客户 {new_client_id} 的当事人记录"},
                 )
@@ -468,7 +469,7 @@ class CasePartyService:
                 },
             )
             raise NotFoundError(
-                message="当事人不存在", code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
+                message=_("当事人不存在"), code="PARTY_NOT_FOUND", errors={"party_id": f"ID 为 {party_id} 的当事人不存在"}
             ) from e
 
         case_id = party.case_id

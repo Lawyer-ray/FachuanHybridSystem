@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,7 @@ class CaseLogInternalService:
             actor_id = get_organization_service().get_default_lawyer_id_internal()
             if not actor_id:
                 raise NotFoundError(
-                    message="系统中没有律师用户,无法创建日志",
+                    message=_("系统中没有律师用户,无法创建日志"),
                     code="NO_DEFAULT_ACTOR",
                     errors={"actor": "请先创建律师用户"},
                 )

@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 "\nPDF 合并服务\n\n提供证据文件的 PDF 合并、格式转换和页码添加功能.\n\nRequirements: 6.1-6.8\n"
@@ -26,7 +27,7 @@ class PDFMergeValidator:
         items = evidence_list.items.filter(file__isnull=False).exclude(file="").order_by("order")
         if not items.exists():
             raise ValidationException(
-                message="证据清单没有任何文件",
+                message=_("证据清单没有任何文件"),
                 code="NO_FILES_TO_MERGE",
                 errors={"evidence_list_id": cast(int, evidence_list.pk)},
             )

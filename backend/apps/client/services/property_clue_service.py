@@ -3,6 +3,7 @@
 处理财产线索相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, Optional, cast
 
@@ -77,7 +78,7 @@ class PropertyClueService:
         client = self.client_service._get_client_internal(client_id)
         if not client:
             raise NotFoundError(
-                message="当事人不存在",
+                message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
@@ -86,7 +87,7 @@ class PropertyClueService:
         clue_type = data.get("clue_type", PropertyClue.BANK)
         if clue_type not in dict(PropertyClue.CLUE_TYPE_CHOICES).keys():
             raise ValidationException(
-                message="无效的线索类型",
+                message=_("无效的线索类型"),
                 code="INVALID_CLUE_TYPE",
                 errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
             )
@@ -129,7 +130,7 @@ class PropertyClueService:
 
         if not clue:
             raise NotFoundError(
-                message="财产线索不存在",
+                message=_("财产线索不存在"),
                 code="CLUE_NOT_FOUND",
                 errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"},
             )
@@ -157,7 +158,7 @@ class PropertyClueService:
         client = self.client_service._get_client_internal(client_id)
         if not client:
             raise NotFoundError(
-                message="当事人不存在",
+                message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
@@ -199,7 +200,7 @@ class PropertyClueService:
             clue_type = data["clue_type"]
             if clue_type not in dict(PropertyClue.CLUE_TYPE_CHOICES).keys():
                 raise ValidationException(
-                    message="无效的线索类型",
+                    message=_("无效的线索类型"),
                     code="INVALID_CLUE_TYPE",
                     errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
                 )
@@ -286,7 +287,7 @@ class PropertyClueService:
         # 2. 验证文件信息
         if not file_path or not file_name:
             raise ValidationException(
-                message="文件路径和文件名不能为空",
+                message=_("文件路径和文件名不能为空"),
                 code="INVALID_FILE_INFO",
                 errors={
                     "file_path": "文件路径不能为空" if not file_path else None,
@@ -354,7 +355,7 @@ class PropertyClueService:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
         except PropertyClueAttachment.DoesNotExist as e:
             raise NotFoundError(
-                message="附件不存在",
+                message=_("附件不存在"),
                 code="ATTACHMENT_NOT_FOUND",
                 errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
             ) from e

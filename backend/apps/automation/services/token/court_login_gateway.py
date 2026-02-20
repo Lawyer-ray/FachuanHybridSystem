@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,5 +36,5 @@ class CourtZxfwLoginGateway:
         if not token:
             from apps.automation.exceptions import LoginFailedError
 
-            raise LoginFailedError(message="登录成功但未获取到token", attempts=[])
+            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[])
         return token

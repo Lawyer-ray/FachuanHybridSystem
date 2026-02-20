@@ -1,5 +1,6 @@
 """询价执行 Mixin — 负责 Token 获取、保险公司查询、报价保存"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -131,7 +132,7 @@ class QuoteExecutionMixin:
                 bearer_token=token, c_pid=category_id, fy_id=corp_id
             )
             if not companies:
-                raise CompanyListEmptyError(message="未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确")
+                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"))
             logger.info(f"✅ 获取到 {len(companies)} 家保险公司")
             return companies
         except CompanyListEmptyError:

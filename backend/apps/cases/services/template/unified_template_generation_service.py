@@ -7,6 +7,7 @@
 Requirements: 1.1, 1.2, 1.3, 1.4, 1.6
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
@@ -92,7 +93,7 @@ class UnifiedTemplateGenerationService:
         # 验证参数:必须提供 template_id 或 function_code
         if template_id is None and not function_code:
             raise ValidationException(
-                message="必须提供 template_id 或 function_code",
+                message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
                 errors={"params": "必须提供 template_id 或 function_code"},
             )
@@ -159,7 +160,7 @@ class UnifiedTemplateGenerationService:
         """
         if template_id is None and not function_code:
             raise ValidationException(
-                message="必须提供 template_id 或 function_code",
+                message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
                 errors={"params": "必须提供 template_id 或 function_code"},
             )
@@ -183,6 +184,6 @@ class UnifiedTemplateGenerationService:
         case = case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         return case

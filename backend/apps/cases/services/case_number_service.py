@@ -3,6 +3,7 @@
 处理案件案号相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
@@ -121,7 +122,7 @@ class CaseNumberService:
                 },
             )
             raise NotFoundError(
-                message="案号不存在",
+                message=_("案号不存在"),
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from e
@@ -164,13 +165,13 @@ class CaseNumberService:
                 },
             )
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from e
 
         # 验证案号不能为空
         if not number or not number.strip():
             raise ValidationException(
-                message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
+                message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
             )
 
         # 规范化案号
@@ -227,7 +228,7 @@ class CaseNumberService:
                 },
             )
             raise NotFoundError(
-                message="案号不存在",
+                message=_("案号不存在"),
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from e
@@ -239,7 +240,7 @@ class CaseNumberService:
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist as e:
                 raise NotFoundError(
-                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 ) from e
 
         # 规范化案号（如果更新了 number）
@@ -247,7 +248,7 @@ class CaseNumberService:
         if number is not None:
             if not number or not number.strip():
                 raise ValidationException(
-                    message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
+                    message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
                 )
             data["number"] = self.normalize_case_number(number)
 
@@ -304,7 +305,7 @@ class CaseNumberService:
                 },
             )
             raise NotFoundError(
-                message="案号不存在",
+                message=_("案号不存在"),
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from e

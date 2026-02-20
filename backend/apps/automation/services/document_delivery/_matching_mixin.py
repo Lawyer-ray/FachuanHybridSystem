@@ -1,5 +1,6 @@
 """文书送达匹配 Mixin — 案件匹配、重命名、通知、案号同步"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import os
 import queue
@@ -238,7 +239,7 @@ class DocumentDeliveryMatchingMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
+                        sms.error_message = _("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

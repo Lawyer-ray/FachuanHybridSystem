@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -87,7 +88,7 @@ class TemplateMatchingService:
             from apps.documents.services.contract_template_query_service import ContractTemplateQueryService
 
             if not case_type:
-                raise ValidationException(message="案件类型不能为空", code="INVALID_CASE_TYPE")
+                raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
 
             result = ContractTemplateQueryService().list_matching_template_summaries(case_type)
             cache.set(cache_key, result, CacheTimeout.get_long())
@@ -113,7 +114,7 @@ class TemplateMatchingService:
             from apps.documents.models import FolderTemplate
 
             if not template_type:
-                raise ValidationException(message="模板类型不能为空", code="INVALID_TEMPLATE_TYPE")
+                raise ValidationException(message=_("模板类型不能为空"), code="INVALID_TEMPLATE_TYPE")
 
             templates = FolderTemplate.objects.filter(template_type=template_type, is_active=True)
 
@@ -133,7 +134,7 @@ class TemplateMatchingService:
         from apps.core.exceptions import ValidationException
 
         if not case_type:
-            raise ValidationException(message="案件类型不能为空", code="INVALID_CASE_TYPE")
+            raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
 
         folder_templates = self.find_matching_folder_templates("contract", case_type)
         document_templates = self.find_matching_contract_templates(case_type)

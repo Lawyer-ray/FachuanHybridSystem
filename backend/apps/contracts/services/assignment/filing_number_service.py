@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -64,12 +65,12 @@ class FilingNumberService:
             # 参数验证
             if not case_type:
                 raise ValidationException(
-                    message="合同类型不能为空", code="INVALID_CASE_TYPE", errors={"case_type": "合同类型不能为空"}
+                    message=_("合同类型不能为空"), code="INVALID_CASE_TYPE", errors={"case_type": "合同类型不能为空"}
                 )
 
             if not (1900 <= created_year <= 2100):
                 raise ValidationException(
-                    message="年份格式无效",
+                    message=_("年份格式无效"),
                     code="INVALID_YEAR",
                     errors={"created_year": f"年份 {created_year} 超出有效范围"},
                 )
@@ -95,7 +96,7 @@ class FilingNumberService:
         except Exception as e:
             logger.error(f"生成合同建档编号失败: {e!s}", extra={"contract_id": contract_id}, exc_info=True)
             raise ConflictError(
-                message="建档编号生成失败", code="FILING_NUMBER_GENERATION_FAILED", errors={"detail": str(e)}
+                message=_("建档编号生成失败"), code="FILING_NUMBER_GENERATION_FAILED", errors={"detail": str(e)}
             ) from e
 
     def generate_case_filing_number(self, case_id: int, case_type: str, created_year: int) -> Any:

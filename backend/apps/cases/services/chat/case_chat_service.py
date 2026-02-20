@@ -18,6 +18,7 @@
 - 支持多平台群聊
 """
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -80,7 +81,7 @@ class CaseChatService:
             org_access=org_access,
             perm_open_access=perm_open_access,
             case=case,
-            message="无权限访问此案件",
+            message=_("无权限访问此案件"),
         )
 
     def _resolve_owner_id(self) -> Any:
@@ -154,7 +155,7 @@ class CaseChatService:
             raise
         except Exception as e:
             raise ChatCreationException(
-                message="创建群聊时发生系统错误",
+                message=_("创建群聊时发生系统错误"),
                 code="SYSTEM_ERROR",
                 platform=platform.value,
                 errors={"case_id": case_id, "original_error": str(e)},
@@ -270,7 +271,7 @@ class CaseChatService:
         )
         if not sms_content or not sms_content.strip():
             raise ValidationException(
-                message="短信内容不能为空", code="INVALID_SMS_CONTENT", errors={"sms_content": "短信内容为必填项"}
+                message=_("短信内容不能为空"), code="INVALID_SMS_CONTENT", errors={"sms_content": "短信内容为必填项"}
             )
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
@@ -292,7 +293,7 @@ class CaseChatService:
             raise
         except Exception as e:
             raise MessageSendException(
-                message="发送文书通知时发生系统错误",
+                message=_("发送文书通知时发生系统错误"),
                 code="SYSTEM_ERROR",
                 platform=platform.value,
                 chat_id=getattr(chat, "chat_id", "") if chat else "",
@@ -338,7 +339,7 @@ class CaseChatService:
             raise
         except Exception as e:
             raise ValidationException(
-                message="解除群聊绑定时发生系统错误",
+                message=_("解除群聊绑定时发生系统错误"),
                 code="SYSTEM_ERROR",
                 errors={"chat_id": chat_id, "original_error": str(e)},
             ) from e
@@ -387,7 +388,7 @@ class CaseChatService:
         logger.info(f"绑定已存在的群聊: case_id={case_id}, platform={platform.value}, chat_id={chat_id}")
         if not chat_id or not chat_id.strip():
             raise ValidationException(
-                message="群聊ID不能为空", code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
+                message=_("群聊ID不能为空"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
             )
         chat_id = chat_id.strip()
         case = self.repo.get_case(case_id=case_id)
@@ -409,7 +410,7 @@ class CaseChatService:
             raise
         except Exception as e:
             raise ValidationException(
-                message="创建群聊绑定记录失败",
+                message=_("创建群聊绑定记录失败"),
                 code="BINDING_CREATION_ERROR",
                 errors={"case_id": case_id, "chat_id": chat_id, "original_error": str(e)},
             ) from e

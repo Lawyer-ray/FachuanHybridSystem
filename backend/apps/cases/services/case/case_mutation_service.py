@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -35,14 +36,14 @@ class CaseMutationService:
             contract = self.case_service.contract_service.get_contract(contract_id)
             if not contract:
                 raise ValidationException(
-                    message="合同不存在",
+                    message=_("合同不存在"),
                     code="CONTRACT_NOT_FOUND",
                     errors={"contract_id": f"无效的合同 ID: {contract_id}"},
                 )
 
             if not self.case_service.contract_service.validate_contract_active(contract_id):
                 raise ValidationException(
-                    message="合同未激活", code="CONTRACT_INACTIVE", errors={"contract_id": "合同状态不是 active"}
+                    message=_("合同未激活"), code="CONTRACT_INACTIVE", errors={"contract_id": "合同状态不是 active"}
                 )
 
         current_stage = data.get("current_stage")
@@ -91,7 +92,7 @@ class CaseMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message="无权限访问此案件",
+                message=_("无权限访问此案件"),
             )
 
         contract_id = data.get("contract_id")
@@ -99,7 +100,7 @@ class CaseMutationService:
             contract = self.case_service.contract_service.get_contract(contract_id)
             if not contract:
                 raise ValidationException(
-                    message="合同不存在",
+                    message=_("合同不存在"),
                     code="CONTRACT_NOT_FOUND",
                     errors={"contract_id": f"无效的合同 ID: {contract_id}"},
                 )
@@ -153,7 +154,7 @@ class CaseMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message="无权限访问此案件",
+                message=_("无权限访问此案件"),
             )
 
         logger.info(

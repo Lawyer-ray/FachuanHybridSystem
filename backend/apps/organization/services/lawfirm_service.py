@@ -3,6 +3,7 @@
 处理律所相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
@@ -59,11 +60,11 @@ class LawFirmService:
         lawfirm = self.get_lawfirm_queryset().filter(id=lawfirm_id).first()
 
         if not lawfirm:
-            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
+            raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         # 权限检查：用户可以访问自己所属的律所或管理员可以访问所有律所
         if not self._check_read_permission(user, lawfirm):
-            raise PermissionDenied(message="无权限访问该律所", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限访问该律所"), code="PERMISSION_DENIED")
 
         return lawfirm
 
@@ -133,7 +134,7 @@ class LawFirmService:
                 f"用户 {user.id} 尝试创建律所但权限不足",
                 extra={"user_id": user.id, "action": "create_lawfirm"},
             )
-            raise PermissionDenied(message="无权限创建律所", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限创建律所"), code="PERMISSION_DENIED")
 
         # 2. 业务验证
         self._validate_create_data(data)
@@ -178,7 +179,7 @@ class LawFirmService:
                 f"用户 {user.id} 尝试更新律所 {lawfirm_id} 但权限不足",
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "update_lawfirm"},
             )
-            raise PermissionDenied(message="无权限更新该律所", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限更新该律所"), code="PERMISSION_DENIED")
 
         # 3. 业务验证
         self._validate_update_data(lawfirm, data)
@@ -223,14 +224,14 @@ class LawFirmService:
                 f"用户 {user.id} 尝试删除律所 {lawfirm_id} 但权限不足",
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "delete_lawfirm"},
             )
-            raise PermissionDenied(message="无权限删除该律所", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除该律所"), code="PERMISSION_DENIED")
 
         # 3. 业务验证（检查是否可以删除）
         if lawfirm.lawyers.exists():
-            raise ConflictError(message="律所下还有律师，无法删除", code="LAWFIRM_HAS_LAWYERS")
+            raise ConflictError(message=_("律所下还有律师，无法删除"), code="LAWFIRM_HAS_LAWYERS")
 
         if lawfirm.teams.exists():
-            raise ConflictError(message="律所下还有团队，无法删除", code="LAWFIRM_HAS_TEAMS")
+            raise ConflictError(message=_("律所下还有团队，无法删除"), code="LAWFIRM_HAS_TEAMS")
 
         # 4. 删除律所
         lawfirm.delete()
@@ -263,7 +264,7 @@ class LawFirmService:
         # 检查名称是否重复
         if LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
-                message="律所名称已存在", code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
+                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
             )
 
     def _validate_update_data(self, lawfirm: LawFirm, data: Any) -> None:
@@ -271,7 +272,7 @@ class LawFirmService:
         # 检查名称是否与其他律所重复
         if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
-                message="律所名称已存在", code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
+                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
             )
 
     def _get_lawfirm_internal(self, lawfirm_id: int) -> LawFirm | None:

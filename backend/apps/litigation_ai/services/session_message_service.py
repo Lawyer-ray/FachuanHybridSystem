@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -39,7 +40,7 @@ class SessionMessageService:
         session = self.session_repo.get_session_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -59,7 +60,7 @@ class SessionMessageService:
         session = self.session_repo.get_session_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -76,7 +77,7 @@ class SessionMessageService:
         session = self.session_repo.get_session_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -93,7 +94,7 @@ class SessionMessageService:
         session = LitigationSession.objects.filter(session_id=session_id).first()
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -119,7 +120,7 @@ class SessionMessageService:
         session = LitigationSession.objects.filter(session_id=session_id).first()
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -158,7 +159,7 @@ class SessionMessageService:
         session = LitigationSession.objects.filter(session_id=session_id).first()
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )

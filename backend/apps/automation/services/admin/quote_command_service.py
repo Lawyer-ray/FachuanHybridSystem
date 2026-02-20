@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -61,7 +62,7 @@ class QuoteCommandService:
         """
         if not quote_ids:
             raise ValidationException(
-                message="没有选中任何询价任务",
+                message=_("没有选中任何询价任务"),
                 code="NO_QUOTES_SELECTED",
                 errors={},
             )
@@ -73,7 +74,7 @@ class QuoteCommandService:
 
             if not executable_quotes.exists():
                 raise ValidationException(
-                    message="没有找到可执行的询价任务",
+                    message=_("没有找到可执行的询价任务"),
                     code="NO_EXECUTABLE_QUOTES",
                     errors={},
                 )
@@ -127,7 +128,7 @@ class QuoteCommandService:
             from apps.core.exceptions import BusinessException
 
             raise BusinessException(
-                message="批量执行询价任务失败",
+                message=_("批量执行询价任务失败"),
                 code="EXECUTE_QUOTES_FAILED",
                 errors={},
             ) from e
@@ -186,7 +187,7 @@ class QuoteCommandService:
             from apps.core.exceptions import BusinessException
 
             raise BusinessException(
-                message="重试失败询价任务失败",
+                message=_("重试失败询价任务失败"),
                 code="RETRY_FAILED_QUOTES_FAILED",
                 errors={},
             ) from e
@@ -208,7 +209,7 @@ class QuoteCommandService:
         """
         if not quote_configs:
             raise ValidationException(
-                message="没有提供询价配置",
+                message=_("没有提供询价配置"),
                 code="NO_QUOTE_CONFIGS",
                 errors={},
             )
@@ -221,7 +222,7 @@ class QuoteCommandService:
                 try:
                     if "preserve_amount" not in config:
                         raise ValidationException(
-                            message="缺少保全金额",
+                            message=_("缺少保全金额"),
                             code="MISSING_PRESERVE_AMOUNT",
                             errors={},
                         )
@@ -229,7 +230,7 @@ class QuoteCommandService:
                     preserve_amount = Decimal(str(config["preserve_amount"]))
                     if preserve_amount <= 0:
                         raise ValidationException(
-                            message="保全金额必须大于0", code="INVALID_PRESERVE_AMOUNT", errors={}
+                            message=_("保全金额必须大于0"), code="INVALID_PRESERVE_AMOUNT", errors={}
                         )
 
                     quote = PreservationQuote.objects.create(
@@ -261,7 +262,7 @@ class QuoteCommandService:
                 "批量创建询价任务失败", extra={"action": "batch_create_quotes", "error": str(e)}, exc_info=True
             )
             raise BusinessException(
-                message="批量创建询价任务失败", code="BATCH_CREATE_QUOTES_FAILED", errors={"error": str(e)}
+                message=_("批量创建询价任务失败"), code="BATCH_CREATE_QUOTES_FAILED", errors={"error": str(e)}
             ) from e
 
     def run_single_quote(self, quote_id: int) -> dict[str, Any]:
@@ -303,4 +304,4 @@ class QuoteCommandService:
             }
 
         except PreservationQuote.DoesNotExist:
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={}) from None
+            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={}) from None

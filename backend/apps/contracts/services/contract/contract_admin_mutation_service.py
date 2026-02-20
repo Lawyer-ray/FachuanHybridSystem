@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import date
 from typing import Any, ClassVar, cast
@@ -86,7 +87,7 @@ class ContractAdminMutationService:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message="合同不存在",
+                message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
             ) from None
@@ -123,14 +124,14 @@ class ContractAdminMutationService:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message="合同不存在",
+                message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
             ) from None
 
         if contract.case_type not in self.CASE_ALLOWED_TYPES:
             raise ValidationException(
-                message="该合同类型不支持创建案件",
+                message=_("该合同类型不支持创建案件"),
                 code="INVALID_CONTRACT_TYPE",
                 errors={"case_type": f"合同类型 {cast(str, contract.get_case_type_display())} 不支持创建案件"},
             )
@@ -165,14 +166,14 @@ class ContractAdminMutationService:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message="合同不存在",
+                message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
             ) from None
 
         if original.case_type != CaseType.ADVISOR:
             raise ValidationException(
-                message="只有常法顾问合同才能续签",
+                message=_("只有常法顾问合同才能续签"),
                 code="INVALID_CONTRACT_TYPE",
                 errors={"case_type": f"合同类型为 {cast(str, original.get_case_type_display())},不是常法顾问合同"},
             )
@@ -214,7 +215,7 @@ class ContractAdminMutationService:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message="合同不存在",
+                message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
             ) from None

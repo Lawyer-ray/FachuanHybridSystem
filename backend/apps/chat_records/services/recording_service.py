@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import contextlib
@@ -70,7 +71,7 @@ class RecordingService:
             extract_progress=0,
             extract_current=0,
             extract_total=0,
-            extract_message="等待抽帧",
+            extract_message=_("等待抽帧"),
             extract_error="",
         )
         return recording

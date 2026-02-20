@@ -4,6 +4,7 @@
 提供任务恢复和监控功能，可以被定时任务调用。
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import timedelta
 from typing import Any
@@ -211,7 +212,7 @@ class TaskRecoveryService:
             else:
                 # 重试次数用完，标记为失败
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = "恢复时发现重试次数已用完"
+                sms.error_message = _("恢复时发现重试次数已用完")
                 sms.save()
                 return False
 
@@ -249,7 +250,7 @@ class TaskRecoveryService:
                         )
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "下载重试次数已用完"
+                        sms.error_message = _("下载重试次数已用完")
                         sms.save()
                         return False
                 else:

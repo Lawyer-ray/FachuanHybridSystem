@@ -4,6 +4,7 @@
 Requirements: 1.1, 1.2, 1.3, 1.4
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 
@@ -45,7 +46,7 @@ class FilenameService:
 
         if not case:
             logger.error(f"案件不存在: case_id={case_id}")
-            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
         case_name = case.name if case.name else "未命名案件"
@@ -81,7 +82,7 @@ class FilenameService:
 
         if not case:
             logger.error(f"案件不存在: case_id={case_id}")
-            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
         case_name = case.name if case.name else "未命名案件"

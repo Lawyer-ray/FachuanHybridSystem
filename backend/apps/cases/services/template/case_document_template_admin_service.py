@@ -7,6 +7,7 @@
 Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 2.3, 2.4
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -220,7 +221,7 @@ class CaseDocumentTemplateAdminService:
         case = self.repo.get_case_optional(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         # 获取案件的诉讼地位列表(我方当事人)

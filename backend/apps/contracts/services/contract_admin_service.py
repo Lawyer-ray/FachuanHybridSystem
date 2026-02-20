@@ -1,5 +1,6 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
+from django.utils.translation import gettext_lazy as _
 from typing import Any, ClassVar
 
 from django.db import transaction
@@ -126,7 +127,7 @@ class ContractAdminService:
         # 检查合同类型是否允许创建案件
         if contract.case_type not in self.CASE_ALLOWED_TYPES:
             raise ValidationException(
-                message="该合同类型不支持创建案件",
+                message=_("该合同类型不支持创建案件"),
                 code="INVALID_CONTRACT_TYPE",
                 errors={"case_type": f"合同类型 {contract.get_case_type_display()} 不支持创建案件"},
             )

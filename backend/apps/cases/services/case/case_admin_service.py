@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """案件 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
@@ -203,7 +204,7 @@ class CaseAdminService:
             case = Case.objects.get(pk=case_id)
         except Case.DoesNotExist:
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID为 {case_id} 的案件不存在"}
             ) from None
 
         # 如果取消建档,不修改 filing_number(保留在数据库中)

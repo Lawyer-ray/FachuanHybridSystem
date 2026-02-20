@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -66,7 +67,7 @@ class PlaceholderRegistry:
         # 检查重复注册
         if service_class.name in registry._services:
             raise ConflictError(
-                message="占位符服务名称冲突",
+                message=_("占位符服务名称冲突"),
                 code="PLACEHOLDER_SERVICE_CONFLICT",
                 errors={"name": f"服务名称 '{service_class.name}' 已存在"},
             )
@@ -92,7 +93,7 @@ class PlaceholderRegistry:
         """
         if name not in self._services:
             raise NotFoundError(
-                message="占位符服务不存在",
+                message=_("占位符服务不存在"),
                 code="PLACEHOLDER_SERVICE_NOT_FOUND",
                 errors={"name": f"服务名称 '{name}' 不存在"},
             )

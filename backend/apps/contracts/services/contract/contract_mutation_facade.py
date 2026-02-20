@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
@@ -90,7 +91,7 @@ class ContractMutationFacade:
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
-            message="无权限操作该合同",
+            message=_("无权限操作该合同"),
         )
 
     def create_contract_with_cases(
@@ -106,7 +107,7 @@ class ContractMutationFacade:
         perm_open_access: bool = False,
     ) -> Contract:
         if not self.access_policy.can_create_contract(user):
-            raise PermissionDenied(message="未登录用户无权限执行该操作", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("未登录用户无权限执行该操作"), code="PERMISSION_DENIED")
         return self.workflow_service.create_contract_with_cases(
             contract_data=contract_data,
             cases_data=cases_data,

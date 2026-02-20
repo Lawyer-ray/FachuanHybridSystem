@@ -3,6 +3,7 @@
 处理客户相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -126,7 +127,7 @@ class ClientService:
         client: Client | None = Client.objects.prefetch_related("identity_docs").filter(id=client_id).first()
 
         if not client:
-            raise NotFoundError(message="客户不存在", code="CLIENT_NOT_FOUND")
+            raise NotFoundError(message=_("客户不存在"), code="CLIENT_NOT_FOUND")
 
         return client
 
@@ -202,7 +203,7 @@ class ClientService:
             logger.warning(
                 f"用户 {user.id} 尝试创建客户但权限不足", extra={"user_id": user.id, "action": "create_client"}
             )
-            raise PermissionDenied(message="无权限创建客户", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限创建客户"), code="PERMISSION_DENIED")
 
         # 2. 业务验证
         self._validate_create_data(data)
@@ -254,7 +255,7 @@ class ClientService:
                 f"用户 {user.id} 尝试更新客户 {client_id} 但权限不足",
                 extra={"user_id": user.id, "client_id": client_id, "action": "update_client"},
             )
-            raise PermissionDenied(message="无权限更新该客户", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限更新该客户"), code="PERMISSION_DENIED")
 
         # 3. 业务验证
         self._validate_update_data(client, data)
@@ -300,7 +301,7 @@ class ClientService:
                 f"用户 {user.id} 尝试删除客户 {client_id} 但权限不足",
                 extra={"user_id": user.id, "client_id": client_id, "action": "delete_client"},
             )
-            raise PermissionDenied(message="无权限删除该客户", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除该客户"), code="PERMISSION_DENIED")
 
         # 3. 删除客户
         client.delete()
@@ -343,14 +344,14 @@ class ClientService:
         # 验证必填字段
         if not data.get("name"):
             raise ValidationException(
-                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         # 验证客户类型
         valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
         if data.get("client_type") not in valid_types:
             raise ValidationException(
-                message="无效的客户类型",
+                message=_("无效的客户类型"),
                 code="INVALID_CLIENT_TYPE",
                 errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
             )
@@ -358,7 +359,7 @@ class ClientService:
         # 验证法人必须有法定代表人
         if data.get("client_type") == Client.LEGAL and not data.get("legal_representative"):
             raise ValidationException(
-                message="法人客户必须填写法定代表人",
+                message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
                 errors={"legal_representative": "法人客户必须填写法定代表人"},
             )
@@ -368,7 +369,7 @@ class ClientService:
         # 验证名称
         if "name" in data and not data["name"]:
             raise ValidationException(
-                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         # 验证客户类型
@@ -376,7 +377,7 @@ class ClientService:
             valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
             if data["client_type"] not in valid_types:
                 raise ValidationException(
-                    message="无效的客户类型",
+                    message=_("无效的客户类型"),
                     code="INVALID_CLIENT_TYPE",
                     errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
                 )
@@ -386,7 +387,7 @@ class ClientService:
         legal_rep = data.get("legal_representative", client.legal_representative)
         if client_type == Client.LEGAL and not legal_rep:
             raise ValidationException(
-                message="法人客户必须填写法定代表人",
+                message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
                 errors={"legal_representative": "法人客户必须填写法定代表人"},
             )

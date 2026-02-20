@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -79,7 +80,7 @@ class PromptVersionService:
             version = PromptVersion.objects.get(id=version_id)
         except PromptVersion.DoesNotExist:
             raise NotFoundError(
-                message="Prompt 版本不存在",
+                message=_("Prompt 版本不存在"),
                 code="PROMPT_VERSION_NOT_FOUND",
                 errors={"version_id": f"ID 为 {version_id} 的版本不存在"},
             ) from None

@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -48,7 +49,7 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_with_case_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -63,7 +64,7 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -71,7 +72,7 @@ class SessionLifecycleService:
         valid_statuses = [choice[0] for choice in SessionStatus.choices]
         if status not in valid_statuses:
             raise ValidationException(
-                message="无效的状态",
+                message=_("无效的状态"),
                 code="INVALID_STATUS",
                 errors={"status": f"状态必须是 {valid_statuses} 之一"},
             )
@@ -90,7 +91,7 @@ class SessionLifecycleService:
         case = self.case_service.get_case_internal(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在",
+                message=_("案件不存在"),
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
@@ -174,13 +175,13 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_for_update_sync(session_id)
         if not session:
             raise NotFoundError(
-                message="会话不存在",
+                message=_("会话不存在"),
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
 
         if user and session.user_id != user.id:
-            raise PermissionDenied(message="无权限删除此会话", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除此会话"), code="PERMISSION_DENIED")
 
         from django.db import IntegrityError, connection
 

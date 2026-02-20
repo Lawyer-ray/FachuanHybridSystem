@@ -1,5 +1,6 @@
 """飞书 Token 与配置加载 Mixin"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -94,7 +95,7 @@ class FeishuTokenMixin:
 
         if not app_id or not app_secret:
             raise ConfigurationException(
-                message="飞书APP_ID或APP_SECRET未配置", platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message=_("飞书APP_ID或APP_SECRET未配置"), platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         url = f"{self.BASE_URL}{self.ENDPOINTS['tenant_access_token']}"

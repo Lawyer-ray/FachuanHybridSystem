@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any, cast
@@ -65,7 +66,7 @@ class CaseLogQueryService:
             org_access=org_access,
             perm_open_access=perm_open_access,
             case=log.case,
-            message="无权限访问此日志",
+            message=_("无权限访问此日志"),
         )
         return cast(CaseLog, log)
 

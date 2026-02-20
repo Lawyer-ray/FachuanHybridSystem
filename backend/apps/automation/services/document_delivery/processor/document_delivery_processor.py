@@ -7,6 +7,7 @@
 Requirements: 1.1, 1.3, 3.3, 5.1, 5.2, 5.5
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import os
 from pathlib import Path
@@ -203,7 +204,7 @@ class DocumentDeliveryProcessor:
                         sms.feishu_sent_at = timezone.now()
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
+                        sms.error_message = _("通知发送失败")
                     sms.save()
                     result["success"] = True
                 else:

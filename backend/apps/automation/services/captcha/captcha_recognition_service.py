@@ -4,6 +4,7 @@
 提供验证码识别的业务逻辑封装，支持 Base64 图片输入。
 """
 
+from django.utils.translation import gettext_lazy as _
 import base64
 import logging
 import time
@@ -238,7 +239,7 @@ class CaptchaRecognitionService:
                 return CaptchaResult(success=True, text=result, processing_time=processing_time, error=None)
             else:
                 AutomationLogger.log_captcha_recognition_failed(
-                    processing_time=processing_time, error_message="无法识别验证码", image_size=len(image_bytes)
+                    processing_time=processing_time, error_message=_("无法识别验证码"), image_size=len(image_bytes)
                 )
                 return CaptchaResult(
                     success=False, text=None, processing_time=processing_time, error="无法识别验证码"
@@ -331,7 +332,7 @@ class CaptchaServiceAdapter(ICaptchaService):
                 if processing_time is not None:
                     errors["processing_time"] = processing_time
                 raise ValidationException(
-                    message="验证码识别失败",
+                    message=_("验证码识别失败"),
                     code="CAPTCHA_RECOGNITION_FAILED",
                     errors=errors,
                 )
@@ -342,7 +343,7 @@ class CaptchaServiceAdapter(ICaptchaService):
 
             if not isinstance(e, ValidationException):
                 raise ValidationException(
-                    message="验证码识别异常",
+                    message=_("验证码识别异常"),
                     code="CAPTCHA_RECOGNITION_ERROR",
                     errors={"error_message": str(e)},
                 ) from e

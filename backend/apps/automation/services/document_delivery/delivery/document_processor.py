@@ -4,6 +4,7 @@
 负责下载后的文书处理:解压、案件匹配、重命名、通知等.
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import queue
 import tempfile
@@ -297,7 +298,7 @@ class DocumentProcessor:
                         logger.info(f"通知发送成功: SMS ID={sms_id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
+                        sms.error_message = _("通知发送失败")
                         sms_id = sms.id
                         logger.warning(f"通知发送失败: SMS ID={sms_id}")
 

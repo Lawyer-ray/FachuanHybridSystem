@@ -1,5 +1,6 @@
 """Business workflow orchestration."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any
@@ -37,7 +38,7 @@ class CaseFullCreateWorkflow:
 
         if logs_data and not actor_id:
             raise ValidationException(
-                message="操作人不能为空",
+                message=_("操作人不能为空"),
                 code="MISSING_ACTOR",
                 errors={"actor_id": "创建日志时必须提供有效的操作人"},
             )

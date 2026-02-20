@@ -4,6 +4,7 @@
 定义所有文书生成器的统一接口和通用方法.
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -139,7 +140,7 @@ class BaseGenerator(ABC):
 
         except ImportError as e:
             raise ValidationException(
-                message="docxtpl 库未安装",
+                message=_("docxtpl 库未安装"),
                 code="DOCXTPL_NOT_INSTALLED",
                 errors={"dependency": "请安装 docxtpl 库: uv add docxtpl"},
             ) from e

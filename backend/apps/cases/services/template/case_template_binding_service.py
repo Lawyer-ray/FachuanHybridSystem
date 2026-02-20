@@ -4,6 +4,7 @@
 管理案件与文书模板的绑定关系,支持自动推荐和手动绑定.
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Optional
@@ -181,7 +182,7 @@ class CaseTemplateBindingService:
             from apps.core.exceptions import NotFoundError
 
             raise NotFoundError(
-                message="模板不存在",
+                message=_("模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -189,7 +190,7 @@ class CaseTemplateBindingService:
         # 检查是否已绑定
         if self.repo.exists_binding(case_id, template_id):
             raise ConflictError(
-                message="绑定关系已存在",
+                message=_("绑定关系已存在"),
                 code="BINDING_ALREADY_EXISTS",
                 errors={"template_id": f"模板 {template_id} 已绑定到该案件"},
             )
@@ -239,7 +240,7 @@ class CaseTemplateBindingService:
         # 检查是否为自动推荐的绑定 (Requirements 3.4)
         if binding.binding_source == BindingSource.AUTO_RECOMMENDED:
             raise ValidationException(
-                message="自动推荐的模板不能手动移除",
+                message=_("自动推荐的模板不能手动移除"),
                 code="CANNOT_DELETE_AUTO_RECOMMENDED",
                 errors={"binding_id": "自动推荐的绑定不允许删除"},
             )

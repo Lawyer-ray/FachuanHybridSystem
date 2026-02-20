@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from datetime import datetime
@@ -42,7 +43,7 @@ class CaseLogMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message="无权限创建此案件日志",
+                message=_("无权限创建此案件日志"),
             )
 
         actor_id = getattr(user, "id", None) if user else None
@@ -70,7 +71,7 @@ class CaseLogMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message="无权限修改此日志",
+                message=_("无权限修改此日志"),
             )
 
         old_content = log.content
@@ -102,7 +103,7 @@ class CaseLogMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message="无权限删除此日志",
+                message=_("无权限删除此日志"),
             )
 
         log.delete()

@@ -1,5 +1,6 @@
 """Data repository layer."""
 
+from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
@@ -12,7 +13,7 @@ class CaseChatRepository:
     def get_case(self, *, case_id: int) -> Case:
         if not case_id or not isinstance(case_id, int) or case_id <= 0:
             raise ValidationException(
-                message="无效的案件ID",
+                message=_("无效的案件ID"),
                 code="INVALID_CASE_ID",
                 errors={"case_id": "案件ID必须是正整数"},
             )
@@ -35,7 +36,7 @@ class CaseChatRepository:
     def unbind_chat(self, *, chat_id: int) -> bool:
         if not chat_id or not isinstance(chat_id, int) or chat_id <= 0:
             raise ValidationException(
-                message="无效的群聊ID",
+                message=_("无效的群聊ID"),
                 code="INVALID_CHAT_ID",
                 errors={"chat_id": "群聊ID必须是正整数"},
             )
@@ -47,7 +48,7 @@ class CaseChatRepository:
         existing = CaseChat.objects.filter(case_id=case_id, platform=platform, chat_id=chat_id, is_active=True).first()
         if existing:
             raise ValidationException(
-                message="该群聊已绑定到此案件",
+                message=_("该群聊已绑定到此案件"),
                 code="CHAT_ALREADY_BOUND",
                 errors={"case_id": case_id, "chat_id": chat_id, "existing_binding_id": existing.id},
             )

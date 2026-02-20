@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -24,7 +25,7 @@ class ClientIdentityDocService:
         client = Client.objects.filter(id=client_id).first()
         if not client:
             raise NotFoundError(
-                message="当事人不存在",
+                message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )

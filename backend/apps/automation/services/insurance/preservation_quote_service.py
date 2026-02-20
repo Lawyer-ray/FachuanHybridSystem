@@ -8,6 +8,7 @@
 - 列表查询
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from decimal import Decimal
 from typing import Any, Optional, cast
@@ -186,7 +187,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "action": "execute_quote",
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
         # 记录任务开始日志（包含任务 ID 和参数）
         logger.info(
@@ -244,7 +245,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             # 根据成功/失败情况设置状态
             if success_count == 0:
                 quote.status = QuoteStatus.FAILED
-                quote.error_message = "所有保险公司查询均失败"
+                quote.error_message = _("所有保险公司查询均失败")
             elif failed_count == 0:
                 quote.status = QuoteStatus.SUCCESS
             else:
@@ -359,7 +360,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "quote_id": quote_id,
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
     @transaction.atomic
     async def retry_quote(self, quote_id: int) -> dict[str, Any]:
@@ -391,7 +392,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "action": "retry_quote",
                 },
             )
-            raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
+            raise NotFoundError(message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
 
         # 检查任务状态是否允许重试
         if quote.status not in [QuoteStatus.FAILED, QuoteStatus.PARTIAL_SUCCESS]:
@@ -489,7 +490,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
 
         if errors:
-            raise ValidationError(message="参数验证失败", code="INVALID_PARAMETERS", errors=errors)
+            raise ValidationError(message=_("参数验证失败"), code="INVALID_PARAMETERS", errors=errors)
 
         logger.info(
             "查询询价任务列表",
@@ -564,4 +565,4 @@ class PreservationQuoteService(QuoteExecutionMixin):
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message="数据验证失败", code="INVALID_CREATE_PARAMS", errors=errors)
+            raise ValidationError(message=_("数据验证失败"), code="INVALID_CREATE_PARAMS", errors=errors)

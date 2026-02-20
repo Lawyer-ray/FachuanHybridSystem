@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any, cast
@@ -20,10 +21,10 @@ class LawyerQueryService:
     def get_lawyer(self, lawyer_id: int, user: Lawyer) -> Lawyer:
         lawyer = self.get_lawyer_queryset().filter(id=lawyer_id).first()
         if not lawyer:
-            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
+            raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         if not self.access_policy.can_read_lawyer(user=user, lawyer=lawyer):
-            raise PermissionDenied(message="无权限访问该律师信息", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限访问该律师信息"), code="PERMISSION_DENIED")
 
         return lawyer
 

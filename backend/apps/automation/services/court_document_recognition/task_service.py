@@ -5,6 +5,7 @@
 将 ORM 操作从 API 层下沉到 Service 层.
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import Any
@@ -58,7 +59,7 @@ class DocumentRecognitionTaskService:
         try:
             return qs.get(id=task_id)
         except DocumentRecognitionTask.DoesNotExist:
-            raise NotFoundError(message="任务不存在", code="TASK_NOT_FOUND", errors={}) from None
+            raise NotFoundError(message=_("任务不存在"), code="TASK_NOT_FOUND", errors={}) from None
 
     def update_task_info(
         self,
@@ -93,7 +94,7 @@ class DocumentRecognitionTaskService:
                 try:
                     task.key_time = datetime.fromisoformat(key_time.replace("Z", "+00:00"))
                 except ValueError:
-                    raise ValidationException(message="时间格式不正确", code="INVALID_TIME_FORMAT", errors={}) from None
+                    raise ValidationException(message=_("时间格式不正确"), code="INVALID_TIME_FORMAT", errors={}) from None
             else:
                 task.key_time = None
             updated_fields.append("key_time")

@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import asyncio
@@ -235,7 +236,7 @@ async def _handle_timeout_error(
                 success=True,
                 token=saved_token,
                 account=credential.account,
-                error_message="超时但Token已保存",
+                error_message=_("超时但Token已保存"),
                 attempt_duration=login_duration,
                 retry_count=1,
             )
@@ -400,7 +401,7 @@ async def _handle_token_acquisition_timeout(
                 success=True,
                 token=saved_token,
                 account=credential.account,
-                error_message="超时但Token已保存",
+                error_message=_("超时但Token已保存"),
                 attempt_duration=login_duration,
                 retry_count=1,
             )

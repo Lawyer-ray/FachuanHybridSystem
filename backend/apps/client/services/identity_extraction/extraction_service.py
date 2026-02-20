@@ -4,6 +4,7 @@
 使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 Ollama 结构化提取信息.
 """
 
+from django.utils.translation import gettext_lazy as _
 import json
 import logging
 import tempfile
@@ -43,12 +44,12 @@ class IdentityExtractionService:
         """
         if not image_bytes:
             raise ValidationException(
-                message="图片数据不能为空", code="INVALID_IMAGE_DATA", errors={"image": "图片数据不能为空"}
+                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": "图片数据不能为空"}
             )
 
         if not doc_type:
             raise ValidationException(
-                message="证件类型不能为空", code="INVALID_DOC_TYPE", errors={"doc_type": "证件类型不能为空"}
+                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": "证件类型不能为空"}
             )
 
         try:
