@@ -97,8 +97,6 @@ MIDDLEWARE = [
     "apps.organization.middleware.OrgAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "apps.core.middleware.ApiRateLimitMiddleware",
-    "apps.core.middleware.ServiceLocatorScopeMiddleware",
     "apps.core.middleware.SecurityHeadersMiddleware",
     "apps.core.middleware.PermissionsPolicyMiddleware",
 ]

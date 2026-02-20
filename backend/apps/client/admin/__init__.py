@@ -5,6 +5,7 @@ Client App Admin模块主文件
 
 from .client_admin import ClientAdmin, ClientAdminForm, ClientIdentityDocInline, ClientIdentityDocInlineForm
 from .clientidentitydoc_admin import ClientIdentityDocAdmin
+from .id_card_merge_view_admin import register_id_card_merge_urls  # noqa: F401  # 触发 URL 注册
 from .property_clue_admin import PropertyClueAdmin, PropertyClueAttachmentInline
 
 # 所有Admin类通过装饰器自动注册
