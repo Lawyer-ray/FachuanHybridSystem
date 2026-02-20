@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from django.utils.functional import _StrOrPromise
+    from django.utils.functional import Promise
 
 __all__: list[str] = [
     "BusinessException",
@@ -27,7 +27,7 @@ class BusinessException(Exception):
         errors: 结构化错误详情(字段级别的错误)
     """
 
-    def __init__(self, message: _StrOrPromise, code: str | None = None, errors: dict[str, Any] | None = None) -> None:
+    def __init__(self, message: str | Promise, code: str | None = None, errors: dict[str, Any] | None = None) -> None:
         """
         初始化业务异常
 
@@ -62,6 +62,6 @@ class BusinessException(Exception):
 class BusinessError(BusinessException):
     """业务逻辑异常基类(向后兼容)"""
 
-    def __init__(self, message: _StrOrPromise, code: str = "BUSINESS_ERROR", status: int = 400) -> None:
+    def __init__(self, message: str | Promise, code: str = "BUSINESS_ERROR", status: int = 400) -> None:
         super().__init__(message, code)
         self.status = status

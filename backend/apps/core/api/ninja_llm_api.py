@@ -94,7 +94,7 @@ async def chat_with_context(request: Any, payload: ChatRequest) -> Any:
         session_id=payload.session_id,
         user_id=user_id,
         system_prompt=payload.system_prompt,
-        conversation_service_factory=ServiceLocator.get_conversation_service,  # type: ignore[attr-defined]
+        conversation_service_factory=ServiceLocator.get_conversation_service,
     )
 
     return ChatResponse(
@@ -121,7 +121,7 @@ async def chat_with_context_stream(request: Any, payload: ChatRequest) -> Any:
         session_id=payload.session_id,
         user_id=user_id,
         system_prompt=payload.system_prompt,
-        conversation_service_factory=ServiceLocator.get_conversation_service,  # type: ignore[attr-defined]
+        conversation_service_factory=ServiceLocator.get_conversation_service,
         llm_service_factory=ServiceLocator.get_llm_service,
     )
 
@@ -179,5 +179,5 @@ def sync_prompt_templates(request: Any) -> Any:
 
     from apps.core.interfaces import ServiceLocator
 
-    result = sync_prompt_templates_impl(prompt_service=ServiceLocator.get_prompt_template_service())  # type: ignore[attr-defined]
+    result = sync_prompt_templates_impl(prompt_service=ServiceLocator.get_prompt_template_service())
     return SyncTemplatesResponse(synced_count=result["synced_count"])

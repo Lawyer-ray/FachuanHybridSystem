@@ -4,22 +4,27 @@
 提供 Django Admin 界面来管理案由数据,包括初始化、查看层级结构等功能.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.contrib import admin, messages
-from django.http import HttpResponseRedirect
-from django.urls import path, reverse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import CauseOfAction
 
+if TYPE_CHECKING:
+    from apps.core.services.cause_court_initialization_service import CauseCourtInitializationService
+
 logger = logging.getLogger(__name__)
 
 
-def _get_initialization_service() -> None:
+def _get_initialization_service() -> CauseCourtInitializationService:
     """工厂函数:创建初始化服务实例"""
     from apps.core.services.cause_court_initialization_service import CauseCourtInitializationService
 
@@ -27,7 +32,7 @@ def _get_initialization_service() -> None:
 
 
 @admin.register(CauseOfAction)
-class CauseOfActionAdmin(admin.ModelAdmin):
+class CauseOfActionAdmin(admin.ModelAdmin[CauseOfAction]):
     """
     案由管理 Admin
 
@@ -38,7 +43,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
     - 初始化案由数据(从法院系统 API 获取)
     """
 
-    list_display: ClassVar = [
+    list_display = [
         "code",
         "name",
         "case_type_display",
@@ -48,26 +53,26 @@ class CauseOfActionAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
-    list_filter: ClassVar = [
+    list_filter = [
         "case_type",
         "level",
         "is_active",
         "is_deprecated",
     ]
 
-    search_fields: ClassVar = [
+    search_fields = [
         "code",
         "name",
     ]
 
-    readonly_fields: ClassVar = [
+    readonly_fields = [
         "code",
         "created_at",
         "updated_at",
         "deprecated_at",
     ]
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (
             _("基本信息"),
             {
@@ -103,18 +108,19 @@ class CauseOfActionAdmin(admin.ModelAdmin):
         ),
     )
 
-    ordering: ClassVar = ["case_type", "level", "code"]
+    ordering: ClassVar[list[str]] = ["case_type", "level", "code"]
 
-    list_per_page: int = 50
+    list_per_page: ClassVar[int] = 50
 
-    def case_type_display(self, obj) -> None:
+    @admin.display(description=_("案件类型"), ordering="case_type")
+    def case_type_display(self, obj: CauseOfAction) -> SafeString:
         """带颜色的案件类型显示"""
-        colors = {
-            CauseOfAction.CaseType.CIVIL: "#28a745",
-            CauseOfAction.CaseType.CRIMINAL: "#dc3545",
-            CauseOfAction.CaseType.ADMINISTRATIVE: "#007bff",
+        color_map: dict[str, str] = {
+            str(CauseOfAction.CaseType.CIVIL): "#28a745",
+            str(CauseOfAction.CaseType.CRIMINAL): "#dc3545",
+            str(CauseOfAction.CaseType.ADMINISTRATIVE): "#007bff",
         }
-        color = colors.get(obj.case_type, "#6c757d")
+        color = color_map.get(str(obj.case_type), "#6c757d")
         return format_html(
             '<span style="background-color: {}; color: white; padding: 2px 8px; '
             'border-radius: 4px; font-size: 12px;">{}</span>',
@@ -122,10 +128,8 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             obj.get_case_type_display(),
         )
 
-    case_type_display.short_description = _("案件类型")
-    case_type_display.admin_order_field = "case_type"
-
-    def parent_display(self, obj) -> None:
+    @admin.display(description=_("上级案由"))
+    def parent_display(self, obj: CauseOfAction) -> SafeString:
         """显示父级案由"""
         if obj.parent:
             return format_html(
@@ -135,9 +139,8 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: #999;">—</span>')
 
-    parent_display.short_description = _("上级案由")
-
-    def status_display(self, obj) -> None:
+    @admin.display(description=_("状态"))
+    def status_display(self, obj: CauseOfAction) -> SafeString:
         """状态显示"""
         if obj.is_deprecated:
             return mark_safe('<span style="color: #dc3545;">⚠️ 已废弃</span>')
@@ -145,9 +148,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             return mark_safe('<span style="color: #ffc107;">⏸️ 已禁用</span>')
         return mark_safe('<span style="color: #28a745;">✅ 正常</span>')
 
-    status_display.short_description = _("状态")
-
-    def get_urls(self) -> None:
+    def get_urls(self) -> list[URLPattern]:
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -158,8 +159,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             ),
         ]
         return custom_urls + urls
-
-    def changelist_view(self, request, extra_context=None) -> None:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
         """自定义列表页面"""
         extra_context = extra_context or {}
 
@@ -185,14 +185,14 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
         return super().changelist_view(request, extra_context=extra_context)
 
-    def initialize_causes_view(self, request) -> None:
+    def initialize_causes_view(self, request: HttpRequest) -> HttpResponse:
         """初始化案由数据视图"""
         import concurrent.futures
 
         try:
             service = _get_initialization_service()
 
-            def run_async_init() -> None:
+            def run_async_init() -> Any:
                 """在独立线程中运行异步初始化"""
                 import asyncio
 
@@ -241,10 +241,10 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:core_causeofaction_changelist"))
 
-    def has_add_permission(self, request) -> None:
+    def has_add_permission(self, request: HttpRequest) -> bool:
         """禁用手动添加功能(数据应通过初始化导入)"""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> None:
+    def has_delete_permission(self, request: HttpRequest, obj: CauseOfAction | None = None) -> bool:
         """禁用删除功能(数据应通过初始化管理)"""
         return False

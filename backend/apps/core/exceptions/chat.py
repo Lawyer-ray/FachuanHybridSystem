@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from django.utils.functional import Promise
 
 from .base import BusinessException
 
@@ -39,7 +42,7 @@ class ChatProviderException(BusinessException):
 
     def __init__(
         self,
-        message: str,
+        message: str | Promise,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -55,7 +58,7 @@ class UnsupportedPlatformException(ChatProviderException):
 
     def __init__(
         self,
-        message: str = "不支持的群聊平台",
+        message: str | Promise = "不支持的群聊平台",
         platform: str | None = None,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
@@ -68,7 +71,7 @@ class ChatCreationException(ChatProviderException):
 
     def __init__(
         self,
-        message: str = "群聊创建失败",
+        message: str | Promise = "群聊创建失败",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -84,7 +87,7 @@ class MessageSendException(ChatProviderException):
 
     def __init__(
         self,
-        message: str = "消息发送失败",
+        message: str | Promise = "消息发送失败",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -102,7 +105,7 @@ class ConfigurationException(ChatProviderException):
 
     def __init__(
         self,
-        message: str = "群聊平台配置错误",
+        message: str | Promise = "群聊平台配置错误",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         platform: str | None = None,
@@ -128,7 +131,7 @@ class OwnerSettingException(ChatProviderException):
 
     def __init__(
         self,
-        message: str,
+        message: str | Promise,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -149,37 +152,37 @@ class OwnerSettingException(ChatProviderException):
 # ── 快捷构造函数（替代原子类）──────────────────────────────────────────────────
 
 
-def owner_permission_error(message: str = "群主权限不足", **kwargs: Any) -> OwnerSettingException:
+def owner_permission_error(message: str | Promise = "群主权限不足", **kwargs: Any) -> OwnerSettingException:
     """群主权限不足"""
     return OwnerSettingException(message=message, code="OWNER_PERMISSION_ERROR", **kwargs)
 
 
-def owner_not_found_error(message: str = "群主用户不存在", **kwargs: Any) -> OwnerSettingException:
+def owner_not_found_error(message: str | Promise = "群主用户不存在", **kwargs: Any) -> OwnerSettingException:
     """群主用户不存在"""
     return OwnerSettingException(message=message, code="OWNER_NOT_FOUND", **kwargs)
 
 
-def owner_validation_error(message: str = "群主验证失败", **kwargs: Any) -> OwnerSettingException:
+def owner_validation_error(message: str | Promise = "群主验证失败", **kwargs: Any) -> OwnerSettingException:
     """群主验证失败"""
     return OwnerSettingException(message=message, code="OWNER_VALIDATION_ERROR", **kwargs)
 
 
-def owner_retry_error(message: str = "群主设置重试失败", **kwargs: Any) -> OwnerSettingException:
+def owner_retry_error(message: str | Promise = "群主设置重试失败", **kwargs: Any) -> OwnerSettingException:
     """群主设置重试失败"""
     return OwnerSettingException(message=message, code="OWNER_RETRY_ERROR", **kwargs)
 
 
-def owner_timeout_error(message: str = "群主设置操作超时", **kwargs: Any) -> OwnerSettingException:
+def owner_timeout_error(message: str | Promise = "群主设置操作超时", **kwargs: Any) -> OwnerSettingException:
     """群主设置操作超时"""
     return OwnerSettingException(message=message, code="OWNER_TIMEOUT_ERROR", **kwargs)
 
 
-def owner_network_error(message: str = "群主设置网络错误", **kwargs: Any) -> OwnerSettingException:
+def owner_network_error(message: str | Promise = "群主设置网络错误", **kwargs: Any) -> OwnerSettingException:
     """群主设置网络错误"""
     return OwnerSettingException(message=message, code="OWNER_NETWORK_ERROR", **kwargs)
 
 
-def owner_config_error(message: str = "群主配置错误", **kwargs: Any) -> OwnerSettingException:
+def owner_config_error(message: str | Promise = "群主配置错误", **kwargs: Any) -> OwnerSettingException:
     """群主配置错误"""
     return OwnerSettingException(message=message, code="OWNER_CONFIG_ERROR", **kwargs)
 

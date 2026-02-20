@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 def build_lawyer_service() -> ILawyerService:
     from apps.organization.services import LawyerServiceAdapter
 
-    return LawyerServiceAdapter()  # type: ignore[return-value]
+    return LawyerServiceAdapter()  # type: ignore[abstract]  # 适配器实现了所有抽象方法
 
 
 def build_lawfirm_service() -> ILawFirmService:
@@ -23,7 +23,7 @@ def build_lawfirm_service() -> ILawFirmService:
 def build_organization_service() -> IOrganizationService:
     from apps.organization.services import OrganizationServiceAdapter
 
-    return OrganizationServiceAdapter()  # type: ignore[return-value]
+    return OrganizationServiceAdapter()
 
 
 def build_reminder_service() -> IReminderService:

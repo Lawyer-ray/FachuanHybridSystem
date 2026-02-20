@@ -53,7 +53,7 @@ class ExceptionPresenter:
             return (
                 ErrorEnvelope(
                     code=exc.code,
-                    message=exc.message,
+                    message=str(exc.message),
                     errors=exc.errors or {},
                     retryable=retryable,
                     channel=channel,

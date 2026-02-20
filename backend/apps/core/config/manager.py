@@ -159,7 +159,7 @@ class ConfigManager:
     def get_typed(self, key: str, type_: type[T], default: T | None = None) -> T:
         value = self.get(key, default)
         if value is None:
-            return value  # type: ignore[return-value]
+            return cast(T, value)
         if isinstance(value, type_):
             return value
         try:

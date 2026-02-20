@@ -219,7 +219,7 @@ class ConfigSchema:
         suggestions: list[str] = []
 
         # 精确匹配 -> 前缀匹配 -> 包含匹配，按优先级依次填充
-        matchers = [
+        matchers: list[Any] = [
             lambda name: name.lower() == key_lower,
             lambda name: name.lower().startswith(key_lower),
             lambda name: key_lower in name.lower(),

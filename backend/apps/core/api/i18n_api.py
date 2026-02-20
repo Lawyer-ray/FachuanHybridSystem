@@ -31,7 +31,8 @@ def _get_i18n_service() -> Any:
 @i18n_router.get("/languages", response=list[LanguageItemSchema], auth=None)
 def list_languages(request: HttpRequest) -> list[dict[str, str]]:
     """返回系统支持的语言列表"""
-    return _get_i18n_service().get_supported_languages()
+    result: list[dict[str, str]] = _get_i18n_service().get_supported_languages()
+    return result
 
 
 @i18n_router.post("/language", response={200: dict[str, str]}, auth=JWTOrSessionAuth())

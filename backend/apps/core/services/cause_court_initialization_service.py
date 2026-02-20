@@ -277,7 +277,8 @@ class CauseCourtInitializationService:
                         raise TokenError(f"登录失败: {login_result.get('message')}")
 
                     # 获取一张网 Token
-                    return login_result.get("token")
+                    token_val = login_result.get("token")
+                    return str(token_val) if token_val is not None else None
 
                 finally:
                     context.close()

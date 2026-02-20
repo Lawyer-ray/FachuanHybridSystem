@@ -38,13 +38,13 @@ try:
     from langchain_core.messages import HumanMessage as _LCHumanMessage
     from langchain_core.messages import SystemMessage as _LCSystemMessage
 
-    HumanMessage: type = _LCHumanMessage
-    AIMessage: type = _LCAIMessage
-    SystemMessage: type = _LCSystemMessage
+    HumanMessage = _LCHumanMessage
+    AIMessage = _LCAIMessage
+    SystemMessage = _LCSystemMessage
 except ModuleNotFoundError:
-    HumanMessage = _HumanMessage
-    AIMessage = _AIMessage
-    SystemMessage = _SystemMessage
+    HumanMessage = _HumanMessage  # type: ignore[assignment,misc]
+    AIMessage = _AIMessage  # type: ignore[assignment,misc]
+    SystemMessage = _SystemMessage  # type: ignore[assignment,misc]
 
 
 from apps.core.models import ConversationHistory
@@ -53,7 +53,7 @@ from apps.core.models import ConversationHistory
 class _SimpleChatMemory:
     def __init__(self, max_messages: int) -> None:
         self._max_messages = max_messages
-        self.messages: list[object] = []
+        self.messages: list[Any] = []
 
     def _trim(self) -> None:
         if len(self.messages) > self._max_messages:
@@ -129,13 +129,16 @@ class ConversationService:
 
     def _load_history_from_db(self) -> None:
         """从数据库加载对话历史到 LangChain 记忆"""
+        if self._memory is None:
+            return
+
         history = ConversationHistory.objects.filter(session_id=self.session_id).order_by("created_at")[
             :20
         ]  # 最近20条记录
 
         for record in history:
             if record.role == "user":
-                message: object = HumanMessage(content=record.content)
+                message: Any = HumanMessage(content=record.content)
             elif record.role == "assistant":
                 message = AIMessage(content=record.content)
             elif record.role == "system":

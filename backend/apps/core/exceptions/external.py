@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from django.utils.functional import Promise
 
 from .base import BusinessException
 
@@ -35,7 +38,7 @@ class ExternalServiceError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "外部服务错误", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "外部服务错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "EXTERNAL_SERVICE_ERROR", errors=errors)
 
@@ -54,7 +57,7 @@ class ServiceUnavailableError(ExternalServiceError):
 
     def __init__(
         self,
-        message: str = "服务暂时不可用",
+        message: str | Promise = "服务暂时不可用",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         service_name: str | None = None,
@@ -80,7 +83,7 @@ class RecognitionTimeoutError(ExternalServiceError):
 
     def __init__(
         self,
-        message: str = "识别超时",
+        message: str | Promise = "识别超时",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         timeout_seconds: float | None = None,
@@ -105,7 +108,7 @@ class TokenError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "Token 错误", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "Token 错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "TOKEN_ERROR", errors=errors)
 
@@ -123,7 +126,7 @@ class APIError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = "API 调用错误", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "API 调用错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "API_ERROR", errors=errors)
 
@@ -141,7 +144,7 @@ class NetworkError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = "网络错误", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "网络错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "NETWORK_ERROR", errors=errors)
 
@@ -158,7 +161,7 @@ class AutoTokenAcquisitionError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = "自动Token获取失败", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "自动Token获取失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "AUTO_TOKEN_ACQUISITION_ERROR", errors=errors)
 
@@ -177,7 +180,7 @@ class LoginFailedError(AutoTokenAcquisitionError):
 
     def __init__(
         self,
-        message: str = "登录失败",
+        message: str | Promise = "登录失败",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         attempts: list[Any] | None = None,
@@ -199,7 +202,7 @@ class NoAvailableAccountError(AutoTokenAcquisitionError):
     """
 
     def __init__(
-        self, message: str = "无可用账号", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "无可用账号", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "NO_AVAILABLE_ACCOUNT", errors=errors)
 
@@ -216,7 +219,7 @@ class TokenAcquisitionTimeoutError(AutoTokenAcquisitionError):
     """
 
     def __init__(
-        self, message: str = "Token获取超时", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "Token获取超时", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "TOKEN_ACQUISITION_TIMEOUT", errors=errors)
 
@@ -234,6 +237,6 @@ class CaptchaRecognitionError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = "验证码识别失败", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "验证码识别失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "CAPTCHA_RECOGNITION_ERROR", errors=errors)

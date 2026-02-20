@@ -22,7 +22,8 @@ class MigrationExportMixin:
         migration_id: str,
         event_types: Any = None,
         limit: int | None = None,
-    ) -> "list[MigrationEvent]": ...  # 由主类提供
+    ) -> "list[MigrationEvent]":
+        raise NotImplementedError  # 由主类提供
 
     def export_migration_log(self, migration_id: str, output_file: str, format: str = "json") -> None:
         """导出迁移日志"""
