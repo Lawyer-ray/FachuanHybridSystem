@@ -2715,7 +2715,7 @@ msgstr "File"
 #: apps/chat_records/apps.py:14 apps/chat_records/models/project.py:25
 #: apps/chat_records/models/project.py:26
 msgid "梳理聊天记录"
-msgstr "梳理聊天 Record"
+msgstr "Chat Record Analysis"
 
 #: apps/chat_records/models/choices.py:8
 msgid "PDF"
@@ -4470,7 +4470,7 @@ msgstr "Please select a version to activate"
 #, fuzzy
 #| msgid "文书生成任务"
 msgid "文书生成"
-msgstr "Document Generation Task"
+msgstr "Document Generation"
 
 #: apps/documents/models/audit_log.py:29
 #: apps/documents/models/document_template.py:246
