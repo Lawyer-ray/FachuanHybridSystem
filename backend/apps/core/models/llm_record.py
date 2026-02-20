@@ -7,6 +7,7 @@ LLM 调用记录模型
 from typing import ClassVar
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class LLMCallRecord(models.Model):
@@ -19,16 +20,16 @@ class LLMCallRecord(models.Model):
     """
 
     id: int
-    model = models.CharField(max_length=100, verbose_name="模型")
-    prompt_tokens = models.IntegerField(verbose_name="输入 Token")
-    completion_tokens = models.IntegerField(verbose_name="输出 Token")
-    total_tokens = models.IntegerField(verbose_name="总 Token")
-    duration_ms = models.FloatField(verbose_name="耗时(ms)")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="调用时间")
+    model = models.CharField(max_length=100, verbose_name=_("模型"))
+    prompt_tokens = models.IntegerField(verbose_name=_("输入 Token"))
+    completion_tokens = models.IntegerField(verbose_name=_("输出 Token"))
+    total_tokens = models.IntegerField(verbose_name=_("总 Token"))
+    duration_ms = models.FloatField(verbose_name=_("耗时(ms)"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("调用时间"))
 
     class Meta:
-        verbose_name = "LLM 调用记录"
-        verbose_name_plural = "LLM 调用记录"
+        verbose_name = _("LLM 调用记录")
+        verbose_name_plural = _("LLM 调用记录")
         indexes: ClassVar = [
             models.Index(fields=["created_at"], name="core_llmcal_created_830747_idx"),
             models.Index(fields=["model"], name="core_llmcal_model_df0279_idx"),

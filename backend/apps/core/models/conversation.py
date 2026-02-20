@@ -7,6 +7,7 @@
 from typing import ClassVar
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class ConversationHistory(models.Model):
@@ -18,15 +19,15 @@ class ConversationHistory(models.Model):
 
     id: int
     litigation_session_id: int  # 外键ID字段
-    session_id = models.CharField(max_length=100, verbose_name="会话ID")
-    user_id = models.CharField(blank=True, max_length=100, verbose_name="用户ID")
+    session_id = models.CharField(max_length=100, verbose_name=_("会话ID"))
+    user_id = models.CharField(blank=True, max_length=100, verbose_name=_("用户ID"))
     role = models.CharField(
-        choices=[("system", "系统"), ("user", "用户"), ("assistant", "助手")],
+        choices=[("system", _("系统")), ("user", _("用户")), ("assistant", _("助手"))],
         max_length=20,
-        verbose_name="角色",
+        verbose_name=_("角色"),
     )
-    content = models.TextField(verbose_name="消息内容")
-    metadata = models.JSONField(blank=True, default=dict, verbose_name="元数据")
+    content = models.TextField(verbose_name=_("消息内容"))
+    metadata = models.JSONField(blank=True, default=dict, verbose_name=_("元数据"))
 
     # AI 文书生成扩展字段
     litigation_session = models.ForeignKey(
@@ -35,21 +36,21 @@ class ConversationHistory(models.Model):
         null=True,
         blank=True,
         related_name="conversation_histories",
-        verbose_name="AI文书生成会话",
-        help_text="关联到 AI 文书生成会话(如果适用)",
+        verbose_name=_("AI文书生成会话"),
+        help_text=_("关联到 AI 文书生成会话(如果适用)"),
     )
     step = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name="对话步骤",
-        help_text="document_type/litigation_goal/evidence_selection/generation",
+        verbose_name=_("对话步骤"),
+        help_text=_("document_type/litigation_goal/evidence_selection/generation"),
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
-        verbose_name = "对话历史"
-        verbose_name_plural = "对话历史"
+        verbose_name = _("对话历史")
+        verbose_name_plural = _("对话历史")
         db_table = "core_conversation_history"
         ordering: ClassVar = ["session_id", "created_at"]
         indexes: ClassVar = [

@@ -7,6 +7,7 @@
 from typing import ClassVar
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class CauseOfAction(models.Model):
@@ -21,26 +22,26 @@ class CauseOfAction(models.Model):
     class CaseType(models.TextChoices):
         """案件类型"""
 
-        CIVIL = "civil", "民事"
-        CRIMINAL = "criminal", "刑事"
-        ADMINISTRATIVE = "administrative", "行政"
+        CIVIL = "civil", _("民事")
+        CRIMINAL = "criminal", _("刑事")
+        ADMINISTRATIVE = "administrative", _("行政")
 
     code = models.CharField(
         max_length=50,
         unique=True,
-        verbose_name="案由编码",
-        help_text="案由的唯一编码标识",
+        verbose_name=_("案由编码"),
+        help_text=_("案由的唯一编码标识"),
     )
     name = models.CharField(
         max_length=255,
-        verbose_name="案由名称",
-        help_text="案由的中文名称",
+        verbose_name=_("案由名称"),
+        help_text=_("案由的中文名称"),
     )
     case_type = models.CharField(
         max_length=32,
         choices=CaseType.choices,
-        verbose_name="案件类型",
-        help_text="案由所属的案件类型",
+        verbose_name=_("案件类型"),
+        help_text=_("案由所属的案件类型"),
     )
     parent = models.ForeignKey(
         "self",
@@ -48,49 +49,49 @@ class CauseOfAction(models.Model):
         blank=True,
         on_delete=models.CASCADE,
         related_name="children",
-        verbose_name="上级案由",
-        help_text="父级案由,用于构建层级结构",
+        verbose_name=_("上级案由"),
+        help_text=_("父级案由,用于构建层级结构"),
     )
     level = models.IntegerField(
         default=1,
-        verbose_name="层级",
-        help_text="案由在层级结构中的深度,从1开始",
+        verbose_name=_("层级"),
+        help_text=_("案由在层级结构中的深度,从1开始"),
     )
     is_active = models.BooleanField(
         default=True,
-        verbose_name="是否启用",
-        help_text="是否在系统中启用此案由",
+        verbose_name=_("是否启用"),
+        help_text=_("是否在系统中启用此案由"),
     )
     is_deprecated = models.BooleanField(
         default=False,
-        verbose_name="是否已废弃",
-        help_text="案由是否已被法院系统废弃",
+        verbose_name=_("是否已废弃"),
+        help_text=_("案由是否已被法院系统废弃"),
     )
     deprecated_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name="废弃时间",
-        help_text="案由被标记为废弃的时间",
+        verbose_name=_("废弃时间"),
+        help_text=_("案由被标记为废弃的时间"),
     )
     deprecated_reason = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        verbose_name="废弃原因",
-        help_text="案由被废弃的原因说明",
+        verbose_name=_("废弃原因"),
+        help_text=_("案由被废弃的原因说明"),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name="创建时间",
+        verbose_name=_("创建时间"),
     )
     updated_at = models.DateTimeField(
         auto_now=True,
-        verbose_name="更新时间",
+        verbose_name=_("更新时间"),
     )
 
     class Meta:
-        verbose_name = "案由"
-        verbose_name_plural = "案由"
+        verbose_name = _("案由")
+        verbose_name_plural = _("案由")
         ordering: ClassVar = ["case_type", "code"]
         indexes: ClassVar = [
             models.Index(fields=["case_type"], name="core_causeo_case_ty_0bbdcd_idx"),
