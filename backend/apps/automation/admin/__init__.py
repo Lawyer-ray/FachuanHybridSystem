@@ -38,6 +38,15 @@ from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionT
 # 测试工具 Admin
 from .test_tools_hub import TestToolsHubAdmin
 
+# 交费通知书识别 Admin
+from .fee_notice import FeeNoticeTestAdmin
+
+# 财产保全日期识别 Admin
+from .preservation_date import PreservationDateTestAdmin
+
+# 图片自动旋转 Admin
+from .image_rotation import ImageRotationAdmin
+
 __all__ = [
     # 文档处理
     "DocumentProcessorAdmin",
@@ -61,4 +70,7 @@ __all__ = [
     "DocumentRecognitionTaskAdmin",
     # 测试工具
     "TestToolsHubAdmin",
+    "FeeNoticeTestAdmin",
+    "PreservationDateTestAdmin",
+    "ImageRotationAdmin",
 ]
