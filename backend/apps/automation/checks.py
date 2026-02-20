@@ -20,7 +20,7 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
         errors.append(
             Error(
                 "Playwright 未安装",
-                hint="运行: pip install playwright && playwright install chromium",
+                hint="运行: uv add playwright && playwright install chromium",
                 id="automation.E001",
             )
         )

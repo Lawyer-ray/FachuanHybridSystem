@@ -2,8 +2,7 @@ target-version = "py312"
 line-length = 120
 extend-exclude = [
     "migrations",
-    "venv311",
-    "venv312",
+    ".venv",
 ]
 
 [lint]

@@ -31,7 +31,7 @@ repos:
       - id: black
         language_version: python3.12
         args: ['--line-length=120']
-        exclude: ^.*/(migrations|venv312)/.*$
+        exclude: ^.*/(migrations|\.venv)/.*$
 
   # Import sorting
   - repo: https://github.com/PyCQA/isort
@@ -39,7 +39,7 @@ repos:
     hooks:
       - id: isort
         args: ['--profile=black', '--line-length=120']
-        exclude: ^.*/(migrations|venv312)/.*$
+        exclude: ^.*/(migrations|\.venv)/.*$
 
   # Linting (ruff)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -48,11 +48,11 @@ repos:
       - id: ruff-check
         args: ['--config=backend/ruff.toml', '--fix', '--exit-non-zero-on-fix']
         files: ^backend/(apps|apiSystem)/.*\.py$
-        exclude: ^.*/(migrations|venv311|venv312)/.*$
+        exclude: ^.*/(migrations|\.venv)/.*$
       - id: ruff-format
         args: ['--config=backend/ruff.toml']
         files: ^backend/(apps|apiSystem)/.*\.py$
-        exclude: ^.*/(migrations|venv311|venv312)/.*$
+        exclude: ^.*/(migrations|\.venv)/.*$
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -61,7 +61,7 @@ repos:
       - id: mypy
         files: ^backend/(apps/.*\.py|apiSystem/apiSystem/.*\.py)$
         args: ['--config-file=backend/mypy.ini']
-        exclude: ^.*/(migrations|tests|venv311|venv312)/.*$
+        exclude: ^.*/(migrations|tests|\.venv)/.*$
         additional_dependencies: [
           'django-stubs',
           'django-stubs-ext',
@@ -73,7 +73,7 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', 'backend/.secrets.baseline']
-        exclude: ^.*/(logs|htmlcov|media|migrations|staticfiles|venv312)/.*$|^backend/\.secrets\.baseline$
+        exclude: ^.*/(logs|htmlcov|media|migrations|staticfiles|\.venv)/.*$|^backend/\.secrets\.baseline$
 
   - repo: local
     hooks:
