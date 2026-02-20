@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from apps.core.path import Path
@@ -32,7 +31,7 @@ class GeneratedDocumentStorage:
         with open(file_path, "wb") as f:
             f.write(content)
 
-        return os.path.relpath(file_path, media_root)
+        return str(file_path.relative_to(media_root))
 
     def save_for_case(self, *, case_id: int, filename: str, content: bytes) -> Any:
         return self.save_bytes(relative_dir=f"generated_documents/case_{case_id}", filename=filename, content=content)

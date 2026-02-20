@@ -7,7 +7,7 @@ Requirements: 2.1, 2.2, 3.1-3.5, 5.1-5.4
 """
 
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class ContractGenerationService:
 
         # 3. 检查模板文件是否存在
         file_location = template.get_file_location()
-        if not file_location or not os.path.exists(file_location):
+        if not file_location or not Path(file_location).exists():
             return None, None, "模板文件不存在"
 
         # 4. 构建上下文

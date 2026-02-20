@@ -121,7 +121,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
     @staticmethod
     def _prepare_evidence_item(obj, max_order, items_need_page_count) -> None:
         """准备证据项:设置排序、文件信息、页数"""
-        import os
+        from pathlib import Path
 
         if obj.pk is None:
             max_order += 1
@@ -129,10 +129,9 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
 
         if obj.file:
             file_name = obj.file.name
-            _, ext = os.path.splitext(file_name)
-            ext = ext.lower()
+            ext = Path(file_name).suffix.lower()
 
-            obj.file_name = os.path.basename(file_name)
+            obj.file_name = Path(file_name).name
             try:
                 obj.file_size = obj.file.size
             except Exception as e:

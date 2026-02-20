@@ -223,7 +223,7 @@ class EvidenceAdminService:
 
     def _recount_item_pages(self, item: Any) -> tuple[int, int, str | None]:
         """重新计算单个证据项的页数，返回 (updated_count, page_count, error_msg)"""
-        import os
+        from pathlib import Path
 
         from .pdf_utils import get_pdf_page_count_with_error
 
@@ -244,8 +244,8 @@ class EvidenceAdminService:
             return 0, 0, None
 
         file_name = item.file.name
-        _, ext = os.path.splitext(file_name)
-        if ext.lower() != ".pdf":
+        ext = Path(file_name).suffix.lower()
+        if ext != ".pdf":
             return 0, item.page_count or 1, None
 
         page_count, error = get_pdf_page_count_with_error(item.file, default=1)

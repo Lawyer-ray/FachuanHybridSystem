@@ -4,7 +4,7 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 import contextlib
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
@@ -24,8 +24,7 @@ class EvidenceFileService:
         file_name = getattr(file, "name", "")
         file_size = getattr(file, "size", 0)
 
-        _, ext = os.path.splitext(file_name)
-        ext = ext.lower()
+        ext = Path(file_name).suffix.lower()
         if ext not in self.SUPPORTED_FORMATS:
             raise ValidationException(
                 message=_("不支持的文件格式"),

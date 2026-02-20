@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 "\nPDF 合并服务\n\n提供证据文件的 PDF 合并、格式转换和页码添加功能.\n\nRequirements: 6.1-6.8\n"
 import contextlib
 import io
-import os
+from pathlib import Path
 from collections.abc import Callable
 from typing import Any, ClassVar, cast
 
@@ -90,15 +90,14 @@ class PDFMergeWorkflow:
         for index, item in enumerate(items, start=1):
             try:
                 file_path = item.file.path
-                _, ext = os.path.splitext(file_path)
-                ext = ext.lower()
+                ext = Path(file_path).suffix.lower()
                 pdf_path = file_path if ext == ".pdf" else self.convert_to_pdf(file_path)
                 if pdf_path != file_path:
                     temp_files.append(pdf_path)
                 with pikepdf.open(pdf_path) as pdf:
                     merged_pdf.pages.extend(pdf.pages)
                 if progress_callback:
-                    file_label = item.file_name or os.path.basename(file_path)
+                    file_label = item.file_name or Path(file_path).name
                     progress_callback(index, total_files, f"已处理:{file_label}")
             except Exception as e:
                 raise BusinessException(
@@ -118,11 +117,10 @@ class PDFMergeWorkflow:
     def _cleanup_temp_files(self, temp_files: list[Any]) -> None:
         for temp_file in temp_files:
             with contextlib.suppress(Exception):
-                os.remove(temp_file)
+                Path(temp_file).unlink(missing_ok=True)
 
     def convert_to_pdf(self, file_path: str) -> str:
-        _, ext = os.path.splitext(file_path)
-        ext = ext.lower()
+        ext = Path(file_path).suffix.lower()
         self.validator.assert_supported_format(ext, file_path)
         if ext in self.validator.IMAGE_FORMATS:
             return convert_image_to_pdf(file_path)
