@@ -1,5 +1,6 @@
 """External service client."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -124,20 +125,20 @@ class ClientMutationService:
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):
             raise ValidationException(
-                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
         if data.get("client_type") not in valid_types:
             raise ValidationException(
-                message="无效的客户类型",
+                message=_("无效的客户类型"),
                 code="INVALID_CLIENT_TYPE",
                 errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
             )
 
         if data.get("client_type") == Client.LEGAL and not data.get("legal_representative"):
             raise ValidationException(
-                message="法人客户必须填写法定代表人",
+                message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
                 errors={"legal_representative": "法人客户必须填写法定代表人"},
             )
@@ -145,14 +146,14 @@ class ClientMutationService:
     def _validate_update_data(self, client: Client, data: dict[str, Any]) -> None:
         if "name" in data and not data["name"]:
             raise ValidationException(
-                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         if "client_type" in data:
             valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
             if data["client_type"] not in valid_types:
                 raise ValidationException(
-                    message="无效的客户类型",
+                    message=_("无效的客户类型"),
                     code="INVALID_CLIENT_TYPE",
                     errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
                 )
@@ -161,7 +162,7 @@ class ClientMutationService:
         legal_rep = data.get("legal_representative", client.legal_representative)
         if client_type == Client.LEGAL and not legal_rep:
             raise ValidationException(
-                message="法人客户必须填写法定代表人",
+                message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
                 errors={"legal_representative": "法人客户必须填写法定代表人"},
             )

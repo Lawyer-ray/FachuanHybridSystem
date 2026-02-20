@@ -6,6 +6,7 @@
 Requirements: 2.1, 2.6, 2.7, 3.1, 4.1
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import zipfile
 from dataclasses import dataclass
@@ -285,7 +286,7 @@ class FolderGenerationService:
         folder_template = self.find_matching_folder_template(contract.case_type)
         if not folder_template:
             raise ValidationException(
-                message="请先配置文件夹模板",
+                message=_("请先配置文件夹模板"),
                 code="NO_FOLDER_TEMPLATE",
                 errors={"case_type": f"合同类型 {contract.case_type} 没有匹配的文件夹模板"},
             )
@@ -294,7 +295,7 @@ class FolderGenerationService:
         document_placements = self.get_document_placements(contract, folder_template)
         if not document_placements:
             raise ValidationException(
-                message="请先添加合同模板",
+                message=_("请先添加合同模板"),
                 code="NO_DOCUMENT_TEMPLATE",
                 errors={"case_type": f"合同类型 {contract.case_type} 没有匹配的文书模板"},
             )

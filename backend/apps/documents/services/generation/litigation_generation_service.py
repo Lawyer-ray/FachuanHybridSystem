@@ -11,6 +11,7 @@
 Requirements: 3.1, 3.2, 3.3
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import date
 from typing import Any
@@ -139,7 +140,7 @@ class LitigationGenerationService:
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
-            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 2. 提取案件信息
         case_data = self.context_builder.extract_complaint_prompt_data(case_dto)
@@ -185,7 +186,7 @@ class LitigationGenerationService:
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
-            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 2. 提取案件信息
         case_data = self.context_builder.extract_defense_prompt_data(case_dto)

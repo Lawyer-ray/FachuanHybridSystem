@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 import io
 import logging
 import os
@@ -137,7 +138,7 @@ class AuthorizationMaterialGenerationService:
         our_parties = self._get_our_parties(case)
         if not our_parties:
             raise ValidationException(
-                message="没有我方当事人,无法生成全套授权委托材料",
+                message=_("没有我方当事人,无法生成全套授权委托材料"),
                 code="NO_OUR_PARTIES",
                 errors={"case_id": str(case_id)},
             )
@@ -174,7 +175,7 @@ class AuthorizationMaterialGenerationService:
     def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *, case: Any, our_parties: list[Any]) -> None:
         case_id = getattr(case, "id", None)
         if not case_id:
-            raise ValidationException(message="案件 ID 无效", code="INVALID_CASE_ID", errors={})
+            raise ValidationException(message=_("案件 ID 无效"), code="INVALID_CASE_ID", errors={})
 
         # 检查案件绑定的模板中是否有所函
         has_authority_letter = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_AUTHORITY_LETTER)
@@ -382,7 +383,7 @@ class AuthorizationMaterialGenerationService:
         proxy_matters = (context.get("授权委托书_代理事项") or "").strip()
         if not proxy_matters:
             raise ValidationException(
-                message="未匹配到代理事项规则",
+                message=_("未匹配到代理事项规则"),
                 code="PROXY_MATTER_RULE_NOT_MATCHED",
                 errors={"placeholder": "授权委托书_代理事项"},
             )
@@ -473,7 +474,7 @@ class AuthorizationMaterialGenerationService:
         location = (template.get_file_location() or "").strip()
         if not location:
             raise ValidationException(
-                message="模板文件路径为空",
+                message=_("模板文件路径为空"),
                 code="TEMPLATE_FILE_EMPTY",
                 errors={"template_id": str(cast(int, template.pk))},
             )
@@ -500,7 +501,7 @@ class AuthorizationMaterialGenerationService:
             return client
 
         raise ValidationException(
-            message="我方当事人不存在或不合法",
+            message=_("我方当事人不存在或不合法"),
             code="INVALID_OUR_CLIENT",
             errors={"client_id": str(client_id)},
         )
@@ -509,7 +510,7 @@ class AuthorizationMaterialGenerationService:
         case = self.case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在",
+                message=_("案件不存在"),
                 code="CASE_NOT_FOUND",
                 errors={"case_id": str(case_id)},
             )
@@ -538,7 +539,7 @@ class AuthorizationMaterialGenerationService:
             return client
 
         raise ValidationException(
-            message="我方当事人法人不存在或不合法",
+            message=_("我方当事人法人不存在或不合法"),
             code="INVALID_LEGAL_CLIENT",
             errors={"client_id": str(client_id)},
         )

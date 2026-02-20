@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any
@@ -128,7 +129,7 @@ class CaseQueryFacade:
             org_access=org_access,
             perm_open_access=perm_open_access,
             case=case,
-            message="无权限访问此案件",
+            message=_("无权限访问此案件"),
         )
 
         return case
@@ -139,6 +140,6 @@ class CaseQueryFacade:
         except Case.DoesNotExist:
             raise NotFoundError(f"案件 {case_id} 不存在") from None
 
-        self.access_policy.ensure_access_ctx(case_id=case.id, ctx=ctx, case=case, message="无权限访问此案件")
+        self.access_policy.ensure_access_ctx(case_id=case.id, ctx=ctx, case=case, message=_("无权限访问此案件"))
 
         return case

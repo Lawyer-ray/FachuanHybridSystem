@@ -3,6 +3,7 @@
 负责处理法院文书的复杂管理逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -48,7 +49,7 @@ class CourtDocumentAdminService:
             BusinessException: 下载失败
         """
         if not document_ids:
-            raise ValidationException(message="没有选中任何文书", code="NO_DOCUMENTS_SELECTED", errors={})
+            raise ValidationException(message=_("没有选中任何文书"), code="NO_DOCUMENTS_SELECTED", errors={})
 
         try:
             # 获取待下载的文书
@@ -58,7 +59,7 @@ class CourtDocumentAdminService:
 
             if not documents.exists():
                 raise ValidationException(
-                    message="没有找到可下载的文书",
+                    message=_("没有找到可下载的文书"),
                     code="NO_DOWNLOADABLE_DOCUMENTS",
                     errors={"document_ids": document_ids},
                 )
@@ -97,7 +98,7 @@ class CourtDocumentAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message="批量下载文书失败", code="BATCH_DOWNLOAD_FAILED", errors={"error": str(e)}
+                message=_("批量下载文书失败"), code="BATCH_DOWNLOAD_FAILED", errors={"error": str(e)}
             ) from e
 
     @transaction.atomic
@@ -117,7 +118,7 @@ class CourtDocumentAdminService:
             BusinessException: 删除失败
         """
         if not document_ids:
-            raise ValidationException(message="没有选中任何文书", code="NO_DOCUMENTS_SELECTED", errors={})
+            raise ValidationException(message=_("没有选中任何文书"), code="NO_DOCUMENTS_SELECTED", errors={})
 
         try:
             # 获取要删除的文书
@@ -125,7 +126,7 @@ class CourtDocumentAdminService:
 
             if not documents.exists():
                 raise ValidationException(
-                    message="没有找到要删除的文书", code="NO_DOCUMENTS_FOUND", errors={"document_ids": document_ids}
+                    message=_("没有找到要删除的文书"), code="NO_DOCUMENTS_FOUND", errors={"document_ids": document_ids}
                 )
 
             deleted_files_count = 0
@@ -172,7 +173,7 @@ class CourtDocumentAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message="批量删除文书失败", code="BATCH_DELETE_FAILED", errors={"error": str(e)}
+                message=_("批量删除文书失败"), code="BATCH_DELETE_FAILED", errors={"error": str(e)}
             ) from e
 
     def get_document_statistics(self, queryset: QuerySet[Any, Any] | None = None) -> dict[str, Any]:
@@ -273,7 +274,7 @@ class CourtDocumentAdminService:
                 "获取文书统计数据失败", extra={"action": "get_document_statistics", "error": str(e)}, exc_info=True
             )
             raise BusinessException(
-                message="获取文书统计数据失败", code="GET_DOCUMENT_STATS_FAILED", errors={"error": str(e)}
+                message=_("获取文书统计数据失败"), code="GET_DOCUMENT_STATS_FAILED", errors={"error": str(e)}
             ) from e
 
     @transaction.atomic
@@ -326,7 +327,7 @@ class CourtDocumentAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message="重试失败下载任务失败", code="RETRY_FAILED_DOWNLOADS_FAILED", errors={"error": str(e)}
+                message=_("重试失败下载任务失败"), code="RETRY_FAILED_DOWNLOADS_FAILED", errors={"error": str(e)}
             ) from e
 
     def cleanup_orphaned_files(self) -> dict[str, Any]:
@@ -389,7 +390,7 @@ class CourtDocumentAdminService:
                 "清理孤立文件失败", extra={"action": "cleanup_orphaned_files", "error": str(e)}, exc_info=True
             )
             raise BusinessException(
-                message="清理孤立文件失败", code="CLEANUP_ORPHANED_FILES_FAILED", errors={"error": str(e)}
+                message=_("清理孤立文件失败"), code="CLEANUP_ORPHANED_FILES_FAILED", errors={"error": str(e)}
             ) from e
 
     def get_download_progress(self, task_id: int | None = None) -> dict[str, Any]:
@@ -449,5 +450,5 @@ class CourtDocumentAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message="获取下载进度失败", code="GET_DOWNLOAD_PROGRESS_FAILED", errors={"error": str(e)}
+                message=_("获取下载进度失败"), code="GET_DOWNLOAD_PROGRESS_FAILED", errors={"error": str(e)}
             ) from e

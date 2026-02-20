@@ -1,5 +1,6 @@
 """法院文书爬虫 — zxfw.court.gov.cn 下载 Mixin"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import re
 import time
@@ -500,7 +501,7 @@ class CourtDocumentZxfwMixin:
             from apps.core.exceptions import ExternalServiceError
 
             raise ExternalServiceError(
-                message="所有下载方式均失败",
+                message=_("所有下载方式均失败"),
                 code="DOWNLOAD_ALL_METHODS_FAILED",
                 errors={
                     "direct_api_error": str(direct_api_error),

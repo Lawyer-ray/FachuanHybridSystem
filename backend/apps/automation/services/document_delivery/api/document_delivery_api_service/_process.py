@@ -1,5 +1,6 @@
 """文书下载与 SMS 处理逻辑"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import queue
 import tempfile
@@ -82,7 +83,7 @@ class DocumentProcessMixin:
                     logger.warning(f"文书下载失败: {file_name}")
 
             if not downloaded_files:
-                result.error_message = "所有文书下载失败"
+                result.error_message = _("所有文书下载失败")
                 logger.error(result.error_message)
                 return result
 
@@ -196,7 +197,7 @@ class DocumentProcessMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
+                        sms.error_message = _("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

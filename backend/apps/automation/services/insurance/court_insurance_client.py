@@ -7,6 +7,7 @@
 - 并发查询所有保险公司报价
 """
 
+from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -491,7 +492,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
             )
             return PremiumResult(
                 company=company, premium=None, status="failed",
-                error_message="响应中未找到费率数据", response_data=data, request_info=request_info,
+                error_message=_("响应中未找到费率数据"), response_data=data, request_info=request_info,
             )
 
         except httpx.TimeoutException as e:

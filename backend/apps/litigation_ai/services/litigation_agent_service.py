@@ -7,6 +7,7 @@
 Requirements: 1.4, 7.1, 7.2, 7.4, 7.5, 8.1, 8.2, 8.4, 8.5
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -198,7 +199,7 @@ class LitigationAgentService(ILitigationAgentService):
             session = LitigationSession.objects.filter(session_id=session_id).first()
             if not session:
                 raise NotFoundError(
-                    message="会话不存在",
+                    message=_("会话不存在"),
                     code="SESSION_NOT_FOUND",
                     errors={"session_id": session_id},
                 )

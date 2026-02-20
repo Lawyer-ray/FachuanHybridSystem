@@ -4,6 +4,7 @@
 提供系统配置的 CRUD 操作和缓存管理.
 """
 
+from django.utils.translation import gettext_lazy as _
 from collections.abc import Iterable
 from typing import Any, cast
 
@@ -57,7 +58,7 @@ class SystemConfigService:
         """
         if not key or not key.strip():
             raise ValidationException(
-                message="配置键不能为空",
+                message=_("配置键不能为空"),
                 code="INVALID_CONFIG_KEY",
                 errors={"key": "配置键不能为空"},
             )
@@ -104,7 +105,7 @@ class SystemConfigService:
             config = self._model.objects.get(id=config_id)
         except self._model.DoesNotExist as e:
             raise NotFoundError(
-                message="系统配置不存在",
+                message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             ) from e
@@ -146,7 +147,7 @@ class SystemConfigService:
             config = self._model.objects.get(id=config_id)
         except self._model.DoesNotExist as e:
             raise NotFoundError(
-                message="系统配置不存在",
+                message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             ) from e
@@ -173,7 +174,7 @@ class SystemConfigService:
             return cast(SystemConfig, self._model.objects.get(id=config_id))
         except self._model.DoesNotExist as e:
             raise NotFoundError(
-                message="系统配置不存在",
+                message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             ) from e

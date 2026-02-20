@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import re
 import uuid
@@ -56,12 +57,12 @@ def is_absolute_path(path_str: str) -> bool:
 def to_media_abs(file_path: str) -> Path:
     if not file_path:
         raise ValidationException(
-            message="文件路径不能为空", code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
+            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
         )
     media_root = get_config("django.media_root", None)
     if not media_root:
         raise ValidationException(
-            message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
     root = Path(str(media_root)).resolve()
     p = Path(file_path)
@@ -71,13 +72,13 @@ def to_media_abs(file_path: str) -> Path:
         p = p.resolve()
     except Exception:
         raise ValidationException(
-            message="文件路径无效", code="INVALID_FILE_PATH", errors={"file_path": "无效"}
+            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": "无效"}
         ) from None
     try:
         p.relative_to(root)
     except ValueError:
         raise ValidationException(
-            message="文件路径不在 MEDIA_ROOT 下",
+            message=_("文件路径不在 MEDIA_ROOT 下"),
             code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
             errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
         ) from None
@@ -87,7 +88,7 @@ def to_media_abs(file_path: str) -> Path:
 def normalize_to_media_rel(file_path: str) -> str:
     if not file_path:
         raise ValidationException(
-            message="文件路径不能为空", code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
+            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
         )
     if not is_absolute_path(file_path):
         return file_path.replace("\\", "/").lstrip("/")
@@ -95,7 +96,7 @@ def normalize_to_media_rel(file_path: str) -> str:
     media_root = get_config("django.media_root", None)
     if not media_root:
         raise ValidationException(
-            message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
     root = Path(str(media_root)).resolve()
     p = Path(file_path)
@@ -103,13 +104,13 @@ def normalize_to_media_rel(file_path: str) -> str:
         abs_path = p.resolve()
     except Exception:
         raise ValidationException(
-            message="文件路径无效", code="INVALID_FILE_PATH", errors={"file_path": "无效"}
+            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": "无效"}
         ) from None
     try:
         rel = abs_path.relative_to(root)
     except ValueError:
         raise ValidationException(
-            message="文件路径不在 MEDIA_ROOT 下",
+            message=_("文件路径不在 MEDIA_ROOT 下"),
             code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
             errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
         ) from None
@@ -126,7 +127,7 @@ def save_uploaded_file(
     allowed_mime_types: list[str] | None = None,
 ) -> tuple[str, str]:
     if not hasattr(uploaded_file, "name"):
-        raise ValidationException(message="上传文件缺少文件名", code="INVALID_UPLOAD", errors={"file": "缺少文件名"})
+        raise ValidationException(message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": "缺少文件名"})
 
     original_name = str(getattr(uploaded_file, "name", "") or "")
     safe_original_name = sanitize_upload_filename(original_name)
@@ -143,7 +144,7 @@ def save_uploaded_file(
     media_root = get_config("django.media_root", None)
     if not media_root:
         raise ValidationException(
-            message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
     base_dir = Path(str(media_root)) / rel_dir
 

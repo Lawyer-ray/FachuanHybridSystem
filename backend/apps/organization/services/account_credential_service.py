@@ -3,6 +3,7 @@
 处理账号凭证相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
@@ -149,11 +150,11 @@ class AccountCredentialService:
         credential = self._get_base_queryset().filter(id=credential_id).first()
 
         if not credential:
-            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
+            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
 
         # 权限检查
         if not self._check_credential_access(user, credential):
-            raise PermissionDenied(message="无权限访问该凭证", code="CREDENTIAL_ACCESS_DENIED")
+            raise PermissionDenied(message=_("无权限访问该凭证"), code="CREDENTIAL_ACCESS_DENIED")
 
         return credential
 
@@ -188,11 +189,11 @@ class AccountCredentialService:
         # 验证律师存在
         lawyer = Lawyer.objects.select_related("law_firm").filter(id=lawyer_id).first()
         if not lawyer:
-            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
+            raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         # 权限检查：验证用户是否有权限为该律师创建凭证
         if not self._check_lawyer_access(user, lawyer):
-            raise PermissionDenied(message="无权限为该律师创建凭证", code="CREDENTIAL_CREATE_DENIED")
+            raise PermissionDenied(message=_("无权限为该律师创建凭证"), code="CREDENTIAL_CREATE_DENIED")
 
         credential = AccountCredential.objects.create(
             lawyer=lawyer,
@@ -285,7 +286,7 @@ class AccountCredentialService:
         """
         credential = self._get_base_queryset().filter(id=credential_id).first()
         if not credential:
-            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
+            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
         return credential
 
     @transaction.atomic

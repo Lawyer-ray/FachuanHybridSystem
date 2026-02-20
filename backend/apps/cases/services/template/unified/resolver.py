@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -39,7 +40,7 @@ class TemplateResolver:
     ) -> ResolvedTemplate:
         if template_id is None and not function_code:
             raise ValidationException(
-                message="必须提供 template_id 或 function_code",
+                message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
                 errors={"params": "必须提供 template_id 或 function_code"},
             )
@@ -93,7 +94,7 @@ class TemplateResolver:
         template = self.document_service.get_template_by_id_internal(template_id)
         if not template:
             raise NotFoundError(
-                message="模板不存在",
+                message=_("模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -103,7 +104,7 @@ class TemplateResolver:
         location = (getattr(template, "file_path", None) or "").strip()
         if not location:
             raise ValidationException(
-                message="模板文件路径为空",
+                message=_("模板文件路径为空"),
                 code="TEMPLATE_FILE_EMPTY",
                 errors={"template_id": str(template.id)},
             )

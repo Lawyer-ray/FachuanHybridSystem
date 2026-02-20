@@ -6,6 +6,7 @@
 Requirements: 4.5, 7.4
 """
 
+from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -230,7 +231,7 @@ class NotificationResult:
         """
         return cls(
             success=True,
-            message="通知发送成功",
+            message=_("通知发送成功"),
             sent_at=sent_at,
             file_sent=file_sent,
         )

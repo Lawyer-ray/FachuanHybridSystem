@@ -7,6 +7,7 @@
 3. 回退:传统页面点击下载
 """
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -140,7 +141,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             from apps.core.exceptions import ExternalServiceError
 
             raise ExternalServiceError(
-                message="所有下载方式均失败",
+                message=_("所有下载方式均失败"),
                 code="DOWNLOAD_ALL_METHODS_FAILED",
                 errors={
                     "direct_api_error": str(direct_api_error),

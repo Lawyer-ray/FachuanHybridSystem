@@ -3,6 +3,7 @@
 封装用户认证相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 from typing import Any
 
 from django.contrib.auth import authenticate, login, logout
@@ -39,7 +40,7 @@ class AuthService:
         """
         user = authenticate(request, username=username, password=password)
         if not user:
-            raise AuthenticationError(message="用户名或密码错误", code="INVALID_CREDENTIALS")
+            raise AuthenticationError(message=_("用户名或密码错误"), code="INVALID_CREDENTIALS")
         login(request, user)
         assert isinstance(user, Lawyer)
         return user

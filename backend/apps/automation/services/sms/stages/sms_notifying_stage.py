@@ -9,6 +9,7 @@ SMS 通知阶段处理器
 Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -159,7 +160,7 @@ class SMSNotifyingStage(BaseSMSStage):
             sms.status = CourtSMSStatus.FAILED
             if not sms.feishu_error:
                 sms.feishu_error = "案件群聊通知发送失败"
-            sms.error_message = "案件群聊通知发送失败"
+            sms.error_message = _("案件群聊通知发送失败")
             logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
     def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:

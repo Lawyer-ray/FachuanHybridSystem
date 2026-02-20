@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any
@@ -30,7 +31,7 @@ class CaseLogVersionService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message="无权限访问此日志版本",
+                message=_("无权限访问此日志版本"),
             )
 
         return list(CaseLogVersion.objects.filter(log_id=log_id).select_related("actor").order_by("-version_at"))

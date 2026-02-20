@@ -3,6 +3,7 @@
 处理团队相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
@@ -77,11 +78,11 @@ class TeamService:
         team = Team.objects.select_related("law_firm").filter(id=team_id).first()
 
         if not team:
-            raise NotFoundError(message="团队不存在", code="TEAM_NOT_FOUND")
+            raise NotFoundError(message=_("团队不存在"), code="TEAM_NOT_FOUND")
 
         # 权限检查
         if not self._check_read_permission(user, team):
-            raise PermissionDenied(message="无权限访问该团队", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限访问该团队"), code="PERMISSION_DENIED")
 
         return cast(Team, team)
 
@@ -108,7 +109,7 @@ class TeamService:
                 f"用户 {getattr(user, 'id', None)} 尝试创建团队但权限不足",
                 extra={"user_id": getattr(user, "id", None), "action": "create_team"},
             )
-            raise PermissionDenied(message="无权限创建团队", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限创建团队"), code="PERMISSION_DENIED")
 
         # 2. 验证团队类型
         self._validate_team_type(data.team_type)
@@ -116,7 +117,7 @@ class TeamService:
         # 3. 验证律所存在
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if not law_firm:
-            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
+            raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         # 4. 创建团队
         team = Team.objects.create(name=data.name, team_type=data.team_type, law_firm=law_firm)
@@ -155,7 +156,7 @@ class TeamService:
                 f"用户 {getattr(user, 'id', None)} 尝试更新团队 {team_id} 但权限不足",
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "update_team"},
             )
-            raise PermissionDenied(message="无权限更新该团队", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限更新该团队"), code="PERMISSION_DENIED")
 
         # 3. 验证团队类型
         self._validate_team_type(data.team_type)
@@ -163,7 +164,7 @@ class TeamService:
         # 4. 验证律所存在
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if not law_firm:
-            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
+            raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         # 5. 更新团队
         team.name = data.name
@@ -200,7 +201,7 @@ class TeamService:
                 f"用户 {getattr(user, 'id', None)} 尝试删除团队 {team_id} 但权限不足",
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "delete_team"},
             )
-            raise PermissionDenied(message="无权限删除该团队", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除该团队"), code="PERMISSION_DENIED")
 
         # 3. 删除团队
         team.delete()
@@ -225,7 +226,7 @@ class TeamService:
         valid_types = [TeamType.LAWYER, TeamType.BIZ]
         if team_type not in valid_types:
             raise ValidationException(
-                message="非法团队类型",
+                message=_("非法团队类型"),
                 code="INVALID_TEAM_TYPE",
                 errors={"team_type": f"团队类型必须是 {valid_types} 之一"},
             )

@@ -1,5 +1,6 @@
 """合同服务基础：初始化、依赖注入、查询"""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -142,6 +143,6 @@ class ContractServiceBase(ContractHelpersMixin, PermissionMixin):
         self.check_resource_access(
             ctx,
             resource_check=lambda c: self._check_contract_access(contract, c.user, c.org_access),
-            error_message="无权限访问该合同",
+            error_message=_("无权限访问该合同"),
         )
         return contract

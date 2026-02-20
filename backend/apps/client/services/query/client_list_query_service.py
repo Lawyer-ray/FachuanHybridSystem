@@ -1,5 +1,6 @@
 """External service client."""
 
+from django.utils.translation import gettext_lazy as _
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -28,13 +29,13 @@ class ClientListQueryService:
         user: Any | None = None,
     ) -> QuerySet[Client, Client]:
         if page is None or int(page) < 1:
-            raise ValidationException(message="page 无效", code="INVALID_PAGE", errors={"page": "必须 >= 1"})
+            raise ValidationException(message=_("page 无效"), code="INVALID_PAGE", errors={"page": "必须 >= 1"})
 
         if page_size is None:
             page_size = 20
         if int(page_size) < 1:
             raise ValidationException(
-                message="page_size 无效", code="INVALID_PAGE_SIZE", errors={"page_size": "必须 >= 1"}
+                message=_("page_size 无效"), code="INVALID_PAGE_SIZE", errors={"page_size": "必须 >= 1"}
             )
         page_size = int(page_size)
 

@@ -1,5 +1,6 @@
 """Business workflow orchestration."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import Any
@@ -74,7 +75,7 @@ class CaseBindingWorkflow:
         user: Any | None = None,
     ) -> BindingResult:
         if not case_number:
-            return BindingResult.failure_result(message="未识别到案号,无法绑定案件", error_code="CASE_NUMBER_NOT_FOUND")
+            return BindingResult.failure_result(message=_("未识别到案号,无法绑定案件"), error_code="CASE_NUMBER_NOT_FOUND")
 
         case_id = self.case_lookup_repo.find_case_id_by_number(case_number)
         if case_id is None:
@@ -131,7 +132,7 @@ class CaseBindingWorkflow:
             return BindingResult.failure_result(message=f"任务 {task_id} 不存在", error_code="TASK_NOT_FOUND")
 
         if task.binding_success:
-            return BindingResult.failure_result(message="任务已绑定到案件", error_code="ALREADY_BOUND")
+            return BindingResult.failure_result(message=_("任务已绑定到案件"), error_code="ALREADY_BOUND")
 
         case_dto = self.case_service.get_case_by_id_internal(case_id)
         if case_dto is None:

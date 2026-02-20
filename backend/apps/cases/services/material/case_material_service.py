@@ -15,6 +15,8 @@ from apps.cases.models import (
     CaseMaterialType,
     CaseParty,
 )
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
@@ -118,16 +120,16 @@ class CaseMaterialService:
 
         category = (category or "").strip()
         if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
-            raise ValidationException(message="材料大类不合法", errors={"category": category})
+            raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
 
         if category == CaseMaterialCategory.PARTY:
             if side not in {CaseMaterialSide.OUR, CaseMaterialSide.OPPONENT}:
-                raise ValidationException(message="当事人方向不合法", errors={"side": side})
+                raise ValidationException(message=_("当事人方向不合法"), errors={"side": side})
             supervising_authority_id = None
         else:
             side = None
             if not supervising_authority_id:
-                raise ValidationException(message="必须选择主管机关", errors={"supervising_authority_id": "required"})
+                raise ValidationException(message=_("必须选择主管机关"), errors={"supervising_authority_id": "required"})
 
         types = {
             t.id: t
@@ -135,7 +137,7 @@ class CaseMaterialService:
         }
         missing = [tid for tid in ordered_type_ids if tid not in types]
         if missing:
-            raise ValidationException(message="包含无效的材料类型", errors={"type_ids": missing})
+            raise ValidationException(message=_("包含无效的材料类型"), errors={"type_ids": missing})
 
         with transaction.atomic():
             for idx, type_id in enumerate(ordered_type_ids):
@@ -159,7 +161,7 @@ class CaseMaterialService:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)
             except CaseMaterialType.DoesNotExist:
-                raise ValidationException(message="材料类型不存在", errors={"type_id": type_id}) from None
+                raise ValidationException(message=_("材料类型不存在"), errors={"type_id": type_id}) from None
             return t
 
         qs = CaseMaterialType.objects.filter(category=category, name=type_name, is_active=True).order_by(
@@ -195,12 +197,12 @@ class CaseMaterialService:
                 continue
             party = parties_by_id.get(pid_int)
             if not party:
-                raise ValidationException(message="包含无效当事人", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("包含无效当事人"), errors={"party_ids": pid_int})
             is_our = bool(getattr(getattr(party, "client", None), "is_our_client", False))
             if side == CaseMaterialSide.OUR and not is_our:
-                raise ValidationException(message="当事人不属于我方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于我方"), errors={"party_ids": pid_int})
             if side == CaseMaterialSide.OPPONENT and is_our:
-                raise ValidationException(message="当事人不属于对方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于对方"), errors={"party_ids": pid_int})
             validated.append(pid_int)
         return validated
 

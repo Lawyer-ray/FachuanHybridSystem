@@ -3,6 +3,7 @@
 处理律师相关的业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
@@ -59,11 +60,11 @@ class LawyerService:
         lawyer = self.get_lawyer_queryset().filter(id=lawyer_id).first()
 
         if not lawyer:
-            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
+            raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         # 权限检查
         if not self._check_read_permission(user, lawyer):
-            raise PermissionDenied(message="无权限访问该律师信息", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限访问该律师信息"), code="PERMISSION_DENIED")
 
         return lawyer
 
@@ -133,7 +134,7 @@ class LawyerService:
                 f"用户 {user.id} 尝试创建律师但权限不足",
                 extra={"user_id": user.id, "action": "create_lawyer"},
             )
-            raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限创建律师"), code="PERMISSION_DENIED")
 
         # 2. 业务验证
         self._validate_create_data(data, user)
@@ -144,7 +145,7 @@ class LawyerService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
+                    message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
 
         # 4. 创建律师
@@ -193,7 +194,7 @@ class LawyerService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
+                    message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
             lawyer.law_firm = law_firm
 
@@ -213,7 +214,7 @@ class LawyerService:
                 f"用户 {user.id} 尝试更新律师 {lawyer_id} 但权限不足",
                 extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "update_lawyer"},
             )
-            raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限更新该律师信息"), code="PERMISSION_DENIED")
 
         self._validate_update_data(lawyer, data, user)
         self._apply_lawyer_fields(lawyer, data, license_pdf)
@@ -250,12 +251,12 @@ class LawyerService:
                 f"用户 {user.id} 尝试删除律师 {lawyer_id} 但权限不足",
                 extra={"user_id": user.id, "lawyer_id": lawyer_id, "action": "delete_lawyer"},
             )
-            raise PermissionDenied(message="无权限删除该律师", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除该律师"), code="PERMISSION_DENIED")
 
         # 3. 业务验证（检查是否可以删除）
         # 检查是否有关联的案件、合同等
         if hasattr(lawyer, "created_cases") and lawyer.created_cases.exists():
-            raise ConflictError(message="该律师创建了案件，无法删除", code="LAWYER_HAS_CASES")
+            raise ConflictError(message=_("该律师创建了案件，无法删除"), code="LAWYER_HAS_CASES")
 
         # 4. 删除律师
         lawyer.delete()
@@ -335,13 +336,13 @@ class LawyerService:
         # 检查用户名是否重复
         if Lawyer.objects.filter(username=data.username).exists():
             raise ValidationException(
-                message="用户名已存在", code="DUPLICATE_USERNAME", errors={"username": "该用户名已被使用"}
+                message=_("用户名已存在"), code="DUPLICATE_USERNAME", errors={"username": "该用户名已被使用"}
             )
 
         # 检查手机号是否重复
         if data.phone and Lawyer.objects.filter(phone=data.phone).exists():
             raise ValidationException(
-                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
+                message=_("手机号已存在"), code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
     def _validate_update_data(self, lawyer: Lawyer, data: Any, user: Lawyer) -> None:
@@ -349,7 +350,7 @@ class LawyerService:
         # 检查手机号是否与其他律师重复
         if data.phone and data.phone != lawyer.phone and Lawyer.objects.filter(phone=data.phone).exists():
             raise ValidationException(
-                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
+                message=_("手机号已存在"), code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
     def _set_lawyer_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
@@ -358,14 +359,14 @@ class LawyerService:
 
         if not teams:
             raise ValidationException(
-                message="律师必须至少关联一个律师团队",
+                message=_("律师必须至少关联一个律师团队"),
                 code="NO_LAWYER_TEAMS",
                 errors={"lawyer_team_ids": "至少需要一个律师团队"},
             )
 
         if law_firm and any(t.law_firm_id != law_firm.id for t in teams):
             raise ValidationException(
-                message="团队所属律所必须与律师所属律所一致",
+                message=_("团队所属律所必须与律师所属律所一致"),
                 code="TEAM_LAWFIRM_MISMATCH",
                 errors={"lawyer_team_ids": "团队律所不匹配"},
             )
@@ -378,7 +379,7 @@ class LawyerService:
 
         if law_firm and any(t.law_firm_id != law_firm.id for t in teams):
             raise ValidationException(
-                message="团队所属律所必须与律师所属律所一致",
+                message=_("团队所属律所必须与律师所属律所一致"),
                 code="TEAM_LAWFIRM_MISMATCH",
                 errors={"biz_team_ids": "团队律所不匹配"},
             )

@@ -3,6 +3,7 @@
 处理合同收款相关的业务逻辑,符合三层架构规范
 """
 
+from django.utils.translation import gettext_lazy as _
 from datetime import date
 from decimal import Decimal
 from typing import Any, cast
@@ -133,7 +134,7 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 数据验证失败
             NotFoundError: 合同不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
+        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
 
         # 二次确认检查
         if not confirm:
@@ -221,7 +222,7 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 数据验证失败
             NotFoundError: 收款不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
+        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
 
         # 二次确认检查
         if not confirm:
@@ -323,7 +324,7 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 未二次确认
             NotFoundError: 收款不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
+        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
 
         # 二次确认检查
         if not confirm:

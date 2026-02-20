@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any
@@ -35,7 +36,7 @@ class CaseLogAttachmentService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message="无权限上传附件",
+                message=_("无权限上传附件"),
             )
 
         created = []
@@ -65,7 +66,7 @@ class CaseLogAttachmentService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=attachment.log.case,
-                message="无权限删除此附件",
+                message=_("无权限删除此附件"),
             )
 
         if attachment.file:

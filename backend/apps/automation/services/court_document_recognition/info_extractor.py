@@ -7,6 +7,7 @@
 Requirements: 4.3, 4.4, 4.7
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import Any
@@ -213,7 +214,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 extra={"action": "extract_execution_info", "error_type": "connection_error", "error": str(e)},
             )
             raise ServiceUnavailableError(
-                message="AI 服务暂时不可用，请稍后重试",
+                message=_("AI 服务暂时不可用，请稍后重试"),
                 code="OLLAMA_SERVICE_UNAVAILABLE",
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
@@ -224,7 +225,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 extra={"action": "extract_execution_info", "error_type": "timeout_error", "error": str(e)},
             )
             raise RecognitionTimeoutError(
-                message="信息提取超时，请重试",
+                message=_("信息提取超时，请重试"),
                 code="EXTRACTION_TIMEOUT",
                 errors={"timeout": "AI 提取超时"},
             ) from e

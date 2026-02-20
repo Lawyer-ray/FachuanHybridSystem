@@ -1,5 +1,6 @@
 """API endpoints."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -430,7 +431,7 @@ class InsuranceApiMixin:
             company=company,
             premium=None,
             status="failed",
-            error_message="未找到报价金额",
+            error_message=_("未找到报价金额"),
             response_data=data,
             request_info=request_info,
         )

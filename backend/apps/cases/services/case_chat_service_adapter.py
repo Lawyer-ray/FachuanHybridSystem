@@ -3,6 +3,7 @@
 实现跨模块接口，提供案件群聊服务的统一接口
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import cast
 
@@ -83,7 +84,7 @@ class CaseChatServiceAdapter(ICaseChatService):
                 f"发送消息到案件群聊时发生未预期错误：{e}",
                 extra={"action": "send_message_to_case_chat", "case_id": case_id, "error": str(e)},
             )
-            raise BusinessException(message="发送消息时发生系统错误", code="SYSTEM_ERROR") from e
+            raise BusinessException(message=_("发送消息时发生系统错误"), code="SYSTEM_ERROR") from e
 
     def get_case_chat_id(self, case_id: int) -> str | None:
         """

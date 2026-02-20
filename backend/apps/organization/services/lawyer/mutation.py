@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,7 @@ class LawyerMutationService:
                 f"用户 {user.pk} 尝试创建律师但权限不足",
                 extra={"user_id": user.pk, "action": "create_lawyer"},
             )
-            raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限创建律师"), code="PERMISSION_DENIED")
 
         self._validate_create_data(data)
 
@@ -38,7 +39,7 @@ class LawyerMutationService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
+                    message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
 
         lawyer = Lawyer(
@@ -79,7 +80,7 @@ class LawyerMutationService:
                 f"用户 {user.pk} 尝试更新律师 {lawyer.pk} 但权限不足",
                 extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "update_lawyer"},
             )
-            raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限更新该律师信息"), code="PERMISSION_DENIED")
 
         self._validate_update_data(lawyer, data)
         self._apply_field_updates(lawyer, data)
@@ -115,7 +116,7 @@ class LawyerMutationService:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
             if not law_firm:
                 raise ValidationException(
-                    message="律所不存在", code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
+                    message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": "无效的律所 ID"}
                 )
             lawyer.law_firm = law_firm
 
@@ -129,10 +130,10 @@ class LawyerMutationService:
                 f"用户 {user.pk} 尝试删除律师 {lawyer.pk} 但权限不足",
                 extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "delete_lawyer"},
             )
-            raise PermissionDenied(message="无权限删除该律师", code="PERMISSION_DENIED")
+            raise PermissionDenied(message=_("无权限删除该律师"), code="PERMISSION_DENIED")
 
         if hasattr(lawyer, "created_cases") and lawyer.created_cases.exists():
-            raise ConflictError(message="该律师创建了案件,无法删除", code="LAWYER_HAS_CASES")
+            raise ConflictError(message=_("该律师创建了案件,无法删除"), code="LAWYER_HAS_CASES")
 
         affected_team_ids = set(lawyer.lawyer_teams.values_list("id", flat=True))
         affected_user_ids = set(
@@ -153,18 +154,18 @@ class LawyerMutationService:
     def _validate_create_data(self, data: LawyerCreateDTO) -> None:
         if Lawyer.objects.filter(username=data.username).exists():
             raise ValidationException(
-                message="用户名已存在", code="DUPLICATE_USERNAME", errors={"username": "该用户名已被使用"}
+                message=_("用户名已存在"), code="DUPLICATE_USERNAME", errors={"username": "该用户名已被使用"}
             )
 
         if data.phone and Lawyer.objects.filter(phone=data.phone).exists():
             raise ValidationException(
-                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
+                message=_("手机号已存在"), code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
     def _validate_update_data(self, lawyer: Lawyer, data: LawyerUpdateDTO) -> None:
         if data.phone and data.phone != lawyer.phone and Lawyer.objects.filter(phone=data.phone).exists():
             raise ValidationException(
-                message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
+                message=_("手机号已存在"), code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
     def _set_lawyer_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
@@ -172,14 +173,14 @@ class LawyerMutationService:
 
         if not teams:
             raise ValidationException(
-                message="律师必须至少关联一个律师团队",
+                message=_("律师必须至少关联一个律师团队"),
                 code="NO_LAWYER_TEAMS",
                 errors={"lawyer_team_ids": "至少需要一个律师团队"},
             )
 
         if law_firm and any(t.law_firm_id != law_firm.pk for t in teams):
             raise ValidationException(
-                message="团队所属律所必须与律师所属律所一致",
+                message=_("团队所属律所必须与律师所属律所一致"),
                 code="TEAM_LAWFIRM_MISMATCH",
                 errors={"lawyer_team_ids": "团队律所不匹配"},
             )
@@ -201,7 +202,7 @@ class LawyerMutationService:
 
         if law_firm and any(t.law_firm_id != law_firm.pk for t in teams):
             raise ValidationException(
-                message="团队所属律所必须与律师所属律所一致",
+                message=_("团队所属律所必须与律师所属律所一致"),
                 code="TEAM_LAWFIRM_MISMATCH",
                 errors={"biz_team_ids": "团队律所不匹配"},
             )

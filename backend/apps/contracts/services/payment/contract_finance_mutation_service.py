@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from collections.abc import Callable
 from decimal import Decimal
@@ -43,7 +44,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
         contract = Contract.objects.filter(id=contract_id).values("id", "fixed_amount").first()
         if not contract:
-            raise NotFoundError(message="合同不存在", code="CONTRACT_NOT_FOUND")
+            raise NotFoundError(message=_("合同不存在"), code="CONTRACT_NOT_FOUND")
 
         agg = ContractPayment.objects.filter(contract_id=contract_id).aggregate(
             total_received=Sum("amount"),
@@ -90,7 +91,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         user_id = getattr(user, "id", None)
 
         if touch_finance:
-            self.ensure_admin(user, message="修改财务数据需要管理员权限")
+            self.ensure_admin(user, message=_("修改财务数据需要管理员权限"))
             old_finance = {k: getattr(contract, k) for k in finance_keys}
 
         contract = self.mutation_service.update_contract(contract_id, update_data)
@@ -213,4 +214,4 @@ class ContractFinanceMutationService(DjangoPermsMixin):
                 errors["risk_rate"] = "半风险模式下,风险费率必须大于0"
 
         if errors:
-            raise ValidationException(message="收费模式数据验证失败", code="INVALID_FEE_MODE", errors=errors)
+            raise ValidationException(message=_("收费模式数据验证失败"), code="INVALID_FEE_MODE", errors=errors)

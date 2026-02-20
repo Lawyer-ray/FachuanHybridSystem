@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,7 +41,7 @@ class PartySelectionPolicy:
         if function_code == legal_rep_cert_code:
             if client_id is None:
                 raise ValidationException(
-                    message="法定代表人身份证明书需要指定当事人",
+                    message=_("法定代表人身份证明书需要指定当事人"),
                     code="INVALID_CLIENT",
                     errors={"client_id": "必须提供 client_id"},
                 )
@@ -62,14 +63,14 @@ class PartySelectionPolicy:
         client_dto = self.client_service.get_client_internal(client_id)
         if not client_dto:
             raise ValidationException(
-                message="当事人不存在",
+                message=_("当事人不存在"),
                 code="INVALID_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
 
         if not self.repo.is_our_party(case, client_id=client_id):
             raise ValidationException(
-                message="当事人非我方当事人",
+                message=_("当事人非我方当事人"),
                 code="INVALID_OUR_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是该案件的我方当事人"},
             )
@@ -81,7 +82,7 @@ class PartySelectionPolicy:
         is_natural = self.client_service.is_natural_person_internal(client_id)
         if is_natural:
             raise ValidationException(
-                message="当事人非法人",
+                message=_("当事人非法人"),
                 code="INVALID_LEGAL_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是法人"},
             )

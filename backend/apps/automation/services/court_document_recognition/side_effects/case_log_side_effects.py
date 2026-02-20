@@ -1,5 +1,6 @@
 """Side effect handlers."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import os
 from datetime import datetime
@@ -80,4 +81,4 @@ class CaseLogSideEffects:
             else:
                 logger.warning("更新日志提醒失败", extra={"action": "update_log_reminder", "case_log_id": case_log_id})
         except Exception as e:
-            raise ValidationException(message="更新日志提醒失败", code="REMINDER_UPDATE_FAILED", errors={}) from e
+            raise ValidationException(message=_("更新日志提醒失败"), code="REMINDER_UPDATE_FAILED", errors={}) from e

@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import contextlib
@@ -27,7 +28,7 @@ class EvidenceFileService:
         ext = ext.lower()
         if ext not in self.SUPPORTED_FORMATS:
             raise ValidationException(
-                message="不支持的文件格式",
+                message=_("不支持的文件格式"),
                 code="UNSUPPORTED_FILE_FORMAT",
                 errors={
                     "file": f"不支持 {ext} 格式",
@@ -37,7 +38,7 @@ class EvidenceFileService:
 
         if file_size > self.MAX_FILE_SIZE:
             raise ValidationException(
-                message="文件过大",
+                message=_("文件过大"),
                 code="FILE_TOO_LARGE",
                 errors={
                     "file": f"文件大小 {file_size / (1024 * 1024):.1f}MB 超过限制 50MB",

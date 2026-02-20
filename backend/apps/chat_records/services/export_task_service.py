@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 from typing import Any, cast
@@ -53,7 +54,7 @@ class ExportTaskService:
             progress=0,
             current=0,
             total=0,
-            message="准备导出",
+            message=_("准备导出"),
         )
         return task
 
@@ -73,7 +74,7 @@ class ExportTaskService:
             started_at=timezone.now(),
             finished_at=None,
             error="",
-            message="任务已提交",
+            message=_("任务已提交"),
             progress=0,
             current=0,
             total=0,

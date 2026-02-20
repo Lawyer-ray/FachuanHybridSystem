@@ -3,6 +3,7 @@
 封装 Admin 层的复杂业务逻辑
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -161,7 +162,7 @@ class ClientAdminService:
             self._validate_identity_docs_data(json_data["identity_docs"], errors)
 
         if errors:
-            raise ValidationException(message="JSON 数据验证失败", code="INVALID_JSON", errors=errors)
+            raise ValidationException(message=_("JSON 数据验证失败"), code="INVALID_JSON", errors=errors)
 
     def _validate_identity_docs_data(self, docs_data: list[dict[str, Any]], errors: dict[str, Any]) -> None:
         """
@@ -256,7 +257,7 @@ class ClientAdminService:
             client = Client.objects.filter(id=client_id).first()
             if not client:
                 raise ValidationException(
-                    message="客户不存在",
+                    message=_("客户不存在"),
                     code="CLIENT_NOT_FOUND",
                     errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
                 )

@@ -1,5 +1,6 @@
 """Data processing logic."""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, cast
@@ -43,7 +44,7 @@ class DataProcessorMixin:
 
         file_path = self._download_document(page, entry)
         if not file_path:
-            result.error_message = "文书下载失败"
+            result.error_message = _("文书下载失败")
             return result
 
         process_result = self.processor.process_downloaded_document(

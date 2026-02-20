@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from typing import Any
 
 from apps.client.models import Client
@@ -25,7 +26,7 @@ class ClientJsonImportValidator:
             self._validate_identity_docs_data(json_data["identity_docs"], errors)
 
         if errors:
-            raise ValidationException(message="JSON 数据验证失败", code="INVALID_JSON", errors=errors)
+            raise ValidationException(message=_("JSON 数据验证失败"), code="INVALID_JSON", errors=errors)
 
     def _validate_identity_docs_data(self, docs_data: list[dict[str, Any]], errors: dict[str, Any]) -> None:
         if not isinstance(docs_data, list):

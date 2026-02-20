@@ -4,6 +4,7 @@ Prompt 模板服务
 提供 Prompt 模板的 CRUD 操作和缓存管理.
 """
 
+from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -44,14 +45,14 @@ class PromptTemplateService:
         """
         if not name or not name.strip():
             raise ValidationException(
-                message="模板名称不能为空",
+                message=_("模板名称不能为空"),
                 code="INVALID_TEMPLATE_NAME",
                 errors={"name": "模板名称不能为空"},
             )
 
         if not title or not title.strip():
             raise ValidationException(
-                message="显示标题不能为空",
+                message=_("显示标题不能为空"),
                 code="INVALID_TEMPLATE_TITLE",
                 errors={"title": "显示标题不能为空"},
             )
@@ -104,7 +105,7 @@ class PromptTemplateService:
             prompt_template = PromptTemplate.objects.get(id=template_id)
         except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
-                message="Prompt 模板不存在",
+                message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from e
@@ -112,7 +113,7 @@ class PromptTemplateService:
         if title is not None:
             if not title or not title.strip():
                 raise ValidationException(
-                    message="显示标题不能为空",
+                    message=_("显示标题不能为空"),
                     code="INVALID_TEMPLATE_TITLE",
                     errors={"title": "显示标题不能为空"},
                 )
@@ -158,7 +159,7 @@ class PromptTemplateService:
             prompt_template = PromptTemplate.objects.get(id=template_id)
         except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
-                message="Prompt 模板不存在",
+                message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from e
@@ -185,7 +186,7 @@ class PromptTemplateService:
             return PromptTemplate.objects.get(id=template_id)
         except PromptTemplate.DoesNotExist as e:
             raise NotFoundError(
-                message="Prompt 模板不存在",
+                message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from e

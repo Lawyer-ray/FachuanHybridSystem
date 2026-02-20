@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -196,7 +197,7 @@ class PreservationDateExtractionService:
         )
 
         if not response or not response.content:
-            raise ValidationException(message="大模型调用失败", code="LLM_ERROR", errors={})
+            raise ValidationException(message=_("大模型调用失败"), code="LLM_ERROR", errors={})
 
         model_used = f"{response.backend}/{response.model}" if hasattr(response, "backend") else response.model
         logger.info(f"使用模型: {model_used}")

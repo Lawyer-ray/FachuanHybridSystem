@@ -4,6 +4,7 @@
 负责页面抓取、下载和后续处理协调。
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import traceback
 from datetime import datetime
@@ -253,7 +254,7 @@ class DocumentDeliveryService(
                 else:
                     logger.warning(f"文书下载失败: {file_name}")
             if not downloaded_files:
-                result.error_message = "所有文书下载失败"
+                result.error_message = _("所有文书下载失败")
                 logger.error(result.error_message)
                 return result
             send_time = record.parse_fssj()
@@ -532,7 +533,7 @@ class DocumentDeliveryService(
         try:
             file_path = self._download_document(page, entry)
             if not file_path:
-                result.error_message = "文书下载失败"
+                result.error_message = _("文书下载失败")
                 return result
             process_result = self._process_downloaded_document(file_path, entry, credential_id)
             self._record_query_history_in_thread(credential_id, entry)

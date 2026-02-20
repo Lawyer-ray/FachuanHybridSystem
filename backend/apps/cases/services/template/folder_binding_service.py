@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -106,7 +107,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case = self._get_case_internal(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在",
+                message=_("案件不存在"),
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
@@ -117,7 +118,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             org_access=org_access,
             perm_open_access=perm_open_access,
             case=case,
-            message="无权限访问此案件",
+            message=_("无权限访问此案件"),
         )
 
         return case
@@ -149,7 +150,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case = self._get_case_internal(owner_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在",
+                message=_("案件不存在"),
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {owner_id} 的案件不存在"},
             )

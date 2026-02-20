@@ -6,6 +6,7 @@
 Requirements: 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 6.2, 6.3, 7.4
 """
 
+from django.utils.translation import gettext_lazy as _
 import io
 import logging
 import re
@@ -137,12 +138,12 @@ class CaseTemplateGenerationService:
         client_dto = client_service.get_client_internal(client_id)
         if not client_dto:
             raise ValidationException(
-                message="当事人不存在", code="INVALID_CLIENT", errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
+                message=_("当事人不存在"), code="INVALID_CLIENT", errors={"client_id": f"ID 为 {client_id} 的当事人不存在"}
             )
         is_party = case.parties.filter(client_id=client_id, client__is_our_client=True).exists()
         if not is_party:
             raise ValidationException(
-                message="当事人非我方当事人",
+                message=_("当事人非我方当事人"),
                 code="INVALID_OUR_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是该案件的我方当事人"},
             )
@@ -169,7 +170,7 @@ class CaseTemplateGenerationService:
         is_natural = client_service.is_natural_person_internal(client_id)
         if is_natural:
             raise ValidationException(
-                message="当事人非法人",
+                message=_("当事人非法人"),
                 code="INVALID_LEGAL_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是法人"},
             )
@@ -204,7 +205,7 @@ class CaseTemplateGenerationService:
         case = case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         return case
 
@@ -225,7 +226,7 @@ class CaseTemplateGenerationService:
         template = document_service.get_template_by_id_internal(template_id)
         if not template:
             raise NotFoundError(
-                message="模板不存在",
+                message=_("模板不存在"),
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -247,7 +248,7 @@ class CaseTemplateGenerationService:
         location = (getattr(template, "file_path", None) or "").strip()
         if not location:
             raise ValidationException(
-                message="模板文件路径为空", code="TEMPLATE_FILE_EMPTY", errors={"template_id": str(template.id)}
+                message=_("模板文件路径为空"), code="TEMPLATE_FILE_EMPTY", errors={"template_id": str(template.id)}
             )
         path = Path(location)
         if not path.exists():

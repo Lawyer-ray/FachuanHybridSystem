@@ -1,5 +1,6 @@
 """飞书群主相关操作 Mixin"""
 
+from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
@@ -37,7 +38,7 @@ class FeishuOwnerMixin:
         """获取群聊详细信息"""
         if not self.is_available():
             raise ConfigurationException(
-                message="飞书配置不完整，无法获取群聊信息", platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message=_("飞书配置不完整，无法获取群聊信息"), platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         try:
@@ -67,7 +68,7 @@ class FeishuOwnerMixin:
             logger.debug(f"成功获取飞书群聊信息: {chat_id} (名称: {chat_name})")
 
             return ChatResult(
-                success=True, chat_id=chat_id, chat_name=chat_name, message="获取群聊信息成功", raw_response=data
+                success=True, chat_id=chat_id, chat_name=chat_name, message=_("获取群聊信息成功"), raw_response=data
             )
 
         except ChatProviderException:
@@ -119,7 +120,7 @@ class FeishuOwnerMixin:
         """获取群聊群主信息"""
         if not self.is_available():
             raise ConfigurationException(
-                message="飞书配置不完整，无法获取群聊群主信息", platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message=_("飞书配置不完整，无法获取群聊群主信息"), platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         try:

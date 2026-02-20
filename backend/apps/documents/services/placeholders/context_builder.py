@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 """
@@ -108,7 +109,7 @@ class EnhancedContextBuilder:
 
             if not contract_dto:
                 raise ValidationException(
-                    message="合同不存在",
+                    message=_("合同不存在"),
                     code="CONTRACT_NOT_FOUND",
                     errors={"contract_id": f"ID 为 {contract_id} 的合同不存在"},
                 )
@@ -116,7 +117,7 @@ class EnhancedContextBuilder:
             contract = contract_service.get_contract_model_internal(contract_id)
             if not contract:
                 raise ValidationException(
-                    message="合同不存在",
+                    message=_("合同不存在"),
                     code="CONTRACT_NOT_FOUND",
                     errors={"contract_id": f"ID 为 {contract_id} 的合同不存在"},
                 )
@@ -132,7 +133,7 @@ class EnhancedContextBuilder:
 
             logger.error(f"构建合同上下文失败: {e}", extra={"contract_id": contract_id}, exc_info=True)
             raise ValidationException(
-                message="构建合同上下文失败",
+                message=_("构建合同上下文失败"),
                 code="CONTEXT_BUILD_ERROR",
                 errors={"contract_id": f"合同 {contract_id} 上下文构建失败: {e!s}"},
             ) from e

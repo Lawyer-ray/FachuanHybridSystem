@@ -7,6 +7,7 @@
 Requirements: 8.1, 8.2, 8.3, 8.4
 """
 
+from django.utils.translation import gettext_lazy as _
 import logging
 import time
 import traceback
@@ -249,7 +250,7 @@ class CourtDocumentApiClient:
 
                 # 检查 HTTP 状态码
                 if response.status_code == 401:
-                    raise TokenExpiredError(message="Token 已过期或无效", errors={"status_code": 401})
+                    raise TokenExpiredError(message=_("Token 已过期或无效"), errors={"status_code": 401})
 
                 if response.status_code >= 400:
                     logger.error(f"HTTP 错误: {response.status_code}, url={url}")

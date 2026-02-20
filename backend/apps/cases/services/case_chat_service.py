@@ -18,6 +18,7 @@
 - 支持多平台群聊
 """
 
+from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
 
 import logging
@@ -89,12 +90,12 @@ class CaseChatService:
         """
         if not case:
             raise ValidationException(
-                message="案件对象不能为空", code="INVALID_CASE", errors={"case": "案件对象为必填项"}
+                message=_("案件对象不能为空"), code="INVALID_CASE", errors={"case": "案件对象为必填项"}
             )
 
         if not case.name:
             raise ValidationException(
-                message="案件名称不能为空", code="INVALID_CASE_NAME", errors={"case_name": "案件名称为必填项"}
+                message=_("案件名称不能为空"), code="INVALID_CASE_NAME", errors={"case_name": "案件名称为必填项"}
             )
 
         # 使用配置服务渲染群名
@@ -148,7 +149,7 @@ class CaseChatService:
         """
         if not case_id or not isinstance(case_id, int) or case_id <= 0:
             raise ValidationException(
-                message="无效的案件ID", code="INVALID_CASE_ID", errors={"case_id": "案件ID必须是正整数"}
+                message=_("无效的案件ID"), code="INVALID_CASE_ID", errors={"case_id": "案件ID必须是正整数"}
             )
 
         try:
@@ -240,7 +241,7 @@ class CaseChatService:
         except Exception as e:
             logger.error(f"创建群聊时发生未预期错误: case_id={case.pk}, error={e!s}")
             raise ChatCreationException(
-                message="创建群聊时发生系统错误",
+                message=_("创建群聊时发生系统错误"),
                 code="SYSTEM_ERROR",
                 platform=platform.value,
                 errors={"case_id": case.pk, "original_error": str(e)},
@@ -370,7 +371,7 @@ class CaseChatService:
 
         if not sms_content or not sms_content.strip():
             raise ValidationException(
-                message="短信内容不能为空",
+                message=_("短信内容不能为空"),
                 code="INVALID_SMS_CONTENT",
                 errors={"sms_content": "短信内容为必填项"},
             )
@@ -425,7 +426,7 @@ class CaseChatService:
         except Exception as e:
             logger.error(f"发送文书通知时发生未预期错误: case_id={case_id}, chat_id={chat.chat_id}, error={e!s}")
             raise MessageSendException(
-                message="发送文书通知时发生系统错误",
+                message=_("发送文书通知时发生系统错误"),
                 code="SYSTEM_ERROR",
                 platform=platform.value,
                 chat_id=chat.chat_id,
@@ -503,7 +504,7 @@ class CaseChatService:
         logger.info(f"解除群聊绑定: chat_id={chat_id}")
         if not chat_id or not isinstance(chat_id, int) or chat_id <= 0:
             raise ValidationException(
-                message="无效的群聊ID", code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID必须是正整数"}
+                message=_("无效的群聊ID"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID必须是正整数"}
             )
 
         try:
@@ -524,7 +525,7 @@ class CaseChatService:
         except Exception as e:
             logger.error(f"解除群聊绑定时发生错误: chat_id={chat_id}, error={e!s}")
             raise ValidationException(
-                message="解除群聊绑定时发生系统错误",
+                message=_("解除群聊绑定时发生系统错误"),
                 code="SYSTEM_ERROR",
                 errors={"chat_id": chat_id, "original_error": str(e)},
             ) from e
@@ -567,7 +568,7 @@ class CaseChatService:
         # 验证参数
         if not chat_id or not chat_id.strip():
             raise ValidationException(
-                message="群聊ID不能为空", code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
+                message=_("群聊ID不能为空"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
             )
 
         chat_id = chat_id.strip()
@@ -583,7 +584,7 @@ class CaseChatService:
         if existing_binding:
             logger.warning(f"群聊绑定已存在: case_id={case_id}, chat_id={chat_id}")
             raise ValidationException(
-                message="该群聊已绑定到此案件",
+                message=_("该群聊已绑定到此案件"),
                 code="CHAT_ALREADY_BOUND",
                 errors={"case_id": case_id, "chat_id": chat_id, "existing_binding_id": existing_binding.id},
             )
@@ -625,7 +626,7 @@ class CaseChatService:
         except Exception as e:
             logger.error(f"创建群聊绑定记录失败: case_id={case_id}, chat_id={chat_id}, error={e!s}")
             raise ValidationException(
-                message="创建群聊绑定记录失败",
+                message=_("创建群聊绑定记录失败"),
                 code="BINDING_CREATION_ERROR",
                 errors={"case_id": case_id, "chat_id": chat_id, "original_error": str(e)},
             ) from e
