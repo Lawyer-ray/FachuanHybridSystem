@@ -7,7 +7,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.html import format_html
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.exceptions import ChatProviderException
@@ -77,16 +77,16 @@ class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
             url = reverse("admin:cases_case_change", args=[case_id])
             case_name = getattr(obj.case, "name", str(case_id))
             return format_html('<a href="{}" target="_blank">{}</a>', url, case_name)
-        return mark_safe("-")
+        return format_html('<span>{}</span>', "-")
 
     case_link.short_description = _("关联案件")  # type: ignore[attr-defined]
 
     def status_display(self, obj: CaseChat) -> SafeString:
         """状态显示"""
         if obj.is_active:
-            return mark_safe('<span style="color: green;">●</span> 有效')
+            return format_html('<span style="color: green;">●</span> {}', "有效")
         else:
-            return mark_safe('<span style="color: red;">●</span> 已解绑')
+            return format_html('<span style="color: red;">●</span> {}', "已解绑")
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
@@ -171,12 +171,12 @@ class CaseChatInline(BaseTabularInline):
     def status_display(self, obj: CaseChat) -> SafeString:
         """状态显示"""
         if not obj.pk:
-            return mark_safe("")
+            return format_html('<span>{}</span>', "")
 
         if obj.is_active:
-            return mark_safe('<span style="color: green;">●</span> 有效')
+            return format_html('<span style="color: green;">●</span> {}', "有效")
         else:
-            return mark_safe('<span style="color: red;">●</span> 已解绑')
+            return format_html('<span style="color: red;">●</span> {}', "已解绑")
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 

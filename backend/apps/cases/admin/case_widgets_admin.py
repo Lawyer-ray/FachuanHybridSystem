@@ -6,7 +6,8 @@ import json
 from typing import Any, ClassVar
 
 from django import forms
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import SafeString
 
 
 class AutocompleteWidget(forms.TextInput):
@@ -247,7 +248,7 @@ class AutocompleteWidget(forms.TextInput):
         """
 
         container_html = container_html.replace("{component_name}", component_name)
-        return mark_safe(container_html)
+        return format_html("{}", container_html)
 
     class Media:
         css: ClassVar = {"all": ("cases/css/autocomplete.css",)}
