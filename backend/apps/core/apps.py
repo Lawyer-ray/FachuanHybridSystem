@@ -9,6 +9,7 @@ from typing import Any
 
 from django.apps import AppConfig
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class CoreConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.core"
-    verbose_name = "核心系统"
+    verbose_name = _("核心系统")
 
     def ready(self) -> None:
         """应用就绪时的初始化操作"""

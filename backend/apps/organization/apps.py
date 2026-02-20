@@ -1,7 +1,8 @@
 from django.apps import AppConfig
+from django.utils.translation import gettext_lazy as _
 
 
 class OrganizationConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.organization"
-    verbose_name = "组织管理"
+    verbose_name = _("组织管理")
