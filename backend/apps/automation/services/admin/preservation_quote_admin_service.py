@@ -6,6 +6,7 @@
 from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -87,11 +88,12 @@ class PreservationQuoteAdminService:
             for quote in executable_quotes:
                 try:
                     # 调用询价服务执行任务
-                    result = await self.preservation_quote_service.execute_quote(quote.id)
+                    quote_result = await self.preservation_quote_service.execute_quote(quote.id)
                     success_count += 1
 
                     self.logger.info(
-                        "询价任务执行成功", extra={"action": "execute_quotes", "quote_id": quote.id, "result": result}
+                        "询价任务执行成功",
+                        extra={"action": "execute_quotes", "quote_id": quote.id, "result": quote_result},
                     )
 
                 except Exception as e:
@@ -277,7 +279,7 @@ class PreservationQuoteAdminService:
             now = timezone.now()
             date_stats = []
             for i in range(30):
-                date = (now - timezone.timedelta(days=i)).date()
+                date = (now - timedelta(days=i)).date()
                 day_count = queryset.filter(created_at__date=date).count()
                 day_success = queryset.filter(created_at__date=date, status=QuoteStatus.SUCCESS).count()
 

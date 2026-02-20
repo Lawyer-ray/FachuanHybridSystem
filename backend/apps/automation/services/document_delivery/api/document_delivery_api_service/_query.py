@@ -19,6 +19,8 @@ from apps.automation.services.document_delivery.data_classes import (
 if TYPE_CHECKING:
     from apps.automation.services.document_delivery.court_document_api_client import CourtDocumentApiClient
 
+from abc import abstractmethod
+
 logger = logging.getLogger("apps.automation")
 
 __all__ = ["DocumentQueryMixin"]
@@ -27,7 +29,9 @@ __all__ = ["DocumentQueryMixin"]
 class DocumentQueryMixin:
     """文书查询与分页 Mixin"""
 
-    api_client: "CourtDocumentApiClient"
+    @property
+    @abstractmethod
+    def api_client(self) -> "CourtDocumentApiClient": ...
 
     def query_documents(self, token: str, cutoff_time: datetime, credential_id: int) -> DocumentQueryResult:
         """
@@ -102,7 +106,7 @@ class DocumentQueryMixin:
 
     def _process_document_page(
         self,
-        documents: list[DocumentRecord],
+        documents: list[Any],
         token: str,
         cutoff_time: datetime,
         credential_id: int,

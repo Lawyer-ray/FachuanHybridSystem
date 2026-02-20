@@ -9,8 +9,7 @@ from typing import Any, cast
 
 from django.contrib import admin
 from django.urls import reverse
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
@@ -207,14 +206,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         """是否有下载链接"""
         if obj.download_links:
             return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
-        return mark_safe('<span style="color: gray;">✗ 无链接</span>')
+        return format_html('<span style="color: gray;">✗ 无链接</span>')
 
     has_download_links.short_description = _("下载链接")
 
     def case_numbers_display(self, obj) -> None:
         """案号显示"""
         if obj.case_numbers:
-            return mark_safe("<br>".join(obj.case_numbers))
+            return format_html_join("<br>", "{}", ((n,) for n in obj.case_numbers))
         return "-"
 
     case_numbers_display.short_description = _("提取的案号")
@@ -222,7 +221,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def party_names_display(self, obj) -> None:
         """当事人显示"""
         if obj.party_names:
-            return mark_safe("<br>".join(obj.party_names))
+            return format_html_join("<br>", "{}", ((n,) for n in obj.party_names))
         return "-"
 
     party_names_display.short_description = _("提取的当事人")
@@ -230,10 +229,11 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def download_links_display(self, obj) -> None:
         """下载链接显示"""
         if obj.download_links:
-            links_html: list[Any] = []
-            for i, link in enumerate(obj.download_links, 1):
-                links_html.append(f'<p><strong>链接 {i}:</strong><br><a href="{link}" target="_blank">{link}</a></p>')
-            return mark_safe("".join(links_html))
+            parts = [
+                format_html('<p><strong>链接 {}:</strong><br><a href="{}" target="_blank">{}</a></p>', i, link, link)
+                for i, link in enumerate(obj.download_links, 1)
+            ]
+            return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
     download_links_display.short_description = _("下载链接")
@@ -266,7 +266,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         if obj.scraper_task and hasattr(obj.scraper_task, "documents"):
             documents = obj.scraper_task.documents.all()
             if documents:
-                docs_html: list[Any] = []
+                parts = []
                 for doc in documents:
                     status_color = {
                         "success": "green",
@@ -276,11 +276,12 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                     }.get(doc.download_status, "gray")
 
                     doc_url = reverse("admin:automation_courtdocument_change", args=[cast(int, doc.id)])
-                    docs_html.append(
-                        f'<p><a href="{doc_url}" target="_blank">{doc.c_wsmc}</a> '
-                        f'<span style="color: {status_color};">({doc.get_download_status_display()})</span></p>'
-                    )
-                return mark_safe("".join(docs_html))
+                    parts.append(format_html(
+                        '<p><a href="{}" target="_blank">{}</a> '
+                        '<span style="color: {};">({}</span>)</p>',
+                        doc_url, doc.c_wsmc, status_color, doc.get_download_status_display(),
+                    ))
+                return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
     documents_display.short_description = _("关联文书")
@@ -307,7 +308,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                 '<span style="color: red;">✗ 通知失败</span><br><small style="color: #d63384;">{}</small>',
                 error_preview,
             )
-        return mark_safe('<span style="color: gray;">- 未发送</span>')
+        return format_html('<span style="color: gray;">- 未发送</span>')
 
     feishu_status.short_description = _("通知状态")
 

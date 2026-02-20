@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.conf import settings
 from django.utils import translation
-from django.utils.translation import get_languages
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
@@ -19,7 +19,7 @@ class I18nService:
         """返回系统支持的语言列表"""
         languages: list[dict[str, str]] = [
             {"code": code, "name": str(name)}
-            for code, name in get_languages()
+            for code, name in settings.LANGUAGES
         ]
         logger.info("获取支持语言列表", extra={"count": len(languages)})
         return languages
@@ -35,7 +35,7 @@ class I18nService:
         Raises:
             ValidationException: 不支持的语言代码
         """
-        supported = [code for code, _ in get_languages()]
+        supported = [code for code, _ in settings.LANGUAGES]
         if language_code not in supported:
             raise ValidationException(
                 message=_("不支持的语言代码"),

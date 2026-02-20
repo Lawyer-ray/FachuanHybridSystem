@@ -8,7 +8,6 @@ from django.contrib import admin, messages
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus
@@ -190,7 +189,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
                 size_str = f"{size} B"
 
             return format_html('<span style="color: #666;">{}</span>', size_str)
-        return mark_safe('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">-</span>')
 
     file_info_display.short_description = _("文件大小")
 
@@ -208,7 +207,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             return format_html(
                 '<span style="color: #007bff; font-weight: bold;">{}</span> ({} 字节)', size_str, f"{size:,}"
             )
-        return mark_safe('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">-</span>')
 
     file_size_display.short_description = _("文件大小")
 
@@ -222,7 +221,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
                 "📥 下载</a>",
                 obj.local_file_path,
             )
-        return mark_safe('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">-</span>')
 
     download_link.short_description = _("文件下载")
 
@@ -242,11 +241,11 @@ class CourtDocumentAdmin(admin.ModelAdmin):
                 filename,
             )
         elif obj.download_status == DocumentDownloadStatus.FAILED:
-            return mark_safe('<span style="color: #dc3545; font-weight: bold;">下载失败</span>')
+            return format_html('<span style="color: #dc3545; font-weight: bold;">下载失败</span>')
         elif obj.download_status == DocumentDownloadStatus.DOWNLOADING:
-            return mark_safe('<span style="color: #007bff; font-weight: bold;">下载中...</span>')
+            return format_html('<span style="color: #007bff; font-weight: bold;">下载中...</span>')
         else:
-            return mark_safe('<span style="color: #ffa500; font-weight: bold;">待下载</span>')
+            return format_html('<span style="color: #ffa500; font-weight: bold;">待下载</span>')
 
     download_link_detail.short_description = _("文件下载")
 

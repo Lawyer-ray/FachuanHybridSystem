@@ -13,7 +13,7 @@ class Command(BaseCommand):
         parser.add_argument("--case-id", type=int, default=None, help="仅同步指定案件 ID")
         parser.add_argument("--dry-run", action="store_true", help="只统计,不写入")
 
-    def handle(self, *args: Any, **options: Any) -> None:  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         contract_id = options["contract_id"]
         case_id = options["case_id"]
         dry_run = bool(options["dry_run"])
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         created_total = 0
         deleted_total = 0
         for case in qs.iterator(chunk_size=200):
-            stats = service.sync_assignments_from_contract(case_id=case.id, user=None, perm_open_access=True)  # type: ignore[arg-type, attr-defined]
+            stats = service.sync_assignments_from_contract(case_id=case.id, user=None, perm_open_access=True)  # type: ignore[attr-defined]
             created_total += int(stats.get("created", 0))
             deleted_total += int(stats.get("deleted", 0))
         self.stdout.write(self.style.SUCCESS("同步完成"))

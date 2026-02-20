@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentDeliverySchedule
@@ -155,9 +154,9 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     def status_display(self, obj):
         """状态显示（带颜色）"""
         if obj.is_active:
-            return mark_safe('<span style="color: green; font-weight: bold;">✓ 启用</span>')
+            return format_html('<span style="color: green; font-weight: bold;">✓ 启用</span>')
         else:
-            return mark_safe('<span style="color: red; font-weight: bold;">✗ 禁用</span>')
+            return format_html('<span style="color: red; font-weight: bold;">✗ 禁用</span>')
 
     status_display.short_description = _("状态")
 
@@ -188,14 +187,14 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
                 time_str,
                 obj.last_run_at.strftime("%m-%d %H:%M"),
             )
-        return mark_safe('<span style="color: gray;">从未运行</span>')
+        return format_html('<span style="color: gray;">从未运行</span>')
 
     last_run_display.short_description = _("上次运行")
 
     def next_run_display(self, obj):
         """下次运行时间显示"""
         if not obj.is_active:
-            return mark_safe('<span style="color: gray;">已禁用</span>')
+            return format_html('<span style="color: gray;">已禁用</span>')
 
         if obj.next_run_at:
             now = timezone.now()
@@ -230,7 +229,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
                 time_str,
                 obj.next_run_at.strftime("%m-%d %H:%M"),
             )
-        return mark_safe('<span style="color: gray;">未设置</span>')
+        return format_html('<span style="color: gray;">未设置</span>')
 
     next_run_display.short_description = _("下次运行")
 

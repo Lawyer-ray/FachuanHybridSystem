@@ -1,6 +1,7 @@
 """案件匹配、文书重命名、通知发送逻辑"""
 
 import logging
+from abc import abstractmethod
 from pathlib import Path
 from datetime import date
 from typing import TYPE_CHECKING, Any
@@ -18,9 +19,17 @@ __all__ = ["DocumentMatchingMixin"]
 class DocumentMatchingMixin:
     """案件匹配、重命名、通知 Mixin"""
 
-    case_matcher: "CaseMatcher"
-    document_renamer: "DocumentRenamer"
-    notification_service: "SMSNotificationService"
+    @property
+    @abstractmethod
+    def case_matcher(self) -> "CaseMatcher": ...
+
+    @property
+    @abstractmethod
+    def document_renamer(self) -> "DocumentRenamer": ...
+
+    @property
+    @abstractmethod
+    def notification_service(self) -> "SMSNotificationService": ...
 
     def _match_case_by_number(self, case_number: str) -> Any:
         """通过案号匹配案件（Requirements: 3.1）"""

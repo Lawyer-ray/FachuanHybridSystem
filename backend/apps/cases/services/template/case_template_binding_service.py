@@ -7,7 +7,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from django.db import transaction
 
@@ -371,4 +371,4 @@ class CaseTemplateBindingService:
             case_stage=case_stage,
             legal_statuses=set(legal_statuses or []),
         )
-        return [t.id for t in self.match_policy.filter(templates, match_input)]
+        return [cast(Any, t).id for t in self.match_policy.filter(templates, match_input)]

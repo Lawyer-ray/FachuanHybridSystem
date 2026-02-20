@@ -9,7 +9,7 @@ Requirements: 3.1, 3.2, 3.3
 import logging
 from typing import Any
 
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
@@ -216,70 +216,54 @@ class DocumentTemplateAdminService:
         return data
 
     def render_placeholders_table(self, placeholders: list[str], undefined: set[str]) -> str:
-        """
-        渲染占位符表格HTML
-
-        Args:
-            placeholders: 占位符列表
-            undefined: 未定义的占位符集合
-
-        Returns:
-            HTML字符串
-        """
+        """渲染占位符表格HTML"""
         if not placeholders:
             return str(_("未找到占位符"))
-        html_parts = ['<div style="max-height: 300px; overflow-y: auto;">']
-        html_parts.append('<table style="width: 100%; border-collapse: collapse;">')
-        html_parts.append('<tr style="background: #f5f5f5;">')
-        html_parts.append('<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">占位符</th>')
-        html_parts.append('<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">状态</th>')
-        html_parts.append("</tr>")
+        rows = []
         for placeholder in placeholders:
             if placeholder in undefined:
-                status = '<span style="color: #c62828; font-weight: bold;">⚠️ 未定义</span>'
+                status = format_html('<span style="color: #c62828; font-weight: bold;">⚠️ 未定义</span>')
                 row_style = "background: #ffebee;"
             else:
-                status = '<span style="color: #2e7d32;">✓ 已定义</span>'
+                status = format_html('<span style="color: #2e7d32;">✓ 已定义</span>')
                 row_style = ""
-            html_parts.append(f'<tr style="{row_style}">')
-            html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd;'
-                f' font-family: monospace;">{{{{ {placeholder} }}}}</td>'
-            )
-            html_parts.append(f'<td style="padding: 8px; border: 1px solid #ddd;">{status}</td>')
-            html_parts.append("</tr>")
-        html_parts.append("</table>")
-        html_parts.append("</div>")
-        return mark_safe("".join(html_parts))
+            rows.append(format_html(
+                '<tr style="{}"><td style="padding: 8px; border: 1px solid #ddd;'
+                ' font-family: monospace;">{{{{ {} }}}}</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd;">{}</td></tr>',
+                row_style, placeholder, status,
+            ))
+        table = format_html(
+            '<div style="max-height: 300px; overflow-y: auto;">'
+            '<table style="width: 100%; border-collapse: collapse;">'
+            '<tr style="background: #f5f5f5;">'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">占位符</th>'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">状态</th>'
+            "</tr>{}</table></div>",
+            format_html_join("", "{}", ((r,) for r in rows)),
+        )
+        return str(table)
 
     def render_undefined_placeholders_warning(self, undefined: list[str]) -> str:
-        """
-        渲染未定义占位符警告HTML
-
-        Args:
-            undefined: 未定义的占位符列表
-
-        Returns:
-            HTML字符串
-        """
+        """渲染未定义占位符警告HTML"""
         if not undefined:
-            return mark_safe('<span style="color: #2e7d32;">✓ 所有占位符均已定义</span>')
-        html_parts = [
+            return str(format_html('<span style="color: #2e7d32;">✓ 所有占位符均已定义</span>'))
+        items = format_html_join(
+            "",
+            '<li style="font-family: monospace; color: #bf360c;">{{{{ {} }}}}</li>',
+            ((p,) for p in undefined),
+        )
+        result = format_html(
             '<div style="background: #fff3e0; padding: 10px; border-radius: 4px; border: 1px solid #ffcc80;">'
-        ]
-        html_parts.append(
-            f'<p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">'
-            f"⚠️ 发现 {len(undefined)} 个未定义的占位符:</p>"
-        )
-        html_parts.append('<ul style="margin: 0; padding-left: 20px;">')
-        for placeholder in undefined:
-            html_parts.append(f'<li style="font-family: monospace; color: #bf360c;">{{{{ {placeholder} }}}}</li>')
-        html_parts.append("</ul>")
-        html_parts.append(
+            '<p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">'
+            "⚠️ 发现 {} 个未定义的占位符:</p>"
+            '<ul style="margin: 0; padding-left: 20px;">{}</ul>'
             '<p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">请在"替换词管理"中注册这些占位符.</p>'
+            "</div>",
+            len(undefined),
+            items,
         )
-        html_parts.append("</div>")
-        return mark_safe("".join(html_parts))
+        return str(result)
 
     def duplicate_template(self, template: Any) -> Any:
         """

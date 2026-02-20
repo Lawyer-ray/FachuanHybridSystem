@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import QuerySet
 
-from apps.cases.models import Case
+from apps.cases.models import Case, CaseParty
 from apps.core.security import DjangoPermsMixin
 
 if TYPE_CHECKING:
@@ -81,7 +81,7 @@ class CasePartyQueryFacade(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> CaseParty:
         party = self.query_service.get_party(party_id=party_id)
         self.access_policy.ensure_access(
             case_id=party.case_id,

@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
+from abc import abstractmethod
+
 logger = logging.getLogger("apps.automation")
 
 __all__ = ["DocumentProcessMixin"]
@@ -30,10 +32,21 @@ __all__ = ["DocumentProcessMixin"]
 class DocumentProcessMixin:
     """文书下载与 SMS 处理 Mixin"""
 
-    api_client: "CourtDocumentApiClient"
-    case_matcher: "CaseMatcher"
-    document_renamer: "DocumentRenamer"
-    notification_service: "SMSNotificationService"
+    @property
+    @abstractmethod
+    def api_client(self) -> "CourtDocumentApiClient": ...
+
+    @property
+    @abstractmethod
+    def case_matcher(self) -> "CaseMatcher": ...
+
+    @property
+    @abstractmethod
+    def document_renamer(self) -> "DocumentRenamer": ...
+
+    @property
+    @abstractmethod
+    def notification_service(self) -> "SMSNotificationService": ...
 
     def process_document(self, record: DocumentRecord, token: str, credential_id: int) -> DocumentProcessResult:
         """
@@ -83,7 +96,7 @@ class DocumentProcessMixin:
                     logger.warning(f"文书下载失败: {file_name}")
 
             if not downloaded_files:
-                result.error_message = _("所有文书下载失败")
+                result.error_message = str(_("所有文书下载失败"))
                 logger.error(result.error_message)
                 return result
 
@@ -149,10 +162,11 @@ class DocumentProcessMixin:
                     "error_message": None,
                 }
 
+                send_time_val = record.send_time or timezone.now()
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
                 sms = CourtSMS.objects.create(
                     content=f"文书送达自动下载: {record.case_number}",
-                    received_at=record.send_time,
+                    received_at=send_time_val,
                     status=CourtSMSStatus.MATCHING,
                     case_numbers=[record.case_number],
                     sms_type="document_delivery",
@@ -197,7 +211,7 @@ class DocumentProcessMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")
+                        sms.error_message = str(_("通知发送失败"))
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

@@ -14,7 +14,6 @@ from django.shortcuts import render
 from django.urls import path, reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_protect
 
@@ -420,9 +419,9 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     def binding_status_display(self, obj):
         """绑定状态显示"""
         if obj.binding_success is None:
-            return mark_safe('<span style="color: gray;">- 未绑定</span>')
+            return format_html('<span style="color: gray;">- 未绑定</span>')
         elif obj.binding_success:
-            return mark_safe('<span style="color: green;">✓ 绑定成功</span>')
+            return format_html('<span style="color: green;">✓ 绑定成功</span>')
         else:
             error_preview = obj.binding_error_code or "未知错误"
             return format_html(
@@ -439,7 +438,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         Requirements: 5.1, 5.2, 5.3
         """
         if not obj.binding_success:
-            return mark_safe('<span style="color: gray;">- 无需通知</span>')
+            return format_html('<span style="color: gray;">- 无需通知</span>')
 
         if obj.notification_sent:
             # 通知发送成功
@@ -456,7 +455,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
                 error_preview,
             )
         else:
-            return mark_safe('<span style="color: orange;">⏳ 待发送</span>')
+            return format_html('<span style="color: orange;">⏳ 待发送</span>')
 
     notification_status_display.short_description = _("通知状态")
 
