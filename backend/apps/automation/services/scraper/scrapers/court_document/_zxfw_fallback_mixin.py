@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.automation")
 class ZxfwFallbackMixin:
     """传统页面点击回退下载方法"""
 
-    page: "Page"
+    page: Page
 
     def _save_page_state(self, name: str) -> dict[str, Any]:
         raise NotImplementedError

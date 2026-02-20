@@ -4,7 +4,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from playwright.sync_api import BrowserContext, Page
 
@@ -58,9 +58,9 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: Optional[BrowserContext] = None
-        self.page: Optional[Page] = None
-        self.site_name: Optional[str] = None  # 子类应设置网站名称
+        self.context: BrowserContext | None = None
+        self.page: Page | None = None
+        self.site_name: str | None = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:
         """
