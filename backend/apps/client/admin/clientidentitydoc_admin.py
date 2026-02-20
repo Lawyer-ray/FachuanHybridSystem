@@ -9,6 +9,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.http import HttpRequest
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import ClientIdentityDoc
 
@@ -103,7 +104,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
             return format_html('<a href="{}" target="_blank">{}</a>', url, Path(obj.file_path or "").name)
         return obj.file_path or ""
 
-    file_link.short_description = "文件"  # type: ignore[attr-defined]
+    file_link.short_description = _("文件")  # type: ignore[attr-defined]
 
     def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:
         """保存时自动重命名文件"""
@@ -135,4 +136,4 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
         if error_count > 0:
             messages.error(request, f"{error_count} 个文件重命名失败")
 
-    rename_files.short_description = "重命名选中的文件"  # type: ignore[attr-defined]
+    rename_files.short_description = _("重命名选中的文件")  # type: ignore[attr-defined]

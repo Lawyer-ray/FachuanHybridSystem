@@ -10,6 +10,7 @@ from django.contrib import admin
 from django.db import models
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseLog, CaseLogAttachment, CaseNumber, CaseParty, SupervisingAuthority
 
@@ -151,7 +152,7 @@ class CasePartyInline(BaseTabularInline):
         return False
 
     is_our_client_display.boolean = True  # type: ignore[attr-defined]
-    is_our_client_display.short_description = "是否为我方当事人"  # type: ignore[attr-defined]
+    is_our_client_display.short_description = _("是否为我方当事人")  # type: ignore[attr-defined]
 
     class Media:
         js: tuple[str, ...] = ("cases/admin_caseparty.js",)

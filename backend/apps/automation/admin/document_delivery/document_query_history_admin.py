@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentQueryHistory
 
@@ -67,7 +68,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
     # 字段分组
     fieldsets = (
         (
-            "查询信息",
+            _("查询信息"),
             {
                 "fields": (
                     "id",
@@ -78,7 +79,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "关联信息",
+            _("关联信息"),
             {
                 "fields": (
                     "court_sms",
@@ -87,7 +88,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": (
                     "queried_at",
@@ -112,7 +113,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    credential_display.short_description = "账号凭证"
+    credential_display.short_description = _("账号凭证")
 
     def send_time_display(self, obj):
         """文书发送时间显示"""
@@ -141,7 +142,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.send_time.strftime("%Y-%m-%d %H:%M"),
         )
 
-    send_time_display.short_description = "文书发送时间"
+    send_time_display.short_description = _("文书发送时间")
 
     def court_sms_display(self, obj):
         """关联短信显示"""
@@ -172,7 +173,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: gray;">无关联短信</span>')
 
-    court_sms_display.short_description = "关联短信"
+    court_sms_display.short_description = _("关联短信")
 
     def queried_at_display(self, obj):
         """查询时间显示"""
@@ -201,7 +202,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.queried_at.strftime("%Y-%m-%d %H:%M"),
         )
 
-    queried_at_display.short_description = "查询时间"
+    queried_at_display.short_description = _("查询时间")
 
     def court_sms_link(self, obj):
         """关联短信链接"""
@@ -215,7 +216,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    court_sms_link.short_description = "关联短信链接"
+    court_sms_link.short_description = _("关联短信链接")
 
     def time_since_query(self, obj):
         """查询后经过的时间"""
@@ -236,7 +237,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         else:
             return "刚刚"
 
-    time_since_query.short_description = "查询后经过时间"
+    time_since_query.short_description = _("查询后经过时间")
 
     def has_add_permission(self, request):
         """禁用添加功能（查询历史应该由系统自动创建）"""
@@ -255,7 +256,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         actions = super().get_actions(request)
 
         # 添加批量删除旧记录的操作
-        actions["delete_old_records"] = (self.delete_old_records, "delete_old_records", "删除30天前的记录")
+        actions["delete_old_records"] = (self.delete_old_records, "delete_old_records", _("删除30天前的记录"))
 
         return actions
 
@@ -269,10 +270,10 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
 
         old_records.delete()
 
-        self.message_user(request, f"成功删除 {count} 条30天前的查询记录")
+        self.message_user(request, _(f"成功删除 {count} 条30天前的查询记录"))
         logger.info(f"管理员批量删除旧查询记录: Count={count}, User={request.user}")
 
-    delete_old_records.short_description = "删除30天前的记录"
+    delete_old_records.short_description = _("删除30天前的记录")
 
     def get_queryset(self, request):
         """优化查询性能"""

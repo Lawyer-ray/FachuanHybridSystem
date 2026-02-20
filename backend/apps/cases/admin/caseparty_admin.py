@@ -5,6 +5,7 @@ from typing import Any
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import URLPattern, path
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
 
@@ -19,7 +20,7 @@ class CasePartyAdmin(admin.ModelAdmin[CaseParty]):
         return bool(getattr(obj.client, "is_our_client", False))
 
     is_our_client.boolean = True  # type: ignore[attr-defined]
-    is_our_client.short_description = "是否为我方当事人"  # type: ignore[attr-defined]
+    is_our_client.short_description = _("是否为我方当事人")  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[Any]:
         urls = super().get_urls()

@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import LegalStatus
 from apps.documents.models import ProxyMatterRule
@@ -50,4 +51,4 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin[ProxyMatterRule]):
     def legal_statuses_display(self, obj: ProxyMatterRule) -> str:
         return obj.get_legal_statuses_display() or "任意"
 
-    legal_statuses_display.short_description = "我方诉讼地位"  # type: ignore[attr-defined]
+    legal_statuses_display.short_description = _("我方诉讼地位")  # type: ignore[attr-defined]

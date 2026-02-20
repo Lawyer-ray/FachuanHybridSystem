@@ -8,6 +8,7 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
 
@@ -46,7 +47,7 @@ class ClientIdentityDocInline(admin.TabularInline):  # type: ignore[type-arg]
             return format_html('<a href="{}" target="_blank">{}</a>', url, os.path.basename(obj.file_path or ""))
         return ""
 
-    file_link.short_description = "文件"  # type: ignore[attr-defined]
+    file_link.short_description = _("文件")  # type: ignore[attr-defined]
 
 
 class ClientAdminForm(forms.ModelForm[Client]):

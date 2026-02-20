@@ -14,6 +14,7 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentDeliverySchedule
 
@@ -79,7 +80,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
     # 字段分组
     fieldsets = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -89,7 +90,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "调度配置",
+            _("调度配置"),
             {
                 "fields": (
                     "runs_per_day",
@@ -100,7 +101,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "运行状态",
+            _("运行状态"),
             {
                 "fields": (
                     "last_run_at",
@@ -110,7 +111,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间戳",
+            _("时间戳"),
             {
                 "fields": (
                     "created_at",
@@ -149,7 +150,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    credential_display.short_description = "账号凭证"
+    credential_display.short_description = _("账号凭证")
 
     def status_display(self, obj):
         """状态显示（带颜色）"""
@@ -158,7 +159,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: red; font-weight: bold;">✗ 禁用</span>')
 
-    status_display.short_description = "状态"
+    status_display.short_description = _("状态")
 
     def last_run_display(self, obj):
         """上次运行时间显示"""
@@ -189,7 +190,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: gray;">从未运行</span>')
 
-    last_run_display.short_description = "上次运行"
+    last_run_display.short_description = _("上次运行")
 
     def next_run_display(self, obj):
         """下次运行时间显示"""
@@ -231,7 +232,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: gray;">未设置</span>')
 
-    next_run_display.short_description = "下次运行"
+    next_run_display.short_description = _("下次运行")
 
     def manual_trigger_button(self, obj):
         """手动触发按钮"""
@@ -246,7 +247,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    manual_trigger_button.short_description = "操作"
+    manual_trigger_button.short_description = _("操作")
 
     def trigger_manual_query_action(self, request, queryset):
         """手动触发查询操作（异步执行，不阻塞 Admin）"""
@@ -279,23 +280,23 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         if error_count > 0:
             messages.error(request, f"触发失败 {error_count} 个任务（无账号凭证）")
 
-    trigger_manual_query_action.short_description = "🚀 手动触发选中的查询任务"
+    trigger_manual_query_action.short_description = _("🚀 手动触发选中的查询任务")
 
     def activate_schedules_action(self, request, queryset):
         """启用定时任务操作"""
         updated = queryset.update(is_active=True)
-        messages.success(request, f"成功启用 {updated} 个定时任务")
+        messages.success(request, _(f"成功启用 {updated} 个定时任务"))
         logger.info(f"管理员批量启用定时任务: Count={updated}, User={request.user}")
 
-    activate_schedules_action.short_description = "✓ 启用选中的定时任务"
+    activate_schedules_action.short_description = _("✓ 启用选中的定时任务")
 
     def deactivate_schedules_action(self, request, queryset):
         """禁用定时任务操作"""
         updated = queryset.update(is_active=False)
-        messages.success(request, f"成功禁用 {updated} 个定时任务")
+        messages.success(request, _(f"成功禁用 {updated} 个定时任务"))
         logger.info(f"管理员批量禁用定时任务: Count={updated}, User={request.user}")
 
-    deactivate_schedules_action.short_description = "✗ 禁用选中的定时任务"
+    deactivate_schedules_action.short_description = _("✗ 禁用选中的定时任务")
 
     def trigger_manual_query_view(self, request, schedule_id):
         """手动触发查询视图（异步执行，不阻塞 Admin）"""

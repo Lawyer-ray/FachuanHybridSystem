@@ -11,6 +11,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
 
@@ -81,7 +82,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     # 字段分组
     fieldsets: tuple[Any, ...] = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -93,7 +94,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             },
         ),
         (
-            "解析结果",
+            _("解析结果"),
             {
                 "fields": (
                     "download_links_display",
@@ -104,7 +105,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             },
         ),
         (
-            "关联信息",
+            _("关联信息"),
             {
                 "fields": (
                     "case",
@@ -115,7 +116,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             },
         ),
         (
-            "处理状态",
+            _("处理状态"),
             {
                 "fields": (
                     "error_message",
@@ -125,14 +126,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             },
         ),
         (
-            "飞书通知",
+            _("飞书通知"),
             {
                 "fields": ("feishu_details",),
                 "classes": ("collapse",),
             },
         ),
         (
-            "时间戳",
+            _("时间戳"),
             {
                 "fields": (
                     "created_at",
@@ -160,7 +161,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         color = status_colors.get(obj.status, "gray")
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = "处理状态"
+    status_display.short_description = _("处理状态")
 
     def sms_type_display(self, obj) -> None:
         """短信类型显示"""
@@ -175,7 +176,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         icon = type_icons.get(obj.sms_type, "❓")
         return f"{icon} {obj.get_sms_type_display()}"
 
-    sms_type_display.short_description = "短信类型"
+    sms_type_display.short_description = _("短信类型")
 
     def case_display(self, obj) -> None:
         """案件显示"""
@@ -191,7 +192,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return format_html('<a href="{}" style="color: orange; font-weight: bold;">🔗 手动指定案件</a>', assign_url)
         return "-"
 
-    case_display.short_description = "关联案件"
+    case_display.short_description = _("关联案件")
 
     def content_preview(self, obj) -> None:
         """短信内容预览"""
@@ -200,7 +201,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             preview += "..."
         return preview
 
-    content_preview.short_description = "短信内容"
+    content_preview.short_description = _("短信内容")
 
     def has_download_links(self, obj) -> None:
         """是否有下载链接"""
@@ -208,7 +209,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
         return mark_safe('<span style="color: gray;">✗ 无链接</span>')
 
-    has_download_links.short_description = "下载链接"
+    has_download_links.short_description = _("下载链接")
 
     def case_numbers_display(self, obj) -> None:
         """案号显示"""
@@ -216,7 +217,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return mark_safe("<br>".join(obj.case_numbers))
         return "-"
 
-    case_numbers_display.short_description = "提取的案号"
+    case_numbers_display.short_description = _("提取的案号")
 
     def party_names_display(self, obj) -> None:
         """当事人显示"""
@@ -224,7 +225,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return mark_safe("<br>".join(obj.party_names))
         return "-"
 
-    party_names_display.short_description = "提取的当事人"
+    party_names_display.short_description = _("提取的当事人")
 
     def download_links_display(self, obj) -> None:
         """下载链接显示"""
@@ -235,7 +236,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return mark_safe("".join(links_html))
         return "-"
 
-    download_links_display.short_description = "下载链接"
+    download_links_display.short_description = _("下载链接")
 
     def scraper_task_link(self, obj) -> None:
         """爬虫任务链接"""
@@ -249,7 +250,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return "-"
 
-    scraper_task_link.short_description = "下载任务"
+    scraper_task_link.short_description = _("下载任务")
 
     def case_log_link(self, obj) -> None:
         """案件日志链接"""
@@ -258,7 +259,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">日志 #{}</a>', url, cast(int, obj.case_log.id))
         return "-"
 
-    case_log_link.short_description = "案件日志"
+    case_log_link.short_description = _("案件日志")
 
     def documents_display(self, obj) -> None:
         """关联文书显示"""
@@ -282,7 +283,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                 return mark_safe("".join(docs_html))
         return "-"
 
-    documents_display.short_description = "关联文书"
+    documents_display.short_description = _("关联文书")
 
     def feishu_status(self, obj) -> None:
         """飞书发送状态"""
@@ -308,7 +309,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: gray;">- 未发送</span>')
 
-    feishu_status.short_description = "通知状态"
+    feishu_status.short_description = _("通知状态")
 
     def feishu_details(self, obj) -> None:
         """飞书详情"""
@@ -318,7 +319,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return f"发送失败: {obj.feishu_error}"
         return "未发送"
 
-    feishu_details.short_description = "飞书通知详情"
+    feishu_details.short_description = _("飞书通知详情")
 
     def retry_button(self, obj) -> None:
         """重新处理按钮"""
@@ -333,7 +334,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return "-"
 
-    retry_button.short_description = "操作"
+    retry_button.short_description = _("操作")
 
     def get_search_results(self, request, queryset, search_term) -> None:
         """自定义搜索,支持 JSON 字段搜索"""
@@ -363,7 +364,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         if obj is None:
             return (
                 (
-                    "短信信息",
+                    _("短信信息"),
                     {
                         "fields": ("content", "received_at"),
                         "description": "请输入完整的法院短信内容.收到时间将自动设置为当前时间.",

@@ -5,6 +5,7 @@
 from typing import Any, ClassVar
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import ScraperTask
 
@@ -36,11 +37,11 @@ class ScraperTaskAdmin(admin.ModelAdmin):
         "retry_count",
     )
     fieldsets = (
-        ("基本信息", {"fields": ("task_type", "status", "priority", "url", "case")}),
-        ("重试配置", {"fields": ("retry_count", "max_retries", "scheduled_at")}),
-        ("配置", {"fields": ("config",), "classes": ("collapse",)}),
-        ("执行结果", {"fields": ("result_display", "error_message")}),
-        ("时间信息", {"fields": ("created_at", "started_at", "finished_at", "updated_at")}),
+        (_("基本信息"), {"fields": ("task_type", "status", "priority", "url", "case")}),
+        (_("重试配置"), {"fields": ("retry_count", "max_retries", "scheduled_at")}),
+        (_("配置"), {"fields": ("config",), "classes": ("collapse",)}),
+        (_("执行结果"), {"fields": ("result_display", "error_message")}),
+        (_("时间信息"), {"fields": ("created_at", "started_at", "finished_at", "updated_at")}),
     )
 
     @admin.display(description="状态")
@@ -178,7 +179,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):
     # Admin 操作
     actions: ClassVar[list[str]] = ["execute_tasks", "reset_failed_tasks"]
 
-    @admin.action(description="立即执行选中的任务")
+    @admin.action(description=_("立即执行选中的任务"))
     def execute_tasks(self, request, queryset):
         """批量执行任务"""
         from django_q.tasks import async_task
@@ -189,10 +190,10 @@ class ScraperTaskAdmin(admin.ModelAdmin):
                 async_task("apps.automation.tasks.execute_scraper_task", task.id)
                 count += 1
 
-        self.message_user(request, f"已提交 {count} 个任务到后台队列")
+        self.message_user(request, _(f"已提交 {count} 个任务到后台队列"))
 
-    @admin.action(description="重置失败任务状态")
+    @admin.action(description=_("重置失败任务状态"))
     def reset_failed_tasks(self, request, queryset):
         """重置失败任务，允许重新执行"""
         count = queryset.filter(status="failed").update(status="pending", retry_count=0, error_message=None)
-        self.message_user(request, f"已重置 {count} 个失败任务")
+        self.message_user(request, _(f"已重置 {count} 个失败任务"))

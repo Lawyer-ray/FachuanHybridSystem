@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus
 
@@ -83,7 +84,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            "基本信息",
+            _("基本信息"),
             {
                 "fields": (
                     "id",
@@ -93,7 +94,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "文书信息",
+            _("文书信息"),
             {
                 "fields": (
                     "c_wsmc",
@@ -109,7 +110,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "下载状态",
+            _("下载状态"),
             {
                 "fields": (
                     "download_status",
@@ -122,7 +123,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "时间信息",
+            _("时间信息"),
             {
                 "fields": (
                     "created_at",
@@ -145,13 +146,13 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             obj.c_wsmc[:50] + "..." if len(obj.c_wsmc) > 50 else obj.c_wsmc,
         )
 
-    c_wsmc_display.short_description = "文书名称"
+    c_wsmc_display.short_description = _("文书名称")
 
     def c_fymc_display(self, obj):
         """格式化显示法院名称"""
         return format_html('<span style="color: #007bff;">{}</span>', obj.c_fymc)
 
-    c_fymc_display.short_description = "法院名称"
+    c_fymc_display.short_description = _("法院名称")
 
     def download_status_display(self, obj):
         """带颜色的状态显示"""
@@ -174,7 +175,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_download_status_display()
         )
 
-    download_status_display.short_description = "下载状态"
+    download_status_display.short_description = _("下载状态")
 
     def file_info_display(self, obj):
         """显示文件信息"""
@@ -191,7 +192,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #666;">{}</span>', size_str)
         return mark_safe('<span style="color: #999;">-</span>')
 
-    file_info_display.short_description = "文件大小"
+    file_info_display.short_description = _("文件大小")
 
     def file_size_display(self, obj):
         """详情页显示文件大小"""
@@ -209,7 +210,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: #999;">-</span>')
 
-    file_size_display.short_description = "文件大小"
+    file_size_display.short_description = _("文件大小")
 
     def download_link(self, obj):
         """列表页的下载链接"""
@@ -223,7 +224,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color: #999;">-</span>')
 
-    download_link.short_description = "文件下载"
+    download_link.short_description = _("文件下载")
 
     def download_link_detail(self, obj):
         """详情页的下载链接"""
@@ -247,7 +248,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         else:
             return mark_safe('<span style="color: #ffa500; font-weight: bold;">待下载</span>')
 
-    download_link_detail.short_description = "文件下载"
+    download_link_detail.short_description = _("文件下载")
 
     def has_add_permission(self, request):
         """禁用添加功能（文书记录由系统自动创建）"""

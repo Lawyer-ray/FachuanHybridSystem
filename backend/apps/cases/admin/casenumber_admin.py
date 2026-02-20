@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseNumber
 
@@ -19,5 +20,5 @@ class CaseNumberAdmin(admin.ModelAdmin[CaseNumber]):
 
     fieldsets = (
         (None, {"fields": ("case", "number", "remarks")}),
-        ("时间信息", {"fields": ("created_at",), "classes": ("collapse",)}),
+        (_("时间信息"), {"fields": ("created_at",), "classes": ("collapse",)}),
     )
