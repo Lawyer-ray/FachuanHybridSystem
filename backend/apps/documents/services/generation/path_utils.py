@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +16,13 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
         if value.startswith("http://") or value.startswith("https://"):
             return ""
         if value.startswith("/media/"):
-            value = value[len("/media/") :]
-        if os.path.isabs(value):
-            return value
-        return os.path.normpath(os.path.join(media_root, value))
+            value = value[len("/media/"):]
+        p = Path(value)
+        if p.is_absolute():
+            return str(p)
+        return str(Path(media_root) / value)
     except Exception:
         logger.exception("操作失败")
-        # 静默处理:文件操作失败不影响主流程
-
-        # 静默处理:文件操作失败不影响主流程
-
         return ""
 
 

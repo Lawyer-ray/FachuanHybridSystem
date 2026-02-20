@@ -9,7 +9,6 @@ from __future__ import annotations
 自定义存储类,保留中文文件名中的特殊字符(如括号)
 """
 
-import os
 import re
 
 from django.core.files.storage import FileSystemStorage
@@ -34,8 +33,10 @@ class EvidenceFileStorage(FileSystemStorage):
         - 空字符: \x00
         - 控制字符
         """
+        from pathlib import Path
+
         # 获取文件名(不含路径)
-        basename = os.path.basename(name)
+        basename = Path(name).name
 
         # 只移除真正危险的字符
         # 保留中文括号()、英文括号()、空格等

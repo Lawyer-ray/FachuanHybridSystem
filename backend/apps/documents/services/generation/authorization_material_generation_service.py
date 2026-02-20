@@ -3,9 +3,9 @@
 from django.utils.translation import gettext_lazy as _
 import io
 import logging
-import os
 import zipfile
 from datetime import datetime
+from pathlib import Path as StdPath
 from typing import Any, ClassVar, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -274,11 +274,11 @@ class AuthorizationMaterialGenerationService:
             return
         abs_path = self._resolve_media_path(media_root, file_path)
         doc_label = self._DOC_TYPE_LABELS.get(doc.doc_type, doc.doc_type_display or doc.doc_type)
-        if not abs_path or not os.path.exists(abs_path):
+        if not abs_path or not StdPath(abs_path).exists():
             missing_lines.append(f"缺少{client_name}的{doc_label}")
             return
         arc_dir = f"当事人证件材料/{safe_client_name}"
-        arc_name = self._safe_arcname(f"{arc_dir}/{os.path.basename(abs_path)}")
+        arc_name = self._safe_arcname(f"{arc_dir}/{StdPath(abs_path).name}")
         zf.write(abs_path, arcname=arc_name)
 
         def _check_missing_required_docs(
@@ -325,8 +325,7 @@ class AuthorizationMaterialGenerationService:
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
                 continue
 
-            _, ext = os.path.splitext(getattr(license_field, "name", "") or "")
-            ext = ext or ".pdf"
+            ext = StdPath(getattr(license_field, "name", "") or "").suffix or ".pdf"
             arc_name = self._safe_arcname(f"律师执业证/律师证({lawyer_name}){ext}")
             try:
                 with license_field.open("rb") as f:
