@@ -167,8 +167,8 @@ class DocumentRecognitionProxy(CourtSMS):
 
     class Meta:
         proxy = True
-        verbose_name = "文书智能识别"
-        verbose_name_plural = "文书智能识别"
+        verbose_name = _("文书智能识别")
+        verbose_name_plural = _("文书智能识别")
         app_label = "automation"
 
 

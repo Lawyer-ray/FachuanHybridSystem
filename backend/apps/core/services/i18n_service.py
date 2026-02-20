@@ -43,7 +43,7 @@ class I18nService:
                 errors={"language": language_code, "supported": supported},
             )
         translation.activate(language_code)
-        request.session[translation.LANGUAGE_SESSION_KEY] = language_code
+        request.session["django_language"] = language_code
         logger.info(
             "设置用户语言偏好",
             extra={"language": language_code, "user": getattr(request, "user", None)},
