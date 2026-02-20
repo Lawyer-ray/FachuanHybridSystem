@@ -2,7 +2,6 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -34,7 +33,7 @@ class ClientIdentityDocService:
         doc = ClientIdentityDoc.objects.create(client=client, doc_type=doc_type, file_path=file_path)
 
         # 重命名文件（仅当文件路径是绝对路径时）
-        if file_path and os.path.isabs(file_path):
+        if file_path and Path(file_path).is_absolute():
             self.rename_uploaded_file(doc)
 
         return doc
@@ -45,11 +44,11 @@ class ClientIdentityDocService:
             return
 
         old_path = doc_instance.file_path
-        if not os.path.exists(old_path):
+        if not Path(old_path).exists():
             return
 
         # 获取文件扩展名
-        _, ext = os.path.splitext(old_path)
+        ext = Path(old_path).suffix
 
         # 生成新文件名：当事人名称_证件类型.扩展名
         client_name = self._sanitize_filename(doc_instance.client.name)
@@ -57,23 +56,23 @@ class ClientIdentityDocService:
         new_filename = f"{client_name}_{doc_type_display}{ext}"
 
         # 生成新路径
-        old_dir = os.path.dirname(old_path)
-        new_path = os.path.join(old_dir, new_filename)
+        old_dir = Path(old_path).parent
+        new_path = old_dir / new_filename
 
         # 如果新路径已存在且不是同一文件，添加序号
-        if os.path.exists(new_path) and os.path.abspath(old_path) != os.path.abspath(new_path):
+        if new_path.exists() and Path(old_path).resolve() != new_path.resolve():
             counter = 1
             name_without_ext = f"{client_name}_{doc_type_display}"
-            while os.path.exists(new_path):
+            while new_path.exists():
                 new_filename = f"{name_without_ext}_{counter}{ext}"
-                new_path = os.path.join(old_dir, new_filename)
+                new_path = old_dir / new_filename
                 counter += 1
 
         # 重命名文件
-        if os.path.abspath(old_path) != os.path.abspath(new_path):
+        if Path(old_path).resolve() != new_path.resolve():
             try:
-                shutil.move(old_path, new_path)
-                doc_instance.file_path = new_path
+                shutil.move(old_path, str(new_path))
+                doc_instance.file_path = str(new_path)
                 doc_instance.save(update_fields=["file_path"])
             except Exception as e:
                 raise ValidationException(f"文件重命名失败: {e!s}", code="FILE_RENAME_ERROR") from e

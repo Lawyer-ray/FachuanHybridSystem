@@ -5,7 +5,7 @@
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from django.conf import settings
@@ -135,9 +135,9 @@ class CourtDocumentAdminService:
             # 如果需要删除文件
             if delete_files:
                 for document in documents:
-                    if document.local_file_path and os.path.exists(document.local_file_path):
+                    if document.local_file_path and Path(document.local_file_path).exists():
                         try:
-                            os.remove(document.local_file_path)
+                            Path(document.local_file_path).unlink()
                             deleted_files_count += 1
                         except Exception as e:
                             file_errors.append(
@@ -350,19 +350,19 @@ class CourtDocumentAdminService:
 
             # 扫描文件系统中的文件
             media_root = getattr(settings, "MEDIA_ROOT", "")
-            documents_dir = os.path.join(media_root, "court_documents")
+            documents_dir = Path(media_root) / "court_documents"
 
-            if not os.path.exists(documents_dir):
+            if not documents_dir.exists():
                 return {"orphaned_files": 0, "deleted_files": 0, "message": "文档目录不存在"}
 
             orphaned_files = []
-            for root, _dirs, files in os.walk(documents_dir):
+            for root, _dirs, files in documents_dir.walk():
                 for file in files:
-                    file_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(file_path, media_root)
+                    file_path = root / file
+                    relative_path = str(file_path.relative_to(media_root))
 
                     if relative_path not in downloaded_files:
-                        orphaned_files.append(file_path)
+                        orphaned_files.append(str(file_path))
 
             # 删除孤立文件
             deleted_count = 0
@@ -370,7 +370,7 @@ class CourtDocumentAdminService:
 
             for file_path in orphaned_files:
                 try:
-                    os.remove(file_path)
+                    Path(file_path).unlink()
                     deleted_count += 1
                 except Exception as e:
                     delete_errors.append({"file_path": file_path, "error": str(e)})

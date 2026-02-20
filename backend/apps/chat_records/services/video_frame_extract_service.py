@@ -6,7 +6,6 @@ import contextlib
 import json
 import logging
 import math
-import os
 import re
 import select
 import shutil
@@ -15,6 +14,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from django.conf import settings
@@ -34,15 +34,11 @@ class FFProbeInfo:
 class VideoFrameExtractService:
     def _is_path_under_dir(self, path: str, root: str) -> bool:
         try:
-            path_real = os.path.realpath(path)
-            root_real = os.path.realpath(root)
-            return os.path.commonpath([path_real, root_real]) == root_real
+            path_real = Path(path).resolve()
+            root_real = Path(root).resolve()
+            return path_real == root_real or root_real in path_real.parents
         except Exception:
             logger.exception("操作失败")
-            # 静默处理:文件操作失败不影响主流程
-
-            # 静默处理:文件操作失败不影响主流程
-
             return False
 
     def _default_allowed_output_roots(self) -> list[str]:
@@ -61,10 +57,10 @@ class VideoFrameExtractService:
     def _ensure_output_pattern_safe(self, output_pattern: str) -> None:
         if not output_pattern:
             raise ValidationException("输出路径不能为空")
-        output_dir = os.path.dirname(str(output_pattern)) or ""
+        output_dir = str(Path(output_pattern).parent)
         if not output_dir:
             raise ValidationException("输出目录不能为空")
-        if not os.path.isabs(output_dir):
+        if not Path(output_dir).is_absolute():
             raise ValidationException("输出目录必须为绝对路径")
         allowed_roots = self._default_allowed_output_roots()
         if not any(self._is_path_under_dir(output_dir, root) for root in allowed_roots if root):
@@ -79,15 +75,15 @@ class VideoFrameExtractService:
             return p
         candidates = []
         for root in ("/usr/local/bin", "/opt/homebrew/bin", "/usr/bin"):
-            candidates.append(os.path.join(root, name))
+            candidates.append(str(Path(root) / name))
         for p in candidates:
-            if os.path.exists(p) and os.access(p, os.X_OK):
+            if Path(p).exists() and Path(p).stat().st_mode & 0o111:
                 return p
         return None
 
     def probe(self, video_path: str) -> FFProbeInfo:
         self._ensure_ffmpeg()
-        if not video_path or not os.path.exists(video_path):
+        if not video_path or not Path(video_path).exists():
             raise ValidationException("视频文件不存在")
 
         duration = 0.0

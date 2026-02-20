@@ -9,7 +9,6 @@ Requirements: 1.1, 1.3, 3.3, 5.1, 5.2, 5.5
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
 from pathlib import Path
 import queue
 import tempfile
@@ -302,7 +301,7 @@ class DocumentDeliveryProcessor:
 
             if renamed_files:
                 case_log_service = self.caselog_service
-                file_names = [os.path.basename(f) for f in renamed_files]
+                file_names = [Path(f).name for f in renamed_files]
                 case_log = case_log_service.create_log(
                     case_id=case.id, content=f"文书送达自动下载: {', '.join(file_names)}", user=None
                 )
@@ -320,11 +319,11 @@ class DocumentDeliveryProcessor:
 
         for file_path in file_paths:
             try:
-                if os.path.exists(file_path):
+                if Path(file_path).exists():
                     with open(file_path, "rb") as f:
                         file_content = f.read()
                     uploaded_file = SimpleUploadedFile(
-                        name=os.path.basename(file_path), content=file_content, content_type="application/octet-stream"
+                        name=Path(file_path).name, content=file_content, content_type="application/octet-stream"
                     )
                     case_log_service.upload_attachments(
                         log_id=log_id, files=[uploaded_file], user=None, perm_open_access=True
@@ -360,9 +359,9 @@ class DocumentDeliveryProcessor:
                     zip_ref.extract(member, extract_path)
 
             extracted_files = []
-            for root, _dirs, files in os.walk(extract_dir):
+            for root, _dirs, files in Path(extract_dir).walk():
                 for file in files:
-                    extracted_files.append(os.path.join(root, file))
+                    extracted_files.append(str(root / file))
 
             logger.info(f"ZIP 解压成功: {len(extracted_files)} 个文件")
             return extracted_files

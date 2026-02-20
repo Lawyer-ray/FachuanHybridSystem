@@ -2,8 +2,8 @@
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
 
 from apps.automation.services.court_document_recognition.data_classes import DocumentType
@@ -20,10 +20,10 @@ class CaseLogSideEffects:
         from apps.core.config import get_config
 
         media_root = str(get_config("django.media_root", "") or "")
-        if not os.path.isabs(file_path):
+        if not Path(file_path).is_absolute():
             return file_path
         if media_root and file_path.startswith(media_root):
-            return os.path.relpath(file_path, media_root)
+            return str(Path(file_path).relative_to(media_root))
         logger.warning("文件路径不在 MEDIA_ROOT 下", extra={})
         return file_path
 
@@ -45,7 +45,7 @@ class CaseLogSideEffects:
             self.update_log_reminder(case_log_id, reminder_time, document_type)
 
         if file_path:
-            file_name = os.path.basename(file_path)
+            file_name = Path(file_path).name
             relative_path = self.get_relative_media_path(file_path)
             success = self.case_service.add_case_log_attachment_internal(
                 case_log_id=case_log_id, file_path=relative_path, file_name=file_name

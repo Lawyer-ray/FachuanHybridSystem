@@ -1,6 +1,6 @@
 """Business logic services."""
 
-import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -24,7 +24,7 @@ def validate_image_format(
 
     filename = getattr(image, "name", "")
     if filename:
-        _, ext = os.path.splitext(filename)
+        ext = Path(filename).suffix
         if ext.lower() not in supported_extensions:
             return {
                 "success": False,

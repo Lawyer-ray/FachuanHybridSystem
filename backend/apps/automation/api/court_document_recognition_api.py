@@ -8,7 +8,7 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 """
 
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 from ninja import File, Router
@@ -30,7 +30,7 @@ def _validate_file_format(filename: str) -> str:
     if not filename:
         raise ValidationException(message="文件名不能为空", code="EMPTY_FILENAME", errors={"file": "请提供有效的文件"})
 
-    ext = os.path.splitext(filename)[1].lower()
+    ext = Path(filename).suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
         raise ValidationException(
             message="不支持的文件格式",

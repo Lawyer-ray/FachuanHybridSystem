@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 import json
 import logging
 import mimetypes
-import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -36,7 +36,7 @@ class FeishuFileMixin:
                 message=_("飞书配置不完整，无法发送文件"), platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
-        if not os.path.exists(file_path):
+        if not Path(file_path).exists():
             raise MessageSendException(
                 message=f"文件不存在: {file_path}", platform="feishu", chat_id=chat_id, errors={"file_path": file_path}
             )
@@ -62,7 +62,7 @@ class FeishuFileMixin:
             url = f"{self.BASE_URL}{self.ENDPOINTS['upload_file']}"
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            file_name = os.path.basename(file_path)
+            file_name = Path(file_path).name
             file_type = self._get_file_type(file_path)
 
             with open(file_path, "rb") as file:
@@ -122,7 +122,7 @@ class FeishuFileMixin:
             params = {"receive_id_type": "chat_id"}
             headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json; charset=utf-8"}
 
-            file_name = os.path.basename(file_path)
+            file_name = Path(file_path).name
             content = {"file_key": file_key}
             payload = {"receive_id": chat_id, "msg_type": "file", "content": json.dumps(content, ensure_ascii=False)}
 
@@ -170,7 +170,7 @@ class FeishuFileMixin:
 
     def _get_file_type(self, file_path: str) -> str:
         """根据文件扩展名确定飞书文件类型"""
-        _, ext = os.path.splitext(file_path.lower())
+        ext = Path(file_path).suffix.lower()
         file_type_mapping = {
             ".pdf": "pdf",
             ".doc": "doc",

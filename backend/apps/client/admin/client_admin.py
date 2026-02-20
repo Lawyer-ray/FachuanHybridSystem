@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
@@ -44,7 +44,7 @@ class ClientIdentityDocInline(admin.TabularInline):  # type: ignore[type-arg]
     def file_link(self, obj: ClientIdentityDoc) -> str:
         url = obj.media_url()
         if url:
-            return format_html('<a href="{}" target="_blank">{}</a>', url, os.path.basename(obj.file_path or ""))
+            return format_html('<a href="{}" target="_blank">{}</a>', url, Path(obj.file_path or "").name)
         return ""
 
     file_link.short_description = _("文件")  # type: ignore[attr-defined]

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
+from pathlib import Path as StdPath
 from typing import Any, cast
 
 import cv2
@@ -35,7 +35,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
 
 def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:
     filename = getattr(image, "name", "image.jpg")
-    _, ext = os.path.splitext(filename)
+    ext = StdPath(filename).suffix
     if not ext:
         ext = ".jpg"
 

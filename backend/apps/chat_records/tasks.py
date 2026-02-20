@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 import re
 import tempfile
 import time
@@ -348,7 +348,7 @@ def _run_ffmpeg_phase(
 
     last_progress = -1
     ffmpeg_timeout = max(30.0, float(soft_deadline) - time.monotonic() - 5.0)
-    output_pattern = os.path.join(tmpdir, "frame_%010d.jpg" if not params.interval_based else "frame_%06d.jpg")
+    output_pattern = str(Path(tmpdir) / ("frame_%010d.jpg" if not params.interval_based else "frame_%06d.jpg"))
 
     def should_cancel() -> bool:
         return cast(bool, cancel_token.is_cancelled())
@@ -380,7 +380,11 @@ def _run_ffmpeg_phase(
 
 def _collect_frame_files(tmpdir: str) -> list[str]:
     """收集并排序帧文件"""
-    frame_files = [os.path.join(tmpdir, f) for f in os.listdir(tmpdir) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+    frame_files = [
+        str(Path(tmpdir) / f)
+        for f in Path(tmpdir).iterdir()
+        if f.name.lower().endswith((".jpg", ".jpeg", ".png"))
+    ]
     frame_files.sort()
     return frame_files
 
@@ -388,7 +392,7 @@ def _collect_frame_files(tmpdir: str) -> list[str]:
 def _calc_capture_time(path: str, index: int, params: _ExtractParams, info: Any) -> float | None:
     """计算帧的捕获时间"""
     if not params.interval_based and info.time_base_seconds:
-        m = re.search(r"(\d+)", os.path.basename(path))
+        m = re.search(r"(\d+)", Path(path).name)
         return float(int(m.group(1)) * float(info.time_base_seconds)) if m else None
     return float(index - 1) * float(params.interval_seconds)
 
@@ -503,7 +507,7 @@ def _process_single_frame(
     )
     if ocr_service is not None and frame_score is not None:
         screenshot.frame_score = frame_score
-    screenshot.image.save(os.path.basename(path), ContentFile(content), save=False)
+    screenshot.image.save(Path(path).name, ContentFile(content), save=False)
     screenshot.save()
 
     _update_dedup_state(

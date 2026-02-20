@@ -1,7 +1,7 @@
 """案件匹配、文书重命名、通知发送逻辑"""
 
 import logging
-import os
+from pathlib import Path
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -122,10 +122,10 @@ class DocumentMatchingMixin:
 
                     for file_path in renamed_files:
                         try:
-                            if os.path.exists(file_path):
+                            if Path(file_path).exists():
                                 with open(file_path, "rb") as f:
                                     file_content = f.read()
-                                file_name = os.path.basename(file_path)
+                                file_name = Path(file_path).name
                                 uploaded_file = SimpleUploadedFile(
                                     name=file_name,
                                     content=file_content,

@@ -44,12 +44,12 @@ class Client(models.Model):
 
 def client_identity_doc_upload_path(instance, filename):
     """生成当事人证件文件上传路径"""
-    import os
+    from pathlib import Path
 
     from django.utils.text import slugify
 
     # 获取文件扩展名
-    _, ext = os.path.splitext(filename)
+    ext = Path(filename).suffix
 
     # 清理当事人名称
     client_name = instance.client.name if instance.client else "未知"
@@ -94,7 +94,7 @@ class ClientIdentityDoc(models.Model):
         return f"{self.client.name}-{self.doc_type}"
 
     def media_url(self) -> str | None:
-        import os
+        from pathlib import Path
 
         from django.conf import settings
 
@@ -102,13 +102,12 @@ class ClientIdentityDoc(models.Model):
             return None
         try:
             root = str(settings.MEDIA_ROOT)
-            # 如果是绝对路径，转换为相对路径
+            fp = Path(self.file_path)
             if self.file_path.startswith(root):
-                rel = os.path.relpath(self.file_path, root)
-                return settings.MEDIA_URL + rel.replace(os.sep, "/")
-            # 如果已经是相对路径，直接拼接
-            elif not os.path.isabs(self.file_path):
-                return settings.MEDIA_URL + self.file_path.replace(os.sep, "/")
+                rel = fp.relative_to(root)
+                return settings.MEDIA_URL + str(rel).replace("\\", "/")
+            elif not fp.is_absolute():
+                return settings.MEDIA_URL + self.file_path.replace("\\", "/")
         except Exception:
             return None
         return None
@@ -196,7 +195,7 @@ class PropertyClueAttachment(models.Model):
 
     def media_url(self) -> str | None:
         """返回附件的媒体 URL"""
-        import os
+        from pathlib import Path
 
         from django.conf import settings
 
@@ -204,9 +203,10 @@ class PropertyClueAttachment(models.Model):
             return None
         try:
             root = str(settings.MEDIA_ROOT)
+            fp = Path(self.file_path)
             if self.file_path.startswith(root):
-                rel = os.path.relpath(self.file_path, root)
-                return settings.MEDIA_URL + rel.replace(os.sep, "/")
+                rel = fp.relative_to(root)
+                return settings.MEDIA_URL + str(rel).replace("\\", "/")
         except Exception:
             return None
         return None

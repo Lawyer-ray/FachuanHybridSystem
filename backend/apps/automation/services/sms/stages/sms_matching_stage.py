@@ -12,7 +12,7 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 
 from django.utils.translation import gettext_lazy as _
 import logging
-import os
+from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Optional, cast
 
@@ -239,14 +239,14 @@ class SMSMatchingStage(BaseSMSStage):
         try:
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
                 for doc in sms.scraper_task.documents.filter(download_status="success"):
-                    if doc.local_file_path and os.path.exists(doc.local_file_path):
+                    if doc.local_file_path and Path(doc.local_file_path).exists():
                         paths.append(doc.local_file_path)
 
             if not paths and sms.scraper_task and sms.scraper_task.result:
                 result = sms.scraper_task.result
                 if isinstance(result, dict):
                     for f in result.get("files", []):
-                        if f and os.path.exists(f):
+                        if f and Path(f).exists():
                             paths.append(f)
         except Exception as e:
             logger.warning(f"获取文书路径失败: SMS={sms.id}, 错误: {e}")
