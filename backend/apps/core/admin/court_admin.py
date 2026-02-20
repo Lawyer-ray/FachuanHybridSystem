@@ -13,7 +13,7 @@ from django.db.models import Count
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import Court
@@ -105,15 +105,15 @@ class CourtAdmin(admin.ModelAdmin[Court]):
                 obj.parent.full_path,
                 obj.parent.name,
             )
-        return mark_safe('<span style="color: #999;">—</span>')
+        return format_html('<span style="color: #999;">{}</span>', "—")
 
     parent_display.short_description = _("上级法院")  # type: ignore[attr-defined]
 
     def status_display(self, obj: Court) -> SafeString:
         """状态显示"""
         if not obj.is_active:
-            return mark_safe('<span style="color: #ffc107;">⏸️ 已禁用</span>')
-        return mark_safe('<span style="color: #28a745;">✅ 正常</span>')
+            return format_html('<span style="color: #ffc107;">{}</span>', "⏸️ 已禁用")
+        return format_html('<span style="color: #28a745;">{}</span>', "✅ 正常")
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 

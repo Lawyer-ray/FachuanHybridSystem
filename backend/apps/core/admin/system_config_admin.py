@@ -12,7 +12,6 @@ from django.core.cache import cache
 from django.http import HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import SystemConfig
@@ -70,7 +69,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     def masked_value(self, obj: Any) -> Any:
         """显示脱敏后的值"""
         if not obj.value:
-            return mark_safe('<span style="color: #999;">未设置</span>')
+            return format_html('<span style="color: #999;">{}</span>', "未设置")
 
         if obj.is_secret:
             if len(obj.value) > 8:

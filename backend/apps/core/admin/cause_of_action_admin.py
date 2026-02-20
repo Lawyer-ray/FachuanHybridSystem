@@ -13,7 +13,7 @@ from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import CauseOfAction
@@ -137,16 +137,16 @@ class CauseOfActionAdmin(admin.ModelAdmin[CauseOfAction]):
                 obj.parent.full_path,
                 obj.parent.name,
             )
-        return mark_safe('<span style="color: #999;">—</span>')
+        return format_html('<span style="color: #999;">{}</span>', "—")
 
     @admin.display(description=_("状态"))
     def status_display(self, obj: CauseOfAction) -> SafeString:
         """状态显示"""
         if obj.is_deprecated:
-            return mark_safe('<span style="color: #dc3545;">⚠️ 已废弃</span>')
+            return format_html('<span style="color: #dc3545;">{}</span>', "⚠️ 已废弃")
         if not obj.is_active:
-            return mark_safe('<span style="color: #ffc107;">⏸️ 已禁用</span>')
-        return mark_safe('<span style="color: #28a745;">✅ 正常</span>')
+            return format_html('<span style="color: #ffc107;">{}</span>', "⏸️ 已禁用")
+        return format_html('<span style="color: #28a745;">{}</span>', "✅ 正常")
 
     def get_urls(self) -> list[URLPattern]:
         """添加自定义 URL"""
