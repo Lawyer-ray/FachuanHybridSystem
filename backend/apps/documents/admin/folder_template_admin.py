@@ -14,7 +14,6 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.urls import path
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import LegalStatus
@@ -433,7 +432,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             return _("暂无结构")
 
         html = self._render_structure_tree(obj.structure)
-        return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
+        return format_html('<div class="folder-structure-preview">{}</div>', html)
 
     structure_preview.short_description = _("结构预览")
 

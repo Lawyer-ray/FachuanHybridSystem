@@ -9,7 +9,6 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import PromptVersion
@@ -73,11 +72,11 @@ class PromptVersionAdmin(admin.ModelAdmin):
 
     actions: ClassVar = ["activate_version"]
 
-    def is_active_badge(self, obj) -> None:
+    def is_active_badge(self, obj: PromptVersion) -> Any:
         """显示激活状态徽章"""
         if obj.is_active:
-            return mark_safe('<span style="color: green; font-weight: bold;">✓ 激活</span>')
-        return mark_safe('<span style="color: gray;">○ 未激活</span>')
+            return format_html('<span style="color: green; font-weight: bold;">{}</span>', "✓ 激活")
+        return format_html('<span style="color: gray;">{}</span>', "○ 未激活")
 
     is_active_badge.short_description = _("状态")
 

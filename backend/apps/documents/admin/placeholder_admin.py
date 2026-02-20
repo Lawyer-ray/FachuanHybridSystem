@@ -8,7 +8,6 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import Placeholder
@@ -149,7 +148,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         if "case" in types:
             parts.append(str(_("案件文件")))
         if not parts:
-            return mark_safe('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
         return " / ".join(parts)
 
     usage_display.short_description = _("用途")
@@ -176,7 +175,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
             return format_html(
                 '<span title="{}" style="color: #666; font-style: italic;">{}</span>', obj.example_value, value
             )
-        return mark_safe('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">{}</span>', "-")
 
     example_value_display.short_description = _("示例值")
 
