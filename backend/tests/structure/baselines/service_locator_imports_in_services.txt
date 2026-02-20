@@ -32,6 +32,7 @@ apps/automation/services/token/auto_token_acquisition_service.py:342:from apps.c
 apps/automation/services/token/auto_token_acquisition_service.py:95:from apps.core.interfaces import ServiceLocator
 apps/cases/services/case_access_service.py:12:from apps.core.interfaces import ICaseService, ServiceLocator
 apps/cases/services/case_assignment_service.py:13:from apps.core.interfaces import ICaseService, ServiceLocator
+apps/cases/services/case_chat_service.py:61:from apps.core.interfaces import ServiceLocator
 apps/cases/services/case_number_service.py:13:from apps.core.interfaces import ICaseService, ServiceLocator
 apps/cases/services/case_party_service.py:13:from apps.core.interfaces import ICaseService, IClientService, IContractService, ServiceLocator
 apps/cases/services/caselog_service.py:15:from apps.core.interfaces import ICaseService, ServiceLocator
@@ -39,4 +40,4 @@ apps/cases/services/data/cause_court_data_service.py:430:from apps.core.interfac
 apps/contracts/services/contract_admin_service.py:122:from apps.core.interfaces import ServiceLocator
 apps/contracts/services/lawyer_assignment_service.py:51:from apps.core.interfaces import ServiceLocator
 apps/contracts/services/supplementary_agreement_service.py:11:from apps.core.interfaces import IClientService, ServiceLocator
-apps/organization/services/account_credential_admin_service.py:441:from apps.core.interfaces import ServiceLocator
+apps/organization/services/account_credential_admin_service.py:77:from apps.core.interfaces import ServiceLocator

@@ -1,7 +1,5 @@
 """API endpoints."""
 
-from __future__ import annotations
-
 """
 LLM Ninja API
 

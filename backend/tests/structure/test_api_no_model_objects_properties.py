@@ -56,6 +56,9 @@ MODEL_OBJECTS_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ALLOWLIST: set[str] = {
     # automation 的 document_delivery 是 Service 层内部的 API 客户端，不是 HTTP API 层
     "apps/automation/services/document_delivery/api/document_delivery_api_service.py",
+    "apps/automation/services/document_delivery/api/document_delivery_api_service/_query.py",
+    "apps/automation/services/document_delivery/api/document_delivery_api_service/_process.py",
+    "apps/automation/services/document_delivery/api/document_delivery_api_service/_matching.py",
 }
 
 

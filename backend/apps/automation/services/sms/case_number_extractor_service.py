@@ -67,9 +67,9 @@ class CaseNumberExtractorService:
     def case_number_service(self) -> "ICaseNumberService":
         """延迟加载案号服务"""
         if self._case_number_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.core.dependencies.automation_sms_wiring import build_sms_case_number_service
 
-            self._case_number_service = ServiceLocator.get_case_number_service()
+            self._case_number_service = build_sms_case_number_service()
         return self._case_number_service
 
     def extract_from_document(self, document_path: str) -> list[str]:

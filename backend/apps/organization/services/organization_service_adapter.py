@@ -3,13 +3,16 @@
 实现IOrganizationService接口，提供跨模块调用的统一入口
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 
 from .account_credential_service import AccountCredentialService
+
+if TYPE_CHECKING:
+    from apps.core.dto.organization import LawyerDTO
 
 
 class OrganizationServiceAdapter(IOrganizationService):
@@ -198,3 +201,34 @@ class OrganizationServiceAdapter(IOrganizationService):
         from apps.organization.models import AccountCredential
 
         AccountCredential.objects.filter(id=credential_id).update(login_failure_count=F("login_failure_count") + 1)
+
+    def get_lawyer_by_id_internal(self, lawyer_id: int) -> "LawyerDTO | None":
+        """
+        内部方法：根据 ID 获取律师信息（无权限检查）
+
+        Args:
+            lawyer_id: 律师 ID
+
+        Returns:
+            LawyerDTO，不存在返回 None
+        """
+        from apps.core.dto.organization import LawyerDTO
+        from apps.organization.models import Lawyer
+
+        try:
+            lawyer = Lawyer.objects.select_related("law_firm").get(id=lawyer_id)
+            return LawyerDTO.from_model(lawyer)
+        except Lawyer.DoesNotExist:
+            return None
+
+    def get_default_lawyer_id_internal(self) -> int | None:
+        """
+        内部方法：获取默认律师 ID（取第一个 is_admin=True 的律师）
+
+        Returns:
+            默认律师 ID，不存在返回 None
+        """
+        from apps.organization.models import Lawyer
+
+        lawyer = Lawyer.objects.filter(is_admin=True).first()
+        return lawyer.id if lawyer else None

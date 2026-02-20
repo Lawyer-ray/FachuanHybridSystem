@@ -86,13 +86,20 @@ class CourtDocumentGdemsMixin:
             raise ValueError(f"文件下载失败: {e}") from e
 
     def _extract_gdems_zip(self, zip_filepath: Path, download_dir: Path) -> list[str]:
-        """解压 ZIP 文件，返回解压后的文件路径列表"""
+        """解压 ZIP 文件，返回解压后的文件路径列表（安全逐文件解压，防 zip slip）"""
         try:
             extract_dir = download_dir / "extracted"
             extract_dir.mkdir(exist_ok=True)
+            extracted: list[str] = []
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
-                extracted = [str(extract_dir / name) for name in zip_ref.namelist()]
+                for member in zip_ref.infolist():
+                    target = (extract_dir / member.filename).resolve()
+                    if not str(target).startswith(str(extract_dir.resolve())):
+                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        continue
+                    zip_ref.extract(member, extract_dir)
+                    if not member.is_dir():
+                        extracted.append(str(target))
             logger.info(f"ZIP 文件已解压，共 {len(extracted)} 个文件")
             return extracted
         except Exception as e:

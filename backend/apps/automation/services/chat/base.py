@@ -9,47 +9,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from apps.core.dto.chat import ChatResult, MessageContent
 from apps.core.enums import ChatPlatform
 
-
-@dataclass
-class ChatResult:
-    """群聊操作结果
-
-    统一的群聊操作返回结果，包含成功状态、相关数据和错误信息。
-
-    Attributes:
-        success: 操作是否成功
-        chat_id: 群聊ID（创建群聊时返回）
-        chat_name: 群聊名称
-        message: 操作结果消息或错误描述
-        error_code: 平台特定的错误代码
-        raw_response: 原始API响应数据
-    """
-
-    success: bool
-    chat_id: str | None = None
-    chat_name: str | None = None
-    message: str | None = None
-    error_code: str | None = None
-    raw_response: dict[str, Any] | None = None
-
-
-@dataclass
-class MessageContent:
-    """消息内容
-
-    统一的消息内容结构，支持文本和文件消息。
-
-    Attributes:
-        title: 消息标题
-        text: 消息正文
-        file_path: 文件路径（可选）
-    """
-
-    title: str
-    text: str
-    file_path: str | None = None
+__all__ = ["ChatResult", "MessageContent", "ChatProvider"]
 
 
 class ChatProvider(ABC):

@@ -206,7 +206,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         """是否有下载链接"""
         if obj.download_links:
             return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
-        return format_html('<span style="color: gray;">✗ 无链接</span>')
+        return mark_safe('<span style="color: gray;">✗ 无链接</span>')
 
     has_download_links.short_description = "下载链接"
 
@@ -306,7 +306,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                 '<span style="color: red;">✗ 通知失败</span><br><small style="color: #d63384;">{}</small>',
                 error_preview,
             )
-        return format_html('<span style="color: gray;">- 未发送</span>')
+        return mark_safe('<span style="color: gray;">- 未发送</span>')
 
     feishu_status.short_description = "通知状态"
 

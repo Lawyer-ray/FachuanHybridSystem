@@ -18,15 +18,20 @@
 - 支持多平台群聊
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
-from apps.automation.services.chat.base import ChatResult
+if TYPE_CHECKING:
+    from apps.core.dto.chat import ChatResult
+
 from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.cases.models import Case, CaseChat
+from apps.core.dto.chat import MessageContent
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -52,15 +57,13 @@ class CaseChatService:
 
     @property
     def factory(self) -> Any:
-        """懒加载群聊提供者工厂（避免 cases→automation 跨模块导入）"""
-        from apps.automation.services.chat.factory import ChatProviderFactory
+        """懒加载群聊提供者工厂"""
+        from apps.core.interfaces import ServiceLocator
 
-        return ChatProviderFactory
+        return ServiceLocator.get_chat_provider_factory()
 
-    def _build_message_content(self, title: str, text: str) -> Any:
-        """构造 MessageContent 对象（懒加载，避免 cases→automation 跨模块导入）"""
-        from apps.automation.services.chat.base import MessageContent
-
+    def _build_message_content(self, title: str, text: str) -> MessageContent:
+        """构造 MessageContent 对象"""
         return MessageContent(title=title, text=text, file_path=None)
 
     def _build_chat_name(self, case: Case) -> str:

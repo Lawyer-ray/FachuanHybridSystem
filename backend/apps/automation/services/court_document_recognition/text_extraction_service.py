@@ -245,9 +245,11 @@ class TextExtractionService:
 
             return "\n".join(all_text)
         finally:
-            # 清理临时文件
+            # 清理临时文件（仅删除 MEDIA_ROOT 内的文件）
+            media_root = Path(settings.MEDIA_ROOT)
             for temp_file in temp_files:
                 with contextlib.suppress(Exception):
+                    temp_file.relative_to(media_root)  # 边界检查：确保在 MEDIA_ROOT 内
                     temp_file.unlink(missing_ok=True)
 
     def _extract_from_image(self, file_path: str) -> TextExtractionResult:
