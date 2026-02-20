@@ -19,7 +19,7 @@ from django.utils.translation import gettext_lazy as _
 import json
 import logging
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 import httpx
 
@@ -54,7 +54,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
 
     BASE_URL = "https://open.feishu.cn/open-apis"
 
-    ENDPOINTS: ClassVar[dict[str, str]] = {
+    ENDPOINTS: dict[str, str] = {
         "tenant_access_token": "/auth/v3/tenant_access_token/internal",
         "create_chat": "/im/v1/chats",
         "send_message": "/im/v1/messages",
@@ -187,7 +187,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             logger.info(f"成功创建飞书群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
 
             result = ChatResult(
-                success=True, chat_id=chat_id, chat_name=chat_name, message=_("群聊创建成功"), raw_response=data
+                success=True, chat_id=chat_id, chat_name=chat_name, message=str(_("群聊创建成功")), raw_response=data
             )
             if result.raw_response:
                 result.raw_response["owner_info"] = {
@@ -258,7 +258,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             message_id = message_data.get("message_id")
             logger.info(f"成功发送飞书消息到群聊: {chat_id} (消息ID: {message_id})")
 
-            return ChatResult(success=True, chat_id=chat_id, message=_("消息发送成功"), raw_response=data)
+            return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
 
         except MessageSendException:
             raise

@@ -11,7 +11,7 @@ from django.db import models
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import URLPattern, path, reverse
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
@@ -64,9 +64,9 @@ class CaseAdminServiceMixin:
 
 
 class CaseAdminViewsMixin(CaseAdminServiceMixin):
-    def name_link(self, obj: Case) -> SafeString:
+    def name_link(self, obj: Case) -> str:
         detail_url = reverse("admin:cases_case_detail", args=[obj.pk])
-        return mark_safe(f'<a href="{detail_url}">{obj.name}</a>')
+        return format_html('<a href="{}">{}</a>', detail_url, obj.name)
 
     name_link.short_description = _("案件名称")  # type: ignore[attr-defined]
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]

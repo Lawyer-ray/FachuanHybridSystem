@@ -49,6 +49,7 @@ class TemplateResolver:
             template = self._get_template_by_id(template_id)
             effective_function_code = getattr(template, "function_code", None) or function_code
         else:
+            assert function_code is not None
             template = self._get_template_by_function_code(function_code)
             effective_function_code = function_code
 

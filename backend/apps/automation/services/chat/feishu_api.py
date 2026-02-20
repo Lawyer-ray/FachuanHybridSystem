@@ -75,8 +75,11 @@ class FeishuApiMixin:
     _access_token: str | None
     _token_expires_at: datetime | None
 
-    def _get_file_type(self, file_path: str) -> str: ...
-    def _get_mime_type(self, file_path: str) -> str: ...
+    def _get_file_type(self, file_path: str) -> str:  # 由 FeishuFileMixin 提供
+        raise NotImplementedError
+
+    def _get_mime_type(self, file_path: str) -> str:  # 由 FeishuFileMixin 提供
+        raise NotImplementedError
 
     def _request(
         self,
@@ -246,11 +249,11 @@ class FeishuApiMixin:
 
             if not file_key:
                 raise MessageSendException(
-                    message=_("API响应中缺少文件key"), platform="feishu", errors={"api_response": resp_data}
+                    message=str(_("API响应中缺少文件key")), platform="feishu", errors={"api_response": resp_data}
                 )
 
             logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")
-            return file_key
+            return str(file_key)
 
         except MessageSendException:
             raise
@@ -447,7 +450,7 @@ class FeishuApiMixin:
 
                 if open_id:
                     logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
-                    return open_id
+                    return str(open_id)
                 else:
                     logger.warning(f"API响应中缺少open_id: {union_id}")
                     return None

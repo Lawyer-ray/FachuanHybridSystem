@@ -5,8 +5,7 @@ import logging
 from django.db import models
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import (
@@ -192,8 +191,8 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 obj.merge_error or "未知错误",
             )
         elif obj.merged_pdf:
-            return mark_safe('<span style="color: #2e7d32;">✓ 已合并</span>')
-        return mark_safe('<span style="color: #999;">未合并</span>')
+            return format_html('<span style="color: #2e7d32;">✓ 已合并</span>')
+        return format_html('<span style="color: #999;">未合并</span>')
 
     has_merged_pdf_display.short_description = _("合并状态")
 
@@ -214,7 +213,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 format_html('<a class="button" href="{}" title="下载证据明细PDF">下载明细</a>', download_url)
             )
 
-        return mark_safe(" ".join(str(b) for b in buttons))
+        return format_html_join(" ", "{}", ((b,) for b in buttons))
 
     actions_display.short_description = _("操作")
 

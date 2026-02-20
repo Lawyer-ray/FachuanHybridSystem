@@ -202,9 +202,9 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             ),
         }
 
-        validator = _FEE_MODE_VALIDATORS.get(fee_mode) # type: ignore
+        validator = _FEE_MODE_VALIDATORS.get(fee_mode) if isinstance(fee_mode, FeeMode) else None
         if validator:
-            validator(data, errors) # type: ignore
+            validator(data, errors)
 
         # SEMI_RISK 需要检查两个字段
         if fee_mode == FeeMode.SEMI_RISK:

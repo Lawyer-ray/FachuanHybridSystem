@@ -189,7 +189,7 @@ class DocumentDeliveryService(
 
     def _process_document_page(
         self,
-        documents: list[DocumentRecord],
+        documents: list[Any],
         token: str,
         cutoff_time: datetime,
         credential_id: int,
@@ -254,7 +254,7 @@ class DocumentDeliveryService(
                 else:
                     logger.warning(f"文书下载失败: {file_name}")
             if not downloaded_files:
-                result.error_message = _("所有文书下载失败")
+                result.error_message = str(_("所有文书下载失败"))
                 logger.error(result.error_message)
                 return result
             send_time = record.parse_fssj()
@@ -461,7 +461,7 @@ class DocumentDeliveryService(
 
     def _should_process(self, record: DocumentDeliveryRecord, cutoff_time: datetime, credential_id: int) -> bool:
         """判断是否需要处理该文书（Playwright 上下文）"""
-        if record.send_time <= cutoff_time:
+        if record.send_time is None or record.send_time <= cutoff_time:
             logger.info(f"⏰ 文书时间 {record.send_time} 早于截止时间 {cutoff_time}，跳过")
             return False
         return self._check_not_processed_in_thread(credential_id, record)
@@ -485,7 +485,7 @@ class DocumentDeliveryService(
                 result.failed_count += 1
                 if process_result.error_message:
                     result.errors.append(process_result.error_message)
-            return bool(entry.send_time > cutoff_time)
+            return bool(entry.send_time is not None and entry.send_time > cutoff_time)
         else:
             result.skipped_count += 1
             return False
@@ -513,7 +513,7 @@ class DocumentDeliveryService(
                     should_continue = self._process_single_entry(page, entry, cutoff_time, credential_id, result)
                 else:
                     result.skipped_count += 1
-                    if entry.send_time <= cutoff_time:
+                    if entry.send_time is None or entry.send_time <= cutoff_time:
                         should_continue = False
                         break
             if not should_continue or not self._has_next_page(page):
@@ -533,7 +533,7 @@ class DocumentDeliveryService(
         try:
             file_path = self._download_document(page, entry)
             if not file_path:
-                result.error_message = _("文书下载失败")
+                result.error_message = str(_("文书下载失败"))
                 return result
             process_result = self._process_downloaded_document(file_path, entry, credential_id)
             self._record_query_history_in_thread(credential_id, entry)

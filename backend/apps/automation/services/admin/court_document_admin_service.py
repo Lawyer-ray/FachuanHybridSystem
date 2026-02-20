@@ -355,7 +355,7 @@ class CourtDocumentAdminService:
             if not documents_dir.exists():
                 return {"orphaned_files": 0, "deleted_files": 0, "message": "文档目录不存在"}
 
-            orphaned_files = []
+            orphaned_files: list[str] = []
             for root, _dirs, files in documents_dir.walk():
                 for file in files:
                     file_path = root / file

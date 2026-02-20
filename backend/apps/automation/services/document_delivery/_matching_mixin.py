@@ -16,16 +16,25 @@ if TYPE_CHECKING:
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
     from apps.core.interfaces import ICaseLogService, ICaseNumberService
 
+from abc import abstractmethod
+
 logger = logging.getLogger("apps.automation")
 
 
 class DocumentDeliveryMatchingMixin:
     """案件匹配、重命名、通知相关方法"""
 
-    # 子类提供的 lazy properties
-    case_matcher: "CaseMatcher"
-    document_renamer: "DocumentRenamer"
-    notification_service: "SMSNotificationService"
+    @property
+    @abstractmethod
+    def case_matcher(self) -> "CaseMatcher": ...
+
+    @property
+    @abstractmethod
+    def document_renamer(self) -> "DocumentRenamer": ...
+
+    @property
+    @abstractmethod
+    def notification_service(self) -> "SMSNotificationService": ...
 
     def __init__(
         self,

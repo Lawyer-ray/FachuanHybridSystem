@@ -176,9 +176,6 @@ class ScraperTaskAdmin(admin.ModelAdmin):
 
         return mark_safe("".join(html_parts))
 
-    # Admin 操作
-    actions: ClassVar[list[str]] = ["execute_tasks", "reset_failed_tasks"]
-
     @admin.action(description=_("立即执行选中的任务"))
     def execute_tasks(self, request, queryset):
         """批量执行任务"""

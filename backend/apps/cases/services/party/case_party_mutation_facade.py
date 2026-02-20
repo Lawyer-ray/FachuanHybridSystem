@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from apps.cases.models import CaseParty
 from apps.core.security import DjangoPermsMixin
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> CaseParty:
         if not perm_open_access:
             self.ensure_authenticated(user)
         self.access_policy.ensure_access(
@@ -77,7 +78,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> CaseParty:
         if not perm_open_access:
             self.ensure_authenticated(user)
         party = self.query_service.get_party(party_id=party_id)
@@ -104,7 +105,7 @@ class CasePartyMutationFacade(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> dict[str, bool]:
         if not perm_open_access:
             self.ensure_authenticated(user)
         party = self.query_service.get_party(party_id=party_id)

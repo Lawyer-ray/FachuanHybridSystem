@@ -1,8 +1,10 @@
 """飞书群主相关操作 Mixin"""
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
@@ -20,6 +22,9 @@ from apps.core.exceptions import (
 
 from .base import ChatResult
 
+if TYPE_CHECKING:
+    from .owner_config_manager import OwnerConfigManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,10 +34,13 @@ class FeishuOwnerMixin:
     BASE_URL: str
     ENDPOINTS: dict[str, str]
     config: dict[str, Any]
+    owner_config: OwnerConfigManager
 
-    def is_available(self) -> bool: ...  # 由 FeishuTokenMixin 提供
+    def is_available(self) -> bool:  # 由 FeishuTokenMixin 提供
+        raise NotImplementedError
 
-    def _get_tenant_access_token(self) -> str: ...  # 由 FeishuTokenMixin 提供
+    def _get_tenant_access_token(self) -> str:  # 由 FeishuTokenMixin 提供
+        raise NotImplementedError
 
     def get_chat_info(self, chat_id: str) -> ChatResult:
         """获取群聊详细信息"""
@@ -68,7 +76,11 @@ class FeishuOwnerMixin:
             logger.debug(f"成功获取飞书群聊信息: {chat_id} (名称: {chat_name})")
 
             return ChatResult(
-                success=True, chat_id=chat_id, chat_name=chat_name, message=_("获取群聊信息成功"), raw_response=data
+                success=True,
+                chat_id=chat_id,
+                chat_name=chat_name,
+                message=str(_("获取群聊信息成功")),
+                raw_response=data,
             )
 
         except ChatProviderException:
@@ -198,7 +210,6 @@ class FeishuOwnerMixin:
                     chat_id=chat_id,
                     validation_type="owner_verification",
                 )
-            return True
 
         try:
             retry_manager.execute_with_retry(
@@ -272,7 +283,7 @@ class FeishuOwnerMixin:
                 open_id = user_data.get("open_id")
                 if open_id:
                     logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
-                    return open_id
+                    return str(open_id)
                 else:
                     logger.warning(f"API响应中缺少open_id: {union_id}")
                     return None
