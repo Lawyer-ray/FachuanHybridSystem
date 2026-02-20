@@ -102,7 +102,7 @@ class CaseLogInline(BaseStackedInline):
     extra = 0
     fields = ("content", "reminder_type", "reminder_time")
     exclude = ("actor",)
-    readonly_fields = ()
+    readonly_fields = ("reminder_type", "reminder_time")
     show_change_link = True
 
     if BaseModelAdmin is not admin.ModelAdmin:
