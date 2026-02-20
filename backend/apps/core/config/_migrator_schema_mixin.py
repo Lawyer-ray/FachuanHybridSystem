@@ -19,9 +19,9 @@ class ConfigMigratorSchemaMixin:
 
     # 子类提供
     @property
-    def config_manager(self) -> Any: ...  # type: ignore[misc]
+    def config_manager(self) -> Any: ...
     @property
-    def compatibility_layer(self) -> Any: ...  # type: ignore[misc]
+    def compatibility_layer(self) -> Any: ...
 
     def _track_config_change(self, migration_id: str, key: str, old_value: Any, new_value: Any) -> None: ...
 

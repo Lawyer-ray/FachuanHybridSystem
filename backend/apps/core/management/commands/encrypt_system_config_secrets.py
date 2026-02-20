@@ -11,7 +11,7 @@ from apps.core.security.secret_codec import SecretCodec
 class Command(BaseCommand):
     help: str = "加密存量 SystemConfig 中 is_secret=True 的明文值"
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         codec = SecretCodec()
         qs = SystemConfig.objects.filter(is_secret=True, is_active=True).exclude(value="").exclude(value__isnull=True)
         to_encrypt = [c for c in qs if not codec.is_encrypted(c.value)]

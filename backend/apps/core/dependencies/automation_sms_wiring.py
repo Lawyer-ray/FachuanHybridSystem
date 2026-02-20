@@ -19,7 +19,6 @@ def build_court_sms_service_with_deps(
     caselog_service: Any,
     reminder_service: Any,
 ) -> ICourtSMSService:
-    from apps.automation.integrations.chat.message_sender import ChatProviderMessageSender
     from apps.automation.services.fee_notice import FeeNoticeCheckService
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
@@ -61,17 +60,15 @@ def build_court_sms_service_with_deps(
         document_parser_service=document_parser_service,
         party_matching_service=party_matching_service,
     )
-    case_number_extractor = CaseNumberExtractorService(  # type: ignore[call-arg]
+    case_number_extractor = CaseNumberExtractorService(
         document_processing_service=document_processing_service,
         case_service=case_service,
         case_number_service=case_number_service,
     )
 
     document_attachment = DocumentAttachmentService(case_service=case_service)
-    notification = SMSNotificationService(  # type: ignore[call-arg, call-arg]
+    notification = SMSNotificationService(
         case_chat_service=case_chat_service,
-        fee_check_service=FeeNoticeCheckService(),  # type: ignore[misc]
-        chat_message_sender=ChatProviderMessageSender(),
     )
 
     parsing_stage = SMSParsingStage(parser=parser)

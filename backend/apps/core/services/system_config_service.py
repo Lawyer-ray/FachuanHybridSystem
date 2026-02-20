@@ -189,7 +189,7 @@ class SystemConfigService:
         Returns:
             SystemConfig 实例,不存在时返回 None
         """
-        return self._model.objects.filter(key=key, is_active=True).first()
+        return self._model.objects.filter(key=key, is_active=True).first()  # type: ignore[no-any-return]  # QuerySet.first() 返回 Any
 
     def get_value(self, key: str, default: str = "") -> str:
         """

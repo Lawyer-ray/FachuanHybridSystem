@@ -23,11 +23,11 @@ class ConfigMigratorRollbackMixin:
 
     # 子类提供
     @property
-    def config_manager(self) -> Any: ...  # type: ignore[misc]
+    def config_manager(self) -> Any: ...
     @property
-    def compatibility_layer(self) -> Any: ...  # type: ignore[misc]
+    def compatibility_layer(self) -> Any: ...
     @property
-    def tracker(self) -> Any: ...  # type: ignore[misc]
+    def tracker(self) -> Any: ...
 
     def _save_migration_log(self) -> None: ...
 

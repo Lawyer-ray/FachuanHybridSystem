@@ -164,10 +164,10 @@ class CauseCourtQueryService:
             return results
 
         qs = base.filter(parent_id=parent_id).order_by("code")
-        results: list[Any] = []
+        parent_results: list[dict[str, Any]] = []
         for cause in qs:
             has_children = base.filter(parent_id=cause.id).exists()
-            results.append(
+            parent_results.append(
                 {
                     "id": cause.id,
                     "code": cause.code,
@@ -178,4 +178,4 @@ class CauseCourtQueryService:
                     "full_path": cause.full_path,
                 }
             )
-        return results
+        return parent_results

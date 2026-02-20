@@ -21,10 +21,10 @@ from ._system_config_data import get_default_configs, get_env_mappings
 
 
 @admin.register(SystemConfig)
-class SystemConfigAdmin(admin.ModelAdmin):
+class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     """系统配置 Admin"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "key",
         "category_display",
         "masked_value",
@@ -32,10 +32,10 @@ class SystemConfigAdmin(admin.ModelAdmin):
         "is_active",
         "updated_at",
     ]
-    list_filter: ClassVar[list[str]] = ["category", "is_secret", "is_active"]
-    search_fields: ClassVar[list[str]] = ["key", "description"]
-    list_editable: ClassVar[list[str]] = ["is_active"]
-    ordering: ClassVar[list[str]] = ["category", "key"]
+    list_filter = ["category", "is_secret", "is_active"]
+    search_fields = ["key", "description"]
+    list_editable = ["is_active"]
+    ordering = ["category", "key"]
 
     fieldsets = (
         (_("基本信息"), {"fields": ("key", "value", "category", "description")}),

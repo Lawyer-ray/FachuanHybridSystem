@@ -57,7 +57,7 @@ def build_ai_service() -> Any:
     from apps.automation.services.ai.ai_service import AIService
     from apps.core.dependencies.core import build_llm_service
 
-    return AIService(llm_service=build_llm_service())  # type: ignore[arg-type]
+    return AIService(llm_service=build_llm_service())
 
 
 def build_automation_config_service() -> Any:

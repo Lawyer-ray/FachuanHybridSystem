@@ -11,4 +11,4 @@ if TYPE_CHECKING:
 def build_client_service() -> IClientService:
     from apps.client.services import ClientServiceAdapter
 
-    return ClientServiceAdapter()  # type: ignore[return-value]
+    return ClientServiceAdapter()  # type: ignore[abstract]  # 适配器实现了所有抽象方法

@@ -263,8 +263,8 @@ def check_dependencies() -> ComponentHealth:
         from django.apps import apps
 
         installed_apps = [app.name for app in apps.get_app_configs()]
-        diagnostic_info["installed_apps"] = installed_apps  # type: ignore[assignment]
-        diagnostic_info["apps_ready"] = apps.ready  # type: ignore[assignment]
+        diagnostic_info["installed_apps"] = installed_apps
+        diagnostic_info["apps_ready"] = apps.ready
 
         status = HealthStatus.HEALTHY
         issues: list[str] = []
@@ -289,7 +289,7 @@ def check_dependencies() -> ComponentHealth:
 
     except Exception as e:
         logger.exception("操作失败")
-        diagnostic_info.update({"error_type": type(e).__name__, "error_details": str(e)})  # type: ignore[dict-item]
+        diagnostic_info.update({"error_type": type(e).__name__, "error_details": str(e)})
 
         return ComponentHealth(
             name="dependencies",

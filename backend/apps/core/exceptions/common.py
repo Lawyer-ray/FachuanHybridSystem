@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from django.utils.functional import Promise
 
 from .base import BusinessException
 
@@ -33,7 +36,7 @@ class ValidationException(BusinessException):
     """
 
     def __init__(
-        self, message: str = "数据验证失败", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "数据验证失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "VALIDATION_ERROR", errors=errors)
 
@@ -50,7 +53,7 @@ class PermissionDenied(BusinessException):
     """
 
     def __init__(
-        self, message: str = "无权限执行该操作", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "无权限执行该操作", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "PERMISSION_DENIED", errors=errors)
 
@@ -67,7 +70,7 @@ class NotFoundError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "资源不存在", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "资源不存在", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "NOT_FOUND", errors=errors)
 
@@ -85,7 +88,7 @@ class ConflictError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "资源冲突", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "资源冲突", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "CONFLICT", errors=errors)
 
@@ -103,7 +106,7 @@ class AuthenticationError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "认证失败", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "认证失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "AUTHENTICATION_ERROR", errors=errors)
 
@@ -120,7 +123,7 @@ class RateLimitError(BusinessException):
     """
 
     def __init__(
-        self, message: str = "请求过于频繁", code: str | None = None, errors: dict[str, Any] | None = None
+        self, message: str | Promise = "请求过于频繁", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "RATE_LIMIT_ERROR", errors=errors)
 
@@ -129,7 +132,7 @@ class RateLimitError(BusinessException):
 class ForbiddenError(PermissionDenied):
     """无权限访问(向后兼容)"""
 
-    def __init__(self, message: str = "无权限访问") -> None:
+    def __init__(self, message: str | Promise = "无权限访问") -> None:
         super().__init__(message)
         self.status = 403
 
@@ -137,6 +140,6 @@ class ForbiddenError(PermissionDenied):
 class UnauthorizedError(AuthenticationError):
     """未认证(向后兼容)"""
 
-    def __init__(self, message: str = "请先登录") -> None:
+    def __init__(self, message: str | Promise = "请先登录") -> None:
         super().__init__(message)
         self.status = 401
