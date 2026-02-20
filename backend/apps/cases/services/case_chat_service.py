@@ -208,7 +208,7 @@ class CaseChatService:
 
     def _create_chat_in_transaction(
         self, case: Any, platform: ChatPlatform, chat_name: str, owner_id: str | None
-    ) -> "CaseChat":
+    ) -> CaseChat:
         """在事务中调用提供者创建群聊并保存记录"""
         provider = self._get_available_provider(platform)
         try:
@@ -248,7 +248,7 @@ class CaseChatService:
 
     def create_chat_for_case(
         self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
-    ) -> "CaseChat":
+    ) -> CaseChat:
         """为案件创建群聊"""
         logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
         case = self._get_case(case_id)
@@ -324,7 +324,7 @@ class CaseChatService:
         return f"消息发送成功，但所有文件发送失败 ({total - ok} 个文件)"
 
     def _retry_send_after_chat_recreate(
-        self, provider: Any, chat: Any, content: Any, case_id: int, platform: "ChatPlatform", result: Any
+        self, provider: Any, chat: Any, content: Any, case_id: int, platform: ChatPlatform, result: Any
     ) -> tuple[Any, Any]:
         """群聊解散时重建群聊并重试发送，返回 (new_result, new_chat)"""
         logger.warning(f"群聊可能已解散，尝试创建新群聊: chat_id={chat.chat_id}")
