@@ -3,8 +3,13 @@
 定义业务异常类型(不包含全局异常处理器注册)
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from django.utils.functional import _StrOrPromise
 
 from django.utils.translation import gettext_lazy as _
 
@@ -23,7 +28,7 @@ class BusinessException(Exception):
         errors: 结构化错误详情(字段级别的错误)
     """
 
-    def __init__(self, message: str, code: str | None = None, errors: dict[str, Any] | None = None) -> None:
+    def __init__(self, message: _StrOrPromise, code: str | None = None, errors: dict[str, Any] | None = None) -> None:
         """
         初始化业务异常
 
@@ -35,7 +40,7 @@ class BusinessException(Exception):
         self.message = message
         self.code = code or self.__class__.__name__
         self.errors = errors or {}
-        super().__init__(message)
+        super().__init__(str(message))
 
     def __str__(self) -> str:
         return f"{self.code}: {self.message}"
@@ -55,7 +60,7 @@ class BusinessException(Exception):
 
 
 class BusinessError(BusinessException):
-    def __init__(self, message: str, code: str = "BUSINESS_ERROR", status: int = 400) -> None:
+    def __init__(self, message: _StrOrPromise, code: str = "BUSINESS_ERROR", status: int = 400) -> None:
         super().__init__(message, code)
         self.status = status
 
@@ -73,7 +78,10 @@ class ValidationException(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("数据验证失败"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("数据验证失败"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "VALIDATION_ERROR", errors=errors)
 
@@ -90,7 +98,10 @@ class PermissionDenied(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("无权限执行该操作"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("无权限执行该操作"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "PERMISSION_DENIED", errors=errors)
 
@@ -107,7 +118,10 @@ class NotFoundError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("资源不存在"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("资源不存在"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "NOT_FOUND", errors=errors)
 
@@ -125,7 +139,10 @@ class ConflictError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("资源冲突"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("资源冲突"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "CONFLICT", errors=errors)
 
@@ -143,7 +160,10 @@ class AuthenticationError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("认证失败"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("认证失败"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "AUTHENTICATION_ERROR", errors=errors)
 
@@ -160,7 +180,10 @@ class RateLimitError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("请求过于频繁"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("请求过于频繁"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "RATE_LIMIT_ERROR", errors=errors)
 
@@ -177,7 +200,10 @@ class ExternalServiceError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("外部服务错误"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("外部服务错误"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "EXTERNAL_SERVICE_ERROR", errors=errors)
 
@@ -196,7 +222,7 @@ class ServiceUnavailableError(ExternalServiceError):
 
     def __init__(
         self,
-        message: str = _("服务暂时不可用"),
+        message: _StrOrPromise = _("服务暂时不可用"),
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         service_name: str | None = None,
@@ -222,7 +248,7 @@ class RecognitionTimeoutError(ExternalServiceError):
 
     def __init__(
         self,
-        message: str = _("识别超时"),
+        message: _StrOrPromise = _("识别超时"),
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         timeout_seconds: float | None = None,
@@ -247,7 +273,10 @@ class TokenError(BusinessException):
     """
 
     def __init__(
-        self, message: str = _("Token 错误"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("Token 错误"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "TOKEN_ERROR", errors=errors)
 
@@ -265,7 +294,10 @@ class APIError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = _("API 调用错误"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("API 调用错误"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "API_ERROR", errors=errors)
 
@@ -283,19 +315,22 @@ class NetworkError(ExternalServiceError):
     """
 
     def __init__(
-        self, message: str = _("网络错误"), code: str | None = None, errors: dict[str, Any] | None = None
+        self,
+        message: _StrOrPromise = _("网络错误"),
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "NETWORK_ERROR", errors=errors)
 
 
 class ForbiddenError(PermissionDenied):
-    def __init__(self, message: str = _("无权限访问")) -> None:
+    def __init__(self, message: _StrOrPromise = _("无权限访问")) -> None:
         super().__init__(message)
         self.status = 403
 
 
 class UnauthorizedError(AuthenticationError):
-    def __init__(self, message: str = _("请先登录")) -> None:
+    def __init__(self, message: _StrOrPromise = _("请先登录")) -> None:
         super().__init__(message)
         self.status = 401
 
@@ -303,7 +338,7 @@ class UnauthorizedError(AuthenticationError):
 class ChatProviderException(BusinessException):
     def __init__(
         self,
-        message: str,
+        message: _StrOrPromise,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -317,7 +352,7 @@ class ChatProviderException(BusinessException):
 class UnsupportedPlatformException(ChatProviderException):
     def __init__(
         self,
-        message: str = _("不支持的群聊平台"),
+        message: _StrOrPromise = _("不支持的群聊平台"),
         platform: str | None = None,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
@@ -328,7 +363,7 @@ class UnsupportedPlatformException(ChatProviderException):
 class ChatCreationException(ChatProviderException):
     def __init__(
         self,
-        message: str = _("群聊创建失败"),
+        message: _StrOrPromise = _("群聊创建失败"),
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -342,7 +377,7 @@ class ChatCreationException(ChatProviderException):
 class MessageSendException(ChatProviderException):
     def __init__(
         self,
-        message: str = _("消息发送失败"),
+        message: _StrOrPromise = _("消息发送失败"),
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
@@ -358,7 +393,7 @@ class MessageSendException(ChatProviderException):
 class ConfigurationException(ChatProviderException):
     def __init__(
         self,
-        message: str = _("群聊平台配置错误"),
+        message: _StrOrPromise = _("群聊平台配置错误"),
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         platform: str | None = None,
@@ -384,7 +419,7 @@ class OwnerSettingException(ChatProviderException):
 
     def __init__(
         self,
-        message: str,
+        message: _StrOrPromise,
         code: str | None = None,
         errors: dict[str, Any] | None = None,
         error_code: str | None = None,
