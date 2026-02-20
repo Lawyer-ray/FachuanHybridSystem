@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, ChatRecordRecording, ChatRecordScreenshot
@@ -33,7 +33,7 @@ class ChatRecordProjectAdmin(admin.ModelAdmin[ChatRecordProject]):
 
     def workbench_link(self, obj: ChatRecordProject) -> str:
         url = reverse("admin:chat_records_project_workbench", args=[obj.id])
-        return mark_safe(f'<a href="{url}">进入工作台</a>')
+        return format_html('<a href="{}">进入工作台</a>', url)
 
     workbench_link.short_description = _("工作台")  # type: ignore[attr-defined]
 
@@ -85,7 +85,7 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin[ChatRecordExportTask]):
     def download_link(self, obj: ChatRecordExportTask) -> str:
         if not obj.output_file:
             return "-"
-        return mark_safe(f'<a href="/api/v1/chat-records/exports/{obj.id}/download">下载</a>')
+        return format_html('<a href="/api/v1/chat-records/exports/{}/download">下载</a>', obj.id)
 
     download_link.short_description = _("文件")  # type: ignore[attr-defined]
 

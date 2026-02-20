@@ -7,7 +7,6 @@ from django import forms
 from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from typing import ClassVar
 
@@ -106,7 +105,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
     def last_login_display(self, obj):
         """显示最后登录时间"""
         if not obj.last_login_success_at:
-            return mark_safe('<span style="color: #999;">从未成功</span>')
+            return format_html('<span style="color: #999;">{}</span>', '从未成功')
 
         now = timezone.now()
         delta = now - obj.last_login_success_at
@@ -145,7 +144,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
                 obj.id,
             )
         else:
-            return mark_safe('<span style="color: #999;">不支持</span>')
+            return format_html('<span style="color: #999;">{}</span>', '不支持')
 
     auto_login_button.short_description = _("操作")
 
