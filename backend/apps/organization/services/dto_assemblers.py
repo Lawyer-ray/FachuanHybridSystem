@@ -9,7 +9,7 @@ from apps.organization.models import LawFirm, Lawyer
 class LawyerDtoAssembler:
     def to_dto(self, lawyer: Lawyer) -> LawyerDTO:
         return LawyerDTO(
-            id=cast(int, lawyer.pk),
+            id=cast(int, lawyer.pk), # type: ignore
             username=lawyer.username,
             real_name=lawyer.real_name,
             phone=lawyer.phone,
@@ -22,7 +22,7 @@ class LawyerDtoAssembler:
 class LawFirmDtoAssembler:
     def to_dto(self, lawfirm: LawFirm) -> LawFirmDTO:
         return LawFirmDTO(
-            id=cast(int, lawfirm.pk),
+            id=cast(int, lawfirm.pk), # type: ignore
             name=lawfirm.name,
             address=lawfirm.address,
             phone=lawfirm.phone,

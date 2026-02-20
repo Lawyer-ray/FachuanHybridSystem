@@ -5,6 +5,7 @@ Token获取历史记录服务
 """
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -127,7 +128,7 @@ class TokenHistoryRecorder:
                     token_preview=token_preview,
                     error_message=error_message,
                     error_details=result.error_details,
-                    started_at=timezone.now() - timezone.timedelta(seconds=result.total_duration),
+                    started_at=timezone.now() - timedelta(seconds=result.total_duration),
                     finished_at=timezone.now(),
                 )
 
@@ -167,7 +168,7 @@ class TokenHistoryRecorder:
             from django.db.models import Avg, Count
 
             # 计算时间范围
-            start_time = timezone.now() - timezone.timedelta(hours=hours)
+            start_time = timezone.now() - timedelta(hours=hours)
 
             @sync_to_async
             def get_stats() -> dict[str, Any]:
@@ -224,7 +225,7 @@ class TokenHistoryRecorder:
             删除的记录数
         """
         try:
-            cutoff_date = timezone.now() - timezone.timedelta(days=days)
+            cutoff_date = timezone.now() - timedelta(days=days)
 
             @sync_to_async
             def delete_old_records() -> int:
@@ -259,7 +260,7 @@ class TokenHistoryRecorder:
         try:
             from django.db.models import Avg
 
-            start_time = timezone.now() - timezone.timedelta(days=days)
+            start_time = timezone.now() - timedelta(days=days)
 
             @sync_to_async
             def get_account_stats() -> dict[str, Any]:

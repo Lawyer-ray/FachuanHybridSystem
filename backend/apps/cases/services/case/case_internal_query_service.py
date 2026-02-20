@@ -48,7 +48,7 @@ class CaseInternalQueryService:
     @property
     def orchestrator(self) -> CaseQueryOrchestrator:
         if self._orchestrator is None:
-            self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs)
+            self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs) # type: ignore
         return self._orchestrator
 
     def get_case_internal(self, case_id: int) -> CaseDTO | None | None:

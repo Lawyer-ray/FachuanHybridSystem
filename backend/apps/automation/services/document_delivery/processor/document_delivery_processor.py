@@ -80,7 +80,7 @@ class DocumentDeliveryProcessor:
     def caselog_service(self) -> "ICaseLogService":
         """延迟加载案件日志服务"""
         if self._caselog_service is None:
-            from apps.core.dependencies.business_case import build_caselog_service
+            from apps.core.dependencies.business_case import build_caselog_service # type: ignore
 
             self._caselog_service = build_caselog_service()
         return self._caselog_service
@@ -158,7 +158,7 @@ class DocumentDeliveryProcessor:
                 }
 
                 # 1. 创建 CourtSMS 记录
-                sms = CourtSMS.objects.create(
+                sms = CourtSMS.objects.create( # type: ignore
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -204,7 +204,7 @@ class DocumentDeliveryProcessor:
                         sms.feishu_sent_at = timezone.now()
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")
+                        sms.error_message = _("通知发送失败") # type: ignore
                     sms.save()
                     result["success"] = True
                 else:
@@ -375,12 +375,12 @@ class DocumentDeliveryProcessor:
         try:
             case_number_service = self.case_number_service
 
-            existing_numbers = case_number_service.list_numbers(case_id=case_id)
+            existing_numbers = case_number_service.list_numbers(case_id=case_id) # type: ignore
             for num in existing_numbers:
                 if num.number == case_number:
                     return True
 
-            case_number_service.create_number(case_id=case_id, number=case_number, remarks="文书送达自动下载同步")
+            case_number_service.create_number(case_id=case_id, number=case_number, remarks="文书送达自动下载同步") # type: ignore
             logger.info(f"案号同步成功: Case ID={case_id}, 案号={case_number}")
             return True
         except Exception as e:

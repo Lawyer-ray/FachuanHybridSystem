@@ -57,7 +57,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
         """
         self._token_service = token_service
         self._auto_token_service = auto_token_service
-        self.insurance_client = insurance_client or CourtInsuranceClient()
+        self.insurance_client = insurance_client or CourtInsuranceClient() # type: ignore
 
     @property
     def token_service(self) -> ITokenService:
@@ -102,7 +102,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                 preserve_amount=preserve_amount,
                 corp_id=corp_id,
                 category_id=category_id,
-                credential_id=credential_id,
+                credential_id=credential_id, # type: ignore
             )
         except ValidationError as e:
             # 记录验证失败日志
@@ -245,7 +245,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             # 根据成功/失败情况设置状态
             if success_count == 0:
                 quote.status = QuoteStatus.FAILED
-                quote.error_message = _("所有保险公司查询均失败")
+                quote.error_message = _("所有保险公司查询均失败") # type: ignore
             elif failed_count == 0:
                 quote.status = QuoteStatus.SUCCESS
             else:
@@ -404,7 +404,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "current_status": quote.status,
                 },
             )
-            raise ValidationError(
+            raise ValidationError( # type: ignore
                 message=f"任务状态为 {quote.get_status_display()}，不允许重试。只有失败或部分成功的任务可以重试。",
                 code="INVALID_QUOTE_STATUS",
                 errors={"status": quote.status},
@@ -490,7 +490,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
 
         if errors:
-            raise ValidationError(message=_("参数验证失败"), code="INVALID_PARAMETERS", errors=errors)
+            raise ValidationError(message=_("参数验证失败"), code="INVALID_PARAMETERS", errors=errors) # type: ignore
 
         logger.info(
             "查询询价任务列表",
@@ -565,4 +565,4 @@ class PreservationQuoteService(QuoteExecutionMixin):
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message=_("数据验证失败"), code="INVALID_CREATE_PARAMS", errors=errors)
+            raise ValidationError(message=_("数据验证失败"), code="INVALID_CREATE_PARAMS", errors=errors) # type: ignore

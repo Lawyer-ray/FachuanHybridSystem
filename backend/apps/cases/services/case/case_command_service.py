@@ -108,7 +108,7 @@ class CaseCommandService(PermissionMixin):
             ValidationException: 合同无效或阶段不合法
         """
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
-        self.check_authenticated(ctx)
+        self.check_authenticated(ctx) # type: ignore
 
         contract_id: int | None = data.get("contract_id")
         if contract_id:
@@ -163,7 +163,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx)
+            self.check_authenticated(ctx) # type: ignore
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -235,7 +235,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx)
+            self.check_authenticated(ctx) # type: ignore
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -311,7 +311,7 @@ class CaseCommandService(PermissionMixin):
         logs: list[CaseLog] = []
         for log in logs_data:
             logs.append(
-                CaseLog.objects.create(
+                CaseLog.objects.create( # type: ignore
                     case=case,
                     content=log["content"],
                     actor_id=actor_id,

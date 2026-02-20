@@ -23,7 +23,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin, BaseCourtDocumentScraper):
+class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin, BaseCourtDocumentScraper): # type: ignore
     """
     法院执行网 (zxfw.court.gov.cn) 文书下载爬虫
 

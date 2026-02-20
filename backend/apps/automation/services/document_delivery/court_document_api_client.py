@@ -250,7 +250,7 @@ class CourtDocumentApiClient:
 
                 # 检查 HTTP 状态码
                 if response.status_code == 401:
-                    raise TokenExpiredError(message=_("Token 已过期或无效"), errors={"status_code": 401})
+                    raise TokenExpiredError(message=_("Token 已过期或无效"), errors={"status_code": 401}) # type: ignore
 
                 if response.status_code >= 400:
                     logger.error(f"HTTP 错误: {response.status_code}, url={url}")
@@ -270,7 +270,7 @@ class CourtDocumentApiClient:
                 raise NetworkError(message=f"请求超时: {e!s}", errors={"url": url, "timeout": self._timeout}) from e
 
             except httpx.RequestError as e:
-                last_error = e
+                last_error = e # type: ignore
                 logger.warning(f"网络错误: {url}, attempt={attempt + 1}, error={e!s}")
                 if attempt < retry_count:
                     continue
@@ -281,7 +281,7 @@ class CourtDocumentApiClient:
                 raise
 
             except Exception as e:
-                last_error = e
+                last_error = e # type: ignore
                 logger.error(f"未知错误: {url}, error={e!s}")
                 raise CourtApiError(message=f"API 调用失败: {e!s}", errors={"url": url}) from e
 

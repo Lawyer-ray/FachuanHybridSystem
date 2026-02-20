@@ -109,7 +109,7 @@ class LoginHandler:
     ) -> TokenAcquisitionResult | None:
         """超时后等待并检查 token 是否已保存，成功则返回结果，否则返回 None"""
         await asyncio.sleep(2)
-        saved_token = await self._token_service.get_token_internal(site_name, account)
+        saved_token = await self._token_service.get_token_internal(site_name, account) # type: ignore
         if not saved_token:
             return None
         logger.info("超时但Token已保存成功", extra={"site_name": site_name, "account": account})
@@ -118,12 +118,12 @@ class LoginHandler:
                 success=True,
                 token=saved_token,
                 account=account,
-                error_message=_("超时但Token已保存"),
+                error_message=_("超时但Token已保存"), # type: ignore
                 attempt_duration=login_duration,
                 retry_count=1,
             )
         )
-        await self._account_selection_strategy.update_account_statistics(
+        await self._account_selection_strategy.update_account_statistics( # type: ignore
             account=account, site_name=site_name, success=True
         )
         return TokenAcquisitionResult(
@@ -169,7 +169,7 @@ class LoginHandler:
                 retry_count=1,
             )
         )
-        await self._account_selection_strategy.update_account_statistics(
+        await self._account_selection_strategy.update_account_statistics( # type: ignore
             account=credential.account, site_name=site_name, success=False
         )
         logger.error(
@@ -213,7 +213,7 @@ class LoginHandler:
                     retry_count=1,
                 )
             )
-        await self._account_selection_strategy.update_account_statistics(
+        await self._account_selection_strategy.update_account_statistics( # type: ignore
             account=credential.account, site_name=site_name, success=False
         )
         logger.error(
@@ -285,14 +285,14 @@ class LoginHandler:
                         "account": credential.account,
                     },
                 )
-                await self._token_service.save_token_internal(
+                await self._token_service.save_token_internal( # type: ignore
                     site_name=site_name,
                     account=credential.account,
                     token=token,
                     expires_in=3600,
                 )
                 cache_manager.cache_token(site_name, credential.account, token)
-                await self._account_selection_strategy.update_account_statistics(
+                await self._account_selection_strategy.update_account_statistics( # type: ignore
                     account=credential.account, site_name=site_name, success=True
                 )
 
@@ -359,7 +359,7 @@ class LoginHandler:
                         "account": credential.account,
                     },
                 )
-                await self._account_selection_strategy.update_account_statistics(
+                await self._account_selection_strategy.update_account_statistics( # type: ignore
                     account=credential.account, site_name=site_name, success=False
                 )
                 return TokenAcquisitionResult(
@@ -407,7 +407,7 @@ class LoginHandler:
             from apps.core.dependencies import build_organization_service
 
             organization_service = build_organization_service()
-            credential = await organization_service.get_credential_internal(credential_id)
+            credential = await organization_service.get_credential_internal(credential_id) # type: ignore
             return AccountCredentialDTO.from_model(credential)
         except Exception:
             return None

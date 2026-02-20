@@ -1,5 +1,5 @@
 import json
-from typing import Any, cast
+from typing import Any
 
 import httpx
 
@@ -20,14 +20,14 @@ def _parse_streaming_response(text: str, original_error: json.JSONDecodeError) -
             except json.JSONDecodeError:
                 continue
     if last_valid_json:
-        return cast(dict[str, Any], last_valid_json)
+        return last_valid_json
     raise ValueError(f"无法解析Ollama响应: {original_error!s}\n响应内容: {text[:500]}") from original_error
 
 
 def _parse_response(resp: httpx.Response) -> dict[str, Any]:
     """解析 Ollama HTTP 响应"""
     try:
-        return cast(dict[str, Any], resp.json())
+        return resp.json() # type: ignore
     except json.JSONDecodeError as e:
         text = resp.text.strip()
         if text:

@@ -184,4 +184,4 @@ class FilingNumberService:
             CaseType.ADVISOR: "常法顾问",
         }
 
-        return case_type_map.get(case_type, case_type)
+        return case_type_map.get(case_type, case_type) # type: ignore

@@ -55,7 +55,7 @@ def _get_cause_court_data_service() -> Any:
     Returns:
         CauseCourtDataService 实例
     """
-    from apps.cases.services import CauseCourtDataService  # type: ignore[attr-defined]
+    from apps.cases.services import CauseCourtDataService
 
     return CauseCourtDataService()
 

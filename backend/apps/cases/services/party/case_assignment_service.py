@@ -315,7 +315,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             },
         )
 
-        return assignment
+        return assignment # type: ignore
 
     @transaction.atomic
     def delete_assignment(

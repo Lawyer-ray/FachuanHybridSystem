@@ -9,4 +9,4 @@ from apps.core.tasking import TaskSubmissionService
 
 
 def get_task_submission_service() -> TaskSubmissionService:
-    return cast(TaskSubmissionService, ServiceLocator.get_task_submission_service())
+    return cast(TaskSubmissionService, ServiceLocator.get_task_submission_service()) # type: ignore

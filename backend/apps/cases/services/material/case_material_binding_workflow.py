@@ -37,7 +37,7 @@ class CaseMaterialBindingWorkflow:
         perm_open_access: bool = False,
     ) -> list[CaseMaterial]:
         self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
-        attachment_ids = [int(x.get("attachment_id")) for x in items if x.get("attachment_id")]
+        attachment_ids = [int(x["attachment_id"]) for x in items if x.get("attachment_id") is not None]
         attachments = {
             a.id: a
             for a in CaseLogAttachment.objects.filter(log__case_id=case_id, id__in=attachment_ids).select_related("log")
@@ -48,11 +48,12 @@ class CaseMaterialBindingWorkflow:
         parties_by_id = {p.id: p for p in CaseParty.objects.filter(case_id=case_id).select_related("client").all()}
         authorities_by_id = {a.id: a for a in SupervisingAuthority.objects.filter(case_id=case_id).all()}
         law_firm_id = getattr(user, "law_firm_id", None) if user else None
-        type_cache: dict[tuple[str, ...], CaseMaterialType] = {}
+        type_cache: dict[str, CaseMaterialType] = {}
         saved: list[CaseMaterial] = []
         with transaction.atomic():
             for payload in items:
-                att_id = int(payload.get("attachment_id"))
+                att_id_raw = payload.get("attachment_id")
+                att_id = int(att_id_raw) if att_id_raw is not None else 0
                 category = (payload.get("category") or "").strip()
                 type_id = payload.get("type_id")
                 type_name = (payload.get("type_name") or "").strip()
@@ -103,14 +104,14 @@ class CaseMaterialBindingWorkflow:
 
     def _resolve_type_cached(
         self,
-        cache: dict[tuple[str, ...], CaseMaterialType],
+        cache: dict[str, CaseMaterialType],
         *,
         category: str,
         type_id: int | None,
         type_name: str,
         law_firm_id: int | None,
     ) -> CaseMaterialType:
-        cache_key = ("id", int(type_id)) if type_id else ("name", category, type_name, law_firm_id)
+        cache_key = f"id:{type_id}" if type_id else f"name:{category}:{type_name}:{law_firm_id}"
         cached = cache.get(cache_key)
         if cached:
             return cached
@@ -135,8 +136,8 @@ class CaseMaterialBindingWorkflow:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first()
-        if t:
+        t: CaseMaterialType | None = qs.first() # type: ignore
+        if t is not None:
             return t
         return CaseMaterialType.objects.create(
             category=category, name=type_name, law_firm_id=law_firm_id, is_active=True

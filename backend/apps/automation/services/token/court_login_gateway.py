@@ -10,12 +10,12 @@ from apps.core.dtos import AccountCredentialDTO
 
 
 class CourtLoginGateway(Protocol):
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ...
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ... # type: ignore
 
 
 @dataclass(frozen=True)
 class CourtZxfwLoginGateway:
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any:
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any: # type: ignore
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
         page = browser_context.new_page()
@@ -36,5 +36,5 @@ class CourtZxfwLoginGateway:
         if not token:
             from apps.automation.exceptions import LoginFailedError
 
-            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[])
+            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[]) # type: ignore
         return token

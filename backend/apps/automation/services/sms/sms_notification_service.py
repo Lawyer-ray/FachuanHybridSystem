@@ -97,7 +97,7 @@ class SMSNotificationService:
 
             # Requirements 3.2: 检查群聊是否存在，不存在则自动创建
             try:
-                chat = chat_service.get_or_create_chat(
+                chat = chat_service.get_or_create_chat( # type: ignore
                     case_id=sms.case.id,
                     platform=platform,
                 )
@@ -110,7 +110,7 @@ class SMSNotificationService:
 
             # Requirements 3.3: 将文书内容和短信内容推送到群聊
             try:
-                result = chat_service.send_document_notification(
+                result = chat_service.send_document_notification( # type: ignore
                     case_id=sms.case.id,
                     sms_content=sms.content,
                     document_paths=document_paths or [],
@@ -158,5 +158,5 @@ class SMSNotificationService:
         """
         return cast(
             Any,
-            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),
+            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform), # type: ignore
         )

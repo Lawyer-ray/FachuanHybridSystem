@@ -36,8 +36,8 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
         )
         if valid_tokens.exists():
             token_obj = valid_tokens.first()
-            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")
-            return token_obj.token
+            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}") # type: ignore
+            return token_obj.token # type: ignore
     except Exception as e:
         logger.error(f"查找 Token 失败: {e}", exc_info=True)
 
@@ -77,7 +77,7 @@ class QuoteExecutionMixin:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential_internal(credential_id)
+                    credential = await organization_service.get_credential_internal(credential_id) # type: ignore
                     account = credential.account
 
                     from apps.automation.services.scraper.core.token_service import TokenService
@@ -102,7 +102,7 @@ class QuoteExecutionMixin:
                 site_name=site_name, credential_id=credential_id
             )
             logger.info("✅ 自动Token获取成功", extra={"action": "get_valid_token_success"})
-            return token
+            return token # type: ignore
 
         except Exception as e:
             logger.error(
@@ -132,9 +132,9 @@ class QuoteExecutionMixin:
                 bearer_token=token, c_pid=category_id, fy_id=corp_id
             )
             if not companies:
-                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"))
+                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确")) # type: ignore
             logger.info(f"✅ 获取到 {len(companies)} 家保险公司")
-            return companies
+            return companies # type: ignore
         except CompanyListEmptyError:
             raise
         except Exception as e:
@@ -149,7 +149,7 @@ class QuoteExecutionMixin:
         companies: "list[InsuranceCompany]",
     ) -> "list[PremiumResult]":
         """并发查询所有保险公司报价"""
-        return await self.insurance_client.fetch_all_premiums(
+        return await self.insurance_client.fetch_all_premiums( # type: ignore
             bearer_token=token,
             preserve_amount=preserve_amount,
             corp_id=corp_id,

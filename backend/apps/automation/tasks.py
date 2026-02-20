@@ -71,7 +71,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
         logger.info(f"任务 {task_id} 尚未到执行时间，跳过")
         return
 
-    logger.info(f"开始执行爬虫任务 {task_id}: {task.get_task_type_display()} (优先级: {task.priority})")  # type: ignore[attr-defined]
+    logger.info(f"开始执行爬虫任务 {task_id}: {task.get_task_type_display()} (优先级: {task.priority})")
 
     # 获取对应的爬虫类
     scraper_map = _get_scraper_map()
@@ -265,9 +265,9 @@ def execute_document_recognition_task(task_id: int) -> None:
             task.binding_message = result.binding.message
             task.binding_error_code = result.binding.error_code
             if result.binding.case_id:
-                task.case_id = result.binding.case_id  # type: ignore[attr-defined]
+                task.case_id = result.binding.case_id
             if result.binding.case_log_id:
-                task.case_log_id = result.binding.case_log_id  # type: ignore[attr-defined]
+                task.case_log_id = result.binding.case_log_id
 
         task.status = DocumentRecognitionStatus.SUCCESS
         task.finished_at = timezone.now()
@@ -289,7 +289,6 @@ def execute_document_recognition_task(task_id: int) -> None:
         task.save(update_fields=["status", "error_message", "finished_at"])
 
         return {"task_id": task_id, "status": "failed", "error": str(e)}  # type: ignore[return-value]
-
 
 def _send_recognition_notification(task: Any, result: Any) -> None:
     """

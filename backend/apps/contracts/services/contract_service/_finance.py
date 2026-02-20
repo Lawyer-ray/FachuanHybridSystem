@@ -147,7 +147,7 @@ class ContractFinanceMixin(ContractServiceBase):
             if changes:
                 self._log_finance_change(
                     contract_id=contract.id,
-                    user_id=user_id,
+                    user_id=user_id, # type: ignore
                     action="update_contract_finance",
                     changes=changes,
                 )

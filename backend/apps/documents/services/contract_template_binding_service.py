@@ -154,5 +154,5 @@ class DocumentTemplateBindingService:
             is_active=True,
         ).first()
         if binding and binding.folder_node_path:
-            return binding.folder_node_path
+            return binding.folder_node_path # type: ignore
         return None

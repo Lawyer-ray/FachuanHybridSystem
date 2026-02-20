@@ -30,7 +30,7 @@ def remove_exif_orientation(image: Image.Image, *, exif_orientation_tag: int) ->
 
 
 def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int) -> bytes:
-    img = Image.open(io.BytesIO(image_data))
+    img: Image.Image = Image.open(io.BytesIO(image_data))
     img = remove_exif_orientation(img, exif_orientation_tag=exif_orientation_tag)
 
     output = io.BytesIO()
@@ -38,7 +38,7 @@ def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int
 
     if fmt == "JPEG":
         if img.mode in ("RGBA", "P"):
-            background = Image.new("RGB", img.size, (255, 255, 255))
+            background: Image.Image = Image.new("RGB", img.size, (255, 255, 255))
             if img.mode == "RGBA":
                 background.paste(img, mask=img.split()[3])
             else:
@@ -60,7 +60,7 @@ def resize_to_paper_size(
     paper_sizes: dict[str, tuple[int, int]],
     dpi: int = 300,
 ) -> bytes:
-    img = Image.open(io.BytesIO(image_bytes))
+    img: Image.Image = Image.open(io.BytesIO(image_bytes))
     width, height = img.size
 
     target_width_mm, target_height_mm = paper_sizes[paper_size]
@@ -93,7 +93,7 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
     if rotation not in (0, 90, 180, 270):
         rotation = 0
 
-    img = Image.open(io.BytesIO(image_data))
+    img: Image.Image = Image.open(io.BytesIO(image_data))
     pillow_angle = (360 - rotation) % 360
     if pillow_angle != 0:
         img = img.rotate(pillow_angle, expand=True)
@@ -103,7 +103,7 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
 
     if fmt == "JPEG":
         if img.mode in ("RGBA", "P"):
-            background = Image.new("RGB", img.size, (255, 255, 255))
+            background: Image.Image = Image.new("RGB", img.size, (255, 255, 255))
             if img.mode == "RGBA":
                 background.paste(img, mask=img.split()[3])
             else:

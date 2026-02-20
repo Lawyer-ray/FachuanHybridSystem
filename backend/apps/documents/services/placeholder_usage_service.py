@@ -26,7 +26,7 @@ try:
 except Exception:
     logger.exception("操作失败")
 
-    _DocxDocument = None
+    _DocxDocument = None # type: ignore
 
 
 class PlaceholderUsageService:

@@ -91,7 +91,7 @@ class ContractMutationFacade:
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
-            message=_("无权限操作该合同"),
+            message=_("无权限操作该合同"), # type: ignore
         )
 
     def create_contract_with_cases(

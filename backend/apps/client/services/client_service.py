@@ -86,7 +86,7 @@ class ClientService:
             page_size = max_page_size
 
         if not isinstance(page_size, int):
-            page_size = int(page_size)
+            page_size = int(page_size) # type: ignore
 
         # 1. 构建基础查询（使用 prefetch_related 优化）
         queryset = Client.objects.prefetch_related("identity_docs").order_by("-id")

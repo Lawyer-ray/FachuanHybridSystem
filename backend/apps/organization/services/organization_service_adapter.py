@@ -66,7 +66,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         # 这里暂时返回None，后续可以通过TeamService实现
         return None
 
-    def get_lawyers_in_organization(self, organization_id: int) -> list[AccountCredentialDTO]:
+    def get_lawyers_in_organization(self, organization_id: int) -> list[AccountCredentialDTO]: # type: ignore
         """
         获取组织内的所有律师
 

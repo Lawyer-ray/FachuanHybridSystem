@@ -75,7 +75,7 @@ class ContextBuilder:
         if self._enhanced_builder is None:
             from apps.documents.services.placeholders.context_builder import EnhancedContextBuilder
 
-            self._enhanced_builder = EnhancedContextBuilder()
+            self._enhanced_builder = EnhancedContextBuilder() # type: ignore
         return self._enhanced_builder
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:
@@ -243,7 +243,7 @@ class ContextBuilder:
 
         return {
             "contract_name": contract_data.get("name") or "",
-            "contract_type": get_choice_display(contract_data.get("case_type"), CaseType),
+            "contract_type": get_choice_display(contract_data.get("case_type"), CaseType), # type: ignore
             "contract_type_code": contract_data.get("case_type") or "",
             "contract_status": contract_data.get("status_display") or "",
             "contract_date": format_date(contract_data.get("specified_date"), self.date_format),

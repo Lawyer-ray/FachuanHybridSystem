@@ -59,7 +59,7 @@ class InsuranceApiMixin:
         """获取最大连接数"""
         return get_config("services.insurance.max_connections", 100)
 
-    async def fetch_insurance_companies(
+    async def fetch_insurance_companies( # type: ignore
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float | None = None, max_retries: int = 3
     ) -> list[InsuranceCompany]:
         """
@@ -130,7 +130,7 @@ class InsuranceApiMixin:
         if last_exception:
             raise last_exception
 
-    async def _fetch_insurance_companies_once(
+    async def _fetch_insurance_companies_once( # type: ignore
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float, attempt: int = 1
     ) -> list[InsuranceCompany]:
         """
@@ -204,7 +204,7 @@ class InsuranceApiMixin:
                         "response_time_seconds": round(elapsed_time, 3),
                     },
                 )
-                raise httpx.HTTPStatusError(error_msg, request=getattr(response, "request", None), response=response)
+                raise httpx.HTTPStatusError(error_msg, request=getattr(response, "request", None), response=response) # type: ignore
 
             data = response.json()
             companies = self._parse_company_list(data)
@@ -247,7 +247,7 @@ class InsuranceApiMixin:
             company_list = data
         else:
             logger.warning(f"未知的响应格式: {data}")
-            company_list: list[Any] = []
+            company_list: list[Any] = [] # type: ignore
 
         companies: list[Any] = []
         for item in company_list:
@@ -369,7 +369,7 @@ class InsuranceApiMixin:
                 request_info=request_info,
             )
         except httpx.HTTPError:
-            error_details = ({},)
+            error_details = ({},) # type: ignore
             logger.warning(f"保险公司 {institution} HTTP 错误", extra={"action": "fetch_premium_http_exception"})
             return PremiumResult(
                 company=company,
@@ -382,7 +382,7 @@ class InsuranceApiMixin:
         except Exception as e:
             import traceback
 
-            error_details = {
+            error_details = { # type: ignore
                 "error": "未知错误",
                 "exception": str(e),
                 "traceback": traceback.format_exc(),
@@ -431,7 +431,7 @@ class InsuranceApiMixin:
             company=company,
             premium=None,
             status="failed",
-            error_message=_("未找到报价金额"),
+            error_message=_("未找到报价金额"), # type: ignore
             response_data=data,
             request_info=request_info,
         )

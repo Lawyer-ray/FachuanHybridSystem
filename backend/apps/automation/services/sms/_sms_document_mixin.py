@@ -17,9 +17,17 @@ logger = logging.getLogger("apps.automation")
 class SMSDocumentMixin:
     """负责文书信息提取和重命名流程"""
 
-    case_number_extractor: "CaseNumberExtractorService"
-    document_attachment: "DocumentAttachmentService"
-    matcher: "CaseMatcher"
+    @property
+    def case_number_extractor(self) -> "CaseNumberExtractorService":
+        raise NotImplementedError
+
+    @property
+    def document_attachment(self) -> "DocumentAttachmentService":
+        raise NotImplementedError
+
+    @property
+    def matcher(self) -> "CaseMatcher":
+        raise NotImplementedError
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:
         raise NotImplementedError

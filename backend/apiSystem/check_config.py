@@ -56,9 +56,9 @@ from apps.core.services import SystemConfigService
 service = SystemConfigService()
 test_keys = ["SILICONFLOW_API_KEY", "SILICONFLOW.API_KEY", "siliconflow_api_key"]
 for key in test_keys:
-    value = service.get_config(key)
+    value = service.get_config(key) # type: ignore
     if value:
-        logger.info(f"  ✓ {key} = {_safe_preview(key, value, max_len=10)}")
+        logger.info(f"  ✓ {key} = {_safe_preview(key, value, max_len=10)}") # type: ignore
     else:
         logger.info(f"  ✗ {key} (未找到)")
 

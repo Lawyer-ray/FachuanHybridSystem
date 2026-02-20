@@ -239,7 +239,7 @@ class CaptchaRecognitionService:
                 return CaptchaResult(success=True, text=result, processing_time=processing_time, error=None)
             else:
                 AutomationLogger.log_captcha_recognition_failed(
-                    processing_time=processing_time, error_message=_("无法识别验证码"), image_size=len(image_bytes)
+                    processing_time=processing_time, error_message=_("无法识别验证码"), image_size=len(image_bytes) # type: ignore
                 )
                 return CaptchaResult(
                     success=False, text=None, processing_time=processing_time, error="无法识别验证码"

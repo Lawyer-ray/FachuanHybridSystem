@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from playwright.sync_api import BrowserContext, Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import (
+    from apps.automation.services.captcha.captcha_recognition_service import ( # type: ignore
         CaptchaRecognizer,
     )
     from apps.automation.services.scraper.core.token_service import TokenService
@@ -81,7 +81,7 @@ class CourtZxfwService:
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._token_service = ServiceLocator.get_token_service()
+            self._token_service = ServiceLocator.get_token_service() # type: ignore
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 

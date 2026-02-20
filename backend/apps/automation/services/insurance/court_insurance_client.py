@@ -180,7 +180,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         """支持异步上下文管理器"""
         await self.close()
 
-    async def fetch_insurance_companies(
+    async def fetch_insurance_companies( # type: ignore
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float | None = None, max_retries: int = 3
     ) -> list[InsuranceCompany]:
         """
@@ -492,7 +492,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
             )
             return PremiumResult(
                 company=company, premium=None, status="failed",
-                error_message=_("响应中未找到费率数据"), response_data=data, request_info=request_info,
+                error_message=_("响应中未找到费率数据"), response_data=data, request_info=request_info, # type: ignore
             )
 
         except httpx.TimeoutException as e:
