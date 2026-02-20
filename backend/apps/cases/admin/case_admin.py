@@ -25,6 +25,7 @@ from apps.cases.models import (
     SupervisingAuthority,
 )
 from apps.cases.services.case_chat_service import CaseChatService
+from apps.cases.admin.mixins import CaseAdminViewsMixin
 from apps.core.enums import ChatPlatform
 
 if TYPE_CHECKING:
@@ -109,7 +110,7 @@ class CaseLogInline(BaseStackedInline):
 
 
 @admin.register(Case)
-class CaseAdmin(BaseModelAdmin):
+class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
     form = CaseAdminForm
     list_display = ("id", "name", "status", "start_date", "effective_date", "is_archived")
     list_filter = ("status", "is_archived")
