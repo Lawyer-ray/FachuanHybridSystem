@@ -1,7 +1,7 @@
 """案件命令服务 - 负责所有案件写操作（创建、更新、删除）。"""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any

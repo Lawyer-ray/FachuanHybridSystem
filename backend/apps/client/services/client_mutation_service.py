@@ -1,7 +1,7 @@
 """External service client."""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import TYPE_CHECKING, Any, cast

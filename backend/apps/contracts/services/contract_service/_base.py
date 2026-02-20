@@ -1,7 +1,7 @@
 """合同服务基础：初始化、依赖注入、查询"""
 
-from django.utils.translation import gettext_lazy as _
 from __future__ import annotations
+from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import TYPE_CHECKING, Any
