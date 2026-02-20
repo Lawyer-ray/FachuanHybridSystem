@@ -338,10 +338,8 @@ msgstr "File Download"
 
 #: apps/automation/admin/scraper/quick_download_admin.py:21
 #: apps/automation/admin/scraper/quick_download_admin.py:22
-#, fuzzy
-#| msgid "批量下载文书失败"
 msgid "快速下载文书"
-msgstr "Batch document download failed"
+msgstr "Quick Document Download"
 
 #: apps/automation/admin/scraper/scraper_task_admin.py:41
 msgid "重试配置"
@@ -4467,8 +4465,6 @@ msgid "请选择一个版本进行激活"
 msgstr "Please select a version to activate"
 
 #: apps/documents/apps.py:21
-#, fuzzy
-#| msgid "文书生成任务"
 msgid "文书生成"
 msgstr "Document Generation"
 
@@ -5256,10 +5252,8 @@ msgid "文书模板不存在"
 msgstr "文书模板 not found"
 
 #: apps/litigation_ai/apps.py:10
-#, fuzzy
-#| msgid "AI文书生成会话"
 msgid "AI 诉讼文书生成"
-msgstr "AI Document Generation Session"
+msgstr "AI Litigation Document Generation"
 
 #: apps/litigation_ai/models/choices.py:8
 msgid "起诉状"
