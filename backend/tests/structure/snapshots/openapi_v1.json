@@ -5295,6 +5295,37 @@
         "title": "InsuranceQuoteSchema",
         "type": "object"
       },
+      "LanguageItemSchema": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "LanguageItemSchema",
+        "type": "object"
+      },
+      "LanguageSchema": {
+        "properties": {
+          "language": {
+            "title": "Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "LanguageSchema",
+        "type": "object"
+      },
       "LawFirmIn": {
         "description": "律所创建输入 Schema",
         "properties": {
@@ -15660,6 +15691,75 @@
         "summary": "Readiness Probe",
         "tags": [
           "系统"
+        ]
+      }
+    },
+    "/api/v1/i18n/language": {
+      "post": {
+        "description": "设置用户语言偏好",
+        "operationId": "apps_core_api_i18n_api_set_language",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguageSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ],
+        "summary": "Set Language",
+        "tags": [
+          "国际化"
+        ]
+      }
+    },
+    "/api/v1/i18n/languages": {
+      "get": {
+        "description": "返回系统支持的语言列表",
+        "operationId": "apps_core_api_i18n_api_list_languages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LanguageItemSchema"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "List Languages",
+        "tags": [
+          "国际化"
         ]
       }
     },
