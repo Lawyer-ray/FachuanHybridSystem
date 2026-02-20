@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-20 13:18+0800\n"
+"POT-Creation-Date: 2026-02-20 14:09+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
 #: apiSystem/apiSystem/settings.py:238
 msgid "简体中文"
 msgstr "Simplified Chinese"
@@ -189,6 +190,11 @@ msgstr "Elapsed Time After Query"
 msgid "删除30天前的记录"
 msgstr "Delete records older than 30 days"
 
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:170
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:171
+msgid "文书智能识别"
+msgstr "Document AI Recognition"
+
 #: apps/automation/admin/document_recognition/document_recognition_admin.py:313
 msgid "识别结果"
 msgstr "Recognition Result"
@@ -329,6 +335,13 @@ msgstr "File Size"
 #: apps/automation/admin/scraper/court_document_admin.py:251
 msgid "文件下载"
 msgstr "File Download"
+
+#: apps/automation/admin/scraper/quick_download_admin.py:21
+#: apps/automation/admin/scraper/quick_download_admin.py:22
+#, fuzzy
+#| msgid "批量下载文书失败"
+msgid "快速下载文书"
+msgstr "Batch document download failed"
 
 #: apps/automation/admin/scraper/scraper_task_admin.py:41
 msgid "重试配置"
@@ -486,6 +499,10 @@ msgstr "Remaining Time"
 #: apps/automation/admin/token/token_admin.py:162
 msgid "删除已过期的 Token"
 msgstr "Delete expired tokens"
+
+#: apps/automation/apps.py:10
+msgid "自动化工具"
+msgstr "Automation Tools"
 
 #: apps/automation/models.py:11 apps/automation/models.py:12
 #: apps/automation/models/base.py:16 apps/automation/models/base.py:17
@@ -825,6 +842,7 @@ msgstr "Preservation category ID (cPid)"
 #: apps/automation/models.py:236
 msgid "关联的账号凭证ID（可选，系统会自动获取Token）"
 msgstr "Related account credential ID (optional, system will auto-acquire token)"
+"Related account credential ID (optional, system will auto-acquire token)"
 
 #: apps/automation/models.py:241 apps/automation/models/preservation.py:52
 msgid "保险公司总数"
@@ -1255,6 +1273,7 @@ msgstr "Cutoff Time (hours)"
 #: apps/automation/models/preservation.py:47
 msgid "关联的账号凭证ID(可选,系统会自动获取Token)"
 msgstr "Related account credential ID (optional, system will auto-acquire token)"
+"Related account credential ID (optional, system will auto-acquire token)"
 
 #: apps/automation/models/preservation.py:97
 msgid "保险公司给出的担保费报价(通常使用 minPremium)"
@@ -1291,6 +1310,8 @@ msgstr "Token Fingerprint"
 #: apps/automation/models/token.py:84
 msgid "Token的SHA256指纹(用于排查重复/归因,不可反推Token)"
 msgstr "SHA256 fingerprint of token (for deduplication/attribution, cannot reverse-engineer token)"
+"SHA256 fingerprint of token (for deduplication/attribution, cannot reverse-"
+"engineer token)"
 
 #: apps/automation/models/token.py:90
 msgid "Token脱敏摘要"
@@ -1516,6 +1537,7 @@ msgstr "Information extraction timeout, please retry"
 #: apps/automation/services/court_document_recognition/recognition_service.py:152
 msgid "暂时只支持传票识别，其他文书类型敬请期待"
 msgstr "Currently only supports summons recognition, other document types coming soon"
+"Currently only supports summons recognition, other document types coming soon"
 
 #: apps/automation/services/court_document_recognition/recognition_service.py:156
 msgid "执行裁定书绑定功能开发中，敬请期待"
@@ -1590,6 +1612,8 @@ msgstr "图片数据解码 Failed"
 #: apps/automation/services/insurance/_quote_execution_mixin.py:135
 msgid "未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"
 msgstr "Failed to get insurance company list, please check if category ID and court ID are correct"
+"Failed to get insurance company list, please check if category ID and court "
+"ID are correct"
 
 #: apps/automation/services/insurance/court_insurance_client.py:495
 msgid "响应中未找到费率数据"
@@ -1602,6 +1626,8 @@ msgstr "Quote amount not found"
 #: apps/automation/services/insurance/preservation_quote/client_facade.py:47
 msgid "未获取到保险公司列表,请检查分类 ID 和法院 ID 是否正确"
 msgstr "Failed to get insurance company list, please check if category ID and court ID are correct"
+"Failed to get insurance company list, please check if category ID and court "
+"ID are correct"
 
 #: apps/automation/services/insurance/preservation_quote/repo.py:50
 #: apps/automation/services/insurance/preservation_quote_service.py:568
@@ -1806,6 +1832,10 @@ msgstr "Folder Binding"
 #: apps/contracts/admin/mixins/display_mixin.py:111
 msgid "匹配的文件夹模板"
 msgstr "Matched Folder Template"
+
+#: apps/cases/apps.py:8
+msgid "案件管理"
+msgstr "Case Management"
 
 #: apps/cases/models.py:51 apps/cases/models/case.py:30
 #: apps/documents/models/generation.py:66
@@ -2110,6 +2140,8 @@ msgstr "Related Group Chat"
 #: apps/cases/models.py:449
 msgid "关联的群聊，某些操作（如配置错误）可能没有关联群聊"
 msgstr "Related group chat, some operations (like configuration errors) may not have related group chat"
+"Related group chat, some operations (like configuration errors) may not have "
+"related group chat"
 
 #: apps/cases/models.py:459 apps/cases/models/chat.py:150
 msgid "关联的案件"
@@ -2201,6 +2233,8 @@ msgstr "群聊创建过程的详细日志,包含群主设置 Information"
 #: apps/cases/models/chat.py:141
 msgid "关联的群聊,某些操作(如配置错误)可能没有关联群聊"
 msgstr "Related group chat, some operations (like configuration errors) may not have related group chat"
+"Related group chat, some operations (like configuration errors) may not have "
+"related group chat"
 
 #: apps/cases/models/chat.py:156
 msgid "操作的详细信息,以JSON格式存储"
@@ -2927,6 +2961,10 @@ msgstr "Content Summary"
 msgid "附件"
 msgstr "Attachment"
 
+#: apps/client/apps.py:8
+msgid "当事人管理"
+msgstr "Party Management"
+
 #: apps/client/models.py:19 apps/client/models/client.py:30
 #: apps/organization/models/law_firm.py:16
 msgid "联系电话"
@@ -3100,6 +3138,10 @@ msgstr "Matched Contract Template"
 #: apps/contracts/admin/supplementary_agreement_admin.py:61
 msgid "当事人数量"
 msgstr "Number of Parties"
+
+#: apps/contracts/apps.py:8
+msgid "合同管理"
+msgstr "Contract Management"
 
 #: apps/contracts/models.py:16 apps/contracts/models/contract.py:28
 msgid "固定收费"
@@ -3424,6 +3466,10 @@ msgstr "Security Settings"
 #: apps/core/models/system_config.py:37 apps/documents/models/generation.py:198
 msgid "配置值"
 msgstr "Config Value"
+
+#: apps/core/apps.py:22
+msgid "核心系统"
+msgstr "Core System"
 
 #: apps/core/enums.py:18 apps/documents/models/choices.py:43
 msgid "民商事"
@@ -4055,6 +4101,8 @@ msgstr "Contract Subtype"
 #: apps/documents/admin/document_template_admin.py:80
 msgid "仅在选择'合同文书模板'时有效,必须选择合同模板或补充协议模板"
 msgstr "Only valid when 'Contract Document Template' is selected, must choose contract or supplementary agreement template"
+"Only valid when 'Contract Document Template' is selected, must choose "
+"contract or supplementary agreement template"
 
 #: apps/documents/admin/document_template_admin.py:87
 #: apps/documents/models/document_template.py:75
@@ -4064,14 +4112,20 @@ msgstr "Case File Subtype"
 #: apps/documents/admin/document_template_admin.py:88
 msgid "仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
 msgstr "Only valid when 'Case Document Template' is selected, can choose pleading materials, evidence materials, authorization materials, etc."
+"Only valid when 'Case Document Template' is selected, can choose pleading "
+"materials, evidence materials, authorization materials, etc."
 
 #: apps/documents/admin/document_template_admin.py:97
 msgid "仅在选择'合同文书模板'时有效,可多选"
 msgstr "Only valid when 'Contract Document Template' is selected, multiple selection allowed"
+"Only valid when 'Contract Document Template' is selected, multiple selection "
+"allowed"
 
 #: apps/documents/admin/document_template_admin.py:106
 msgid "仅在选择'案件文书模板'时有效,可多选"
 msgstr "Only valid when 'Case Document Template' is selected, multiple selection allowed"
+"Only valid when 'Case Document Template' is selected, multiple selection "
+"allowed"
 
 #: apps/documents/admin/document_template_admin.py:114
 #: apps/documents/admin/document_template_admin.py:436
@@ -4099,6 +4153,8 @@ msgstr "Our Litigation Position"
 #: apps/documents/admin/document_template_admin.py:124
 msgid "可单选或多选;不选表示匹配任意诉讼地位"
 msgstr "Single or multiple selection; no selection means match any litigation position"
+"Single or multiple selection; no selection means match any litigation "
+"position"
 
 #: apps/documents/admin/document_template_admin.py:133
 #: apps/documents/admin/folder_template_admin.py:99
@@ -4115,6 +4171,8 @@ msgstr "Select from Template Library"
 #: apps/documents/admin/document_template_admin.py:141
 msgid "从 docx_templates 目录中选择已有的模板文件(不会复制文件)"
 msgstr "Select existing template file from docx_templates directory (file will not be copied)"
+"Select existing template file from docx_templates directory (file will not "
+"be copied)"
 
 #: apps/documents/admin/document_template_admin.py:241
 msgid "请选择案件阶段"
@@ -4123,6 +4181,8 @@ msgstr "Please select case stage"
 #: apps/documents/admin/document_template_admin.py:326
 msgid "先选择合同文书模板或案件文书模板,再选择对应的子类型"
 msgstr "First select contract or case document template, then select the corresponding subtype"
+"First select contract or case document template, then select the "
+"corresponding subtype"
 
 #: apps/documents/admin/document_template_admin.py:330
 #: apps/documents/admin/folder_template_admin.py:230
@@ -4241,6 +4301,8 @@ msgstr "自动计算 Information"
 #: apps/documents/admin/evidence_admin.py:63
 msgid "以下信息由系统自动计算,无需手动填写."
 msgstr "The following information is automatically calculated by the system, no manual input required."
+"The following information is automatically calculated by the system, no "
+"manual input required."
 
 #: apps/documents/admin/evidence_admin.py:67
 #: apps/documents/models/evidence.py:121
@@ -4250,6 +4312,7 @@ msgstr "Merge PDF"
 #: apps/documents/admin/evidence_admin.py:70
 msgid "点击列表页的「合并」按钮将证据文件合并为PDF."
 msgstr "Click the 'Merge' button on the list page to merge evidence files into PDF."
+"Click the 'Merge' button on the list page to merge evidence files into PDF."
 
 #: apps/documents/admin/evidence_admin.py:74
 msgid "导出设置"
@@ -4284,10 +4347,14 @@ msgstr "Must select: contract folder template or case folder template"
 #: apps/documents/admin/folder_template_admin.py:64
 msgid "仅在选择'合同文件夹模板'时有效,可多选"
 msgstr "Only valid when 'Contract Folder Template' is selected, multiple selection allowed"
+"Only valid when 'Contract Folder Template' is selected, multiple selection "
+"allowed"
 
 #: apps/documents/admin/folder_template_admin.py:73
 msgid "仅在选择'案件文件夹模板'时有效,可多选"
 msgstr "Only valid when 'Case Folder Template' is selected, multiple selection allowed"
+"Only valid when 'Case Folder Template' is selected, multiple selection "
+"allowed"
 
 #: apps/documents/admin/folder_template_admin.py:82
 msgid "仅在选择'案件文件夹模板'时有效,单选"
@@ -4296,6 +4363,8 @@ msgstr "Only valid when 'Case Folder Template' is selected, single selection"
 #: apps/documents/admin/folder_template_admin.py:91
 msgid "仅在选择'案件文件夹模板'时有效,可多选;不选表示匹配任意诉讼地位"
 msgstr "Only valid when 'Case Folder Template' is selected, multiple selection; no selection means match any litigation position"
+"Only valid when 'Case Folder Template' is selected, multiple selection; no "
+"selection means match any litigation position"
 
 #: apps/documents/admin/folder_template_admin.py:100
 msgid "仅在选择'案件文件夹模板'时有效"
@@ -4396,6 +4465,12 @@ msgstr "Activate selected version"
 #: apps/documents/admin/prompt_version_admin.py:98
 msgid "请选择一个版本进行激活"
 msgstr "Please select a version to activate"
+
+#: apps/documents/apps.py:21
+#, fuzzy
+#| msgid "文书生成任务"
+msgid "文书生成"
+msgstr "Document Generation Task"
 
 #: apps/documents/models/audit_log.py:29
 #: apps/documents/models/document_template.py:246
@@ -4605,10 +4680,14 @@ msgstr "Select whether this template is for contract or case"
 #: apps/documents/models/document_template.py:68
 msgid "仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"
 msgstr "Only valid when 'Contract File Template' is selected, must choose contract or supplementary agreement template"
+"Only valid when 'Contract File Template' is selected, must choose contract "
+"or supplementary agreement template"
 
 #: apps/documents/models/document_template.py:76
 msgid "仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
 msgstr "Only valid when 'Case File Template' is selected, can choose pleading, evidence, authorization materials, etc."
+"Only valid when 'Case File Template' is selected, can choose pleading, "
+"evidence, authorization materials, etc."
 
 #: apps/documents/models/document_template.py:83
 msgid "上传文件"
@@ -4629,12 +4708,15 @@ msgstr "JSON array, e.g. ['civil', 'criminal'], multiple selection supported"
 #: apps/documents/models/folder_template.py:52
 msgid "JSON 数组,如 ['first_trial', 'second_trial'],支持多选"
 msgstr "JSON array, e.g. ['first_trial', 'second_trial'], multiple selection supported"
+"JSON array, e.g. ['first_trial', 'second_trial'], multiple selection "
+"supported"
 
 #: apps/documents/models/document_template.py:102
 #: apps/documents/models/folder_template.py:61
 #: apps/documents/models/proxy_matter_rule.py:41
 msgid "可单选或多选;为空表示匹配任意诉讼地位"
 msgstr "Single or multiple selection; empty means match any litigation position"
+"Single or multiple selection; empty means match any litigation position"
 
 #: apps/documents/models/document_template.py:114
 msgid "功能标识"
@@ -4668,6 +4750,8 @@ msgstr "Node ID in folder structure JSON"
 #: apps/documents/models/document_template.py:257
 msgid "自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"
 msgstr "Auto-calculated folder path, e.g.: First Instance/1-Filing Materials/1-Complaint and Counter-defense"
+"Auto-calculated folder path, e.g.: First Instance/1-Filing Materials/1-"
+"Complaint and Counter-defense"
 
 #: apps/documents/models/document_template.py:266
 #: apps/documents/models/document_template.py:267
@@ -4713,6 +4797,7 @@ msgstr "List Type"
 #: apps/documents/models/evidence.py:92
 msgid "选择清单类型,系统自动处理序号和页码的连续性"
 msgstr "Select list type, system automatically handles sequence and page continuity"
+"Select list type, system automatically handles sequence and page continuity"
 
 #: apps/documents/models/evidence.py:100
 msgid "前置清单"
@@ -4990,6 +5075,8 @@ msgstr "Agency Matter Rule"
 #: apps/documents/services/document_template_admin_service.py:106
 msgid "只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径"
 msgstr "Can only choose one file source: select from library, upload new file, or manually enter path"
+"Can only choose one file source: select from library, upload new file, or "
+"manually enter path"
 
 #: apps/documents/services/document_template_admin_service.py:116
 msgid "必须选择一种文件来源"
@@ -4998,6 +5085,7 @@ msgstr "Must select a file source"
 #: apps/documents/services/document_template_admin_service.py:146
 msgid "选择合同文书模板时,必须选择合同子类型"
 msgstr "When selecting contract document template, must select contract subtype"
+"When selecting contract document template, must select contract subtype"
 
 #: apps/documents/services/document_template_admin_service.py:155
 msgid "选择案件文书模板时,必须选择案件文件子类型"
@@ -5115,6 +5203,7 @@ msgstr "Deferred service application template not found"
 #: apps/documents/services/generation/preservation_materials_generation_service.py:146
 msgid "案件没有被申请人,无法生成财产保全材料"
 msgstr "Case has no respondent, cannot generate property preservation materials"
+"Case has no respondent, cannot generate property preservation materials"
 
 #: apps/documents/services/generation/prompt_version_service.py:83
 msgid "Prompt 版本不存在"
@@ -5166,6 +5255,12 @@ msgstr "Template type cannot be empty"
 msgid "文书模板不存在"
 msgstr "文书模板 not found"
 
+#: apps/litigation_ai/apps.py:10
+#, fuzzy
+#| msgid "AI文书生成会话"
+msgid "AI 诉讼文书生成"
+msgstr "AI Document Generation Session"
+
 #: apps/litigation_ai/models/choices.py:8
 msgid "起诉状"
 msgstr "Complaint"
@@ -5193,6 +5288,11 @@ msgstr "is cancelled"
 #: apps/litigation_ai/models/choices.py:22
 msgid "AI助手"
 msgstr "AI Assistant"
+
+#: apps/litigation_ai/models/evidence_chunk.py:26
+#: apps/litigation_ai/models/evidence_chunk.py:27
+msgid "证据片段"
+msgstr "Evidence Chunk"
 
 #: apps/litigation_ai/models/session.py:20
 msgid "唯一标识一次文书生成会话"
@@ -5248,6 +5348,10 @@ msgstr "无效的 Status"
 msgid "无权限删除此会话"
 msgstr "No permission to delete this session"
 
+#: apps/onboarding/apps.py:10
+msgid "立案引导"
+msgstr "Case Filing Guide"
+
 #: apps/organization/admin/accountcredential_admin.py:59
 msgid "登录统计"
 msgstr "Login Statistics"
@@ -5267,6 +5371,10 @@ msgstr "Mark as priority account"
 #: apps/organization/admin/accountcredential_admin.py:158
 msgid "取消优先标记"
 msgstr "Remove priority mark"
+
+#: apps/organization/apps.py:8
+msgid "组织管理"
+msgstr "Organization Management"
 
 #: apps/organization/models.py:13 apps/organization/models/law_firm.py:18
 msgid "开户行"
