@@ -60,7 +60,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
 
     ordering = ("-created_at",)
 
-    date_hierarchy: str = "created_at"
+    date_hierarchy = "created_at"
 
     fieldsets = (
         (_("对象信息"), {"fields": ("content_type", "object_id", "object_repr")}),

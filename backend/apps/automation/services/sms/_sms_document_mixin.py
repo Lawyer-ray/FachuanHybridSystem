@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from apps.automation.models import CourtSMS, CourtSMSStatus
 
 if TYPE_CHECKING:
+    from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.matching.case_number_extractor_service import CaseNumberExtractorService
     from apps.automation.services.sms.matching.document_attachment_service import DocumentAttachmentService
 
@@ -18,6 +19,10 @@ class SMSDocumentMixin:
 
     case_number_extractor: "CaseNumberExtractorService"
     document_attachment: "DocumentAttachmentService"
+    matcher: "CaseMatcher"
+
+    def _create_case_binding(self, sms: CourtSMS) -> bool:
+        raise NotImplementedError
 
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:
         """从文书中提取案号和当事人，并回写到 CourtSMS 记录"""

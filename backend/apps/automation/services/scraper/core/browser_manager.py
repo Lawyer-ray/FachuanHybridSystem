@@ -64,7 +64,7 @@ class BrowserManager:
             config.validate()
         except Exception as e:
             raise BrowserCreationError(
-                message=_("配置验证失败"), config=config.__dict__ if config else None, original_error=e
+                message=str(_("配置验证失败")), config=config.__dict__ if config else None, original_error=e
             ) from e
 
         playwright: Playwright | None = None
@@ -90,7 +90,7 @@ class BrowserManager:
                 browser = playwright.chromium.launch(**launch_args)
             except Exception as e:
                 raise BrowserCreationError(
-                    message=_("浏览器启动失败"),
+                    message=str(_("浏览器启动失败")),
                     config={"launch_args": launch_args, "config": config.__dict__},
                     original_error=e,
                 ) from e
@@ -105,7 +105,7 @@ class BrowserManager:
                 context = browser.new_context(**context_args)
             except Exception as e:
                 raise BrowserCreationError(
-                    message=_("浏览器上下文创建失败"), config={"context_args": context_args}, original_error=e
+                    message=str(_("浏览器上下文创建失败")), config={"context_args": context_args}, original_error=e
                 ) from e
 
             # 设置超时
@@ -129,7 +129,7 @@ class BrowserManager:
         except Exception as e:
             # 包装其他异常
             raise BrowserCreationError(
-                message=_("浏览器操作失败"), config=config.__dict__ if config else None, original_error=e
+                message=str(_("浏览器操作失败")), config=config.__dict__ if config else None, original_error=e
             ) from e
         finally:
             # 确保资源被清理

@@ -9,7 +9,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger("apps.automation")
 
@@ -120,7 +120,7 @@ class ExtractorParsersMixin:
 
         # 直接尝试解析
         try:
-            return json.loads(content)
+            return cast(dict[str, Any], json.loads(content))
         except json.JSONDecodeError:
             pass
 
@@ -131,7 +131,7 @@ class ExtractorParsersMixin:
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_str = content[start_idx : end_idx + 1]
             try:
-                return json.loads(json_str)
+                return cast(dict[str, Any], json.loads(json_str))
             except json.JSONDecodeError:
                 pass
 
@@ -141,7 +141,7 @@ class ExtractorParsersMixin:
                 json_start = content.index("```json") + 7
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)
+                return cast(dict[str, Any], json.loads(json_str))
             except (ValueError, json.JSONDecodeError):
                 pass
 
@@ -150,7 +150,7 @@ class ExtractorParsersMixin:
                 json_start = content.index("```") + 3
                 json_end = content.index("```", json_start)
                 json_str = content[json_start:json_end].strip()
-                return json.loads(json_str)
+                return cast(dict[str, Any], json.loads(json_str))
             except (ValueError, json.JSONDecodeError):
                 pass
 
@@ -188,7 +188,7 @@ class ExtractorParsersMixin:
 
         return case_number
 
-    def _parse_datetime(self, datetime_str: str) -> datetime | None | None:
+    def _parse_datetime(self, datetime_str: str) -> datetime | None:
         """
         解析日期时间字符串
 
@@ -244,7 +244,7 @@ class ExtractorParsersMixin:
         logger.warning(f"无法解析日期时间: {datetime_str}")
         return None
 
-    def _parse_date(self, date_str: str) -> datetime | None | None:
+    def _parse_date(self, date_str: str) -> datetime | None:
         """
         解析日期字符串
 

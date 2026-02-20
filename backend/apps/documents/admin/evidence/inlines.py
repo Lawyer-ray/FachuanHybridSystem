@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.documents.models import EvidenceItem
 
 
-class EvidenceItemInline(admin.TabularInline):  # type: ignore[type-arg]
+class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
     model = EvidenceItem
     extra: int = 1
     fields: ClassVar[tuple[Any, ...]] = (
@@ -27,7 +27,7 @@ class EvidenceItemInline(admin.TabularInline):  # type: ignore[type-arg]
     ordering: ClassVar[list[str]] = ["order"]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:
-        qs: QuerySet[EvidenceItem, EvidenceItem] = super().get_queryset(request)  # type: ignore[assignment]
+        qs: QuerySet[EvidenceItem, EvidenceItem] = super().get_queryset(request)
         return qs
 
     def global_order_display(self, obj: EvidenceItem) -> Any:

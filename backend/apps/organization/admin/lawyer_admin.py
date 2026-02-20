@@ -29,14 +29,14 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
         return cleaned
 
 
-class AccountCredentialInlineForm(forms.ModelForm):
+class AccountCredentialInlineForm(forms.ModelForm[AccountCredential]):
     class Meta:
         model = AccountCredential
         fields = "__all__"
         widgets: ClassVar[dict[str, Any]] = {"password": forms.PasswordInput(render_value=True)}
 
 
-class AccountCredentialInline(admin.TabularInline):
+class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCredential]):
     model = AccountCredential
     form = AccountCredentialInlineForm
     extra = 1
@@ -45,10 +45,10 @@ class AccountCredentialInline(admin.TabularInline):
 
 
 @admin.register(Lawyer)
-class LawyerAdmin(admin.ModelAdmin):
+class LawyerAdmin(admin.ModelAdmin[Lawyer]):
     form = LawyerAdminForm
     list_display = ("id", "username", "real_name", "phone", "is_admin", "is_active")
     search_fields = ("username", "real_name", "phone")
     list_filter = ("is_admin", "is_active")
     filter_horizontal = ("lawyer_teams", "biz_teams")
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]
+    inlines: ClassVar[list[type[admin.TabularInline[AccountCredential, AccountCredential]]]] = [AccountCredentialInline]  # type: ignore[type-abstract]

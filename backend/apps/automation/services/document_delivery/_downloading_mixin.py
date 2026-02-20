@@ -2,6 +2,7 @@
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 import queue
 import tempfile
@@ -24,22 +25,20 @@ class DocumentDeliveryDownloadingMixin:
     DOWNLOAD_BUTTON_SELECTOR: str
     PAGE_LOAD_WAIT: int
 
-    # 子类提供
+    # 子类必须实现的方法（Protocol 声明）
     def _process_sms_in_thread(
         self,
         record: DocumentDeliveryRecord,
         file_path: str,
         extracted_files: list[str],
         credential_id: int,
-    ) -> dict[str, Any]: ...
-
-    def _check_not_processed_in_thread(
-        self, credential_id: int, record: DocumentDeliveryRecord
-    ) -> bool: ...
+    ) -> dict[str, Any]:
+        raise NotImplementedError
 
     def _should_process(
         self, record: DocumentDeliveryRecord, cutoff_time: Any, credential_id: int
-    ) -> bool: ...
+    ) -> bool:
+        raise NotImplementedError
 
     def _download_document(self, page: Page, entry: DocumentDeliveryRecord) -> str | None:
         """点击下载按钮下载文书"""
@@ -138,6 +137,7 @@ class DocumentDeliveryDownloadingMixin:
     ) -> bool:
         """在独立线程中检查文书是否已成功处理完成"""
         result_queue: queue.Queue[bool] = queue.Queue()
+        send_time: datetime | None = record.send_time
 
         def do_check() -> None:
             try:
@@ -155,15 +155,16 @@ class DocumentDeliveryDownloadingMixin:
                     )
                     result_queue.put(False)
                     return
-                existing_history = DocumentQueryHistory.objects.filter(
-                    credential_id=credential_id,
-                    case_number=record.case_number,
-                    send_time=record.send_time,
-                ).first()
-                if existing_history:
-                    logger.info(f"🔄 文书有历史记录但未成功完成，重新处理: {record.case_number}")
-                    existing_history.delete()
-                logger.info(f"🆕 文书符合处理条件: {record.case_number} - {record.send_time}")
+                if send_time is not None:
+                    existing_history = DocumentQueryHistory.objects.filter(
+                        credential_id=credential_id,
+                        case_number=record.case_number,
+                        send_time=send_time,
+                    ).first()
+                    if existing_history:
+                        logger.info(f"🔄 文书有历史记录但未成功完成，重新处理: {record.case_number}")
+                        existing_history.delete()
+                logger.info(f"🆕 文书符合处理条件: {record.case_number} - {send_time}")
                 result_queue.put(True)
             except Exception as e:
                 logger.warning(f"检查文书处理历史失败: {e!s}")
@@ -181,20 +182,23 @@ class DocumentDeliveryDownloadingMixin:
         self, credential_id: int, entry: DocumentDeliveryRecord
     ) -> None:
         """在独立线程中记录查询历史"""
+        send_time: datetime | None = entry.send_time
+
         def do_record() -> None:
             try:
                 from django.db import connection, transaction
                 from django.utils import timezone
 
                 connection.ensure_connection()
-                with transaction.atomic():
-                    DocumentQueryHistory.objects.get_or_create(
-                        credential_id=credential_id,
-                        case_number=entry.case_number,
-                        send_time=entry.send_time,
-                        defaults={"queried_at": timezone.now()},
-                    )
-                logger.debug(f"记录查询历史成功: {entry.case_number} - {entry.send_time}")
+                if send_time is not None:
+                    with transaction.atomic():
+                        DocumentQueryHistory.objects.get_or_create(
+                            credential_id=credential_id,
+                            case_number=entry.case_number,
+                            send_time=send_time,
+                            defaults={"queried_at": timezone.now()},
+                        )
+                    logger.debug(f"记录查询历史成功: {entry.case_number} - {send_time}")
             except Exception as e:
                 logger.warning(f"记录查询历史失败: {e!s}")
 

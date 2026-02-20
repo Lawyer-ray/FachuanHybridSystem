@@ -219,8 +219,10 @@ class PlaywrightDeliveryService:
         """
         import queue
         import threading
+        from datetime import datetime
 
         result_queue: queue.Queue[bool] = queue.Queue()
+        send_time: datetime | None = record.send_time
 
         def do_check() -> None:
             try:
@@ -238,20 +240,21 @@ class PlaywrightDeliveryService:
 
                 if completed_sms:
                     logger.info(
-                        f"🔄 文书已成功处理完成: {record.case_number} - {record.send_time}, SMS ID={completed_sms.id}"
+                        f"🔄 文书已成功处理完成: {record.case_number} - {send_time}, SMS ID={completed_sms.id}"
                     )
                     result_queue.put(False)
                 else:
                     # 检查是否有未完成的记录,如果有则删除重新处理
-                    existing_history = DocumentQueryHistory.objects.filter(
-                        credential_id=credential_id, case_number=record.case_number, send_time=record.send_time
-                    ).first()
+                    if send_time is not None:
+                        existing_history = DocumentQueryHistory.objects.filter(
+                            credential_id=credential_id, case_number=record.case_number, send_time=send_time
+                        ).first()
 
-                    if existing_history:
-                        logger.info(f"🔄 文书有历史记录但未成功完成,重新处理: {record.case_number}")
-                        existing_history.delete()
+                        if existing_history:
+                            logger.info(f"🔄 文书有历史记录但未成功完成,重新处理: {record.case_number}")
+                            existing_history.delete()
 
-                    logger.info(f"🆕 文书符合处理条件: {record.case_number} - {record.send_time}")
+                    logger.info(f"🆕 文书符合处理条件: {record.case_number} - {send_time}")
                     result_queue.put(True)
 
             except Exception as e:

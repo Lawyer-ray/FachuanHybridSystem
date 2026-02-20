@@ -44,7 +44,7 @@ class DataProcessorMixin:
 
         file_path = self._download_document(page, entry)
         if not file_path:
-            result.error_message = _("文书下载失败")
+            result.error_message = str(_("文书下载失败"))
             return result
 
         process_result = self.processor.process_downloaded_document(

@@ -138,7 +138,7 @@ class OwnerConfigManager:
         """
         # 从已加载的配置中获取（已按优先级处理）
         default_owner = self._config.get("DEFAULT_OWNER_ID")
-        if default_owner and default_owner.strip():
+        if default_owner and isinstance(default_owner, str) and default_owner.strip():
             default_owner = default_owner.strip()
             logger.debug(f"使用默认群主ID: {default_owner}")
             return default_owner
@@ -146,7 +146,7 @@ class OwnerConfigManager:
         # 测试环境特殊处理
         if self.is_test_environment():
             test_owner = self._config.get("TEST_OWNER_ID")
-            if test_owner and test_owner.strip():
+            if test_owner and isinstance(test_owner, str) and test_owner.strip():
                 test_owner = test_owner.strip()
                 logger.debug(f"从测试环境配置加载默认群主ID: {test_owner}")
                 return test_owner

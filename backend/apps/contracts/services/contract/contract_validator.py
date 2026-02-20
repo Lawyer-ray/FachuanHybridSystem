@@ -24,9 +24,10 @@ class ContractValidator:
             FeeMode.CUSTOM: self._validate_custom,
         }
 
-        validator = validators.get(fee_mode)
-        if validator:
-            validator(data, errors)
+        if fee_mode is not None:
+            validator = validators.get(fee_mode)
+            if validator:
+                validator(data, errors)
 
         if errors:
             raise ValidationException("收费模式验证失败", errors=errors)

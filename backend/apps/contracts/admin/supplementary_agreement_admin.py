@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
 
 
-class SupplementaryAgreementPartyInline(admin.TabularInline):
+class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):
     """补充协议当事人内联编辑"""
 
     model = SupplementaryAgreementParty

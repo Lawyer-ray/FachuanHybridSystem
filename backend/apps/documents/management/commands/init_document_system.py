@@ -24,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--with-samples", action="store_true", help="创建示例替换词")
         parser.add_argument("--force", action="store_true", help="强制覆盖已存在的配置")
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         with_samples = options["with_samples"]
         force = options["force"]
         self.stdout.write("初始化文书生成系统...")

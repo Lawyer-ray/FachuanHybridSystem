@@ -54,7 +54,7 @@ class ExportTaskService:
             progress=0,
             current=0,
             total=0,
-            message=_("准备导出"),
+            message=str(_("准备导出")),
         )
         return task
 
@@ -74,7 +74,7 @@ class ExportTaskService:
             started_at=timezone.now(),
             finished_at=None,
             error="",
-            message=_("任务已提交"),
+            message=str(_("任务已提交")),
             progress=0,
             current=0,
             total=0,

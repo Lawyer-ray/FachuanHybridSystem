@@ -49,6 +49,7 @@ class AuthorityLetterPlaceholderService(BasePlaceholderService):
         }
 
     def _format_lawyers_contact(self, case: Any) -> str:
+        assignments: list[Any]
         try:
             assignments = list(case.assignments.select_related("lawyer").order_by("id"))
         except Exception as e:
@@ -56,7 +57,7 @@ class AuthorityLetterPlaceholderService(BasePlaceholderService):
                 "获取案件律师列表失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            assignments: list[Any] = []
+            assignments = []
 
         parts: list[str] = []
         for assignment in assignments:

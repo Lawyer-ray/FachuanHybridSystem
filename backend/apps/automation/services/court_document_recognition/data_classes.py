@@ -231,7 +231,7 @@ class NotificationResult:
         """
         return cls(
             success=True,
-            message=_("通知发送成功"),
+            message=str(_("通知发送成功")),
             sent_at=sent_at,
             file_sent=file_sent,
         )

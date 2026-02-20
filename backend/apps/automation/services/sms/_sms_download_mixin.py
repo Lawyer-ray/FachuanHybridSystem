@@ -68,6 +68,8 @@ class SMSDownloadMixin:
     def _refresh_scraper_task(self, sms: CourtSMS) -> Any:
         """刷新并返回最新的 ScraperTask，不存在则返回 None"""
         try:
+            if sms.scraper_task is None:
+                return None
             fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)
             sms.scraper_task = fresh_task
             logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")

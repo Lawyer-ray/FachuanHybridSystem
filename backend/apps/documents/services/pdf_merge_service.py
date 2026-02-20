@@ -29,7 +29,7 @@ class PDFMergeValidator:
             raise ValidationException(
                 message=_("证据清单没有任何文件"),
                 code="NO_FILES_TO_MERGE",
-                errors={"evidence_list_id": cast(int, evidence_list.pk)},
+                errors={"evidence_list_id": int(evidence_list.pk)},
             )
         return items
 
@@ -115,10 +115,10 @@ class PDFMergeWorkflow:
         evidence_list.total_pages = self.get_pdf_page_count(io.BytesIO(pdf_with_pages))
         evidence_list.save(update_fields=["merged_pdf", "total_pages", "updated_at"])
 
-        def _cleanup_temp_files(temp_files) -> None:
-            for temp_file in temp_files:
-                with contextlib.suppress(Exception):
-                    os.remove(temp_file)
+    def _cleanup_temp_files(self, temp_files: list[Any]) -> None:
+        for temp_file in temp_files:
+            with contextlib.suppress(Exception):
+                os.remove(temp_file)
 
     def convert_to_pdf(self, file_path: str) -> str:
         _, ext = os.path.splitext(file_path)

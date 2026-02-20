@@ -57,7 +57,7 @@ class CaseMaterialQueryService:
                     "type_id": material.type_id,
                     "type_name": material.type_name,
                     "side": material.side,
-                    "party_ids": list[Any](material.parties.values_list("id", flat=True)),
+                    "party_ids": list(material.parties.values_list("id", flat=True)),
                     "supervising_authority_id": material.supervising_authority_id,
                 }
             results.append(
@@ -177,7 +177,7 @@ class CaseMaterialQueryService:
         key = (category, side or "", supervising_authority_id or 0)
         ordered_ids = order_map.get(key, [])
         ordered: list[dict[str, Any]] = []
-        remaining = dict[str, Any](groups_by_type_id)
+        remaining: dict[int, dict[str, Any]] = dict(groups_by_type_id)
         for tid in ordered_ids:
             g = remaining.pop(tid, None)
             if g:

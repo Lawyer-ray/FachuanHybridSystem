@@ -212,7 +212,7 @@ class TaskRecoveryService:
             else:
                 # 重试次数用完，标记为失败
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("恢复时发现重试次数已用完")
+                sms.error_message = str(_("恢复时发现重试次数已用完"))
                 sms.save()
                 return False
 
@@ -250,7 +250,7 @@ class TaskRecoveryService:
                         )
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("下载重试次数已用完")
+                        sms.error_message = str(_("下载重试次数已用完"))
                         sms.save()
                         return False
                 else:

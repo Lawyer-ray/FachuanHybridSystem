@@ -198,9 +198,10 @@ else:
 
 # 启用 SQLite 外键约束
 from django.db.backends.signals import connection_created
+from typing import Any
 
 
-def activate_foreign_keys(sender, connection, **kwargs):
+def activate_foreign_keys(sender: Any, connection: Any, **kwargs: Any) -> None:
     """启用 SQLite 外键约束"""
     if connection.vendor == "sqlite":
         cursor = connection.cursor()
@@ -413,7 +414,8 @@ if not DEBUG:
         if _cache_backend == "django.core.cache.backends.locmem.LocMemCache":
             raise RuntimeError("生产多进程环境必须配置 Redis cache（DJANGO_CACHE_REDIS_URL）以保证限流一致性")
 
-        _channel_backend = ((CHANNEL_LAYERS or {}).get("default", {}) or {}).get("BACKEND", "")
+        _channel_layers: dict[str, Any] = {k: v for k, v in CHANNEL_LAYERS.items()} if isinstance(CHANNEL_LAYERS, dict) else {}
+        _channel_backend = (_channel_layers.get("default") or {}).get("BACKEND", "")
         if _channel_backend == "channels.layers.InMemoryChannelLayer":
             raise RuntimeError("生产多进程环境必须配置 Redis channel layer（DJANGO_CHANNEL_REDIS_URL）")
 

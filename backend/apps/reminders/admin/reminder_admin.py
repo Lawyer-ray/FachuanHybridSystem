@@ -40,7 +40,7 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
 @admin.register(Reminder)
 class ReminderAdmin(admin.ModelAdmin[Reminder]):
     form = ReminderAdminForm
-    list_display: ClassVar[list[str]] = [
+    list_display = (
         "id",
         "due_at",
         "reminder_type",
@@ -48,8 +48,8 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         "contract",
         "case_log",
         "created_at",
-    ]
-    list_filter: ClassVar[list[str]] = ["reminder_type", "due_at", "created_at"]
-    search_fields: ClassVar[list[str]] = ["content"]
+    )
+    list_filter = ("reminder_type", "due_at", "created_at")
+    search_fields = ("content",)
     autocomplete_fields: ClassVar[list[str]] = ["contract", "case_log"]
-    ordering: ClassVar[list[str]] = ["-due_at", "-id"]
+    ordering = ("-due_at", "-id")

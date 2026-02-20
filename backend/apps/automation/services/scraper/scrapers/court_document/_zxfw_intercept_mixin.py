@@ -5,13 +5,36 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
 
 
 class ZxfwInterceptMixin:
     """Playwright API 拦截下载方法"""
+
+    page: "Page"
+
+    def _debug_log(self, message: str, data: Any = None) -> None:
+        raise NotImplementedError
+
+    def navigate_to_url(self) -> None:
+        raise NotImplementedError
+
+    def random_wait(self, min_s: float, max_s: float) -> None:
+        raise NotImplementedError
+
+    def _save_page_state(self, name: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _download_document_directly(self, document_data: dict[str, Any], download_dir: Path, download_timeout: int) -> tuple[bool, str | None, str | None]:
+        raise NotImplementedError
+
+    def _save_documents_batch(self, documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]) -> dict[str, Any]:
+        raise NotImplementedError
 
     def _intercept_api_response_with_navigation(self, timeout: int = 30000) -> dict[str, Any] | None:
         """在导航前注册监听器，拦截 API 响应"""

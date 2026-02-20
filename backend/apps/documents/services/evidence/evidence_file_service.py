@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 import contextlib
 import os
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
 
@@ -20,7 +20,7 @@ class EvidenceFileService:
     MAX_FILE_SIZE = 50 * 1024 * 1024
 
     @transaction.atomic
-    def upload_file(self, *, item: EvidenceItem, file) -> EvidenceItem:
+    def upload_file(self, *, item: EvidenceItem, file: Any) -> EvidenceItem:
         file_name = getattr(file, "name", "")
         file_size = getattr(file, "size", 0)
 
@@ -72,7 +72,7 @@ class EvidenceFileService:
         item.save()
         return True
 
-    def _get_page_count(self, *, ext: str, file) -> int:
+    def _get_page_count(self, *, ext: str, file: Any) -> int:
         if ext == ".pdf":
             from apps.documents.services.pdf_utils import get_pdf_page_count
 

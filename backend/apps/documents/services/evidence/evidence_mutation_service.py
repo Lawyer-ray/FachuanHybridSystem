@@ -206,8 +206,8 @@ class EvidenceMutationService:
                 message=_("提供的明细 ID 列表与实际不符"),
                 code="INVALID_ITEM_IDS",
                 errors={
-                    "missing": list[Any](existing_ids - provided_ids),
-                    "extra": list[Any](provided_ids - existing_ids),
+                    "missing": list(existing_ids - provided_ids),
+                    "extra": list(provided_ids - existing_ids),
                 },
             )
 
