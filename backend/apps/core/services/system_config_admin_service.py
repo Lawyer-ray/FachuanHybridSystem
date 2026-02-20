@@ -462,7 +462,7 @@ class SystemConfigAdminService:
                 "key": "SCRAPER_DOWNLOAD_DIR",
                 "category": "scraper",
                 "description": "爬虫下载目录",
-                "value": "/tmp/scraper_downloads",
+                "value": "/tmp/scraper_downloads",  # nosec B108
                 "is_secret": False,
             },
             {

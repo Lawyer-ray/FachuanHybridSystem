@@ -30,7 +30,7 @@ class EvidenceEmbeddingService:
         if not tokens:
             return vec
         for tok in tokens:
-            h = hashlib.md5(tok.encode("utf-8")).hexdigest()
+            h = hashlib.md5(tok.encode("utf-8"), usedforsecurity=False).hexdigest()
             idx = int(h[:8], 16) % dims
             vec[idx] += 1.0
         norm = math.sqrt(sum(v * v for v in vec)) or 1.0

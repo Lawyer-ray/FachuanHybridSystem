@@ -169,11 +169,11 @@ class MigrationQueryMixin:
             placeholders = ",".join("?" * len(migration_id_list))
 
             event_count = conn.execute(
-                f"DELETE FROM migration_events WHERE migration_id IN ({placeholders})",
+                f"DELETE FROM migration_events WHERE migration_id IN ({placeholders})",  # nosec B608
                 migration_id_list,
             ).rowcount
             progress_count = conn.execute(
-                f"DELETE FROM migration_progress WHERE migration_id IN ({placeholders})",
+                f"DELETE FROM migration_progress WHERE migration_id IN ({placeholders})",  # nosec B608
                 migration_id_list,
             ).rowcount
             conn.commit()
