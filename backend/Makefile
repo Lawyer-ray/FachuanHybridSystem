@@ -4,17 +4,15 @@
 .PHONY: help install run test migrate shell lint clean
 
 # 默认 Python 和虚拟环境
-VENV_DIR ?= venv312
-PYTHON_SYS ?= $(shell command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null)
-PYTHON := $(VENV_DIR)/bin/python
+VENV_DIR ?= .venv
 UV := uv
+PYTHON := $(VENV_DIR)/bin/python
 PYTEST := $(VENV_DIR)/bin/pytest
 MANAGE := $(PYTHON) apiSystem/manage.py
 DAPHNE := $(VENV_DIR)/bin/daphne
 WATCHFILES := $(VENV_DIR)/bin/watchfiles
-PIP := $(PYTHON) -m pip
 PORT ?= 8002
-TEST_DB_PATH ?= $(shell $(PYTHON) -c "import tempfile; print(tempfile.gettempdir() + '/fachuan_pytest.sqlite3')")
+TEST_DB_PATH ?= /tmp/fachuan_pytest.sqlite3
 
 # 颜色定义
 GREEN := \033[0;32m
@@ -31,30 +29,14 @@ help: ## 显示帮助信息
 # 安装和配置
 # ============================================================
 
-install: ## 安装依赖
-	@if command -v $(UV) >/dev/null 2>&1; then \
-		$(UV) pip install -r requirements.txt -c constraints/py312.txt; \
-	else \
-		$(PIP) install -r requirements.txt -c constraints/py312.txt; \
-	fi
+install: ## 安装生产依赖
+	$(UV) sync --no-dev
 
-install-dev: ## 安装开发依赖
-	@if command -v $(UV) >/dev/null 2>&1; then \
-		$(UV) pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt; \
-	else \
-		$(PIP) install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt; \
-	fi
+install-dev: ## 安装全部依赖（含 dev + test）
+	$(UV) sync
 
 venv: ## 创建虚拟环境
-	@if command -v $(UV) >/dev/null 2>&1; then \
-		$(UV) venv $(VENV_DIR) --python 3.12; \
-	else \
-		if [ -z "$(PYTHON_SYS)" ]; then \
-			echo "未找到可用的 Python（优先 python3.12，其次 python3/python）。"; \
-			exit 1; \
-		fi; \
-		$(PYTHON_SYS) -m venv $(VENV_DIR); \
-	fi
+	$(UV) venv $(VENV_DIR) --python 3.12
 	@echo "$(GREEN)虚拟环境已创建，请运行: source $(VENV_DIR)/bin/activate$(NC)"
 
 # ============================================================

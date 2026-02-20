@@ -3,18 +3,18 @@ name: container-scan
 on:
   pull_request:
     paths:
-      - "backend/Dockerfile"
-      - "backend/requirements*.txt"
-      - "backend/constraints/**"
+      - "backend/deploy/docker/Dockerfile"
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
       - ".github/workflows/container-scan.yml"
   push:
     branches:
       - main
       - master
     paths:
-      - "backend/Dockerfile"
-      - "backend/requirements*.txt"
-      - "backend/constraints/**"
+      - "backend/deploy/docker/Dockerfile"
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
       - ".github/workflows/container-scan.yml"
   schedule:
     - cron: "0 3 * * 0"
@@ -32,7 +32,7 @@ jobs:
           docker build \
             --build-arg INSTALL_FULL_DEPS=false \
             -t fachuan-backend:ci \
-            -f backend/Dockerfile \
+            -f backend/deploy/docker/Dockerfile \
             backend
 
       - name: Scan image (os + library)

@@ -52,37 +52,27 @@ jobs:
             exit 1
           fi
 
-          venv_tracked=$(git ls-files | grep -E '^(backend/)?venv(311|312)?/' || true)
+          venv_tracked=$(git ls-files | grep -E '^(backend/)?(\.venv|venv(311|312)?)/' || true)
           if [ -n "${venv_tracked}" ]; then
             echo "Found tracked virtualenv files (do not commit venv):"
             echo "${venv_tracked}"
             exit 1
           fi
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/requirements-ci.lock.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade "pip<26"
-          python -m pip install --require-hashes -r requirements-ci.lock.txt
+        run: uv sync --frozen
 
       - name: Compile Python
-        run: |
-          python -m compileall -q apps apiSystem
+        run: uv run python -m compileall -q apps apiSystem
 
       - name: Pre-commit
-        run: |
-          pre-commit run --all-files
+        run: uv run pre-commit run --all-files
 
       - name: Lint (ruff, changed files)
         run: |
@@ -103,11 +93,10 @@ jobs:
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
-          python -m ruff check ${files} --config ruff.toml
+          uv run ruff check ${files} --config ruff.toml
 
       - name: Lint (ruff, core + apiSystem)
-        run: |
-          python -m ruff check apps/core apiSystem --config ruff.toml
+        run: uv run ruff check apps/core apiSystem --config ruff.toml
 
       - name: Type check (mypy, changed files)
         env:
@@ -130,13 +119,13 @@ jobs:
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
-          python -m mypy --config-file=mypy.ini --follow-imports=skip ${files}
+          uv run mypy --config-file=mypy.ini --follow-imports=skip ${files}
 
       - name: Type check (mypy, curated gate)
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          python -m mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=skip \
             apps/core/httpx_clients.py \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
@@ -151,16 +140,14 @@ jobs:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: |
-          pytest -c pytest.ini --no-cov -q tests/structure/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/structure/
 
       - name: Tests (unit)
         env:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: |
-          pytest -c pytest.ini --no-cov -q tests/unit/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -168,19 +155,17 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
         run: |
-          python apiSystem/manage.py smoke_check \
+          uv run python apiSystem/manage.py smoke_check \
             --database-path /tmp/fachuan_ci.sqlite3 \
             --skip-admin \
             --skip-websocket \
             --skip-q
 
       - name: Dependency audit (pip-audit)
-        run: |
-          pip-audit -r requirements-ci.lock.txt
+        run: uv run pip-audit
 
       - name: Static security scan (bandit)
-        run: |
-          bandit -r apps -q -ll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
+        run: uv run bandit -r apps -q -ll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
 
   backend-ruff-full:
     runs-on: ubuntu-latest
@@ -198,26 +183,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/requirements-ci.lock.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade "pip<26"
-          python -m pip install --require-hashes -r requirements-ci.lock.txt
+        run: uv sync --frozen
 
       - name: Lint (ruff, core + apiSystem)
-        run: |
-          python -m ruff check apps/core apiSystem --config ruff.toml
+        run: uv run ruff check apps/core apiSystem --config ruff.toml
 
   backend-mypy-full:
     runs-on: ubuntu-latest
@@ -235,28 +211,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/requirements-ci.lock.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade "pip<26"
-          python -m pip install --require-hashes -r requirements-ci.lock.txt
+        run: uv sync --frozen
 
       - name: Type check (mypy, core + apiSystem)
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          python -m mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=skip \
             apps/core/httpx_clients.py \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
@@ -284,21 +252,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Tests (unit + coverage gate)
         env:
@@ -306,7 +267,7 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
         run: |
-          pytest -c pytest.ini -q -o addopts="--reuse-db --import-mode=importlib --cov=apps --cov-report=term-missing --cov-fail-under=75 --tb=short --strict-markers" tests/unit/
+          uv run pytest -c pytest.ini -q -o addopts="--reuse-db --import-mode=importlib --cov=apps --cov-report=term-missing --cov-fail-under=75 --tb=short --strict-markers" tests/unit/
 
   backend-integration-smoke:
     runs-on: ubuntu-latest
@@ -322,29 +283,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Tests (integration smoke)
         env:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: |
-          pytest -c pytest.ini --no-cov -q tests/integration/organization/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/integration/organization/
 
   backend-property-smoke:
     runs-on: ubuntu-latest
@@ -360,21 +313,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Tests (property smoke)
         env:
@@ -382,8 +328,7 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
           HYPOTHESIS_PROFILE: "default"
-        run: |
-          pytest -c pytest.ini --no-cov -q tests/property/core/test_exception_structure_properties.py
+        run: uv run pytest -c pytest.ini --no-cov -q tests/property/core/test_exception_structure_properties.py
 
   backend-e2e-nightly:
     if: github.event_name == 'schedule'
@@ -400,33 +345,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Install Playwright browsers
-        run: |
-          python -m playwright install --with-deps chromium
+        run: uv run playwright install --with-deps chromium
 
       - name: Tests (e2e admin smoke)
         env:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: |
-          pytest -c pytest.ini --no-cov -q tests/e2e/admin/test_smoke.py
+        run: uv run pytest -c pytest.ini --no-cov -q tests/e2e/admin/test_smoke.py
 
   backend-mypy:
     runs-on: ubuntu-latest
@@ -442,27 +378,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Type check (mypy)
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          python -m mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=skip \
             apps/core/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/infrastructure/cache.py \
@@ -486,28 +415,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/requirements-ci.lock.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade "pip<26"
-          python -m pip install --require-hashes -r requirements-ci.lock.txt
+        run: uv sync --frozen
 
       - name: Type check (mypy strict - all apps)
         env:
           PYTHONPATH: "apiSystem:."
-        run: |
-          python -m mypy apps/ --strict
+        run: uv run mypy apps/ --strict
 
   backend-coverage:
     runs-on: ubuntu-latest
@@ -523,21 +443,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-            backend/requirements-test.txt
-            backend/constraints/py312.txt
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-test.txt -c constraints/py312.txt
+        run: uv sync --frozen
 
       - name: Coverage (apps.core + org policy)
         env:
@@ -545,7 +458,7 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
         run: |
-          pytest -c pytest.ini -o addopts="" \
+          uv run pytest -c pytest.ini -o addopts="" \
             --reuse-db --import-mode=importlib \
             --cov=apps.core.infrastructure.throttling \
             --cov=apps.core.config.validators.safe_expression_evaluator \
