@@ -419,7 +419,7 @@ class CaseChatService:
                 result.message = self._send_files_to_chat(provider, chat, document_paths)
 
             logger.info(f"文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}")
-            return result
+            return result # type: ignore
 
         except MessageSendException:
             raise

@@ -68,14 +68,14 @@ class DocumentMatchingMixin:
 
             case_number_service = build_case_number_service()
 
-            existing_numbers = case_number_service.list_numbers(case_id=case_id)
+            existing_numbers = case_number_service.list_numbers(case_id=case_id) # type: ignore
 
             for num in existing_numbers:
                 if num.number == case_number:
                     logger.info(f"案件 {case_id} 已有案号 {case_number}，无需同步")
                     return True
 
-            case_number_service.create_number(case_id=case_id, number=case_number, remarks="文书送达自动下载同步")
+            case_number_service.create_number(case_id=case_id, number=case_number, remarks="文书送达自动下载同步") # type: ignore
 
             logger.info(f"案号同步成功: Case ID={case_id}, 案号={case_number}")
             return True

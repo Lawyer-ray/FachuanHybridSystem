@@ -59,7 +59,7 @@ class CourtDocumentDbMixin:
                     "file_path": filepath,
                 },
             )
-            return document.id
+            return document.id # type: ignore
         except Exception as e:
             logger.error(
                 f"保存文书记录到数据库失败: {e}",

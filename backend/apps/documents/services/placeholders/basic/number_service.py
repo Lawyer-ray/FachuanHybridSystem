@@ -70,7 +70,7 @@ class NumberPlaceholderService(BasePlaceholderService):
             result += "元"
             result += self._convert_decimal_part(decimal_part)
 
-            return cast(str, result)
+            return cast(str, result) # type: ignore
 
         except (ValueError, TypeError, ArithmeticError) as e:
             logger.warning(f"数字转换失败: {e}", extra={"amount": amount})

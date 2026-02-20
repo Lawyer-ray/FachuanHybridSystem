@@ -23,9 +23,11 @@ class FeishuFileMixin:
     ENDPOINTS: dict[str, str]
     config: dict[str, Any]
 
-    def is_available(self) -> bool: ...  # 由 FeishuTokenMixin 提供
+    def is_available(self) -> bool:  # 由 FeishuTokenMixin 提供
+        raise NotImplementedError
 
-    def _get_tenant_access_token(self) -> str: ...  # 由 FeishuTokenMixin 提供
+    def _get_tenant_access_token(self) -> str:  # 由 FeishuTokenMixin 提供
+        raise NotImplementedError
 
     def send_file(self, chat_id: str, file_path: str) -> ChatResult:
         """发送文件到群聊"""
@@ -85,7 +87,7 @@ class FeishuFileMixin:
                 )
 
             file_data = resp_data.get("data", {})
-            file_key = file_data.get("file_key")
+            file_key: str | None = file_data.get("file_key")
 
             if not file_key:
                 raise MessageSendException(

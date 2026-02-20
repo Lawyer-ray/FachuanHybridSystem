@@ -151,12 +151,12 @@ class DocumentDeliveryMatchingMixin:
         """将案号同步到案件"""
         try:
             case_number_service = self.case_number_service
-            existing_numbers = case_number_service.list_numbers(case_id=case_id)
+            existing_numbers = case_number_service.list_numbers(case_id=case_id) # type: ignore
             for num in existing_numbers:
                 if num.number == case_number:
                     logger.info(f"案件 {case_id} 已有案号 {case_number}，无需同步")
                     return True
-            case_number_service.create_number(
+            case_number_service.create_number( # type: ignore
                 case_id=case_id,
                 number=case_number,
                 remarks="文书送达自动下载同步",
@@ -195,7 +195,7 @@ class DocumentDeliveryMatchingMixin:
                 }
 
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
-                sms = CourtSMS.objects.create(
+                sms = CourtSMS.objects.create( # type: ignore
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -239,7 +239,7 @@ class DocumentDeliveryMatchingMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")
+                        sms.error_message = _("通知发送失败") # type: ignore
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

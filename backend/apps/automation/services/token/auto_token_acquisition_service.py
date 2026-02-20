@@ -153,7 +153,7 @@ class AutoTokenAcquisitionService:
         performance_monitor.record_acquisition_start(
             acquisition_id,
             site_name,
-            credential_id or "auto",
+            credential_id or "auto", # type: ignore
         )
 
         try:
@@ -161,7 +161,7 @@ class AutoTokenAcquisitionService:
             await concurrency_optimizer.acquire_resource(
                 acquisition_id,
                 site_name,
-                credential_id or "auto",
+                credential_id or "auto", # type: ignore
             )
 
             try:
@@ -204,13 +204,13 @@ class AutoTokenAcquisitionService:
                     AutomationLogger.log_token_acquisition_success(
                         acquisition_id=acquisition_id,
                         site_name=site_name,
-                        account=credential.account,
+                        account=credential.account, # type: ignore
                         total_duration=total_duration,
                         acquisition_method=result.acquisition_method,
                         login_attempts=len(result.login_attempts),
                         success_rate=self._success_count / self._acquisition_count,
                     )
-                    return result.token
+                    return result.token # type: ignore
                 else:
                     self._failure_count += 1
                     error_msg = f"Token获取失败: {result.error_details.get('message', '未知错误')}"
@@ -253,7 +253,7 @@ class AutoTokenAcquisitionService:
                 await concurrency_optimizer.release_resource(
                     acquisition_id,
                     site_name,
-                    credential_id or "auto",
+                    credential_id or "auto", # type: ignore
                 )
 
         except Exception as e:
@@ -306,13 +306,13 @@ class AutoTokenAcquisitionService:
             if not available_accounts:
                 return None
 
-            token = await self.token_service.get_token_internal(site_name, available_accounts.account)
+            token = await self.token_service.get_token_internal(site_name, available_accounts.account) # type: ignore
             if token:
                 logger.info(
                     "找到有效Token",
                     extra={"site_name": site_name, "account": available_accounts.account},
                 )
-                return token
+                return token # type: ignore
 
             return None
 
@@ -324,7 +324,7 @@ class AutoTokenAcquisitionService:
         """先查缓存，再查数据库，命中时回填缓存"""
         token = cache_manager.get_cached_token(site_name, account)
         if not token:
-            token = await self.token_service.get_token_internal(site_name, account)
+            token = await self.token_service.get_token_internal(site_name, account) # type: ignore
             if token:
                 cache_manager.cache_token(site_name, account, token)
         return token

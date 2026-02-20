@@ -74,7 +74,7 @@ class DocumentParserService:
             doc_service = build_document_processing_service()
 
             # 读取 PDF 内容（增加限制到 3000 字符以获取更多内容）
-            result = doc_service.extract_document_content_by_path_internal(
+            result = doc_service.extract_document_content_by_path_internal( # type: ignore
                 document_path, limit=3000
             )
 

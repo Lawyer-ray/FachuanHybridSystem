@@ -66,7 +66,7 @@ class AttachmentUploadService:
         Returns:
             重命名后的文书路径列表
         """
-        sms_id = cast(int, sms.pk)
+        sms_id = cast(int, sms.pk) # type: ignore
         if not document_paths:
             logger.info("短信 %s 无文书需要重命名", sms_id)
             return []
@@ -101,7 +101,7 @@ class AttachmentUploadService:
 
     def add_to_case_log(self, sms: CourtSMS, file_paths: list[str]) -> bool:
         """将文书附件添加到案件日志"""
-        sms_id = cast(int, sms.pk)
+        sms_id = cast(int, sms.pk) # type: ignore
         if not sms.case_log or not file_paths:
             logger.warning("短信 %s 没有案件日志或文件路径,无法添加附件", sms_id)
             return False
@@ -142,7 +142,7 @@ class AttachmentUploadService:
                 raise ValueError(f"短信 {sms.pk} 没有关联的案件日志")
             case_log = sms.case_log
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=cast(int, case_log.pk), file_path=relative_path, file_name=renamed_filename
+                case_log_id=cast(int, case_log.pk), file_path=relative_path, file_name=renamed_filename # type: ignore
             )
             if success:
                 logger.info("成功添加文书附件到案件日志: %s", renamed_filename)

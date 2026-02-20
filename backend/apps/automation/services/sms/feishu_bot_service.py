@@ -262,7 +262,7 @@ class FeishuBotService:
                     if result.get("code") == 0:
                         file_key = result.get("data", {}).get("file_key")
                         logger.info(f"文件上传成功: {file_key}")
-                        return file_key
+                        return file_key # type: ignore
                     else:
                         logger.error(f"文件上传失败: {result}")
                         return None

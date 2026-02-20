@@ -172,7 +172,7 @@ class CaseMaterialService:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first()
+        t = qs.first() # type: ignore
         if t:
             return t
 
@@ -229,10 +229,10 @@ class CaseMaterialService:
         ordered_ids = order_map.get(key, [])
 
         ordered: list[dict[str, Any]] = []
-        remaining = dict[str, Any](groups_by_type_id)
+        remaining = dict[str, Any](groups_by_type_id) # type: ignore
 
         for tid in ordered_ids:
-            g = remaining.pop(tid, None)
+            g = remaining.pop(tid, None) # type: ignore
             if g:
                 ordered.append(g)
 

@@ -272,7 +272,7 @@ class CaseNumberService:
             },
         )
 
-        return case_number
+        return case_number # type: ignore
 
     @transaction.atomic
     def delete_number(

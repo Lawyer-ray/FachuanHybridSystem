@@ -47,8 +47,7 @@ class CasePartyQueryService:
             .values_list("legal_status", flat=True)
         )
 
-        compatible_statuses = business_config.get_compatible_legal_statuses(
-            existing_statuses=existing_statuses,
-            case_type=case.case_type,
-        )
-        return [{"value": value, "label": label} for value, label in compatible_statuses]
+        compatible_statuses = business_config.get_legal_statuses_for_case_type(case.case_type)
+        # 过滤掉已存在的诉讼地位（避免重复）
+        existing_set = set(existing_statuses)
+        return [{"value": value, "label": label} for value, label in compatible_statuses if value not in existing_set]

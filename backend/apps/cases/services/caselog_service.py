@@ -162,7 +162,7 @@ class CaseLogService:
 
         actor_id = getattr(user, "id", None) if user else None
 
-        return CaseLog.objects.create(
+        return CaseLog.objects.create( # type: ignore
             case_id=case_id,
             content=content,
             actor_id=actor_id,
@@ -212,7 +212,7 @@ class CaseLogService:
 
         # 如果内容变更，保存历史版本
         if "content" in data and data.get("content") != old_content:
-            CaseLogVersion.objects.create(
+            CaseLogVersion.objects.create( # type: ignore
                 log=log,
                 content=old_content,
                 actor_id=actor_id,

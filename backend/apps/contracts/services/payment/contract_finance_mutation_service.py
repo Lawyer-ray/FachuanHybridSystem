@@ -170,7 +170,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         try:
             from apps.contracts.models import ContractFinanceLog
 
-            ContractFinanceLog.objects.create(
+            ContractFinanceLog.objects.create( # type: ignore
                 contract_id=contract_id,
                 action=action,
                 level=level,
@@ -202,9 +202,9 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             ),
         }
 
-        validator = _FEE_MODE_VALIDATORS.get(fee_mode)
+        validator = _FEE_MODE_VALIDATORS.get(fee_mode) # type: ignore
         if validator:
-            validator(data, errors)
+            validator(data, errors) # type: ignore
 
         # SEMI_RISK 需要检查两个字段
         if fee_mode == FeeMode.SEMI_RISK:

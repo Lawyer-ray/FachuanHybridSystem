@@ -348,9 +348,10 @@ class TokenAcquisitionHistoryAdminService:
             )
 
             # 按网站统计
+            success_filter = Q(status=TokenAcquisitionStatus.SUCCESS)
             site_stats = list(
                 TokenAcquisitionHistory.objects.values("site_name")
-                .annotate(total=Count("id"), success=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS)))
+                .annotate(total=Count("id"), success=Count("id", filter=success_filter))
                 .order_by("-total")
             )
 

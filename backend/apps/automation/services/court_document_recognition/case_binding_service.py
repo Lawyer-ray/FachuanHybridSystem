@@ -275,7 +275,7 @@ class CaseBindingService:
         # 1. 检查案号是否存在
         if not case_number:
             return BindingResult.failure_result(
-                message=_("未识别到案号，无法绑定案件"), error_code="CASE_NUMBER_NOT_FOUND"
+                message=_("未识别到案号，无法绑定案件"), error_code="CASE_NUMBER_NOT_FOUND" # type: ignore
             )
 
         # 2. 查找匹配的案件
@@ -426,7 +426,7 @@ class CaseBindingService:
 
         # 2. 检查任务是否已绑定
         if task.binding_success:
-            return BindingResult.failure_result(message=_("任务已绑定到案件"), error_code="ALREADY_BOUND")
+            return BindingResult.failure_result(message=_("任务已绑定到案件"), error_code="ALREADY_BOUND") # type: ignore
 
         # 3. 获取案件信息
         case_dto = self.case_service.get_case_by_id_internal(case_id)

@@ -73,7 +73,7 @@ class FolderTemplateService:
         structure: dict[str, Any],
         is_default: bool = False,
         is_active: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> FolderTemplate:
         return self.usecases.create_template(
             name=name,
@@ -155,21 +155,10 @@ class FolderTemplateService:
     ) -> tuple[bool, str]:
         """
         检测循环引用
-
-        通过追踪已访问的节点 ID 来检测循环.
-
-        Args:
-            structure: 文件夹结构
-            visited_ids: 已访问的节点 ID 集合
-            path: 当前路径
-
-        Returns:
-            (has_cycle, cycle_path) 元组
         """
         if visited_ids is None:
             visited_ids = set()
-        if path is None:
-            path: list[Any] = []
+        current_path: list[Any] = [] if path is None else path
 
         children = structure.get("children", [])
         if not isinstance(children, list):
@@ -181,15 +170,14 @@ class FolderTemplateService:
 
             node_id = child.get("id")
             node_name = child.get("name", "unknown")
-            current_path = path + [node_name]
+            child_path = current_path + [node_name]
 
             if node_id is not None:
                 if node_id in visited_ids:
-                    return True, " -> ".join(current_path)
+                    return True, " -> ".join(child_path)
                 visited_ids.add(node_id)
 
-            # 递归检查子节点
-            has_cycle, cycle_path = self._check_circular_reference(child, visited_ids.copy(), current_path)
+            has_cycle, cycle_path = self._check_circular_reference(child, visited_ids.copy(), child_path)
             if has_cycle:
                 return True, cycle_path
 
@@ -198,19 +186,8 @@ class FolderTemplateService:
     def _check_invalid_chars(self, structure: dict[str, Any], path: list[Any] | None = None) -> tuple[bool, str]:
         """
         检测无效文件名字符
-
-        检查文件夹名称是否包含文件系统不允许的字符.
-        无效字符: / \\ : * ? " < > |
-
-        Args:
-            structure: 文件夹结构
-            path: 当前路径
-
-        Returns:
-            (has_invalid, invalid_info) 元组
         """
-        if path is None:
-            path: list[Any] = []
+        current_path: list[Any] = [] if path is None else path
 
         children = structure.get("children", [])
         if not isinstance(children, list):
@@ -221,15 +198,13 @@ class FolderTemplateService:
                 continue
 
             name = child.get("name", "")
-            current_path = path + [name]
+            child_path = current_path + [name]
 
-            # 检查名称是否包含无效字符
             if name and self.INVALID_CHARS_PATTERN.search(name):
                 invalid_chars = self.INVALID_CHARS_PATTERN.findall(name)
                 return True, f"'{name}' 包含无效字符: {invalid_chars}"
 
-            # 递归检查子节点
-            has_invalid, invalid_info = self._check_invalid_chars(child, current_path)
+            has_invalid, invalid_info = self._check_invalid_chars(child, child_path)
             if has_invalid:
                 return True, invalid_info
 

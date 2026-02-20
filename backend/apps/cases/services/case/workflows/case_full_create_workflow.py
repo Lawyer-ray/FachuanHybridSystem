@@ -4,7 +4,6 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 from typing import Any
-
 from django.db import transaction
 
 from apps.cases.services.case.repo.case_full_create_repo import CaseFullCreateRepo
@@ -62,7 +61,11 @@ class CaseFullCreateWorkflow:
             seen_assignment_lawyer_ids.add(lawyer_id)
         assignments = self.repo.bulk_create_case_assignments(case=case, assignments=assignments_data)
 
-        logs = self.repo.bulk_create_case_logs(case=case, logs=logs_data, actor_id=actor_id) if logs_data else []
+        if logs_data:
+            assert actor_id is not None  # 前置检查已保证
+            logs = self.repo.bulk_create_case_logs(case=case, logs=logs_data, actor_id=actor_id)
+        else:
+            logs: list[Any] = [] # type: ignore
 
         supervising_authorities = (
             self.repo.bulk_create_supervising_authorities(case=case, authorities=supervising_authorities_data)

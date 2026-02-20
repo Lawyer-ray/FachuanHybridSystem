@@ -14,7 +14,7 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
 
     if rotation == 0:
         try:
-            img = Image.open(io.BytesIO(image_bytes))
+            img: Image.Image = Image.open(io.BytesIO(image_bytes))
             if img.format == "JPEG":
                 return image_bytes
             output = io.BytesIO()
@@ -27,14 +27,14 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
             return image_bytes
 
     try:
-        img = Image.open(io.BytesIO(image_bytes))
+        img2: Image.Image = Image.open(io.BytesIO(image_bytes))
         pillow_angle = (360 - rotation) % 360
         if pillow_angle != 0:
-            img = img.rotate(pillow_angle, expand=True)
+            img2 = img2.rotate(pillow_angle, expand=True)
 
         output = io.BytesIO()
-        img = _ensure_rgb(img)
-        img.save(output, format="JPEG", quality=85, optimize=True)
+        img2 = _ensure_rgb(img2)
+        img2.save(output, format="JPEG", quality=85, optimize=True)
         return output.getvalue()
     except Exception as e:
         logger.warning(f"图片旋转失败,使用原始图片: {e}")

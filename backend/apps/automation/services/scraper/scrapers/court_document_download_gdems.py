@@ -35,14 +35,14 @@ class CourtDocumentGdemsDownloadMixin:
 
         screenshot_cover = self.screenshot("gdems_cover")
 
-        self._gdems_click_confirm_button()
+        self._gdems_click_confirm_button() # type: ignore
 
         screenshot_preview = self.screenshot("gdems_preview")
 
         download_dir = self._prepare_download_dir()
-        zip_filepath = self._gdems_download_zip(download_dir)
+        zip_filepath = self._gdems_download_zip(download_dir) # type: ignore
 
-        extracted_files = self._gdems_extract_zip(zip_filepath, download_dir)
+        extracted_files = self._gdems_extract_zip(zip_filepath, download_dir) # type: ignore
         all_files: list[Any] = []
         return {
             "source": "sd.gdems.com",
@@ -57,7 +57,7 @@ class CourtDocumentGdemsDownloadMixin:
     def _gdems_click_confirm_button(self: "_GdemsHost") -> None:
         """点击"确认并预览材料"按钮"""
         try:
-            submit_button = self._gdems_find_confirm_button()
+            submit_button = self._gdems_find_confirm_button() # type: ignore
 
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
@@ -113,7 +113,7 @@ class CourtDocumentGdemsDownloadMixin:
 
     def _gdems_download_zip(self: "_GdemsHost", download_dir: Path) -> Any:
         """查找下载按钮并下载 ZIP 文件"""
-        download_button = self._gdems_find_download_button()
+        download_button = self._gdems_find_download_button() # type: ignore
 
         if not download_button or download_button.count() == 0:
             self._save_page_state("gdems_no_download_button")
@@ -179,5 +179,5 @@ class CourtDocumentGdemsDownloadMixin:
             logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
         except Exception as e:
             logger.error(f"解压失败: {e}")
-            extracted_files: list[Any] = []
+            extracted_files: list[Any] = [] # type: ignore
         return extracted_files

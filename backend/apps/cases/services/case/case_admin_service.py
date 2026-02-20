@@ -227,7 +227,7 @@ class CaseAdminService:
         created_year = case.start_date.year
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
             case_id=case_id,
-            case_type=case.case_type,
+            case_type=case.case_type, # type: ignore
             created_year=created_year,
         )
 

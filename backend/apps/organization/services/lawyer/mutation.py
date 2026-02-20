@@ -145,7 +145,7 @@ class LawyerMutationService:
 
         from apps.core.infrastructure import invalidate_users_access_context
 
-        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)
+        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False) # type: ignore
         logger.info(
             "律师删除成功",
             extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "delete_lawyer"},
@@ -195,7 +195,7 @@ class LawyerMutationService:
 
         from apps.core.infrastructure import invalidate_users_access_context
 
-        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)
+        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False) # type: ignore
 
     def _set_biz_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.BIZ))

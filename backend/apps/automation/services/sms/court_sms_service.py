@@ -36,8 +36,8 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
 
     def __init__(
         self,
-        parser: SMSParserService = None,
-        matcher: CaseMatcher = None,
+        parser: Optional[SMSParserService] = None,
+        matcher: Optional[CaseMatcher] = None,
         case_number_extractor: Optional["CaseNumberExtractorService"] = None,
         document_attachment: Optional["DocumentAttachmentService"] = None,
         notification: Optional["SMSNotificationService"] = None,
@@ -47,7 +47,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
         case_chat_service: Optional["ICaseChatService"] = None,
     ):
         self.parser = parser or SMSParserService()
-        self.matcher = matcher or CaseMatcher()
+        self.matcher = matcher or CaseMatcher() # type: ignore
         self._case_number_extractor = case_number_extractor
         self._document_attachment = document_attachment
         self._notification = notification
@@ -164,7 +164,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
                 logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("创建案件绑定失败")
+                sms.error_message = str(_("创建案件绑定失败"))
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
@@ -346,7 +346,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
                     sms.status = CourtSMSStatus.RENAMING
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = _("创建案件绑定失败")
+                    sms.error_message = str(_("创建案件绑定失败"))
                 sms.save()
                 return sms
 
@@ -374,13 +374,13 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
                     logger.info(f"案件自动绑定成功: SMS ID={sms.id}")
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = _("创建案件绑定失败")
+                    sms.error_message = str(_("创建案件绑定失败"))
                     sms.save()
                     logger.error(f"案件绑定失败: SMS ID={sms.id}")
             else:
                 logger.info(f"案件匹配失败，标记为待人工处理: SMS ID={sms.id}")
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = _("未能匹配到唯一的在办案件，需要人工处理")
+                sms.error_message = str(_("未能匹配到唯一的在办案件，需要人工处理"))
                 sms.save()
 
             return sms
@@ -423,7 +423,7 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
                 logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("案件群聊通知发送失败")
+                sms.error_message = str(_("案件群聊通知发送失败"))
                 logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
             sms.save()

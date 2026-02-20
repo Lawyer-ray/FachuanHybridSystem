@@ -95,8 +95,8 @@ class CaseServiceAdapter:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         return CasePartyMutationService(
-            client_service=self._client_service,
-            contract_service=self._contract_service,
+            client_service=self._client_service, # type: ignore
+            contract_service=self._contract_service, # type: ignore
         ).create_party_internal(case_id=case_id, client_id=client_id, legal_status=legal_status)
 
     def get_user_extra_case_access(self, user_id: int) -> Any:

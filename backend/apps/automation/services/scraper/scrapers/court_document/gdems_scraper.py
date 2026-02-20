@@ -44,8 +44,8 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         self.navigate_to_url()
 
         # 等待页面加载
-        self.page.wait_for_load_state("networkidle", timeout=30000)
-        self.random_wait(3, 5)
+        self.page.wait_for_load_state("networkidle", timeout=30000) # type: ignore
+        self.random_wait(3, 5) # type: ignore
 
         # 截图保存封面页
         screenshot_cover = self.screenshot("gdems_cover")
@@ -91,7 +91,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         """
         for selector in selectors:
             try:
-                loc = self.page.locator(selector)
+                loc = self.page.locator(selector) # type: ignore
                 if loc.count() > 0 and loc.first.is_visible():
                     logger.info(f"通过 '{selector}' 找到 {label}")
                     return loc
@@ -111,7 +111,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             # 文本定位器单独处理（get_by_text 接口不同）
             if not submit_button:
                 try:
-                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    btn = self.page.get_by_text("确认并预览材料", exact=False) # type: ignore
                     if btn.count() > 0 and btn.first.is_visible():
                         submit_button = btn
                         logger.info("通过文本找到确认按钮")
@@ -121,8 +121,8 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-                self.page.wait_for_load_state("networkidle", timeout=30000)
-                self.random_wait(5, 7)
+                self.page.wait_for_load_state("networkidle", timeout=30000) # type: ignore
+                self.random_wait(5, 7) # type: ignore
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
         except Exception as e:
@@ -158,9 +158,9 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
                 raise ValueError("找不到下载按钮")
 
             download_button.first.scroll_into_view_if_needed()
-            self.random_wait(1, 2)
+            self.random_wait(1, 2) # type: ignore
 
-            with self.page.expect_download(timeout=60000) as download_info:
+            with self.page.expect_download(timeout=60000) as download_info: # type: ignore
                 download_button.first.click()
                 logger.info("已点击下载按钮，等待下载...")
 
@@ -207,5 +207,5 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         except Exception as e:
             logger.error(f"解压失败: {e}")
             # 解压失败不影响主流程,返回空列表
-            extracted_files: list[Any] = []
+            extracted_files: list[Any] = [] # type: ignore
         return extracted_files

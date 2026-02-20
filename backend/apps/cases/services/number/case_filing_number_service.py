@@ -4,7 +4,7 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import connection, transaction
 from django.db.utils import OperationalError
@@ -119,12 +119,12 @@ class CaseFilingNumberService:
             seq.save(update_fields=["next_value", "updated_at"])
             return value
 
-    def _format_simple_case_type_label(self, case_type: str) -> Any:
-        case_type_map = {
+    def _format_simple_case_type_label(self, case_type: str) -> str:
+        case_type_map: dict[str, str] = {
             SimpleCaseType.CIVIL: "民事",
             SimpleCaseType.ADMINISTRATIVE: "行政",
             SimpleCaseType.CRIMINAL: "刑事",
             SimpleCaseType.EXECUTION: "申请执行",
             SimpleCaseType.BANKRUPTCY: "破产",
         }
-        return cast(Any, case_type_map.get(case_type, case_type))
+        return case_type_map.get(case_type, case_type)

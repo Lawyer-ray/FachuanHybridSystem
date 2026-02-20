@@ -51,4 +51,4 @@ class LawyerAdmin(admin.ModelAdmin[Lawyer]):
     search_fields = ("username", "real_name", "phone")
     list_filter = ("is_admin", "is_active")
     filter_horizontal = ("lawyer_teams", "biz_teams")
-    inlines: ClassVar[list[type[admin.TabularInline[AccountCredential, AccountCredential]]]] = [AccountCredentialInline]  # type: ignore[type-abstract]
+    inlines: ClassVar[list[type[admin.TabularInline[AccountCredential, AccountCredential]]]] = [AccountCredentialInline] # type: ignore

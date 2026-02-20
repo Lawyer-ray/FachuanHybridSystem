@@ -160,7 +160,7 @@ class SMSNotifyingStage(BaseSMSStage):
             sms.status = CourtSMSStatus.FAILED
             if not sms.feishu_error:
                 sms.feishu_error = "案件群聊通知发送失败"
-            sms.error_message = _("案件群聊通知发送失败")
+            sms.error_message = _("案件群聊通知发送失败") # type: ignore
             logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
     def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:

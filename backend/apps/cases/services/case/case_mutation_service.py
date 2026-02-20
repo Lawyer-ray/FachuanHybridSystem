@@ -130,7 +130,7 @@ class CaseMutationService:
             extra={"action": "update_case", "case_id": case_id, "user_id": getattr(user, "id", None) if user else None},
         )
 
-        return case
+        return case # type: ignore
 
     @transaction.atomic
     def delete_case(

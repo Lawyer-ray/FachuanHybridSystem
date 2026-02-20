@@ -113,8 +113,8 @@ class IdCardMergeService:
         assert back_cv_image is not None
         front_corners_ordered = self._order_corners(np.array(front_corners, dtype=np.float32))
         back_corners_ordered = self._order_corners(np.array(back_corners, dtype=np.float32))
-        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered)
-        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered)
+        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered) # type: ignore
+        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered) # type: ignore
         pdf_path = self._generate_pdf(front_transformed, back_transformed)
         self._cleanup_temp_file(front_rel_path, front_full_path)
         self._cleanup_temp_file(back_rel_path, back_full_path)

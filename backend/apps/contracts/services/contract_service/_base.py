@@ -38,7 +38,7 @@ class ContractServiceBase(ContractHelpersMixin, PermissionMixin):
         payment_service: ContractPaymentService | None = None,
         supplementary_agreement_service: SupplementaryAgreementService | None = None,
     ):
-        self.config = config or business_config
+        self.config = config or business_config # type: ignore
         self._case_service = case_service
         self._lawyer_assignment_service = lawyer_assignment_service
         self._payment_service = payment_service
@@ -143,6 +143,6 @@ class ContractServiceBase(ContractHelpersMixin, PermissionMixin):
         self.check_resource_access(
             ctx,
             resource_check=lambda c: self._check_contract_access(contract, c.user, c.org_access),
-            error_message=_("无权限访问该合同"),
+            error_message=_("无权限访问该合同"), # type: ignore
         )
         return contract

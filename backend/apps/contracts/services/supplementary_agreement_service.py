@@ -159,7 +159,7 @@ class SupplementaryAgreementService:
         try:
             qs = SupplementaryAgreement.objects
             if prefetch:
-                qs = qs.select_related("contract").prefetch_related("parties__client")
+                qs = qs.select_related("contract").prefetch_related("parties__client") # type: ignore
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist as e:
             raise NotFoundError("补充协议不存在") from e

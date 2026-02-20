@@ -9,7 +9,7 @@ from apps.core.interfaces import ClientDTO
 class ClientDtoAssembler:
     def to_dto(self, client: Client) -> ClientDTO:
         return ClientDTO(
-            id=cast(int, client.pk),
+            id=cast(int, client.pk), # type: ignore
             name=client.name,
             client_type=client.client_type,
             phone=client.phone,

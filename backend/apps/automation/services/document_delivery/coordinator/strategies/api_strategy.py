@@ -3,7 +3,7 @@
 import logging
 import traceback
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
 from apps.automation.utils.logging import AutomationLogger
@@ -41,7 +41,7 @@ class DocumentDeliveryApiStrategy:
                 query_method="api",
                 credential_id=credential_id,
             )
-            return result
+            return cast(DocumentQueryResult, result)
         except Exception as e:
             logger.exception("操作失败")
             error_type = type(e).__name__

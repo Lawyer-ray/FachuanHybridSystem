@@ -94,12 +94,12 @@ class CaseMaterialQueryService:
             .prefetch_related(Prefetch("parties", queryset=CaseParty.objects.select_related("client")))
             .order_by("created_at", "id")
         )
-        group_orders = (
+        group_orders_qs = (
             CaseMaterialGroupOrder.objects.filter(case_id=case_id)
             .select_related("type", "supervising_authority")
             .order_by("sort_index", "id")
         )
-        order_map = self._build_group_order_map(group_orders)
+        order_map = self._build_group_order_map(list(group_orders_qs))
         our_statuses = []
         opp_statuses = []
         for p in case.parties.select_related("client").all():

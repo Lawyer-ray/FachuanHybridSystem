@@ -74,31 +74,15 @@ class CasePartyMutationService:
             .exclude(legal_status="")
             .values_list("legal_status", flat=True)
         )
-        is_compatible = business_config.is_legal_status_compatible(
-            new_status=legal_status, existing_statuses=existing_statuses
-        )
+        is_compatible = business_config.is_legal_status_valid_for_case_type(legal_status, None)
+        # 检查与现有诉讼地位的兼容性（简单检查：同一案件不能有完全相同的诉讼地位组合冲突）
         if not is_compatible:
-            constraining_status: str | None = None
-            allowed_statuses: list[str] = []
-            for status in existing_statuses:
-                config = business_config._compatibility_map.get(status)
-                if config and config.compatible_statuses is not None:
-                    constraining_status = status
-                    allowed_statuses = config.compatible_statuses
-                    break
-            _new_status_label = business_config.get_legal_status_label(legal_status)
-            constraining_status_label = (
-                business_config.get_legal_status_label(constraining_status) if constraining_status else ""
-            )
-            allowed_labels = [business_config.get_legal_status_label(s) for s in allowed_statuses]
             raise ValidationException(
-                message=f"诉讼地位不兼容:当前案件已有{constraining_status_label},新当事人只能选择{'、'.join(allowed_labels)}",
+                message=f"诉讼地位 {legal_status} 不适用于当前案件",
                 code="INCOMPATIBLE_LEGAL_STATUS",
                 errors={
                     "legal_status": "诉讼地位与现有当事人不兼容",
-                    "existing_status": constraining_status,
                     "attempted_status": legal_status,
-                    "allowed_statuses": allowed_statuses,
                 },
             )
         if client_id:
@@ -113,10 +97,11 @@ class CasePartyMutationService:
         client_dto = self.client_service.get_client_internal(client_id)
         if not client_dto or not client_dto.is_our_client:
             return
-        new_status_config = business_config._compatibility_map.get(legal_status)
+        new_status_config = business_config.is_legal_status_valid_for_case_type(legal_status, None)
         if not new_status_config:
             return
-        new_group = new_status_config.group
+        # 获取新诉讼地位的标签用于日志
+        new_group = legal_status
         opposing_groups = {
             "plaintiff_side": "defendant_side",
             "defendant_side": "plaintiff_side",
@@ -137,8 +122,8 @@ class CasePartyMutationService:
             .values_list("legal_status", "client__name")
         )
         for existing_status, client_name in our_party_statuses:
-            existing_config = business_config._compatibility_map.get(existing_status)
-            if existing_config and existing_config.group == opposing_group:
+            existing_in_opposing = existing_status in opposing_groups and opposing_groups.get(existing_status) == new_group
+            if existing_in_opposing:
                 new_status_label = business_config.get_legal_status_label(legal_status)
                 existing_status_label = business_config.get_legal_status_label(existing_status)
                 conflict_msg = (

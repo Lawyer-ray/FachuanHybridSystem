@@ -4,7 +4,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from playwright.sync_api import BrowserContext, Page
 
@@ -58,9 +58,9 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: BrowserContext = None
-        self.page: Page = None
-        self.site_name: str = None  # 子类应设置网站名称
+        self.context: Optional[BrowserContext] = None
+        self.page: Optional[Page] = None
+        self.site_name: Optional[str] = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:
         """
@@ -78,8 +78,8 @@ class BaseScraper:
 
         try:
             # 创建独立的浏览器上下文（启用反检测）
-            self.context = self.browser_service.create_context(use_anti_detection=True)
-            self.page = self.context.new_page()
+            self.context = self.browser_service.create_context(use_anti_detection=True) # type: ignore
+            self.page = self.context.new_page() # type: ignore
 
             # 注入反检测脚本
             self.anti_detection.inject_stealth_script(self.page)
@@ -143,7 +143,7 @@ class BaseScraper:
             timeout: 超时时间（毫秒）
         """
         logger.info(f"导航到: {self.task.url}")
-        self.page.goto(self.task.url, timeout=timeout, wait_until="domcontentloaded")
+        self.page.goto(self.task.url, timeout=timeout, wait_until="domcontentloaded") # type: ignore
 
     def wait_for_selector(self, selector: str, timeout: int = 10000) -> None:
         """
@@ -154,7 +154,7 @@ class BaseScraper:
             timeout: 超时时间（毫秒）
         """
         logger.debug(f"等待元素: {selector}")
-        self.page.wait_for_selector(selector, timeout=timeout)
+        self.page.wait_for_selector(selector, timeout=timeout) # type: ignore
 
     def screenshot(self, name: str = "screenshot") -> str:
         """
@@ -176,7 +176,7 @@ class BaseScraper:
         filename = f"{name}_{self.task.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = screenshot_dir / filename
 
-        self.page.screenshot(path=str(filepath))
+        self.page.screenshot(path=str(filepath)) # type: ignore
         logger.info(f"截图已保存: {filepath}")
 
         return str(filepath)

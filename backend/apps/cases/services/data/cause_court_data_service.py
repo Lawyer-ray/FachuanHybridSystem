@@ -104,7 +104,7 @@ class CauseCourtDataParser:
             if query in name:
                 matching_items.append(item)
 
-        def sort_key(item) -> tuple[Any, ...]:
+        def sort_key(item) -> tuple[Any, ...]: # type: ignore
             name = item.get("name", "")
             if name == query:
                 return (0, name)

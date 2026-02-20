@@ -15,8 +15,13 @@ logger = logging.getLogger("apps.automation")
 class SMSCaseBindingMixin:
     """负责案件绑定、案号写入逻辑"""
 
-    case_service: "ICaseService"
-    lawyer_service: "ILawyerService"
+    @property
+    def case_service(self) -> "ICaseService":
+        raise NotImplementedError
+
+    @property
+    def lawyer_service(self) -> "ILawyerService":
+        raise NotImplementedError
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:
         """创建案件绑定和日志"""
@@ -33,7 +38,7 @@ class SMSCaseBindingMixin:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
 
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id) # type: ignore
 
             if sms.case_numbers:
                 self._add_case_numbers_to_case(sms)

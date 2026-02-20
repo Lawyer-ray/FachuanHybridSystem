@@ -45,7 +45,7 @@ class FolderTemplateUsecases:
         structure: dict[str, Any],
         is_default: bool = False,
         is_active: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> FolderTemplate:
         return self.command_service.create_template(
             name=name,
