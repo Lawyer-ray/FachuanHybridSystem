@@ -1,3 +1,95 @@
+[project]
+name = "fachuan-backend"
+version = "1.0.0"
+description = "法穿AI案件管理系统 - Backend"
+requires-python = ">=3.12"
+dependencies = [
+    # --- Django 核心 ---
+    "django==6.0.1",
+    "django-cors-headers==4.9.0",
+    "django-nested-admin==4.1.6",
+    "django-ninja==1.5.1",
+    "django-ninja-jwt==5.4.3",
+    "django-q2==1.9.0",
+    # --- ASGI / WebSocket ---
+    "daphne==4.2.1",
+    "channels==4.3.2",
+    "channels-redis==4.2.0",
+    "redis==5.0.0",
+    # --- 数据库 ---
+    "psycopg[binary]==3.3.2",
+    # --- HTTP 客户端 ---
+    "httpx==0.28.1",
+    # --- LLM / AI ---
+    "langchain-core==1.2.7",
+    "langchain-openai==1.1.7",
+    # --- 文档处理 ---
+    "docxtpl==0.20.2",
+    "python-docx==1.2.0",
+    "reportlab==4.4.9",
+    "pdfplumber==0.11.9",
+    "pikepdf==10.2.0",
+    "pymupdf==1.26.7",
+    "openpyxl==3.1.5",
+    # --- 图像处理 ---
+    "opencv-python==4.13.0.90",
+    "Pillow",
+    # --- OCR ---
+    "rapidocr==3.5.0",
+    "ddddocr==1.5.6",
+    # --- 浏览器自动化 ---
+    "playwright==1.57.0",
+    # --- 数据处理 ---
+    "pandas==2.3.3",
+    "pydantic==2.12.5",
+    "python-dateutil==2.9.0.post0",
+    "pyyaml==6.0.3",
+    # --- 安全 / 加密 ---
+    "cryptography==46.0.3",
+    # --- 可观测性 ---
+    "psutil==7.2.1",
+    "sentry-sdk",
+    # --- 配置 ---
+    "python-dotenv==1.2.1",
+    # --- 热重载 ---
+    "watchdog==6.0.0",
+    "watchfiles==1.1.1",
+    # --- 生产部署 ---
+    "gunicorn==23.0.0",
+]
+
+[dependency-groups]
+dev = [
+    # --- 代码格式化 ---
+    "black==24.10.0",
+    "isort==5.13.2",
+    "ruff==0.15.0",
+    # --- 类型检查 ---
+    "mypy==1.8.0",
+    "django-stubs==5.2.9",
+    "django-stubs-ext==5.2.9",
+    # --- 安全扫描 ---
+    "bandit==1.9.3",
+    "detect-secrets==1.5.0",
+    "pip-audit==2.10.0",
+    # --- Pre-commit ---
+    "pre-commit==4.5.1",
+]
+test = [
+    # --- 测试框架 ---
+    "pytest==9.0.2",
+    "pytest-django==4.11.1",
+    "pytest-cov==7.0.0",
+    "pytest-asyncio==1.3.0",
+    # --- Property-Based Testing ---
+    "hypothesis==6.150.2",
+    # --- 测试工厂 ---
+    "factory-boy==3.3.3",
+]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+
 [tool.black]
 line-length = 120
 target-version = ['py312']

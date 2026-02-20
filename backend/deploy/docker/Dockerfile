@@ -1,9 +1,10 @@
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONDONTWRITEBYTECODE=1
+
+# 安装 uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -12,11 +13,9 @@ RUN apt-get update \
 
 WORKDIR /app/backend
 
-COPY constraints/ constraints/
-COPY requirements.txt ./
+COPY pyproject.toml uv.lock ./
 
-RUN python -m pip install --upgrade "pip<26" \
-    && python -m pip install -r requirements.txt -c constraints/py312.txt
+RUN uv sync --frozen --no-dev --no-editable
 
 COPY apps/ apps/
 COPY apiSystem/ apiSystem/

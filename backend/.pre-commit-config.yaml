@@ -1,5 +1,5 @@
 # Pre-commit hooks for code quality
-# Install: pip install pre-commit
+# Install: uv tool install pre-commit
 # Setup: pre-commit install
 # Run manually: pre-commit run --all-files
 
