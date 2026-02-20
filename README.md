@@ -21,7 +21,7 @@
 - **缓存**: Django 内置缓存
 - **任务队列**: Django-Q2
 - **浏览器自动化**: Playwright
-- **包管理**: uv (推荐) / pip
+- **包管理**: uv
 
 ## 🚀 快速开始
 
@@ -39,9 +39,9 @@ make help
 
 # 3. 创建虚拟环境 (Python 3.12)
 make venv
-source venv312/bin/activate
+source .venv/bin/activate
 
-# 4. 安装依赖 (使用 uv，更快)
+# 4. 安装依赖
 make install
 
 # 5. 配置环境变量
@@ -62,37 +62,39 @@ make run-port PORT=8080  # 自定义端口
 make qcluster
 ```
 
-### 🐧 Linux/Windows 用户 (传统方式)
+### 🐧 Linux/Windows 用户
 
 ```bash
 # 1. 克隆项目
 git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
-# 2. 创建虚拟环境
-python -m venv venv312
-source venv312/bin/activate  # Windows: venv312\Scripts\activate
+# 2. 安装 uv (如果还没装)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 3. 安装依赖
-pip install -r requirements.txt
+# 3. 创建虚拟环境并安装依赖
+uv sync
 
-# 4. 配置环境变量
+# 4. 激活虚拟环境
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 5. 配置环境变量
 cp .env.example .env
 
-# 5. 数据库迁移
+# 6. 数据库迁移
 cd apiSystem
 python manage.py migrate
 
-# 6. 创建管理员
+# 7. 创建管理员
 python manage.py createsuperuser
 
-# 7. 收集静态文件 (重要!)
+# 8. 收集静态文件 (重要!)
 python manage.py collectstatic --noinput
 
-# 8. 启动开发服务器
+# 9. 启动开发服务器
 python manage.py runserver 0.0.0.0:8002
 
-# 9. 启动任务队列 (新终端)
+# 10. 启动任务队列 (新终端)
 python manage.py qcluster
 ```
 
@@ -100,15 +102,15 @@ python manage.py qcluster
 
 ### 必需
 - **Python**: 3.12+（当前默认开发环境）
+- **包管理器**: [uv](https://docs.astral.sh/uv/)
 - **操作系统**: macOS (推荐) / Linux / Windows
   
 > 提示：Django 6.0 起仅支持 Python 3.12+，升级前需同步升级 Python 并跑完整测试验证。
 
 ### 推荐 (macOS)
-- **包管理器**: [uv](https://docs.astral.sh/uv/) (比 pip 快 10-100 倍)
 - **Make**: 默认已安装，用于项目管理
 
-### 安装 uv (可选但推荐)
+### 安装 uv
 ```bash
 # macOS
 curl -LsSf https://astral.sh/uv/install.sh | sh

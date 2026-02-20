@@ -98,8 +98,8 @@ class DdddocrRecognizer(CaptchaRecognizer):
             self.ocr = ddddocr.DdddOcr(show_ad=show_ad)
             logger.info("✅ DdddocrRecognizer 初始化成功")
         except ImportError as e:
-            logger.error("❌ ddddocr 未安装，请运行: pip install ddddocr")
-            raise ImportError("ddddocr 库未安装。请运行: pip install ddddocr") from e
+            logger.error("❌ ddddocr 未安装，请运行: uv add ddddocr")
+            raise ImportError("ddddocr 库未安装。请运行: uv add ddddocr") from e
 
     def recognize(self, image_bytes: bytes) -> str | None:
         """

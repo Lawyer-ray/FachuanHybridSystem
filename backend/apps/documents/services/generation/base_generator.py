@@ -141,7 +141,7 @@ class BaseGenerator(ABC):
             raise ValidationException(
                 message="docxtpl 库未安装",
                 code="DOCXTPL_NOT_INSTALLED",
-                errors={"dependency": "请安装 docxtpl 库: pip install docxtpl"},
+                errors={"dependency": "请安装 docxtpl 库: uv add docxtpl"},
             ) from e
         except Exception as e:
             raise ValidationException(

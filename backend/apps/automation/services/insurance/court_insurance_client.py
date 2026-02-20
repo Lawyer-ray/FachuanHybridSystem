@@ -91,7 +91,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         )
 
         # 创建共享客户端（尝试启用 HTTP/2）
-        # HTTP/2 需要安装 h2 包: pip install httpx[http2]
+        # HTTP/2 需要安装 h2 包: uv add httpx[http2]
         try:
             self._client = httpx.AsyncClient(
                 limits=limits,
@@ -103,7 +103,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         except ImportError:
             # h2 包未安装，回退到 HTTP/1.1
             logger.warning(
-                "h2 包未安装，HTTP/2 已禁用。建议安装: pip install httpx[http2]",
+                "h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]",
                 extra={"action": "client_init_http2_fallback"},
             )
             self._client = httpx.AsyncClient(
