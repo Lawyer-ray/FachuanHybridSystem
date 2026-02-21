@@ -267,7 +267,7 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run pytest -c pytest.ini -q -o addopts="--reuse-db --import-mode=importlib --cov=apps --cov-report=term-missing --cov-fail-under=75 --tb=short --strict-markers" tests/unit/
+          uv run pytest -c pytest.ini -q -o addopts="--reuse-db --import-mode=importlib --cov=apps --cov-report=term-missing --cov-fail-under=85 --tb=short --strict-markers" tests/unit/
 
   backend-integration-smoke:
     runs-on: ubuntu-latest
