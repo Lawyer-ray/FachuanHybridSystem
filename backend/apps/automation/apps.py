@@ -26,6 +26,12 @@ class AutomationConfig(AppConfig):
 
     def _recover_court_sms_tasks(self) -> None:
         """启动时恢复未完成的法院短信处理任务"""
+        import os
+        import sys
+
+        if "pytest" in sys.modules or os.environ.get("TESTING"):
+            return
+
         import logging
 
         from django.conf import settings
