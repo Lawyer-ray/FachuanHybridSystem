@@ -297,7 +297,7 @@ jobs:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov -q tests/integration/organization/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/integration/
 
   backend-property-smoke:
     runs-on: ubuntu-latest
