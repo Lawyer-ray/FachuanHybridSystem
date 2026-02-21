@@ -12,7 +12,8 @@ from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.urls import path
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join, mark_safe
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
@@ -371,85 +372,104 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
     run_button.short_description = _("操作")
 
-    def quotes_summary(self, obj):
+    def quotes_summary(self, obj: "PreservationQuote") -> SafeString:
         """报价汇总表格"""
         if obj.total_companies == 0:
-            return format_html('<p style="color: #999;">{}</p>', "暂无报价数据")
+            return format_html('<p style="color: #999;">{}</p>', _("暂无报价数据"))
 
         quotes = obj.quotes.all().order_by("min_amount")
 
         if not quotes:
-            return format_html('<p style="color: #999;">{}</p>', "暂无报价数据")
+            return format_html('<p style="color: #999;">{}</p>', _("暂无报价数据"))
 
-        # 构建 HTML 表格
-        html_parts = [
-            '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">',
-            "<thead>",
-            '<tr style="background-color: #f5f5f5;">',
-            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">排名</th>',
-            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">保险公司</th>',
-            '<th style="padding: 8px; text-align: right; border: 1px solid #ddd;">报价金额</th>',
-            '<th style="padding: 8px; text-align: center; border: 1px solid #ddd;">状态</th>',
-            "</tr>",
-            "</thead>",
+        table_header = format_html(
+            '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">'
+            "<thead>"
+            '<tr style="background-color: #f5f5f5;">'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">{}</th>'
+            '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">{}</th>'
+            '<th style="padding: 8px; text-align: right; border: 1px solid #ddd;">{}</th>'
+            '<th style="padding: 8px; text-align: center; border: 1px solid #ddd;">{}</th>'
+            "</tr>"
+            "</thead>"
             "<tbody>",
-        ]
+            _("排名"),
+            _("保险公司"),
+            _("报价金额"),
+            _("状态"),
+        )
 
-        from django.utils.html import escape
-
+        row_parts = []
         rank = 1
         for quote in quotes:
             # 状态显示
             if quote.status == "success":
-                status_html = '<span style="color: #28a745;">✅ 成功</span>'
+                status_cell = format_html('<span style="color: #28a745;">✅ {}</span>', _("成功"))
             else:
-                status_html = '<span style="color: #dc3545;">❌ 失败</span>'
+                status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
 
             # 报价显示（使用 min_amount 最低报价）
             if quote.min_amount:
-                # 最低价高亮显示
+                amount_str = f"{quote.min_amount:,.2f}"
                 if rank == 1:
-                    premium_html = (
-                        f'<span style="color: #28a745; font-weight: bold; font-size: 16px;">'
-                        f"¥{quote.min_amount:,.2f}</span> 🏆"
+                    premium_cell = format_html(
+                        '<span style="color: #28a745; font-weight: bold; font-size: 16px;">¥{}</span> 🏆',
+                        amount_str,
                     )
                 else:
-                    premium_html = f'<span style="font-weight: bold;">¥{quote.min_amount:,.2f}</span>'
-
-                rank_display = f'<span style="font-weight: bold;">#{rank}</span>'
+                    premium_cell = format_html(
+                        '<span style="font-weight: bold;">¥{}</span>',
+                        amount_str,
+                    )
+                rank_cell = format_html('<span style="font-weight: bold;">#{}</span>', rank)
                 rank += 1
             else:
-                premium_html = '<span style="color: #999;">-</span>'
-                rank_display = '<span style="color: #999;">-</span>'
+                premium_cell = format_html('<span style="color: #999;">-</span>')
+                rank_cell = format_html('<span style="color: #999;">-</span>')
 
-            html_parts.append(
-                f"<tr>"
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{rank_display}</td>'
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(quote.company_name)}</td>'
-                f'<td style="padding: 8px; text-align: right; border: 1px solid #ddd;">{premium_html}</td>'
-                f'<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{status_html}</td>'
-                f"</tr>"
+            row_parts.append(
+                format_html(
+                    "<tr>"
+                    '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
+                    '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
+                    '<td style="padding: 8px; text-align: right; border: 1px solid #ddd;">{}</td>'
+                    '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{}</td>'
+                    "</tr>",
+                    rank_cell,
+                    quote.company_name,
+                    premium_cell,
+                    status_cell,
+                )
             )
 
-        html_parts.append("</tbody></table>")
+        rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
+        table_close = format_html("</tbody></table>")
 
-        # 添加统计信息（使用 min_amount 最低报价）
+        # 统计信息
         successful_quotes = [q for q in quotes if q.min_amount is not None]
         if successful_quotes:
-            min_premium = min(q.min_amount for q in successful_quotes)
-            max_premium = max(q.min_amount for q in successful_quotes)
-            avg_premium = sum(q.min_amount for q in successful_quotes) / len(successful_quotes)
+            min_premium: Decimal = min(q.min_amount for q in successful_quotes)
+            max_premium: Decimal = max(q.min_amount for q in successful_quotes)
+            avg_premium: float = float(sum(q.min_amount for q in successful_quotes)) / len(successful_quotes)
 
-            html_parts.append(
+            stats_html = format_html(
                 '<div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">'
-                "<strong>统计信息：</strong><br>"
-                f'最低报价: <span style="color: #28a745; font-weight: bold;">¥{min_premium:,.2f}</span><br>'
-                f'最高报价: <span style="color: #dc3545; font-weight: bold;">¥{max_premium:,.2f}</span><br>'
-                f'平均报价: <span style="color: #007bff; font-weight: bold;">¥{avg_premium:,.2f}</span>'
-                "</div>"
+                "<strong>{}：</strong><br>"
+                '{}: <span style="color: #28a745; font-weight: bold;">¥{}</span><br>'
+                '{}: <span style="color: #dc3545; font-weight: bold;">¥{}</span><br>'
+                '{}: <span style="color: #007bff; font-weight: bold;">¥{}</span>'
+                "</div>",
+                _("统计信息"),
+                _("最低报价"),
+                f"{min_premium:,.2f}",
+                _("最高报价"),
+                f"{max_premium:,.2f}",
+                _("平均报价"),
+                f"{avg_premium:,.2f}",
             )
+            return format_html("{}{}{}{}", table_header, rows_html, table_close, stats_html)
 
-        return format_html("{}", mark_safe("".join(html_parts)))
+        return format_html("{}{}{}", table_header, rows_html, table_close)
 
     quotes_summary.short_description = _("报价汇总")
 
