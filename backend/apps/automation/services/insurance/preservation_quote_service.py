@@ -57,7 +57,12 @@ class PreservationQuoteService(QuoteExecutionMixin):
         """
         self._token_service = token_service
         self._auto_token_service = auto_token_service
-        self.insurance_client = insurance_client or CourtInsuranceClient() # type: ignore
+        self._insurance_client = insurance_client or CourtInsuranceClient()
+
+    @property
+    def insurance_client(self) -> CourtInsuranceClient:
+        """获取保险询价客户端"""
+        return self._insurance_client
 
     @property
     def token_service(self) -> ITokenService:
