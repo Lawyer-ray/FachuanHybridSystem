@@ -1,31 +1,53 @@
+# 以下文件因读取 Django 内置配置（MEDIA_ROOT/MEDIA_URL/DEBUG）而保留 settings 导入
+# 这些配置无法通过 SystemConfigService 替代，属于 Django 框架级配置
+
 apps/automation/services/admin/court_document_admin_service.py
-apps/automation/services/ai/auto_namer_service_adapter.py
-apps/automation/services/ai/ollama_config.py
-apps/automation/services/chat/_feishu_token_mixin.py
-apps/automation/services/chat/audit_logger.py
-apps/automation/services/chat/owner_config_manager.py
-apps/automation/services/chat/retry_config.py
-apps/automation/services/config_service.py
+# 原因：cleanup_orphaned_files() 使用 settings.MEDIA_ROOT 扫描文件系统目录
+
 apps/automation/services/court_document_recognition/text_extraction_service.py
+# 原因：_ocr_pdf_pages() 使用 settings.MEDIA_ROOT 创建临时文件目录
+
 apps/automation/services/document/document_processing.py
+# 原因：render_pdf_page_to_image() 使用 settings.MEDIA_ROOT/MEDIA_URL 保存和返回图片 URL；_ocr_pdf_page() 使用 settings.MEDIA_ROOT 创建临时文件
+
 apps/automation/services/fee_notice/extraction_service.py
+# 原因：save_uploaded_files() 使用 settings.MEDIA_ROOT 保存上传文件到临时目录
+
 apps/automation/services/preservation_date/extraction_service.py
+# 原因：extract_from_uploaded_file() 使用 settings.MEDIA_ROOT 创建临时文件目录
+
 apps/automation/services/scraper/core/screenshot_utils.py
-apps/automation/services/scraper/core/security_service.py
-apps/automation/services/scraper/core/browser_service.py
-apps/automation/services/scraper/scrapers/_court_document_debug_mixin.py
+# 原因：collect_screenshots() 使用 settings.MEDIA_ROOT/MEDIA_URL 构建截图 URL
+
 apps/automation/services/scraper/scrapers/base.py
+# 原因：screenshot() 使用 settings.MEDIA_ROOT 保存截图文件
+
 apps/automation/services/scraper/scrapers/court_document.py
+# 原因：_prepare_download_dir() 使用 settings.MEDIA_ROOT 构建下载目录路径
+
 apps/automation/services/scraper/scrapers/court_document/base_court_scraper.py
+# 原因：_prepare_download_dir() 使用 settings.MEDIA_ROOT 构建下载目录；DEBUG_MODE 跟随 Django DEBUG 设置
+
 apps/automation/services/scraper/sites/court_zxfw.py
+# 原因：_recognize_captcha() 和 _save_screenshot() 使用 settings.MEDIA_ROOT 保存调试截图
+
 apps/automation/services/sms/attachment_upload_service.py
+# 原因：add_to_case_log() 使用 settings.MEDIA_ROOT 构建案件日志附件目录
+
 apps/automation/services/sms/document_attachment_service.py
-apps/automation/services/sms/feishu_bot_service.py
-apps/cases/services/case_chat_service.py
-apps/chat_records/services/recording_service.py
+# 原因：add_to_case_log() 使用 settings.MEDIA_ROOT 构建案件日志附件目录
+
 apps/chat_records/services/video_frame_extract_service.py
+# 原因：_default_allowed_output_roots() 使用 settings.MEDIA_ROOT 作为安全输出目录白名单
+
 apps/client/services/client_admin_service.py
+# 原因：_save_uploaded_file() 使用 settings.MEDIA_ROOT 构建客户证件文件存储路径
+
 apps/core/services/file_upload_service.py
+# 原因：save_file() 使用 settings.MEDIA_ROOT 构建文件上传存储路径
+
 apps/core/services/i18n_service.py
-apps/core/services/llm_stream_service.py
+# 原因：get_supported_languages() 和 set_language() 使用 settings.LANGUAGES（Django 内置语言配置）
+
 apps/documents/services/generation/generation_task_service.py
+# 原因：_to_dto() 使用 settings.MEDIA_URL 作为文件 URL 的 fallback 前缀
