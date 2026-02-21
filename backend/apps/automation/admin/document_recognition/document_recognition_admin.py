@@ -5,15 +5,19 @@
 Requirements: 1.1, 1.2, 5.1, 5.2, 5.3
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
 import logging
+from typing import Any, ClassVar
 
 from django.contrib import admin
-from django.http import JsonResponse
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import path, reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_protect
 
@@ -23,15 +27,10 @@ from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitio
 logger = logging.getLogger("apps.automation")
 
 
-class DocumentRecognitionAdmin(admin.ModelAdmin):
-    """
-    文书识别管理页面 - 独立页面（异步模式）
+class DocumentRecognitionAdmin(admin.ModelAdmin[CourtSMS]):
+    """文书识别管理页面 - 独立页面（异步模式）"""
 
-    提供 /admin/automation/document-recognition/ 路径访问
-    Requirements: 1.1, 1.2
-    """
-
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -53,7 +52,7 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def recognition_view(self, request):
+    def recognition_view(self, request: HttpRequest) -> HttpResponse:
         """文书识别页面视图"""
         context = {
             **self.admin_site.each_context(request),
@@ -64,7 +63,7 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
         return render(request, "admin/automation/document_recognition/recognition.html", context)
 
     @method_decorator(csrf_protect)
-    def upload_view(self, request):
+    def upload_view(self, request: HttpRequest) -> JsonResponse:
         """文件上传 API（异步提交任务）"""
         if request.method != "POST":
             return JsonResponse({"error": {"message": "只支持 POST 请求", "code": "METHOD_NOT_ALLOWED"}}, status=405)
@@ -86,8 +85,6 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
 
             from django.conf import settings
             from django_q.tasks import async_task
-
-            from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitionTask
 
             upload_dir = Path(settings.MEDIA_ROOT) / "automation" / "document_recognition"
             upload_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +113,7 @@ class DocumentRecognitionAdmin(admin.ModelAdmin):
             logger.error(f"文件上传失败: {e}", exc_info=True)
             return JsonResponse({"error": {"message": str(e), "code": "UPLOAD_ERROR"}}, status=500)
 
-    def status_view(self, request, task_id):
+    def status_view(self, request: HttpRequest, task_id: int) -> JsonResponse:
         """查询任务状态 API"""
         from apps.automation.models import DocumentRecognitionTask
 

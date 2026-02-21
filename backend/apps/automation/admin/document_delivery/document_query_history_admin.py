@@ -4,13 +4,19 @@
 提供查询历史记录管理、搜索、过滤等功能。
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
 import logging
+from datetime import timedelta
+from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentQueryHistory
@@ -19,10 +25,9 @@ logger = logging.getLogger("apps.automation")
 
 
 @admin.register(DocumentQueryHistory)
-class DocumentQueryHistoryAdmin(admin.ModelAdmin):
+class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     """文书查询历史管理"""
 
-    # 列表显示字段
     list_display: ClassVar[list[str]] = [
         "id",
         "credential_display",
@@ -32,27 +37,22 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         "queried_at_display",
     ]
 
-    # 列表筛选器
-    list_filter: ClassVar[list[str]] = [
+    list_filter: ClassVar[list[Any]] = [
         "send_time",
         "queried_at",
         ("credential", admin.RelatedFieldListFilter),
         ("court_sms", admin.RelatedFieldListFilter),
     ]
 
-    # 搜索字段
     search_fields: ClassVar[list[str]] = [
         "case_number",
         "credential__account",
         "credential__site_name",
     ]
 
-    # 排序
     ordering: ClassVar[list[str]] = ["-queried_at"]
-    # 分页
     list_per_page = 50
 
-    # 只读字段（查询历史应该是只读的）
     readonly_fields: ClassVar[list[str]] = [
         "id",
         "credential",
@@ -64,43 +64,25 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         "time_since_query",
     ]
 
-    # 字段分组
-    fieldsets = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (
             _("查询信息"),
-            {
-                "fields": (
-                    "id",
-                    "credential",
-                    "case_number",
-                    "send_time",
-                )
-            },
+            {"fields": ("id", "credential", "case_number", "send_time")},
         ),
         (
             _("关联信息"),
-            {
-                "fields": (
-                    "court_sms",
-                    "court_sms_link",
-                )
-            },
+            {"fields": ("court_sms", "court_sms_link")},
         ),
         (
             _("时间信息"),
-            {
-                "fields": (
-                    "queried_at",
-                    "time_since_query",
-                )
-            },
+            {"fields": ("queried_at", "time_since_query")},
         ),
     )
 
-    # 日期层次结构
     date_hierarchy = "queried_at"
 
-    def credential_display(self, obj):
+    @admin.display(description=_("账号凭证"))
+    def credential_display(self, obj: DocumentQueryHistory) -> SafeString | str:
         """账号凭证显示"""
         if obj.credential:
             url = reverse("admin:organization_accountcredential_change", args=[obj.credential.id])
@@ -112,9 +94,8 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    credential_display.short_description = _("账号凭证")
-
-    def send_time_display(self, obj):
+    @admin.display(description=_("文书发送时间"))
+    def send_time_display(self, obj: DocumentQueryHistory) -> SafeString:
         """文书发送时间显示"""
         now = timezone.now()
         time_diff = now - obj.send_time
@@ -141,14 +122,12 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.send_time.strftime("%Y-%m-%d %H:%M"),
         )
 
-    send_time_display.short_description = _("文书发送时间")
-
-    def court_sms_display(self, obj):
+    @admin.display(description=_("关联短信"))
+    def court_sms_display(self, obj: DocumentQueryHistory) -> SafeString:
         """关联短信显示"""
         if obj.court_sms:
             url = reverse("admin:automation_courtsms_change", args=[obj.court_sms.id])
 
-            # 根据短信状态显示不同颜色
             status_colors = {
                 "pending": "orange",
                 "parsing": "blue",
@@ -172,9 +151,8 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: gray;">{}</span>', "无关联短信")
 
-    court_sms_display.short_description = _("关联短信")
-
-    def queried_at_display(self, obj):
+    @admin.display(description=_("查询时间"))
+    def queried_at_display(self, obj: DocumentQueryHistory) -> SafeString:
         """查询时间显示"""
         now = timezone.now()
         time_diff = now - obj.queried_at
@@ -201,9 +179,8 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.queried_at.strftime("%Y-%m-%d %H:%M"),
         )
 
-    queried_at_display.short_description = _("查询时间")
-
-    def court_sms_link(self, obj):
+    @admin.display(description=_("关联短信链接"))
+    def court_sms_link(self, obj: DocumentQueryHistory) -> SafeString | str:
         """关联短信链接"""
         if obj.court_sms:
             url = reverse("admin:automation_courtsms_change", args=[obj.court_sms.id])
@@ -215,9 +192,8 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    court_sms_link.short_description = _("关联短信链接")
-
-    def time_since_query(self, obj):
+    @admin.display(description=_("查询后经过时间"))
+    def time_since_query(self, obj: DocumentQueryHistory) -> str:
         """查询后经过的时间"""
         now = timezone.now()
         time_diff = now - obj.queried_at
@@ -236,33 +212,29 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         else:
             return "刚刚"
 
-    time_since_query.short_description = _("查询后经过时间")
-
-    def has_add_permission(self, request):
-        """禁用添加功能（查询历史应该由系统自动创建）"""
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None):
-        """禁用修改功能（查询历史应该是只读的）"""
+    def has_change_permission(
+        self, request: HttpRequest, obj: DocumentQueryHistory | None = None
+    ) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
-        """允许删除功能（用于清理旧记录）"""
+    def has_delete_permission(
+        self, request: HttpRequest, obj: DocumentQueryHistory | None = None
+    ) -> bool:
         return True
 
-    def get_actions(self, request):
+    def get_actions(self, request: HttpRequest) -> dict[str, Any]:
         """自定义批量操作"""
         actions = super().get_actions(request)
-
-        # 添加批量删除旧记录的操作
         actions["delete_old_records"] = (self.delete_old_records, "delete_old_records", _("删除30天前的记录"))
-
         return actions
 
-    def delete_old_records(self, request, queryset):
+    def delete_old_records(
+        self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]
+    ) -> None:
         """批量删除30天前的记录"""
-        from datetime import timedelta
-
         cutoff_date = timezone.now() - timedelta(days=30)
         old_records = queryset.filter(queried_at__lt=cutoff_date)
         count = old_records.count()
@@ -272,19 +244,17 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"成功删除 {count} 条30天前的查询记录"))
         logger.info(f"管理员批量删除旧查询记录: Count={count}, User={request.user}")
 
-    delete_old_records.short_description = _("删除30天前的记录")
-
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentQueryHistory]:
         """优化查询性能"""
         return super().get_queryset(request).select_related("credential", "court_sms")
 
-    def get_search_results(self, request, queryset, search_term):
+    def get_search_results(
+        self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory], search_term: str
+    ) -> tuple[QuerySet[DocumentQueryHistory], bool]:
         """自定义搜索，支持案号模糊匹配"""
         queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
 
-        # 如果搜索词看起来像案号（包含年份和法院标识），进行特殊处理
         if search_term and ("(" in search_term or "）" in search_term or "年" in search_term):
-            # 案号的模糊搜索
             queryset |= self.model.objects.filter(
                 case_number__icontains=search_term.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
             )

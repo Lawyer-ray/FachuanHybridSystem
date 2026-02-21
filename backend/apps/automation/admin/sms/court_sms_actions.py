@@ -4,16 +4,20 @@
 提供短信批量处理、重试等操作功能.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, cast
 
 from django.contrib import messages
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger("apps.automation")
 
 
-def _get_court_sms_service() -> None:
+def _get_court_sms_service() -> Any:
     """获取法院短信服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
@@ -27,7 +31,7 @@ class CourtSMSActionsMixin:
     提供所有批量操作方法的实现.
     """
 
-    def retry_processing_action(self, request: Any, queryset) -> None:
+    def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[Any]) -> None:
         """重新处理操作"""
         service = _get_court_sms_service()
         success_count = 0
@@ -47,4 +51,4 @@ class CourtSMSActionsMixin:
         if error_count > 0:
             messages.error(request, f"重新处理失败 {error_count} 条短信")
 
-    retry_processing_action.short_description = _("🔄 重新处理选中的短信")
+    retry_processing_action.short_description = _("🔄 重新处理选中的短信")  # type: ignore[attr-defined]

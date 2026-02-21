@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
