@@ -3,13 +3,16 @@
 提供询价任务的创建、查看、执行功能
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
 import asyncio
 from decimal import Decimal
+from typing import Any, ClassVar
 
 from django.contrib import admin, messages
-from django.db.models import Q
-from django.shortcuts import redirect, render
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
@@ -19,14 +22,14 @@ from django.utils.translation import gettext_lazy as _
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
 
 
-def _get_preservation_quote_admin_service():
+def _get_preservation_quote_admin_service() -> Any:
     """工厂函数：创建财产保全询价管理服务"""
     from apps.automation.services.admin import PreservationQuoteAdminService
 
     return PreservationQuoteAdminService()
 
 
-class InsuranceQuoteInline(admin.TabularInline):
+class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
     """保险公司报价内联显示"""
 
     model = InsuranceQuote
@@ -51,7 +54,8 @@ class InsuranceQuoteInline(admin.TabularInline):
         "error_message_display",
     ]
 
-    def prices_display(self, obj):
+    @admin.display(description=_("收费标准"))
+    def prices_display(self, obj: InsuranceQuote) -> SafeString:
         """显示三个价格"""
         if obj.status != "success":
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -77,9 +81,8 @@ class InsuranceQuoteInline(admin.TabularInline):
             return format_html_join("<br>", "{}", ((p,) for p in parts))
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    prices_display.short_description = _("收费标准")
-
-    def rates_display(self, obj):
+    @admin.display(description=_("费率"))
+    def rates_display(self, obj: InsuranceQuote) -> SafeString:
         """显示两个费率"""
         if obj.status != "success":
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -94,48 +97,42 @@ class InsuranceQuoteInline(admin.TabularInline):
             return format_html_join("<br>", "{}", ((p,) for p in parts))
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    rates_display.short_description = _("费率")
-
-    def max_apply_amount_display(self, obj):
+    @admin.display(description=_("最高保全金额"))
+    def max_apply_amount_display(self, obj: InsuranceQuote) -> SafeString:
         """显示最高保全金额"""
         if obj.status != "success" or not obj.max_apply_amount:
             return format_html('<span style="color: #999;">{}</span>', "-")
 
-        # 转换为易读格式
         amount = float(obj.max_apply_amount)
-        if amount >= 100000000:  # 1亿以上
+        if amount >= 100000000:
             display = f"{amount / 100000000:.2f}亿"
-        elif amount >= 10000:  # 1万以上
+        elif amount >= 10000:
             display = f"{amount / 10000:.2f}万"
         else:
             display = f"{amount:,.2f}"
 
         return format_html('<span style="color: #007bff; font-weight: bold;">¥{}</span>', display)
 
-    max_apply_amount_display.short_description = _("最高保全金额")
-
-    def status_display(self, obj):
+    @admin.display(description=_("状态"))
+    def status_display(self, obj: InsuranceQuote) -> SafeString:
         """带颜色的状态显示"""
         if obj.status == "success":
             return format_html('<span style="color: #28a745; font-weight: bold;">{}</span>', "✅ 成功")
         else:
             return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "❌ 失败")
 
-    status_display.short_description = _("状态")
-
-    def error_message_display(self, obj):
-        """格式化显示错误信息（请求和响应）"""
+    @admin.display(description=_("请求/响应详情"))
+    def error_message_display(self, obj: InsuranceQuote) -> SafeString:
+        """格式化显示错误信息"""
         if not obj.error_message:
             return format_html('<span style="color: #999;">{}</span>', "-")
 
         try:
             import json
 
-            # 尝试解析为 JSON
             error_info = json.loads(obj.error_message)
             formatted = json.dumps(error_info, ensure_ascii=False, indent=2)
 
-            # 使用可折叠的 details 标签
             return format_html(
                 '<details style="cursor: pointer;">'
                 '<summary style="color: #007bff; font-weight: bold;">📋 查看详情</summary>'
@@ -145,32 +142,20 @@ class InsuranceQuoteInline(admin.TabularInline):
                 formatted,
             )
         except Exception:
-            # 如果不是 JSON，直接显示
             return format_html(
                 '<pre style="max-height: 200px; overflow: auto; background: #f5f5f5;'
                 ' padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',
                 obj.error_message[:500],
             )
 
-    error_message_display.short_description = _("请求/响应详情")
-
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: HttpRequest, obj: InsuranceQuote | None = None) -> bool:
         """禁用添加功能"""
         return False
 
 
 @admin.register(PreservationQuote)
-class PreservationQuoteAdmin(admin.ModelAdmin):
-    """
-    财产保全询价管理 Admin
-
-    功能：
-    - 创建询价任务
-    - 查看任务列表（状态、时间、统计）
-    - 查看任务详情（展示所有报价）
-    - 执行任务的 Admin Action
-    - 重试失败任务
-    """
+class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
+    """财产保全询价管理 Admin"""
 
     list_display: ClassVar[list[str]] = [
         "id",
@@ -210,7 +195,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         "quotes_summary",
     ]
 
-    fieldsets = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (
             _("基本信息"),
             {
@@ -255,7 +240,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         ),
     )
 
-    inlines: ClassVar[list[str]] = [InsuranceQuoteInline]
+    inlines: ClassVar[list[Any]] = [InsuranceQuoteInline]
     ordering: ClassVar[list[str]] = ["-created_at"]
     date_hierarchy = "created_at"
 
@@ -263,14 +248,14 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
     actions: ClassVar[list[str]] = ["execute_quotes", "retry_failed_quotes"]
 
-    def preserve_amount_display(self, obj):
+    @admin.display(description=_("保全金额"))
+    def preserve_amount_display(self, obj: PreservationQuote) -> SafeString:
         """格式化显示保全金额"""
         amount_str = f"{obj.preserve_amount:,.2f}"
         return format_html('<span style="font-weight: bold; font-size: 14px;">¥{}</span>', amount_str)
 
-    preserve_amount_display.short_description = _("保全金额")
-
-    def status_display(self, obj):
+    @admin.display(description=_("状态"))
+    def status_display(self, obj: PreservationQuote) -> SafeString:
         """带颜色的状态显示"""
         colors = {
             QuoteStatus.PENDING: "#ffa500",
@@ -293,9 +278,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_status_display()
         )
 
-    status_display.short_description = _("状态")
-
-    def statistics_display(self, obj):
+    @admin.display(description=_("成功/失败/总数"))
+    def statistics_display(self, obj: PreservationQuote) -> SafeString:
         """显示统计信息"""
         if obj.total_companies == 0:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -309,9 +293,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             obj.total_companies,
         )
 
-    statistics_display.short_description = _("成功/失败/总数")
-
-    def success_rate_display(self, obj):
+    @admin.display(description=_("成功率"))
+    def success_rate_display(self, obj: PreservationQuote) -> SafeString:
         """显示成功率"""
         if obj.total_companies == 0:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -319,7 +302,6 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         rate = obj.get_success_rate()
         rate_str = f"{rate:.1f}%"
 
-        # 根据成功率显示不同颜色
         if rate >= 80:
             color = "#28a745"
         elif rate >= 50:
@@ -329,9 +311,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, rate_str)
 
-    success_rate_display.short_description = _("成功率")
-
-    def duration_display(self, obj):
+    @admin.display(description=_("执行时长"))
+    def duration_display(self, obj: PreservationQuote) -> SafeString:
         """显示执行时长"""
         if obj.started_at and obj.finished_at:
             delta = obj.finished_at - obj.started_at
@@ -345,7 +326,6 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
                 time_str = f"{minutes:.1f}分钟"
                 return format_html('<span style="color: #007bff;">{}</span>', time_str)
         elif obj.started_at:
-            # 正在执行中
             delta = timezone.now() - obj.started_at
             seconds = delta.total_seconds()
             time_str = f"执行中 ({seconds:.0f}秒)"
@@ -353,9 +333,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    duration_display.short_description = _("执行时长")
-
-    def run_button(self, obj):
+    @admin.display(description=_("操作"))
+    def run_button(self, obj: PreservationQuote) -> SafeString:
         """立即运行按钮"""
         if obj.status in [QuoteStatus.PENDING, QuoteStatus.FAILED]:
             return format_html(
@@ -370,9 +349,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: #999;">{}</span>', "已完成")
 
-    run_button.short_description = _("操作")
-
-    def quotes_summary(self, obj: "PreservationQuote") -> SafeString:
+    @admin.display(description=_("报价汇总"))
+    def quotes_summary(self, obj: PreservationQuote) -> SafeString:
         """报价汇总表格"""
         if obj.total_companies == 0:
             return format_html('<p style="color: #999;">{}</p>', _("暂无报价数据"))
@@ -399,16 +377,14 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             _("状态"),
         )
 
-        row_parts = []
+        row_parts: list[SafeString] = []
         rank = 1
         for quote in quotes:
-            # 状态显示
             if quote.status == "success":
                 status_cell = format_html('<span style="color: #28a745;">✅ {}</span>', _("成功"))
             else:
                 status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
 
-            # 报价显示（使用 min_amount 最低报价）
             if quote.min_amount:
                 amount_str = f"{quote.min_amount:,.2f}"
                 if rank == 1:
@@ -445,7 +421,6 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
         table_close = format_html("</tbody></table>")
 
-        # 统计信息
         successful_quotes = [q for q in quotes if q.min_amount is not None]
         if successful_quotes:
             min_premium: Decimal = min(q.min_amount for q in successful_quotes)
@@ -471,10 +446,10 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
 
         return format_html("{}{}{}", table_header, rows_html, table_close)
 
-    quotes_summary.short_description = _("报价汇总")
-
     @admin.action(description="执行选中的询价任务")
-    def execute_quotes(self, request, queryset):
+    def execute_quotes(
+        self, request: HttpRequest, queryset: QuerySet[PreservationQuote]
+    ) -> None:
         """批量执行询价任务"""
         try:
             service = _get_preservation_quote_admin_service()
@@ -484,7 +459,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"❌ 批量执行失败: {e!s}", level=messages.ERROR)
 
-    def _display_execution_results(self, request, result):
+    def _display_execution_results(self, request: HttpRequest, result: dict[str, Any]) -> None:
         """显示执行结果"""
         if result["success_count"] > 0:
             self.message_user(request, f"✅ 成功执行 {result['success_count']} 个询价任务")
@@ -495,7 +470,9 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
                 self.message_user(request, f"任务 #{error['quote_id']}: {error['error']}", level=messages.ERROR)
 
     @admin.action(description="重试失败的询价任务")
-    def retry_failed_quotes(self, request, queryset):
+    def retry_failed_quotes(
+        self, request: HttpRequest, queryset: QuerySet[PreservationQuote]
+    ) -> None:
         """重试失败的询价任务"""
         try:
             service = _get_preservation_quote_admin_service()
@@ -506,20 +483,21 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"❌ 重试失败: {e!s}", level=messages.ERROR)
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(
+        self, request: HttpRequest, obj: PreservationQuote | None = None
+    ) -> bool:
         """允许删除"""
         return True
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[PreservationQuote]:
         """优化查询性能"""
         qs = super().get_queryset(request)
-        # 预加载关联的报价记录
         return qs.prefetch_related("quotes")
 
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         """添加自定义URL"""
         urls = super().get_urls()
-        custom_urls = [
+        custom_urls: list[Any] = [
             path(
                 "<int:quote_id>/run/",
                 self.admin_site.admin_view(self.run_quote_view),
@@ -528,7 +506,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def run_quote_view(self, request, quote_id):
+    def run_quote_view(self, request: HttpRequest, quote_id: int) -> HttpResponse:
         """立即运行询价任务"""
         try:
             service = _get_preservation_quote_admin_service()
@@ -537,4 +515,4 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"提交任务失败: {e!s}", level=messages.ERROR)
 
-        return redirect("admin:automation_preservationquote_changelist")
+        return redirect("admin:automation_preservationquote_changelist")  # type: ignore[return-value]

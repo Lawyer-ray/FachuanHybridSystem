@@ -4,9 +4,12 @@
 提供短信记录管理、状态查看、手动处理等功能。
 """
 
+from __future__ import annotations
+
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.http import HttpRequest, HttpResponse
 from django.urls import path
 
 from apps.automation.models import CourtSMS
@@ -26,7 +29,7 @@ class CourtSMSAdmin(CourtSMSAdminThemedViews, CourtSMSAdminActions, CourtSMSAdmi
     def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
         urls = super().get_urls()
-        custom_urls = [
+        custom_urls: list[Any] = [
             path(
                 "submit/",
                 self.admin_site.admin_view(self.submit_sms_view),
@@ -61,10 +64,10 @@ class CourtSMSAdmin(CourtSMSAdminThemedViews, CourtSMSAdminActions, CourtSMSAdmi
             )
         return custom_urls + urls
 
-    def _add_numbered_view(self, request: Any, n: int) -> Any:
+    def _add_numbered_view(self, request: HttpRequest, n: int) -> HttpResponse:
         """通用主题视图分发器，委托给对应的 add{n}_view 方法"""
         method = getattr(self, f"add{n}_view", None)
         if method is None:
             from django.http import Http404
             raise Http404(f"add{n}_view not found")
-        return method(request)
+        return method(request)  # type: ignore[no-any-return]

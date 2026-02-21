@@ -4,11 +4,14 @@
 包含管理操作、案件指定、搜索、重试等功能视图.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, cast
 
 from django.contrib import messages
-from django.http import HttpResponseRedirect, JsonResponse
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -18,14 +21,14 @@ from apps.automation.models import CourtSMS
 logger = logging.getLogger("apps.automation")
 
 
-def _get_court_sms_service() -> None:
+def _get_court_sms_service() -> Any:
     """获取法院短信服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_court_sms_service()
 
 
-def _get_case_service() -> None:
+def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
@@ -36,9 +39,10 @@ class CourtSMSAdminActions:
     """法院短信 Admin 操作混入类"""
 
     # 自定义操作
-    actions: list[Any] = []
+    actions: list[str] = []
 
-    def retry_processing_action(self, request: Any, queryset) -> None:
+    @admin.action(description=_("🔄 重新处理选中的短信"))
+    def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[CourtSMS]) -> None:
         """重新处理操作"""
         service = _get_court_sms_service()
         success_count = 0
@@ -58,9 +62,7 @@ class CourtSMSAdminActions:
         if error_count > 0:
             messages.error(request, f"重新处理失败 {error_count} 条短信")
 
-    retry_processing_action.short_description = _("🔄 重新处理选中的短信")
-
-    def submit_sms_view(self, request) -> None:
+    def submit_sms_view(self, request: HttpRequest) -> HttpResponse:
         """短信提交页面"""
         if request.method == "POST":
             content = request.POST.get("content", "").strip()
@@ -91,16 +93,16 @@ class CourtSMSAdminActions:
 
         recent_sms = CourtSMS.objects.order_by("-created_at")[:10]
 
-        context = {
+        context: dict[str, Any] = {
             "title": "提交法院短信",
             "recent_sms": recent_sms,
-            "opts": self.model._meta,
+            "opts": self.model._meta,  # type: ignore[attr-defined]
             "has_view_permission": True,
         }
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
 
-    def _get_suggested_cases(self, sms: Any, case_service: Any, sms_id: int) -> list[Any]:
+    def _get_suggested_cases(self, sms: CourtSMS, case_service: Any, sms_id: int) -> list[Any]:
         """获取推荐案件"""
         suggested_cases: list[Any] = []
         try:
@@ -145,7 +147,7 @@ class CourtSMSAdminActions:
                 "parties": [],
             }
 
-    def assign_case_view(self, request: Any, sms_id: int) -> Any:
+    def assign_case_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """手动指定案件页面"""
         sms = get_object_or_404(CourtSMS, id=sms_id)
 
@@ -167,17 +169,17 @@ class CourtSMSAdminActions:
         case_service = _get_case_service()
         suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
 
-        context = {
+        context: dict[str, Any] = {
             "title": f"为短信 #{sms_id} 指定案件",
             "sms": sms,
             "suggested_cases": [self._format_case_for_template(c) for c in suggested_cases],
             "recent_cases": [],
-            "opts": self.model._meta,
+            "opts": self.model._meta,  # type: ignore[attr-defined]
             "has_view_permission": True,
         }
         return render(request, "admin/automation/courtsms/assign_case.html", context)
 
-    def search_cases_ajax(self, request, sms_id) -> None:
+    def search_cases_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:
         """AJAX 案件搜索接口"""
         if request.method != "GET":
             return JsonResponse({"error": "只支持 GET 请求"}, status=405)
@@ -197,7 +199,7 @@ class CourtSMSAdminActions:
             number_cases = case_service.search_cases_by_case_number_internal(search_term)[:10]
             found_cases.extend(number_cases)
 
-            seen_ids = set()
+            seen_ids: set[int] = set()
             unique_cases: list[Any] = []
             for case in found_cases:
                 if hasattr(case, "id") and cast(int, case.id) not in seen_ids:
@@ -206,19 +208,13 @@ class CourtSMSAdminActions:
 
             unique_cases = unique_cases[:15]
 
-            cases_data: list[Any] = []
+            cases_data: list[dict[str, Any]] = []
             for case_dto in unique_cases:
                 try:
-                    case_service = _get_case_service()
                     case_detail = case_service.get_case_detail_internal(cast(int, case_dto.id))
 
-                    case_numbers = getattr(case_detail, "case_numbers", [])
-                    parties = getattr(case_detail, "parties", [])
-
-                    if hasattr(case_numbers, "__iter__") and not isinstance(case_numbers, str):
-                        case_numbers: list[Any] = []
-                    if hasattr(parties, "__iter__") and not isinstance(parties, str):
-                        parties: list[Any] = []
+                    case_numbers: list[Any] = getattr(case_detail, "case_numbers", [])
+                    parties: list[Any] = getattr(case_detail, "parties", [])
 
                     cases_data.append(
                         {
@@ -243,7 +239,7 @@ class CourtSMSAdminActions:
             logger.error(f"AJAX 搜索案件失败: SMS ID={sms_id}, 搜索词={search_term}, 错误: {e!s}")
             return JsonResponse({"error": "搜索失败,请重试"}, status=500)
 
-    def retry_single_sms_view(self, request, sms_id) -> None:
+    def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """单个短信重新处理"""
         get_object_or_404(CourtSMS, id=sms_id)
 
@@ -260,7 +256,7 @@ class CourtSMSAdminActions:
 
         return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
 
-    def save_model(self, request: Any, obj, form, change) -> None:
+    def save_model(self, request: HttpRequest, obj: CourtSMS, form: Any, change: bool) -> None:
         """保存模型时的处理"""
         if not change:
             if not obj.received_at:
@@ -268,7 +264,7 @@ class CourtSMSAdminActions:
 
                 obj.received_at = timezone.now()
 
-            super().save_model(request, obj, form, change)
+            super().save_model(request, obj, form, change)  # type: ignore[misc]
 
             try:
                 from django_q.tasks import async_task
@@ -286,4 +282,4 @@ class CourtSMSAdminActions:
                 messages.warning(request, f"短信已保存,但处理任务启动失败: {e!s}")
                 logger.error(f"管理员添加短信后处理任务启动失败: SMS ID={obj.id}, 错误: {e!s}")
         else:
-            super().save_model(request, obj, form, change)
+            super().save_model(request, obj, form, change)  # type: ignore[misc]
