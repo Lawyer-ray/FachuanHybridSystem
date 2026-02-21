@@ -24,6 +24,10 @@ from .caselog_service import CaseLogService
 from .chat_name_config_service import ChatNameConfigService
 from .data import CauseCourtDataService
 from .folder_binding_service import CaseFolderBindingService
+from .case.case_admin_service import CaseAdminService
+from .chat.case_chat_service import CaseChatService
+from .template.case_template_binding_service import CaseTemplateBindingService
+from .material.case_material_service import CaseMaterialService
 
 
 class CaseService(CaseQueryService, CaseCommandService):
@@ -52,6 +56,10 @@ __all__ = [
     "CaseQueryService",
     "CaseCommandService",
     "CaseServiceAdapter",
+    "CaseAdminService",
+    "CaseChatService",
+    "CaseTemplateBindingService",
+    "CaseMaterialService",
     "CaseLogService",
     "CaseAccessService",
     "CaseAssignmentService",
