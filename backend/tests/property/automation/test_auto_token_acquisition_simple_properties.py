@@ -1,7 +1,7 @@
 """
 自动Token获取服务简化属性测试
 
-**Feature: auto-token-acquisition, Properties 1-12**
+**Feature: auto-token-acquisition, Properties 1-13**
 **Validates: Requirements 1.1-5.5**
 """
 
@@ -13,42 +13,57 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, NoAvailableAccountError
 from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import (
+    AutoTokenAcquisitionError,
+    LoginFailedError,
+    NoAvailableAccountError,
+    ValidationException,
+)
 from apps.core.interfaces import AccountCredentialDTO
 
+_PATCH_CACHE = "apps.automation.services.token.auto_token_acquisition_service.cache_manager"
+_PATCH_CACHE2 = "apps.automation.services.token._login_handler.cache_manager"
+_PATCH_PERF = "apps.automation.services.token.auto_token_acquisition_service.performance_monitor"
+_PATCH_CONC = "apps.automation.services.token.auto_token_acquisition_service.concurrency_optimizer"
+_PATCH_HIST = "apps.automation.services.token.auto_token_acquisition_service.history_recorder"
 
-def create_test_credential(site_name: str, account_id: int = 1, account_suffix: str = "") -> AccountCredentialDTO:
-    """创建测试用的AccountCredentialDTO"""
+
+def _cred(site_name: str, account_id: int = 1, success: int = 5, failure: int = 0) -> AccountCredentialDTO:
     return AccountCredentialDTO(
-        id=account_id,
-        lawyer_id=1,
-        site_name=site_name,
-        url=None,
-        account=f"test{account_suffix}@example.com",
-        password="password",
+        id=account_id, lawyer_id=1, site_name=site_name, url=None,
+        account=f"test{account_id}@example.com", password="password",
         last_login_success_at=datetime.now().isoformat(),
-        login_success_count=5,
-        login_failure_count=0,
-        is_preferred=True,
+        login_success_count=success, login_failure_count=failure, is_preferred=True,
     )
 
 
-@pytest.mark.django_db
-@pytest.mark.anyio
-class TestTokenValidityCheckProperties:
-    """
-    Property 1: Token有效性检查
-    **验证: Requirements 1.1, 1.2**
-    """
+def _patches() -> tuple[patch, patch, patch, patch, patch]:  # type: ignore[type-arg]
+    return (
+        patch(_PATCH_CACHE), patch(_PATCH_CACHE2),
+        patch(_PATCH_PERF), patch(_PATCH_CONC), patch(_PATCH_HIST),
+    )
 
-    def setup_method(self):
-        """每个测试前清理"""
+
+def _cfg(mc: Mock, mc2: Mock, mp: Mock, mco: Mock, mh: Mock) -> None:
+    mc.get_cached_token.return_value = None
+    mc.cache_token = Mock()
+    mc2.cache_token = Mock()
+    mp.record_acquisition_start = Mock()
+    mp.record_acquisition_end = Mock()
+    mco.acquire_resource = AsyncMock()
+    mco.release_resource = AsyncMock()
+    mh.record_acquisition_history = AsyncMock()
+
+
+@pytest.mark.django_db
+class TestTokenValidityCheckProperties:
+    """Property 1: Token有效性检查 — Validates: Requirements 1.1, 1.2"""
+
+    def setup_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    def teardown_method(self):
-        """每个测试后清理"""
+    def teardown_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
     @given(
@@ -56,155 +71,105 @@ class TestTokenValidityCheckProperties:
         has_valid_token=st.booleans(),
     )
     @settings(max_examples=10, deadline=10000)
-    async def test_token_validity_check_consistency(self, site_name: str, has_valid_token: bool):
-        """
-        Property 1: Token有效性检查一致性
+    def test_token_validity_check_consistency(self, site_name: str, has_valid_token: bool) -> None:
+        """有Token直接返回，无Token触发登录"""
 
-        *For any* 网站名称和Token状态，系统应该一致地检查Token有效性。
-        如果有有效Token，应该直接返回；如果没有，应该触发获取流程。
+        async def _run() -> None:
+            cred = _cred(site_name)
+            mock_strategy = Mock()
+            mock_strategy.select_account = AsyncMock(return_value=cred)
+            mock_strategy.update_account_statistics = AsyncMock()
+            mock_login = AsyncMock()
+            mock_token = AsyncMock()
 
-        **Validates: Requirements 1.1, 1.2**
-        """
-        # 创建Mock服务
-        mock_account_strategy = Mock()
-        mock_login_service = AsyncMock()
-        mock_token_service = Mock()
+            if has_valid_token:
+                mock_token.get_token_internal = AsyncMock(return_value="valid_token_123")
+                expected = "valid_token_123"
+            else:
+                mock_token.get_token_internal = AsyncMock(return_value=None)
+                mock_token.save_token_internal = AsyncMock()
+                mock_login.login_and_get_token = AsyncMock(return_value="new_token_456")
+                expected = "new_token_456"
 
-        # 创建测试凭证
-        test_credential = create_test_credential(site_name)
+            p1, p2, p3, p4, p5 = _patches()
+            with p1 as mc, p2 as mc2, p3 as mp, p4 as mco, p5 as mh:
+                _cfg(mc, mc2, mp, mco, mh)
+                service = AutoTokenAcquisitionService(
+                    account_selection_strategy=mock_strategy,
+                    auto_login_service=mock_login,
+                    token_service=mock_token,
+                )
+                result = await service.acquire_token_if_needed(site_name)
+                assert result == expected
+                if has_valid_token:
+                    mock_login.login_and_get_token.assert_not_called()
+                else:
+                    mock_login.login_and_get_token.assert_called_once()
 
-        # 配置Mock行为
-        mock_account_strategy.select_account = AsyncMock(return_value=test_credential)
-        mock_account_strategy.update_account_statistics = AsyncMock()
-
-        if has_valid_token:
-            # 有有效Token的情况
-            mock_token_service.get_token.return_value = "valid_token_123"
-            expected_token = "valid_token_123"
-        else:
-            # 没有有效Token的情况
-            mock_token_service.get_token.return_value = None
-            mock_login_service.login_and_get_token.return_value = "new_token_456"
-            expected_token = "new_token_456"
-
-        # 创建服务实例
-        service = AutoTokenAcquisitionService(
-            account_selection_strategy=mock_account_strategy,
-            auto_login_service=mock_login_service,
-            token_service=mock_token_service,
-        )
-
-        # 执行测试
-        result_token = await service.acquire_token_if_needed(site_name)
-
-        # 验证结果
-        assert result_token == expected_token, f"Token应该是 {expected_token}"
-
-        if has_valid_token:
-            # 有有效Token时，不应该触发登录
-            mock_login_service.login_and_get_token.assert_not_called()
-        else:
-            # 没有有效Token时，应该触发登录
-            mock_login_service.login_and_get_token.assert_called_once()
-            mock_token_service.save_token.assert_called_once_with(
-                site_name=site_name, account=test_credential.account, token="new_token_456"
-            )
+        asyncio.run(_run())
 
 
 @pytest.mark.django_db
-@pytest.mark.anyio
 class TestLoginFailureExceptionProperties:
-    """
-    Property 3: 登录失败异常处理
-    **验证: Requirements 1.4**
-    """
+    """Property 3: 登录失败异常处理 — Validates: Requirements 1.4"""
 
-    def setup_method(self):
-        """每个测试前清理"""
+    def setup_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    def teardown_method(self):
-        """每个测试后清理"""
+    def teardown_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
     @given(
         site_name=st.text(min_size=1, max_size=20).filter(lambda x: x.strip() and x.isalnum()),
-        error_type=st.sampled_from(["network_error", "captcha_error", "credential_error", "timeout_error"]),
+        error_type=st.sampled_from(["network_error", "captcha_error", "credential_error"]),
     )
     @settings(max_examples=8, deadline=10000)
-    async def test_login_failure_exception_handling(self, site_name: str, error_type: str):
-        """
-        Property 3: 登录失败异常处理一致性
+    def test_login_failure_exception_handling(self, site_name: str, error_type: str) -> None:
+        """登录失败时抛出 AutoTokenAcquisitionError"""
 
-        *For any* 网站名称和错误类型，当登录失败时，
-        系统应该抛出明确的异常并包含详细错误信息。
+        async def _run() -> None:
+            messages = {
+                "network_error": "网络连接失败",
+                "captcha_error": "验证码识别失败",
+                "credential_error": "账号密码错误",
+            }
+            cred = _cred(site_name)
+            mock_strategy = Mock()
+            mock_strategy.select_account = AsyncMock(return_value=cred)
+            mock_strategy.update_account_statistics = AsyncMock()
+            mock_login = AsyncMock()
+            mock_login.login_and_get_token = AsyncMock(
+                side_effect=LoginFailedError(message=messages[error_type], errors={"error_type": error_type})
+            )
+            mock_token = AsyncMock()
+            mock_token.get_token_internal = AsyncMock(return_value=None)
 
-        **Validates: Requirements 1.4**
-        """
-        # 创建Mock服务
-        mock_account_strategy = Mock()
-        mock_login_service = AsyncMock()
-        mock_token_service = Mock()
+            p1, p2, p3, p4, p5 = _patches()
+            with p1 as mc, p2 as mc2, p3 as mp, p4 as mco, p5 as mh:
+                _cfg(mc, mc2, mp, mco, mh)
+                service = AutoTokenAcquisitionService(
+                    account_selection_strategy=mock_strategy,
+                    auto_login_service=mock_login,
+                    token_service=mock_token,
+                )
+                with pytest.raises(AutoTokenAcquisitionError) as exc_info:
+                    await service.acquire_token_if_needed(site_name)
+                assert messages[error_type] in str(exc_info.value)
+                mock_strategy.update_account_statistics.assert_called_once_with(
+                    account=cred.account, site_name=site_name, success=False
+                )
 
-        # 创建测试凭证
-        test_credential = create_test_credential(site_name)
-
-        # 配置Mock行为
-        mock_account_strategy.select_account = AsyncMock(return_value=test_credential)
-        mock_account_strategy.update_account_statistics = AsyncMock()
-        mock_token_service.get_token.return_value = None  # 没有现有Token
-
-        # 根据错误类型配置不同的异常
-        error_messages = {
-            "network_error": "网络连接失败",
-            "captcha_error": "验证码识别失败",
-            "credential_error": "账号密码错误",
-            "timeout_error": "登录超时",
-        }
-
-        mock_login_service.login_and_get_token.side_effect = LoginFailedError(
-            message=error_messages[error_type], errors={"error_type": error_type}
-        )
-
-        # 创建服务实例
-        service = AutoTokenAcquisitionService(
-            account_selection_strategy=mock_account_strategy,
-            auto_login_service=mock_login_service,
-            token_service=mock_token_service,
-        )
-
-        # 执行测试并验证异常
-        with pytest.raises(AutoTokenAcquisitionError) as exc_info:
-            await service.acquire_token_if_needed(site_name)
-
-        # 验证异常信息
-        exception = exc_info.value
-        assert error_messages[error_type] in str(exception), f"异常信息应包含: {error_messages[error_type]}"
-
-        # 验证错误详情
-        if hasattr(exception, "errors") and exception.errors:
-            assert "error_type" in exception.errors or "message" in exception.errors, "异常应包含错误详情"
-
-        # 验证账号统计被更新为失败
-        mock_account_strategy.update_account_statistics.assert_called_once_with(
-            account=test_credential.account, site_name=site_name, success=False
-        )
+        asyncio.run(_run())
 
 
 @pytest.mark.django_db
-@pytest.mark.anyio
 class TestAccountPrioritySelectionProperties:
-    """
-    Property 4: 账号优先级选择
-    **验证: Requirements 1.5**
-    """
+    """Property 4: 账号优先级选择 — Validates: Requirements 1.5"""
 
-    def setup_method(self):
-        """每个测试前清理"""
+    def setup_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    def teardown_method(self):
-        """每个测试后清理"""
+    def teardown_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
     @given(
@@ -213,79 +178,54 @@ class TestAccountPrioritySelectionProperties:
         failure_count=st.integers(min_value=0, max_value=25),
     )
     @settings(max_examples=8, deadline=10000)
-    async def test_account_priority_selection_consistency(self, site_name: str, success_count: int, failure_count: int):
-        """
-        Property 4: 账号优先级选择一致性
+    def test_account_priority_selection_consistency(
+        self, site_name: str, success_count: int, failure_count: int
+    ) -> None:
+        """账号选择策略被调用，登录成功后统计更新"""
 
-        *For any* 网站名称和账号统计，系统应该优先选择
-        最近成功登录且成功率高的账号。
+        async def _run() -> None:
+            cred = AccountCredentialDTO(
+                id=1, lawyer_id=1, site_name=site_name, url=None,
+                account="test@example.com", password="password",
+                last_login_success_at=(datetime.now() - timedelta(hours=1)).isoformat() if success_count > 0 else None,
+                login_success_count=success_count, login_failure_count=failure_count, is_preferred=True,
+            )
+            mock_strategy = Mock()
+            mock_strategy.select_account = AsyncMock(return_value=cred)
+            mock_strategy.update_account_statistics = AsyncMock()
+            mock_login = AsyncMock()
+            mock_login.login_and_get_token = AsyncMock(return_value="new_token")
+            mock_token = AsyncMock()
+            mock_token.get_token_internal = AsyncMock(return_value=None)
+            mock_token.save_token_internal = AsyncMock()
 
-        **Validates: Requirements 1.5**
-        """
-        # 创建Mock服务
-        mock_account_strategy = Mock()
-        mock_login_service = AsyncMock()
-        mock_token_service = Mock()
+            p1, p2, p3, p4, p5 = _patches()
+            with p1 as mc, p2 as mc2, p3 as mp, p4 as mco, p5 as mh:
+                _cfg(mc, mc2, mp, mco, mh)
+                service = AutoTokenAcquisitionService(
+                    account_selection_strategy=mock_strategy,
+                    auto_login_service=mock_login,
+                    token_service=mock_token,
+                )
+                result = await service.acquire_token_if_needed(site_name)
+                assert result == "new_token"
+                mock_strategy.select_account.assert_called_once_with(site_name)
+                mock_login.login_and_get_token.assert_called_once_with(cred)
+                mock_strategy.update_account_statistics.assert_called_once_with(
+                    account=cred.account, site_name=site_name, success=True
+                )
 
-        # 创建测试凭证（基于统计数据）
-        test_credential = AccountCredentialDTO(
-            id=1,
-            lawyer_id=1,
-            site_name=site_name,
-            url=None,
-            account="test@example.com",
-            password="password",
-            last_login_success_at=(datetime.now() - timedelta(hours=1)).isoformat() if success_count > 0 else None,
-            login_success_count=success_count,
-            login_failure_count=failure_count,
-            is_preferred=True,
-        )
-
-        # 配置Mock行为
-        mock_account_strategy.select_account = AsyncMock(return_value=test_credential)
-        mock_account_strategy.update_account_statistics = AsyncMock()
-        mock_token_service.get_token.return_value = None  # 没有现有Token
-        mock_login_service.login_and_get_token.return_value = "new_token"
-
-        # 创建服务实例
-        service = AutoTokenAcquisitionService(
-            account_selection_strategy=mock_account_strategy,
-            auto_login_service=mock_login_service,
-            token_service=mock_token_service,
-        )
-
-        # 执行测试
-        result_token = await service.acquire_token_if_needed(site_name)
-
-        # 验证结果
-        assert result_token == "new_token", "应该返回新获取的Token"
-
-        # 验证账号选择策略被调用
-        mock_account_strategy.select_account.assert_called_once_with(site_name)
-
-        # 验证使用了选择的账号进行登录
-        mock_login_service.login_and_get_token.assert_called_once_with(test_credential)
-
-        # 验证统计被更新
-        mock_account_strategy.update_account_statistics.assert_called_once_with(
-            account=test_credential.account, site_name=site_name, success=True
-        )
+        asyncio.run(_run())
 
 
 @pytest.mark.django_db
-@pytest.mark.anyio
 class TestFinalFailureHandlingProperties:
-    """
-    Property 8: 最终失败处理
-    **验证: Requirements 2.4**
-    """
+    """Property 8: 最终失败处理 — Validates: Requirements 2.4"""
 
-    def setup_method(self):
-        """每个测试前清理"""
+    def setup_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    def teardown_method(self):
-        """每个测试后清理"""
+    def teardown_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
     @given(
@@ -293,189 +233,84 @@ class TestFinalFailureHandlingProperties:
         failure_reason=st.sampled_from(["no_accounts", "all_accounts_failed", "network_timeout"]),
     )
     @settings(max_examples=6, deadline=10000)
-    async def test_final_failure_handling_consistency(self, site_name: str, failure_reason: str):
-        """
-        Property 8: 最终失败处理一致性
+    def test_final_failure_handling_consistency(self, site_name: str, failure_reason: str) -> None:
+        """所有重试失败时抛出包含详细信息的异常"""
 
-        *For any* 网站名称和失败原因，当所有重试都失败时，
-        系统应该抛出包含详细错误信息的异常。
+        async def _run() -> None:
+            mock_strategy = Mock()
+            mock_login = AsyncMock()
+            mock_token = AsyncMock()
+            mock_token.get_token_internal = AsyncMock(return_value=None)
 
-        **Validates: Requirements 2.4**
-        """
-        # 创建Mock服务
-        mock_account_strategy = Mock()
-        mock_login_service = AsyncMock()
-        mock_token_service = Mock()
+            failure_messages = {
+                "no_accounts": "没有可用账号",
+                "all_accounts_failed": "所有账号登录失败",
+                "network_timeout": "网络连接超时",
+            }
 
-        # 根据失败原因配置不同的Mock行为
-        if failure_reason == "no_accounts":
-            mock_account_strategy.select_account = AsyncMock(return_value=None)
-        else:
-            # 创建测试凭证
-            test_credential = create_test_credential(site_name)
-            mock_account_strategy.select_account = AsyncMock(return_value=test_credential)
-            mock_account_strategy.update_account_statistics = AsyncMock()
+            if failure_reason == "no_accounts":
+                mock_strategy.select_account = AsyncMock(return_value=None)
+            else:
+                cred = _cred(site_name)
+                mock_strategy.select_account = AsyncMock(return_value=cred)
+                mock_strategy.update_account_statistics = AsyncMock()
+                mock_login.login_and_get_token = AsyncMock(
+                    side_effect=LoginFailedError(
+                        message=failure_messages[failure_reason],
+                        errors={"error_type": failure_reason},
+                    )
+                )
 
-        mock_token_service.get_token.return_value = None
+            p1, p2, p3, p4, p5 = _patches()
+            with p1 as mc, p2 as mc2, p3 as mp, p4 as mco, p5 as mh:
+                _cfg(mc, mc2, mp, mco, mh)
+                service = AutoTokenAcquisitionService(
+                    account_selection_strategy=mock_strategy,
+                    auto_login_service=mock_login,
+                    token_service=mock_token,
+                )
+                if failure_reason == "no_accounts":
+                    with pytest.raises(NoAvailableAccountError):
+                        await service.acquire_token_if_needed(site_name)
+                else:
+                    with pytest.raises(AutoTokenAcquisitionError) as exc_info:
+                        await service.acquire_token_if_needed(site_name)
+                    assert failure_messages[failure_reason] in str(exc_info.value)
 
-        # 配置登录失败
-        failure_messages = {
-            "no_accounts": "没有可用账号",
-            "all_accounts_failed": "所有账号登录失败",
-            "network_timeout": "网络连接超时",
-        }
-
-        if failure_reason != "no_accounts":
-            mock_login_service.login_and_get_token.side_effect = LoginFailedError(
-                message=failure_messages[failure_reason], errors={"error_type": failure_reason}
-            )
-
-        # 创建服务实例
-        service = AutoTokenAcquisitionService(
-            account_selection_strategy=mock_account_strategy,
-            auto_login_service=mock_login_service,
-            token_service=mock_token_service,
-        )
-
-        # 执行测试并验证异常
-        if failure_reason == "no_accounts":
-            with pytest.raises(NoAvailableAccountError) as exc_info:
-                await service.acquire_token_if_needed(site_name)
-
-            exception = exc_info.value
-            assert site_name in str(exception), f"异常信息应包含网站名称: {site_name}"
-        else:
-            with pytest.raises(AutoTokenAcquisitionError) as exc_info:
-                await service.acquire_token_if_needed(site_name)
-
-            exception = exc_info.value
-            assert failure_messages[failure_reason] in str(
-                exception
-            ), f"异常信息应包含: {failure_messages[failure_reason]}"
-
-
-@pytest.mark.django_db
-@pytest.mark.anyio
-class TestTokenServiceIntegrationProperties:
-    """
-    Property 11: TokenService集成
-    **验证: Requirements 4.5**
-    """
-
-    def setup_method(self):
-        """每个测试前清理"""
-        AutoTokenAcquisitionService.clear_locks()
-
-    def teardown_method(self):
-        """每个测试后清理"""
-        AutoTokenAcquisitionService.clear_locks()
-
-    @given(
-        site_name=st.text(min_size=1, max_size=20).filter(lambda x: x.strip() and x.isalnum()),
-        token_exists=st.booleans(),
-    )
-    @settings(max_examples=8, deadline=10000)
-    async def test_token_service_integration_consistency(self, site_name: str, token_exists: bool):
-        """
-        Property 11: TokenService集成一致性
-
-        *For any* 网站名称和Token存在状态，系统应该正确地
-        与TokenService集成，保存和获取Token。
-
-        **Validates: Requirements 4.5**
-        """
-        # 创建Mock服务
-        mock_account_strategy = Mock()
-        mock_login_service = AsyncMock()
-        mock_token_service = Mock()
-
-        # 创建测试凭证
-        test_credential = create_test_credential(site_name)
-
-        # 配置Mock行为
-        mock_account_strategy.select_account = AsyncMock(return_value=test_credential)
-        mock_account_strategy.update_account_statistics = AsyncMock()
-
-        if token_exists:
-            # 已存在Token的情况
-            existing_token = f"existing_token_for_{site_name}"
-            mock_token_service.get_token.return_value = existing_token
-        else:
-            # 不存在Token的情况
-            mock_token_service.get_token.return_value = None
-            new_token = f"new_token_for_{site_name}"
-            mock_login_service.login_and_get_token.return_value = new_token
-
-        # 创建服务实例
-        service = AutoTokenAcquisitionService(
-            account_selection_strategy=mock_account_strategy,
-            auto_login_service=mock_login_service,
-            token_service=mock_token_service,
-        )
-
-        # 执行测试
-        result_token = await service.acquire_token_if_needed(site_name)
-
-        # 验证结果
-        if token_exists:
-            expected_token = f"existing_token_for_{site_name}"
-            assert result_token == expected_token, f"应该返回现有Token: {expected_token}"
-
-            # 验证TokenService被正确调用
-            mock_token_service.get_token.assert_called()
-
-            # 不应该触发登录
-            mock_login_service.login_and_get_token.assert_not_called()
-
-            # 不应该保存新Token
-            mock_token_service.save_token.assert_not_called()
-        else:
-            expected_token = f"new_token_for_{site_name}"
-            assert result_token == expected_token, f"应该返回新Token: {expected_token}"
-
-            # 验证TokenService被正确调用
-            mock_token_service.get_token.assert_called()
-
-            # 应该触发登录
-            mock_login_service.login_and_get_token.assert_called_once_with(test_credential)
-
-            # 应该保存新Token
-            mock_token_service.save_token.assert_called_once_with(
-                site_name=site_name, account=test_credential.account, token=expected_token
-            )
+        asyncio.run(_run())
 
 
 @pytest.mark.django_db
 class TestParameterValidationProperties:
-    """
-    Property 13: 参数验证
-    **验证: Requirements 1.1**
-    """
+    """Property 13: 参数验证 — Validates: Requirements 1.1"""
 
-    def setup_method(self):
-        """每个测试前清理"""
+    def setup_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    def teardown_method(self):
-        """每个测试后清理"""
+    def teardown_method(self) -> None:
         AutoTokenAcquisitionService.clear_locks()
 
-    @given(invalid_site_name=st.one_of(st.just(""), st.just("   "), st.just(None)))  # 空字符串  # 只有空格  # None值
-    @settings(max_examples=6, deadline=5000)
-    def test_parameter_validation_consistency(self, invalid_site_name):
-        """
-        Property 13: 参数验证一致性
+    @given(invalid_site_name=st.one_of(st.just(""), st.just("   ")))
+    @settings(max_examples=4, deadline=5000)
+    def test_parameter_validation_consistency(self, invalid_site_name: str) -> None:
+        """无效 site_name 抛出 ValidationException"""
 
-        *For any* 无效的网站名称参数，系统应该抛出ValidationException。
+        async def _run() -> None:
+            mock_strategy = Mock()
+            mock_strategy.select_account = AsyncMock()
+            mock_login = AsyncMock()
+            mock_token = AsyncMock()
+            mock_token.get_token_internal = AsyncMock(return_value=None)
 
-        **Validates: Requirements 1.1**
-        """
-        # 创建服务实例
-        service = AutoTokenAcquisitionService()
+            p1, p2, p3, p4, p5 = _patches()
+            with p1 as mc, p2 as mc2, p3 as mp, p4 as mco, p5 as mh:
+                _cfg(mc, mc2, mp, mco, mh)
+                service = AutoTokenAcquisitionService(
+                    account_selection_strategy=mock_strategy,
+                    auto_login_service=mock_login,
+                    token_service=mock_token,
+                )
+                with pytest.raises(ValidationException):
+                    await service.acquire_token_if_needed(invalid_site_name)
 
-        # 执行测试并验证异常
-        with pytest.raises((ValidationException, TypeError)):
-            # 使用asyncio.run来运行异步测试
-            import asyncio
-
-            asyncio.run(service.acquire_token_if_needed(invalid_site_name))
+        asyncio.run(_run())

@@ -191,8 +191,8 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 obj.merge_error or "未知错误",
             )
         elif obj.merged_pdf:
-            return format_html('<span style="color: #2e7d32;">✓ 已合并</span>')
-        return format_html('<span style="color: #999;">未合并</span>')
+            return format_html('<span style="color: #2e7d32;">{}</span>', "✓ 已合并")
+        return format_html('<span style="color: #999;">{}</span>', "未合并")
 
     has_merged_pdf_display.short_description = _("合并状态")
 

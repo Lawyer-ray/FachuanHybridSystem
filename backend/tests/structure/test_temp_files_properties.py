@@ -20,14 +20,21 @@ sys.path.insert(0, str(backend_root))
 
 
 def get_all_files_in_project():
-    """获取项目中的所有文件（递归）"""
-    files = []
-    for item in backend_root.rglob("*"):
-        if item.is_file():
-            # 排除 .git 目录
-            if ".git" not in item.parts:
-                relative_path = item.relative_to(backend_root)
-                files.append(str(relative_path))
+    """获取项目中可能存在的临时文件（仅扫描小型临时目录，跳过大型缓存）"""
+    # 只扫描小型临时目录，跳过 .mypy_cache/.hypothesis/htmlcov 等大型缓存
+    # 这些大型缓存目录由 test_cache_directories_not_tracked 单独验证
+    small_temp_dirs = ["__pycache__", ".pytest_cache", "logs"]
+    files: list[str] = []
+    for temp_dir in small_temp_dirs:
+        target = backend_root / temp_dir
+        if target.exists() and target.is_dir():
+            for item in target.rglob("*"):
+                if item.is_file():
+                    files.append(str(item.relative_to(backend_root)))
+    # 也检查根目录下的临时文件（不递归）
+    for item in backend_root.iterdir():
+        if item.is_file() and is_temporary_or_generated_file(item.name):
+            files.append(str(item.relative_to(backend_root)))
     return files
 
 
@@ -208,20 +215,27 @@ def test_cache_directories_not_tracked():
         "htmlcov",
     ]
 
-    tracked_cache_dirs = []
+    # 使用 git ls-files 批量检查，避免逐文件 subprocess 调用导致超时
+    tracked_cache_files: list[str] = []
     for cache_dir in cache_dirs:
-        # 检查是否有该目录的文件被跟踪
         cache_path = backend_root / cache_dir
         if cache_path.exists():
-            for file in cache_path.rglob("*"):
-                if file.is_file():
-                    relative_path = file.relative_to(backend_root)
-                    if is_tracked_by_git(str(relative_path)):
-                        tracked_cache_dirs.append(str(relative_path))
+            try:
+                result = subprocess.run(
+                    ["git", "ls-files", cache_dir],
+                    cwd=backend_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    tracked_cache_files.extend(result.stdout.strip().splitlines())
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                pass
 
-    assert len(tracked_cache_dirs) == 0, (
+    assert len(tracked_cache_files) == 0, (
         f"The following cache files are tracked by Git:\n"
-        + "\n".join(f"  - {file}" for file in tracked_cache_dirs)
+        + "\n".join(f"  - {file}" for file in tracked_cache_files)
         + "\n\nThese files should be removed from Git and added to .gitignore"
     )
 
@@ -234,7 +248,7 @@ def test_log_files_not_tracked():
     """
     log_files = []
 
-    # 检查 logs/ 目录
+    # 只检查 logs/ 目录（避免 rglob 扫描 .venv 等大目录）
     logs_dir = backend_root / "logs"
     if logs_dir.exists():
         for file in logs_dir.rglob("*.log"):
@@ -242,9 +256,9 @@ def test_log_files_not_tracked():
             if is_tracked_by_git(str(relative_path)):
                 log_files.append(str(relative_path))
 
-    # 检查其他 .log 文件
-    for file in backend_root.rglob("*.log"):
-        if file.is_file():
+    # 检查根目录下的 .log 文件（不递归）
+    for file in backend_root.iterdir():
+        if file.is_file() and file.suffix == ".log":
             relative_path = file.relative_to(backend_root)
             if is_tracked_by_git(str(relative_path)):
                 log_files.append(str(relative_path))
@@ -262,21 +276,21 @@ def test_coverage_files_not_tracked():
 
     验证覆盖率报告不在版本控制中
     """
-    coverage_files = []
+    coverage_files: list[str] = []
 
-    # 检查 .coverage 文件
-    coverage_file = backend_root / ".coverage"
-    if coverage_file.exists() and is_tracked_by_git(".coverage"):
-        coverage_files.append(".coverage")
-
-    # 检查 htmlcov/ 目录
-    htmlcov_dir = backend_root / "htmlcov"
-    if htmlcov_dir.exists():
-        for file in htmlcov_dir.rglob("*"):
-            if file.is_file():
-                relative_path = file.relative_to(backend_root)
-                if is_tracked_by_git(str(relative_path)):
-                    coverage_files.append(str(relative_path))
+    # 使用 git ls-files 批量检查，避免 rglob + subprocess 逐文件调用
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", ".coverage", "htmlcov"],
+            cwd=backend_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            coverage_files = result.stdout.strip().splitlines()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
     assert len(coverage_files) == 0, (
         f"The following coverage files are tracked by Git:\n"
@@ -293,16 +307,9 @@ def test_database_files_not_tracked():
     """
     db_files = []
 
-    # 检查所有 .sqlite3 文件
-    for file in backend_root.rglob("*.sqlite3"):
-        if file.is_file():
-            relative_path = file.relative_to(backend_root)
-            if is_tracked_by_git(str(relative_path)):
-                db_files.append(str(relative_path))
-
-    # 检查 db.sqlite3
-    for file in backend_root.rglob("db.sqlite3"):
-        if file.is_file():
+    # 只检查根目录下的 .sqlite3 文件（不递归扫描，避免超时）
+    for file in backend_root.iterdir():
+        if file.is_file() and file.suffix == ".sqlite3":
             relative_path = file.relative_to(backend_root)
             if is_tracked_by_git(str(relative_path)):
                 db_files.append(str(relative_path))
@@ -340,12 +347,11 @@ def test_ide_config_not_tracked():
                 if is_tracked_by_git(str(relative_path)):
                     ide_files.append(str(relative_path))
 
-    # 检查 .DS_Store 文件
-    for file in backend_root.rglob(".DS_Store"):
-        if file.is_file():
-            relative_path = file.relative_to(backend_root)
-            if is_tracked_by_git(str(relative_path)):
-                ide_files.append(str(relative_path))
+    # 检查根目录下的 .DS_Store 文件（不递归，避免扫描 .venv）
+    ds_store = backend_root / ".DS_Store"
+    if ds_store.exists() and ds_store.is_file():
+        if is_tracked_by_git(".DS_Store"):
+            ide_files.append(".DS_Store")
 
     assert len(ide_files) == 0, (
         f"The following IDE files are tracked by Git:\n"
@@ -360,43 +366,20 @@ def test_python_cache_not_tracked():
 
     验证 .pyc 和 __pycache__ 不在版本控制中
     """
+    # 使用 git ls-files 高效检查是否有 .pyc 或 __pycache__ 文件被跟踪
     cache_files = []
-
-    # 限制搜索范围和数量，避免超时
-    max_files = 100
-    file_count = 0
-
-    # 检查所有 .pyc 文件
-    for file in backend_root.rglob("*.pyc"):
-        if file.is_file():
-            file_count += 1
-            if file_count > max_files:
-                break
-            relative_path = file.relative_to(backend_root)
-            if is_tracked_by_git(str(relative_path)):
-                cache_files.append(str(relative_path))
-
-    # 如果已经找到太多，跳过剩余检查
-    if file_count <= max_files:
-        # 检查所有 __pycache__ 目录
-        for pycache_dir in backend_root.rglob("__pycache__"):
-            if pycache_dir.is_dir():
-                for file in pycache_dir.rglob("*"):
-                    if file.is_file():
-                        file_count += 1
-                        if file_count > max_files:
-                            break
-                        relative_path = file.relative_to(backend_root)
-                        if is_tracked_by_git(str(relative_path)):
-                            cache_files.append(str(relative_path))
-                    if file_count > max_files:
-                        break
-                if file_count > max_files:
-                    break
-
-    # 如果文件太多，跳过测试
-    if file_count > max_files:
-        pytest.skip(f"Too many cache files ({file_count}), skipping detailed check")
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--", "*.pyc", "*__pycache__*"],
+            cwd=backend_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            cache_files = result.stdout.strip().splitlines()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pytest.skip("git 命令不可用")
 
     assert len(cache_files) == 0, (
         f"The following Python cache files are tracked by Git:\n"

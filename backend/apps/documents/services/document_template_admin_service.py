@@ -222,10 +222,10 @@ class DocumentTemplateAdminService:
         rows = []
         for placeholder in placeholders:
             if placeholder in undefined:
-                status = format_html('<span style="color: #c62828; font-weight: bold;">⚠️ 未定义</span>')
+                status = format_html('<span style="color: #c62828; font-weight: bold;">{}</span>', "⚠️ 未定义")
                 row_style = "background: #ffebee;"
             else:
-                status = format_html('<span style="color: #2e7d32;">✓ 已定义</span>')
+                status = format_html('<span style="color: #2e7d32;">{}</span>', "✓ 已定义")
                 row_style = ""
             rows.append(format_html(
                 '<tr style="{}"><td style="padding: 8px; border: 1px solid #ddd;'
@@ -247,7 +247,7 @@ class DocumentTemplateAdminService:
     def render_undefined_placeholders_warning(self, undefined: list[str]) -> str:
         """渲染未定义占位符警告HTML"""
         if not undefined:
-            return str(format_html('<span style="color: #2e7d32;">✓ 所有占位符均已定义</span>'))
+            return str(format_html('<span style="color: #2e7d32;">{}</span>', "✓ 所有占位符均已定义"))
         items = format_html_join(
             "",
             '<li style="font-family: monospace; color: #bf360c;">{{{{ {} }}}}</li>',

@@ -53,7 +53,7 @@ class InsuranceQuoteInline(admin.TabularInline):
     def prices_display(self, obj):
         """显示三个价格"""
         if obj.status != "success":
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         parts = []
         if obj.min_premium:
@@ -74,14 +74,14 @@ class InsuranceQuoteInline(admin.TabularInline):
 
         if parts:
             return format_html_join("<br>", "{}", ((p,) for p in parts))
-        return format_html('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">{}</span>', "-")
 
     prices_display.short_description = _("收费标准")
 
     def rates_display(self, obj):
         """显示两个费率"""
         if obj.status != "success":
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         parts = []
         if obj.min_rate:
@@ -91,14 +91,14 @@ class InsuranceQuoteInline(admin.TabularInline):
 
         if parts:
             return format_html_join("<br>", "{}", ((p,) for p in parts))
-        return format_html('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">{}</span>', "-")
 
     rates_display.short_description = _("费率")
 
     def max_apply_amount_display(self, obj):
         """显示最高保全金额"""
         if obj.status != "success" or not obj.max_apply_amount:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         # 转换为易读格式
         amount = float(obj.max_apply_amount)
@@ -116,16 +116,16 @@ class InsuranceQuoteInline(admin.TabularInline):
     def status_display(self, obj):
         """带颜色的状态显示"""
         if obj.status == "success":
-            return format_html('<span style="color: #28a745; font-weight: bold;">✅ 成功</span>')
+            return format_html('<span style="color: #28a745; font-weight: bold;">{}</span>', "✅ 成功")
         else:
-            return format_html('<span style="color: #dc3545; font-weight: bold;">❌ 失败</span>')
+            return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "❌ 失败")
 
     status_display.short_description = _("状态")
 
     def error_message_display(self, obj):
         """格式化显示错误信息（请求和响应）"""
         if not obj.error_message:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         try:
             import json
@@ -297,7 +297,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
     def statistics_display(self, obj):
         """显示统计信息"""
         if obj.total_companies == 0:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         return format_html(
             '<span style="color: #28a745; font-weight: bold;">{}</span> / '
@@ -313,7 +313,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
     def success_rate_display(self, obj):
         """显示成功率"""
         if obj.total_companies == 0:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         rate = obj.get_success_rate()
         rate_str = f"{rate:.1f}%"
@@ -350,7 +350,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
             time_str = f"执行中 ({seconds:.0f}秒)"
             return format_html('<span style="color: #ffa500;">{}</span>', time_str)
 
-        return format_html('<span style="color: #999;">-</span>')
+        return format_html('<span style="color: #999;">{}</span>', "-")
 
     duration_display.short_description = _("执行时长")
 
@@ -365,21 +365,21 @@ class PreservationQuoteAdmin(admin.ModelAdmin):
                 obj.id,
             )
         elif obj.status == QuoteStatus.RUNNING:
-            return format_html('<span style="color: #007bff; font-weight: bold;">🔄 运行中...</span>')
+            return format_html('<span style="color: #007bff; font-weight: bold;">{}</span>', "🔄 运行中...")
         else:
-            return format_html('<span style="color: #999;">已完成</span>')
+            return format_html('<span style="color: #999;">{}</span>', "已完成")
 
     run_button.short_description = _("操作")
 
     def quotes_summary(self, obj):
         """报价汇总表格"""
         if obj.total_companies == 0:
-            return format_html('<p style="color: #999;">暂无报价数据</p>')
+            return format_html('<p style="color: #999;">{}</p>', "暂无报价数据")
 
         quotes = obj.quotes.all().order_by("min_amount")
 
         if not quotes:
-            return format_html('<p style="color: #999;">暂无报价数据</p>')
+            return format_html('<p style="color: #999;">{}</p>', "暂无报价数据")
 
         # 构建 HTML 表格
         html_parts = [

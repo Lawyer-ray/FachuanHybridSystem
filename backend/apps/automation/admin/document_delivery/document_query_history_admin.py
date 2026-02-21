@@ -170,7 +170,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
                 color,
                 obj.court_sms.get_status_display(),
             )
-        return format_html('<span style="color: gray;">无关联短信</span>')
+        return format_html('<span style="color: gray;">{}</span>', "无关联短信")
 
     court_sms_display.short_description = _("关联短信")
 

@@ -1047,6 +1047,11 @@ class TestAdminLayerFileStructureCompliance:
             # 检查文件内容结构
             content = admin_file.read_text(encoding="utf-8")
 
+            # 跳过纯聚合模块（只有 import 和 __all__，没有类定义）
+            has_class_def = re.search(r"^class\s+", content, re.MULTILINE)
+            if not has_class_def:
+                continue
+
             # 必须包含Admin类定义
             admin_class_pattern = r"class\s+\w+Admin\(admin\.ModelAdmin\):"
             admin_classes = re.findall(admin_class_pattern, content)

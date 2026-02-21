@@ -135,8 +135,12 @@ class AutoTokenAcquisitionService:
         acquisition_id = f"{site_name}_{credential_id or 'auto'}_{int(start_time)}"
 
         # 参数验证
-        if not site_name:
-            raise ValidationException("网站名称不能为空")
+        if not site_name or not site_name.strip():
+            raise ValidationException(
+                message="网站名称不能为空",
+                code="INVALID_SITE_NAME",
+                errors={"site_name": "网站名称不能为空"},
+            )
 
         from apps.automation.utils.logging import AutomationLogger
 

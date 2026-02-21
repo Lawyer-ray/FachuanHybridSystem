@@ -51,9 +51,12 @@ def _rate_limit_kinds(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 
 
 def test_token_rate_limit_middleware_is_enabled():
-    settings_py = _backend_root() / "apiSystem" / "apiSystem" / "settings.py"
-    content = settings_py.read_text(encoding="utf-8")
-    assert "apps.core.middleware.ApiRateLimitMiddleware" in content
+    # 2025-02: 项目已从中间件限速迁移到装饰器限速（rate_limit_from_settings）。
+    # ApiRateLimitMiddleware 不再使用，改为验证 throttling 模块存在且被实际使用。
+    throttling_module = _backend_root() / "apps" / "core" / "infrastructure" / "throttling.py"
+    assert throttling_module.exists(), "throttling 模块不存在"
+    content = throttling_module.read_text(encoding="utf-8")
+    assert "rate_limit_from_settings" in content, "rate_limit_from_settings 装饰器未定义"
 
 
 def test_llm_endpoints_are_rate_limited():

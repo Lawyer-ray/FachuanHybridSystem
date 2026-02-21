@@ -16,7 +16,7 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.core.enums import CaseStage
+from apps.core.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
@@ -96,8 +96,6 @@ class ContractAdmin(BaseModelAdmin):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             if not getattr(self.instance, "pk", None):
-                from apps.cases.models import CaseStatus
-
                 self.fields["status"].initial = CaseStatus.ACTIVE
                 self.fields["specified_date"].initial = timezone.localdate()
             self.fields["representation_stages"].initial = list(

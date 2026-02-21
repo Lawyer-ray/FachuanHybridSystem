@@ -47,9 +47,9 @@ def case_create_data(draw):
     """生成案件创建数据"""
     return {
         "name": draw(chinese_text(min_size=1, max_size=100)),
-        "contract_id": draw(st.one_of(st.none(), st.integers(min_value=1, max_value=1000))),
+        # contract_id 不生成随机整数，避免外键约束失败（测试目的是验证 Service 可独立调用）
+        "contract_id": None,
         "is_archived": draw(st.booleans()),
-        # hearing_institution 字段不存在于 Case 模型中，移除
         "target_amount": draw(st.one_of(st.none(), st.floats(min_value=0, max_value=10000000))),
         "cause_of_action": draw(st.one_of(st.none(), chinese_text(min_size=1, max_size=50))),
         "current_stage": draw(
@@ -82,7 +82,7 @@ def contract_create_data(draw):
                 unique=True,
             )
         ),
-        "assigned_lawyer_id": lawyer.id,  # 添加必需的 assigned_lawyer_id
+        "lawyer_ids": [lawyer.id],  # 通过 lawyer_ids 指派律师（create_contract 会 pop 此字段）
     }
 
     # 根据收费模式添加必要字段
@@ -330,18 +330,19 @@ def test_contract_service_get_without_http_request(contract_id):
     Feature: backend-architecture-refactoring, Property 1: Service 方法可独立测试
     Validates: Requirements 4.5
     """
-    # 创建测试数据
-    contract = ContractFactory(id=contract_id)
+    # 创建测试数据（不指定 id，避免 Hypothesis 重复生成相同 id 触发 UNIQUE 约束）
+    contract = ContractFactory()
+    actual_id = contract.id
 
     # 创建 Service 实例
     service = ContractService()
 
-    # 调用 Service 方法（不需要 user 参数）
-    result = service.get_contract(contract_id)
+    # 调用 Service 方法（perm_open_access=True 跳过权限检查）
+    result = service.get_contract(actual_id, perm_open_access=True)
 
     # 验证
     assert result is not None
-    assert result.id == contract_id
+    assert result.id == actual_id
     assert result.name == contract.name
 
 
@@ -472,10 +473,10 @@ def test_service_methods_only_depend_on_injected_parameters():
     case_service = CaseService(contract_service=mock_contract_service)
 
     # 验证：依赖已注入
-    assert case_service.contract_service is mock_contract_service
+    assert case_service._contract_service is mock_contract_service
 
     # 测试 ContractService 依赖注入
-    from apps.core.config import BusinessConfig
+    from apps.core.business_config import BusinessConfig
 
     config = BusinessConfig()
     contract_service = ContractService(config=config)
@@ -582,10 +583,12 @@ def test_service_can_be_tested_in_isolation():
     # 配置 Mock 行为
     from apps.core.interfaces import ContractDTO
 
+    # 创建真实合同记录（满足外键约束），同时注入 Mock 服务
+    real_contract = ContractFactory()
     mock_contract_service.set_contract(
-        1,
+        real_contract.id,
         ContractDTO(
-            id=1,
+            id=real_contract.id,
             name="测试合同",
             case_type="criminal",  # 使用 criminal 类型，支持 investigation 阶段
             status="active",
@@ -602,7 +605,9 @@ def test_service_can_be_tested_in_isolation():
     user = MockUser(id=1, is_authenticated=True)
 
     # 调用 Service 方法
-    case = service.create_case({"name": "测试案件", "contract_id": 1, "current_stage": "investigation"}, user=user)
+    case = service.create_case(
+        {"name": "测试案件", "contract_id": real_contract.id, "current_stage": "investigation"}, user=user
+    )
 
     # 验证：方法成功执行
     assert case is not None
