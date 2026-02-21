@@ -43,7 +43,6 @@ ignore = [
     "S110",   # try/except/pass 忽略异常：爬虫和配置加载的容错处理
     "S112",   # try/except/continue 忽略异常：爬虫和配置加载的容错处理
     "S307",   # 使用 eval()：项目中有受控的动态表达式求值场景
-    "S308",   # 使用 mark_safe()：Task 2 将从源头替换为 format_html，过渡期保留豁免
     "S311",   # 使用伪随机数生成器：项目中非安全敏感场景（如测试数据生成）有合理用法
     "S324",   # 使用不安全的哈希函数（MD5/SHA1）：遗留数据兼容性场景有合理用法
     "S603",   # subprocess 调用：SubprocessRunner 已通过白名单校验 args 并强制 shell=False，属安全封装
