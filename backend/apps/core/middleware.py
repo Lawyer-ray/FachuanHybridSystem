@@ -241,3 +241,21 @@ class PermissionsPolicyMiddleware:
         if policy:
             response["Permissions-Policy"] = policy
         return response
+
+
+class ServiceLocatorScopeMiddleware:
+    """
+    ServiceLocator 请求级作用域中间件
+
+    每个 HTTP 请求在独立的 ServiceLocator scope 中执行，
+    确保请求间服务实例不互相污染（基于 ContextVar 实现）。
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        from apps.core.interfaces import ServiceLocator
+
+        with ServiceLocator.scope():
+            return self.get_response(request)

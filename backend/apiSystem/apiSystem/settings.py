@@ -101,6 +101,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.core.middleware.SecurityHeadersMiddleware",
     "apps.core.middleware.PermissionsPolicyMiddleware",
+    "apps.core.middleware.ServiceLocatorScopeMiddleware",
 ]
 
 _request_timing_env = (os.environ.get("DJANGO_REQUEST_TIMING", "") or "").lower().strip()

@@ -26,5 +26,6 @@ apps/chat_records/services/recording_service.py
 apps/chat_records/services/video_frame_extract_service.py
 apps/client/services/client_admin_service.py
 apps/core/services/file_upload_service.py
+apps/core/services/i18n_service.py
 apps/core/services/llm_stream_service.py
 apps/documents/services/generation/generation_task_service.py

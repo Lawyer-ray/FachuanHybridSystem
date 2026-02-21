@@ -23,13 +23,11 @@ if TYPE_CHECKING:
 
 def build_auto_token_acquisition_service() -> IAutoTokenAcquisitionService:
     from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
-    from apps.core.dependencies.business import build_organization_service
 
-    return AutoTokenAcquisitionService(  # type: ignore[call-arg]
+    return AutoTokenAcquisitionService(
         account_selection_strategy=build_account_selection_strategy(),
         auto_login_service=build_auto_login_service(),
         token_service=build_token_service(),
-        organization_service=build_organization_service(),
     )
 
 

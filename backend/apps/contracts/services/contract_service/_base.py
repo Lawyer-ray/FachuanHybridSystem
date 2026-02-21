@@ -10,8 +10,7 @@ from django.db.models import QuerySet
 
 from apps.contracts.models import Contract
 from apps.contracts.services._contract_helpers_mixin import ContractHelpersMixin
-from apps.core import business_config
-from apps.core.business_config import BusinessConfig
+from apps.core.business_config import BusinessConfig, business_config as _default_business_config
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.core.permissions import AccessContext, PermissionMixin
 from apps.core.querysets import ContractQuerySetManager
@@ -38,7 +37,7 @@ class ContractServiceBase(ContractHelpersMixin, PermissionMixin):
         payment_service: ContractPaymentService | None = None,
         supplementary_agreement_service: SupplementaryAgreementService | None = None,
     ):
-        self.config = config or business_config # type: ignore
+        self.config = config or _default_business_config
         self._case_service = case_service
         self._lawyer_assignment_service = lawyer_assignment_service
         self._payment_service = payment_service

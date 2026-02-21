@@ -181,7 +181,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     def performance_display(self, obj):
         """显示性能指标"""
         if not obj.total_duration:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
         duration = float(obj.total_duration)
         if duration < 10:
             color = "#28a745"  # 绿色：快速
@@ -220,14 +220,14 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         if parts:
             return format_html_join(" | ", "{}", ((p,) for p in parts))
 
-        return format_html('<span style="color: #28a745;">一次成功</span>')
+        return format_html('<span style="color: #28a745;">{}</span>', "一次成功")
 
     attempts_display.short_description = _("尝试统计")
 
     def duration_display(self, obj):
         """显示详细耗时信息"""
         if not obj.total_duration:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         total_text = f"{obj.total_duration:.1f}s"
         parts = [format_html('总计: <span style="font-weight: bold;">{}</span>', total_text)]
@@ -243,7 +243,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     def error_details_display(self, obj):
         """格式化显示错误详情"""
         if not obj.error_details:
-            return format_html('<span style="color: #999;">-</span>')
+            return format_html('<span style="color: #999;">{}</span>', "-")
 
         try:
             import json
@@ -270,7 +270,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     def performance_summary(self, obj):
         """性能汇总信息"""
         if not obj.total_duration:
-            return format_html('<p style="color: #999;">无性能数据</p>')
+            return format_html('<p style="color: #999;">{}</p>', "无性能数据")
 
         # 构建性能汇总表格
         total_duration_text = f"{obj.total_duration:.2f} 秒"

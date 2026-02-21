@@ -84,8 +84,8 @@ class TestAPILayerCompliance:
         try:
             source = inspect.getsource(api_module)
 
-            # 检查是否有工厂函数定义
-            factory_function_pattern = r"def\s+_get_\w+_service\(\s*\):"
+            # 检查是否有工厂函数定义（支持带返回类型注解的函数签名）
+            factory_function_pattern = r"def\s+_get_\w+_service\([^)]*\)(?:\s*->[^:]+)?:"
             factory_functions = re.findall(factory_function_pattern, source)
 
             # 检查视图函数中的Service实例化模式
@@ -158,8 +158,8 @@ class TestAPILayerCompliance:
         try:
             source = inspect.getsource(api_module)
 
-            # 检查工厂函数中是否正确使用ServiceLocator
-            factory_function_pattern = r"def\s+_get_\w+_service\(\s*\):(.*?)(?=\n\n|\ndef|\n@|\Z)"
+            # 检查工厂函数中是否正确使用ServiceLocator（支持带返回类型注解的函数签名）
+            factory_function_pattern = r"def\s+_get_\w+_service\([^)]*\)(?:\s*->[^:]+)?:(.*?)(?=\n\n|\ndef|\n@|\Z)"
             factory_matches = re.findall(factory_function_pattern, source, re.DOTALL)
 
             for factory_body in factory_matches:
@@ -413,8 +413,8 @@ class TestAPILayerCompliance:
             try:
                 source = inspect.getsource(api_module)
 
-                # 检查1: 工厂函数使用
-                factory_function_pattern = r"def\s+_get_\w+_service\(\s*\):"
+                # 检查1: 工厂函数使用（支持带返回类型注解的函数签名）
+                factory_function_pattern = r"def\s+_get_\w+_service\([^)]*\)(?:\s*->[^:]+)?:"
                 factory_functions = re.findall(factory_function_pattern, source)
 
                 view_function_pattern = r"@router\.(get|post|put|delete|patch)"
@@ -786,8 +786,8 @@ class TestAPILayerFileStructureCompliance:
             router_decorators = re.findall(r"@router\.(get|post|put|delete|patch)", content)
 
             if router_decorators:
-                # 如果有视图函数，检查工厂函数
-                factory_functions = re.findall(r"def\s+_get_\w+_service\(\s*\):", content)
+                # 如果有视图函数，检查工厂函数（支持带返回类型注解的函数签名）
+                factory_functions = re.findall(r"def\s+_get_\w+_service\([^)]*\)(?:\s*->[^:]+)?:", content)
 
                 # 至少应该有一个工厂函数
                 assert factory_functions, f"API文件 {api_file.name} 包含视图函数但缺少工厂函数"

@@ -92,16 +92,16 @@ class CourtTokenAdmin(admin.ModelAdmin):
     def status_display(self, obj):
         """显示 Token 状态（有效/过期）"""
         if obj.is_expired():
-            return format_html('<span style="color: red; font-weight: bold;">❌ 已过期</span>')
+            return format_html('<span style="color: red; font-weight: bold;">{}</span>', "❌ 已过期")
         else:
-            return format_html('<span style="color: green; font-weight: bold;">✅ 有效</span>')
+            return format_html('<span style="color: green; font-weight: bold;">{}</span>', "✅ 有效")
 
     status_display.short_description = _("状态")
 
     def remaining_time(self, obj):
         """剩余有效时间"""
         if obj.is_expired():
-            return format_html('<span style="color: red;">已过期</span>')
+            return format_html('<span style="color: red;">{}</span>', "已过期")
 
         now = timezone.now()
         remaining = obj.expires_at - now
