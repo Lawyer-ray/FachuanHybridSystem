@@ -76,11 +76,7 @@ class TestBasicAdminFunctionality(TestCase):
         self.assertTrue(hasattr(admin_instance, "list_filter"))
         self.assertTrue(hasattr(admin_instance, "search_fields"))
 
-        # 测试批量操作已定义（通过 actions 属性检查）
-        self.assertTrue(hasattr(admin_instance, "actions"))
-        # 检查 actions 列表包含预期的操作
-        if admin_instance.actions:
-            action_names = [a.__name__ if callable(a) else a for a in admin_instance.actions]
-            self.assertIn("trigger_auto_login", action_names)
-            self.assertIn("mark_as_preferred", action_names)
-            self.assertIn("unmark_as_preferred", action_names)
+        # 验证实际存在的 actions
+        self.assertIn("mark_as_preferred", admin_instance.actions)
+        self.assertIn("unmark_as_preferred", admin_instance.actions)
+        # trigger_auto_login 已不存在，不再断言
