@@ -3,12 +3,16 @@
 提供一个简单的表单，快速创建文书下载任务
 """
 
+from __future__ import annotations
+
+from typing import Any, ClassVar
+
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
-from django.urls import path, reverse
+from django.urls import URLPattern, path, reverse
 from django.utils.html import escape
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import NamerTool, ScraperTask, ScraperTaskType
 
@@ -23,31 +27,31 @@ class QuickDownloadTool(NamerTool):
 
 
 # @admin.register(QuickDownloadTool)  # 隐藏快速下载页面，保留功能代码
-class QuickDownloadAdmin(admin.ModelAdmin):
+class QuickDownloadAdmin(admin.ModelAdmin[QuickDownloadTool]):
     """快速下载文书管理类"""
 
-    change_list_template = None
+    change_list_template: ClassVar[str | None] = None
 
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
-        custom = [
+        custom: list[URLPattern] = [
             path("download/", self.admin_site.admin_view(self.download_view), name="{}_{}_download".format(*info)),
             path("", self.admin_site.admin_view(self.redirect_to_download)),
         ]
-        return custom + urls
+        return custom + urls  # type: ignore[return-value]
 
-    def redirect_to_download(self, request):
+    def redirect_to_download(self, request: HttpRequest) -> HttpResponseRedirect:
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:{}_{}_download".format(*info)))
 
-    def download_view(self, request):
+    def download_view(self, request: HttpRequest) -> HttpResponse:
         """快速下载主视图"""
         if request.method == "POST":
             return self._handle_post(request)
         return self._render_form(request)
 
-    def _handle_post(self, request):
+    def _handle_post(self, request: HttpRequest) -> HttpResponse:
         """处理POST请求"""
         url = request.POST.get("url", "").strip()
         case_id = request.POST.get("case_id", "").strip()
@@ -55,20 +59,17 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         if not url:
             return self._render_form(request, error="请输入文书链接")
 
-        # 验证链接格式
         if not ("zxfw.court.gov.cn" in url or "sd.gdems.com" in url):
             return self._render_form(request, error="不支持的链接格式，仅支持 zxfw.court.gov.cn 和 sd.gdems.com")
 
         try:
-            # 创建下载任务
-            task_data = {
+            task_data: dict[str, Any] = {
                 "task_type": ScraperTaskType.COURT_DOCUMENT,
                 "url": url,
-                "priority": 3,  # 高优先级
+                "priority": 3,
                 "config": {},
             }
 
-            # 如果指定了案件 ID，关联案件
             if case_id:
                 try:
                     task_data["case_id"] = int(case_id)
@@ -77,7 +78,6 @@ class QuickDownloadAdmin(admin.ModelAdmin):
 
             task = ScraperTask.objects.create(**task_data)
 
-            # 提交到后台队列
             from django_q.tasks import async_task
 
             async_task("apps.automation.tasks.execute_scraper_task", task.id)
@@ -87,12 +87,11 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         except Exception as e:
             return self._render_form(request, error=f"创建任务失败: {e!s}")
 
-    def _render_form(self, request, error=None):
+    def _render_form(self, request: HttpRequest, error: str | None = None) -> HttpResponse:
         """渲染下载表单"""
         csrf_token = get_token(request)
         error_html = f'<div class="error-msg">❌ {escape(error)}</div>' if error else ""
 
-        # 获取最近的下载任务
         recent_tasks = ScraperTask.objects.filter(task_type=ScraperTaskType.COURT_DOCUMENT).order_by("-created_at")[:10]
 
         tasks_html = ""
@@ -104,7 +103,6 @@ class QuickDownloadAdmin(admin.ModelAdmin):
                 "failed": "#dc3545",
             }.get(task.status, "#666")
 
-            # 提取链接类型
             link_type = "zxfw" if "zxfw.court.gov.cn" in task.url else "gdems"
             link_icon = "⚖️" if link_type == "zxfw" else "📧"
 
@@ -223,7 +221,7 @@ class QuickDownloadAdmin(admin.ModelAdmin):
 </html>"""
         return HttpResponse(html)
 
-    def _render_result(self, task):
+    def _render_result(self, task: ScraperTask) -> HttpResponse:
         """渲染任务创建结果"""
         link_type = "zxfw.court.gov.cn" if "zxfw.court.gov.cn" in task.url else "sd.gdems.com"
 
