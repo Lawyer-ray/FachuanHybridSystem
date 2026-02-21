@@ -3,12 +3,15 @@
 独立的Admin模块
 """
 
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, ClassVar
+
 from django import forms
-from django.conf import settings
 from django.contrib import admin
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
-from typing import Any
 from django.urls import path, reverse
 
 from apps.automation.models import NamerTool
@@ -33,21 +36,21 @@ class AutoNamerToolForm(forms.Form):
 
 
 @admin.register(NamerTool)
-class AutoNamerToolAdmin(admin.ModelAdmin):
+class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
     """自动命名工具管理类"""
 
     change_list_template = None
 
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
-        custom = [
+        custom: list[Any] = [
             path("process/", self.admin_site.admin_view(self.process_view), name="{}_{}_process".format(*info)),
             path("", self.admin_site.admin_view(self.redirect_to_process)),
         ]
         return custom + urls
 
-    def redirect_to_process(self, request):
+    def redirect_to_process(self, request: HttpRequest) -> HttpResponseRedirect:
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:{}_{}_process".format(*info)))
 
@@ -112,9 +115,10 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
     def _render_ai_result(self, model: str, prompt: str, text: str, extraction: Any, return_url: str) -> HttpResponse:
         """调用 AI 并渲染结果"""
         try:
-            messages = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
-            base_url = getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")
-            ollama_result = ollama_chat(model=model, messages=messages, base_url=base_url)
+            msg_list = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
+            from django.conf import settings as django_settings
+            base_url = getattr(django_settings, "OLLAMA_BASE_URL", "http://localhost:11434")
+            ollama_result = ollama_chat(model=model, messages=msg_list, base_url=base_url)
 
             response_text = "无返回内容"
             if isinstance(ollama_result, dict):
@@ -177,7 +181,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
             """
             return HttpResponse(html)
 
-    def process_view(self, request: Any) -> HttpResponse:
+    def process_view(self, request: HttpRequest) -> HttpResponse:
         """自动命名工具主视图"""
         if request.method == "POST":
             form = AutoNamerToolForm(request.POST, request.FILES)
@@ -216,14 +220,14 @@ class AutoNamerToolAdmin(admin.ModelAdmin):
         """
         return HttpResponse(html)
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: HttpRequest, obj: NamerTool | None = None) -> bool:
         return True
 
-    def has_view_permission(self, request, obj=None):
+    def has_view_permission(self, request: HttpRequest, obj: NamerTool | None = None) -> bool:
         return True
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: HttpRequest, obj: NamerTool | None = None) -> bool:
         return False

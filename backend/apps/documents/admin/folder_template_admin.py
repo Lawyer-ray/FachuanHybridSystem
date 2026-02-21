@@ -29,7 +29,7 @@ from apps.documents.models import (
 logger = logging.getLogger(__name__)
 
 
-def _get_admin_service() -> None:
+def _get_admin_service() -> Any:
     """工厂函数:获取Admin服务实例"""
     from apps.documents.services.folder_template_admin_service import FolderTemplateAdminService
 
@@ -183,7 +183,7 @@ class FolderTemplateForm(forms.ModelForm):
 
 
 @admin.register(FolderTemplate)
-class FolderTemplateAdmin(admin.ModelAdmin):
+class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[type-arg]
     """
     文件夹模板管理
 
@@ -192,7 +192,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
 
     form = FolderTemplateForm  # 使用自定义表单
 
-    list_display: tuple[Any, ...] = (
+    list_display: ClassVar[tuple[str, ...]] = (
         "name",
         "template_type_display",
         "contract_types_display",
@@ -205,24 +205,24 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
-    list_filter: tuple[Any, ...] = (
+    list_filter: ClassVar[tuple[str, ...]] = (
         "template_type",
         "is_active",
     )
 
-    search_fields: tuple[Any, ...] = ("name",)
+    search_fields: ClassVar[tuple[str, ...]] = ("name",)
 
-    list_per_page: int = 50  # 每页显示50个模板
+    list_per_page: int = 50
 
-    ordering: ClassVar = ["-updated_at"]  # 按更新时间倒序排列
+    ordering: ClassVar[list[str]] = ["-updated_at"]
 
-    readonly_fields: tuple[Any, ...] = (
+    readonly_fields: ClassVar[tuple[str, ...]] = (
         "created_at",
         "updated_at",
         "structure_preview",
     )
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (None, {"fields": ("name",)}),
         (_("模板类型"), {"fields": ("template_type",), "description": _("选择此模板用于合同还是案件,必须二选一")}),
         (
@@ -246,59 +246,52 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
-    actions: ClassVar = ["activate_templates", "deactivate_templates", "duplicate_templates"]
+    actions: ClassVar[list[str]] = ["activate_templates", "deactivate_templates", "duplicate_templates"]
 
-    # 自定义模板用于 SortableJS 拖拽界面
     change_form_template: str = "admin/documents/foldertemplate/change_form.html"
 
     class Media:
-        css: ClassVar = {"all": ("documents/css/folder_tree.css", "documents/css/multi_select.css")}
-        js: tuple[Any, ...] = ("documents/js/folder_tree.js", "documents/js/template_type_toggle.js")
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/folder_tree.css", "documents/css/multi_select.css")}
+        js: ClassVar[tuple[str, ...]] = ("documents/js/folder_tree.js", "documents/js/template_type_toggle.js")
 
-    def template_type_display(self, obj) -> None:
+    @admin.display(description=_("模板类型"))
+    def template_type_display(self, obj: FolderTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display
+        return obj.template_type_display  # type: ignore[no-any-return]
 
-    template_type_display.short_description = _("模板类型")
-
-    def contract_types_display(self, obj) -> None:
+    @admin.display(description=_("合同类型"))
+    def contract_types_display(self, obj: FolderTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display
+        return obj.contract_types_display  # type: ignore[no-any-return]
 
-    contract_types_display.short_description = _("合同类型")
-
-    def case_types_display(self, obj) -> None:
+    @admin.display(description=_("案件类型"))
+    def case_types_display(self, obj: FolderTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display
+        return obj.case_types_display  # type: ignore[no-any-return]
 
-    case_types_display.short_description = _("案件类型")
-
-    def case_stage_display(self, obj) -> None:
+    @admin.display(description=_("案件阶段"))
+    def case_stage_display(self, obj: FolderTemplate) -> str:
         """显示案件阶段"""
         stages = obj.case_stages or []
         if not stages:
-            return "-"  # 空值显示为"-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])
+            return "-"
+        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[return-value]
 
-    case_stage_display.short_description = _("案件阶段")
-
-    def legal_statuses_display(self, obj) -> None:
+    @admin.display(description=_("我方诉讼地位"))
+    def legal_statuses_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位"""
         if obj.template_type != "case":
             return "-"
-        return obj.get_legal_statuses_display() or "任意"
+        return obj.get_legal_statuses_display() or "任意"  # type: ignore[no-any-return]
 
-    legal_statuses_display.short_description = _("我方诉讼地位")
-
-    def legal_status_match_mode_display(self, obj) -> None:
+    @admin.display(description=_("匹配模式"))
+    def legal_status_match_mode_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位匹配模式"""
         if obj.template_type != "case":
             return "-"
-        return obj.get_legal_status_match_mode_display()
+        return obj.get_legal_status_match_mode_display()  # type: ignore[no-any-return]
 
-    legal_status_match_mode_display.short_description = _("匹配模式")
-
-    def get_urls(self) -> None:
+    def get_urls(self) -> list[Any]:
         """添加自定义URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -325,17 +318,16 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def validate_structure_view(self, request) -> None:
+    def validate_structure_view(self, request: Any) -> JsonResponse:
         """AJAX结构验证视图"""
         admin_service = _get_admin_service()
         try:
             import json
 
-            data = json.loads(request.body)
+            data: dict[str, Any] = json.loads(request.body)
         except Exception:
             logger.exception("操作失败")
-
-            data: dict[str, Any] = {}
+            data = {}
 
         result = admin_service.validate_structure_ids(
             structure=data.get("structure"),
@@ -343,13 +335,13 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         )
         return JsonResponse(result)
 
-    def duplicate_report_view(self, request) -> None:
+    def duplicate_report_view(self, request: Any) -> JsonResponse:
         """重复ID报告视图"""
         admin_service = _get_admin_service()
         report_data = admin_service.get_duplicate_report()
         return JsonResponse(report_data)
 
-    def initialize_defaults_view(self, request) -> None:
+    def initialize_defaults_view(self, request: Any) -> Any:
         """初始化默认模板视图"""
         from django.contrib import messages
         from django.shortcuts import redirect
@@ -371,10 +363,9 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             else:
                 messages.error(request, message)
 
-        # 重定向回列表页面
         return redirect("admin:documents_foldertemplate_changelist")
 
-    def get_structure_json_view(self, request, pk) -> None:
+    def get_structure_json_view(self, request: Any, pk: int) -> JsonResponse:
         """获取文件夹模板结构JSON(供AJAX调用)"""
         try:
             template = FolderTemplate.objects.get(pk=pk)
@@ -382,24 +373,22 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         except FolderTemplate.DoesNotExist:
             return JsonResponse({"success": False, "error": "模板不存在"}, status=404)
 
-    def get_form(self, request, obj=None, **kwargs) -> None:
+    def get_form(self, request: Any, obj: FolderTemplate | None = None, **kwargs: Any) -> Any:
         """获取表单实例,传入request对象"""
         FormClass = super().get_form(request, obj, **kwargs)
 
-        class FormWithRequest(FormClass):
-            def __init__(self, *args, **kwargs) -> None:
+        class FormWithRequest(FormClass):  # type: ignore[valid-type]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
                 kwargs["request"] = request
                 super().__init__(*args, **kwargs)
 
         return FormWithRequest
 
-    def save_model(self, request, obj, form, change) -> None:
+    def save_model(self, request: Any, obj: FolderTemplate, form: Any, change: bool) -> None:
         """保存模型 - 处理自动修复的结构并显示消息"""
-        # 如果表单中的结构被自动修复了,需要更新对象
         if hasattr(form, "cleaned_data") and "structure" in form.cleaned_data:
             obj.structure = form.cleaned_data["structure"]
 
-        # 显示自动修复消息
         if hasattr(form, "_fix_messages"):
             from django.contrib import messages
 
@@ -408,14 +397,12 @@ class FolderTemplateAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
-    def folder_count_display(self, obj) -> None:
+    @admin.display(description=_("文件夹数量"))
+    def folder_count_display(self, obj: FolderTemplate) -> int:
         """显示文件夹数量"""
-        count = self._count_folders(obj.structure)
-        return count
+        return self._count_folders(obj.structure)
 
-    folder_count_display.short_description = _("文件夹数量")
-
-    def _count_folders(self, structure) -> None:
+    def _count_folders(self, structure: Any) -> int:
         """递归计算文件夹数量"""
         if not structure:
             return 0
@@ -426,7 +413,8 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             count += self._count_folders(child)
         return count
 
-    def structure_preview(self, obj) -> None:
+    @admin.display(description=_("结构预览"))
+    def structure_preview(self, obj: FolderTemplate) -> Any:
         """文件夹结构预览"""
         if not obj.structure:
             return _("暂无结构")
@@ -434,15 +422,13 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         html = self._render_structure_tree(obj.structure)
         return format_html('<div class="folder-structure-preview">{}</div>', html)
 
-    structure_preview.short_description = _("结构预览")
-
-    def _render_structure_tree(self, structure, level=0) -> None:
+    def _render_structure_tree(self, structure: Any, level: int = 0) -> Any:
         """递归渲染文件夹树"""
         admin_service = _get_admin_service()
         return admin_service.render_structure_tree(structure, level)
 
     @admin.action(description=_("启用选中的模板"))
-    def activate_templates(self, request, queryset) -> None:
+    def activate_templates(self, request: Any, queryset: Any) -> None:
         """批量启用模板"""
         updated = 0
         for template in queryset:
@@ -453,7 +439,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"已启用 {updated} 个模板"))
 
     @admin.action(description=_("禁用选中的模板"))
-    def deactivate_templates(self, request, queryset) -> None:
+    def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         updated = 0
         for template in queryset:
@@ -464,7 +450,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"已禁用 {updated} 个模板"))
 
     @admin.action(description=_("复制选中的模板"))
-    def duplicate_templates(self, request, queryset) -> None:
+    def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文件夹模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)

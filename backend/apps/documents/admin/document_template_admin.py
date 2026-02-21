@@ -31,14 +31,14 @@ from apps.documents.storage import get_docx_templates_root, list_docx_templates_
 logger = logging.getLogger(__name__)
 
 
-def _get_template_service() -> None:
+def _get_template_service() -> Any:
     """工厂函数获取模板服务"""
     from apps.documents.services.template_service import DocumentTemplateService
 
     return DocumentTemplateService()
 
 
-def _get_admin_service() -> None:
+def _get_admin_service() -> Any:
     """工厂函数获取Admin服务"""
     from apps.documents.services.document_template_admin_service import DocumentTemplateAdminService
 
@@ -280,7 +280,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
 
 @admin.register(DocumentTemplate)
-class DocumentTemplateAdmin(admin.ModelAdmin):
+class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore[type-arg]
     """
     文书模板管理
 
@@ -289,7 +289,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
 
     form = DocumentTemplateForm
 
-    list_display: tuple[Any, ...] = (
+    list_display: ClassVar[tuple[str, ...]] = (
         "name",
         "template_type_display",
         "file_location_display",
@@ -298,25 +298,25 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
-    list_filter: tuple[Any, ...] = (
+    list_filter: ClassVar[tuple[str, ...]] = (
         "template_type",
         "is_active",
     )
 
-    search_fields: tuple[Any, ...] = (
+    search_fields: ClassVar[tuple[str, ...]] = (
         "name",
         "description",
     )
 
-    ordering: ClassVar = ["-updated_at"]
+    ordering: ClassVar[list[str]] = ["-updated_at"]
 
-    readonly_fields: tuple[Any, ...] = (
+    readonly_fields: ClassVar[tuple[str, ...]] = (
         "current_file_display",
         "placeholders_display",
         "undefined_placeholders_display",
     )
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (None, {"fields": ("name", "description", "function_code")}),
         (
             _("模板类型"),
@@ -358,15 +358,15 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         ),
     )
 
-    inlines: ClassVar = [DocumentTemplateFolderBindingInline]
+    inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
 
-    actions: ClassVar = ["activate_templates", "deactivate_templates", "refresh_placeholders", "duplicate_templates"]
+    actions: ClassVar[list[str]] = ["activate_templates", "deactivate_templates", "refresh_placeholders", "duplicate_templates"]
 
     class Media:
-        css: ClassVar = {"all": ("documents/css/multi_select.css",)}
-        js: tuple[Any, ...] = ("documents/js/template_type_toggle.js",)
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/multi_select.css",)}
+        js: ClassVar[tuple[str, ...]] = ("documents/js/template_type_toggle.js",)
 
-    def get_search_results(self, request, queryset, search_term) -> None:
+    def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
         if request.GET.get("field_name") == "export_template":
             queryset = queryset.filter(
@@ -376,7 +376,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             )
         return queryset, use_distinct
 
-    def get_urls(self) -> None:
+    def get_urls(self) -> list[Any]:
         """添加自定义下载URL"""
         from django.urls import path
 
@@ -390,7 +390,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def download_view(self, request, pk) -> None:
+    def download_view(self, request: Any, pk: int) -> Any:
         """下载文件视图"""
         from django.http import FileResponse, Http404
 
@@ -402,62 +402,53 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         if not file_path or not Path(file_path).exists():
             raise Http404("文件不存在")
 
-        # 获取文件名
         filename = Path(file_path).name
         response = FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)
         return response
 
-    def template_type_display(self, obj) -> None:
+    @admin.display(description=_("模板类型"))
+    def template_type_display(self, obj: DocumentTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display
+        return obj.template_type_display  # type: ignore[no-any-return]
 
-    template_type_display.short_description = _("模板类型")
-
-    def contract_types_display(self, obj) -> None:
+    @admin.display(description=_("合同类型"))
+    def contract_types_display(self, obj: DocumentTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display
+        return obj.contract_types_display  # type: ignore[no-any-return]
 
-    contract_types_display.short_description = _("合同类型")
-
-    def case_types_display(self, obj) -> None:
+    @admin.display(description=_("案件类型"))
+    def case_types_display(self, obj: DocumentTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display
+        return obj.case_types_display  # type: ignore[no-any-return]
 
-    case_types_display.short_description = _("案件类型")
-
-    def case_stage_display(self, obj) -> None:
+    @admin.display(description=_("案件阶段"))
+    def case_stage_display(self, obj: DocumentTemplate) -> str:
         """显示案件阶段"""
         stages = obj.case_stages or []
         if not stages:
             return "-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])
+        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[return-value]
 
-    case_stage_display.short_description = _("案件阶段")
-
-    def current_file_display(self, obj) -> None:
+    @admin.display(description=_("当前文件"))
+    def current_file_display(self, obj: DocumentTemplate) -> Any:
         """显示当前文件(只读,不可点击)"""
         if not obj.pk:
             return _("新建模板,请上传文件")
         if obj.file:
-            # 获取绝对路径
             absolute_path = obj.file.path if hasattr(obj.file, "path") else str(obj.file)
             return format_html('<span style="color: #2e7d32;" title="{}">📄 {}</span>', absolute_path, obj.file.name)
         elif obj.file_path:
-            # 如果是相对路径,转换为绝对路径
             absolute_path = Path(obj.file_path).resolve() if not Path(obj.file_path).is_absolute() else obj.file_path
             return format_html('<span style="color: #1565c0;" title="{}">📁 {}</span>', absolute_path, obj.file_path)
         return format_html('<span style="color: #c62828;">{}</span>', "⚠️ 未设置文件")
 
-    current_file_display.short_description = _("当前文件")
-
-    def file_location_display(self, obj) -> None:
+    @admin.display(description=_("文件位置"))
+    def file_location_display(self, obj: DocumentTemplate) -> Any:
         """显示文件位置,可点击下载"""
         from django.urls import reverse
 
         if obj.file:
-            # 生成下载链接
             download_url = reverse("admin:documents_documenttemplate_download", args=[obj.pk])
-            # 获取绝对路径
             absolute_path = obj.file.path if hasattr(obj.file, "path") else str(obj.file)
             return format_html(
                 '<a href="{}" title="点击下载 | 绝对路径: {}" target="_blank">📄 {}</a>',
@@ -467,7 +458,6 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             )
         elif obj.file_path:
             download_url = reverse("admin:documents_documenttemplate_download", args=[obj.pk])
-            # 如果是相对路径,转换为绝对路径
             absolute_path = Path(obj.file_path).resolve() if not Path(obj.file_path).is_absolute() else obj.file_path
             return format_html(
                 '<a href="{}" title="点击下载 | 绝对路径: {}" target="_blank">📁 {}</a>',
@@ -477,21 +467,18 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "未设置")
 
-    file_location_display.short_description = _("文件位置")
-
-    def placeholder_count_display(self, obj) -> None:
+    @admin.display(description=_("占位符"))
+    def placeholder_count_display(self, obj: DocumentTemplate) -> Any:
         """显示占位符数量"""
         try:
             service = _get_template_service()
             placeholders = service.extract_placeholders(obj)
             undefined = service.get_undefined_placeholders(obj)
 
-            # 构建悬停提示信息
             all_placeholders_text = ", ".join(placeholders) if placeholders else "无占位符"
 
             if undefined:
-                # 显示未定义占位符的具体名称
-                undefined_names = ", ".join(undefined[:3])  # 最多显示3个
+                undefined_names = ", ".join(undefined[:3])
                 if len(undefined) > 3:
                     undefined_names += f" 等{len(undefined)}个"
 
@@ -505,15 +492,13 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
                     undefined_names,
                 )
             else:
-                # 没有未定义占位符时,显示所有占位符
                 return format_html('<span title="所有占位符: {}">{}</span>', all_placeholders_text, len(placeholders))
         except Exception as e:
             logger.error(f"提取占位符失败 - 模板ID: {obj.id}, 错误: {e}", exc_info=True)
             return format_html('<span style="color: #c62828;" title="{}">错误</span>', str(e))
 
-    placeholder_count_display.short_description = _("占位符")
-
-    def placeholders_display(self, obj) -> None:
+    @admin.display(description=_("占位符列表"))
+    def placeholders_display(self, obj: DocumentTemplate) -> Any:
         """显示占位符列表"""
         if not obj.pk:
             return _("保存后可查看占位符")
@@ -529,9 +514,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             logger.exception("操作失败")
             return format_html('<span style="color: #c62828;">提取失败: {}</span>', str(e))
 
-    placeholders_display.short_description = _("占位符列表")
-
-    def undefined_placeholders_display(self, obj) -> None:
+    @admin.display(description=_("未定义占位符"))
+    def undefined_placeholders_display(self, obj: DocumentTemplate) -> Any:
         """显示未定义的占位符(高亮警告)"""
         if not obj.pk:
             return _("保存后可查看")
@@ -546,10 +530,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             logger.exception("操作失败")
             return format_html('<span style="color: #c62828;">检查失败: {}</span>', str(e))
 
-    undefined_placeholders_display.short_description = _("未定义占位符")
-
     @admin.action(description=_("启用选中的模板"))
-    def activate_templates(self, request, queryset) -> None:
+    def activate_templates(self, request: Any, queryset: Any) -> None:
         """批量启用模板"""
         updated = 0
         for template in queryset:
@@ -560,7 +542,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"已启用 {updated} 个模板"))
 
     @admin.action(description=_("禁用选中的模板"))
-    def deactivate_templates(self, request, queryset) -> None:
+    def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         updated = 0
         for template in queryset:
@@ -571,18 +553,18 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"已禁用 {updated} 个模板"))
 
     @admin.action(description=_("刷新占位符信息"))
-    def refresh_placeholders(self, request, queryset) -> None:
+    def refresh_placeholders(self, request: Any, queryset: Any) -> None:
         """刷新占位符信息(触发重新解析)"""
         count = queryset.count()
         self.message_user(request, _(f"已刷新 {count} 个模板的占位符信息"))
 
     @admin.action(description=_("复制选中的模板"))
-    def duplicate_templates(self, request, queryset) -> None:
+    def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文书模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)
         self.message_user(request, _(f"已复制 {count} 个模板"))
 
-    def save_model(self, request, obj, form, change) -> None:
+    def save_model(self, request: Any, obj: DocumentTemplate, form: Any, change: bool) -> None:
         """保存模型时的额外处理"""
         super().save_model(request, obj, form, change)

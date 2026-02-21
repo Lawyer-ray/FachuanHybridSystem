@@ -145,8 +145,7 @@ class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
                 return HttpResponseRedirect(request.path)
         return super().response_change(request, obj)
 
-    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
-        """为选中的案件创建飞书群聊"""
+    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:        """为选中的案件创建飞书群聊"""
         service = _get_case_chat_service()
         success_count = 0
         error_count = 0

@@ -3,9 +3,13 @@
 独立的Admin模块
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from django import forms
 from django.contrib import admin
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import path, reverse
 
@@ -22,15 +26,15 @@ class DocumentProcessorForm(forms.Form):
 
 
 # @admin.register(AutomationTool)  # 隐藏文档处理模块，不在Django后台显示
-class DocumentProcessorAdmin(admin.ModelAdmin):
+class DocumentProcessorAdmin(admin.ModelAdmin[AutomationTool]):
     """文档处理工具管理类"""
 
     change_list_template = None
 
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
-        custom = [
+        custom: list[Any] = [
             path(
                 "process-document/",
                 self.admin_site.admin_view(self.process_view),
@@ -40,11 +44,11 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         ]
         return custom + urls
 
-    def redirect_to_process(self, request):
+    def redirect_to_process(self, request: HttpRequest) -> HttpResponseRedirect:
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:{}_{}_process_document".format(*info)))
 
-    def process_view(self, request):
+    def process_view(self, request: HttpRequest) -> HttpResponse:
         """文档处理主视图"""
         if request.method == "POST":
             form = DocumentProcessorForm(request.POST, request.FILES)
@@ -120,14 +124,14 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         """
         return HttpResponse(html)
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
         return True
 
-    def has_view_permission(self, request, obj=None):
+    def has_view_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
         return False

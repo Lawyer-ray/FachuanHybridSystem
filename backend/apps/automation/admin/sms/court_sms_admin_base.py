@@ -4,12 +4,17 @@
 包含列表显示、字段配置、筛选器等基础 Admin 配置.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
@@ -17,18 +22,18 @@ from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
 logger = logging.getLogger("apps.automation")
 
 
-def _get_case_service() -> None:
+def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_case_service()
 
 
-class CourtSMSAdminBase(admin.ModelAdmin):
+class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     """法院短信管理基础配置"""
 
     # 列表显示字段
-    list_display: list[Any] = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "status_display",
         "sms_type_display",
@@ -43,7 +48,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     ]
 
     # 列表筛选器
-    list_filter: list[Any] = [
+    list_filter: ClassVar[list[Any]] = [
         "status",
         "sms_type",
         "received_at",
@@ -52,19 +57,19 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     ]
 
     # 搜索字段
-    search_fields: list[Any] = [
+    search_fields: ClassVar[list[str]] = [
         "content",
         "case__name",
     ]
 
     # 排序
-    ordering: list[Any] = []
+    ordering: ClassVar[list[str]] = []
 
     # 分页
     list_per_page: int = 20
 
     # 只读字段
-    readonly_fields: list[Any] = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "created_at",
         "updated_at",
@@ -79,7 +84,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     ]
 
     # 字段分组
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (
             _("基本信息"),
             {
@@ -143,7 +148,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         ),
     )
 
-    def status_display(self, obj) -> None:
+    @admin.display(description=_("处理状态"))
+    def status_display(self, obj: CourtSMS) -> SafeString:
         """状态显示(带颜色)"""
         status_colors = {
             CourtSMSStatus.PENDING: "orange",
@@ -160,9 +166,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         color = status_colors.get(obj.status, "gray")
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = _("处理状态")
-
-    def sms_type_display(self, obj) -> None:
+    @admin.display(description=_("短信类型"))
+    def sms_type_display(self, obj: CourtSMS) -> str:
         """短信类型显示"""
         if not obj.sms_type:
             return "-"
@@ -175,9 +180,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         icon = type_icons.get(obj.sms_type, "❓")
         return f"{icon} {obj.get_sms_type_display()}"
 
-    sms_type_display.short_description = _("短信类型")
-
-    def case_display(self, obj) -> None:
+    @admin.display(description=_("关联案件"))
+    def case_display(self, obj: CourtSMS) -> SafeString | str:
         """案件显示"""
         if obj.case:
             url = reverse("admin:cases_case_change", args=[cast(int, obj.case.id)])
@@ -191,42 +195,37 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return format_html('<a href="{}" style="color: orange; font-weight: bold;">🔗 手动指定案件</a>', assign_url)
         return "-"
 
-    case_display.short_description = _("关联案件")
-
-    def content_preview(self, obj) -> None:
+    @admin.display(description=_("短信内容"))
+    def content_preview(self, obj: CourtSMS) -> str:
         """短信内容预览"""
         preview = obj.content[:100]
         if len(obj.content) > 100:
             preview += "..."
         return preview
 
-    content_preview.short_description = _("短信内容")
-
-    def has_download_links(self, obj) -> None:
+    @admin.display(description=_("下载链接"))
+    def has_download_links(self, obj: CourtSMS) -> SafeString:
         """是否有下载链接"""
         if obj.download_links:
             return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
         return format_html('<span style="color: gray;">{}</span>', "✗ 无链接")
 
-    has_download_links.short_description = _("下载链接")
-
-    def case_numbers_display(self, obj) -> None:
+    @admin.display(description=_("提取的案号"))
+    def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:
         """案号显示"""
         if obj.case_numbers:
             return format_html_join("<br>", "{}", ((n,) for n in obj.case_numbers))
         return "-"
 
-    case_numbers_display.short_description = _("提取的案号")
-
-    def party_names_display(self, obj) -> None:
+    @admin.display(description=_("提取的当事人"))
+    def party_names_display(self, obj: CourtSMS) -> SafeString | str:
         """当事人显示"""
         if obj.party_names:
             return format_html_join("<br>", "{}", ((n,) for n in obj.party_names))
         return "-"
 
-    party_names_display.short_description = _("提取的当事人")
-
-    def download_links_display(self, obj) -> None:
+    @admin.display(description=_("下载链接"))
+    def download_links_display(self, obj: CourtSMS) -> SafeString | str:
         """下载链接显示"""
         if obj.download_links:
             parts = [
@@ -236,9 +235,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
-    download_links_display.short_description = _("下载链接")
-
-    def scraper_task_link(self, obj) -> None:
+    @admin.display(description=_("下载任务"))
+    def scraper_task_link(self, obj: CourtSMS) -> SafeString | str:
         """爬虫任务链接"""
         if obj.scraper_task:
             url = reverse("admin:automation_scrapertask_change", args=[cast(int, obj.scraper_task.id)])
@@ -250,18 +248,16 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return "-"
 
-    scraper_task_link.short_description = _("下载任务")
-
-    def case_log_link(self, obj) -> None:
+    @admin.display(description=_("案件日志"))
+    def case_log_link(self, obj: CourtSMS) -> SafeString | str:
         """案件日志链接"""
         if obj.case_log:
             url = reverse("admin:cases_caselog_change", args=[cast(int, obj.case_log.id)])
             return format_html('<a href="{}" target="_blank">日志 #{}</a>', url, cast(int, obj.case_log.id))
         return "-"
 
-    case_log_link.short_description = _("案件日志")
-
-    def documents_display(self, obj) -> None:
+    @admin.display(description=_("关联文书"))
+    def documents_display(self, obj: CourtSMS) -> SafeString | str:
         """关联文书显示"""
         if obj.scraper_task and hasattr(obj.scraper_task, "documents"):
             documents = obj.scraper_task.documents.all()
@@ -284,9 +280,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                 return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
-    documents_display.short_description = _("关联文书")
-
-    def feishu_status(self, obj) -> None:
+    @admin.display(description=_("通知状态"))
+    def feishu_status(self, obj: CourtSMS) -> SafeString:
         """飞书发送状态"""
         if obj.feishu_sent_at:
             if obj.feishu_error and obj.feishu_error not in ["发送失败", ""]:
@@ -310,9 +305,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return format_html('<span style="color: gray;">{}</span>', "- 未发送")
 
-    feishu_status.short_description = _("通知状态")
-
-    def feishu_details(self, obj) -> None:
+    @admin.display(description=_("飞书通知详情"))
+    def feishu_details(self, obj: CourtSMS) -> str:
         """飞书详情"""
         if obj.feishu_sent_at:
             return f"发送时间: {obj.feishu_sent_at}"
@@ -320,9 +314,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             return f"发送失败: {obj.feishu_error}"
         return "未发送"
 
-    feishu_details.short_description = _("飞书通知详情")
-
-    def retry_button(self, obj) -> None:
+    @admin.display(description=_("操作"))
+    def retry_button(self, obj: CourtSMS) -> SafeString | str:
         """重新处理按钮"""
         if cast(int, obj.id):
             retry_url = reverse("admin:automation_courtsms_retry", args=[cast(int, obj.id)])
@@ -335,47 +328,51 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             )
         return "-"
 
-    retry_button.short_description = _("操作")
-
-    def get_search_results(self, request, queryset, search_term) -> None:
+    def get_search_results(
+        self, request: HttpRequest, queryset: QuerySet[CourtSMS], search_term: str
+    ) -> tuple[QuerySet[CourtSMS], bool]:
         """自定义搜索,支持 JSON 字段搜索"""
         queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
         return queryset, may_have_duplicates
 
-    def get_queryset(self, request) -> None:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CourtSMS]:
         """优化查询性能"""
         return super().get_queryset(request).select_related("case", "scraper_task", "case_log")
 
-    def get_fields(self, request, obj=None) -> None:
+    def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str]:
         """根据是否为新增页面返回不同的字段"""
         if obj is None:
             return ["content", "received_at"]
         else:
             return [field.name for field in self.model._meta.fields if field.name != "id"]
 
-    def get_readonly_fields(self, request, obj=None) -> None:
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: CourtSMS | None = None
+    ) -> list[str] | tuple[str, ...]:
         """根据是否为新增页面返回不同的只读字段"""
         if obj is None:
             return ["received_at"]
         else:
             return self.readonly_fields
 
-    def get_fieldsets(self, request, obj=None) -> None:
+    def get_fieldsets(
+        self, request: HttpRequest, obj: CourtSMS | None = None
+    ) -> list[tuple[str | None, dict[str, Any]]]:
         """根据是否为新增页面返回不同的字段分组"""
         if obj is None:
-            return (
+            return [
                 (
-                    _("短信信息"),
+                    str(_("短信信息")),
                     {
                         "fields": ("content", "received_at"),
                         "description": "请输入完整的法院短信内容.收到时间将自动设置为当前时间.",
                     },
                 ),
-            )
+            ]
         else:
-            return self.fieldsets
+            return list(self.fieldsets)
 
-    def get_form(self, request, obj=None, **kwargs) -> None:
+    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, **kwargs: Any) -> Any:
         """自定义表单"""
         form = super().get_form(request, obj, **kwargs)
 
