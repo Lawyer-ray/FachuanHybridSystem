@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 import csv
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Avg, Count, Q, QuerySet
@@ -246,7 +246,7 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按网站统计
             site_stats = {}
-            site_data = queryset.values("site_name").annotate(
+            site_data = queryset.values("site_name").annotate(  # type: ignore[misc]
                 total=Count("id"), success=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS))
             )
             for item in site_data:
@@ -258,7 +258,7 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按账号统计
             account_stats = {}
-            account_data = queryset.values("account").annotate(
+            account_data = queryset.values("account").annotate(  # type: ignore[misc]
                 total=Count("id"),
                 success=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS)),
                 avg_duration=Avg("total_duration"),
@@ -344,13 +344,13 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按状态统计
             status_stats = list(
-                TokenAcquisitionHistory.objects.values("status").annotate(count=Count("id")).order_by("-count")
+                TokenAcquisitionHistory.objects.values("status").annotate(count=Count("id")).order_by("-count")  # type: ignore[misc]
             )
 
             # 按网站统计
             success_filter = Q(status=TokenAcquisitionStatus.SUCCESS)
             site_stats = list(
-                TokenAcquisitionHistory.objects.values("site_name")
+                TokenAcquisitionHistory.objects.values("site_name")  # type: ignore[misc]
                 .annotate(total=Count("id"), success=Count("id", filter=success_filter))
                 .order_by("-total")
             )
