@@ -30,8 +30,9 @@ class CaseQuerySetManager:
     @classmethod
     def with_standard_prefetch(cls) -> QuerySet[Any, Any]:
         """返回带标准预加载的查询集"""
-        from apps.cases.models import Case
+        from django.apps import apps
 
+        Case = apps.get_model("cases", "Case")
         return Case.objects.select_related(*cls.SELECT_RELATED).prefetch_related(*cls.PREFETCH_RELATED)
 
     @classmethod
@@ -55,8 +56,9 @@ class ContractQuerySetManager:
     @classmethod
     def with_standard_prefetch(cls) -> QuerySet[Any, Any]:
         """返回带标准预加载的查询集"""
-        from apps.contracts.models import Contract
+        from django.apps import apps
 
+        Contract = apps.get_model("contracts", "Contract")
         return Contract.objects.prefetch_related(*cls.PREFETCH_RELATED)
 
     @classmethod
