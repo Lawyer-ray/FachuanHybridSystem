@@ -3,17 +3,24 @@ Token获取历史记录 Admin
 提供Token获取过程的详细历史记录查看功能
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
+import json
+from datetime import timedelta
+from typing import Any, ClassVar
+
 from django.contrib import admin, messages
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, QuerySet
+from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join, mark_safe
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeData, SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
 
-def _get_token_history_admin_service():
+def _get_token_history_admin_service() -> Any:
     """工厂函数：创建Token历史管理服务"""
     from apps.automation.services.admin import TokenAcquisitionHistoryAdminService
 
@@ -21,7 +28,7 @@ def _get_token_history_admin_service():
 
 
 @admin.register(TokenAcquisitionHistory)
-class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
+class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     """
     Token获取历史记录管理 Admin
 
@@ -32,7 +39,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     - 查看错误详情和性能指标
     """
 
-    list_display: ClassVar[list[str]] = [
+    list_display: ClassVar[list[str]] = [  # type: ignore[assignment,misc]
         "id",
         "site_name",
         "account",
@@ -44,7 +51,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         "created_at",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter: ClassVar[list[str]] = [  # type: ignore[assignment]
         "status",
         "site_name",
         "trigger_reason",
@@ -134,9 +141,10 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
     list_per_page = 50
 
-    def status_display(self, obj):
+    @admin.display(description=_("状态"))
+    def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """带颜色的状态显示"""
-        colors = {
+        colors: dict[str, str] = {
             TokenAcquisitionStatus.SUCCESS: "#28a745",
             TokenAcquisitionStatus.FAILED: "#dc3545",
             TokenAcquisitionStatus.TIMEOUT: "#ffc107",
@@ -144,7 +152,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             TokenAcquisitionStatus.CAPTCHA_ERROR: "#6f42c1",
             TokenAcquisitionStatus.CREDENTIAL_ERROR: "#e83e8c",
         }
-        icons = {
+        icons: dict[str, str] = {
             TokenAcquisitionStatus.SUCCESS: "✅",
             TokenAcquisitionStatus.FAILED: "❌",
             TokenAcquisitionStatus.TIMEOUT: "⏰",
@@ -157,14 +165,16 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         icon = icons.get(obj.status, "")
 
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_status_display()
+            '<span style="color: {}; font-weight: bold;">{} {}</span>',
+            color,
+            icon,
+            obj.get_status_display(),
         )
 
-    status_display.short_description = _("状态")
-
-    def trigger_reason_display(self, obj):
+    @admin.display(description=_("触发原因"))
+    def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化触发原因"""
-        reason_map = {
+        reason_map: dict[str, str] = {
             "token_expired": "🕐 Token过期",
             "no_token": "🚫 无Token",
             "manual_trigger": "👤 手动触发",
@@ -176,9 +186,8 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return format_html('<span style="font-weight: bold;">{}</span>', display_text)
 
-    trigger_reason_display.short_description = _("触发原因")
-
-    def performance_display(self, obj):
+    @admin.display(description=_("总耗时"))
+    def performance_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """显示性能指标"""
         if not obj.total_duration:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -191,63 +200,70 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             color = "#dc3545"  # 红色：慢速
 
         duration_text = f"{duration:.1f}s"
-        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, duration_text)
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>', color, duration_text
+        )
 
-    performance_display.short_description = _("总耗时")
-
-    def attempts_display(self, obj):
+    @admin.display(description=_("尝试统计"))
+    def attempts_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
         """显示尝试次数统计"""
-        parts = []
+        parts: list[SafeString] = []
 
         if obj.attempt_count > 1:
-            parts.append(format_html(
-                '重试: <span style="color: #ffc107; font-weight: bold;">{}</span>',
-                obj.attempt_count,
-            ))
+            parts.append(
+                format_html(
+                    '重试: <span style="color: #ffc107; font-weight: bold;">{}</span>',
+                    obj.attempt_count,
+                )
+            )
 
         if obj.captcha_attempts > 0:
-            parts.append(format_html(
-                '验证码: <span style="color: #6f42c1; font-weight: bold;">{}</span>',
-                obj.captcha_attempts,
-            ))
+            parts.append(
+                format_html(
+                    '验证码: <span style="color: #6f42c1; font-weight: bold;">{}</span>',
+                    obj.captcha_attempts,
+                )
+            )
 
         if obj.network_retries > 0:
-            parts.append(format_html(
-                '网络: <span style="color: #fd7e14; font-weight: bold;">{}</span>',
-                obj.network_retries,
-            ))
+            parts.append(
+                format_html(
+                    '网络: <span style="color: #fd7e14; font-weight: bold;">{}</span>',
+                    obj.network_retries,
+                )
+            )
 
         if parts:
             return format_html_join(" | ", "{}", ((p,) for p in parts))
 
-        return format_html('<span style="color: #28a745;">{}</span>', "一次成功")
+        return format_html('<span style="color: #28a745;">{}</span>', _("一次成功"))
 
-    attempts_display.short_description = _("尝试统计")
-
-    def duration_display(self, obj):
+    @admin.display(description=_("耗时详情"))
+    def duration_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
         """显示详细耗时信息"""
         if not obj.total_duration:
             return format_html('<span style="color: #999;">{}</span>', "-")
 
         total_text = f"{obj.total_duration:.1f}s"
-        parts = [format_html('总计: <span style="font-weight: bold;">{}</span>', total_text)]
+        parts: list[SafeString] = [
+            format_html('总计: <span style="font-weight: bold;">{}</span>', total_text)
+        ]
 
         if obj.login_duration:
             login_text = f"{obj.login_duration:.1f}s"
-            parts.append(format_html('登录: <span style="color: #007bff;">{}</span>', login_text))
+            parts.append(
+                format_html('登录: <span style="color: #007bff;">{}</span>', login_text)
+            )
 
         return format_html_join("<br>", "{}", ((p,) for p in parts))
 
-    duration_display.short_description = _("耗时详情")
-
-    def error_details_display(self, obj):
+    @admin.display(description=_("错误详情"))
+    def error_details_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化显示错误详情"""
         if not obj.error_details:
             return format_html('<span style="color: #999;">{}</span>', "-")
 
         try:
-            import json
-
             formatted = json.dumps(obj.error_details, ensure_ascii=False, indent=2)
 
             return format_html(
@@ -265,108 +281,164 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
                 str(obj.error_details)[:500],
             )
 
-    error_details_display.short_description = _("错误详情")
-
-    def performance_summary(self, obj):
+    @admin.display(description=_("性能汇总"))
+    def performance_summary(self, obj: TokenAcquisitionHistory) -> SafeString:
         """性能汇总信息"""
         if not obj.total_duration:
-            return format_html('<p style="color: #999;">{}</p>', "无性能数据")
+            return format_html('<p style="color: #999;">{}</p>', _("无性能数据"))
 
-        # 构建性能汇总表格
-        total_duration_text = f"{obj.total_duration:.2f} 秒"
-        html_parts = [
-            '<table style="width: 100%; border-collapse: collapse;">',
-            '<tr><td style="padding: 5px; font-weight: bold;">总耗时:</td>',
-            f'<td style="padding: 5px;">{total_duration_text}</td></tr>',
+        # 构建表格行列表
+        rows: list[SafeString] = [
+            format_html(
+                '<tr><td style="padding: 5px; font-weight: bold;">{}</td>'
+                '<td style="padding: 5px;">{}</td></tr>',
+                _("总耗时:"),
+                f"{obj.total_duration:.2f} " + str(_("秒")),
+            ),
         ]
 
         if obj.login_duration:
-            login_duration_text = f"{obj.login_duration:.2f} 秒"
-            html_parts.extend(
-                [
-                    '<tr><td style="padding: 5px; font-weight: bold;">登录耗时:</td>',
-                    f'<td style="padding: 5px;">{login_duration_text}</td></tr>',
-                ]
+            rows.append(
+                format_html(
+                    '<tr><td style="padding: 5px; font-weight: bold;">{}</td>'
+                    '<td style="padding: 5px;">{}</td></tr>',
+                    _("登录耗时:"),
+                    f"{obj.login_duration:.2f} " + str(_("秒")),
+                )
             )
 
-        html_parts.extend(
+        rows.extend(
             [
-                '<tr><td style="padding: 5px; font-weight: bold;">尝试次数:</td>',
-                f'<td style="padding: 5px;">{obj.attempt_count} 次</td></tr>',
-                '<tr><td style="padding: 5px; font-weight: bold;">验证码尝试:</td>',
-                f'<td style="padding: 5px;">{obj.captcha_attempts} 次</td></tr>',
-                '<tr><td style="padding: 5px; font-weight: bold;">网络重试:</td>',
-                f'<td style="padding: 5px;">{obj.network_retries} 次</td></tr>',
-                "</table>",
+                format_html(
+                    '<tr><td style="padding: 5px; font-weight: bold;">{}</td>'
+                    '<td style="padding: 5px;">{} {}</td></tr>',
+                    _("尝试次数:"),
+                    obj.attempt_count,
+                    _("次"),
+                ),
+                format_html(
+                    '<tr><td style="padding: 5px; font-weight: bold;">{}</td>'
+                    '<td style="padding: 5px;">{} {}</td></tr>',
+                    _("验证码尝试:"),
+                    obj.captcha_attempts,
+                    _("次"),
+                ),
+                format_html(
+                    '<tr><td style="padding: 5px; font-weight: bold;">{}</td>'
+                    '<td style="padding: 5px;">{} {}</td></tr>',
+                    _("网络重试:"),
+                    obj.network_retries,
+                    _("次"),
+                ),
             ]
         )
 
-        # 添加性能评级
-        duration = obj.total_duration
+        table = format_html(
+            '<table style="width: 100%; border-collapse: collapse;">{}</table>',
+            format_html_join("", "{}", ((row,) for row in rows)),
+        )
+
+        # 性能评级
+        duration = float(obj.total_duration)
         if duration < 10:
-            rating = '<span style="color: #28a745; font-weight: bold;">🚀 优秀</span>'
+            rating: SafeString = format_html(
+                '<span style="color: #28a745; font-weight: bold;">🚀 {}</span>', _("优秀")
+            )
         elif duration < 30:
-            rating = '<span style="color: #ffc107; font-weight: bold;">⚡ 良好</span>'
+            rating = format_html(
+                '<span style="color: #ffc107; font-weight: bold;">⚡ {}</span>', _("良好")
+            )
         else:
-            rating = '<span style="color: #dc3545; font-weight: bold;">🐌 需优化</span>'
+            rating = format_html(
+                '<span style="color: #dc3545; font-weight: bold;">🐌 {}</span>', _("需优化")
+            )
 
-        html_parts.append(f'<p style="margin-top: 10px;">性能评级: {rating}</p>')
+        return format_html(
+            '{}<p style="margin-top: 10px;">{}: {}</p>',
+            table,
+            _("性能评级"),
+            rating,
+        )
 
-        return mark_safe("".join(html_parts))
-
-    performance_summary.short_description = _("性能汇总")
-
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         """禁用添加功能（历史记录由系统自动创建）"""
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(
+        self, request: HttpRequest, obj: TokenAcquisitionHistory | None = None
+    ) -> bool:
         """禁用修改功能（历史记录不应被修改）"""
         return False
 
     # 定义批量操作
-    actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]
+    actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]  # type: ignore[misc]
 
-    def cleanup_old_records(self, request, queryset):
+    @admin.action(description=_("清理30天前的历史记录"))
+    def cleanup_old_records(
+        self,
+        request: HttpRequest,
+        queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
+    ) -> None:
         """清理旧的历史记录"""
         try:
             service = _get_token_history_admin_service()
             count = service.cleanup_old_records(days=30)
 
             if count > 0:
-                self.message_user(request, _(f"✅ 成功清理 {count} 条30天前的历史记录"))
+                self.message_user(
+                    request,
+                    _("✅ 成功清理 %(count)d 条30天前的历史记录") % {"count": count},
+                )
             else:
                 self.message_user(request, _("ℹ️ 没有找到需要清理的历史记录"))
         except Exception as e:
-            self.message_user(request, _(f"❌ 清理失败: {e!s}"), level=messages.ERROR)
+            self.message_user(
+                request, _("❌ 清理失败: %(error)s") % {"error": str(e)}, level=messages.ERROR
+            )
 
-    cleanup_old_records.short_description = _("清理30天前的历史记录")
-
-    def export_to_csv(self, request, queryset):
+    @admin.action(description=_("导出为CSV文件"))
+    def export_to_csv(
+        self,
+        request: HttpRequest,
+        queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
+    ) -> HttpResponse | None:
         """导出选中记录为CSV"""
         try:
             service = _get_token_history_admin_service()
-            response = service.export_to_csv(queryset)
+            response: HttpResponse = service.export_to_csv(queryset)
 
-            self.message_user(request, _(f"✅ 成功导出 {queryset.count()} 条记录"))
+            self.message_user(
+                request,
+                _("✅ 成功导出 %(count)d 条记录") % {"count": queryset.count()},
+            )
 
             return response
         except Exception as e:
-            self.message_user(request, _(f"❌ 导出失败: {e!s}"), level=messages.ERROR)
+            self.message_user(
+                request, _("❌ 导出失败: %(error)s") % {"error": str(e)}, level=messages.ERROR
+            )
+            return None
 
-    export_to_csv.short_description = _("导出为CSV文件")
-
-    def reanalyze_performance(self, request, queryset):
+    @admin.action(description=_("重新分析性能数据"))
+    def reanalyze_performance(
+        self,
+        request: HttpRequest,
+        queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
+    ) -> None:
         """重新分析性能数据"""
         try:
             service = _get_token_history_admin_service()
-            result = service.reanalyze_performance(queryset)
+            result: dict[str, Any] = service.reanalyze_performance(queryset)
             self._display_analysis_results(request, result)
             self._provide_performance_suggestions(request, result)
         except Exception as e:
-            self.message_user(request, f"❌ 分析失败: {e!s}", level=messages.ERROR)
+            self.message_user(
+                request, f"❌ 分析失败: {e!s}", level=messages.ERROR
+            )
 
-    def _display_analysis_results(self, request, result):
+    def _display_analysis_results(
+        self, request: HttpRequest, result: dict[str, Any]
+    ) -> None:
         """显示分析结果"""
         result_parts = [
             f"📊 分析完成：共 {result['total_count']} 条记录",
@@ -377,22 +449,32 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             result_parts.append(f"⏱️ 平均耗时：{result['avg_duration']:.1f}秒")
 
         if result["error_stats"]:
-            error_summary = "、".join([f"{k}({v})" for k, v in result["error_stats"].items()])
+            error_summary = "、".join(
+                [f"{k}({v})" for k, v in result["error_stats"].items()]
+            )
             result_parts.append(f"❌ 错误分布：{error_summary}")
 
         self.message_user(request, " | ".join(result_parts))
 
-    def _provide_performance_suggestions(self, request, result):
+    def _provide_performance_suggestions(
+        self, request: HttpRequest, result: dict[str, Any]
+    ) -> None:
         """提供性能建议"""
         if result["success_rate"] < 80:
-            self.message_user(request, "💡 建议：成功率较低，请检查账号配置和网络环境", level=messages.WARNING)
+            self.message_user(
+                request,
+                "💡 建议：成功率较低，请检查账号配置和网络环境",
+                level=messages.WARNING,
+            )
 
         if result["avg_duration"] > 30:
-            self.message_user(request, "💡 建议：平均耗时较长，请检查网络连接和服务器性能", level=messages.WARNING)
+            self.message_user(
+                request,
+                "💡 建议：平均耗时较长，请检查网络连接和服务器性能",
+                level=messages.WARNING,
+            )
 
-    reanalyze_performance.short_description = _("重新分析性能数据")
-
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         """添加自定义URL"""
         urls = super().get_urls()
         from django.urls import path
@@ -406,20 +488,18 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def dashboard_view(self, request):
+    def dashboard_view(self, request: HttpRequest) -> HttpResponse:
         """Token获取仪表板视图"""
         try:
             service = _get_token_history_admin_service()
-            stats = service.get_dashboard_statistics()
+            stats: dict[str, Any] = service.get_dashboard_statistics()
             context = self._build_dashboard_context(stats)
             return self._render_dashboard(request, context)
         except Exception as e:
             return self._render_dashboard_error(request, str(e))
 
-    def _build_dashboard_context(self, stats):
+    def _build_dashboard_context(self, stats: dict[str, Any]) -> dict[str, Any]:
         """构建仪表板上下文"""
-        import json
-
         return {
             "title": "Token获取仪表板",
             "total_records": stats["total_records"],
@@ -433,44 +513,68 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             "opts": self.model._meta,
         }
 
-    def _render_dashboard(self, request, context):
+    def _render_dashboard(
+        self, request: HttpRequest, context: dict[str, Any]
+    ) -> HttpResponse:
         """渲染仪表板"""
         from django.shortcuts import render
 
-        return render(request, "admin/automation/tokenacquisitionhistory/dashboard.html", context)
+        return render(
+            request,
+            "admin/automation/tokenacquisitionhistory/dashboard.html",
+            context,
+        )
 
-    def _render_dashboard_error(self, request, error):
+    def _render_dashboard_error(
+        self, request: HttpRequest, error: str
+    ) -> HttpResponse:
         """渲染仪表板错误页面"""
         from django.shortcuts import render
 
-        context = {"title": "Token获取仪表板", "error": error, "opts": self.model._meta}
-        return render(request, "admin/automation/tokenacquisitionhistory/dashboard.html", context)
+        context: dict[str, Any] = {
+            "title": "Token获取仪表板",
+            "error": error,
+            "opts": self.model._meta,
+        }
+        return render(
+            request,
+            "admin/automation/tokenacquisitionhistory/dashboard.html",
+            context,
+        )
 
-    def changelist_view(self, request, extra_context=None):
+    def changelist_view(
+        self,
+        request: HttpRequest,
+        extra_context: dict[str, Any] | None = None,
+    ) -> HttpResponse:
         """添加统计信息到列表页面"""
         extra_context = extra_context or {}
 
         # 计算统计信息
         total_records = TokenAcquisitionHistory.objects.count()
-        success_records = TokenAcquisitionHistory.objects.filter(status=TokenAcquisitionStatus.SUCCESS).count()
+        success_records = TokenAcquisitionHistory.objects.filter(
+            status=TokenAcquisitionStatus.SUCCESS
+        ).count()
 
         if total_records > 0:
             success_rate = (success_records / total_records) * 100
         else:
-            success_rate = 0
+            success_rate = 0.0
 
         # 最近24小时的统计
-        last_24h = timezone.now() - timezone.timedelta(hours=24)
+        last_24h = timezone.now() - timedelta(hours=24)
         recent_records = TokenAcquisitionHistory.objects.filter(created_at__gte=last_24h)
         recent_count = recent_records.count()
-        recent_success = recent_records.filter(status=TokenAcquisitionStatus.SUCCESS).count()
+        recent_success = recent_records.filter(
+            status=TokenAcquisitionStatus.SUCCESS
+        ).count()
 
         # 平均耗时
-        avg_duration = (
+        avg_duration: float = (
             TokenAcquisitionHistory.objects.filter(
                 status=TokenAcquisitionStatus.SUCCESS, total_duration__isnull=False
             ).aggregate(avg_duration=Avg("total_duration"))["avg_duration"]
-            or 0
+            or 0.0
         )
 
         extra_context["statistics"] = {
