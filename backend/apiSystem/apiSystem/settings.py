@@ -280,9 +280,13 @@ ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "Fals
 )
 BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
 ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "False") or "").lower() in ("true", "1", "yes")
-SMOKE_ADMIN_PASSWORD = (
-    os.environ.get("SMOKE_ADMIN_PASSWORD", "smoke_admin_password") or "smoke_admin_password"
-).strip()
+_smoke_pw = os.environ.get("SMOKE_ADMIN_PASSWORD", "").strip()
+if not _smoke_pw and not DEBUG:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "SMOKE_ADMIN_PASSWORD 环境变量未设置，生产环境必须配置此变量"
+    )
+SMOKE_ADMIN_PASSWORD = _smoke_pw or "smoke_admin_password"  # DEBUG 模式下使用默认值
 
 if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
     raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 BOOTSTRAP_ADMIN_TOKEN")
