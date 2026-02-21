@@ -20,7 +20,7 @@ from apps.core.exceptions import (
     PermissionDenied,
     ValidationException,
 )
-from apps.core.exceptions_types import (
+from apps.core.exceptions import (
     BusinessException,
     ExternalServiceError,
     RateLimitError,

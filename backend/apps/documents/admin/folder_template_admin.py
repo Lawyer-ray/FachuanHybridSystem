@@ -251,8 +251,13 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
     change_form_template: str = "admin/documents/foldertemplate/change_form.html"
 
     class Media:
-        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/folder_tree.css", "documents/css/multi_select.css")}
-        js: ClassVar[tuple[str, ...]] = ("documents/js/folder_tree.js", "documents/js/template_type_toggle.js")
+        css: ClassVar[dict[str, tuple[str, ...]]] = {
+            "all": ("documents/css/folder_tree.css", "documents/css/multi_select.css")
+        }
+        js: ClassVar[tuple[str, ...]] = (
+            "documents/js/folder_tree.js",
+            "documents/js/template_type_toggle.js",
+        )
 
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: FolderTemplate) -> str:

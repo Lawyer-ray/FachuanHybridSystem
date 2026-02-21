@@ -54,9 +54,15 @@ class BusinessException(Exception):
         转换为字典(用于 API 响应)
 
         Returns:
-            包含 error、code、errors 字段的字典
+            包含 success、code、message、error、errors 字段的字典
         """
-        return {"error": self.message, "code": self.code, "errors": self.errors}
+        return {
+            "success": False,
+            "code": self.code,
+            "message": str(self.message),
+            "error": self.message,
+            "errors": self.errors,
+        }
 
 
 class BusinessError(BusinessException):

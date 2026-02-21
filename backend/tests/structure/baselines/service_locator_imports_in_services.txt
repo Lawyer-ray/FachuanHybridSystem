@@ -1,6 +1,6 @@
 apps/automation/services/admin/preservation_quote_admin_service.py:18:from apps.core.interfaces import ServiceLocator
 apps/automation/services/admin/quote_command_service.py:23:from apps.core.interfaces import ServiceLocator
-apps/automation/services/ai/auto_namer_service_adapter.py:16:from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService, ServiceLocator
+apps/automation/services/ai/auto_namer_service_adapter.py:39:from apps.core.interfaces import ServiceLocator  # 延迟导入，避免循环依赖
 apps/automation/services/court_document_recognition/case_binding_service.py:214:from apps.core.interfaces import ServiceLocator
 apps/automation/services/court_document_recognition/case_binding_service.py:60:from apps.core.interfaces import ServiceLocator
 apps/automation/services/court_document_recognition/notification_service.py:26:from apps.core.interfaces import ICaseChatService, ServiceLocator

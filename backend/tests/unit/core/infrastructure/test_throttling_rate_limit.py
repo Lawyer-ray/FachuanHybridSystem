@@ -1,7 +1,7 @@
 import pytest
 from django.core.cache import cache
 
-from apps.core.exceptions_types import RateLimitError
+from apps.core.exceptions import RateLimitError
 from apps.core.infrastructure.throttling import (
     RateLimiter,
     get_rate_limit_config,

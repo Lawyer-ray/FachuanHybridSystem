@@ -11,7 +11,7 @@ from typing import Any
 from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.core.exceptions import BusinessException, ValidationException
-from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService, ServiceLocator
+from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService
 
 logger = logging.getLogger("apps.automation")
 
@@ -36,6 +36,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
     def document_service(self) -> IDocumentProcessingService:
         """获取文档处理服务（延迟加载）"""
         if self._document_service is None:
+            from apps.core.interfaces import ServiceLocator  # 延迟导入，避免循环依赖
             self._document_service = ServiceLocator.get_document_processing_service()
         return self._document_service
 
@@ -91,7 +92,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     extra={"action": "generate_filename_success", "generated_filename": filename, "model": model},
                 )
 
-                return filename # type: ignore
+                return str(filename)
             else:
                 raise Exception("AI服务返回格式异常")
 

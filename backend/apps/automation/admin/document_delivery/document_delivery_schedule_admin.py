@@ -334,7 +334,12 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
             )
             if not change:
                 messages.success(request, "定时任务创建成功！下次运行时间已自动计算")
-            logger.info(f"管理员{'创建' if not change else '更新'}文书送达定时任务: Schedule ID={obj.id}, User={request.user}")
+            logger.info(
+                "管理员%s文书送达定时任务: Schedule ID=%s, User=%s",
+                "创建" if not change else "更新",
+                obj.id,
+                request.user,
+            )
 
         except Exception as e:
             messages.warning(request, f"定时任务已{'创建' if not change else '更新'}，但下次运行时间计算失败: {e!s}")
