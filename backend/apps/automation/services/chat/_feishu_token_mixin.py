@@ -49,7 +49,10 @@ class FeishuTokenMixin:
             config = self._load_config_from_db()
 
             if not config.get("APP_ID") or not config.get("APP_SECRET"):
-                logger.warning("SystemConfig 中飞书 APP_ID/APP_SECRET 未配置，请在系统配置中设置 FEISHU_APP_ID 和 FEISHU_APP_SECRET")
+                logger.warning(
+                    "SystemConfig 中飞书 APP_ID/APP_SECRET 未配置，"
+                    "请在系统配置中设置 FEISHU_APP_ID 和 FEISHU_APP_SECRET"
+                )
 
             config.setdefault("TIMEOUT", 30)
             try:

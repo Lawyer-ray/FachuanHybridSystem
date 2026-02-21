@@ -26,7 +26,7 @@ def _find_method(class_node: ast.ClassDef, method_name: str) -> ast.FunctionDef:
 
 def test_business_exception_to_dict_has_unified_contract():
     root = _project_root()
-    path = root / "apps" / "core" / "exceptions_types.py"
+    path = root / "apps" / "core" / "exceptions" / "base.py"
     tree = _parse(path)
 
     cls = _find_class(tree, "BusinessException")
@@ -58,7 +58,7 @@ def test_business_exception_to_dict_has_unified_contract():
 
 def test_llm_handler_registration_does_not_swallow_unexpected_exceptions():
     root = _project_root()
-    path = root / "apps" / "core" / "exceptions_handlers.py"
+    path = root / "apps" / "core" / "exceptions" / "handlers.py"
     tree = _parse(path)
 
     register_fn = None

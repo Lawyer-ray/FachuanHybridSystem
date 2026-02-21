@@ -400,8 +400,8 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
                 rank_cell = format_html('<span style="font-weight: bold;">#{}</span>', rank)
                 rank += 1
             else:
-                premium_cell = format_html('<span style="color: #999;">-</span>')
-                rank_cell = format_html('<span style="color: #999;">-</span>')
+                premium_cell = format_html('<span style="color: #999;">{}</span>', "-")
+                rank_cell = format_html('<span style="color: #999;">{}</span>', "-")
 
             row_parts.append(
                 format_html(
@@ -419,7 +419,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
             )
 
         rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
-        table_close = format_html("</tbody></table>")
+        table_close = format_html("{}", "</tbody></table>")
 
         successful_quotes = [q for q in quotes if q.min_amount is not None]
         if successful_quotes:

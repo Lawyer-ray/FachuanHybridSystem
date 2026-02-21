@@ -360,7 +360,12 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
 
     inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
 
-    actions: ClassVar[list[str]] = ["activate_templates", "deactivate_templates", "refresh_placeholders", "duplicate_templates"]
+    actions: ClassVar[list[str]] = [
+        "activate_templates",
+        "deactivate_templates",
+        "refresh_placeholders",
+        "duplicate_templates",
+    ]
 
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/multi_select.css",)}

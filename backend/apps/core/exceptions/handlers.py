@@ -144,7 +144,49 @@ def register_exception_handlers(api: NinjaAPI) -> None:
         return api.create_response(request, payload, status=status)
 
     _register_business_handlers(api, _create_response)
-    _register_llm_handlers(api, _create_response)
+
+    try:
+        from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
+
+        @api.exception_handler(LLMBackendUnavailableError)
+        def handle_llm_backend_unavailable_error(
+            request: HttpRequest, exc: LLMBackendUnavailableError
+        ) -> HttpResponse:
+            logger.error(
+                "LLM backend unavailable: %s",
+                exc.message,
+                extra=_log_extra(request, code=exc.code, errors=exc.errors, service_name="llm"),
+            )
+            payload = exc.to_dict()
+            payload.setdefault("errors", {})
+            payload["errors"].setdefault("service", "llm")
+            return _create_response(request, payload, status=503)
+
+        @api.exception_handler(LLMTimeoutError)
+        def handle_llm_timeout_error(request: HttpRequest, exc: LLMTimeoutError) -> HttpResponse:
+            logger.error(
+                "LLM request timeout: %s",
+                exc.message,
+                extra=_log_extra(request, code=exc.code, errors=exc.errors),
+            )
+            return _create_response(request, exc.to_dict(), status=504)
+
+        @api.exception_handler(LLMAPIError)
+        def handle_llm_api_error(request: HttpRequest, exc: LLMAPIError) -> HttpResponse:
+            upstream = getattr(exc, "status_code", None)
+            status_code = _resolve_llm_status_code(upstream)
+            logger.error(
+                "LLM API error: %s",
+                exc.message,
+                extra=_log_extra(request, code=exc.code, errors=exc.errors, status_code=status_code, upstream=upstream),
+            )
+            return _create_response(request, exc.to_dict(), status=status_code)
+
+    except ImportError:
+        pass
+    except Exception:
+        logger.exception("Failed to register LLM exception handlers")
+
     _register_django_handlers(api, _create_response)
     _register_jwt_handler(api, _create_response)
     _register_fallback_handler(api, _create_response)
@@ -214,7 +256,10 @@ def _register_server_error_handlers(api: NinjaAPI, create_response: _CreateRespo
         logger.error(
             "Service unavailable: %s",
             exc.message,
-            extra=_log_extra(request, code=exc.code, errors=exc.errors, service_name=getattr(exc, "service_name", None)),
+            extra=_log_extra(
+                request, code=exc.code, errors=exc.errors,
+                service_name=getattr(exc, "service_name", None),
+            ),
         )
         return create_response(request, exc.to_dict(), status=503)
 
@@ -223,7 +268,10 @@ def _register_server_error_handlers(api: NinjaAPI, create_response: _CreateRespo
         logger.error(
             "Recognition timeout: %s",
             exc.message,
-            extra=_log_extra(request, code=exc.code, errors=exc.errors, timeout_seconds=getattr(exc, "timeout_seconds", None)),
+            extra=_log_extra(
+                request, code=exc.code, errors=exc.errors,
+                timeout_seconds=getattr(exc, "timeout_seconds", None),
+            ),
         )
         return create_response(request, exc.to_dict(), status=504)
 
@@ -288,12 +336,20 @@ def _register_django_handlers(api: NinjaAPI, create_response: _CreateResponse) -
     @api.exception_handler(Http404)
     def handle_404(request: HttpRequest, exc: Http404) -> HttpResponse:
         logger.info("404 Not Found: %s", request.path)
-        return create_response(request, {"code": "NOT_FOUND", "message": "资源不存在", "error": "资源不存在", "errors": {}}, status=404)
+        return create_response(
+            request,
+            {"code": "NOT_FOUND", "message": "资源不存在", "error": "资源不存在", "errors": {}},
+            status=404,
+        )
 
     @api.exception_handler(ObjectDoesNotExist)
     def handle_object_not_exist(request: HttpRequest, exc: ObjectDoesNotExist) -> HttpResponse:
         logger.info("Object not found: %s", request.path)
-        return create_response(request, {"code": "NOT_FOUND", "message": "资源不存在", "error": "资源不存在", "errors": {}}, status=404)
+        return create_response(
+            request,
+            {"code": "NOT_FOUND", "message": "资源不存在", "error": "资源不存在", "errors": {}},
+            status=404,
+        )
 
     @api.exception_handler(DjangoPermissionDenied)
     def handle_django_permission_denied(request: HttpRequest, exc: DjangoPermissionDenied) -> HttpResponse:
@@ -367,4 +423,8 @@ def _register_fallback_handler(api: NinjaAPI, create_response: _CreateResponse) 
         from django.conf import settings
 
         message = str(exc) if settings.DEBUG else "系统错误,请稍后重试"
-        return create_response(request, {"code": "INTERNAL_ERROR", "message": message, "error": message, "errors": {}}, status=500)
+        return create_response(
+            request,
+            {"code": "INTERNAL_ERROR", "message": message, "error": message, "errors": {}},
+            status=500,
+        )

@@ -4,11 +4,13 @@
 提供短信提交、案件指定、重试处理等视图功能.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, cast
 
 from django.contrib import messages
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 
@@ -17,21 +19,21 @@ from apps.automation.services.admin import DEFAULT_STYLE_ID, SMS_STYLE_CONFIG, C
 logger = logging.getLogger("apps.automation")
 
 
-def _get_court_sms_service() -> None:
+def _get_court_sms_service() -> Any:
     """获取法院短信服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_court_sms_service()
 
 
-def _get_case_service() -> None:
+def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_case_service()
 
 
-def _get_admin_service() -> None:
+def _get_admin_service() -> CourtSMSAdminService:
     """获取 Admin 服务实例(工厂函数)"""
     return CourtSMSAdminService()
 
@@ -43,7 +45,7 @@ class CourtSMSViewsMixin:
     提供所有自定义视图方法的实现.
     """
 
-    def submit_sms_view(self, request) -> None:
+    def submit_sms_view(self, request: HttpRequest) -> HttpResponse:
         """短信提交页面"""
         if request.method == "POST":
             content = request.POST.get("content", "").strip()
@@ -55,40 +57,36 @@ class CourtSMSViewsMixin:
                 try:
                     service = _get_court_sms_service()
 
-                    # 处理收到时间
                     received_datetime = None
                     if received_at:
                         from django.utils.dateparse import parse_datetime
 
                         received_datetime = parse_datetime(received_at)
 
-                    # 提交短信
                     sms = service.submit_sms(content, received_datetime)
 
                     messages.success(request, f"短信提交成功!记录ID: {sms.id}")
                     logger.info(f"管理员提交短信: SMS ID={sms.id}, User={request.user}")
 
-                    # 跳转到短信详情页
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[cast(int, sms.id)]))
 
                 except Exception as e:
                     messages.error(request, f"提交失败: {e!s}")
                     logger.error(f"管理员提交短信失败: User={request.user}, 错误: {e!s}")
 
-        # 获取最近的短信记录
         admin_service = _get_admin_service()
         recent_sms = admin_service.get_recent_sms(limit=10)
 
-        context = {
+        context: dict[str, Any] = {
             "title": "提交法院短信",
             "recent_sms": recent_sms,
-            "opts": self.model._meta,
+            "opts": self.model._meta,  # type: ignore[attr-defined]
             "has_view_permission": True,
         }
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
 
-    def add_style_view(self, request, style_id: int) -> None:
+    def add_style_view(self, request: HttpRequest, style_id: int) -> HttpResponse:
         """
         通用的样式添加视图,根据 style_id 选择模板
 
@@ -99,7 +97,6 @@ class CourtSMSViewsMixin:
         Returns:
             HttpResponse: 渲染的页面或重定向
         """
-        # 获取样式配置,如果不存在则使用默认样式
         style_config = SMS_STYLE_CONFIG.get(style_id, SMS_STYLE_CONFIG[DEFAULT_STYLE_ID])
         template = style_config["template"]
         title = style_config["title"]
@@ -117,27 +114,25 @@ class CourtSMSViewsMixin:
                     messages.success(request, f"短信提交成功!记录ID: {sms.id}")
                     logger.info(f"管理员通过样式{style_id}页面提交短信: SMS ID={sms.id}, User={request.user}")
 
-                    # 跳转到短信详情页
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[cast(int, sms.id)]))
 
                 except Exception as e:
                     messages.error(request, f"提交失败: {e!s}")
                     logger.error(f"管理员通过样式{style_id}页面提交短信失败: User={request.user}, 错误: {e!s}")
 
-        # 获取最近的短信记录
         admin_service = _get_admin_service()
         recent_sms = admin_service.get_recent_sms(limit=5)
 
-        context = {
+        context: dict[str, Any] = {
             "title": title,
             "recent_sms": recent_sms,
-            "opts": self.model._meta,
+            "opts": self.model._meta,  # type: ignore[attr-defined]
             "has_view_permission": True,
         }
 
         return render(request, template, context)
 
-    def assign_case_view(self, request, sms_id) -> None:
+    def assign_case_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """手动指定案件页面"""
         admin_service = _get_admin_service()
         sms = admin_service.get_sms_by_id(sms_id)
@@ -154,44 +149,32 @@ class CourtSMSViewsMixin:
                     messages.success(request, "案件指定成功!已触发文书重命名和推送通知流程")
                     logger.info(f"管理员手动指定案件: SMS ID={sms_id}, Case ID={case_id}, User={request.user}")
 
-                    # 跳转回短信详情页
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
 
                 except Exception as e:
                     messages.error(request, f"指定案件失败: {e!s}")
                     logger.error(f"管理员手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
 
-        # 获取案件服务
         case_service = _get_case_service()
 
-        # 获取推荐案件(根据当事人名称或案号匹配)
-        self._get_suggested_cases(sms, case_service, sms_id)
+        suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
+        recent_cases = self._get_recent_cases(case_service, sms_id)
 
-        # 获取最近的案件
-        self._get_recent_cases(case_service, sms_id)
+        formatted_suggested = [self._format_case_for_template(c) for c in (suggested_cases or [])]
+        formatted_recent = [self._format_case_for_template(c) for c in (recent_cases or [])]
 
-        from apps.core.enums import CaseStatus
-
-        case_service.list_cases_internal(status=CaseStatus.ACTIVE)
-        formatted_active_cases: list[Any] = []
-
-        # 格式化案件数据
-        formatted_suggested: list[Any] = []
-        formatted_recent: list[Any] = []
-
-        context = {
+        context: dict[str, Any] = {
             "title": f"为短信 #{sms_id} 指定案件",
             "sms": sms,
-            "active_cases": formatted_active_cases,
             "suggested_cases": formatted_suggested,
             "recent_cases": formatted_recent,
-            "opts": self.model._meta,
+            "opts": self.model._meta,  # type: ignore[attr-defined]
             "has_view_permission": True,
         }
 
         return render(request, "admin/automation/courtsms/assign_case.html", context)
 
-    def _get_suggested_cases(self, sms, case_service, sms_id) -> None:
+    def _get_suggested_cases(self, sms: Any, case_service: Any, sms_id: int) -> list[Any]:
         """获取推荐案件列表"""
         suggested_cases: list[Any] = []
         from apps.core.enums import CaseStatus
@@ -200,7 +183,7 @@ class CourtSMSViewsMixin:
             if sms.party_names:
                 for party_name in sms.party_names:
                     if party_name.strip():
-                        cases = case_service.search_cases_by_party_internal(
+                        cases: list[Any] = case_service.search_cases_by_party_internal(
                             [party_name.strip()], status=CaseStatus.ACTIVE
                         )[:5]
                         suggested_cases.extend(cases)
@@ -208,12 +191,12 @@ class CourtSMSViewsMixin:
             if sms.case_numbers:
                 for case_number in sms.case_numbers:
                     if case_number.strip():
-                        cases = case_service.search_cases_by_case_number_internal(case_number.strip())[:5]
-                        cases: list[Any] = []
-                        suggested_cases.extend(cases)
+                        number_cases: list[Any] = case_service.search_cases_by_case_number_internal(
+                            case_number.strip()
+                        )[:5]
+                        suggested_cases.extend(number_cases)
 
-            # 去重(基于案件ID)
-            seen_ids = set()
+            seen_ids: set[int] = set()
             unique_suggested_cases: list[Any] = []
             for case in suggested_cases:
                 if hasattr(case, "id") and cast(int, case.id) not in seen_ids:
@@ -226,22 +209,23 @@ class CourtSMSViewsMixin:
             logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
             return []
 
-    def _get_recent_cases(self, case_service, sms_id) -> None:
+    def _get_recent_cases(self, case_service: Any, sms_id: int) -> list[Any]:
         """获取最近案件列表"""
         from apps.core.enums import CaseStatus
 
         try:
-            return case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=20)
+            result: list[Any] = case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=20)
+            return result
         except Exception as e:
             logger.warning(f"获取最近案件失败: SMS ID={sms_id}, 错误: {e!s}")
             return []
 
-    def _format_case_for_template(self, case_dto) -> None:
+    def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:
         """将 CaseDTO 转换为模板可用的格式"""
         try:
             case_service = _get_case_service()
-            case_numbers = case_service.get_case_numbers_by_case_internal(cast(int, case_dto.id))
-            parties = case_service.get_case_party_names_internal(cast(int, case_dto.id))
+            case_numbers: list[Any] = case_service.get_case_numbers_by_case_internal(cast(int, case_dto.id))
+            parties: list[Any] = case_service.get_case_party_names_internal(cast(int, case_dto.id))
 
             return {
                 "id": cast(int, case_dto.id),
@@ -260,7 +244,7 @@ class CourtSMSViewsMixin:
                 "parties": [],
             }
 
-    def search_cases_ajax(self, request, sms_id) -> None:
+    def search_cases_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:
         """AJAX 案件搜索接口"""
         if request.method != "GET":
             return JsonResponse({"error": "只支持 GET 请求"}, status=405)
@@ -271,44 +255,39 @@ class CourtSMSViewsMixin:
                 from apps.core.enums import CaseStatus
 
                 case_service = _get_case_service()
-                found_cases = case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=50)
+                found_cases: list[Any] = case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=50)
                 cases_data = self._format_cases_for_json(found_cases)
                 return JsonResponse({"cases": cases_data})
             except Exception:
                 logger.exception("操作失败")
-
                 return JsonResponse({"cases": []})
 
         try:
             case_service = _get_case_service()
-
-            # 搜索案件(限制结果数量)
             found_cases = self._search_cases(case_service, search_term)
-
-            # 转换为 JSON 格式
             cases_data = self._format_cases_for_json(found_cases)
-
             return JsonResponse({"cases": cases_data})
 
         except Exception as e:
             logger.error(f"AJAX 搜索案件失败: SMS ID={sms_id}, 搜索词={search_term}, 错误: {e!s}")
             return JsonResponse({"error": "搜索失败,请重试"}, status=500)
 
-    def _search_cases(self, case_service, search_term) -> None:
+    def _search_cases(self, case_service: Any, search_term: str) -> list[Any]:
         """搜索案件并去重"""
         from apps.core.enums import CaseStatus
 
-        return case_service.search_cases_internal(search_term, status=CaseStatus.ACTIVE, limit=30)
+        result: list[Any] = case_service.search_cases_internal(search_term, status=CaseStatus.ACTIVE, limit=30)
+        return result
 
-    def _format_cases_for_json(self, cases) -> None:
+    def _format_cases_for_json(self, cases: list[Any]) -> list[dict[str, Any]]:
         """将案件列表格式化为 JSON 格式"""
-        cases_data: list[Any] = []
+        cases_data: list[dict[str, Any]] = []
         case_service = _get_case_service()
 
         for case_dto in cases:
             try:
-                case_numbers = case_service.get_case_numbers_by_case_internal(cast(int, case_dto.id))
-                parties = case_service.get_case_party_names_internal(cast(int, case_dto.id))
+                case_numbers: list[Any] = case_service.get_case_numbers_by_case_internal(cast(int, case_dto.id))
+                parties: list[Any] = case_service.get_case_party_names_internal(cast(int, case_dto.id))
 
                 cases_data.append(
                     {
@@ -325,10 +304,9 @@ class CourtSMSViewsMixin:
 
         return cases_data
 
-    def retry_single_sms_view(self, request, sms_id) -> None:
+    def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """单个短信重新处理"""
         admin_service = _get_admin_service()
-        # 验证短信存在
         admin_service.get_sms_by_id(sms_id)
 
         try:
@@ -341,5 +319,4 @@ class CourtSMSViewsMixin:
             messages.error(request, f"重新处理失败: {e!s}")
             logger.error(f"管理员重新处理单个短信失败: SMS ID={sms_id}, 错误: {e!s}")
 
-        # 跳转回短信详情页
         return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))

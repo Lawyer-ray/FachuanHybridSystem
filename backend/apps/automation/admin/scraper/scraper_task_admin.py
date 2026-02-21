@@ -156,7 +156,7 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
                     'style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">',
                     ss_url,
                 )
-            return format_html("")
+            return format_html("{}", "")
 
         return format_html_join("", "{}", ((_screenshot_item(ss),) for ss in screenshots))
 
@@ -178,7 +178,7 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
             result_json,
         )
 
-        files_block = self._render_files_html(files) if files else format_html("")
+        files_block = self._render_files_html(files) if files else format_html("{}", "")
 
         if screenshot:
             from django.conf import settings
@@ -190,11 +190,11 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
                     screenshot_url,
                 )
             else:
-                single_screenshot_block = format_html("")
+                single_screenshot_block = format_html("{}", "")
         else:
-            single_screenshot_block = format_html("")
+            single_screenshot_block = format_html("{}", "")
 
-        screenshots_block = self._render_screenshots_html(screenshots) if screenshots else format_html("")
+        screenshots_block = self._render_screenshots_html(screenshots) if screenshots else format_html("{}", "")
 
         return format_html(
             "{}{}{}{}",

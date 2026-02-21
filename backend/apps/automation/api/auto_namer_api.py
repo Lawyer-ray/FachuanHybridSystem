@@ -58,7 +58,11 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
 
     file_path = Path(payload.file_path)
     if not file_path.exists():
-        return AutoToolProcessOut(text=None, ollama_response=None, error=_("文件不存在: %(path)s") % {"path": payload.file_path})
+        return AutoToolProcessOut(
+            text=None,
+            ollama_response=None,
+            error=_("文件不存在: %(path)s") % {"path": payload.file_path},
+        )
 
     from apps.automation.services.document.document_processing import extract_document_content
 

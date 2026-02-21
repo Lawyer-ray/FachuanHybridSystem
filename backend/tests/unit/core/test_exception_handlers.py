@@ -22,7 +22,7 @@ from apps.core.exceptions import (
     RateLimitError,
     ValidationException,
 )
-from apps.core.exceptions_handlers import register_exception_handlers
+from apps.core.exceptions import register_exception_handlers
 from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
 
 # 创建测试用的 API 实例
