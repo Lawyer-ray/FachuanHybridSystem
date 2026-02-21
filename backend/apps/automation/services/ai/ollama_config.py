@@ -1,40 +1,30 @@
 """
 Ollama 配置文件
 
-从 Django settings 统一读取 Ollama 相关配置。
+通过 LLMConfig 统一读取 Ollama 相关配置（LLMConfig 内部使用 SystemConfigService）。
 """
-
-from typing import cast
-
-from django.conf import settings
 
 
 class OllamaConfig:
     """Ollama 配置类"""
 
-    # 默认值（当 settings 中未配置时使用）
+    # 默认值（当配置中未设置时使用）
     DEFAULT_MODEL = "qwen3:0.6b"
     DEFAULT_BASE_URL = "http://localhost:11434"
 
     @classmethod
     def get_model(cls) -> str:
-        """
-        获取 Ollama 模型名称
+        """获取 Ollama 模型名称"""
+        from apps.core.llm.config import LLMConfig
 
-        优先从 Django settings.OLLAMA['MODEL'] 读取
-        """
-        ollama_config = getattr(settings, "OLLAMA", {})
-        return cast(str, ollama_config.get("MODEL", cls.DEFAULT_MODEL))
+        return LLMConfig.get_ollama_model()
 
     @classmethod
     def get_base_url(cls) -> str:
-        """
-        获取 Ollama 服务地址
+        """获取 Ollama 服务地址"""
+        from apps.core.llm.config import LLMConfig
 
-        优先从 Django settings.OLLAMA['BASE_URL'] 读取
-        """
-        ollama_config = getattr(settings, "OLLAMA", {})
-        return cast(str, ollama_config.get("BASE_URL", cls.DEFAULT_BASE_URL))
+        return LLMConfig.get_ollama_base_url()
 
 
 # 便捷函数

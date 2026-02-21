@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
@@ -75,7 +77,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
         if result.get("name"):
             return {"success": True, "client": result}
         else:
-            return {"success": False, "error": "未能解析出客户信息"}
+            return {"success": False, "error": _("未能解析出客户信息")}
 
 
 @router.get("/clients/{client_id}", response=ClientOut)

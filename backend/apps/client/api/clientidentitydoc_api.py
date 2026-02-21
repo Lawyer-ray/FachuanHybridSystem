@@ -1,6 +1,8 @@
 import logging
 from typing import Any, cast
 
+from django.utils.translation import gettext_lazy as _
+
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -66,7 +68,7 @@ def add_identity_doc(
         uploaded_file=file,
         user=getattr(request, "user", None),
     )
-    return {"success": True, "doc_id": identity_doc.id, "message": "证件文档添加成功"}
+    return {"success": True, "doc_id": identity_doc.id, "message": _("证件文档添加成功")}
 
 
 @router.get("/identity-docs/{doc_id}")
@@ -109,7 +111,7 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     service = _get_identity_doc_service()
     service.delete_identity_doc(doc_id=doc_id, user=getattr(request, "user", None))
 
-    return {"success": True, "message": "证件文档删除成功"}
+    return {"success": True, "message": _("证件文档删除成功")}
 
 
 @router.api_operation(["GET", "POST"], "/parse-text")

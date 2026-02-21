@@ -7,7 +7,6 @@ import logging
 from typing import Any
 
 from cryptography.fernet import Fernet
-from django.conf import settings
 
 from apps.core.interfaces import ISecurityService
 
@@ -19,16 +18,15 @@ class SecurityService:
 
     def __init__(self) -> None:
         """初始化加密密钥"""
-        # 从配置获取密钥，如果没有则生成一个
-        key = getattr(settings, "SCRAPER_ENCRYPTION_KEY", None)
+        from apps.core.services.system_config_service import SystemConfigService
 
-        if not key:
-            # 生成新密钥（仅用于开发环境）
+        raw_key = SystemConfigService().get_value("SCRAPER_ENCRYPTION_KEY", "")
+        key: bytes
+        if not raw_key:
             key = Fernet.generate_key()
-            logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请在 settings.py 中配置固定密钥！")
-
-        if isinstance(key, str):
-            key = key.encode()
+            logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请在系统配置中设置固定密钥！")
+        else:
+            key = raw_key.encode() if isinstance(raw_key, str) else raw_key
 
         self.cipher = Fernet(key)
 

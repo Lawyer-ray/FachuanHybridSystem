@@ -45,11 +45,17 @@ class BrowserService:
             Browser 实例
         """
         if self._browser is None:
-            # 从配置读取默认值
             if headless is None:
-                from django.conf import settings  # 懒加载：仅在首次启动浏览器时读取，避免模块加载时的循环导入
+                from apps.core.services.system_config_service import SystemConfigService
 
-                headless = getattr(settings, "SCRAPER_HEADLESS", not settings.DEBUG)
+                svc = SystemConfigService()
+                raw = svc.get_value("SCRAPER_HEADLESS", "")
+                if raw:
+                    headless = raw.lower() in ("true", "1", "yes")
+                else:
+                    # 默认：生产环境无头，开发环境有头
+                    debug_raw = svc.get_value("DEBUG_MODE", "false")
+                    headless = debug_raw.lower() not in ("true", "1", "yes")
 
             mode = "无头" if headless else "有头"
             logger.info(f"启动 Playwright 浏览器（{mode}模式）...")

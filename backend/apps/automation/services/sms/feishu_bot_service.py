@@ -10,11 +10,17 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
-from django.conf import settings
 
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
+
+
+def _get_feishu_db_config() -> dict[str, Any]:
+    """从 SystemConfigService 获取飞书配置"""
+    from apps.core.config.utils import get_feishu_category_configs
+
+    return get_feishu_category_configs()
 
 
 class FeishuBotService:
@@ -33,47 +39,20 @@ class FeishuBotService:
 
     def _get_webhook_url(self) -> str:
         """从配置获取 Webhook URL"""
-        # 尝试使用统一配置管理器
-        try:
-            if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-                get_unified_config = getattr(settings, "get_unified_config", None)
-                if get_unified_config:
-                    webhook_url = get_unified_config("chat_platforms.feishu.webhook_url")
-                    if webhook_url:
-                        return cast(str, webhook_url)
-        except Exception as e:
-            logger.debug(f"从统一配置获取飞书 Webhook URL 失败: {e}")
-
-        # 回退到传统配置方式
-        # 优先从 settings.FEISHU 读取
-        feishu_config = getattr(settings, "FEISHU", {})
-        webhook_url = feishu_config.get("WEBHOOK_URL")
-
-        # 兼容旧配置：从 COURT_SMS_PROCESSING 读取
-        if not webhook_url:
-            court_sms_config = getattr(settings, "COURT_SMS_PROCESSING", {})
-            webhook_url = court_sms_config.get("FEISHU_WEBHOOK_URL")
-
+        db_config = _get_feishu_db_config()
+        webhook_url = db_config.get("FEISHU_WEBHOOK_URL")
         if not webhook_url:
             logger.warning("未配置飞书 Webhook URL，飞书通知功能将不可用")
-
         return cast(str, webhook_url)
 
     def _get_timeout(self) -> int:
         """从配置获取超时时间"""
-        # 尝试使用统一配置管理器
+        db_config = _get_feishu_db_config()
+        raw = db_config.get("FEISHU_TIMEOUT", "30")
         try:
-            if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-                get_unified_config = getattr(settings, "get_unified_config", None)
-                if get_unified_config:
-                    timeout = get_unified_config("chat_platforms.feishu.timeout", 30)
-                    return cast(int, timeout)
-        except Exception as e:
-            logger.debug(f"从统一配置获取飞书超时时间失败: {e}")
-
-        # 回退到传统配置方式
-        feishu_config = getattr(settings, "FEISHU", {})
-        return cast(int, feishu_config.get("TIMEOUT", 30))
+            return int(raw)
+        except (ValueError, TypeError):
+            return 30
 
     def build_rich_text_message(self, case_name: str, sms_content: str, processed_at: datetime) -> dict[str, Any]:
         """
@@ -275,22 +254,10 @@ class FeishuBotService:
             return None
 
     def _get_app_access_token(self) -> str | None:
-        """
-        获取飞书应用访问令牌
-
-        Returns:
-            访问令牌，失败返回 None
-        """
-        # 优先从 settings.FEISHU 读取
-        feishu_config = getattr(settings, "FEISHU", {})
-        app_id = feishu_config.get("APP_ID")
-        app_secret = feishu_config.get("APP_SECRET")
-
-        # 兼容旧配置：从 COURT_SMS_PROCESSING 读取
-        if not app_id or not app_secret:
-            court_sms_config = getattr(settings, "COURT_SMS_PROCESSING", {})
-            app_id = app_id or court_sms_config.get("FEISHU_APP_ID")
-            app_secret = app_secret or court_sms_config.get("FEISHU_APP_SECRET")
+        """获取飞书应用访问令牌"""
+        db_config = _get_feishu_db_config()
+        app_id = db_config.get("FEISHU_APP_ID")
+        app_secret = db_config.get("FEISHU_APP_SECRET")
 
         if not app_id or not app_secret:
             logger.warning("未配置飞书 app_id 或 app_secret，无法获取访问令牌")

@@ -3,6 +3,8 @@
 import mimetypes
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 
@@ -251,7 +253,7 @@ def download_export(request: Any, task_id: str) -> Any:
     service = _get_export_task_service()
     task = service.get_task(user=getattr(request, "user", None), task_id=task_id)
     if not task.output_file:
-        raise Http404("导出文件尚未生成")
+        raise Http404(_("导出文件尚未生成"))
 
     filename = task.output_file.name.split("/")[-1]
     return FileResponse(task.output_file.open("rb"), as_attachment=True, filename=filename)

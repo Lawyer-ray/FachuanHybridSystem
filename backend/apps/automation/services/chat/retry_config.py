@@ -13,49 +13,56 @@ Requirements: 3.3, 3.4
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, cast
-
-from django.conf import settings
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+
+def _get_system_config_service() -> "SystemConfigService":
+    from apps.core.services.system_config_service import SystemConfigService
+
+    return SystemConfigService()
+
+
+if TYPE_CHECKING:
+    from apps.core.services.system_config_service import SystemConfigService
 
 
 class RetryErrorType(Enum):
     """重试错误类型枚举"""
 
-    NETWORK_ERROR = "network_error"  # 网络错误
-    TIMEOUT_ERROR = "timeout_error"  # 超时错误
-    PERMISSION_ERROR = "permission_error"  # 权限错误
-    NOT_FOUND_ERROR = "not_found_error"  # 用户不存在错误
-    VALIDATION_ERROR = "validation_error"  # 验证错误
-    UNKNOWN_ERROR = "unknown_error"  # 未知错误
+    NETWORK_ERROR = "network_error"
+    TIMEOUT_ERROR = "timeout_error"
+    PERMISSION_ERROR = "permission_error"
+    NOT_FOUND_ERROR = "not_found_error"
+    VALIDATION_ERROR = "validation_error"
+    UNKNOWN_ERROR = "unknown_error"
 
 
 class RetryStrategy(Enum):
     """重试策略枚举"""
 
-    NO_RETRY = "no_retry"  # 不重试
-    FIXED_DELAY = "fixed_delay"  # 固定延迟
-    EXPONENTIAL_BACKOFF = "exponential_backoff"  # 指数退避
-    LINEAR_BACKOFF = "linear_backoff"  # 线性退避
+    NO_RETRY = "no_retry"
+    FIXED_DELAY = "fixed_delay"
+    EXPONENTIAL_BACKOFF = "exponential_backoff"
+    LINEAR_BACKOFF = "linear_backoff"
 
 
 @dataclass
 class RetryAttempt:
     """重试尝试记录"""
 
-    attempt_number: int  # 尝试次数（从1开始）
-    timestamp: datetime  # 尝试时间
-    error_type: RetryErrorType  # 错误类型
-    error_message: str  # 错误消息
-    delay_seconds: float  # 延迟时间
-    success: bool = False  # 是否成功
+    attempt_number: int
+    timestamp: datetime
+    error_type: RetryErrorType
+    error_message: str
+    delay_seconds: float
+    success: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """转换为字典"""
         return {
             "attempt_number": self.attempt_number,
             "timestamp": self.timestamp.isoformat(),
@@ -66,171 +73,144 @@ class RetryAttempt:
         }
 
 
+@dataclass
+class ErrorStrategyConfig:
+    """单个错误类型的重试策略配置"""
+
+    strategy: RetryStrategy
+    max_retries: int
+    base_delay: float
+    backoff_factor: float
+    max_delay: float
+
+
 class RetryConfig:
     """重试配置类
-
-    管理不同错误类型的重试策略和参数。
-    支持从Django settings加载配置。
 
     Requirements: 3.3, 3.4
     """
 
     def __init__(self) -> None:
-        """初始化重试配置"""
         self._load_config()
 
     def _load_config(self) -> None:
-        """从Django settings加载重试配置"""
-        # 获取飞书配置
-        feishu_config = getattr(settings, "FEISHU", {})
+        """从 SystemConfigService 加载重试配置"""
+        svc = _get_system_config_service()
 
-        # 默认配置
-        self.enabled = feishu_config.get("OWNER_RETRY_ENABLED", True)
-        self.max_retries = feishu_config.get("OWNER_MAX_RETRIES", 3)
-        self.base_delay = feishu_config.get("OWNER_RETRY_BASE_DELAY", 1.0)
-        self.max_delay = feishu_config.get("OWNER_RETRY_MAX_DELAY", 60.0)
-        self.backoff_factor = feishu_config.get("OWNER_RETRY_BACKOFF_FACTOR", 2.0)
-        self.timeout_seconds = feishu_config.get("OWNER_RETRY_TIMEOUT", 300.0)  # 5分钟总超时
+        def _get_bool(key: str, default: bool) -> bool:
+            val = svc.get_value(key, "")
+            if not val:
+                return default
+            return val.lower() in ("true", "1", "yes")
 
-        # 错误类型特定配置
-        self.error_strategies = {
-            RetryErrorType.NETWORK_ERROR: {
-                "strategy": RetryStrategy.EXPONENTIAL_BACKOFF,
-                "max_retries": self.max_retries,
-                "base_delay": self.base_delay,
-                "backoff_factor": self.backoff_factor,
-                "max_delay": self.max_delay,
-            },
-            RetryErrorType.TIMEOUT_ERROR: {
-                "strategy": RetryStrategy.EXPONENTIAL_BACKOFF,
-                "max_retries": max(1, self.max_retries - 1),  # 超时错误少重试一次
-                "base_delay": self.base_delay * 2,  # 超时错误延迟更长
-                "backoff_factor": self.backoff_factor,
-                "max_delay": self.max_delay,
-            },
-            RetryErrorType.PERMISSION_ERROR: {
-                "strategy": RetryStrategy.NO_RETRY,  # 权限错误不重试
-                "max_retries": 0,
-                "base_delay": 0,
-                "backoff_factor": 1.0,
-                "max_delay": 0,
-            },
-            RetryErrorType.NOT_FOUND_ERROR: {
-                "strategy": RetryStrategy.FIXED_DELAY,  # 用户不存在可能是临时问题
-                "max_retries": 1,  # 只重试一次
-                "base_delay": 5.0,  # 固定延迟5秒
-                "backoff_factor": 1.0,
-                "max_delay": 5.0,
-            },
-            RetryErrorType.VALIDATION_ERROR: {
-                "strategy": RetryStrategy.NO_RETRY,  # 验证错误不重试
-                "max_retries": 0,
-                "base_delay": 0,
-                "backoff_factor": 1.0,
-                "max_delay": 0,
-            },
-            RetryErrorType.UNKNOWN_ERROR: {
-                "strategy": RetryStrategy.LINEAR_BACKOFF,
-                "max_retries": max(1, self.max_retries - 1),
-                "base_delay": self.base_delay,
-                "backoff_factor": 1.5,  # 线性增长因子
-                "max_delay": self.max_delay / 2,  # 未知错误最大延迟减半
-            },
+        def _get_int(key: str, default: int) -> int:
+            val = svc.get_value(key, "")
+            try:
+                return int(val) if val else default
+            except ValueError:
+                return default
+
+        def _get_float(key: str, default: float) -> float:
+            val = svc.get_value(key, "")
+            try:
+                return float(val) if val else default
+            except ValueError:
+                return default
+
+        self.enabled: bool = _get_bool("FEISHU_OWNER_RETRY_ENABLED", True)
+        self.max_retries: int = _get_int("FEISHU_OWNER_MAX_RETRIES", 3)
+        self.base_delay: float = _get_float("FEISHU_OWNER_RETRY_BASE_DELAY", 1.0)
+        self.max_delay: float = _get_float("FEISHU_OWNER_RETRY_MAX_DELAY", 60.0)
+        self.backoff_factor: float = _get_float("FEISHU_OWNER_RETRY_BACKOFF_FACTOR", 2.0)
+        self.timeout_seconds: float = _get_float("FEISHU_OWNER_RETRY_TIMEOUT", 300.0)
+
+        self.error_strategies: dict[RetryErrorType, ErrorStrategyConfig] = {
+            RetryErrorType.NETWORK_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+                max_retries=self.max_retries,
+                base_delay=self.base_delay,
+                backoff_factor=self.backoff_factor,
+                max_delay=self.max_delay,
+            ),
+            RetryErrorType.TIMEOUT_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+                max_retries=max(1, self.max_retries - 1),
+                base_delay=self.base_delay * 2,
+                backoff_factor=self.backoff_factor,
+                max_delay=self.max_delay,
+            ),
+            RetryErrorType.PERMISSION_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.NO_RETRY,
+                max_retries=0,
+                base_delay=0.0,
+                backoff_factor=1.0,
+                max_delay=0.0,
+            ),
+            RetryErrorType.NOT_FOUND_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_retries=1,
+                base_delay=5.0,
+                backoff_factor=1.0,
+                max_delay=5.0,
+            ),
+            RetryErrorType.VALIDATION_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.NO_RETRY,
+                max_retries=0,
+                base_delay=0.0,
+                backoff_factor=1.0,
+                max_delay=0.0,
+            ),
+            RetryErrorType.UNKNOWN_ERROR: ErrorStrategyConfig(
+                strategy=RetryStrategy.LINEAR_BACKOFF,
+                max_retries=max(1, self.max_retries - 1),
+                base_delay=self.base_delay,
+                backoff_factor=1.5,
+                max_delay=self.max_delay / 2,
+            ),
         }
 
         logger.debug(f"已加载重试配置: enabled={self.enabled}, max_retries={self.max_retries}")
 
     def is_enabled(self) -> bool:
-        """检查重试机制是否启用"""
-        return cast(bool, self.enabled)
+        return self.enabled
 
     def get_max_retries(self, error_type: RetryErrorType | None = None) -> int:
-        """获取最大重试次数
-
-        Args:
-            error_type: 错误类型，如果指定则返回该类型的最大重试次数
-
-        Returns:
-            int: 最大重试次数
-        """
         if error_type and error_type in self.error_strategies:
-            return cast(int, self.error_strategies[error_type]["max_retries"])
-        return cast(int, self.max_retries)
+            return self.error_strategies[error_type].max_retries
+        return self.max_retries
 
     def get_strategy(self, error_type: RetryErrorType) -> RetryStrategy:
-        """获取指定错误类型的重试策略
-
-        Args:
-            error_type: 错误类型
-
-        Returns:
-            RetryStrategy: 重试策略
-        """
         if error_type in self.error_strategies:
-            strategy_name = self.error_strategies[error_type]["strategy"]
-            return cast(RetryStrategy, strategy_name)
+            return self.error_strategies[error_type].strategy
         return RetryStrategy.EXPONENTIAL_BACKOFF
 
     def should_retry(self, error_type: RetryErrorType, attempt_count: int) -> bool:
-        """判断是否应该重试
-
-        Args:
-            error_type: 错误类型
-            attempt_count: 当前尝试次数
-
-        Returns:
-            bool: 是否应该重试
-        """
         if not self.enabled:
             return False
-
-        max_retries = self.get_max_retries(error_type)
         strategy = self.get_strategy(error_type)
-
-        # 不重试策略
         if strategy == RetryStrategy.NO_RETRY:
             return False
-
-        # 检查是否超过最大重试次数
-        return attempt_count < max_retries
+        return attempt_count < self.get_max_retries(error_type)
 
     def calculate_delay(self, error_type: RetryErrorType, attempt_number: int) -> float:
-        """计算重试延迟时间
-
-        Args:
-            error_type: 错误类型
-            attempt_number: 尝试次数（从0开始）
-
-        Returns:
-            float: 延迟时间（秒）
-        """
         if error_type not in self.error_strategies:
             error_type = RetryErrorType.UNKNOWN_ERROR
 
-        config = self.error_strategies[error_type]
-        strategy = config["strategy"]
-        base_delay = config["base_delay"]
-        backoff_factor = config["backoff_factor"]
-        max_delay = config["max_delay"]
+        cfg = self.error_strategies[error_type]
 
-        if strategy == RetryStrategy.NO_RETRY:
+        if cfg.strategy == RetryStrategy.NO_RETRY:
             return 0.0
-        elif strategy == RetryStrategy.FIXED_DELAY:
-            return cast(float, min(base_delay, max_delay))
-        elif strategy == RetryStrategy.LINEAR_BACKOFF:
-            delay = base_delay + (attempt_number * backoff_factor)
-            return cast(float, min(delay, max_delay))
-        elif strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
-            delay = base_delay * (backoff_factor**attempt_number)
-            return cast(float, min(delay, max_delay))
-        else:
-            # 默认使用指数退避
-            delay = base_delay * (backoff_factor**attempt_number)
-            return cast(float, min(delay, max_delay))
+        elif cfg.strategy == RetryStrategy.FIXED_DELAY:
+            return min(cfg.base_delay, cfg.max_delay)
+        elif cfg.strategy == RetryStrategy.LINEAR_BACKOFF:
+            delay = cfg.base_delay + (attempt_number * cfg.backoff_factor)
+            return min(delay, cfg.max_delay)
+        else:  # EXPONENTIAL_BACKOFF（含默认）
+            delay = cfg.base_delay * (cfg.backoff_factor ** attempt_number)
+            return min(delay, cfg.max_delay)
 
     def get_timeout_seconds(self) -> float:
-        """获取总超时时间"""
-        return cast(float, self.timeout_seconds)
+        return self.timeout_seconds
 
 
 class RetryManager:

@@ -8,7 +8,6 @@ import logging
 import mimetypes
 from typing import Any, cast
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet
 
@@ -103,11 +102,14 @@ class RecordingService:
         return project
 
     def _get_max_video_size_bytes(self) -> int:
-        v = getattr(settings, "CHAT_RECORDS_MAX_VIDEO_SIZE_BYTES", None)
-        if v is None:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        svc = SystemConfigService()
+        raw = svc.get_value("CHAT_RECORDS_MAX_VIDEO_SIZE_BYTES", "")
+        if not raw:
             return self.DEFAULT_MAX_VIDEO_SIZE_BYTES
         try:
-            return int(v)
-        except Exception:
-            logger.exception("操作失败")
+            return int(raw)
+        except (ValueError, TypeError):
+            logger.warning(f"CHAT_RECORDS_MAX_VIDEO_SIZE_BYTES 配置值无效: {raw!r}，使用默认值")
             return self.DEFAULT_MAX_VIDEO_SIZE_BYTES

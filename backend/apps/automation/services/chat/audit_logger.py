@@ -19,10 +19,18 @@ import logging
 from datetime import datetime
 from typing import Any, cast
 
-from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _get_feishu_config(key: str, default: Any = None) -> Any:
+    """从 SystemConfigService 获取飞书配置"""
+    from apps.core.config.utils import get_feishu_category_configs
+
+    configs = get_feishu_category_configs()
+    db_key = f"FEISHU_{key.upper()}"
+    return configs.get(db_key, default)
 
 
 class ChatAuditLogger:
@@ -46,22 +54,12 @@ class ChatAuditLogger:
             self.logger.info("群聊审计日志功能已禁用")
 
     def _is_audit_enabled(self) -> bool:
-        """检查审计日志是否启用
-
-        Returns:
-            bool: 审计日志是否启用
-        """
-        feishu_config = getattr(settings, "FEISHU", {})
-        return cast(bool, feishu_config.get("AUDIT_ENABLED", True))
+        """检查审计日志是否启用"""
+        return cast(bool, _get_feishu_config("AUDIT_ENABLED", True))
 
     def _get_audit_level(self) -> str:
-        """获取审计日志级别
-
-        Returns:
-            str: 日志级别（INFO, DEBUG, WARNING等）
-        """
-        feishu_config = getattr(settings, "FEISHU", {})
-        return cast(str, feishu_config.get("AUDIT_LEVEL", "INFO"))
+        """获取审计日志级别"""
+        return cast(str, _get_feishu_config("AUDIT_LEVEL", "INFO"))
 
     def _create_audit_entry(
         self,

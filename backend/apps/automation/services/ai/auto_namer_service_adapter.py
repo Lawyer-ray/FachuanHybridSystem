@@ -8,8 +8,6 @@ from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
-from django.conf import settings
-
 from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.core.exceptions import BusinessException, ValidationException
@@ -79,7 +77,9 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             # 调用AI服务生成文件名
             messages = [{"role": "system", "content": prompt}, {"role": "user", "content": document_content}]
 
-            base_url = getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")
+            from apps.core.llm.config import LLMConfig
+
+            base_url = LLMConfig.get_ollama_base_url()
             ollama_result = ollama_chat(model=model, messages=messages, base_url=base_url)
 
             # 提取生成的文件名

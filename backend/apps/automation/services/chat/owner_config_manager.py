@@ -23,8 +23,6 @@ import os
 import re
 from typing import Any, cast
 
-from django.conf import settings
-
 from apps.core.exceptions import ConfigurationException, ValidationException
 
 logger = logging.getLogger(__name__)
@@ -91,13 +89,13 @@ class OwnerConfigManager:
         try:
             config = self._load_config_from_db()
 
-            feishu_config = getattr(settings, "FEISHU", {})
-            case_chat_config = getattr(settings, "CASE_CHAT", {})
-
-            config.setdefault("APP_ID", feishu_config.get("APP_ID"))
-            config.setdefault("APP_SECRET", feishu_config.get("APP_SECRET"))
-            config.setdefault("TIMEOUT", feishu_config.get("TIMEOUT", 30))
-            config.setdefault("DEFAULT_OWNER_ID", case_chat_config.get("DEFAULT_OWNER_ID"))
+            # 从 SystemConfigService 补充 CASE_CHAT 相关配置
+            from apps.core.services.system_config_service import SystemConfigService
+            svc = SystemConfigService()
+            config.setdefault("APP_ID", svc.get_value("FEISHU_APP_ID") or None)
+            config.setdefault("APP_SECRET", svc.get_value("FEISHU_APP_SECRET") or None)
+            config.setdefault("TIMEOUT", svc.get_value("FEISHU_TIMEOUT", "30"))
+            config.setdefault("DEFAULT_OWNER_ID", svc.get_value("CASE_CHAT_DEFAULT_OWNER_ID") or None)
 
             config["TEST_MODE"] = os.environ.get("FEISHU_TEST_MODE", "false").lower() == "true"
             config["TEST_OWNER_ID"] = os.environ.get("FEISHU_TEST_OWNER_ID")

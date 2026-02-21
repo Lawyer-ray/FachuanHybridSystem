@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from django.conf import settings
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
@@ -50,12 +49,7 @@ class FeishuTokenMixin:
             config = self._load_config_from_db()
 
             if not config.get("APP_ID") or not config.get("APP_SECRET"):
-                settings_config = getattr(settings, "FEISHU", {})
-                if isinstance(settings_config, dict):
-                    for key, value in settings_config.items():
-                        if key not in config and value is not None and value != "":
-                            config[key] = value
-                    logger.debug(f"从 settings 补充飞书配置: {list(config.keys())}")
+                logger.warning("SystemConfig 中飞书 APP_ID/APP_SECRET 未配置，请在系统配置中设置 FEISHU_APP_ID 和 FEISHU_APP_SECRET")
 
             config.setdefault("TIMEOUT", 30)
             try:
