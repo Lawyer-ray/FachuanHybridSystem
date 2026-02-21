@@ -1,9 +1,12 @@
-from typing import Any, cast
+"""
+缓存配置模块 - 兼容层
 
+此文件为向后兼容保留，实际实现已移至 infrastructure/cache.py
+新代码建议使用: from apps.core.infrastructure import CacheKeys, CacheTimeout
 """
-缓存配置模块
-提供 Redis 缓存配置
-"""
+
+import warnings
+from typing import Any, cast
 
 
 def _safe_get_config(key: str, default: Any = None) -> Any:
@@ -17,27 +20,12 @@ def _safe_get_config(key: str, default: Any = None) -> Any:
 
 
 def get_cache_config() -> dict[str, Any]:
-    """
-    获取缓存配置
-
-    从统一配置管理系统获取 Redis 配置，支持环境变量覆盖:
-    - REDIS_URL: Redis 连接 URL (优先)
-    - REDIS_HOST: Redis 主机地址
-    - REDIS_PORT: Redis 端口
-    - REDIS_DB: Redis 数据库编号
-    - REDIS_PASSWORD: Redis 密码
-
-    Returns:
-        Django CACHES 配置字典
-    """
-    # 优先使用完整的 Redis URL
+    """获取缓存配置"""
     redis_url = _safe_get_config("performance.cache.redis_url")
 
     if redis_url and redis_url != "redis://localhost:6379/0":
-        # 如果配置了非默认的 Redis URL，直接使用
         location = redis_url
     else:
-        # 否则从分离的配置项构建 URL
         redis_host = _safe_get_config("performance.cache.redis_host", "127.0.0.1")
         redis_port = _safe_get_config("performance.cache.redis_port", 6379)
         redis_db = _safe_get_config("performance.cache.redis_db", 0)
@@ -48,7 +36,6 @@ def get_cache_config() -> dict[str, Any]:
         else:
             location = f"redis://{redis_host}:{redis_port}/{redis_db}"
 
-    # 获取其他缓存配置
     default_timeout = _safe_get_config("performance.cache.default_timeout", 300)
     max_connections = _safe_get_config("performance.cache.max_connections", 50)
     socket_timeout = _safe_get_config("performance.cache.socket_timeout", 5)
@@ -72,23 +59,15 @@ def get_cache_config() -> dict[str, Any]:
     }
 
 
-# 缓存 key 常量
-class CacheKeys:
-    """缓存 key 定义"""
+class _CacheKeys:
+    """缓存 key 定义（内部实现）"""
 
-    # 用户相关
-    USER_ORG_ACCESS = "user:org_access:{user_id}"  # 用户组织访问权限
-    USER_TEAMS = "user:teams:{user_id}"  # 用户团队列表
-
-    # 案件相关
-    CASE_ACCESS_GRANTS = "case:access_grants:{user_id}"  # 用户案件访问授权
-
-    # 配置相关
-    CASE_STAGES_CONFIG = "config:case_stages"  # 案件阶段配置
-    LEGAL_STATUS_CONFIG = "config:legal_status"  # 诉讼地位配置
-
-    # 法院系统 Token 相关
-    COURT_TOKEN = "court_token:{site_name}:{account}"  # 法院系统 Token
+    USER_ORG_ACCESS = "user:org_access:{user_id}"
+    USER_TEAMS = "user:teams:{user_id}"
+    CASE_ACCESS_GRANTS = "case:access_grants:{user_id}"
+    CASE_STAGES_CONFIG = "config:case_stages"
+    LEGAL_STATUS_CONFIG = "config:legal_status"
+    COURT_TOKEN = "court_token:{site_name}:{account}"
 
     @classmethod
     def user_org_access(cls, user_id: int) -> str:
@@ -107,32 +86,44 @@ class CacheKeys:
         return cls.COURT_TOKEN.format(site_name=site_name, account=account)
 
 
-# 缓存超时时间（秒）
-class CacheTimeout:
-    """缓存超时时间定义"""
+class _CacheTimeout:
+    """缓存超时时间定义（内部实现）"""
 
     @staticmethod
     def get_short() -> int:
-        """短期缓存（1分钟）"""
         return cast(int, _safe_get_config("performance.cache.timeout_short", 60))
 
     @staticmethod
     def get_medium() -> int:
-        """中期缓存（5分钟）"""
         return cast(int, _safe_get_config("performance.cache.timeout_medium", 300))
 
     @staticmethod
     def get_long() -> int:
-        """长期缓存（1小时）"""
         return cast(int, _safe_get_config("performance.cache.timeout_long", 3600))
 
     @staticmethod
     def get_day() -> int:
-        """日缓存（1天）"""
         return cast(int, _safe_get_config("performance.cache.timeout_day", 86400))
 
-    # 保持向后兼容的常量
     SHORT = 60
     MEDIUM = 300
     LONG = 3600
     DAY = 86400
+
+
+# 通过 __getattr__ 在每次 `from apps.core.cache import X` 时触发 DeprecationWarning
+_DEPRECATED_EXPORTS: dict[str, Any] = {
+    "CacheKeys": _CacheKeys,
+    "CacheTimeout": _CacheTimeout,
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name in _DEPRECATED_EXPORTS:
+        warnings.warn(
+            "从 apps.core.cache 导入已废弃，请使用 apps.core.infrastructure.cache",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _DEPRECATED_EXPORTS[name]
+    raise AttributeError(f"module 'apps.core.cache' has no attribute {name!r}")

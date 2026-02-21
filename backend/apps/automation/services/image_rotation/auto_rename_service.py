@@ -66,11 +66,17 @@ class RenameSuggestion:
 class AutoRenameService:
     """自动重命名服务 - 使用 Ollama 本地模型"""
 
-    def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        ollama_model: str | None = None,
+        ollama_base_url: str | None = None,
+        llm_client: Any | None = None,
+    ) -> None:
         from apps.core.llm.config import LLMConfig
 
         self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
         self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
+        self._llm_client = llm_client
 
     def extract_info(self, ocr_text: str) -> ExtractionResult:
         """
@@ -92,15 +98,20 @@ class AutoRenameService:
             return ExtractionResult()
 
         # 构建 prompt
+        prompt = EXTRACTION_PROMPT.format(ocr_text=ocr_text)
         messages: list[Any] = []
         try:
-            from apps.automation.services.wiring import get_llm_service
+            if self._llm_client is not None:
+                llm_resp = self._llm_client.complete(prompt)
+                response_text = (llm_resp.content or "").strip()
+            else:
+                from apps.automation.services.wiring import get_llm_service
 
-            llm_service = get_llm_service()
-            llm_resp = llm_service.chat(messages=messages, backend="ollama", model=self._ollama_model, fallback=False)
-            response_text = (llm_resp.content or "").strip()
+                llm_service = get_llm_service()
+                llm_resp = llm_service.chat(messages=messages, backend="ollama", model=self._ollama_model, fallback=False)
+                response_text = (llm_resp.content or "").strip()
             if not response_text:
-                logger.warning("Ollama 返回内容为空")
+                logger.warning("LLM 返回内容为空")
                 return ExtractionResult()
 
         except Exception as e:

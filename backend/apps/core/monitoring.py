@@ -1,8 +1,17 @@
 """
-性能监控模块
+性能监控模块 - 兼容层
 
-提供 API 响应时间监控和数据库查询次数监控
+此文件为向后兼容保留，实际实现已移至 infrastructure/monitoring.py
+新代码建议使用: from apps.core.infrastructure import PerformanceMonitor
 """
+
+import warnings
+
+warnings.warn(
+    "从 apps.core.monitoring 导入已废弃，请使用 apps.core.infrastructure.monitoring",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import logging
 import time
