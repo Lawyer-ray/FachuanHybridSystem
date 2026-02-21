@@ -39,7 +39,7 @@ class ExceptionPresenter:
         channel: str,
         debug: bool = False,
     ) -> tuple[ErrorEnvelope, int | None]:
-        from apps.core.exceptions_types import (
+        from apps.core.exceptions import (
             AuthenticationError,
             BusinessException,
             ExternalServiceError,
@@ -131,7 +131,7 @@ class ExceptionPresenter:
         )
 
     def _status_for_business_exception(self, exc: Exception) -> int | None:
-        from apps.core.exceptions_types import (
+        from apps.core.exceptions import (
             AuthenticationError,
             ConflictError,
             ExternalServiceError,
@@ -164,7 +164,7 @@ class ExceptionPresenter:
         return 400
 
     def _retryable_for_business_exception(self, exc: Exception) -> bool:
-        from apps.core.exceptions_types import (
+        from apps.core.exceptions import (
             ExternalServiceError,
             RateLimitError,
             RecognitionTimeoutError,

@@ -15,7 +15,7 @@ from typing import Any
 from django.core.cache import cache
 from django.http import HttpRequest
 
-from apps.core.exceptions_types import RateLimitError
+from apps.core.exceptions import RateLimitError
 
 logger = logging.getLogger(__name__)
 
