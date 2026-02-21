@@ -166,23 +166,14 @@ class CaseChatService:
         """解析群主 ID，未指定时从配置读取默认值"""
         if owner_id:
             return owner_id
-        from django.conf import settings
 
-        try:
-            if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-                get_unified_config = getattr(settings, "get_unified_config", None)
-                if get_unified_config:
-                    default_owner = get_unified_config("features.case_chat.default_owner_id")
-                    if default_owner:
-                        logger.debug(f"使用默认群主（统一配置）: {default_owner}")
-                        return str(default_owner)
-        except Exception as e:
-            logger.debug(f"从统一配置获取默认群主失败: {e}")
+        from apps.core.services.system_config_service import SystemConfigService
 
-        default_owner = getattr(settings, "CASE_CHAT", {}).get("DEFAULT_OWNER_ID")
+        svc = SystemConfigService()
+        default_owner = svc.get_value("CASE_CHAT_DEFAULT_OWNER_ID", "")
         if default_owner:
             logger.debug(f"使用默认群主: {default_owner}")
-            return str(default_owner)
+            return default_owner
         return None
 
     def _get_available_provider(self, platform: ChatPlatform) -> Any:

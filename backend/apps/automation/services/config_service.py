@@ -21,8 +21,10 @@ class AutomationConfigService:
         }
 
     def get_system_status(self) -> dict[str, Any]:
-        from django.conf import settings
+        from apps.core.services.system_config_service import SystemConfigService
 
+        svc = SystemConfigService()
+        debug_val = svc.get_value("DEBUG_MODE", "false")
         return {
-            "debug": bool(getattr(settings, "DEBUG", False)),
+            "debug": debug_val.lower() in ("true", "1", "yes"),
         }

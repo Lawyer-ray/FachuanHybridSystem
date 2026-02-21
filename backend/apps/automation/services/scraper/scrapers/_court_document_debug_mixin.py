@@ -27,8 +27,10 @@ class CourtDocumentDebugMixin:
 
     def _debug_log(self, message: str, data: Any = None) -> None:
         """调试日志"""
-        from django.conf import settings
-        if getattr(settings, "DEBUG", False):
+        from apps.core.services.system_config_service import SystemConfigService
+
+        debug_mode = SystemConfigService().get_value("DEBUG_MODE", "false").lower() in ("true", "1", "yes")
+        if debug_mode:
             logger.info(f"[DEBUG] {message}")
             if data:
                 logger.info(f"[DEBUG] Data: {data}")
@@ -36,8 +38,10 @@ class CourtDocumentDebugMixin:
     def _save_debug_info(self, key: str, value: Any) -> None:
         """保存调试信息"""
         self.debug_info[key] = value
-        from django.conf import settings
-        if getattr(settings, "DEBUG", False):
+        from apps.core.services.system_config_service import SystemConfigService
+
+        debug_mode = SystemConfigService().get_value("DEBUG_MODE", "false").lower() in ("true", "1", "yes")
+        if debug_mode:
             logger.info(f"[DEBUG] Saved {key}: {type(value)}")
 
     def _analyze_page_elements(self) -> dict[str, Any]:

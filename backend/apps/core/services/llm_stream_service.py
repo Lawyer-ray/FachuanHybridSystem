@@ -13,7 +13,6 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.conf import settings
 
 from apps.core.error_presentation import ExceptionPresenter
 
@@ -101,7 +100,10 @@ async def build_chat_stream(
         yield f"data: {done_json}\n\n".encode()
     except Exception as e:
         logger.exception("SSE 流处理失败")
-        envelope, _ = presenter.present(e, channel="sse", debug=getattr(settings, "DEBUG", False))
+        from apps.core.services.system_config_service import SystemConfigService
+
+        debug_mode = SystemConfigService().get_value("DEBUG_MODE", "false").lower() in ("true", "1", "yes")
+        envelope, _ = presenter.present(e, channel="sse", debug=debug_mode)
         error_payload = {
             "type": "error",
             **envelope.to_payload(include_legacy_error=False),

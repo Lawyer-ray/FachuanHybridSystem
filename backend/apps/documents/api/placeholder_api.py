@@ -13,6 +13,8 @@ import logging
 from datetime import date, datetime
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from ninja import Router
 
 from apps.core.auth import JWTOrSessionAuth
@@ -101,7 +103,7 @@ def delete_placeholder(request: Any, placeholder_id: int) -> Any:
     """删除替换词(软删除)"""
     service = _get_placeholder_service()
     service.delete_placeholder(placeholder_id)
-    return {"success": True, "message": "替换词已删除"}
+    return {"success": True, "message": _("替换词已删除")}
 
 
 @router.get("/placeholders/preview/{contract_id}", response=PlaceholderPreviewOut)
