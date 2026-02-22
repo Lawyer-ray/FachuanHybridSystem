@@ -143,7 +143,7 @@ class IdCardMergeService:
         if "temp/" not in rel_path:
             return
         try:
-            Path(str(full_path)).unlink()
+            full_path.unlink()
             logger.info("清理临时图片", extra={"path": str(full_path)})
         except OSError as e:
             logger.warning("清理临时图片失败", extra={"path": str(full_path), "error": str(e)})

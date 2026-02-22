@@ -201,8 +201,6 @@ class PropertyClueService:
         """为财产线索添加附件。"""
         from apps.client.models import PropertyClueAttachment
 
-        clue = self.get_clue(clue_id, user)
-
         if not file_path or not file_name:
             raise ValidationException(
                 message=_("文件路径和文件名不能为空"),
@@ -212,6 +210,8 @@ class PropertyClueService:
                     "file_name": "文件名不能为空" if not file_name else None,
                 },
             )
+
+        clue = self.get_clue(clue_id, user)
 
         attachment = PropertyClueAttachment.objects.create(property_clue=clue, file_path=file_path, file_name=file_name)
 

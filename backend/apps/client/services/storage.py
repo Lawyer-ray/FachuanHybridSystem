@@ -171,7 +171,7 @@ def save_uploaded_file(
         filename = preferred
 
     target_abs = base_dir / filename
-    while Path(str(target_abs)).exists():
+    while target_abs.exists():
         filename = f"{uuid.uuid4().hex}{ext}" if use_uuid_name else f"{uuid.uuid4().hex}_{preferred}"
         target_abs = base_dir / filename
 
