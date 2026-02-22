@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from django.db.models import Q, QuerySet
 from django.utils.translation import gettext_lazy as _
 
@@ -33,7 +31,7 @@ class LawyerQueryService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, Any] | None = None,
+        filters: dict[str, object] | None = None,
         user: Lawyer | None = None,
     ) -> QuerySet[Lawyer, Lawyer]:
         filters = filters or {}

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
@@ -72,7 +72,7 @@ class OrganizationServiceAdapter(IOrganizationService):
             self._lawyer_service = LawyerService()
         return self._lawyer_service
 
-    def get_law_firm(self, law_firm_id: int) -> dict[str, Any] | None:
+    def get_law_firm(self, law_firm_id: int) -> dict[str, object] | None:
         """
         获取律所信息
 
@@ -93,7 +93,7 @@ class OrganizationServiceAdapter(IOrganizationService):
             "social_credit_code": lawfirm.social_credit_code,
         }
 
-    def get_team(self, team_id: int) -> dict[str, Any] | None:
+    def get_team(self, team_id: int) -> dict[str, object] | None:
         """
         获取团队信息
 
