@@ -130,9 +130,15 @@ class ScreenshotService:
             )
             return default_ordering
 
+        # Lock all rows for this project to prevent concurrent ordering conflicts.
+        # The caller (upload_screenshots) already wraps this in @transaction.atomic.
+        locked_qs: QuerySet[ChatRecordScreenshot, ChatRecordScreenshot] = (
+            ChatRecordScreenshot.objects.select_for_update()
+            .filter(project_id=project_id)
+        )
+
         insert_before = (
-            ChatRecordScreenshot.objects.filter(
-                project_id=project_id,
+            locked_qs.filter(
                 capture_time_seconds__isnull=False,
                 capture_time_seconds__gt=capture_time_seconds,
             )
@@ -142,13 +148,9 @@ class ScreenshotService:
         if insert_before:
             ordering = int(insert_before.ordering or 1)
         else:
-            ordering = (
-                ChatRecordScreenshot.objects.filter(project_id=project_id).aggregate(v=Max("ordering")).get("v") or 0
-            ) + 1
+            ordering = (locked_qs.aggregate(v=Max("ordering")).get("v") or 0) + 1
 
-        ChatRecordScreenshot.objects.filter(project_id=project_id, ordering__gte=ordering).update(
-            ordering=F("ordering") + 1
-        )
+        locked_qs.filter(ordering__gte=ordering).update(ordering=F("ordering") + 1)
         return ordering
 
     @transaction.atomic
