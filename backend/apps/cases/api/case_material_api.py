@@ -45,7 +45,7 @@ def list_bind_candidates(request: Any, case_id: int) -> Any:
 def bind_materials(request: Any, case_id: int, payload: CaseMaterialBindIn) -> Any:
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
-    items = [x.dict[str, Any]() for x in payload.items]  # type: ignore[index]
+    items: list[dict[str, Any]] = [x.model_dump() for x in payload.items]
     saved = service.bind_materials(
         case_id=case_id,
         items=items,
