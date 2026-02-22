@@ -95,7 +95,7 @@ class ContractAdminMutationService:
             ) from None
 
         new_contract = Contract.objects.create(
-            name=f"{original.name} (副本)",
+            name=_("%(name)s (副本)") % {"name": original.name},
             case_type=original.case_type,
             status=original.status,
             specified_date=original.specified_date,
@@ -149,7 +149,7 @@ class ContractAdminMutationService:
         }
 
         case_data = {
-            "name": f"{contract.name} - 案件",
+            "name": _("%(name)s - 案件") % {"name": contract.name},
             "contract_id": contract.pk,
             "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
             "is_archived": False,
@@ -210,7 +210,7 @@ class ContractAdminMutationService:
         principals_str = "、".join(principal_names)
         start_str = start_date.strftime("%Y年%m月%d日")
         end_str = end_date.strftime("%Y年%m月%d日")
-        return f"{principals_str}常法顾问-{start_str}至{end_str}"
+        return _("%(names)s常法顾问-%(start)s至%(end)s") % {"names": principals_str, "start": start_str, "end": end_str}
 
     @transaction.atomic
     def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
