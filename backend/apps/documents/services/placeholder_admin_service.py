@@ -31,7 +31,6 @@ class PlaceholderAdminService:
         Args:
             definitions: 代码占位符定义字典 {key: CodePlaceholderDefinition}
         """
-        from apps.documents.models import Placeholder
 
         existing_keys: set[str] = set(
             Placeholder.objects.values_list("key", flat=True)
@@ -81,7 +80,6 @@ class PlaceholderAdminService:
         Returns:
             新创建的 Placeholder 实例
         """
-        from apps.documents.models import Placeholder
 
         new_key: str = f"{placeholder.key}_copy"
         suffix: int = 1

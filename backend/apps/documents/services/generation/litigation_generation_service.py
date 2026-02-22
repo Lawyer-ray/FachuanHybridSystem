@@ -134,7 +134,6 @@ class LitigationGenerationService:
             ValidationException: 生成失败
         """
         # 1. 获取案件数据
-        from apps.documents.services.wiring import get_case_service
 
         case_service = get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)
@@ -180,7 +179,6 @@ class LitigationGenerationService:
             ValidationException: 生成失败
         """
         # 1. 获取案件数据
-        from apps.documents.services.wiring import get_case_service
 
         case_service = get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)

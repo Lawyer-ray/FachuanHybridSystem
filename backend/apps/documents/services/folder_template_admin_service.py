@@ -142,7 +142,6 @@ class FolderTemplateAdminService:
             初始化结果
         """
         try:
-            from apps.documents.models import FolderTemplate
 
             from .folder_template.default_templates import get_default_folder_templates
 
@@ -297,7 +296,6 @@ class FolderTemplateAdminService:
         Returns:
             新创建的模板
         """
-        from apps.documents.models import FolderTemplate
 
         # 生成新名称
         new_name = f"{template.name} (副本)"
@@ -348,7 +346,6 @@ class FolderTemplateAdminService:
         Raises:
             NotFoundError: 模板不存在时抛出
         """
-        from apps.documents.models import FolderTemplate
 
         try:
             template = FolderTemplate.objects.get(pk=pk)
@@ -401,7 +398,6 @@ class FolderTemplateAdminService:
         Raises:
             NotFoundError: 模板不存在时抛出
         """
-        from apps.documents.models import FolderTemplate
 
         try:
             return FolderTemplate.objects.get(pk=pk)

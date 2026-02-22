@@ -30,7 +30,6 @@ class TemplateMatchingService:
 
     def find_matching_case_document_template_names(self, case_type: str) -> list[str]:
         try:
-            from apps.documents.models import DocumentTemplate
 
             templates = DocumentTemplate.objects.filter(template_type="case", is_active=True)
             matched: list[str] = []
@@ -47,7 +46,6 @@ class TemplateMatchingService:
         self, case_type: str, legal_statuses: list[str] | None = None
     ) -> list[str]:
         try:
-            from apps.documents.models import FolderTemplate
 
             templates = FolderTemplate.objects.filter(template_type="case", is_active=True)
             case_legal_statuses_set = set(legal_statuses or [])
@@ -86,7 +84,6 @@ class TemplateMatchingService:
                 return []
             return cast(list[dict[str, Any]], cached)
         try:
-            from apps.core.exceptions import ValidationException
             from apps.documents.services.contract_template_query_service import ContractTemplateQueryService
 
             if not case_type:
@@ -112,8 +109,6 @@ class TemplateMatchingService:
                 return []
             return cast(list[dict[str, Any]], cached)
         try:
-            from apps.core.exceptions import ValidationException
-            from apps.documents.models import FolderTemplate
 
             if not template_type:
                 raise ValidationException(message=_("模板类型不能为空"), code="INVALID_TEMPLATE_TYPE")
@@ -133,7 +128,6 @@ class TemplateMatchingService:
             raise
 
     def check_has_matching_templates(self, case_type: str) -> dict[str, bool]:
-        from apps.core.exceptions import ValidationException
 
         if not case_type:
             raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
@@ -157,7 +151,6 @@ class TemplateMatchingService:
                 return []
             return cast(list[dict[str, Any]], cached)
         try:
-            from apps.documents.models import DocumentTemplate
 
             if not case_type or not case_stage:
                 return []

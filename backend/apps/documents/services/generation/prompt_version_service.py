@@ -14,7 +14,6 @@ from apps.core.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from apps.documents.models import PromptVersion
-
 logger = logging.getLogger("apps.documents.generation")
 
 
@@ -40,7 +39,6 @@ class PromptVersionService:
 
         Requirements: 5.3
         """
-        from apps.documents.models import PromptVersion
 
         version = PromptVersion.objects.filter(name=name, is_active=True).first()
 
@@ -66,7 +64,6 @@ class PromptVersionService:
 
         Requirements: 5.4
         """
-        from apps.documents.models import PromptVersion
 
         try:
             version = PromptVersion.objects.get(id=version_id)
@@ -110,7 +107,6 @@ class PromptVersionService:
 
         Requirements: 5.5
         """
-        from apps.documents.models import PromptVersion
 
         prompt_version = PromptVersion.objects.create(
             name=name, version=version, template=template, description=description, is_active=False

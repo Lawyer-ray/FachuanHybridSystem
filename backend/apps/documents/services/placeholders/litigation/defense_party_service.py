@@ -49,7 +49,6 @@ class DefensePartyService(BasePlaceholderService):
 
         Requirements: 3.1, 5.1, 5.2, 5.3
         """
-        from apps.core.enums import LegalStatus
 
         # 识别我方当事人的角色
         has_our_defendant = False
@@ -88,7 +87,6 @@ class DefensePartyService(BasePlaceholderService):
 
         Requirements: 3.1, 5.1, 5.2, 5.3
         """
-        from apps.core.enums import LegalStatus
 
         role_map = {"答辩人": [], "被答辩人": [], "第三人": [], "被告": []}
 
@@ -161,7 +159,6 @@ class DefensePartyService(BasePlaceholderService):
         self, result_parts: list[str], respondents: list[dict[str, Any]], parties: list[dict[str, Any]]
     ) -> None:
         """格式化答辩人信息"""
-        from apps.core.enums import LegalStatus
 
         legal_status_map = {
             LegalStatus.PLAINTIFF: "原告",
