@@ -12,8 +12,6 @@ import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
 
-logger = logging.getLogger(__name__)
-
 
 def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8] | None:
     try:

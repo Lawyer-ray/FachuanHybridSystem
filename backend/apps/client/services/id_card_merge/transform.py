@@ -1,13 +1,10 @@
 """透视变换。"""
 
-import logging
 from typing import Any, cast
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-
-logger = logging.getLogger(__name__)
 
 
 def perspective_transform(

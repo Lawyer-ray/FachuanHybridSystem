@@ -44,12 +44,12 @@ class IdentityExtractionService:
         """
         if not image_bytes:
             raise ValidationException(
-                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": str(_("图片数据不能为空"))}
+                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": _("图片数据不能为空")}
             )
 
         if not doc_type:
             raise ValidationException(
-                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": str(_("证件类型不能为空"))}
+                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": _("证件类型不能为空")}
             )
 
         try:
