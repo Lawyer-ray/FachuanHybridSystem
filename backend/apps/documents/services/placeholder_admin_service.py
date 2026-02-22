@@ -96,3 +96,34 @@ class PlaceholderAdminService:
             description=placeholder.description,
             is_active=False,
         )
+    def filter_by_usage(
+        self,
+        queryset: QuerySet[Any],
+        value: str,
+        usage_map: dict[str, set[str]],
+    ) -> QuerySet[Any]:
+        """
+        按用途过滤占位符查询集。
+
+        Args:
+            queryset: 基础查询集
+            value: 过滤类型 (contract/case/both/unused)
+            usage_map: 占位符用途映射 {key: {usage_types}}
+
+        Returns:
+            过滤后的查询集
+        """
+        contract_only: set[str] = {k for k, v in usage_map.items() if v == {"contract"}}
+        case_only: set[str] = {k for k, v in usage_map.items() if v == {"case"}}
+        both: set[str] = {k for k, v in usage_map.items() if {"contract", "case"}.issubset(v)}
+        used: set[str] = set(usage_map.keys())
+
+        if value == "contract":
+            return queryset.filter(key__in=contract_only)
+        if value == "case":
+            return queryset.filter(key__in=case_only)
+        if value == "both":
+            return queryset.filter(key__in=both)
+        if value == "unused":
+            return queryset.exclude(key__in=used)
+        return queryset

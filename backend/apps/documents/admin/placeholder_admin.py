@@ -54,20 +54,7 @@ class PlaceholderUsageFilter(admin.SimpleListFilter):
             usage_map = _get_placeholder_usage_service().get_usage_map()
             self._usage_map_cache = usage_map
 
-        contract_only = {k for k, v in usage_map.items() if v == {"contract"}}
-        case_only = {k for k, v in usage_map.items() if v == {"case"}}
-        both = {k for k, v in usage_map.items() if {"contract", "case"}.issubset(v)}
-        used = set(usage_map.keys())
-
-        if value == "contract":
-            return queryset.filter(key__in=contract_only)
-        if value == "case":
-            return queryset.filter(key__in=case_only)
-        if value == "both":
-            return queryset.filter(key__in=both)
-        if value == "unused":
-            return queryset.exclude(key__in=used)
-        return queryset
+        return _get_placeholder_admin_service().filter_by_usage(queryset, value, usage_map)
 
 
 @admin.register(Placeholder)
