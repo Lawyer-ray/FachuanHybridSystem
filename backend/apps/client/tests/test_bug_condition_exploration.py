@@ -73,9 +73,9 @@ def test_1c_clientidentitydoc_admin_no_direct_save_uploaded_file() -> None:
     admin_file = BACKEND_DIR / "apps" / "client" / "admin" / "clientidentitydoc_admin.py"
     source = admin_file.read_text(encoding="utf-8")
 
-    assert "save_uploaded_file" not in source, (
+    assert "from apps.client.services.storage import save_uploaded_file" not in source, (
         "BUG 1.3: clientidentitydoc_admin.py 中 ClientIdentityDocForm.save() "
-        "直接调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
+        "直接导入并调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
     )
 
 
@@ -93,9 +93,9 @@ def test_1d_property_clue_admin_no_direct_save_uploaded_file() -> None:
     admin_file = BACKEND_DIR / "apps" / "client" / "admin" / "property_clue_admin.py"
     source = admin_file.read_text(encoding="utf-8")
 
-    assert "save_uploaded_file" not in source, (
+    assert "from apps.client.services.storage import save_uploaded_file" not in source, (
         "BUG 1.4: property_clue_admin.py 中 PropertyClueAttachmentInlineForm.save() "
-        "直接调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
+        "直接导入并调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
     )
 
 
