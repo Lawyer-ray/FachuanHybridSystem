@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.apps import apps
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404, HttpRequest, HttpResponse
@@ -15,7 +14,6 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
-from apps.cases.services.case_chat_service import CaseChatService
 
 logger = logging.getLogger("apps.cases")
 
@@ -42,28 +40,9 @@ def _log_inline_formset(inline_formset: Any, logger: logging.Logger) -> None:
                 )
 
 
-class CaseAdminServiceMixin:
-    def _get_case_chat_service(self) -> CaseChatService:
-        return CaseChatService()
-
-    def _get_case_admin_service(self) -> Any:
-        from apps.cases.services.case_admin_service import CaseAdminService
-
-        return CaseAdminService()
-
-    def _get_case_material_service(self) -> Any:
-        from apps.cases.services.material.wiring import build_case_material_service
-
-        return build_case_material_service()
-
-    def _get_case_template_binding_service(self) -> Any:
-        from apps.cases.services.template.case_template_binding_service import CaseTemplateBindingService
-        from apps.core.interfaces import ServiceLocator
-
-        return CaseTemplateBindingService(document_service=ServiceLocator.get_document_service())
 
 
-class CaseAdminViewsMixin(CaseAdminServiceMixin):
+class CaseAdminViewsMixin:
     def name_link(self, obj: Case) -> str:
         detail_url = reverse("admin:cases_case_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', detail_url, obj.name)
@@ -111,7 +90,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
 
-        service = self._get_case_admin_service()
+        service = self._get_case_admin_service()  # type: ignore[attr-defined]
 
         our_legal_statuses = [
             party.legal_status
@@ -135,7 +114,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
 
         case_materials_view = self._build_case_materials_view(request, case)
 
-        template_binding_service = self._get_case_template_binding_service()
+        template_binding_service = self._get_case_template_binding_service()  # type: ignore[attr-defined]
         bound_templates = template_binding_service.get_bindings_for_case(case.id)
         bound_templates_json = json.dumps(bound_templates, ensure_ascii=False)
 
@@ -230,7 +209,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
         return json.dumps(respondents, ensure_ascii=False), respondents
 
     def _build_case_materials_view(self, request: HttpRequest, case: Case) -> Any:
-        material_service = self._get_case_material_service()
+        material_service = self._get_case_material_service()  # type: ignore[attr-defined]
         return material_service.get_case_materials_view(
             case_id=case.id,
             user=getattr(request, "user", None),
@@ -342,7 +321,7 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
             return None
 
     def _get_folder_disabled_reason(self, case: Case) -> str:
-        service = self._get_case_admin_service()
+        service = self._get_case_admin_service()  # type: ignore[attr-defined]
         matched = service.get_matched_folder_templates(case.case_type) if case.case_type else ""
         if not matched or "无匹配" in matched:
             return "无匹配的文件夹模板"
@@ -421,10 +400,10 @@ class CaseAdminViewsMixin(CaseAdminServiceMixin):
     def get_matched_folder_templates_display(self, obj: Case) -> str:
         if not obj or not obj.case_type:
             return "未设置案件类型"
-        service = self._get_case_admin_service()
+        service = self._get_case_admin_service()  # type: ignore[attr-defined]
         return str(service.get_matched_folder_templates(obj.case_type))
 
     get_matched_folder_templates_display.short_description = _("匹配的文件夹模板")  # type: ignore[attr-defined]
 
 
-__all__: list[str] = ["CaseAdminServiceMixin", "CaseAdminViewsMixin"]
+__all__: list[str] = ["CaseAdminViewsMixin"]

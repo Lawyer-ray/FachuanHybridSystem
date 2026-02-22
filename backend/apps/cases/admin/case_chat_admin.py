@@ -11,18 +11,12 @@ from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base import BaseTabularInline
-from apps.cases.exceptions import ChatProviderException
+from apps.cases.admin.mixins import CaseAdminServiceMixin
 from apps.cases.models import CaseChat
-from apps.cases.services.case_chat_service import CaseChatService
-
-
-def _get_case_chat_service() -> CaseChatService:
-    """工厂函数获取案件群聊服务"""
-    return CaseChatService()
 
 
 @admin.register(CaseChat)
-class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
+class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
     """案件群聊管理"""
 
     list_display = ("name", "chat_id_display", "platform_display", "case_link", "status_display", "created_at")
@@ -83,7 +77,7 @@ class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
 
     def unbind_selected_chats(self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]) -> None:
         """批量解除绑定群聊"""
-        service = _get_case_chat_service()
+        service = self._get_case_chat_service()
         success_count = 0
 
         for chat in queryset.filter(is_active=True):
@@ -109,7 +103,7 @@ class CaseChatAdmin(admin.ModelAdmin[CaseChat]):
     def response_change(self, request: HttpRequest, obj: CaseChat) -> HttpResponse:
         """处理自定义操作"""
         if "_unbind_chat" in request.POST:
-            service = _get_case_chat_service()
+            service = self._get_case_chat_service()
             try:
                 if service.unbind_chat(obj.id):
                     messages.success(request, f"成功解除绑定群聊: {obj.name}")

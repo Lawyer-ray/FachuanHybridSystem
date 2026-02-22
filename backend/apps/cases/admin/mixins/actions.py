@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.cases.exceptions import ChatProviderException
 from apps.core.enums import ChatPlatform
 
-from .views import CaseAdminServiceMixin
+from .service import CaseAdminServiceMixin
 
 logger = logging.getLogger(__name__)
 
