@@ -303,7 +303,7 @@ class TestTaskManagement:
 
         assert task.id is not None
         assert task.case is None
-        assert task.folder_template is None
+        assert task.folder_template_id is None
 
     def test_create_task_folder_template_not_found(self, generation_service, db):
         """测试创建任务时文件夹模板不存在"""
