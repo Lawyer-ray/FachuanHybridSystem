@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
+from apps.organization.services.lawfirm_service import LawFirmService
+from apps.organization.services.lawyer.facade import LawyerService
+from apps.organization.services.team_service import TeamService
 
 from .account_credential_service import AccountCredentialService
 
 if TYPE_CHECKING:
     from apps.core.dto.organization import LawyerDTO
-    from apps.organization.services.lawfirm_service import LawFirmService
-    from apps.organization.services.lawyer.facade import LawyerService
-    from apps.organization.services.team_service import TeamService
 
 
 class OrganizationServiceAdapter(IOrganizationService):
@@ -50,8 +50,6 @@ class OrganizationServiceAdapter(IOrganizationService):
     def lawfirm_service(self) -> LawFirmService:
         """延迟加载律所服务"""
         if self._lawfirm_service is None:
-            from apps.organization.services.lawfirm_service import LawFirmService
-
             self._lawfirm_service = LawFirmService()
         return self._lawfirm_service
 
@@ -59,8 +57,6 @@ class OrganizationServiceAdapter(IOrganizationService):
     def team_service(self) -> TeamService:
         """延迟加载团队服务"""
         if self._team_service is None:
-            from apps.organization.services.team_service import TeamService
-
             self._team_service = TeamService()
         return self._team_service
 
@@ -68,8 +64,6 @@ class OrganizationServiceAdapter(IOrganizationService):
     def lawyer_service(self) -> LawyerService:
         """延迟加载律师服务"""
         if self._lawyer_service is None:
-            from apps.organization.services.lawyer.facade import LawyerService
-
             self._lawyer_service = LawyerService()
         return self._lawyer_service
 
