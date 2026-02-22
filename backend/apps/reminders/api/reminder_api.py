@@ -1,18 +1,25 @@
 """API endpoints."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.reminders.schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
-from apps.reminders.services import ReminderService
+
+if TYPE_CHECKING:
+    from apps.reminders.services import ReminderService
 
 router = Router()
 
 
 def _get_service() -> ReminderService:
-    return ReminderService()
+    """获取 ReminderService 实例（延迟导入）。"""
+    from ..services import ReminderService as _ReminderService
+
+    return _ReminderService()
 
 
 @router.get("/list", response=list[ReminderOut])
