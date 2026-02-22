@@ -212,8 +212,15 @@ class EvidenceMutationService:
                 },
             )
 
+        items_by_id = {item.id: item for item in EvidenceItem.objects.filter(id__in=item_ids)}
+        to_update = []
         for index, item_id in enumerate(item_ids, start=1):
-            EvidenceItem.objects.filter(id=item_id).update(order=index)
+            item = items_by_id.get(item_id)
+            if item and item.order != index:
+                item.order = index
+                to_update.append(item)
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["order"])
         return True
 
     def require_case_model(self, *, case_service: Any, case_id: int) -> Any:
