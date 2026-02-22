@@ -183,7 +183,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> str | None | None:
+    def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> str | None:
         try:
             folder_node_path = self.document_service.get_folder_binding_path(owner_type, subdir_key)
             if not folder_node_path:
@@ -397,7 +397,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def _get_case_internal(self, case_id: int) -> Case | None | None:
+    def _get_case_internal(self, case_id: int) -> Case | None:
         """
         内部方法:获取案件信息(无权限检查)
 

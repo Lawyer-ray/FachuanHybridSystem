@@ -113,7 +113,7 @@ class TemplateResolver:
         path = Path(location)
         if not path.exists():
             raise ValidationException(
-                message=f"模板文件不存在: {location}",
+                message=_("模板文件不存在: %(path)s") % {"path": location},
                 code="TEMPLATE_FILE_NOT_FOUND",
                 errors={"template_path": location},
             )

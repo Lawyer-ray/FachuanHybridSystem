@@ -252,7 +252,7 @@ class CaseAccessService(DjangoPermsMixin):
         """
         self.ensure_authenticated(user)
         if not (self.is_admin(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
-            raise ForbiddenError("无权限查看他人可访问案件")
+            raise ForbiddenError(_("无权限查看他人可访问案件"))
         return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 
     def grant_access(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:

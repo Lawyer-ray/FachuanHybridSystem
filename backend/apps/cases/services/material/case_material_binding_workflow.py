@@ -44,7 +44,7 @@ class CaseMaterialBindingWorkflow:
         }
         missing = [aid for aid in attachment_ids if aid not in attachments]
         if missing:
-            raise NotFoundError("部分附件不存在或不属于该案件")
+            raise NotFoundError(_("部分附件不存在或不属于该案件"))
         parties_by_id = {p.id: p for p in CaseParty.objects.filter(case_id=case_id).select_related("client").all()}
         authorities_by_id = {a.id: a for a in SupervisingAuthority.objects.filter(case_id=case_id).all()}
         law_firm_id = getattr(user, "law_firm_id", None) if user else None

@@ -6,13 +6,13 @@ from apps.cases.models import Case
 
 
 class CaseDetailsQueryService:
-    def get_case_model_internal(self, case_id: int) -> Any | None | None:
+    def get_case_model_internal(self, case_id: int) -> Any | None:
         try:
             return Case.objects.get(id=case_id)
         except Case.DoesNotExist:
             return None
 
-    def get_case_with_details_internal(self, case_id: int) -> dict[str, Any] | None | None:
+    def get_case_with_details_internal(self, case_id: int) -> dict[str, Any] | None:
         try:
             case = (
                 Case.objects.prefetch_related(

@@ -108,12 +108,13 @@ class CaseLogInternalService:
             return False
         except Exception as e:
             logger.error(
-                f"更新案件日志提醒失败:{e}",
+                "更新案件日志提醒失败: %s",
+                e,
                 extra={"action": "update_case_log_reminder_internal", "case_log_id": case_log_id, "error": str(e)},
             )
             return False
 
-    def get_case_log_model_internal(self, case_log_id: int) -> Any | None | None:
+    def get_case_log_model_internal(self, case_log_id: int) -> Any | None:
         try:
             return CaseLog.objects.get(id=case_log_id)
         except CaseLog.DoesNotExist:

@@ -122,7 +122,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     def last_login_display(self, obj: AccountCredential) -> SafeString:
         """显示最后登录时间"""
         if not obj.last_login_success_at:
-            return format_html('<span style="color: #999;">{}</span>', "从未成功")
+            return format_html('<span style="color: #999;">{}</span>', _("从未成功"))
 
         now = timezone.now()
         delta = now - obj.last_login_success_at
@@ -160,7 +160,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
                 obj.id,
             )
         else:
-            return format_html('<span style="color: #999;">{}</span>', "不支持")
+            return format_html('<span style="color: #999;">{}</span>', _("不支持"))
 
     @admin.action(description=_("标记为优先账号"))
     def mark_as_preferred(
