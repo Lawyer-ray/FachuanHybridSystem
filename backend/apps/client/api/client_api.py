@@ -13,6 +13,7 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
+from apps.core.exceptions import ValidationException
 from apps.core.request_context import extract_request_context
 
 from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
@@ -31,6 +32,13 @@ def _get_client_service() -> Any:
     from apps.client.services import ClientService
 
     return ClientService()
+
+
+def _get_query_facade() -> Any:
+    """工厂函数：创建 ClientQueryFacade 实例"""
+    from apps.client.services.client_query_facade import ClientQueryFacade
+
+    return ClientQueryFacade()
 
 
 def _get_identity_doc_service() -> Any:
@@ -57,14 +65,17 @@ def list_clients(
     search: str | None = None,
 ) -> list[ClientOut]:
     """获取客户列表"""
-    service = _get_client_service()
+    facade = _get_query_facade()
     ctx = extract_request_context(request)
-    # client_api 使用 auth 或 user，保持原有逻辑
     user = getattr(request, "auth", None) or ctx.user
-    clients = service.list_clients(
-        page=page, page_size=page_size, client_type=client_type, is_our_client=is_our_client, search=search, user=user
+    clients = facade.list_clients(
+        page=page,
+        page_size=page_size or 20,
+        client_type=client_type,
+        is_our_client=is_our_client,
+        search=search,
+        user=user,
     )
-
     return list(clients)
 
 
@@ -82,15 +93,15 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
         if result.get("name"):
             return {"success": True, "client": result}
         else:
-            return {"success": False, "error": _("未能解析出客户信息")}
+            return {"success": False, "error": str(_("未能解析出客户信息"))}
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
 def get_client(request: Any, client_id: int) -> Any:
     """获取单个客户"""
-    service = _get_client_service()
+    facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return service.get_client(client_id, user)
+    return facade.get_client(client_id=client_id, user=user)
 
 
 @router.post("/clients", response=ClientOut)
@@ -109,13 +120,20 @@ def create_client_with_docs(
     files: list[UploadedFile] = File(...),  # type: ignore[call-overload]
 ) -> Any:
     """创建客户并上传文档"""
+    if doc_types and files and len(doc_types) != len(files):
+        raise ValidationException(
+            message=_("证件类型数量与文件数量不一致"),
+            code="DOC_FILES_MISMATCH",
+            errors={"doc_types": str(_("doc_types 与 files 长度必须一致"))},
+        )
+
     mutation_service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     client = mutation_service.create_client(data=payload.dict(), user=user)
 
     if doc_types and files:
         identity_doc_service = _get_identity_doc_service()
-        for doc_type, file in zip(doc_types, files, strict=False):
+        for doc_type, file in zip(doc_types, files, strict=True):
             identity_doc_service.add_identity_doc_from_upload(
                 client_id=client.id,
                 doc_type=doc_type,
