@@ -56,8 +56,8 @@ class DocumentsConfig(AppConfig):
             if result.get("success"):
                 created = result.get("created_count", 0)
                 if created > 0:
-                    logger.info(f"✅ 成功初始化 {created} 个默认文件夹模板")
+                    logger.info("✅ 成功初始化 %d 个默认文件夹模板", created)
             else:
-                logger.warning(f"文件夹模板初始化失败: {result.get('error', '未知错误')}")
+                logger.warning("文件夹模板初始化失败: %s", result.get('error', '未知错误'))
         except Exception as e:
-            logger.warning(f"文件夹模板自动初始化跳过: {e}")
+            logger.warning("文件夹模板自动初始化跳过: %s", e)

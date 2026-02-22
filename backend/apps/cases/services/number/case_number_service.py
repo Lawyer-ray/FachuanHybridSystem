@@ -113,7 +113,7 @@ class CaseNumberService(DjangoPermsMixin):
                 "action": "list_numbers",
                 "case_id": case_id,
                 "user_id": getattr(user, "id", None) if user else None,
-                "count": qs.count(),
+                "count": "deferred",
             },
         )
 

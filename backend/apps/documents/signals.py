@@ -11,6 +11,7 @@ Requirements: 6.6
 """
 
 import logging
+import threading
 from typing import Any
 
 from django.db.models.signals import post_delete, post_save, pre_save
@@ -20,8 +21,14 @@ from .models import DocumentTemplate, FolderTemplate, Placeholder, TemplateAudit
 
 logger = logging.getLogger(__name__)
 
-# 用于存储对象修改前的状态
-_pre_save_state = {}
+# 线程安全的 pre_save 状态存储
+_thread_local = threading.local()
+
+
+def _get_pre_save_state() -> dict[str, Any]:
+    if not hasattr(_thread_local, "pre_save_state"):
+        _thread_local.pre_save_state = {}
+    return _thread_local.pre_save_state
 
 
 def _get_audit_log_service() -> Any:
@@ -112,7 +119,7 @@ def capture_pre_save_state(sender: type[Any], instance: Any, **kwargs: Any) -> N
     if instance.pk:
         old_instance = _get_audit_log_service().get_instance_by_pk(sender, instance.pk)
         if old_instance is not None:
-            _pre_save_state[f"{sender.__name__}_{instance.pk}"] = old_instance
+            _get_pre_save_state()[f"{sender.__name__}_{instance.pk}"] = old_instance
 
 
 # ============================================================
@@ -126,7 +133,7 @@ def capture_pre_save_state(sender: type[Any], instance: Any, **kwargs: Any) -> N
 def log_save(sender: type[Any], instance: Any, created: bool, **kwargs: Any) -> None:
     """记录创建和更新操作，并使相关缓存失效"""
     key = f"{sender.__name__}_{instance.pk}"
-    old_instance = _pre_save_state.pop(key, None)
+    old_instance = _get_pre_save_state().pop(key, None)
 
     if created:
         _create_audit_log(instance, TemplateAuditAction.CREATE, is_new=True)
@@ -178,4 +185,4 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
         bump_cache_version(version_key, timeout=CacheTimeout.get_day())
         logger.debug("已递增模板匹配缓存版本号: %s", version_key)
     except Exception as e:
-        logger.warning(f"清除模板匹配缓存失败: {e}")
+        logger.warning("清除模板匹配缓存失败: %s", e)

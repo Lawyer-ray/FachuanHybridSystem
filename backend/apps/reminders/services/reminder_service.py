@@ -90,10 +90,10 @@ class ReminderService:
         fk_changed = False
 
         if "contract_id" in data:
-            new_contract_id = normalize_target_id(data["contract_id"], field_name="contract_id")
+            new_contract_id = normalize_target_id(data["contract_id"], field_name=_("contract_id"))
             fk_changed = True
         if "case_log_id" in data:
-            new_case_log_id = normalize_target_id(data["case_log_id"], field_name="case_log_id")
+            new_case_log_id = normalize_target_id(data["case_log_id"], field_name=_("case_log_id"))
             fk_changed = True
 
         if fk_changed:

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, ServiceLocator
@@ -109,7 +110,7 @@ class CaseAccessService:
         try:
             return cast(CaseAccessGrant, CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id))
         except CaseAccessGrant.DoesNotExist as e:
-            raise NotFoundError(f"授权 {grant_id} 不存在") from e
+            raise NotFoundError(_("授权 %(grant_id)s 不存在") % {"grant_id": grant_id}) from e
 
     def create_grant(
         self,
@@ -134,11 +135,11 @@ class CaseAccessService:
         """
         # 验证案件存在
         if not Case.objects.filter(id=case_id).exists():
-            raise NotFoundError(f"案件 {case_id} 不存在")
+            raise NotFoundError(_("案件 %(case_id)s 不存在") % {"case_id": case_id})
 
         # 检查是否已授权
         if CaseAccessGrant.objects.filter(case_id=case_id, grantee_id=grantee_id).exists():
-            raise ConflictError("该用户已有此案件的访问权限")
+            raise ConflictError(_("该用户已有此案件的访问权限"))
 
         grant = CaseAccessGrant.objects.create(
             case_id=case_id,
@@ -291,7 +292,7 @@ class CaseAccessService:
         try:
             grant = CaseAccessGrant.objects.get(case_id=case_id, grantee_id=grantee_id)
         except CaseAccessGrant.DoesNotExist as e:
-            raise NotFoundError("授权记录不存在") from e
+            raise NotFoundError(_("授权记录不存在")) from e
 
         grant.delete()
 

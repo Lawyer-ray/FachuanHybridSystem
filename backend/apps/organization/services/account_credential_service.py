@@ -31,71 +31,13 @@ class AccountCredentialService:
 
     def __init__(self) -> None:
         """初始化服务"""
-        pass
+        from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
+
+        self._access_policy = OrganizationAccessPolicy()
 
     def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":
         """获取带预加载的基础查询集"""
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
-
-    def _is_superuser(self, user: Any) -> bool:
-        """检查用户是否为超级用户"""
-        if user is None:
-            return False
-        return getattr(user, "is_superuser", False)
-
-    def _get_user_law_firm_id(self, user: Any) -> int | None:
-        """获取用户所属律所 ID"""
-        if user is None:
-            return None
-        return getattr(user, "law_firm_id", None)
-
-    def _check_credential_access(self, user: Any, credential: AccountCredential) -> bool:
-        """
-        检查用户是否有权限访问指定凭证
-
-        Args:
-            user: 当前用户
-            credential: 凭证对象
-
-        Returns:
-            是否有权限
-        """
-        # 超级用户可以访问所有凭证
-        if self._is_superuser(user):
-            return True
-
-        # 获取用户所属律所
-        user_law_firm_id = self._get_user_law_firm_id(user)
-        if user_law_firm_id is None:
-            return False
-
-        # 检查凭证所属律师的律所是否与用户相同
-        credential_law_firm_id = getattr(credential.lawyer, "law_firm_id", None)
-        return user_law_firm_id == credential_law_firm_id
-
-    def _check_lawyer_access(self, user: Any, lawyer: Lawyer) -> bool:
-        """
-        检查用户是否有权限访问指定律师
-
-        Args:
-            user: 当前用户
-            lawyer: 律师对象
-
-        Returns:
-            是否有权限
-        """
-        # 超级用户可以访问所有律师
-        if self._is_superuser(user):
-            return True
-
-        # 获取用户所属律所
-        user_law_firm_id = self._get_user_law_firm_id(user)
-        if user_law_firm_id is None:
-            return False
-
-        # 检查律师的律所是否与用户相同
-        lawyer_law_firm_id = getattr(lawyer, "law_firm_id", None)
-        return user_law_firm_id == lawyer_law_firm_id
 
     def list_credentials(
         self,
@@ -117,8 +59,8 @@ class AccountCredentialService:
         qs = self._get_base_queryset()
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
-        if not self._is_superuser(user):
-            user_law_firm_id = self._get_user_law_firm_id(user)
+        if not getattr(user, "is_superuser", False):
+            user_law_firm_id = getattr(user, "law_firm_id", None) if user else None
             if user_law_firm_id is not None:
                 qs = qs.filter(lawyer__law_firm_id=user_law_firm_id)
             else:
@@ -154,8 +96,8 @@ class AccountCredentialService:
         if not credential:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
 
-        # 权限检查
-        if not self._check_credential_access(user, credential):
+        # 权限检查：复用 OrganizationAccessPolicy 的律师读取权限
+        if not self._access_policy.can_read_lawyer(user=user, lawyer=credential.lawyer):
             raise PermissionDenied(message=_("无权限访问该凭证"), code="CREDENTIAL_ACCESS_DENIED")
 
         return credential
@@ -194,7 +136,7 @@ class AccountCredentialService:
             raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         # 权限检查：验证用户是否有权限为该律师创建凭证
-        if not self._check_lawyer_access(user, lawyer):
+        if not self._access_policy.can_read_lawyer(user=user, lawyer=lawyer):
             raise PermissionDenied(message=_("无权限为该律师创建凭证"), code="CREDENTIAL_CREATE_DENIED")
 
         credential = AccountCredential.objects.create(
@@ -217,6 +159,8 @@ class AccountCredentialService:
 
         return credential
 
+    _UPDATABLE_FIELDS: frozenset[str] = frozenset({"site_name", "url", "account", "password"})
+
     @transaction.atomic
     def update_credential(
         self,
@@ -229,7 +173,7 @@ class AccountCredentialService:
 
         Args:
             credential_id: 凭证 ID
-            data: 更新数据
+            data: 更新数据（仅允许 site_name/url/account/password）
             user: 当前用户
 
         Returns:
@@ -243,7 +187,7 @@ class AccountCredentialService:
         credential = self.get_credential(credential_id, user)
 
         for key, value in data.items():
-            if hasattr(credential, key):
+            if key in self._UPDATABLE_FIELDS:
                 setattr(credential, key, value)
 
         credential.save()
@@ -294,52 +238,45 @@ class AccountCredentialService:
     @transaction.atomic
     def update_login_success(self, credential_id: int) -> None:
         """
-        更新登录成功统计
+        更新登录成功统计（使用 F() 表达式避免竞态条件）
 
         Args:
             credential_id: 凭证 ID
-
-        Raises:
-            NotFoundError: 凭证不存在
         """
+        from django.db.models import F
         from django.utils import timezone
 
-        credential = self._get_credential_internal(credential_id)
-        credential.last_login_success_at = timezone.now()
-        credential.login_success_count += 1
-        credential.save(update_fields=["last_login_success_at", "login_success_count"])
+        updated = AccountCredential.objects.filter(id=credential_id).update(
+            login_success_count=F("login_success_count") + 1,
+            last_login_success_at=timezone.now(),
+        )
+        if not updated:
+            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
 
         logger.info(
             "登录成功统计已更新",
-            extra={
-                "credential_id": credential_id,
-                "login_success_count": credential.login_success_count,
-                "action": "update_login_success",
-            },
+            extra={"credential_id": credential_id, "action": "update_login_success"},
         )
 
     @transaction.atomic
     def update_login_failure(self, credential_id: int) -> None:
         """
-        更新登录失败统计
+        更新登录失败统计（使用 F() 表达式避免竞态条件）
 
         Args:
             credential_id: 凭证 ID
-
-        Raises:
-            NotFoundError: 凭证不存在
         """
-        credential = self._get_credential_internal(credential_id)
-        credential.login_failure_count += 1
-        credential.save(update_fields=["login_failure_count"])
+        from django.db.models import F
+
+        updated = AccountCredential.objects.filter(id=credential_id).update(
+            login_failure_count=F("login_failure_count") + 1,
+        )
+        if not updated:
+            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
 
         logger.info(
             "登录失败统计已更新",
-            extra={
-                "credential_id": credential_id,
-                "login_failure_count": credential.login_failure_count,
-                "action": "update_login_failure",
-            },
+            extra={"credential_id": credential_id, "action": "update_login_failure"},
         )
 
     def batch_mark_preferred(self, credential_ids: list[int]) -> int:
@@ -406,5 +343,50 @@ class AccountCredentialService:
             id__in=credential_ids,
             site_name=site_name,
         )
+
+    SITE_URL_MAPPING: dict[str, str] = {
+        "court_zxfw": "zxfw.court.gov.cn",
+    }
+
+    def get_credentials_by_site(self, site_name: str) -> "QuerySet[AccountCredential, AccountCredential]":
+        """
+        根据站点名称获取凭证（无权限检查，内部使用）
+
+        支持精确匹配 site_name 和 URL 包含匹配。
+
+        Args:
+            site_name: 站点名称或URL关键字
+
+        Returns:
+            凭证查询集
+        """
+        url_keyword = self.SITE_URL_MAPPING.get(site_name, site_name)
+        return (
+            self._get_base_queryset()
+            .filter(Q(site_name=site_name) | Q(url__icontains=url_keyword))
+            .order_by("-is_preferred", "-last_login_success_at")
+        )
+
+    def get_credential_by_account(self, account: str, site_name: str) -> AccountCredential:
+        """
+        根据账号和站点获取凭证（无权限检查，内部使用）
+
+        Args:
+            account: 账号名称
+            site_name: 站点名称
+
+        Returns:
+            凭证对象
+
+        Raises:
+            NotFoundError: 凭证不存在
+        """
+        credential = self._get_base_queryset().filter(account=account, site_name=site_name).first()
+        if not credential:
+            raise NotFoundError(
+                message=_(f"账号凭证不存在: {account}@{site_name}"),
+                code="CREDENTIAL_NOT_FOUND",
+            )
+        return credential
 
 

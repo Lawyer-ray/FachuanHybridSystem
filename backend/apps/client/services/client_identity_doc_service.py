@@ -134,7 +134,7 @@ class ClientIdentityDocService:
         doc.delete()
 
         if file_path:
-            transaction.on_commit(lambda: delete_media_file(file_path))
+            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))
 
         logger.info("删除证件文档 %s", doc_id, extra={"user": user})
 

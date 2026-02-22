@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.exceptions import ValidationException
@@ -43,7 +44,7 @@ class ContractWorkflowService:
         user: Any | None = None,
     ) -> Contract:
         if payments_data and not confirm_finance:
-            raise ValidationException("关键财务操作需二次确认")
+            raise ValidationException(_("关键财务操作需二次确认"))
 
         supplementary_agreements_data = contract_data.pop("supplementary_agreements", None)
 

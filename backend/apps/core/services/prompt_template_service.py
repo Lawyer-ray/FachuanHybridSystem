@@ -10,10 +10,14 @@ from django.db import transaction
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.infrastructure import CacheKeys, delete_cache_key
 from apps.core.models.prompt_template import PromptTemplate
+from apps.core.repositories.prompt_template_repository import PromptTemplateRepository
 
 
 class PromptTemplateService:
     """Prompt 模板服务"""
+
+    def __init__(self, *, repository: PromptTemplateRepository | None = None) -> None:
+        self._repository = repository or PromptTemplateRepository()
 
     @transaction.atomic
     def create_template(
@@ -57,12 +61,11 @@ class PromptTemplateService:
                 errors={"title": "显示标题不能为空"},
             )
 
-        prompt_template = PromptTemplate.objects.create(
+        prompt_template = self._repository.create(
             name=name.strip(),
             title=title.strip(),
             template=template,
             description=description,
-            variables=variables or [],
             category=category,
             is_active=is_active,
             version=version,
@@ -101,7 +104,7 @@ class PromptTemplateService:
         Returns:
             更新后的 PromptTemplate 实例
         """
-        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        prompt_template = self._repository.get_by_id(template_id)
         if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
@@ -154,7 +157,7 @@ class PromptTemplateService:
         Returns:
             是否成功
         """
-        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        prompt_template = self._repository.get_by_id(template_id)
         if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
@@ -180,7 +183,7 @@ class PromptTemplateService:
         Returns:
             PromptTemplate 实例
         """
-        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        prompt_template = self._repository.get_by_id(template_id)
         if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
@@ -199,7 +202,7 @@ class PromptTemplateService:
         Returns:
             PromptTemplate 实例,不存在时返回 None
         """
-        return PromptTemplate.objects.filter(name=name).first()
+        return self._repository.get_by_name(name)
 
     def list_templates(
         self,
@@ -216,15 +219,15 @@ class PromptTemplateService:
         Returns:
             PromptTemplate 列表
         """
-        queryset = PromptTemplate.objects.all()
+        templates = self._repository.get_all_active()
 
         if category is not None:
-            queryset = queryset.filter(category=category)
+            templates = [t for t in templates if t.category == category]
 
         if is_active is not None:
-            queryset = queryset.filter(is_active=is_active)
+            templates = [t for t in templates if t.is_active == is_active]
 
-        return list(queryset.order_by("category", "name"))
+        return sorted(templates, key=lambda t: (t.category, t.name))
 
     def _clear_cache(self, name: str) -> None:
         """清除 Prompt 模板缓存"""

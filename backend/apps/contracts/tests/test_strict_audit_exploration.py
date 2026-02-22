@@ -25,12 +25,8 @@ BACKEND_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent.parent
 
 # Category 1: Service/API 层 — 需要 i18n 包裹的文件
 I18N_FILES: Final[list[Path]] = [
-    BACKEND_DIR / "apps" / "contracts" / "services" / "contract_payment_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "payment" / "contract_payment_service.py",
-    BACKEND_DIR / "apps" / "contracts" / "services" / "supplementary_agreement_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "supplementary" / "supplementary_agreement_service.py",
-    BACKEND_DIR / "apps" / "contracts" / "services" / "contract_service" / "_finance.py",
-    BACKEND_DIR / "apps" / "contracts" / "services" / "contract_service" / "_crud.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "payment" / "contract_finance_mutation_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_validator.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_workflow_service.py",

@@ -88,7 +88,7 @@ class CaseAssignmentService:
                 "case_id": case_id,
                 "lawyer_id": lawyer_id,
                 "user_id": getattr(user, "id", None) if user else None,
-                "count": qs.count(),
+                "count": "deferred",
             },
         )
 

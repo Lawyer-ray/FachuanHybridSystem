@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from django.db import models
-
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 
 from .account_credential_service import AccountCredentialService
@@ -104,10 +102,11 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             团队信息字典，不存在时返回 None
         """
-        from apps.organization.models import Team
+        from apps.core.exceptions import NotFoundError
 
-        team = Team.objects.select_related("law_firm").filter(id=team_id).first()
-        if team is None:
+        try:
+            team = self.team_service.get_team(team_id)
+        except NotFoundError:
             return None
         return {
             "id": team.id,
@@ -127,10 +126,9 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             律师 DTO 列表
         """
-        from apps.organization.models import Lawyer
+        lawyers = self.lawyer_service.list_lawyers(filters={"law_firm_id": organization_id})
         from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
-        lawyers = Lawyer.objects.select_related("law_firm").filter(law_firm_id=organization_id)
         assembler = LawyerDtoAssembler()
         return [assembler.to_dto(lawyer) for lawyer in lawyers]
 
@@ -141,9 +139,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             所有账号凭证的 DTO 列表
         """
-        from apps.organization.models import AccountCredential
-
-        credentials = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").all()
+        credentials = self.account_credential_service.list_credentials()
         return [AccountCredentialDTO.from_model(credential) for credential in credentials]
 
     def get_credential_internal(self, credential_id: int) -> AccountCredentialDTO:
@@ -166,31 +162,13 @@ class OrganizationServiceAdapter(IOrganizationService):
         """
         内部方法：根据站点名称获取所有凭证（无权限检查）
 
-        支持两种匹配方式：
-        1. 精确匹配 site_name
-        2. URL 包含匹配（如 url 包含 zxfw.court.gov.cn）
-
         Args:
             site_name: 站点名称或URL关键字
 
         Returns:
             账号凭证 DTO 列表
         """
-        from django.db.models import Q
-
-        from apps.organization.models import AccountCredential
-
-        SITE_URL_MAPPING = {
-            "court_zxfw": "zxfw.court.gov.cn",
-        }
-
-        url_keyword = SITE_URL_MAPPING.get(site_name, site_name)
-
-        credentials = (
-            AccountCredential.objects.filter(Q(site_name=site_name) | Q(url__icontains=url_keyword))
-            .select_related("lawyer", "lawyer__law_firm")
-            .order_by("-is_preferred", "-last_login_success_at")
-        )
+        credentials = self.account_credential_service.get_credentials_by_site(site_name)
         return [AccountCredentialDTO.from_model(c) for c in credentials]
 
     def get_credential_by_account_internal(self, account: str, site_name: str) -> AccountCredentialDTO:
@@ -207,22 +185,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         Raises:
             NotFoundError: 凭证不存在
         """
-        from apps.core.exceptions import NotFoundError
-
-        from apps.organization.models import AccountCredential
-
-        credential = (
-            AccountCredential.objects.filter(account=account, site_name=site_name)
-            .select_related("lawyer", "lawyer__law_firm")
-            .first()
-        )
-
-        if not credential:
-            raise NotFoundError(
-                message=f"账号凭证不存在: {account}@{site_name}",
-                code="CREDENTIAL_NOT_FOUND",
-                errors={"account": account, "site_name": site_name},
-            )
+        credential = self.account_credential_service.get_credential_by_account(account, site_name)
         return AccountCredentialDTO.from_model(credential)
 
     def update_login_success_internal(self, credential_id: int) -> None:
@@ -232,13 +195,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         Args:
             credential_id: 凭证 ID
         """
-        from django.utils import timezone
-
-        from apps.organization.models import AccountCredential
-
-        AccountCredential.objects.filter(id=credential_id).update(
-            login_success_count=models.F("login_success_count") + 1, last_login_success_at=timezone.now()
-        )
+        self.account_credential_service.update_login_success(credential_id)
 
     def update_login_failure_internal(self, credential_id: int) -> None:
         """
@@ -247,11 +204,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         Args:
             credential_id: 凭证 ID
         """
-        from django.db.models import F
-
-        from apps.organization.models import AccountCredential
-
-        AccountCredential.objects.filter(id=credential_id).update(login_failure_count=F("login_failure_count") + 1)
+        self.account_credential_service.update_login_failure(credential_id)
 
     def get_lawyer_by_id_internal(self, lawyer_id: int) -> LawyerDTO | None:
         """
@@ -263,14 +216,12 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             LawyerDTO，不存在返回 None
         """
-        from apps.core.dto.organization import LawyerDTO as LawyerDTOClass
-        from apps.organization.models import Lawyer
+        from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
-        try:
-            lawyer = Lawyer.objects.select_related("law_firm").get(id=lawyer_id)
-            return LawyerDTOClass.from_model(lawyer)
-        except Lawyer.DoesNotExist:
+        lawyer = self.lawyer_service._get_lawyer_internal(lawyer_id)
+        if not lawyer:
             return None
+        return LawyerDtoAssembler().to_dto(lawyer)
 
     def get_default_lawyer_id_internal(self) -> int | None:
         """
@@ -279,7 +230,8 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             默认律师 ID，不存在返回 None
         """
-        from apps.organization.models import Lawyer
+        from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
 
-        lawyer = Lawyer.objects.filter(is_admin=True).first()
-        return lawyer.id if lawyer else None
+        adapter = LawyerServiceAdapter(service=self.lawyer_service)
+        admin_dto = adapter.get_admin_lawyer_internal()
+        return admin_dto.id if admin_dto else None

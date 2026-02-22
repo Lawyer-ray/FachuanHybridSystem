@@ -219,7 +219,7 @@ def test_1_6_adapter_no_raw_model_return() -> None:
     """
     adapter_file: Path = (
         BACKEND_DIR / "apps" / "contracts" / "services"
-        / "_contract_service_adapter.py"
+        / "contract" / "contract_service_adapter.py"
     )
     source: str = adapter_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
@@ -264,7 +264,7 @@ def test_1_7_validate_fee_mode_i18n() -> None:
     """
     mixin_file: Path = (
         BACKEND_DIR / "apps" / "contracts" / "services"
-        / "_contract_helpers_mixin.py"
+        / "contract" / "contract_validator.py"
     )
     source: str = mixin_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
@@ -280,7 +280,7 @@ def test_1_7_validate_fee_mode_i18n() -> None:
         "无效的代理阶段",
     ]
 
-    # 提取 _validate_fee_mode 和 _validate_stages 方法源码
+    # 提取 validate_fee_mode 和 validate_stages 方法源码
     method_sources: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
@@ -288,7 +288,7 @@ def test_1_7_validate_fee_mode_i18n() -> None:
         for item in node.body:
             if not isinstance(item, ast.FunctionDef):
                 continue
-            if item.name in ("_validate_fee_mode", "_validate_stages"):
+            if item.name in ("validate_fee_mode", "_validate_fee_mode", "validate_stages", "_validate_stages"):
                 seg: str = ast.get_source_segment(source, item) or ""
                 method_sources.append(seg)
 

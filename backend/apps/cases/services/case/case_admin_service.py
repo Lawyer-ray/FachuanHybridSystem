@@ -87,7 +87,7 @@ class CaseAdminService:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
             )
-            return "查询失败"
+            return str(_("查询失败"))
 
     def get_matched_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
         try:
@@ -176,7 +176,7 @@ class CaseAdminService:
         return new_case
 
     @transaction.atomic
-    def handle_case_filing_change(self, case_id: int, is_archived: bool) -> str | None | None:
+    def handle_case_filing_change(self, case_id: int, is_archived: bool) -> str | None:
         """
         处理案件建档状态变化
 

@@ -154,13 +154,24 @@ class CaseLogService:
 
         actor_id = getattr(user, "id", None) if user else None
 
-        return CaseLog.objects.create( # type: ignore
+        log = CaseLog.objects.create(
             case_id=case_id,
             content=content,
             actor_id=actor_id,
-            reminder_type=reminder_type,
-            reminder_time=reminder_time,
         )
+
+        # 如果有提醒数据，创建关联的 Reminder 记录
+        if reminder_type and reminder_time:
+            from apps.reminders.models import Reminder
+
+            Reminder.objects.create(
+                case_log=log,
+                reminder_type=reminder_type,
+                content=content[:255],
+                due_at=reminder_time,
+            )
+
+        return log
 
     @transaction.atomic
     def update_log(
@@ -197,7 +208,11 @@ class CaseLogService:
         old_content = log.content
         actor_id = getattr(user, "id", None) if user else None
 
-        # 更新字段
+        # 提取 reminder 相关数据（非 CaseLog 模型字段）
+        reminder_type = data.pop("reminder_type", None)
+        reminder_time = data.pop("reminder_time", None)
+
+        # 更新 CaseLog 字段
         for key, value in data.items():
             setattr(log, key, value)
         log.save()

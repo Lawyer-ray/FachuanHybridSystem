@@ -17,6 +17,7 @@ Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
 
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.contracts.schemas import (
@@ -55,7 +56,7 @@ def _require_contract_access(request: Any, contract_id: int) -> None:
 def _require_admin(request: Any) -> None:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False) or not getattr(user, "is_admin", False):
-        raise PermissionDenied("需要管理员权限")
+        raise PermissionDenied(_("需要管理员权限"))
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)
