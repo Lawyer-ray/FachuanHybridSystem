@@ -440,7 +440,8 @@ class CaseAssignmentService(DjangoPermsMixin):
             return False
         except Exception as e:
             logger.error(
-                f"创建案件指派失败:{e}",
+                "创建案件指派失败: %s",
+                e,
                 extra={
                     "action": "create_assignment_internal",
                     "case_id": case_id,

@@ -21,7 +21,7 @@ class CaseChatRepository:
             return Case.objects.get(id=case_id)
         except ObjectDoesNotExist:
             raise NotFoundError(
-                message=f"案件不存在: ID={case_id}",
+                message=_("案件不存在: ID=%(id)s") % {"id": case_id},
                 code="CASE_NOT_FOUND",
                 errors={"case_id": case_id},
             ) from None

@@ -270,10 +270,11 @@ class CaseDocumentTemplateAdminService:
         total_count = len(auto_matched) + len(manual_bound)
 
         logger.info(
-            f"案件 {case_id} 模板显示数据: "
-            f"auto_matched={len(auto_matched)}, "
-            f"manual_bound={len(manual_bound)}, "
-            f"available={len(available_for_binding)}"
+            "案件 %d 模板显示数据: auto_matched=%d, manual_bound=%d, available=%d",
+            case_id,
+            len(auto_matched),
+            len(manual_bound),
+            len(available_for_binding),
         )
 
         return {
