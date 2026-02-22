@@ -9,27 +9,16 @@ Requirements: 1.1, 1.7, 3.1, 3.2, 3.3
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.cases.admin.base import BaseTabularInline
 from apps.cases.models import BindingSource, CaseTemplateBinding
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    BaseTabularInline = admin.TabularInline
-else:
-    try:
-        import nested_admin
-
-        BaseTabularInline = nested_admin.NestedTabularInline
-    except Exception:
-        logger.exception("操作失败")
-        BaseTabularInline = admin.TabularInline
 
 
 def _get_case_document_template_admin_service() -> Any:

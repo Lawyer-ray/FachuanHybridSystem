@@ -1,22 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django.contrib import admin
 from django.forms import ModelForm
 from django.http import HttpRequest
 
+from apps.cases.admin.base import BaseModelAdmin
 from apps.cases.models import CaseLog, CaseLogAttachment
-
-if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin[CaseLog]
-else:
-    try:
-        import nested_admin
-
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-    except Exception:
-        BaseModelAdmin = admin.ModelAdmin
 
 
 @admin.register(CaseLog)
