@@ -22,9 +22,7 @@ from apps.organization.services import AccountCredentialService
 
 
 def _get_credential_service() -> AccountCredentialService:
-    """工厂函数 - 创建 AccountCredentialService 实例"""
     return AccountCredentialService()
-
 
 
 @admin.register(AccountCredential)
@@ -88,7 +86,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     @admin.display(description=_("成功/失败次数"))
     def login_statistics_display(self, obj: AccountCredential) -> SafeString:
-        """显示登录统计信息"""
         return format_html(
             '<span style="color: #28a745; font-weight: bold;">{}</span> / <span style="color: #dc3545;">{}</span>',
             obj.login_success_count,
@@ -97,7 +94,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     @admin.display(description=_("成功率"))
     def success_rate_display(self, obj: AccountCredential) -> SafeString:
-        """显示登录成功率"""
         rate = obj.success_rate * 100
 
         if rate >= 80:
@@ -113,7 +109,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     @admin.display(description=_("最后成功登录"))
     def last_login_display(self, obj: AccountCredential) -> SafeString:
-        """显示最后登录时间"""
         if not obj.last_login_success_at:
             return format_html('<span style="color: #999;">{}</span>', _("从未成功"))
 
@@ -143,7 +138,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     @admin.display(description=_("操作"))
     def auto_login_button(self, obj: AccountCredential) -> SafeString:
-        """操作按钮 - 查看历史"""
         if obj.site_name == "court_zxfw":
             url = reverse("admin:automation_tokenacquisitionhistory_changelist")
             return format_html(
@@ -161,10 +155,8 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     def mark_as_preferred(
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
-        """标记为优先账号"""
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        service = _get_credential_service()
-        count: int = service.batch_mark_preferred(credential_ids)
+        count: int = _get_credential_service().batch_mark_preferred(credential_ids)
         self.message_user(
             request,
             _("已将 %(count)d 个账号标记为优先使用") % {"count": count},
@@ -174,16 +166,12 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     def unmark_as_preferred(
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
-        """取消优先标记"""
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        service = _get_credential_service()
-        count: int = service.batch_unmark_preferred(credential_ids)
+        count: int = _get_credential_service().batch_unmark_preferred(credential_ids)
         self.message_user(
             request,
             _("已取消 %(count)d 个账号的优先标记") % {"count": count},
         )
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[AccountCredential]:
-        """优化查询性能"""
-        qs = super().get_queryset(request)
-        return qs.select_related("lawyer")
+        return super().get_queryset(request).select_related("lawyer")
