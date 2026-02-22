@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty
 from apps.core.exceptions import NotFoundError
@@ -73,7 +74,7 @@ class ContractMutationService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在") from None
+            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
 
         if "fee_mode" in data:
             merged_data = {**contract.__dict__, **data}
@@ -97,7 +98,7 @@ class ContractMutationService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在") from None
+            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
 
         unlinked_case_count = self.case_service.unbind_cases_from_contract_internal(contract_id=contract.pk)
         contract.delete()
