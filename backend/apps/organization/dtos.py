@@ -42,16 +42,7 @@ class AccountCredentialUpdateDTO:
     site_name: str | None = None
     url: str | None = None
     account: str | None = None
-    username: str | None = None
     password: str | None = None
-    real_name: str | None = None
-    phone: str | None = None
-    license_no: str | None = None
-    id_card: str | None = None
-    law_firm_id: int | None = None
-    is_admin: bool = False
-    lawyer_team_ids: list[int] | None = None
-    biz_team_ids: list[int] | None = None
 
 
 @dataclass(frozen=True)
