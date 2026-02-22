@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.documents.models.choices import LegalStatusMatchMode, DocumentCaseStage
+from apps.documents.models.choices import LegalStatusMatchMode, DocumentCaseStage, DocumentTemplateType, FolderTemplateType
 from django.utils.translation import gettext_lazy as _
 
 import logging
@@ -31,7 +31,7 @@ class TemplateMatchingService:
     def find_matching_case_document_template_names(self, case_type: str) -> list[str]:
         try:
 
-            templates = DocumentTemplate.objects.filter(template_type="case", is_active=True)
+            templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CASE, is_active=True)
             matched: list[str] = []
             for template in templates:
                 case_types = template.case_types or []
@@ -47,7 +47,7 @@ class TemplateMatchingService:
     ) -> list[str]:
         try:
 
-            templates = FolderTemplate.objects.filter(template_type="case", is_active=True)
+            templates = FolderTemplate.objects.filter(template_type=FolderTemplateType.CASE, is_active=True)
             case_legal_statuses_set = set(legal_statuses or [])
             return [
                 t.name for t in templates if self._matches_case_folder_template(t, case_type, case_legal_statuses_set)
@@ -132,7 +132,7 @@ class TemplateMatchingService:
         if not case_type:
             raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
 
-        folder_templates = self.find_matching_folder_templates("contract", case_type)
+        folder_templates = self.find_matching_folder_templates(FolderTemplateType.CONTRACT, case_type)
         document_templates = self.find_matching_contract_templates(case_type)
         return cast(
             dict[str, bool], {"has_folder": bool(folder_templates), "has_document": bool(document_templates)}
@@ -159,7 +159,7 @@ class TemplateMatchingService:
             if not normalized_stages:
                 return []
 
-            templates = DocumentTemplate.objects.filter(template_type="case", is_active=True)
+            templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CASE, is_active=True)
 
             matched: list[dict[str, Any]] = []
             for template in templates:
