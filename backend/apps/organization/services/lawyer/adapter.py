@@ -26,7 +26,7 @@ class LawyerServiceAdapter(ILawyerService):
 
     def get_lawyer(self, lawyer_id: int) -> LawyerDTO | None:
         lawyer = self.service._get_lawyer_internal(lawyer_id)
-        if not lawyer:
+        if lawyer is None:
             return None
         return self._to_dto(lawyer)
 
@@ -42,7 +42,7 @@ class LawyerServiceAdapter(ILawyerService):
         admin_lawyer = (
             self.service.get_lawyer_queryset().filter(is_admin=True).first()
         )
-        if admin_lawyer:
+        if admin_lawyer is not None:
             return self._to_dto(admin_lawyer)
         return None
 
