@@ -86,21 +86,22 @@ class ReminderService:
 
     def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> None:
         """将 data 中的字段应用到 reminder 实例，复用 validators 校验。"""
-        if "contract_id" in data:
-            data["contract_id"] = normalize_target_id(data["contract_id"], field_name="contract_id")
-        if "case_log_id" in data:
-            data["case_log_id"] = normalize_target_id(data["case_log_id"], field_name="case_log_id")
+        new_contract_id: int | None = reminder.contract_id
+        new_case_log_id: int | None = reminder.case_log_id
 
-        # 绑定互斥校验
-        contract_id: int | None = data.get("contract_id", reminder.contract_id)
-        case_log_id: int | None = data.get("case_log_id", reminder.case_log_id)
+        if "contract_id" in data:
+            new_contract_id = normalize_target_id(data["contract_id"], field_name="contract_id")
+        if "case_log_id" in data:
+            new_case_log_id = normalize_target_id(data["case_log_id"], field_name="case_log_id")
+
         if "contract_id" in data or "case_log_id" in data:
-            validate_binding_exclusive(contract_id=contract_id, case_log_id=case_log_id)
+            validate_binding_exclusive(contract_id=new_contract_id, case_log_id=new_case_log_id)
+            validate_fk_exists(contract_id=new_contract_id, case_log_id=new_case_log_id)
 
         if "contract_id" in data:
-            reminder.contract_id = data["contract_id"]
+            reminder.contract_id = new_contract_id
         if "case_log_id" in data:
-            reminder.case_log_id = data["case_log_id"]
+            reminder.case_log_id = new_case_log_id
         if "reminder_type" in data and data["reminder_type"] is not None:
             reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
         if "content" in data and data["content"] is not None:

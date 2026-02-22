@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import models
@@ -12,6 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.storage import KeepOriginalNameStorage
+
+_SENTINEL = object()
 
 from .case import Case
 
@@ -66,9 +68,19 @@ class CaseLog(models.Model):
         return f"{self.case_id}-{self.actor_id}-{self.created_at}"
 
     @property
+    def _latest_reminder(self) -> Any | None:
+        """缓存最近的提醒记录，避免重复查询。"""
+        cached = getattr(self, "_cached_latest_reminder", _SENTINEL)
+        if cached is not _SENTINEL:
+            return cached
+        reminder = self.reminders.order_by("-due_at").first()
+        self._cached_latest_reminder = reminder
+        return reminder
+
+    @property
     def reminder_type(self) -> str | None:
         """获取最近的提醒类型。"""
-        reminder = self.reminders.order_by("-due_at").first()
+        reminder = self._latest_reminder
         if reminder is None:
             return None
         return str(getattr(reminder, "reminder_type", ""))
@@ -76,7 +88,7 @@ class CaseLog(models.Model):
     @property
     def reminder_time(self) -> datetime | None:
         """获取最近的提醒时间。"""
-        reminder = self.reminders.order_by("-due_at").first()
+        reminder = self._latest_reminder
         if reminder is None:
             return None
         due_at = getattr(reminder, "due_at", None)
