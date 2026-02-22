@@ -85,7 +85,11 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
                 if service.unbind_chat(chat.id):
                     success_count += 1
             except Exception as e:
-                messages.error(request, _("解除绑定群聊 %(chat)s 失败: %(error)s") % {"chat": chat.name, "error": str(e)})
+                msg = _("解除绑定群聊 %(chat)s 失败: %(error)s") % {
+                    "chat": chat.name,
+                    "error": str(e),
+                }
+                messages.error(request, msg)
 
         if success_count > 0:
             messages.success(request, _("成功解除绑定 %d 个群聊") % success_count)

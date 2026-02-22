@@ -29,7 +29,13 @@ class AutocompleteWidget(forms.TextInput):
         self.listen_case_type = listen_case_type
         super().__init__(*args, **kwargs)
 
-    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: BaseRenderer | None = None) -> SafeString:
+    def render(
+        self,
+        name: str,
+        value: Any,
+        attrs: dict[str, Any] | None = None,
+        renderer: BaseRenderer | None = None,
+    ) -> SafeString:
         if attrs is None:
             attrs = {}
 
