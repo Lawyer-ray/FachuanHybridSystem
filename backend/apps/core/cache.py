@@ -89,20 +89,20 @@ class _CacheKeys:
 class _CacheTimeout:
     """缓存超时时间定义（内部实现）"""
 
-    @staticmethod
-    def get_short() -> int:
+    @classmethod
+    def get_short(cls) -> int:
         return cast(int, _safe_get_config("performance.cache.timeout_short", 60))
 
-    @staticmethod
-    def get_medium() -> int:
+    @classmethod
+    def get_medium(cls) -> int:
         return cast(int, _safe_get_config("performance.cache.timeout_medium", 300))
 
-    @staticmethod
-    def get_long() -> int:
+    @classmethod
+    def get_long(cls) -> int:
         return cast(int, _safe_get_config("performance.cache.timeout_long", 3600))
 
-    @staticmethod
-    def get_day() -> int:
+    @classmethod
+    def get_day(cls) -> int:
         return cast(int, _safe_get_config("performance.cache.timeout_day", 86400))
 
     SHORT = 60

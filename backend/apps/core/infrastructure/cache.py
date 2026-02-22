@@ -220,28 +220,28 @@ class _CacheTimeoutMeta(type):
 class CacheTimeout(metaclass=_CacheTimeoutMeta):
     """缓存超时时间定义"""
 
-    @staticmethod
-    def get_short() -> int:
+    @classmethod
+    def get_short(cls) -> int:
         """短期缓存(1分钟)"""
-        return int(CacheTimeout.SHORT)
+        return int(cls.SHORT)
 
-    @staticmethod
-    def get_medium() -> int:
+    @classmethod
+    def get_medium(cls) -> int:
         """中期缓存(5分钟)"""
-        return int(CacheTimeout.MEDIUM)
+        return int(cls.MEDIUM)
 
-    @staticmethod
-    def get_long() -> int:
+    @classmethod
+    def get_long(cls) -> int:
         """长期缓存(1小时)"""
-        return int(CacheTimeout.LONG)
+        return int(cls.LONG)
 
-    @staticmethod
-    def get_day() -> int:
+    @classmethod
+    def get_day(cls) -> int:
         """日缓存(1天)"""
-        return int(CacheTimeout.DAY)
+        return int(cls.DAY)
 
-    @staticmethod
-    def until_end_of_day(*, now: Any | None = None, buffer_seconds: int = 3600) -> int:
+    @classmethod
+    def until_end_of_day(cls, *, now: Any | None = None, buffer_seconds: int = 3600) -> int:
         from datetime import datetime, time, timedelta
 
         from django.utils import timezone
