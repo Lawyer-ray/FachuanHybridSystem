@@ -14,7 +14,14 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.services.reminder_service import ReminderService
-from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type, normalize_target_id, validate_fk_exists
+from apps.reminders.services.validators import (
+    normalize_content,
+    normalize_due_at,
+    normalize_metadata,
+    normalize_reminder_type,
+    normalize_target_id,
+    validate_fk_exists,
+)
 
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
