@@ -89,6 +89,8 @@ class ClientMutationService:
         self._validate_create_data(data)
 
         client = Client.objects.create(**data)
+        # prefetch identity_docs 避免 schema 序列化时 N+1
+        client = Client.objects.prefetch_related("identity_docs").get(pk=client.pk)
         logger.info(
             "客户创建成功",
             extra={"client_id": cast(int, client.pk), "user_id": getattr(user, "id", None), "action": "create_client"},
@@ -163,7 +165,7 @@ class ClientMutationService:
                 uploaded_file=file,
                 user=user,
             )
-        return client
+        return Client.objects.prefetch_related("identity_docs").get(pk=client.pk)
 
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):
