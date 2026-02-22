@@ -57,7 +57,7 @@ class EnhancedContextBuilder:
                 service_result = service.generate(context_data)
                 if service_result:
                     context.update(service_result)
-                    logger.debug(f"服务 {service.name} 生成了 {len(service_result)} 个占位符")
+                    logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(service_result))
             except Exception as e:
                 logger.error(
                     f"占位符服务执行失败: {service.name}",
@@ -83,7 +83,7 @@ class EnhancedContextBuilder:
                 if old_key in context:
                     context[new_key] = context[old_key]
 
-        logger.info(f"上下文构建完成,生成了 {len(context)} 个占位符")
+        logger.info("上下文构建完成,生成了 %s 个占位符", len(context))
         return context
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:
@@ -131,7 +131,7 @@ class EnhancedContextBuilder:
             if isinstance(e, ValidationException):
                 raise
 
-            logger.error(f"构建合同上下文失败: {e}", extra={"contract_id": contract_id}, exc_info=True)
+            logger.error("构建合同上下文失败: %s", e, extra={"contract_id": contract_id}, exc_info=True)
             raise ValidationException(
                 message=_("构建合同上下文失败"),
                 code="CONTEXT_BUILD_ERROR",

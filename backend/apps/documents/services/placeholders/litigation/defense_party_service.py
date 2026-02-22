@@ -154,7 +154,7 @@ class DefensePartyService(BasePlaceholderService):
         self._format_other_roles(result_parts, role_map)
 
         result = "\n\n".join(result_parts)
-        logger.info(f"生成答辩状当事人信息成功: case_id={case_id}, 场景={scenario}, 当事人数={len(result_parts)}")
+        logger.info("生成答辩状当事人信息成功: case_id=%s, 场景=%s, 当事人数=%s", case_id, scenario, len(result_parts))
         return result
 
     def _format_respondents(

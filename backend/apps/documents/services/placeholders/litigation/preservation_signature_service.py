@@ -95,7 +95,7 @@ class PreservationSignatureService(BasePlaceholderService):
         ]
 
         if not parties:
-            logger.warning(f"未找到符合条件的签名主体: case_id={case_id}")
+            logger.warning("未找到符合条件的签名主体: case_id=%s", case_id)
             return ""
 
         # 格式化日期
@@ -130,6 +130,6 @@ class PreservationSignatureService(BasePlaceholderService):
         # 用空行分隔各签名块
         result = "\n\n".join(signature_blocks)
 
-        logger.info(f"生成财产保全申请书签名盖章信息成功: case_id={case_id}, 签名主体数={len(signature_blocks)}")
+        logger.info("生成财产保全申请书签名盖章信息成功: case_id=%s, 签名主体数=%s", case_id, len(signature_blocks))
 
         return result

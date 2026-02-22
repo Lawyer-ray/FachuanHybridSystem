@@ -126,11 +126,9 @@ class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
 
     def get_primary_lawyer(self, obj: Contract) -> str:
         """显示主办律师"""
-        from apps.contracts.services.assignment.contract_assignment_query_service import (
-            ContractAssignmentQueryService,
-        )
+        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
 
-        service = ContractAssignmentQueryService()
+        service = get_contract_assignment_query_service()
         assignment = service.get_primary_lawyer(obj.pk)
         if assignment:
             lawyer = assignment.lawyer
@@ -141,11 +139,9 @@ class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
 
     def get_primary_lawyer_display(self, obj: Contract) -> str:
         """详情页显示主办律师（只读）"""
-        from apps.contracts.services.assignment.contract_assignment_query_service import (
-            ContractAssignmentQueryService,
-        )
+        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
 
-        service = ContractAssignmentQueryService()
+        service = get_contract_assignment_query_service()
         assignment = service.get_primary_lawyer(obj.pk)
         if assignment:
             lawyer = assignment.lawyer

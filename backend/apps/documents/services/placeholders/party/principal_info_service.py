@@ -159,7 +159,7 @@ class PrincipalInfoService(BasePlaceholderService):
             lines.append(f"电话：{getattr(client, 'phone', '') or ''}")
 
         except Exception as e:
-            logger.warning(f"格式化客户详情失败: {e}", extra={"client_id": getattr(client, "id", None)})
+            logger.warning("格式化客户详情失败: %s", e, extra={"client_id": getattr(client, "id", None)})
             # 提供基本格式
             lines.append(f"地址：{getattr(client, 'address', '') or ''}")
             lines.append(f"电话：{getattr(client, 'phone', '') or ''}")

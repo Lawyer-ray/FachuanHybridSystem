@@ -6,9 +6,13 @@ from django.db.models import Count
 
 from apps.core.dtos import ConversationHistoryDTO
 from apps.core.models import ConversationHistory
+from apps.core.repositories import ConversationHistoryRepository
 
 
 class ConversationHistoryService:
+    def __init__(self, *, repository: ConversationHistoryRepository | None = None) -> None:
+        self._repository = repository or ConversationHistoryRepository()
+
     def create_message_internal(
         self,
         *,
@@ -20,7 +24,7 @@ class ConversationHistoryService:
         litigation_session_id: int | None = None,
         step: str = "",
     ) -> ConversationHistoryDTO:
-        record = ConversationHistory.objects.create(
+        record = self._repository.create(
             session_id=str(session_id),
             user_id=str(user_id or ""),
             role=role,
@@ -45,7 +49,7 @@ class ConversationHistoryService:
         if not session_id and not litigation_session_id:
             return []
 
-        qs = ConversationHistory.objects.all()
+        qs = self._repository.get_all()
         if session_id:
             qs = qs.filter(session_id=str(session_id))
         if litigation_session_id:
@@ -72,7 +76,7 @@ class ConversationHistoryService:
         if not session_id and not litigation_session_id:
             return 0
 
-        qs = ConversationHistory.objects.all()
+        qs = self._repository.get_all()
         if session_id:
             qs = qs.filter(session_id=str(session_id))
         if litigation_session_id:
@@ -84,7 +88,7 @@ class ConversationHistoryService:
             return {}
 
         rows = (
-            ConversationHistory.objects.filter(litigation_session_id__in=litigation_session_ids)
+            self._repository.get_by_litigation_session_ids(litigation_session_ids)
             .values("litigation_session_id")
             .annotate(cnt=Count("id"))
         )
@@ -120,7 +124,7 @@ class ConversationHistoryService:
         Returns:
             消息列表,按时间正序排列
         """
-        qs = ConversationHistory.objects.filter(session_id=session_id)
+        qs = self._repository.get_by_session_id(session_id)
         if user_id:
             qs = qs.filter(user_id=user_id)
         history = list(qs.order_by("-created_at")[:limit])

@@ -71,7 +71,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
                 .all()
             )
         except (AttributeError, Exception) as e:
-            logger.warning(f"获取合同案件列表失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("获取合同案件列表失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return []
 
     def _format_without_cases(self, contract: Any) -> str:
@@ -98,7 +98,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
             opposing_names = "、".join(names) if names else ""
             return f"{opposing_names}合同纠纷一案"
         except Exception as e:
-            logger.warning(f"格式化无案件情况失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("格式化无案件情况失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return "合同纠纷一案"
 
     def _format_with_cases(self, contract: Any, cases: list[Any]) -> str:
@@ -117,7 +117,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
                 result = f"{result}{self._format_case_count(len(cases))}"
             return result
         except Exception as e:
-            logger.warning(f"格式化有案件情况失败: {e}")
+            logger.warning("格式化有案件情况失败: %s", e)
             return ""
 
     def _get_contract_party_ids(self, contract: Any) -> tuple[set[Any], set[Any]]:
@@ -199,7 +199,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
                 return cause.split("-")[0].strip()
             return cause.strip()
         except Exception as e:
-            logger.warning(f"提取案由失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("提取案由失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""
 
     def _format_case_count(self, count: int) -> str:
@@ -228,5 +228,5 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
             chinese_num = chinese_numbers.get(count, str(count))
             return f"{chinese_num}案"
         except Exception as e:
-            logger.warning(f"格式化案件数量失败: {e}", extra={"count": count})
+            logger.warning("格式化案件数量失败: %s", e, extra={"count": count})
             return "案"

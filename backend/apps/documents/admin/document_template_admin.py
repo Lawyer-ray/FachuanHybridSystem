@@ -500,7 +500,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
             else:
                 return format_html('<span title="所有占位符: {}">{}</span>', all_placeholders_text, len(placeholders))
         except Exception as e:
-            logger.error(f"提取占位符失败 - 模板ID: {obj.id}, 错误: {e}", exc_info=True)
+            logger.error("提取占位符失败 - 模板ID: %s, 错误: %s", obj.id, e, exc_info=True)
             return format_html('<span style="color: #c62828;" title="{}">错误</span>', str(e))
 
     @admin.display(description=_("占位符列表"))

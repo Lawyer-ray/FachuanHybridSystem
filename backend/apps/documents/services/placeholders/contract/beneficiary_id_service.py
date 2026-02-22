@@ -96,7 +96,7 @@ class BeneficiaryIdService(BasePlaceholderService):
             return "、".join(formatted_list)
 
         except Exception as e:
-            logger.warning(f"格式化受益人信息失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("格式化受益人信息失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return ""
 
     def _format_single_client(self, client: Any) -> str:
@@ -122,5 +122,5 @@ class BeneficiaryIdService(BasePlaceholderService):
                 return name
 
         except Exception as e:
-            logger.warning(f"格式化单个当事人信息失败: {e}", extra={"client_id": getattr(client, "id", None)})
+            logger.warning("格式化单个当事人信息失败: %s", e, extra={"client_id": getattr(client, "id", None)})
             return ""

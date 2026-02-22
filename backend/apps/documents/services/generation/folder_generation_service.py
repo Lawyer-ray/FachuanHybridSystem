@@ -329,9 +329,9 @@ class FolderGenerationService:
                         },
                     )
                 elif error:
-                    logger.warning(f"生成文书失败: {error}")
+                    logger.warning("生成文书失败: %s", error)
             except Exception as e:
-                logger.warning(f"生成文书异常: {e!s}")
+                logger.warning("生成文书异常: %s", e)
 
         # 7. 创建ZIP包
         try:

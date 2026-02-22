@@ -91,6 +91,6 @@ class ComplaintPartyService(BasePlaceholderService):
         # 用空行分隔各当事人
         result = "\n\n".join(result_parts)
 
-        logger.info(f"生成起诉状当事人信息成功: case_id={case_id}, 当事人数={len(result_parts)}")
+        logger.info("生成起诉状当事人信息成功: case_id=%s, 当事人数=%s", case_id, len(result_parts))
 
         return result

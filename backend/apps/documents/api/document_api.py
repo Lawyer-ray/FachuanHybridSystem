@@ -62,7 +62,7 @@ def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:
     """创建文件模板"""
     service = _get_template_service()
     template = service.create_template_from_dict(payload.dict())
-    logger.info(f"创建文件模板: {template.name} (ID: {template.id})")
+    logger.info("创建文件模板: %s (ID: %s)", template.name, template.id)
     return template
 
 
@@ -71,7 +71,7 @@ def update_document_template(request: Any, template_id: int, payload: DocumentTe
     """更新文件模板"""
     service = _get_template_service()
     template = service.update_template_from_dict(template_id, schema_to_update_dict(payload))
-    logger.info(f"更新文件模板: {template.name} (ID: {template.id})")
+    logger.info("更新文件模板: %s (ID: %s)", template.name, template.id)
     return template
 
 

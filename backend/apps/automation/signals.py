@@ -25,47 +25,32 @@ def auto_submit_preservation_quote(
     自动提交询价任务到 Django Q 队列
 
     当创建新的询价任务时，自动提交到 Django Q 异步队列执行。
-
-    Args:
-        sender: 模型类
-        instance: 保存的实例
-        created: 是否是新创建的
-        **kwargs: 其他参数
     """
-    # 只处理新创建的任务
     if not created:
         return
 
-    # 只处理状态为 PENDING 的任务
     if instance.status != QuoteStatus.PENDING:
         return
 
     try:
-        # 提交到 Django Q 异步任务队列
         task_id = async_task(
             "apps.automation.tasks.execute_preservation_quote_task",
             instance.id,
             task_name=f"询价任务 #{instance.id}",
-            timeout=600,  # 10分钟超时
+            timeout=600,
         )
 
         logger.info(
-            f"✅ 询价任务 #{instance.id} 已自动提交到队列，Task ID: {task_id}",
-            extra={
-                "action": "auto_submit_quote",
-                "quote_id": instance.id,
-                "task_id": task_id,
-            },
+            "✅ 询价任务 #%s 已自动提交到队列，Task ID: %s",
+            instance.id, task_id,
+            extra={"action": "auto_submit_quote", "quote_id": instance.id, "task_id": task_id},
         )
 
     except Exception as e:
         logger.error(
-            f"❌ 自动提交询价任务 #{instance.id} 失败: {e}",
-            extra={
-                "action": "auto_submit_quote_failed",
-                "quote_id": instance.id,
-                "error": str(e),
-            },
+            "❌ 自动提交询价任务 #%s 失败: %s",
+            instance.id, e,
+            extra={"action": "auto_submit_quote_failed", "quote_id": instance.id, "error": str(e)},
             exc_info=True,
         )
 
@@ -75,34 +60,36 @@ def _handle_sms_download_success(sms: Any, instance: Any) -> None:
     if sms.status == CourtSMSStatus.DOWNLOADING:
         sms.status = CourtSMSStatus.MATCHING
         sms.save()
-        logger.info(f"✅ 下载任务完成，进入匹配阶段: SMS ID={sms.id}, Task ID={instance.id}")
+        logger.info("✅ 下载任务完成，进入匹配阶段: SMS ID=%s, Task ID=%s", sms.id, instance.id)
     elif sms.status == CourtSMSStatus.MATCHING:
-        logger.info(f"✅ 下载任务完成，继续匹配流程: SMS ID={sms.id}, Task ID={instance.id}")
+        logger.info("✅ 下载任务完成，继续匹配流程: SMS ID=%s, Task ID=%s", sms.id, instance.id)
 
     task_id = async_task(
         "apps.automation.services.sms.court_sms_service.process_sms_async",
         sms.id,
         task_name=f"court_sms_continue_{sms.id}",
     )
-    logger.info(f"提交后续处理任务: SMS ID={sms.id}, Queue Task ID={task_id}")
+    logger.info("提交后续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
 
 
 def _handle_sms_download_failed(sms: Any, instance: Any) -> bool:
     """处理下载失败的 SMS，返回是否需要 continue（跳过重试逻辑）"""
     if sms.status == CourtSMSStatus.MATCHING:
-        logger.info(f"下载失败但继续匹配流程: SMS ID={sms.id}")
+        logger.info("下载失败但继续匹配流程: SMS ID=%s", sms.id)
         task_id = async_task(
             "apps.automation.services.sms.court_sms_service.process_sms_async",
             sms.id,
             task_name=f"court_sms_continue_after_download_failed_{sms.id}",
         )
-        logger.info(f"下载失败后继续处理任务: SMS ID={sms.id}, Queue Task ID={task_id}")
-        return True  # 跳过重试逻辑
+        logger.info("下载失败后继续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
+        return True
 
     sms.status = CourtSMSStatus.DOWNLOAD_FAILED
     sms.error_message = instance.error_message or "下载任务失败"
     sms.save()
-    logger.warning(f"⚠️ 下载任务失败: SMS ID={sms.id}, Task ID={instance.id}, 错误: {instance.error_message}")
+    logger.warning(
+        "⚠️ 下载任务失败: SMS ID=%s, Task ID=%s, 错误: %s", sms.id, instance.id, instance.error_message,
+    )
 
     if sms.retry_count < 3:
         from datetime import timedelta
@@ -118,12 +105,12 @@ def _handle_sms_download_failed(sms: Any, instance: Any) -> bool:
             schedule_type=Schedule.ONCE,
             next_run=next_run,
         )
-        logger.info(f"提交重试下载任务: SMS ID={sms.id}, 计划执行时间={next_run}")
+        logger.info("提交重试下载任务: SMS ID=%s, 计划执行时间=%s", sms.id, next_run)
     else:
         sms.status = CourtSMSStatus.FAILED
         sms.error_message = f"下载失败，已重试{sms.retry_count}次"
         sms.save()
-        logger.error(f"下载重试次数用完，标记为失败: SMS ID={sms.id}")
+        logger.error("下载重试次数用完，标记为失败: SMS ID=%s", sms.id)
     return False
 
 
@@ -147,7 +134,8 @@ def handle_scraper_task_status_change(sender: type[Model], instance: ScraperTask
                     continue
     except Exception as e:
         logger.error(
-            f"❌ 处理下载完成信号失败: Task ID={instance.id}, 错误: {e}",
+            "❌ 处理下载完成信号失败: Task ID=%s, 错误: %s",
+            instance.id, e,
             extra={"action": "download_signal_failed", "task_id": instance.id, "error": str(e)},
             exc_info=True,
         )

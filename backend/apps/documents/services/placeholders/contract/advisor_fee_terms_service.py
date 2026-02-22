@@ -70,7 +70,7 @@ class AdvisorFeeTermsService(BasePlaceholderService):
                 return "收费条款待定。"
 
         except Exception as e:
-            logger.warning(f"生成顾问合同收费条款失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("生成顾问合同收费条款失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return "收费条款待定。"
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:
@@ -113,5 +113,5 @@ class AdvisorFeeTermsService(BasePlaceholderService):
             # number_to_chinese 返回带"元整"的完整格式
             return number_service.number_to_chinese(amount)
         except Exception as e:
-            logger.warning(f"数字转换失败: {e}", extra={"amount": amount})
+            logger.warning("数字转换失败: %s", e, extra={"amount": amount})
             return "零元整"
