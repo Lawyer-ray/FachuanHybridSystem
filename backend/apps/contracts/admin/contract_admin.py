@@ -140,3 +140,6 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
 
     change_form_template = "admin/contracts/contract/change_form.html"
 
+    def get_queryset(self, request: Any) -> Any:
+        return super().get_queryset(request).prefetch_related("assignments__lawyer")
+

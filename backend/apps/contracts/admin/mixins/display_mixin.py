@@ -48,14 +48,11 @@ class ContractDisplayMixin:
 
     @admin.display(description=_("主办律师"))
     def get_primary_lawyer(self, obj) -> Any:
-        """显示主办律师"""
-        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
-
-        service = get_contract_assignment_query_service()
-        assignment = service.get_primary_lawyer(obj.pk)
-        if assignment:
-            lawyer = assignment.lawyer
-            return lawyer.real_name or lawyer.username
+        """显示主办律师（使用 prefetch_related 数据避免 N+1）"""
+        for assignment in obj.assignments.all():
+            if assignment.is_primary:
+                lawyer = assignment.lawyer
+                return lawyer.real_name or lawyer.username
         return "-"
 
     @admin.display(description=_("主办律师"))
