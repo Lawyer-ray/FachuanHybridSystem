@@ -90,30 +90,7 @@ class CaseChat(models.Model):
             summary_parts.append("已验证")
         return " | ".join(summary_parts)
 
-    def update_owner_verification(self, verified: bool = True, save: bool = True) -> None:
-        """更新群主验证状态"""
-        self.owner_verified = verified
-        if verified:
-            self.owner_verified_at = timezone.now()
-        else:
-            self.owner_verified_at = None
-        if save:
-            self.save(update_fields=["owner_verified", "owner_verified_at", "updated_at"])
 
-    def add_creation_audit_entry(self, action: str, details: dict[str, Any], save: bool = True) -> None:
-        """添加创建审计日志条目"""
-        if not isinstance(self.creation_audit_log, dict):
-            self.creation_audit_log = {}
-        if "entries" not in self.creation_audit_log:
-            self.creation_audit_log["entries"] = []
-        entry: dict[str, Any] = {
-            "timestamp": timezone.now().isoformat(),
-            "action": action,
-            "details": details,
-        }
-        self.creation_audit_log["entries"].append(entry)
-        if save:
-            self.save(update_fields=["creation_audit_log", "updated_at"])
 
 
 class ChatAuditLog(models.Model):
