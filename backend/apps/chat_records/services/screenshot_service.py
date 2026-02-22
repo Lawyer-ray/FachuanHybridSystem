@@ -188,3 +188,28 @@ class ScreenshotService:
         )
         return {"success": True}
 
+    def reorder_by_capture_time(self, project_id: int) -> None:
+        """按 capture_time_seconds 排序并批量更新 ordering（CASE/WHEN）。
+
+        最多 2 次数据库查询：1 次查询 ID + 1 次批量更新。
+        """
+        all_ids = list(
+            ChatRecordScreenshot.objects.filter(project_id=project_id)
+            .order_by(
+                Case(
+                    When(capture_time_seconds__isnull=True, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                ),
+                "capture_time_seconds",
+                "created_at",
+            )
+            .values_list("id", flat=True)
+        )
+        if not all_ids:
+            return
+        cases = [When(id=sid, then=Value(idx)) for idx, sid in enumerate(all_ids, start=1)]
+        ChatRecordScreenshot.objects.filter(project_id=project_id).update(
+            ordering=Case(*cases, output_field=IntegerField())
+        )
+
