@@ -21,17 +21,9 @@ logger = logging.getLogger("apps.organization")
 
 
 class AccountCredentialService:
-    """
-    账号凭证服务
-
-    职责：
-    1. 封装账号凭证相关的所有业务逻辑
-    2. 管理数据库事务
-    3. 执行权限检查
-    """
+    """账号凭证服务，封装账号凭证相关的所有业务逻辑。"""
 
     def __init__(self) -> None:
-        """初始化服务"""
         self._access_policy = OrganizationAccessPolicy()
 
     def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":

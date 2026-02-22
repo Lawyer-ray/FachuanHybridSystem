@@ -22,28 +22,10 @@ class RegisterResult:
 
 
 class AuthService:
-    """
-    认证服务 - 封装认证相关业务逻辑
-
-    职责：
-    - 用户登录认证
-    - 用户登出
-    - 用户注册
-    - 认证失败时抛出 AuthenticationError
-    """
+    """认证服务，封装用户登录、登出、注册业务逻辑。"""
 
     def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """
-        用户登录
-
-        Args:
-            request: Django 请求对象
-            username: 用户名
-            password: 密码
-
-        Returns:
-            Lawyer: 认证成功的用户对象
-
         Raises:
             AuthenticationError: 认证失败时抛出
         """
@@ -56,23 +38,10 @@ class AuthService:
         return user
 
     def logout(self, request: HttpRequest) -> None:
-        """
-        用户登出
-
-        Args:
-            request: Django 请求对象
-        """
         logout(request)
 
     def is_first_user(self) -> bool:
-        """
-        判断当前是否为首个用户注册
-
-        Returns:
-            bool: 如果系统中尚无用户则返回 True
-        """
         return not Lawyer.objects.exists()
-
 
     def register(
         self,
@@ -82,17 +51,6 @@ class AuthService:
         bootstrap_token: str | None = None,
     ) -> RegisterResult:
         """
-        用户注册
-
-        Args:
-            username: 用户名
-            password: 密码
-            real_name: 真实姓名
-            bootstrap_token: 引导令牌（第一个管理员注册时需要）
-
-        Returns:
-            RegisterResult: 包含 user 属性的注册结果
-
         Raises:
             PermissionDenied: 生产环境注册第一个用户时未提供正确的 bootstrap_token
         """
