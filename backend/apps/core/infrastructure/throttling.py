@@ -150,22 +150,6 @@ strict_limiter = RateLimiter(requests=10, window=60)  # 每分钟 10 次
 auth_limiter = RateLimiter(requests=5, window=60)  # 登录限流:每分钟 5 次
 
 
-def get_rate_limit_config(kind: str, *, fallback_requests: int, fallback_window: int) -> tuple[int, int]:
-    try:
-        from django.conf import settings
-
-        cfg = getattr(settings, "RATE_LIMIT", None) or {}
-    except (ImportError, AttributeError):
-        cfg = {}
-
-    default_requests = int(cfg.get("DEFAULT_REQUESTS", fallback_requests) or fallback_requests)
-    default_window = int(cfg.get("DEFAULT_WINDOW", fallback_window) or fallback_window)
-
-    requests = int(cfg.get(f"{kind}_REQUESTS", default_requests) or default_requests)
-    window = int(cfg.get(f"{kind}_WINDOW", default_window) or default_window)
-    return requests, window
-
-
 def rate_limit(
     requests: int = 100,
     window: int = 60,
@@ -222,13 +206,7 @@ def rate_limit(
     return decorator
 
 
-def rate_limit_by_user(requests: int = 100, window: int = 60) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """
-    基于用户的限流装饰器
-    已登录用户使用用户 ID,未登录使用 IP
-    """
-
-    def key_func(request: HttpRequest) -> str:
+def key_func(request: HttpRequest) -> str:
         user = getattr(request, "user", None)
         if user and getattr(user, "is_authenticated", False):
             return f"user:{user.id}"
