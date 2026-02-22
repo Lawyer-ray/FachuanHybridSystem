@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 from django import forms
@@ -24,21 +23,12 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
     def save(self, commit: bool = True) -> PropertyClueAttachment:
         instance = super().save(commit=False)
 
-        # 处理文件上传
         if self.cleaned_data.get("file_upload"):
             uploaded_file = self.cleaned_data["file_upload"]
+            from apps.client.services.storage import save_uploaded_file
 
-            from django.conf import settings
-
-            base_dir = Path(settings.MEDIA_ROOT) / "property_clue_attachments" / str(instance.property_clue.id)
-            base_dir.mkdir(parents=True, exist_ok=True)
-
-            file_path = base_dir / uploaded_file.name
-            with file_path.open("wb+") as f:
-                for chunk in uploaded_file.chunks():
-                    f.write(chunk)
-
-            instance.file_path = str(file_path.resolve())
+            rel_path, _ = save_uploaded_file(uploaded_file, rel_dir="property_clue_attachments")
+            instance.file_path = rel_path
             instance.file_name = uploaded_file.name
 
         if commit:

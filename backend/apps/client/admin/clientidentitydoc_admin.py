@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -12,7 +11,6 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import ClientIdentityDoc
-from apps.client.services.storage import sanitize_upload_filename
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -48,41 +46,12 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
     def save(self, commit: bool = True) -> ClientIdentityDoc:
         instance = super().save(commit=False)
 
-        # 处理文件上传
         if self.cleaned_data.get("file_upload"):
             uploaded_file = self.cleaned_data["file_upload"]
+            from apps.client.services.storage import save_uploaded_file
 
-            from django.conf import settings
-
-            # 创建目录
-            upload_dir = Path(settings.MEDIA_ROOT) / "client_identity_docs"
-            upload_dir.mkdir(parents=True, exist_ok=True)
-
-            # 生成文件名
-            ext = Path(uploaded_file.name).suffix
-            client_name = instance.client.name if instance.client else "未知"
-            doc_type_display = instance.get_doc_type_display()
-
-            # 清理文件名
-            clean_client_name = sanitize_upload_filename(client_name)
-            clean_doc_type = sanitize_upload_filename(doc_type_display)
-
-            new_filename = f"{clean_client_name}_{clean_doc_type}{ext}"
-            file_path = upload_dir / new_filename
-
-            # 处理重名文件
-            counter = 1
-            while file_path.exists():
-                name_part = f"{clean_client_name}_{clean_doc_type}_{counter}"
-                file_path = upload_dir / f"{name_part}{ext}"
-                counter += 1
-
-            # 保存文件
-            with file_path.open("wb+") as destination:
-                for chunk in uploaded_file.chunks():
-                    destination.write(chunk)
-
-            instance.file_path = str(file_path)
+            rel_path, _ = save_uploaded_file(uploaded_file, rel_dir="client_identity_docs")
+            instance.file_path = rel_path
 
         if commit:
             instance.save()
