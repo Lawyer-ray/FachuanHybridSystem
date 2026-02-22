@@ -192,18 +192,6 @@ class PromptTemplateService:
             )
         return prompt_template
 
-    def get_template_by_name(self, name: str) -> PromptTemplate | None:
-        """
-        根据名称获取 Prompt 模板
-
-        Args:
-            name: 模板名称
-
-        Returns:
-            PromptTemplate 实例,不存在时返回 None
-        """
-        return self._repository.get_by_name(name)
-
     def list_templates(
         self,
         category: str | None = None,

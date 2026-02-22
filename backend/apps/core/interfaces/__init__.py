@@ -31,6 +31,7 @@ from apps.core.dtos import (
     ReminderDTO,
     ReminderTypeDTO,
     SupplementaryAgreementDTO,
+    TeamDTO,
     TokenAcquisitionResult,
 )
 
