@@ -22,14 +22,14 @@ class FolderBindingCrudService(BaseFolderBindingService):
     def _get_owner(self, *, owner_id: int) -> Any:
         if self.owner_model is None:
             raise RuntimeError("FolderBindingCrudService.owner_model 未配置")
-        try:
-            return self.owner_model.objects.get(id=owner_id)
-        except self.owner_model.DoesNotExist:
+        owner = self.owner_model.objects.filter(id=owner_id).first()
+        if owner is None:
             raise NotFoundError(
                 message=f"{self.owner_label}不存在",
                 code="OWNER_NOT_FOUND",
                 errors={"id": f"ID 为 {owner_id} 的{self.owner_label}不存在"},
-            ) from None
+            )
+        return owner
 
     def _require_owner(self, *, owner_id: int, **kwargs: Any) -> Any:
         return self._get_owner(owner_id=owner_id)
@@ -88,10 +88,7 @@ class FolderBindingCrudService(BaseFolderBindingService):
             raise RuntimeError("FolderBindingCrudService.owner_id_field 未配置")
 
         self._require_owner(owner_id=owner_id, **kwargs)
-        try:
-            return self.binding_model.objects.get(**{self.owner_id_field: owner_id})
-        except self.binding_model.DoesNotExist:
-            return None
+        return self.binding_model.objects.filter(**{self.owner_id_field: owner_id}).first()
 
     def save_file_to_bound_folder(
         self,
