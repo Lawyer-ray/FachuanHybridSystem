@@ -21,7 +21,7 @@ class ContractSubdirPathResolver:
         "supplementary_agreements": "supplementary_agreement",
     }
 
-    def resolve(self, *, case_type: str, subdir_key: str) -> str | None | None:
+    def resolve(self, *, case_type: str, subdir_key: str) -> str | None:
         contract_sub_type = self.SUBDIR_KEY_TO_CONTRACT_SUB_TYPE.get(subdir_key)
         if not contract_sub_type:
             return None

@@ -146,7 +146,7 @@ class SteeringDependencyResolver:
 
                 return 0
 
-            except Exception:
+            except (OSError, ValueError, IndexError):
                 return 0
 
         return sorted(spec_paths, key=get_priority, reverse=True)

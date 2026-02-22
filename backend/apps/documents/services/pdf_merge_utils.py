@@ -6,7 +6,7 @@ import io
 import logging
 import os
 import tempfile
-from typing import Any, cast
+from typing import Any
 
 from PIL import Image as _PILImage
 

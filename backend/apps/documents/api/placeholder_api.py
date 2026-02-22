@@ -1,14 +1,12 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
-import logging
-
 """
 替换词 API
 
 提供替换词的 CRUD 接口.
 """
+
+from __future__ import annotations
+
+import logging
 
 from datetime import date, datetime
 from typing import Any

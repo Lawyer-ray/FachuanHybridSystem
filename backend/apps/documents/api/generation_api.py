@@ -1,12 +1,10 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
 """
 文档生成 API
 
 提供合同文件夹和补充协议的下载接口.
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any

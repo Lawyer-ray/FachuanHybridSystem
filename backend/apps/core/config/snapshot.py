@@ -145,16 +145,14 @@ class SnapshotManager:
                     }
                     snapshots.append(snapshot_info)
 
-                except Exception:
-                    logger.exception("操作失败")
-
+                except (OSError, ValueError, KeyError):
                     # 忽略损坏的快照文件
                     continue
 
             # 按创建时间排序
             snapshots.sort(key=lambda x: x["created_at"], reverse=True)
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             raise ConfigException(f"列出快照失败: {e}") from e
 
         return snapshots

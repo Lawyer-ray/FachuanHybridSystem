@@ -24,7 +24,7 @@ from apps.documents.models import (
     DocumentTemplateType,
     LegalStatusMatchMode,
 )
-from apps.documents.storage import get_docx_templates_root, list_docx_templates_files
+from apps.documents.storage import list_docx_templates_files
 
 logger = logging.getLogger(__name__)
 

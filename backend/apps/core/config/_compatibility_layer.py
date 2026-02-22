@@ -54,7 +54,7 @@ class DjangoSettingsCompatibilityLayer:
             config_key = self._django_to_config_mapping[django_key]
             try:
                 return self.config_manager.get(config_key, default)
-            except Exception:
+            except (KeyError, AttributeError):
                 pass
         import apps.core.config.django_settings_compatibility as _compat_mod
         return getattr(_compat_mod.django_settings, django_key, default)
@@ -79,6 +79,6 @@ class DjangoSettingsCompatibilityLayer:
             if not attr_name.startswith("_") and attr_name.isupper():
                 try:
                     configs[attr_name] = getattr(django_settings, attr_name)
-                except Exception:
+                except (AttributeError, TypeError):
                     continue
         return configs

@@ -494,6 +494,6 @@ class MigrationStateTracker(MigrationQueryMixin, MigrationExportMixin):
 
             with open(self.log_file, "a", encoding="utf-8") as f:
                 f.write(log_entry + "\n")
-        except Exception:
+        except (OSError, IOError):
             # 忽略日志写入错误
             pass

@@ -323,7 +323,7 @@ class AutoLoginService:
         """
         try:
             # 在线程池中执行同步的登录操作
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             token = await loop.run_in_executor(None, self._sync_login_attempt, credential)
             return token
 

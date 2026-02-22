@@ -1,14 +1,12 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
-import logging
-
 """
 文件夹模板 API
 
 提供文件夹模板的 CRUD 接口.
 """
+
+from __future__ import annotations
+
+import logging
 
 from typing import Any
 

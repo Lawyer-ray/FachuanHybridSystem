@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from django.core.cache import cache
 from django.db.models import Avg, Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from apps.core.cache import CacheTimeout
@@ -272,8 +273,7 @@ class PerformanceMonitor:
 
         # 时间趋势（按天）
         daily_stats = (
-            queryset.extra(select={"day": "date(created_at)"})
-            .values("day")
+            queryset.values(day=TruncDate("created_at"))
             .annotate(count=Count("id"), success_count=Count("id", filter=Q(status="success")))
             .order_by("day")
         )
@@ -395,20 +395,23 @@ class PerformanceMonitor:
         self._reset_cache_stats()
         logger.info("性能监控指标已重置")
 
+    def _concurrent_key(self) -> str:
+        from apps.core.infrastructure import CacheKeys
+        return CacheKeys.automation_token_perf_concurrent()
+
     def _increment_concurrent_count(self) -> None:
         """增加并发计数"""
-        cache.set(
-            "performance:concurrent_count", cache.get("performance:concurrent_count", 0) + 1, timeout=CacheTimeout.LONG
-        )
+        key = self._concurrent_key()
+        cache.set(key, cache.get(key, 0) + 1, timeout=CacheTimeout.LONG)
 
     def _decrement_concurrent_count(self) -> None:
         """减少并发计数"""
-        current = cache.get("performance:concurrent_count", 0)
-        cache.set("performance:concurrent_count", max(0, current - 1), timeout=CacheTimeout.LONG)
+        key = self._concurrent_key()
+        cache.set(key, max(0, cache.get(key, 0) - 1), timeout=CacheTimeout.LONG)
 
     def _get_concurrent_count(self) -> int:
         """获取当前并发计数"""
-        return cast(int, cache.get("performance:concurrent_count", 0))
+        return cast(int, cache.get(self._concurrent_key(), 0))
 
     def _update_counters(self, success: bool, error_type: str | None, site_name: str = "all") -> None:
         """更新统计计数器"""
@@ -430,31 +433,22 @@ class PerformanceMonitor:
                 error_key = CacheKeys.automation_token_perf_counter(date=date, site_name=site_name, metric=error_type)
                 cache.set(error_key, (cache.get(error_key) or 0) + 1, timeout=CacheTimeout.DAY)
 
+    def _counter_key(self, metric: str) -> str:
+        from apps.core.infrastructure import CacheKeys
+        date = timezone.localdate().strftime("%Y%m%d")
+        return CacheKeys.automation_token_perf_counter(date=date, site_name="all", metric=metric)
+
     def _get_counters(self) -> dict[str, int]:
         """获取所有计数器"""
-        return {
-            "total": cache.get("performance:counter:total", 0),
-            "success": cache.get("performance:counter:success", 0),
-            "failed": cache.get("performance:counter:failed", 0),
-            "timeout": cache.get("performance:counter:timeout", 0),
-            "network_error": cache.get("performance:counter:network_error", 0),
-            "captcha_error": cache.get("performance:counter:captcha_error", 0),
-            "credential_error": cache.get("performance:counter:credential_error", 0),
-        }
+        metrics = ["total", "success", "failed", "timeout", "network_error", "captcha_error", "credential_error"]
+        return {m: cache.get(self._counter_key(m), 0) for m in metrics}
 
     def _reset_counters(self) -> None:
         """重置所有计数器"""
-        counter_keys = [
-            "performance:counter:total",
-            "performance:counter:success",
-            "performance:counter:failed",
-            "performance:counter:timeout",
-            "performance:counter:network_error",
-            "performance:counter:captcha_error",
-            "performance:counter:credential_error",
-            "performance:concurrent_count",
-        ]
-        cache.delete_many(counter_keys)
+        metrics = ["total", "success", "failed", "timeout", "network_error", "captcha_error", "credential_error"]
+        keys = [self._counter_key(m) for m in metrics]
+        keys.append(self._concurrent_key())
+        cache.delete_many(keys)
 
     def _reset_cache_stats(self) -> None:
         """重置缓存统计"""
@@ -477,7 +471,7 @@ class PerformanceMonitor:
 
             return (recent_records["avg_total"] or 0.0, recent_records["avg_login"] or 0.0)
         except Exception as e:
-            logger.warning(f"获取平均耗时失败: {e}")
+            logger.warning("获取平均耗时失败: %s", e)
             return 0.0, 0.0
 
     def _check_alerts(self, acquisition_id: str, success: bool, duration: float, error_type: str | None) -> None:
@@ -517,7 +511,7 @@ class PerformanceMonitor:
             # 避免message字段冲突，重命名为alert_message
             alert_extra = {k: v for k, v in alert.items() if k != "message"}
             alert_extra["alert_message"] = alert.get("message", "")
-            logger.warning(f"性能告警: {alert['message']}", extra=alert_extra)
+            logger.warning("性能告警: %s", alert["message"], extra=alert_extra)
 
 
 # 全局性能监控实例

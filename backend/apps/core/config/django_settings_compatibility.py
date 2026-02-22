@@ -81,8 +81,6 @@ class DjangoSettingsCompatibilityLayer:
             if not attr_name.startswith("_") and attr_name.isupper():
                 try:
                     configs[attr_name] = getattr(django_settings, attr_name)
-                except Exception:
-                    logger.exception("操作失败")
-
+                except (AttributeError, TypeError):
                     continue
         return configs

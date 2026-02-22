@@ -79,9 +79,7 @@ class ConfigCommandService:
         try:
             self.load(force_reload=True)
             return True
-        except Exception:
-            logger.exception("操作失败")
-
+        except (OSError, ValueError, KeyError):
             return False
 
     def set(self, key: str, value: Any) -> None:
@@ -121,9 +119,7 @@ class ConfigCommandService:
                 self._m._cache.clear()
                 self._m._notify_changes(old_config, self._m._raw_config)
                 return True
-        except Exception:
-            logger.exception("操作失败")
-
+        except (OSError, ValueError, KeyError):
             return False
 
     def export(
