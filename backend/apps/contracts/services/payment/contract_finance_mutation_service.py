@@ -38,7 +38,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         self.payment_service = payment_service
 
     @property
-    def mutation_service(self) -> "ContractMutationService":
+    def mutation_service(self) -> ContractMutationService:
         if self._get_mutation_service is None:
             raise RuntimeError(_("ContractFinanceMutationService.mutation_service 未注入"))
         return self._get_mutation_service()

@@ -62,14 +62,14 @@ class ContractDisplayService:
         self._template_cache = template_cache
 
     @property
-    def document_service(self) -> "IDocumentService":
+    def document_service(self) -> IDocumentService:
         """延迟加载文档服务"""
         if self._document_service is None:
             self._document_service = get_document_service()
         return self._document_service
 
     @property
-    def template_cache(self) -> "ContractTemplateCache":
+    def template_cache(self) -> ContractTemplateCache:
         """延迟加载模板缓存服务"""
         if self._template_cache is None:
             self._template_cache = ContractTemplateCache()
@@ -83,7 +83,7 @@ class ContractDisplayService:
         """清除所有模板缓存"""
         self.template_cache.clear_all_cache()
 
-    def get_matched_document_template(self, contract: "Contract") -> str:
+    def get_matched_document_template(self, contract: Contract) -> str:
         """获取匹配的文书模板名称"""
         try:
             # 尝试从缓存获取
@@ -119,7 +119,7 @@ class ContractDisplayService:
             logger.error(f"查询合同 {contract.pk} 的文书模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
-    def get_matched_folder_templates(self, contract: "Contract") -> str:
+    def get_matched_folder_templates(self, contract: Contract) -> str:
         """获取匹配的文件夹模板名称"""
         try:
             # 尝试从缓存获取
@@ -150,7 +150,7 @@ class ContractDisplayService:
             logger.error(f"查询合同 {contract.pk} 的文件夹模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
-    def has_matched_templates(self, contract: "Contract") -> bool:
+    def has_matched_templates(self, contract: Contract) -> bool:
         """检查是否有匹配的模板"""
         try:
             # 尝试从缓存获取
@@ -179,7 +179,7 @@ class ContractDisplayService:
             logger.error(f"检查合同 {contract.pk} 的模板失败: {e!s}", exc_info=True)
             return False
 
-    def batch_get_template_info(self, contracts: list["Contract"]) -> dict[int, dict[str, Any]]:
+    def batch_get_template_info(self, contracts: list[Contract]) -> dict[int, dict[str, Any]]:
         """批量获取合同的模板信息"""
         result = {}
         if not contracts:

@@ -43,7 +43,7 @@ class FolderBindingResponseSchema(Schema):
     @staticmethod
     def from_binding(
         obj: ContractFolderBinding, is_accessible: bool = True, display_path: str | None = None
-    ) -> "FolderBindingResponseSchema":
+    ) -> FolderBindingResponseSchema:
         """从 ContractFolderBinding 对象创建 Schema"""
         return FolderBindingResponseSchema(
             id=obj.id,

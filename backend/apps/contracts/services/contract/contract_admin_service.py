@@ -62,7 +62,7 @@ class ContractAdminService:
         self._progress_service = progress_service
 
     @property
-    def display_service(self) -> "ContractDisplayService":
+    def display_service(self) -> ContractDisplayService:
         """
         延迟加载合同显示服务
 
@@ -79,7 +79,7 @@ class ContractAdminService:
         return self._display_service
 
     @property
-    def filing_number_service(self) -> "FilingNumberService":
+    def filing_number_service(self) -> FilingNumberService:
         """
         延迟加载建档编号服务
 
@@ -96,7 +96,7 @@ class ContractAdminService:
         return self._filing_number_service
 
     @property
-    def document_service(self) -> "ContractAdminDocumentService":
+    def document_service(self) -> ContractAdminDocumentService:
         if self._document_service is None:
             from .contract_admin_document_service import ContractAdminDocumentService
 
@@ -104,7 +104,7 @@ class ContractAdminService:
         return self._document_service
 
     @property
-    def query_service(self) -> "ContractAdminQueryService":
+    def query_service(self) -> ContractAdminQueryService:
         if self._query_service is None:
             from .contract_admin_query_service import ContractAdminQueryService
 
@@ -112,7 +112,7 @@ class ContractAdminService:
         return self._query_service
 
     @property
-    def mutation_service(self) -> "ContractAdminMutationService":
+    def mutation_service(self) -> ContractAdminMutationService:
         if self._mutation_service is None:
             from .contract_admin_mutation_service import ContractAdminMutationService
 
@@ -120,7 +120,7 @@ class ContractAdminService:
         return self._mutation_service
 
     @property
-    def progress_service(self) -> "ContractProgressService":
+    def progress_service(self) -> ContractProgressService:
         if self._progress_service is None:
             from .contract_progress_service import ContractProgressService
 
