@@ -143,10 +143,3 @@ class FolderTemplate(models.Model):
     def legal_statuses_display(self) -> str:
         """诉讼地位显示属性"""
         return self.get_legal_statuses_display() or "-"
-
-    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        result = super().delete(*args, **kwargs)
-        from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
-
-        bump_cache_version(CacheKeys.documents_matching_version_folder_templates(), timeout=CacheTimeout.get_day())
-        return result

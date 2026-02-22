@@ -161,6 +161,9 @@ def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:
     """记录删除操作"""
     _create_audit_log(instance, TemplateAuditAction.DELETE)
 
+    # 使模板匹配缓存失效（替代 Model 层的 delete() override）
+    _invalidate_template_matching_cache(sender)
+
 
 def _invalidate_template_matching_cache(sender: type[Any]) -> None:
     """根据 sender 类型递增对应的版本号缓存，使模板匹配缓存失效"""
