@@ -254,48 +254,33 @@ class ClientAdminService(ClientAdminFileMixin):
         Raises:
             ValidationException: 数据验证失败
         """
-        try:
-            # 1. 验证客户存在
-            client = Client.objects.filter(id=client_id).first()
-            if not client:
-                raise ValidationException(
-                    message=_("客户不存在"),
-                    code="CLIENT_NOT_FOUND",
-                    errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
-                )
-
-            # 2. 处理每个表单项
-            processed_files = []
-            for form_data in formset_data:
-                if self._should_process_form(form_data):
-                    file_info = self._process_single_form(client_id, form_data, admin_user)
-                    if file_info:
-                        processed_files.append(file_info)
-
-            # 3. 记录操作日志
-            logger.info(
-                "表单集文件处理完成",
-                extra={
-                    "client_id": client_id,
-                    "processed_count": len(processed_files),
-                    "admin_user": admin_user,
-                    "action": "process_formset_files",
-                },
+        # 1. 验证客户存在
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
+            raise ValidationException(
+                message=_("客户不存在"),
+                code="CLIENT_NOT_FOUND",
+                errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )
 
-        except Exception as e:
-            # 记录错误日志
-            logger.exception(
-                "表单集文件处理失败: %s",
-                e,
-                extra={
-                    "client_id": client_id,
-                    "admin_user": admin_user,
-                    "action": "process_formset_files",
-                    "error": str(e),
-                },
-            )
-            raise
+        # 2. 处理每个表单项
+        processed_files = []
+        for form_data in formset_data:
+            if self._should_process_form(form_data):
+                file_info = self._process_single_form(client_id, form_data, admin_user)
+                if file_info:
+                    processed_files.append(file_info)
+
+        # 3. 记录操作日志
+        logger.info(
+            "表单集文件处理完成",
+            extra={
+                "client_id": client_id,
+                "processed_count": len(processed_files),
+                "admin_user": admin_user,
+                "action": "process_formset_files",
+            },
+        )
 
     def _should_process_form(self, form_data: dict[str, Any]) -> bool:
         """

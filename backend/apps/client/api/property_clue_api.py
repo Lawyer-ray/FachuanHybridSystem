@@ -66,6 +66,23 @@ def list_property_clues(request: Any, client_id: int) -> Any:
     return list(clues)
 
 
+@router.get("/property-clues/content-template", response=ContentTemplateOut)
+def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
+    """
+    获取内容模板
+
+    API 层职责：
+    1. 接收查询参数
+    2. 调用 Service 静态方法
+    3. 返回模板
+
+    Requirements: 2.1, 2.2, 2.3, 2.4
+    """
+    template = _get_property_clue_service().get_content_template(clue_type)
+
+    return ContentTemplateOut(clue_type=clue_type, template=template)
+
+
 @router.get("/property-clues/{clue_id}", response=PropertyClueOut)
 def get_property_clue(request: Any, clue_id: int) -> Any:
     """
@@ -161,18 +178,3 @@ def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
     return 204, None
 
 
-@router.get("/property-clues/content-template", response=ContentTemplateOut)
-def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
-    """
-    获取内容模板
-
-    API 层职责：
-    1. 接收查询参数
-    2. 调用 Service 静态方法
-    3. 返回模板
-
-    Requirements: 2.1, 2.2, 2.3, 2.4
-    """
-    template = _get_property_clue_service().get_content_template(clue_type)
-
-    return ContentTemplateOut(clue_type=clue_type, template=template)

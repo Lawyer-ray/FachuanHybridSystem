@@ -16,7 +16,7 @@ from django.db import transaction
 
 from apps.cases.models import Case, CaseFolderBinding
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-from apps.core.exceptions import NotFoundError
+from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.core.filesystem import (
     FolderBindingCrudService,
     FolderBrowsePolicy,
