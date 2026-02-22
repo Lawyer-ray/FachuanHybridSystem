@@ -37,7 +37,7 @@ class CoreConfig(AppConfig):
             self._validate_configuration()
             self._setup_config_monitoring()
             logger.info("核心系统初始化完成")
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, RuntimeError) as e:
             logger.error(f"核心系统初始化失败: {e}")
             # 在开发环境中抛出异常，生产环境中记录错误但继续运行
             if getattr(settings, "DEBUG", False):
@@ -66,10 +66,10 @@ class CoreConfig(AppConfig):
             try:
                 config_manager.enable_steering_integration()
                 logger.info("Steering 系统集成已启用")
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.warning(f"Steering 系统集成启用失败: {e}")
 
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, RuntimeError) as e:
             logger.error(f"配置管理器初始化失败: {e}")
             raise
 
@@ -171,5 +171,5 @@ class CoreConfig(AppConfig):
         except ImportError:
             # 监听器类不存在，跳过
             logger.debug("配置监听器类不存在，跳过监控设置")
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.warning(f"配置监控设置失败: {e}")

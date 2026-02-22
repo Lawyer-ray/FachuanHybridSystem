@@ -57,16 +57,12 @@ def get_config_manager() -> ConfigManager:
         _global_config_manager.add_provider(EnvProvider())
 
         # 构建配置文件的绝对路径
-        import os
         from pathlib import Path
 
-        # 获取当前文件所在目录
         current_dir = Path(__file__).parent
         config_file = current_dir / "config.yaml"
 
-        # 如果配置文件不存在，尝试从项目根目录查找
         if not config_file.exists():
-            # 尝试从 Django BASE_DIR 查找
             try:
                 from django.conf import settings
 

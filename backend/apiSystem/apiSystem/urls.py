@@ -10,7 +10,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import include, path
 from django.utils.translation import gettext_lazy as _
@@ -25,17 +25,17 @@ admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件�
 admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统"))
 
 
-def index_view(request):
+def index_view(request: HttpRequest) -> HttpResponse:
     """首页视图"""
     return render(request, "index.html")
 
 
-def root_redirect(request):
+def root_redirect(request: HttpRequest) -> HttpResponseRedirect:
     """根路径重定向到首页"""
     return HttpResponseRedirect("/index/")
 
 
-def api_redirect(request):
+def api_redirect(request: HttpRequest) -> HttpResponseRedirect:
     """将 /api/ 重定向到 /api/v1/"""
     new_path = request.path.replace("/api/", "/api/v1/", 1)
     if request.META.get("QUERY_STRING"):
@@ -43,7 +43,7 @@ def api_redirect(request):
     return HttpResponseRedirect(new_path)
 
 
-def favicon_view(request):
+def favicon_view(request: HttpRequest) -> HttpResponse:
     """返回空的favicon响应，避免404错误"""
     return HttpResponse(status=204)  # No Content
 

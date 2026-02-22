@@ -153,7 +153,7 @@ class TestCacheTimeoutCompatPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.cache import CacheTimeout
+            from apps.core.infrastructure.cache import CacheTimeout
 
         result: int = CacheTimeout.get_short()
         assert isinstance(result, int)
@@ -165,7 +165,7 @@ class TestCacheTimeoutCompatPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.cache import CacheTimeout
+            from apps.core.infrastructure.cache import CacheTimeout
 
         result: int = CacheTimeout.get_medium()
         assert isinstance(result, int)
@@ -177,7 +177,7 @@ class TestCacheTimeoutCompatPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.cache import CacheTimeout
+            from apps.core.infrastructure.cache import CacheTimeout
 
         result: int = CacheTimeout.get_long()
         assert isinstance(result, int)
@@ -189,7 +189,7 @@ class TestCacheTimeoutCompatPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.cache import CacheTimeout
+            from apps.core.infrastructure.cache import CacheTimeout
 
         result: int = CacheTimeout.get_day()
         assert isinstance(result, int)
@@ -690,7 +690,7 @@ class TestPerformanceMonitorPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.monitoring import PerformanceMonitor as CompatMonitor
+            from apps.core.infrastructure.monitoring import PerformanceMonitor as CompatMonitor
 
         @CompatMonitor.monitor_api("test_endpoint")
         def sample_func() -> str:
@@ -705,7 +705,7 @@ class TestPerformanceMonitorPreservation:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            from apps.core.monitoring import PerformanceMonitor as CompatMonitor
+            from apps.core.infrastructure.monitoring import PerformanceMonitor as CompatMonitor
 
         executed: bool = False
         with CompatMonitor.monitor_operation("test_op"):

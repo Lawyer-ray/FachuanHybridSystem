@@ -157,7 +157,6 @@ def contract(db: Any, lawyer: Any) -> Any:
     return Contract.objects.create(
         name="Fixture测试合同",
         case_type="civil",
-        assigned_lawyer=lawyer,
     )
 
 
@@ -241,25 +240,26 @@ def query_counter(db: Any) -> Any:
     from django.test.utils import CaptureQueriesContext
 
     class QueryCounter:
-        def __init__(self):
-            self.context = None
-            self.count = 0
+        def __init__(self) -> None:
+            self.context: CaptureQueriesContext | None = None
+            self.count: int = 0
 
-        def __enter__(self):
+        def __enter__(self) -> "QueryCounter":
             self.context = CaptureQueriesContext(connection)
             self.context.__enter__()
             return self
 
-        def __exit__(self, *args):
+        def __exit__(self, *args: Any) -> None:
+            assert self.context is not None
             self.context.__exit__(*args)
             self.count = len(self.context.captured_queries)
 
         @property
-        def queries(self):
+        def queries(self) -> list[dict[str, Any]]:
             """获取所有查询"""
             return self.context.captured_queries if self.context else []
 
-    def _counter():
+    def _counter() -> QueryCounter:
         return QueryCounter()
 
     return _counter
@@ -280,16 +280,17 @@ def assert_num_queries(db: Any) -> Any:
     from django.test.utils import CaptureQueriesContext
 
     class AssertNumQueries:
-        def __init__(self, expected_count):
+        def __init__(self, expected_count: int) -> None:
             self.expected_count = expected_count
-            self.context = None
+            self.context: CaptureQueriesContext | None = None
 
-        def __enter__(self):
+        def __enter__(self) -> "AssertNumQueries":
             self.context = CaptureQueriesContext(connection)
             self.context.__enter__()
             return self
 
-        def __exit__(self, *args):
+        def __exit__(self, *args: Any) -> None:
+            assert self.context is not None
             self.context.__exit__(*args)
             actual_count = len(self.context.captured_queries)
 

@@ -5,8 +5,9 @@ API 主入口
 """
 
 import json
+from typing import Any
 
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from ninja import NinjaAPI
 from ninja.renderers import BaseRenderer
 from ninja_jwt.routers.obtain import obtain_pair_router
@@ -33,7 +34,7 @@ class UTF8JSONRenderer(BaseRenderer):
 
     media_type = "application/json"
 
-    def render(self, request, data, *, response_status):
+    def render(self, request: Any, data: Any, *, response_status: int) -> str:
         return json.dumps(data, ensure_ascii=False, default=str)
 
 
@@ -108,7 +109,7 @@ api_v1.add_router("/token", router=verify_router, tags=["JWT认证"])
 
 
 @api_v1.get("/", tags=["系统"])
-def api_root(request):
+def api_root(request: HttpRequest) -> dict[str, str]:
     """API 根路径，返回基本信息"""
     return {
         "message": "法律事务管理系统 API",
@@ -118,7 +119,7 @@ def api_root(request):
 
 
 @api_v1.get("/health", tags=["系统"])
-def health_check(request):
+def health_check(request: HttpRequest) -> dict[str, Any]:
     """
     健康检查端点
     返回系统整体健康状态
@@ -128,7 +129,7 @@ def health_check(request):
 
 
 @api_v1.get("/health/detail", tags=["系统"], auth=JWTOrSessionAuth())
-def health_check_detail(request):
+def health_check_detail(request: HttpRequest) -> dict[str, Any]:
     """
     详细健康检查端点
     返回包含磁盘空间等详细信息的健康状态
@@ -140,7 +141,7 @@ def health_check_detail(request):
 
 
 @api_v1.get("/health/live", tags=["系统"])
-def liveness_probe(request):
+def liveness_probe(request: HttpRequest) -> dict[str, Any]:
     """
     存活探针 (Kubernetes liveness probe)
     仅检查应用是否运行
@@ -149,7 +150,7 @@ def liveness_probe(request):
 
 
 @api_v1.get("/health/ready", tags=["系统"])
-def readiness_probe(request):
+def readiness_probe(request: HttpRequest) -> dict[str, Any]:
     """
     就绪探针 (Kubernetes readiness probe)
     检查应用是否可以接收流量
@@ -163,13 +164,13 @@ def readiness_probe(request):
 # ============================================================
 
 
-def _require_admin(request):
+def _require_admin(request: HttpRequest) -> None:
     """检查当前用户是否为管理员，非管理员抛出 PermissionDenied"""
     ensure_admin_request(request, message="无权限访问资源监控", code="PERMISSION_DENIED")
 
 
 @api_v1.get("/resource/status", tags=["资源监控"], auth=JWTOrSessionAuth())
-def resource_status(request):
+def resource_status(request: HttpRequest) -> dict[str, Any]:
     """
     获取资源状态
     Requirements: 4.1, 4.2, 4.3, 4.4 - 资源监控和状态查询
@@ -179,7 +180,7 @@ def resource_status(request):
 
 
 @api_v1.get("/resource/usage", tags=["资源监控"], auth=JWTOrSessionAuth())
-def resource_usage(request):
+def resource_usage(request: HttpRequest) -> dict[str, Any]:
     """
     获取资源使用情况
     Requirements: 4.1, 4.2 - 资源使用情况查询
@@ -201,7 +202,7 @@ def resource_usage(request):
 
 
 @api_v1.get("/resource/recommendations", tags=["资源监控"], auth=JWTOrSessionAuth())
-def resource_recommendations(request):
+def resource_recommendations(request: HttpRequest) -> dict[str, Any]:
     """
     获取资源优化建议
     Requirements: 4.1, 4.2 - 动态资源分配建议
@@ -211,7 +212,7 @@ def resource_recommendations(request):
 
 
 @api_v1.get("/resource/health", tags=["资源监控"], auth=JWTOrSessionAuth())
-def resource_health(request):
+def resource_health(request: HttpRequest) -> dict[str, Any]:
     """
     资源健康检查（用于外部监控系统）
     Requirements: 4.3, 4.4 - 资源健康状态检查
@@ -222,7 +223,7 @@ def resource_health(request):
 
 @api_v1.get("/resource/metrics", tags=["资源监控"], auth=JWTOrSessionAuth())
 @rate_limit_from_settings("EXPORT", by_user=True)
-def resource_metrics(request, window_minutes: int = 10, top: int = 10):
+def resource_metrics(request: HttpRequest, window_minutes: int = 10, top: int = 10) -> dict[str, Any]:
     _require_admin(request)
     from apps.core.telemetry.metrics import snapshot
 
@@ -231,7 +232,7 @@ def resource_metrics(request, window_minutes: int = 10, top: int = 10):
 
 @api_v1.get("/resource/metrics/prometheus", tags=["资源监控"], auth=JWTOrSessionAuth())
 @rate_limit_from_settings("EXPORT", by_user=True)
-def resource_metrics_prometheus(request, window_minutes: int = 10):
+def resource_metrics_prometheus(request: HttpRequest, window_minutes: int = 10) -> HttpResponse:
     _require_admin(request)
     from apps.core.telemetry.metrics import snapshot_prometheus
 

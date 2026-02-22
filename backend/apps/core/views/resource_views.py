@@ -17,7 +17,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from apps.core.resource_monitor import get_resource_status, get_resource_usage, resource_monitor
+from apps.core.infrastructure.resource_monitor import get_resource_status, get_resource_usage, resource_monitor
 
 logger = logging.getLogger(__name__)
 
