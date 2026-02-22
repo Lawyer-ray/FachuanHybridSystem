@@ -726,3 +726,342 @@ def test_2g_client_service_adapter_get_identity_docs_by_client() -> None:
 
     assert len(docs) == 1
     assert docs[0].doc_type == "id_card"
+
+
+# ============================================================
+# Task 2: Property-Based Preservation Tests (Hypothesis PBT)
+# 验证核心业务函数在任意合法输入下行为正确且一致
+# ============================================================
+
+
+# ---------------------------------------------------------------------------
+# PBT 2.1: parse_client_text 对任意合法当事人文本返回结构化结果
+# ---------------------------------------------------------------------------
+
+# 预定义的角色标签
+_ROLE_LABELS: list[str] = [
+    "原告：", "被告：", "甲方：", "乙方：",
+    "申请人：", "被申请人：", "上诉人：", "被上诉人：",
+    "第三人：", "答辩人：", "被答辩人：",
+    "甲方（原告）：", "乙方（被告）：",
+]
+
+# 结果必须包含的键
+_REQUIRED_KEYS: set[str] = {
+    "name", "phone", "address", "client_type", "id_number", "legal_representative",
+}
+
+
+@pytest.mark.property_test
+@given(
+    role_label=st.sampled_from(_ROLE_LABELS),
+    name=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo",)),  # 中文字符
+        min_size=2,
+        max_size=10,
+    ),
+    has_phone=st.booleans(),
+    phone_digits=st.text(
+        alphabet=st.characters(categories=(), whitelist_characters="0123456789"),
+        min_size=11,
+        max_size=11,
+    ),
+    has_address=st.booleans(),
+    address_text=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo",)),
+        min_size=4,
+        max_size=30,
+    ),
+)
+@h_settings(max_examples=50)
+def test_pbt_parse_client_text_returns_structured_result(
+    role_label: str,
+    name: str,
+    has_phone: bool,
+    phone_digits: str,
+    has_address: bool,
+    address_text: str,
+) -> None:
+    """
+    Property 2: Preservation - parse_client_text 对任意合法当事人文本返回结构化解析结果。
+
+    _For any_ 合法当事人文本（含角色标签 + 名称 + 可选字段），
+    parse_client_text SHALL 返回包含所有必需键的 dict。
+
+    **Validates: Requirements 3.9**
+    """
+    from apps.client.services.text_parser import parse_client_text
+
+    # 构造合法当事人文本
+    parts: list[str] = [f"{role_label}{name}"]
+    if has_phone:
+        parts.append(f"\n联系电话：{phone_digits}")
+    if has_address:
+        parts.append(f"\n地址：{address_text}")
+
+    text: str = "".join(parts)
+    result: dict[str, object] = parse_client_text(text)
+
+    # 结果必须是 dict 且包含所有必需键
+    assert isinstance(result, dict), f"返回类型应为 dict，实际为 {type(result)}"
+    assert _REQUIRED_KEYS.issubset(result.keys()), (
+        f"缺少必需键: {_REQUIRED_KEYS - result.keys()}"
+    )
+    # client_type 只能是 natural 或 legal
+    assert result["client_type"] in ("natural", "legal"), (
+        f"client_type 应为 natural 或 legal，实际为 {result['client_type']}"
+    )
+
+
+@pytest.mark.property_test
+@given(
+    text=st.text(min_size=0, max_size=200),
+)
+@h_settings(max_examples=50)
+def test_pbt_parse_client_text_never_crashes(text: str) -> None:
+    """
+    Property 2: Preservation - parse_client_text 对任意输入不崩溃。
+
+    _For any_ 字符串输入，parse_client_text SHALL 不抛出异常，
+    且返回包含所有必需键的 dict。
+
+    **Validates: Requirements 3.9**
+    """
+    from apps.client.services.text_parser import parse_client_text
+
+    result: dict[str, object] = parse_client_text(text)
+
+    assert isinstance(result, dict)
+    assert _REQUIRED_KEYS.issubset(result.keys())
+    assert result["client_type"] in ("natural", "legal")
+
+
+# ---------------------------------------------------------------------------
+# PBT 2.2: parse_multiple_clients_text 对任意多当事人文本返回列表
+# ---------------------------------------------------------------------------
+
+@pytest.mark.property_test
+@given(
+    role_a=st.sampled_from(["原告：", "甲方：", "申请人：", "上诉人："]),
+    role_b=st.sampled_from(["被告：", "乙方：", "被申请人：", "被上诉人："]),
+    name_a=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo",)),
+        min_size=2,
+        max_size=8,
+    ),
+    name_b=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo",)),
+        min_size=2,
+        max_size=8,
+    ),
+)
+@h_settings(max_examples=30)
+def test_pbt_parse_multiple_clients_text_returns_list(
+    role_a: str,
+    role_b: str,
+    name_a: str,
+    name_b: str,
+) -> None:
+    """
+    Property 2: Preservation - parse_multiple_clients_text 对多当事人文本返回列表。
+
+    _For any_ 包含两个角色标签的文本，parse_multiple_clients_text SHALL
+    返回 list，每个元素包含所有必需键。
+
+    **Validates: Requirements 3.9**
+    """
+    from apps.client.services.text_parser import parse_multiple_clients_text
+
+    text: str = f"{role_a}{name_a}\n{role_b}{name_b}"
+    result: list[dict[str, object]] = parse_multiple_clients_text(text)
+
+    assert isinstance(result, list)
+    # 至少解析出一个当事人（两个不同角色标签应解析出两个）
+    for party in result:
+        assert isinstance(party, dict)
+        assert _REQUIRED_KEYS.issubset(party.keys())
+        assert party["client_type"] in ("natural", "legal")
+
+
+@pytest.mark.property_test
+@given(text=st.text(min_size=0, max_size=200))
+@h_settings(max_examples=50)
+def test_pbt_parse_multiple_clients_text_never_crashes(text: str) -> None:
+    """
+    Property 2: Preservation - parse_multiple_clients_text 对任意输入不崩溃。
+
+    **Validates: Requirements 3.9**
+    """
+    from apps.client.services.text_parser import parse_multiple_clients_text
+
+    result: list[dict[str, object]] = parse_multiple_clients_text(text)
+
+    assert isinstance(result, list)
+    for party in result:
+        assert isinstance(party, dict)
+        assert _REQUIRED_KEYS.issubset(party.keys())
+
+
+# ---------------------------------------------------------------------------
+# PBT 2.3: save_uploaded_file 返回正确的相对路径
+# ---------------------------------------------------------------------------
+
+@pytest.mark.property_test
+@given(
+    rel_dir=st.from_regex(r"[a-z]{1,5}(/[a-z]{1,5}){0,2}", fullmatch=True),
+    file_content=st.binary(min_size=1, max_size=100),
+    ext=st.sampled_from([".jpg", ".png", ".pdf", ".docx"]),
+)
+@h_settings(max_examples=20)
+def test_pbt_save_uploaded_file_returns_relative_path(
+    tmp_path: object,
+    rel_dir: str,
+    file_content: bytes,
+    ext: str,
+) -> None:
+    """
+    Property 2: Preservation - save_uploaded_file 返回正确的相对路径。
+
+    _For any_ 合法上传文件和目录，save_uploaded_file SHALL 返回
+    (相对路径, 安全文件名) 元组，且相对路径以 rel_dir 开头。
+
+    **Validates: Requirements 3.10**
+    """
+    from io import BytesIO
+    from pathlib import Path
+
+    from django.test import override_settings
+
+    from apps.client.services.storage import save_uploaded_file
+
+    tmp = Path(str(tmp_path))  # type: ignore[arg-type]
+
+    # 构造模拟上传文件
+    fake_file: BytesIO = BytesIO(file_content)
+    fake_file.name = f"testfile{ext}"  # type: ignore[attr-defined]
+    fake_file.content_type = "application/octet-stream"  # type: ignore[attr-defined]
+
+    with override_settings(MEDIA_ROOT=str(tmp)):
+        result_path, safe_name = save_uploaded_file(
+            uploaded_file=fake_file,
+            rel_dir=rel_dir,
+        )
+
+    # 返回的路径以 rel_dir 开头
+    assert result_path.startswith(rel_dir), (
+        f"返回路径 '{result_path}' 应以 '{rel_dir}' 开头"
+    )
+    # 不含反斜杠
+    assert "\\" not in result_path
+    # safe_name 不为空
+    assert safe_name
+    # 文件确实被写入
+    abs_path: Path = tmp / result_path
+    assert abs_path.exists(), f"文件未写入: {abs_path}"
+    assert abs_path.read_bytes() == file_content
+
+
+# ---------------------------------------------------------------------------
+# PBT 2.4: ClientInternalQueryService 查询方法对同一输入返回一致结果
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+@pytest.mark.property_test
+@given(
+    name=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo",)),
+        min_size=2,
+        max_size=6,
+    ),
+    client_type=st.sampled_from(["natural", "legal"]),
+)
+@h_settings(max_examples=10, deadline=None)
+def test_pbt_internal_query_service_consistent_results(
+    name: str,
+    client_type: str,
+) -> None:
+    """
+    Property 2: Preservation - ClientInternalQueryService 查询方法对同一输入返回一致结果。
+
+    _For any_ 已创建的客户，连续两次调用同一查询方法 SHALL 返回相同结果。
+
+    **Validates: Requirements 3.6**
+    """
+    from apps.client.models import Client
+    from apps.client.services.client_internal_query_service import ClientInternalQueryService
+
+    client: Client = Client.objects.create(name=name, client_type=client_type)
+    svc: ClientInternalQueryService = ClientInternalQueryService()
+
+    # get_client 一致性
+    r1 = svc.get_client(client_id=client.id)
+    r2 = svc.get_client(client_id=client.id)
+    assert r1 is not None and r2 is not None
+    assert r1.id == r2.id
+    assert r1.name == r2.name
+
+    # get_clients_by_ids 一致性
+    list1: list[Client] = svc.get_clients_by_ids(client_ids=[client.id])
+    list2: list[Client] = svc.get_clients_by_ids(client_ids=[client.id])
+    assert len(list1) == len(list2) == 1
+    assert list1[0].id == list2[0].id
+
+    # is_natural_person 一致性
+    b1: bool = svc.is_natural_person(client_id=client.id)
+    b2: bool = svc.is_natural_person(client_id=client.id)
+    assert b1 == b2
+    assert b1 == (client_type == "natural")
+
+    # 清理
+    client.delete()
+
+
+# ---------------------------------------------------------------------------
+# PBT 2.5: PropertyClueOut 正确序列化线索类型标签
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+@pytest.mark.property_test
+@given(
+    clue_type=st.sampled_from(["bank", "real_estate", "vehicle", "stock", "other"]),
+    content=st.text(
+        alphabet=st.characters(whitelist_categories=("Lo", "Ll", "Lu", "Nd")),
+        min_size=1,
+        max_size=30,
+    ),
+)
+@h_settings(max_examples=10, deadline=None)
+def test_pbt_property_clue_out_serializes_clue_type_label(
+    clue_type: str,
+    content: str,
+) -> None:
+    """
+    Property 2: Preservation - PropertyClueOut 正确序列化线索类型标签和附件列表。
+
+    _For any_ 已创建的财产线索，PropertyClueOut.resolve_clue_type_label SHALL
+    返回非空字符串，resolve_attachments SHALL 返回列表。
+
+    **Validates: Requirements 3.12**
+    """
+    from apps.client.models import Client, PropertyClue
+    from apps.client.schemas import PropertyClueOut
+
+    client: Client = Client.objects.create(name="序列化测试", client_type="natural")
+    clue: PropertyClue = PropertyClue.objects.create(
+        client=client,
+        clue_type=clue_type,
+        content=content,
+    )
+
+    # resolve_clue_type_label 返回非空字符串
+    label: str = PropertyClueOut.resolve_clue_type_label(clue)
+    assert isinstance(label, str)
+    assert len(label) > 0, f"clue_type={clue_type} 的标签不应为空"
+
+    # resolve_attachments 返回列表
+    attachments: list[dict[str, object]] = PropertyClueOut.resolve_attachments(clue)
+    assert isinstance(attachments, list)
+
+    # 清理
+    clue.delete()
+    client.delete()

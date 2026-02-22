@@ -16,12 +16,19 @@ from typing import Any
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import DocumentTemplate, FolderTemplate, Placeholder, TemplateAuditAction, TemplateAuditLog
+from .models import DocumentTemplate, FolderTemplate, Placeholder, TemplateAuditAction
 
 logger = logging.getLogger(__name__)
 
 # 用于存储对象修改前的状态
 _pre_save_state = {}
+
+
+def _get_audit_log_service() -> Any:
+    """工厂函数：延迟导入并实例化 TemplateAuditLogService。"""
+    from .services.template_audit_log_service import TemplateAuditLogService
+
+    return TemplateAuditLogService()
 
 
 def _get_content_type(model_class: type[Any]) -> str | None:
@@ -87,17 +94,9 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
     if not content_type:
         return
 
-    try:
-        TemplateAuditLog.objects.create(
-            content_type=content_type,
-            object_id=instance.pk,
-            object_repr=str(instance)[:500],
-            action=action,
-            changes=changes or {},
-        )
-        logger.debug(f"审计日志已记录: {content_type} #{instance.pk} - {action}")
-    except Exception as e:
-        logger.error(f"创建审计日志失败: {e}")
+    _get_audit_log_service().create_audit_log(
+        content_type, instance.pk, str(instance)[:500], action, changes or {}
+    )
 
 
 # ============================================================
@@ -111,11 +110,9 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
 def capture_pre_save_state(sender: type[Any], instance: Any, **kwargs: Any) -> None:
     """捕获保存前的状态"""
     if instance.pk:
-        try:
-            old_instance = sender.objects.get(pk=instance.pk)
+        old_instance = _get_audit_log_service().get_instance_by_pk(sender, instance.pk)
+        if old_instance is not None:
             _pre_save_state[f"{sender.__name__}_{instance.pk}"] = old_instance
-        except sender.DoesNotExist:
-            pass
 
 
 # ============================================================
