@@ -39,7 +39,7 @@ class CaseFullCreateWorkflow:
             raise ValidationException(
                 message=_("操作人不能为空"),
                 code="MISSING_ACTOR",
-                errors={"actor_id": "创建日志时必须提供有效的操作人"},
+                errors={"actor_id": str(_("创建日志时必须提供有效的操作人"))},
             )
 
         case = self.case_service.create_case(case_data, user=user)
@@ -62,8 +62,7 @@ class CaseFullCreateWorkflow:
         assignments = self.repo.bulk_create_case_assignments(case=case, assignments=assignments_data)
 
         logs: list[Any] = []
-        if logs_data:
-            assert actor_id is not None  # 前置检查已保证
+        if logs_data and actor_id is not None:
             logs = self.repo.bulk_create_case_logs(case=case, logs=logs_data, actor_id=actor_id)
 
         supervising_authorities = (

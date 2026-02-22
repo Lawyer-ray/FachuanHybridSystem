@@ -265,7 +265,7 @@ class CasePartyService:
                     ) % {"name": client_name, "existing": existing_status_label, "new": new_status_label},
                     code="OUR_PARTY_LEGAL_STATUS_CONFLICT",
                     errors={
-                        "legal_status": "我方当事人不能同时处于对立诉讼地位",
+                        "legal_status": str(_("我方当事人不能同时处于对立诉讼地位")),
                         "conflicting_party": client_name,
                         "conflicting_status": existing_status,
                     },

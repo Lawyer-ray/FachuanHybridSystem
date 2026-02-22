@@ -26,13 +26,13 @@ class ChatNameBuilder:
     def build(self, *, case: Any) -> str:
         if not case:
             raise ValidationException(
-                message=_("案件对象不能为空"), code="INVALID_CASE", errors={"case": "案件对象为必填项"}
+                message=_("案件对象不能为空"), code="INVALID_CASE", errors={"case": str(_("案件对象为必填项"))}
             )
         if not getattr(case, "name", None):
             raise ValidationException(
                 message=_("案件名称不能为空"),
                 code="INVALID_CASE_NAME",
-                errors={"case_name": "案件名称为必填项"},
+                errors={"case_name": str(_("案件名称为必填项"))},
             )
 
         stage_display: str | None = None

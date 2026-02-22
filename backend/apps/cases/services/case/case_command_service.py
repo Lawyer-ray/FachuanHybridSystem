@@ -46,12 +46,12 @@ class CaseCommandService(PermissionMixin):
         if case_type and not business_config.is_stage_valid_for_case_type(stage, case_type):
             raise ValidationException(
                 _("该案件类型不支持此阶段"),
-                errors={"current_stage": "阶段不适用于此案件类型"},
+                errors={"current_stage": str(_("阶段不适用于此案件类型"))},
             )
         if representation_stages and stage not in representation_stages:
             raise ValidationException(
                 _("当前阶段必须属于代理阶段集合"),
-                errors={"current_stage": "阶段不在代理范围内"},
+                errors={"current_stage": str(_("阶段不在代理范围内"))},
             )
         return stage
 
@@ -85,7 +85,7 @@ class CaseCommandService(PermissionMixin):
             raise ValidationException(
                 message=_("合同未激活"),
                 code="CONTRACT_INACTIVE",
-                errors={"contract_id": "合同状态不是 active"},
+                errors={"contract_id": str(_("合同状态不是 active"))},
             )
 
     # ------------------------------------------------------------------

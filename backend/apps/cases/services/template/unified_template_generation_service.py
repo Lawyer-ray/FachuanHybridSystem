@@ -97,7 +97,7 @@ class UnifiedTemplateGenerationService:
             raise ValidationException(
                 message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
-                errors={"params": "必须提供 template_id 或 function_code"},
+                errors={"params": str(_("必须提供 template_id 或 function_code"))},
             )
 
         # 获取案件
@@ -164,7 +164,7 @@ class UnifiedTemplateGenerationService:
             raise ValidationException(
                 message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
-                errors={"params": "必须提供 template_id 或 function_code"},
+                errors={"params": str(_("必须提供 template_id 或 function_code"))},
             )
 
         return self._resolver.get_template_info(template_id=template_id, function_code=function_code)

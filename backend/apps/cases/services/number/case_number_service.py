@@ -215,7 +215,7 @@ class CaseNumberService(DjangoPermsMixin):
         # 验证案号不能为空
         if not number or not number.strip():
             raise ValidationException(
-                message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
+                message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": str(_("案号不能为空"))}
             )
 
         # 规范化案号
@@ -299,7 +299,7 @@ class CaseNumberService(DjangoPermsMixin):
         if number is not None:
             if not number or not number.strip():
                 raise ValidationException(
-                    message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
+                    message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": str(_("案号不能为空"))}
                 )
             data["number"] = normalize_case_number_util(number, ensure_hao=False)
 

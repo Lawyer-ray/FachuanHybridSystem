@@ -244,7 +244,7 @@ class CaseTemplateBindingService:
             raise ValidationException(
                 message=_("自动推荐的模板不能手动移除"),
                 code="CANNOT_DELETE_AUTO_RECOMMENDED",
-                errors={"binding_id": "自动推荐的绑定不允许删除"},
+                errors={"binding_id": str(_("自动推荐的绑定不允许删除"))},
             )
 
         template_id = binding.template_id

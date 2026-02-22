@@ -271,7 +271,7 @@ class CaseChatService:
         )
         if not sms_content or not sms_content.strip():
             raise ValidationException(
-                message=_("短信内容不能为空"), code="INVALID_SMS_CONTENT", errors={"sms_content": "短信内容为必填项"}
+                message=_("短信内容不能为空"), code="INVALID_SMS_CONTENT", errors={"sms_content": str(_("短信内容为必填项"))}
             )
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
@@ -388,7 +388,7 @@ class CaseChatService:
         logger.info("绑定已存在的群聊: case_id=%s, platform=%s, chat_id=%s", case_id, platform.value, chat_id)
         if not chat_id or not chat_id.strip():
             raise ValidationException(
-                message=_("群聊ID不能为空"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
+                message=_("群聊ID不能为空"), code="INVALID_CHAT_ID", errors={"chat_id": str(_("群聊ID为必填项"))}
             )
         chat_id = chat_id.strip()
         case = self.repo.get_case(case_id=case_id)

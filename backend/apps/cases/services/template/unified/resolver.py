@@ -42,7 +42,7 @@ class TemplateResolver:
             raise ValidationException(
                 message=_("必须提供 template_id 或 function_code"),
                 code="INVALID_PARAMS",
-                errors={"params": "必须提供 template_id 或 function_code"},
+                errors={"params": str(_("必须提供 template_id 或 function_code"))},
             )
 
         if template_id is not None:

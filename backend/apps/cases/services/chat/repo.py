@@ -17,7 +17,7 @@ class CaseChatRepository:
             raise ValidationException(
                 message=_("无效的案件ID"),
                 code="INVALID_CASE_ID",
-                errors={"case_id": "案件ID必须是正整数"},
+                errors={"case_id": str(_("案件ID必须是正整数"))},
             )
         try:
             return Case.objects.get(id=case_id)
@@ -40,7 +40,7 @@ class CaseChatRepository:
             raise ValidationException(
                 message=_("无效的群聊ID"),
                 code="INVALID_CHAT_ID",
-                errors={"chat_id": "群聊ID必须是正整数"},
+                errors={"chat_id": str(_("群聊ID必须是正整数"))},
             )
 
         updated_count = CaseChat.objects.filter(id=chat_id, is_active=True).update(is_active=False)
