@@ -165,9 +165,8 @@ def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:
 def _invalidate_template_matching_cache(sender: type[Any]) -> None:
     """根据 sender 类型递增对应的版本号缓存，使模板匹配缓存失效"""
     try:
-        from django.core.cache import cache
-
         from apps.core.infrastructure import CacheKeys, CacheTimeout
+        from apps.core.infrastructure.cache import bump_cache_version
 
         if sender is DocumentTemplate:
             version_key = CacheKeys.documents_matching_version_document_templates()
@@ -176,11 +175,7 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
         else:
             return
 
-        current = cache.get(version_key)
-        if current is None:
-            cache.set(version_key, 2, timeout=CacheTimeout.get_day())
-        else:
-            cache.set(version_key, int(current) + 1, timeout=CacheTimeout.get_day())
+        bump_cache_version(version_key, timeout=CacheTimeout.get_day())
         logger.debug("已递增模板匹配缓存版本号: %s", version_key)
     except Exception as e:
         logger.warning(f"清除模板匹配缓存失败: {e}")
