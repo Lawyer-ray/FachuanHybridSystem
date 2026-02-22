@@ -26,7 +26,7 @@ class GeneratedDocumentStorage:
         target_dir.makedirs_p()
 
         file_path = target_dir / filename
-        with open(file_path, "wb") as f:
+        with file_path.open("wb") as f:
             f.write(content)
 
         return str(file_path.relative_to(media_root))

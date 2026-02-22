@@ -78,7 +78,7 @@ class ContractGenerator(BaseGenerator):
             Path(output_dir).makedirs_p()
 
             # 写入文件
-            with open(output_path, "wb") as f:
+            with Path(output_path).open("wb") as f:
                 f.write(content)
 
             duration_ms = int((time.time() - start_time) * 1000)
