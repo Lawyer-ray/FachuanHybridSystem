@@ -17,6 +17,7 @@ from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from apps.organization.models import LawFirm, Lawyer
 from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 logger = logging.getLogger("apps.organization")
 
@@ -34,7 +35,7 @@ class LawFirmService:
 
     def __init__(self) -> None:
         """初始化服务"""
-        pass
+        self._access_policy = OrganizationAccessPolicy()
 
     def get_lawfirm_queryset(self) -> "QuerySet[LawFirm, LawFirm]":
         """
@@ -70,7 +71,7 @@ class LawFirmService:
             raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 权限检查：用户可以访问自己所属的律所或管理员可以访问所有律所
-        if not self._check_read_permission(user, lawfirm):
+        if not self._access_policy.can_read_lawfirm(user, lawfirm):
             raise PermissionDenied(message=_("无权限访问该律所"), code="PERMISSION_DENIED")
 
         return lawfirm
@@ -141,7 +142,7 @@ class LawFirmService:
             raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 1. 权限检查
-        if not self._check_create_permission(user):
+        if not self._access_policy.can_create(user):
             logger.warning(
                 f"用户 {user.id} 尝试创建律所但权限不足",
                 extra={"user_id": user.id, "action": "create_lawfirm"},
@@ -190,7 +191,7 @@ class LawFirmService:
         assert user is not None
 
         # 2. 权限检查
-        if not self._check_update_permission(user, lawfirm):
+        if not self._access_policy.can_update_lawfirm(user, lawfirm):
             logger.warning(
                 f"用户 {user.id} 尝试更新律所 {lawfirm_id} 但权限不足",
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "update_lawfirm"},
@@ -239,7 +240,7 @@ class LawFirmService:
         assert user is not None
 
         # 2. 权限检查
-        if not self._check_delete_permission(user, lawfirm):
+        if not self._access_policy.can_delete_lawfirm(user, lawfirm):
             logger.warning(
                 f"用户 {user.id} 尝试删除律所 {lawfirm_id} 但权限不足",
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "delete_lawfirm"},
@@ -260,24 +261,6 @@ class LawFirmService:
         logger.info("律所删除成功", extra={"lawfirm_id": lawfirm_id, "user_id": user.id, "action": "delete_lawfirm"})
 
     # ========== 私有方法（业务逻辑封装） ==========
-
-    def _check_create_permission(self, user: Lawyer) -> bool:
-        """检查创建权限（私有方法）"""
-        return bool(user.is_authenticated and (user.is_superuser or user.is_admin))
-
-    def _check_read_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
-        """检查读取权限（私有方法）"""
-        if user.is_superuser:
-            return True
-        return bool(user.law_firm_id == lawfirm.id)
-
-    def _check_update_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
-        """检查更新权限（私有方法）"""
-        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id))
-
-    def _check_delete_permission(self, user: Lawyer, lawfirm: LawFirm) -> bool:
-        """检查删除权限（私有方法）"""
-        return bool(user.is_superuser)
 
     def _validate_create_data(self, data: Any) -> None:
         """验证创建数据（私有方法）"""

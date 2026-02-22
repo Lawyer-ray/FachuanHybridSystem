@@ -43,7 +43,7 @@ class SendNotificationUsecase:
         result = self.provider_facade.send_message(provider=provider, chat_id=chat.chat_id, content=content)
 
         if not result.success and self.recreate_policy.should_recreate(result=result):
-            logger.warning(f"群聊可能已解散,尝试创建新群聊: chat_id={chat.chat_id}")
+            logger.warning("群聊可能已解散,尝试创建新群聊: chat_id=%s", chat.chat_id)
             self.repo.mark_inactive(case_chat=chat)
             try:
                 new_chat = self.chat_creator(case_id, platform)

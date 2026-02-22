@@ -142,13 +142,11 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
             "updated_at",
         ]
 
-    @staticmethod
-    def resolve_created_at(obj: AccountCredential) -> str | None:
-        return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))
+    def resolve_created_at(self, obj: AccountCredential) -> str | None:
+        return self._resolve_datetime_iso(obj.created_at)
 
-    @staticmethod
-    def resolve_updated_at(obj: AccountCredential) -> str | None:
-        return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))
+    def resolve_updated_at(self, obj: AccountCredential) -> str | None:
+        return self._resolve_datetime_iso(obj.updated_at)
 
 
 class AccountCredentialIn(Schema):
