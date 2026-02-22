@@ -1,14 +1,12 @@
-"""API schemas and serializers."""
-
-from __future__ import annotations
-
 """
 Contract Schemas - Party
 
 合同当事人相关的 Schema 定义.
 """
 
-from typing import Any, ClassVar, cast
+from __future__ import annotations
+
+from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
 
@@ -38,7 +36,7 @@ class ContractPartyOut(ModelSchema):
 
     @staticmethod
     def resolve_role_label(obj: ContractParty) -> str:
-        return cast(str, cast(Any, obj).get_role_display()) if obj.role else ""
+        return obj.get_role_display() if obj.role else ""  # type: ignore[no-any-return, attr-defined]
 
 
 class ContractPartySourceOut(Schema):

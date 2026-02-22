@@ -4,8 +4,10 @@ Contract Schemas - Folder Binding
 文件夹绑定相关的 Schema 定义.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from ninja import Schema
 from pydantic import field_validator
@@ -43,10 +45,9 @@ class FolderBindingResponseSchema(Schema):
         obj: ContractFolderBinding, is_accessible: bool = True, display_path: str | None = None
     ) -> "FolderBindingResponseSchema":
         """从 ContractFolderBinding 对象创建 Schema"""
-        obj_any = cast(Any, obj)
         return FolderBindingResponseSchema(
-            id=cast(int, obj_any.id),
-            contract_id=cast(int, obj_any.contract_id),
+            id=obj.id,
+            contract_id=obj.contract_id,
             folder_path=obj.folder_path,
             folder_path_display=display_path or obj.folder_path,
             created_at=obj.created_at,

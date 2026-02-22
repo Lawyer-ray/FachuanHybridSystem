@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Q, QuerySet, Sum
@@ -160,7 +160,7 @@ class ContractPaymentService(DjangoPermsMixin):
             and amount_float + float(total_received) - float(contract.fixed_amount) > 1e-6
         ):
             self._log_finance(
-                cast(Any, contract).id,
+                contract.id,
                 self._get_user_id(user),
                 "create_payment_over_fixed",
                 "WARN",
@@ -191,11 +191,11 @@ class ContractPaymentService(DjangoPermsMixin):
 
         # 记录财务日志
         self._log_finance(
-            cast(Any, contract).id,
+            contract.id,
             self._get_user_id(user),
             "create_payment",
             "INFO",
-            {"payment_id": cast(Any, obj).id, "amount": amount_float},
+            {"payment_id": obj.id, "amount": amount_float},
         )
 
         return obj
@@ -256,7 +256,7 @@ class ContractPaymentService(DjangoPermsMixin):
             contract = obj.contract
             if contract.fixed_amount is not None and amount + float(total_except) - float(contract.fixed_amount) > 1e-6:
                 self._log_finance(
-                    cast(Any, contract).id,
+                    contract.id,
                     self._get_user_id(user),
                     "update_payment_over_fixed",
                     "WARN",
@@ -299,7 +299,7 @@ class ContractPaymentService(DjangoPermsMixin):
             self._get_user_id(user),
             "update_payment",
             "INFO",
-            {"payment_id": cast(Any, obj).id, "old": old},
+            {"payment_id": obj.id, "old": old},
         )
 
         return obj
@@ -338,7 +338,7 @@ class ContractPaymentService(DjangoPermsMixin):
         # 获取收款记录
         obj = self.get_payment(payment_id)
         cid = obj.contract_id
-        pid = cast(Any, obj).id
+        pid = obj.id
 
         obj.delete()
 
