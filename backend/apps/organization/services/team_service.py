@@ -236,5 +236,5 @@ class TeamService:
             raise ValidationException(
                 message=_("非法团队类型"),
                 code="INVALID_TEAM_TYPE",
-                errors={"team_type": f"团队类型必须是 {valid_types} 之一"},
+                errors={"team_type": str(_("团队类型必须是 %(valid_types)s 之一")) % {"valid_types": valid_types}},
             )
