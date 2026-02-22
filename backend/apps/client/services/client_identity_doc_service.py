@@ -95,6 +95,26 @@ class ClientIdentityDocService:
             except Exception as e:
                 raise ValidationException(f"文件重命名失败: {e!s}", code="FILE_RENAME_ERROR") from e
 
+    def get_identity_doc(self, doc_id: int) -> Any:
+        """获取证件文档，不存在则抛出 NotFoundError"""
+        from apps.client.models import ClientIdentityDoc
+
+        doc = ClientIdentityDoc.objects.filter(id=doc_id).first()
+        if not doc:
+            raise NotFoundError(
+                message=_("证件文档不存在"),
+                code="IDENTITY_DOC_NOT_FOUND",
+                errors={"doc_id": f"ID 为 {doc_id} 的证件文档不存在"},
+            )
+        return doc
+
+    @transaction.atomic
+    def delete_identity_doc(self, doc_id: int, user: Any) -> None:
+        """删除证件文档"""
+        doc = self.get_identity_doc(doc_id)
+        doc.delete()
+        logger.info("删除证件文档 %s", doc_id, extra={"user": user})
+
     @transaction.atomic
     def add_identity_doc_from_upload(
         self,
