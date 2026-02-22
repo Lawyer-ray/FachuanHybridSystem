@@ -110,25 +110,9 @@ class AccountCredentialAdminService:
         credential_id: int,
         admin_user: str,
     ) -> LoginResult:
-        """
-        单个账号自动登录
-
-        Args:
-            credential_id: 凭证ID
-            admin_user: 管理员用户名
-
-        Returns:
-            LoginResult: 登录结果
-
-        Raises:
-            NotFoundError: 凭证不存在
-        """
-        start_time = timezone.now()
-
-        # 获取凭证（不存在时抛 NotFoundError）
+        """单个账号自动登录。凭证不存在时抛 NotFoundError。"""
         credential = self.credential_service._get_credential_internal(credential_id)
 
-        # 检查是否支持自动登录
         if credential.site_name != self.SUPPORTED_SITE:
             return LoginResult(
                 success=False,
@@ -146,106 +130,11 @@ class AccountCredentialAdminService:
             },
         )
 
-        try:
-            # 执行自动登录
-            result = _run_async(
-                self.token_service.acquire_token_if_needed(
-                    site_name=self.SUPPORTED_SITE,
-                    credential_id=credential.id,
-                )
-            )
-
-            end_time = timezone.now()
-            duration = (end_time - start_time).total_seconds()
-
-            if result:
-                self._record_login_history(
-                    credential=credential,
-                    success=True,
-                    duration=duration,
-                    token=result,
-                    trigger_reason="manual_trigger_admin",
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-
-                logger.info(
-                    "管理员手动登录成功",
-                    extra={
-                        "admin_user": admin_user,
-                        "credential_id": credential_id,
-                        "account": credential.account,
-                        "duration": duration,
-                    },
-                )
-
-                return LoginResult(
-                    success=True,
-                    duration=duration,
-                    token=result,
-                )
-            else:
-                self._record_login_history(
-                    credential=credential,
-                    success=False,
-                    duration=duration,
-                    error_message=str(_("登录失败，未返回Token")),
-                    trigger_reason="manual_trigger_admin",
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-
-                logger.error(
-                    "管理员手动登录失败",
-                    extra={
-                        "admin_user": admin_user,
-                        "credential_id": credential_id,
-                        "account": credential.account,
-                        "duration": duration,
-                    },
-                )
-
-                return LoginResult(
-                    success=False,
-                    duration=duration,
-                    error_message=str(_("登录失败，未返回Token")),
-                )
-
-        except Exception as e:
-            end_time = timezone.now()
-            duration = (end_time - start_time).total_seconds()
-
-            self._record_login_history(
-                credential=credential,
-                success=False,
-                duration=duration,
-                error_message=str(e),
-                trigger_reason="manual_trigger_admin",
-                start_time=start_time,
-                end_time=end_time,
-                error_details={
-                    "error_type": type(e).__name__,
-                    "admin_user": admin_user,
-                    "traceback": str(e),
-                },
-            )
-
-            logger.error(
-                "管理员手动登录发生异常",
-                extra={
-                    "admin_user": admin_user,
-                    "credential_id": credential_id,
-                    "error": str(e),
-                    "duration": duration,
-                },
-                exc_info=True,
-            )
-
-            return LoginResult(
-                success=False,
-                duration=duration,
-                error_message=str(e),
-            )
+        return self._execute_single_login(
+            credential=credential,
+            admin_user=admin_user,
+            trigger_reason="manual_trigger_admin",
+        )
 
     def batch_auto_login(
         self,
