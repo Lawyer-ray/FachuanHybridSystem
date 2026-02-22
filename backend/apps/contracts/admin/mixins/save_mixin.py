@@ -140,6 +140,6 @@ class ContractSaveMixin:
             super().delete_queryset(request, queryset)
 
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(f"批量删除合同失败: {e!s}", exc_info=True)
+            logger.error("批量删除合同失败: %s", e, exc_info=True)
             messages.error(request, _("批量删除合同失败: %(err)s") % {"err": e})
             raise

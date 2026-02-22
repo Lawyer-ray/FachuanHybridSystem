@@ -455,4 +455,4 @@ class ContractPaymentService(DjangoPermsMixin):
                 payload=payload or {},
             )
         except Exception as e:
-            logger.warning(f"财务日志记录失败 (contract_id={contract_id}, action={action}): {e}")
+            logger.warning("财务日志记录失败 (contract_id=%s, action=%s): %s", contract_id, action, e)

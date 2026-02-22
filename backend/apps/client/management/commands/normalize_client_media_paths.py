@@ -1,12 +1,11 @@
 """Django management command."""
 
+from pathlib import Path
 from typing import Any
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.translation import gettext_lazy as _
-
-from pathlib import Path
 
 
 class Command(BaseCommand):

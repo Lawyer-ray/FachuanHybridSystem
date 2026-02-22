@@ -93,7 +93,7 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(f"获取合同 {obj.id} 匹配模板失败: {e!s}", exc_info=True)
+            logger.error("获取合同 %s 匹配模板失败: %s", obj.id, e, exc_info=True)
             return _("查询失败")
 
     @admin.display(description=_("匹配的文件夹模板"))
@@ -109,7 +109,7 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(f"获取合同 {obj.id} 匹配文件夹模板失败: {e!s}", exc_info=True)
+            logger.error("获取合同 %s 匹配文件夹模板失败: %s", obj.id, e, exc_info=True)
             return _("查询失败")
 
     def get_urls(self) -> Any:

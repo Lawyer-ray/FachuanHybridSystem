@@ -128,7 +128,7 @@ class ContractDisplayService:
             templates = self.template_cache.get_folder_templates(contract.case_type)
 
             if templates is not None:
-                logger.debug(f"从缓存获取合同 {contract.pk} 的文件夹模板")
+                logger.debug("从缓存获取合同 %s 的文件夹模板", contract.pk)
             else:
                 # 缓存未命中,从数据库查询
                 templates = self.document_service.find_matching_folder_templates(
@@ -138,18 +138,18 @@ class ContractDisplayService:
                 self.template_cache.set_folder_templates(contract.case_type, templates)
 
             if not templates:
-                logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文件夹模板")
+                logger.debug("合同 %s (%s) 无匹配的文件夹模板", contract.pk, contract.case_type)
                 return _("无匹配模板")
 
             # 提取模板名称并用顿号连接
             template_names = [template.get("name", "") for template in templates]
             result = "、".join(template_names)
 
-            logger.debug(f"合同 {contract.pk} 匹配的文件夹模板: {result}")
+            logger.debug("合同 %s 匹配的文件夹模板: %s", contract.pk, result)
             return result
 
         except Exception as e:
-            logger.error(f"查询合同 {contract.pk} 的文件夹模板失败: {e!s}", exc_info=True)
+            logger.error("查询合同 %s 的文件夹模板失败: %s", contract.pk, e, exc_info=True)
             return _("查询失败")
 
     def has_matched_templates(self, contract: Contract) -> bool:
@@ -159,7 +159,7 @@ class ContractDisplayService:
             result = self.template_cache.get_template_check(contract.case_type)
 
             if result is not None:
-                logger.debug(f"从缓存获取合同 {contract.pk} 的模板检查结果")
+                logger.debug("从缓存获取合同 %s 的模板检查结果", contract.pk)
             else:
                 # 缓存未命中,从数据库查询
                 result = self.document_service.check_has_matching_templates(contract.case_type)
@@ -173,12 +173,13 @@ class ContractDisplayService:
             has_both = has_folder and has_document
 
             logger.debug(
-                f"合同 {contract.pk} 模板检查: 文件夹={has_folder}, 文书={has_document}, 结果={has_both}"
+                "合同 %s 模板检查: 文件夹=%s, 文书=%s, 结果=%s",
+                contract.pk, has_folder, has_document, has_both,
             )
             return has_both
 
         except Exception as e:
-            logger.error(f"检查合同 {contract.pk} 的模板失败: {e!s}", exc_info=True)
+            logger.error("检查合同 %s 的模板失败: %s", contract.pk, e, exc_info=True)
             return False
 
     def batch_get_template_info(self, contracts: list[Contract]) -> dict[int, dict[str, Any]]:
@@ -191,7 +192,7 @@ class ContractDisplayService:
             case_types = set(contract.case_type for contract in contracts)
             template_cache: dict[str, dict[str, Any]] = {}
 
-            logger.debug(f"批量查询开始: {len(contracts)} 个合同,{len(case_types)} 种案件类型")
+            logger.debug("批量查询开始: %d 个合同,%d 种案件类型", len(contracts), len(case_types))
 
             for case_type in case_types:
                 template_cache[case_type] = self._fetch_template_info_for_case_type(case_type)
@@ -202,10 +203,10 @@ class ContractDisplayService:
                     {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False},
                 )
 
-            logger.info(f"批量获取 {len(contracts)} 个合同的模板信息完成,涉及 {len(case_types)} 种案件类型")
+            logger.info("批量获取 %d 个合同的模板信息完成,涉及 %d 种案件类型", len(contracts), len(case_types))
 
         except Exception as e:
-            logger.error(f"批量获取模板信息失败: {e!s}", exc_info=True)
+            logger.error("批量获取模板信息失败: %s", e, exc_info=True)
             for contract in contracts:
                 result[contract.id] = {
                     "document_template": _("查询失败"),
@@ -241,7 +242,7 @@ class ContractDisplayService:
                 "has_templates": check_result.get("has_folder", False) and check_result.get("has_document", False),
             }
         except Exception as e:
-            logger.error(f"批量查询案件类型 {case_type} 的模板失败: {e!s}", exc_info=True)
+            logger.error("批量查询案件类型 %s 的模板失败: %s", case_type, e, exc_info=True)
             return {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False}
 
     def _format_doc_templates(self, doc_templates: list[dict[str, Any]]) -> str:

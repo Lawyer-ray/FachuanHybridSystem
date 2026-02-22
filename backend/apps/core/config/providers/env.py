@@ -202,23 +202,3 @@ class EnvProvider(ConfigProvider):
                 result[key.strip()] = val.strip()
         return result
 
-    def is_sensitive(self, key: str) -> bool:
-        """
-        检查是否为敏感配置
-
-        Args:
-            key: 配置键名
-
-        Returns:
-            bool: 是否为敏感配置
-        """
-        return any(sensitive in key.upper() for sensitive in self._sensitive_vars)
-
-    def add_sensitive_pattern(self, pattern: str) -> None:
-        """
-        添加敏感配置模式
-
-        Args:
-            pattern: 敏感配置模式
-        """
-        self._sensitive_vars.add(pattern.upper())
