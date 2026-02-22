@@ -70,7 +70,7 @@ class IdentityExtractionService:
         except (OCRExtractionError, OllamaExtractionError, ServiceUnavailableError):
             raise
         except Exception as e:
-            logger.error(f"证件信息提取失败: {e!s}")
+            logger.error("证件信息提取失败: %s", e)
             raise ValidationException(
                 message=f"证件信息提取失败: {e!s}", code="EXTRACTION_FAILED", errors={"extraction": str(e)}
             ) from e
@@ -108,7 +108,7 @@ class IdentityExtractionService:
         except OCRExtractionError:
             raise
         except Exception as e:
-            logger.error(f"OCR 提取失败: {e!s}")
+            logger.error("OCR 提取失败: %s", e)
             raise OCRExtractionError(f"OCR 提取失败: {e!s}") from e
 
     def _is_pdf_file(self, file_bytes: bytes) -> bool:
@@ -154,7 +154,7 @@ class IdentityExtractionService:
             if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
         except Exception as e:
-            logger.error(f"图片格式无效: {e!s}")
+            logger.error("图片格式无效: %s", e)
             raise OCRExtractionError("图片格式无效,请上传 JPG 或 PNG 格式的图片") from e
 
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -170,7 +170,7 @@ class IdentityExtractionService:
                 raw_text = "\n".join(result.txts)
 
                 if raw_text.strip():
-                    logger.info(f"RapidOCR (PP-OCRv5) 提取成功,文字长度: {len(raw_text)}")
+                    logger.info("RapidOCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
                     return raw_text.strip()
 
             raise OCRExtractionError("OCR 未能提取到有效文字")
@@ -214,7 +214,7 @@ class IdentityExtractionService:
 
             if all_texts:
                 raw_text = "\n".join(all_texts)
-                logger.info(f"PDF OCR (PP-OCRv5) 提取成功,文字长度: {len(raw_text)}")
+                logger.info("PDF OCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
                 return raw_text.strip()
 
             raise OCRExtractionError("PDF OCR 未能提取到有效文字")
@@ -222,7 +222,7 @@ class IdentityExtractionService:
         except OCRExtractionError:
             raise
         except Exception as e:
-            logger.error(f"PDF 处理失败: {e!s}")
+            logger.error("PDF 处理失败: %s", e)
             raise OCRExtractionError(f"PDF 处理失败: {e!s}") from e
 
     def _ollama_extract(self, raw_text: str, doc_type: str) -> dict[str, Any]:
@@ -259,21 +259,21 @@ class IdentityExtractionService:
                         content = content[json_start:json_end].strip()
 
                 extracted_data = json.loads(content)
-                logger.info(f"Ollama 提取成功,字段数量: {len(extracted_data)}")
-                logger.info(f"Ollama 提取内容: {json.dumps(extracted_data, ensure_ascii=False, indent=2)}")
+                logger.info("Ollama 提取成功,字段数量: %s", len(extracted_data))
+                logger.info("Ollama 提取内容: %s", json.dumps(extracted_data, ensure_ascii=False, indent=2))
                 return dict[str, Any](extracted_data)
 
             except json.JSONDecodeError as e:
-                logger.error(f"Ollama 返回的 JSON 格式错误: {e!s}")
+                logger.error("Ollama 返回的 JSON 格式错误: %s", e)
                 raise OllamaExtractionError(f"Ollama 返回的 JSON 格式错误: {e!s}") from e
 
         except ConnectionError as e:
-            logger.error(f"Ollama 服务连接失败: {e!s}")
+            logger.error("Ollama 服务连接失败: %s", e)
             raise ServiceUnavailableError(message=f"Ollama 服务连接失败: {e!s}", service_name="Ollama") from e
         except OllamaExtractionError:
             raise
         except Exception as e:
-            logger.error(f"Ollama 提取失败: {e!s}")
+            logger.error("Ollama 提取失败: %s", e)
             raise OllamaExtractionError(f"Ollama 提取失败: {e!s}") from e
 
     def safe_extract(self, image_bytes: bytes, doc_type: str) -> dict[str, Any]:
