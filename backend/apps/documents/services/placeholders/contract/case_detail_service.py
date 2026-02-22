@@ -46,7 +46,7 @@ class CaseDetailService(BasePlaceholderService):
                 )
             except AttributeError:
                 logger.warning("合同对象没有 cases 属性")
-                cases: list[Any] = [] # type: ignore
+                cases: list[Any] = []
             if not cases:
                 return {"案件详情": ""}
             else:
