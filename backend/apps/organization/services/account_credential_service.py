@@ -86,7 +86,7 @@ class AccountCredentialService:
         """
         # 验证律师存在
         lawyer = Lawyer.objects.select_related("law_firm").filter(id=data.lawyer_id).first()
-        if not lawyer:
+        if lawyer is None:
             raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         # 权限检查：验证用户是否有权限为该律师创建凭证
@@ -172,7 +172,7 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
         """
         credential = self._get_base_queryset().filter(id=credential_id).first()
-        if not credential:
+        if credential is None:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
         return credential
 
@@ -228,7 +228,7 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
         """
         credential = self._get_base_queryset().filter(account=account, site_name=site_name).first()
-        if not credential:
+        if credential is None:
             raise NotFoundError(
                 message=_("账号凭证不存在"),
                 code="CREDENTIAL_NOT_FOUND",

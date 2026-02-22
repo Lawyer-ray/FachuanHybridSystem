@@ -50,7 +50,7 @@ class TeamService:
         """
         team = Team.objects.select_related("law_firm").filter(id=team_id).first()
 
-        if not team:
+        if team is None:
             raise NotFoundError(message=_("团队不存在"), code="TEAM_NOT_FOUND")
 
         if user is not None and not self._access_policy.can_read_team(user, team):
@@ -77,7 +77,7 @@ class TeamService:
         self._validate_team_type(data.team_type)
 
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
-        if not law_firm:
+        if law_firm is None:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         team = Team.objects.create(name=data.name, team_type=data.team_type, law_firm=law_firm)
@@ -110,7 +110,7 @@ class TeamService:
         self._validate_team_type(data.team_type)
 
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
-        if not law_firm:
+        if law_firm is None:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         team.name = data.name
