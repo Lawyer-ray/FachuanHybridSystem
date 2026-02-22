@@ -20,13 +20,13 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
-    from apps.cases.services.case.case_service import CaseService
+    from apps.cases.services.case.case_query_service import CaseQueryService
 
 
 class CaseMaterialService:
     def __init__(
         self,
-        case_service: CaseService | None = None,
+        case_service: CaseQueryService | None = None,
         query_service: Any | None = None,
         binding_workflow: Any | None = None,
     ) -> None:

@@ -277,7 +277,6 @@ class CaseCommandService(PermissionMixin):
 
         Raises:
             ValidationException: 数据验证失败
-            ConflictError: 数据冲突
             ForbiddenError: 权限不足
         """
         from .workflows.case_full_create_workflow import CaseFullCreateWorkflow
