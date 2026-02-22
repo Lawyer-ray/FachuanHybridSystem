@@ -200,16 +200,22 @@ class LawFirmService:
         self._validate_update_data(lawfirm, data)
 
         # 4. 更新字段
+        updated_fields: list[str] = []
         if data.name is not None:
             lawfirm.name = data.name
+            updated_fields.append("name")
         if data.address is not None:
             lawfirm.address = data.address
+            updated_fields.append("address")
         if data.phone is not None:
             lawfirm.phone = data.phone
+            updated_fields.append("phone")
         if data.social_credit_code is not None:
             lawfirm.social_credit_code = data.social_credit_code
+            updated_fields.append("social_credit_code")
 
-        lawfirm.save()
+        if updated_fields:
+            lawfirm.save(update_fields=updated_fields)
 
         # 5. 记录日志
         logger.info("律所更新成功", extra={"lawfirm_id": lawfirm.id, "user_id": user.id, "action": "update_lawfirm"})

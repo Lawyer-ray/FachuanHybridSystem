@@ -20,12 +20,6 @@ from django.utils.translation import ngettext
 from apps.organization.models import AccountCredential
 
 
-def _get_admin_service() -> Any:
-    """工厂函数 - 创建 AccountCredentialAdminService 实例"""
-    from apps.organization.services import AccountCredentialAdminService
-
-    return AccountCredentialAdminService()
-
 def _get_credential_service() -> Any:
     """工厂函数 - 创建 AccountCredentialService 实例"""
     from apps.organization.services import AccountCredentialService

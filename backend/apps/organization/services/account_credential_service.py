@@ -186,11 +186,14 @@ class AccountCredentialService:
         # get_credential 已包含权限检查
         credential = self.get_credential(credential_id, user)
 
+        updated_fields: list[str] = []
         for key, value in data.items():
             if key in self._UPDATABLE_FIELDS:
                 setattr(credential, key, value)
+                updated_fields.append(key)
 
-        credential.save()
+        if updated_fields:
+            credential.save(update_fields=updated_fields)
 
         logger.info("凭证更新成功", extra={"credential_id": credential_id, "action": "update_credential"})
 
