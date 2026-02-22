@@ -37,8 +37,6 @@ class FilenameService:
 
         Requirements: 1.1, 1.3, 8.3
         """
-        from apps.core.exceptions import NotFoundError
-        from apps.documents.services.wiring import get_case_service
 
         # 获取案件服务
         case_service = get_case_service()
@@ -73,8 +71,6 @@ class FilenameService:
 
         Requirements: 1.2, 1.3, 8.3
         """
-        from apps.core.exceptions import NotFoundError
-        from apps.documents.services.wiring import get_case_service
 
         # 获取案件服务
         case_service = get_case_service()

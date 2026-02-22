@@ -143,7 +143,6 @@ class PreservationPropertyClueService(BasePlaceholderService):
 
         Requirements: 1.7, 3.3, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9
         """
-        from apps.core.enums import LegalStatus
         from apps.documents.services.wiring import get_case_service, get_client_service
 
         # 获取 client 服务和 case 服务
@@ -226,7 +225,6 @@ class PreservationPropertyClueService(BasePlaceholderService):
 
         Requirements: 1.7, 3.3
         """
-        from apps.core.enums import LegalStatus
         from apps.documents.services.wiring import get_case_service, get_client_service
 
         # 获取 client 服务和 case 服务
