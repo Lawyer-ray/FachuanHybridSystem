@@ -245,7 +245,7 @@ class DocumentServiceAdapter:
 
         Requirements: 7.1, 4.4
         """
-        return self.template_query_service.get_template_by_id_internal(template_id) # type: ignore
+        return self.template_query_service.get_template_by_id_internal(template_id)  # type: ignore[return-value]
 
     def get_template_by_function_code_internal(
         self, function_code: str, case_type: str | None = None, is_active: bool = True
@@ -263,7 +263,7 @@ class DocumentServiceAdapter:
 
         Requirements: 7.1, 4.4
         """
-        return self.template_query_service.get_template_by_function_code_internal( # type: ignore
+        return self.template_query_service.get_template_by_function_code_internal(  # type: ignore[return-value]
             function_code, case_type=case_type, is_active=is_active
         )
 
