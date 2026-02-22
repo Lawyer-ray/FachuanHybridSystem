@@ -177,7 +177,12 @@ class PropertyClueService:
 
         if file_paths:
             paths_snapshot = list(file_paths)
-            transaction.on_commit(lambda paths=paths_snapshot: [delete_media_file(p) for p in paths])
+
+            def _cleanup(paths: list[str] = paths_snapshot) -> None:
+                for p in paths:
+                    delete_media_file(p)
+
+            transaction.on_commit(_cleanup)
 
         logger.info(
             "财产线索删除成功",
