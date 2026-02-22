@@ -117,7 +117,7 @@ def extract_recording_frames_task(
     import tempfile
 
     from django.core.files.base import ContentFile
-    from django.db.models import Case, IntegerField, Max, Value, When
+    from django.db.models import Max
 
     from apps.chat_records.models import (
         ChatRecordRecording,
@@ -129,6 +129,7 @@ def extract_recording_frames_task(
     from apps.chat_records.services.frame_processing_service import FrameProcessingService
     from apps.chat_records.services.frame_selection_service import FrameSelectionService
     from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
+    from apps.chat_records.services.screenshot_service import ScreenshotService
     from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
     from apps.core.interfaces import ServiceLocator
     from apps.core.tasking.runtime import CancellationToken, ProgressReporter, TaskRunContext
@@ -209,26 +210,10 @@ def extract_recording_frames_task(
     progress_updater = _ProgressUpdaterImpl()
 
     # ---- ReorderCallback ----
+    screenshot_svc = ScreenshotService.__new__(ScreenshotService)
+
     def _reorder_callback(project_id: int) -> None:
-        all_ids = list(
-            ChatRecordScreenshot.objects.filter(project_id=project_id)
-            .order_by(
-                Case(
-                    When(capture_time_seconds__isnull=True, then=Value(1)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                "capture_time_seconds",
-                "created_at",
-            )
-            .values_list("id", flat=True)
-        )
-        if not all_ids:
-            return
-        cases = [When(id=sid, then=Value(idx)) for idx, sid in enumerate(all_ids, start=1)]
-        ChatRecordScreenshot.objects.filter(project_id=project_id).update(
-            ordering=Case(*cases, output_field=IntegerField())
-        )
+        screenshot_svc.reorder_by_capture_time(project_id)
 
     try:
         info = service.probe(recording.video.path)
