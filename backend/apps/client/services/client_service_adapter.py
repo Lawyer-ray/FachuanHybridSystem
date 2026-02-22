@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from apps.client.models import Client
@@ -15,8 +14,6 @@ if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService
     from .client_related_dto_assembler import ClientRelatedDtoAssembler
     from .client_service import ClientService
-
-logger = logging.getLogger("apps.client")
 
 
 class ClientServiceAdapter(IClientService):
@@ -97,24 +94,12 @@ class ClientServiceAdapter(IClientService):
         return [self._to_dto(client) for client in clients]
 
     def get_property_clues_by_client_internal(self, client_id: int) -> list[PropertyClueDTO]:
-        try:
-            clues = self.internal_query_service.list_property_clues_by_client(client_id=client_id)
-            return self.related_dto_assembler.property_clues_to_dtos(clues)
-        except Exception:
-            logger.exception("获取客户财产线索失败", extra={"client_id": client_id})
-            return []
+        clues = self.internal_query_service.list_property_clues_by_client(client_id=client_id)
+        return self.related_dto_assembler.property_clues_to_dtos(clues)
 
     def is_natural_person_internal(self, client_id: int) -> bool:
-        try:
-            return self.internal_query_service.is_natural_person(client_id=client_id)
-        except Exception:
-            logger.exception("判断客户类型失败", extra={"client_id": client_id})
-            return False
+        return self.internal_query_service.is_natural_person(client_id=client_id)
 
     def get_identity_docs_by_client_internal(self, client_id: int) -> list[ClientIdentityDocDTO]:
-        try:
-            docs = self.internal_query_service.list_identity_docs_by_client(client_id=client_id)
-            return self.related_dto_assembler.identity_docs_to_dtos(docs)
-        except Exception:
-            logger.exception("获取客户身份证件失败", extra={"client_id": client_id})
-            return []
+        docs = self.internal_query_service.list_identity_docs_by_client(client_id=client_id)
+        return self.related_dto_assembler.identity_docs_to_dtos(docs)

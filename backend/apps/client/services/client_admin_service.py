@@ -107,44 +107,31 @@ class ClientAdminService(ClientAdminFileMixin):
         Raises:
             ValidationException: 数据验证失败
         """
-        try:
-            # 1. 验证 JSON 数据完整性
-            self._validate_json_data(json_data)
+        # 1. 验证 JSON 数据完整性
+        self._validate_json_data(json_data)
 
-            # 2. 提取客户基本信息
-            client_data = self._extract_client_data(json_data)
+        # 2. 提取客户基本信息
+        client_data = self._extract_client_data(json_data)
 
-            # 3. 创建客户
-            client = Client.objects.create(**client_data)
+        # 3. 创建客户
+        client = Client.objects.create(**client_data)
 
-            # 4. 创建关联的证件文档
-            if "identity_docs" in json_data:
-                self._create_identity_docs(client, json_data["identity_docs"], admin_user)
+        # 4. 创建关联的证件文档
+        if "identity_docs" in json_data:
+            self._create_identity_docs(client, json_data["identity_docs"], admin_user)
 
-            # 5. 记录操作日志
-            logger.info(
-                "JSON 导入客户成功",
-                extra={
-                    "client_id": client.id,
-                    "client_name": client.name,
-                    "admin_user": admin_user,
-                    "action": "import_from_json",
-                },
-            )
+        # 5. 记录操作日志
+        logger.info(
+            "JSON 导入客户成功",
+            extra={
+                "client_id": client.id,
+                "client_name": client.name,
+                "admin_user": admin_user,
+                "action": "import_from_json",
+            },
+        )
 
-            return ImportResult(success=True, client=client)
-
-        except ValidationException:
-            # 重新抛出验证异常
-            raise
-        except Exception as e:
-            # 记录错误日志
-            logger.exception(
-                "JSON 导入客户失败: %s",
-                e,
-                extra={"admin_user": admin_user, "action": "import_from_json", "error": str(e)},
-            )
-            return ImportResult(success=False, error_message=f"导入失败: {e!s}")
+        return ImportResult(success=True, client=client)
 
     def _validate_json_data(self, json_data: dict[str, Any]) -> None:
         """
