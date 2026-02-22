@@ -93,7 +93,7 @@ class CaseAdminViewsMixin:
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
             {
-                "title": "诉讼费用计算器",
+                "title": _("诉讼费用计算器"),
                 "opts": self.model._meta,  # type: ignore[attr-defined]
             }
         )
@@ -119,7 +119,7 @@ class CaseAdminViewsMixin:
         matched_folder_templates = (
             service.get_matched_folder_templates(case.case_type, our_legal_statuses)
             if case.case_type
-            else "未设置案件类型"
+            else str(_("未设置案件类型"))
         )
 
         matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
@@ -150,7 +150,7 @@ class CaseAdminViewsMixin:
         context.update(
             {
                 "case": case,
-                "title": f"案件详情: {case.name}",
+                "title": _("案件详情: %(name)s") % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "has_change_permission": self.has_change_permission(request, case),  # type: ignore[attr-defined]
                 "matched_folder_templates": matched_folder_templates,
@@ -179,9 +179,9 @@ class CaseAdminViewsMixin:
 
     def _get_case_file_templates(self, service: CaseAdminService, case: Case) -> tuple[list[dict[str, Any]], str]:
         if not case.case_type:
-            return [], "未设置案件类型"
+            return [], str(_("未设置案件类型"))
         if not case.current_stage:
-            return [], "未设置案件阶段"
+            return [], str(_("未设置案件阶段"))
         return service.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
 
     @staticmethod
@@ -288,7 +288,7 @@ class CaseAdminViewsMixin:
         context.update(
             {
                 "case": case,
-                "title": f"上传/绑定材料: {case.name}",
+                "title": _("上传/绑定材料: %(name)s") % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "detail_url": reverse("admin:cases_case_detail", args=[case.pk]),
                 "party_types_json": json_mod.dumps(party_types, ensure_ascii=False),
@@ -332,12 +332,12 @@ class CaseAdminViewsMixin:
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
         matched = service.get_matched_folder_templates(case.case_type) if case.case_type else ""
         if not matched or "无匹配" in matched:
-            return "无匹配的文件夹模板"
+            return str(_("无匹配的文件夹模板"))
         return ""
 
     def _get_folder_disabled_reason_v2(self, matched_folder_templates: str) -> str:
         if not matched_folder_templates or "无匹配" in matched_folder_templates:
-            return "无匹配的文件夹模板"
+            return str(_("无匹配的文件夹模板"))
         return ""
 
     def changeform_view(
@@ -374,40 +374,40 @@ class CaseAdminViewsMixin:
 
     def contract_folder_path_display(self, obj: Case) -> str:
         if not obj or not obj.contract:
-            return "未关联合同"
+            return str(_("未关联合同"))
 
         try:
             binding = getattr(obj.contract, "folder_binding", None)
             if binding and binding.folder_path:
                 return str(binding.folder_path)
-            return "未绑定文件夹"
+            return str(_("未绑定文件夹"))
         except Exception:
             logger.exception("操作失败")
-            return "未绑定文件夹"
+            return str(_("未绑定文件夹"))
 
     contract_folder_path_display.short_description = _("合同文件夹路径")  # type: ignore[attr-defined]
 
     def filing_number_display(self, obj: Case) -> str:
         if obj and obj.filing_number:
             return str(obj.filing_number)
-        return "未生成"
+        return str(_("未生成"))
 
     filing_number_display.short_description = _("建档编号")  # type: ignore[attr-defined]
 
     def has_folder_binding(self, obj: Case) -> str:
         try:
             if hasattr(obj, "folder_binding") and obj.folder_binding:
-                return "✓ 已绑定"
-            return "未绑定"
+                return str(_("✓ 已绑定"))
+            return str(_("未绑定"))
         except Exception:
             logger.exception("操作失败")
-            return "未绑定"
+            return str(_("未绑定"))
 
     has_folder_binding.short_description = _("文件夹绑定")  # type: ignore[attr-defined]
 
     def get_matched_folder_templates_display(self, obj: Case) -> str:
         if not obj or not obj.case_type:
-            return "未设置案件类型"
+            return str(_("未设置案件类型"))
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
         return str(service.get_matched_folder_templates(obj.case_type))
 
