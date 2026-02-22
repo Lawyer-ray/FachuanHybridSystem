@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -58,12 +58,10 @@ class LawFirmService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, Any] | None = None,
+        name: str | None = None,
         user: Lawyer | None = None,
     ) -> "QuerySet[LawFirm, LawFirm]":
         """列表查询"""
-        filters = filters or {}
-
         queryset = self.get_lawfirm_queryset()
 
         # 应用权限过滤
@@ -74,8 +72,8 @@ class LawFirmService:
                 return queryset.none()
 
         # 应用业务过滤
-        if filters.get("name"):
-            queryset = queryset.filter(name__icontains=filters["name"])
+        if name:
+            queryset = queryset.filter(name__icontains=name)
 
         # 排序
         queryset = queryset.order_by("-id")

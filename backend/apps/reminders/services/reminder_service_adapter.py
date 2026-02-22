@@ -19,8 +19,8 @@ from apps.reminders.services.validators import (
     normalize_due_at,
     normalize_metadata,
     normalize_reminder_type,
-    normalize_target_id,
     validate_fk_exists,
+    validate_positive_id,
 )
 
 if TYPE_CHECKING:
@@ -106,7 +106,7 @@ class ReminderServiceAdapter:
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建合同提醒。"""
-        normalize_target_id(contract_id, field_name=_("合同ID"))
+        validate_positive_id(contract_id, field_name=_("合同ID"))
         if not reminders:
             return 0
 

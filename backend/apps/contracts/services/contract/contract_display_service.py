@@ -92,7 +92,7 @@ class ContractDisplayService:
             templates = self.template_cache.get_document_templates(contract.case_type)
 
             if templates is not None:
-                logger.debug(f"从缓存获取合同 {contract.pk} 的文书模板")
+                logger.debug("从缓存获取合同 %s 的文书模板", contract.pk)
             else:
                 # 缓存未命中,从数据库查询
                 templates = self.document_service.find_matching_contract_templates(contract.case_type)
@@ -100,7 +100,7 @@ class ContractDisplayService:
                 self.template_cache.set_document_templates(contract.case_type, templates)
 
             if not templates:
-                logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文书模板")
+                logger.debug("合同 %s (%s) 无匹配的文书模板", contract.pk, contract.case_type)
                 return _("无匹配模板")
 
             # 格式化显示文本
@@ -114,11 +114,11 @@ class ContractDisplayService:
                     template_displays.append(name)
 
             result = "、".join(template_displays)
-            logger.debug(f"合同 {contract.pk} 匹配的文书模板: {result}")
+            logger.debug("合同 %s 匹配的文书模板: %s", contract.pk, result)
             return result
 
         except Exception as e:
-            logger.error(f"查询合同 {contract.pk} 的文书模板失败: {e!s}", exc_info=True)
+            logger.error("查询合同 %s 的文书模板失败: %s", contract.pk, e, exc_info=True)
             return _("查询失败")
 
     def get_matched_folder_templates(self, contract: Contract) -> str:
