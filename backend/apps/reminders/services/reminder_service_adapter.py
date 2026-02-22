@@ -50,7 +50,7 @@ class ReminderServiceAdapter:
         if reminder_type not in ReminderType.values:
             logger.warning("无效的提醒类型: %s", reminder_type, extra={"case_log_id": case_log_id})
             return None
-        if not reminder_time:
+        if reminder_time is None:
             logger.warning("提醒时间为空，跳过创建", extra={"case_log_id": case_log_id})
             return None
 
@@ -88,7 +88,7 @@ class ReminderServiceAdapter:
     def get_reminder_type_for_document_internal(self, document_type: str) -> "ReminderTypeDTO | None":
         """内部方法：根据文书类型获取对应的提醒类型。"""
         reminder_type_code = self.DOCUMENT_TYPE_TO_REMINDER_TYPE.get(document_type)
-        if not reminder_type_code:
+        if reminder_type_code is None:
             return None
         return self.get_reminder_type_by_code_internal(reminder_type_code)
 
@@ -111,7 +111,7 @@ class ReminderServiceAdapter:
                 reminder_type = normalize_reminder_type(item.get("reminder_type") or "")
                 content = normalize_content(item.get("content") or "")
                 due_at = item.get("due_at")
-                if not due_at or not isinstance(due_at, datetime):
+                if due_at is None or not isinstance(due_at, datetime):
                     continue
                 due_at = normalize_due_at(due_at)
                 metadata = normalize_metadata(item.get("metadata"))
@@ -144,6 +144,5 @@ class ReminderServiceAdapter:
             contract_id=reminder.contract_id,
             reminder_type=str(reminder.reminder_type),
             reminder_time=reminder.due_at.isoformat(),
-            is_completed=False,
             created_at=reminder.created_at.isoformat(),
         )

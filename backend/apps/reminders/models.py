@@ -59,8 +59,6 @@ class Reminder(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["due_at"]),
             models.Index(fields=["reminder_type"]),
-            models.Index(fields=["contract"]),
-            models.Index(fields=["case_log"]),
         ]
 
     def clean(self) -> None:

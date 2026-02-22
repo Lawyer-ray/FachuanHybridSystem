@@ -95,5 +95,10 @@ class ReminderTypeItem(Schema):
     label: str
 
 
+_REMINDER_TYPE_LIST: list[ReminderTypeItem] = [
+    ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices
+]
+
+
 def list_reminder_types() -> list[ReminderTypeItem]:
-    return [ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices]
+    return _REMINDER_TYPE_LIST

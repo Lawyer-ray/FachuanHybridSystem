@@ -15,7 +15,7 @@ from apps.reminders.models import ReminderType
 def normalize_target_id(value: int | None, *, field_name: object) -> int | None:
     if value is None:
         return None
-    if not isinstance(value, int) or value <= 0:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValidationException(_("%(field_name)s 必须为正整数") % {"field_name": field_name})
     return value
 
