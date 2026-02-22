@@ -4,11 +4,13 @@
 定义所有文书生成器的统一接口和通用方法.
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
