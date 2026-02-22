@@ -239,7 +239,7 @@ class LawFirmServiceAdapter(ILawFirmService):
 
     _assembler: ClassVar[LawFirmDtoAssembler] = LawFirmDtoAssembler()
 
-    def __init__(self, lawfirm_service: LawFirmService | None = None):
+    def __init__(self, lawfirm_service: LawFirmService | None = None) -> None:
         self.service = lawfirm_service or LawFirmService()
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
