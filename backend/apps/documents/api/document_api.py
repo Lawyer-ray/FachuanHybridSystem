@@ -92,7 +92,7 @@ def extract_template_placeholders(request: Any, template_id: int) -> Any:
 
 
 @router.get("/templates/{template_id}/undefined-placeholders", response=list[str])
-def get_un(request: Any, template_id: int) -> Any:
+def get_undefined_placeholders(request: Any, template_id: int) -> Any:
     """获取文件模板中未定义的占位符"""
     service = _get_template_service()
     template = service.get_template_by_id(template_id)

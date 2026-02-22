@@ -6,6 +6,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from django.utils.translation import gettext_lazy as _
+
 
 @dataclass(frozen=True)
 class TemplateBindingAssemblerConfig:
@@ -34,7 +36,7 @@ class TemplateBindingAssembler:
             "name": getattr(template, "name", "") or "",
             "description": getattr(template, "description", "") or "",
             "binding_source": "general",
-            "binding_source_display": "通用",
+            "binding_source_display": str(_("通用")),
             "created_at": None,
         }
 

@@ -197,7 +197,7 @@ class DocumentTemplateService:
             return False
         return self.validator.validate_file_path(file_path)
 
-    def get_full_file_path(self, template: DocumentTemplate) -> str | None | None:
+    def get_full_file_path(self, template: DocumentTemplate) -> str | None:
         """
         获取模板文件的完整路径
 
