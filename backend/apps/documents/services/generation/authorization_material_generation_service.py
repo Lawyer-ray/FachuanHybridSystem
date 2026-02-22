@@ -169,7 +169,7 @@ class AuthorizationMaterialGenerationService:
             parties = list(case.parties.select_related("client").all())
         except Exception as e:
             logger.warning("获取案件当事人失败", extra={"case_id": getattr(case, "id", None), "error": str(e)})
-            parties: list[Any] = [] # type: ignore
+            parties: list[Any] = []
         return [p for p in parties if getattr(getattr(p, "client", None), "is_our_client", False)]
 
     def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *, case: Any, our_parties: list[Any]) -> None:
@@ -240,7 +240,7 @@ class AuthorizationMaterialGenerationService:
         except Exception:
             logger.exception("操作失败")
 
-            identity_docs: list[Any] = [] # type: ignore
+            identity_docs: list[Any] = []
 
         for doc in identity_docs:
             self._zip_write_identity_doc(
@@ -306,7 +306,7 @@ class AuthorizationMaterialGenerationService:
         except Exception:
             logger.exception("操作失败")
 
-            assignments: list[Any] = [] # type: ignore
+            assignments: list[Any] = []
 
         seen: set[int] = set()
         for assignment in assignments:
@@ -487,7 +487,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = [] # type: ignore
+            parties: list[Any] = []
 
         for party in parties:
             client = getattr(party, "client", None)
@@ -523,7 +523,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = [] # type: ignore
+            parties: list[Any] = []
 
         for party in parties:
             client = getattr(party, "client", None)
