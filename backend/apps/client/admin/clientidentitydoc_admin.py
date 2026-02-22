@@ -98,6 +98,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
                 service.rename_uploaded_file(obj)
                 success_count += 1
             except Exception:
+                logger.exception("批量重命名文件失败", extra={"doc_id": obj.pk})
                 error_count += 1
 
         if success_count > 0:

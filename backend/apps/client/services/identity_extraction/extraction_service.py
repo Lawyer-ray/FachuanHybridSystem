@@ -141,8 +141,7 @@ class IdentityExtractionService:
             doc.close()
             return page_count > 0
         except Exception:
-            logger.exception("操作失败")
-
+            logger.exception("PDF 格式检测失败")
             return False
 
     def _extract_from_image(self, image_bytes: bytes) -> str:
