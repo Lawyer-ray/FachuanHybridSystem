@@ -4,15 +4,16 @@ from __future__ import annotations
 
 from django.db import transaction
 
-from apps.documents.models import EvidenceList
+from apps.documents.models import EvidenceItem, EvidenceList
 
 
 class EvidencePageRangeCalculator:
     def calculate_page_ranges(self, *, evidence_list: EvidenceList) -> None:
-        items = evidence_list.items.filter(file__isnull=False).order_by("order")
+        items = list(evidence_list.items.filter(file__isnull=False).order_by("order"))
 
         current_page = evidence_list.start_page
         total_pages = 0
+        to_update = []
 
         for item in items:
             if item.page_count > 0:
@@ -20,7 +21,10 @@ class EvidencePageRangeCalculator:
                 item.page_end = current_page + item.page_count - 1
                 current_page = item.page_end + 1
                 total_pages += item.page_count
-                item.save(update_fields=["page_start", "page_end"])
+                to_update.append(item)
+
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["page_start", "page_end"])
 
         evidence_list.total_pages = total_pages
         evidence_list.save(update_fields=["total_pages", "updated_at"])

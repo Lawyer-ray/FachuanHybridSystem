@@ -388,13 +388,7 @@ class DocumentTemplateAdminService:
         Returns:
             实际启用的数量
         """
-        updated: int = 0
-        for template in queryset:
-            if not template.is_active:
-                template.is_active = True
-                template.save(update_fields=["is_active"])
-                updated += 1
-        return updated
+        return queryset.filter(is_active=False).update(is_active=True)
 
     def batch_deactivate(self, queryset: Any) -> int:
         """
@@ -406,11 +400,5 @@ class DocumentTemplateAdminService:
         Returns:
             实际禁用的数量
         """
-        updated: int = 0
-        for template in queryset:
-            if template.is_active:
-                template.is_active = False
-                template.save(update_fields=["is_active"])
-                updated += 1
-        return updated
+        return queryset.filter(is_active=True).update(is_active=False)
 
