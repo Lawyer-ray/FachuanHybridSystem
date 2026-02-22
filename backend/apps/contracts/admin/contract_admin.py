@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -140,6 +141,6 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
 
     change_form_template = "admin/contracts/contract/change_form.html"
 
-    def get_queryset(self, request: Any) -> Any:
+    def get_queryset(self, request: HttpRequest) -> Any:
         return super().get_queryset(request).prefetch_related("assignments__lawyer")
 
