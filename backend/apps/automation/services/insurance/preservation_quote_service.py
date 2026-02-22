@@ -20,7 +20,7 @@ from django.utils import timezone
 from apps.automation.models import PreservationQuote, QuoteStatus
 from apps.automation.services.insurance.court_insurance_client import CourtInsuranceClient
 from apps.automation.services.insurance.exceptions import ValidationError
-from apps.automation.services.insurance._quote_execution_mixin import QuoteExecutionMixin, get_or_create_token
+from apps.automation.services.insurance._quote_execution_mixin import QuoteExecutionMixin
 from apps.core.config import get_config
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService

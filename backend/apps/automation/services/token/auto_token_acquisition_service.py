@@ -22,7 +22,6 @@ from apps.core.interfaces import (
     IAccountSelectionStrategy,
     IAutoLoginService,
     ITokenService,
-    TokenAcquisitionResult,
 )
 
 from .cache_manager import cache_manager

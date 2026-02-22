@@ -6,8 +6,6 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any
 
 from apps.core.dto.chat import ChatResult, MessageContent
 from apps.core.enums import ChatPlatform

@@ -153,8 +153,6 @@ class CaseNumberExtractorService:
                 return []
 
         try:
-            import json
-
             from apps.automation.services.ai import get_ollama_model
             from apps.automation.services.ai.ollama_client import chat
 
