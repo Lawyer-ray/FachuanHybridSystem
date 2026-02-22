@@ -42,7 +42,7 @@ class LitigationLLMGenerator:
                 exc_info=True,
             )
             raise ValidationException(
-                message=f"起诉状结构验证失败:{e!s}",
+                message=_("起诉状结构验证失败:%(e)s") % {"e": e},
                 code="COMPLAINT_VALIDATION_FAILED",
                 errors={"detail": str(e)},
             ) from e
@@ -51,7 +51,7 @@ class LitigationLLMGenerator:
             if isinstance(e, ValidationException):
                 raise
             raise ValidationException(
-                message=f"起诉状生成失败:{e!s}",
+                message=_("起诉状生成失败:%(e)s") % {"e": e},
                 code="COMPLAINT_GENERATION_FAILED",
                 errors={"detail": str(e)},
             ) from e
@@ -72,7 +72,7 @@ class LitigationLLMGenerator:
                 exc_info=True,
             )
             raise ValidationException(
-                message=f"答辩状结构验证失败:{e!s}",
+                message=_("答辩状结构验证失败:%(e)s") % {"e": e},
                 code="DEFENSE_VALIDATION_FAILED",
                 errors={"detail": str(e)},
             ) from e
@@ -81,7 +81,7 @@ class LitigationLLMGenerator:
             if isinstance(e, ValidationException):
                 raise
             raise ValidationException(
-                message=f"答辩状生成失败:{e!s}",
+                message=_("答辩状生成失败:%(e)s") % {"e": e},
                 code="DEFENSE_GENERATION_FAILED",
                 errors={"detail": str(e)},
             ) from e

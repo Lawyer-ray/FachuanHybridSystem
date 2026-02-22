@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from django.utils.translation import gettext_lazy as _
+
 
 import importlib
 import logging
@@ -88,7 +90,7 @@ class GeneratorRegistry:
         """
         if name not in self._generators:
             raise NotFoundError(
-                message=f"生成器不存在: {name}",
+                message=_("生成器不存在: %(n)s") % {"n": name},
                 code="GENERATOR_NOT_FOUND",
                 errors={"name": f"未找到名为 '{name}' 的生成器"},
             )

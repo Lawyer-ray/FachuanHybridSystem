@@ -396,7 +396,7 @@ class AuthorizationMaterialGenerationService:
         )
         if not template:
             raise ValidationException(
-                message=f"未找到{TEMPLATE_NAME_POWER_OF_ATTORNEY}模板(请在后台上传/启用名称为'{TEMPLATE_NAME_POWER_OF_ATTORNEY}'的模板)",
+                message=_("未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)") % {"n": TEMPLATE_NAME_POWER_OF_ATTORNEY},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_name": TEMPLATE_NAME_POWER_OF_ATTORNEY},
             )
@@ -546,7 +546,7 @@ class AuthorizationMaterialGenerationService:
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         if not template_path.exists():
             raise ValidationException(
-                message=f"模板文件不存在: {template_path}",
+                message=_("模板文件不存在: %(p)s") % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -561,7 +561,7 @@ class AuthorizationMaterialGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=f"模板渲染失败: {e!s}",
+                message=_("模板渲染失败: %(e)s") % {"e": e},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"error": str(e)},
             ) from e
