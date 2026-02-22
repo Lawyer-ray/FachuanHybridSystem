@@ -109,7 +109,8 @@ class TeamService:
         # 1. 权限检查
         if not self._access_policy.can_create(user):
             logger.warning(
-                f"用户 {getattr(user, 'id', None)} 尝试创建团队但权限不足",
+                "用户 %s 尝试创建团队但权限不足",
+                getattr(user, "id", None),
                 extra={"user_id": getattr(user, "id", None), "action": "create_team"},
             )
             raise PermissionDenied(message=_("无权限创建团队"), code="PERMISSION_DENIED")
@@ -156,7 +157,9 @@ class TeamService:
         # 2. 权限检查
         if not self._access_policy.can_update_team(user, team):
             logger.warning(
-                f"用户 {getattr(user, 'id', None)} 尝试更新团队 {team_id} 但权限不足",
+                "用户 %s 尝试更新团队 %s 但权限不足",
+                getattr(user, "id", None),
+                team_id,
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "update_team"},
             )
             raise PermissionDenied(message=_("无权限更新该团队"), code="PERMISSION_DENIED")
@@ -201,7 +204,9 @@ class TeamService:
         # 2. 权限检查
         if not self._access_policy.can_delete_team(user, team):
             logger.warning(
-                f"用户 {getattr(user, 'id', None)} 尝试删除团队 {team_id} 但权限不足",
+                "用户 %s 尝试删除团队 %s 但权限不足",
+                getattr(user, "id", None),
+                team_id,
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "delete_team"},
             )
             raise PermissionDenied(message=_("无权限删除该团队"), code="PERMISSION_DENIED")
