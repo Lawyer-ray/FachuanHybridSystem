@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.reminders.models import Reminder, ReminderType
+from ..models import Reminder, ReminderType
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -91,6 +91,8 @@ class ReminderService:
         if "case_log_id" in data:
             reminder.case_log_id = data["case_log_id"]
         if "reminder_type" in data and data["reminder_type"] is not None:
+            if data["reminder_type"] not in ReminderType.values:
+                raise ValidationException(_("无效的提醒类型"))
             reminder.reminder_type = data["reminder_type"]
         if "content" in data and data["content"] is not None:
             reminder.content = data["content"]

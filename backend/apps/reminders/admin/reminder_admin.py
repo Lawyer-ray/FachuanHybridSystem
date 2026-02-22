@@ -9,15 +9,15 @@ from django import forms
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from apps.reminders.models import Reminder
+from ..models import Reminder
 
 
 class ReminderAdminForm(forms.ModelForm[Reminder]):
     class Meta:
         model = Reminder
         fields: str = "__all__"
-        help_texts: ClassVar[dict[str, str]] = {
-            "metadata": (
+        help_texts: ClassVar[dict[str, Any]] = {
+            "metadata": _(
                 '用于存放"结构化扩展信息"的 JSON(不参与业务必填).可留空或填 {}.'
                 "常见键:source(来源,如 court_sms / manual)、file_name(来源文件名)、"
                 'external_id(外部ID)、note(备注).示例:{"source":"court_sms","file_name":"传票.pdf"}'

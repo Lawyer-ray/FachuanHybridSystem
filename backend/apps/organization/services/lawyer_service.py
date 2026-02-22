@@ -10,7 +10,7 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Q, QuerySet
 
-from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
+from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawyerService, LawyerDTO
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
@@ -43,7 +43,7 @@ class LawyerService:
         """
         return Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams", "biz_teams")
 
-    def get_lawyer(self, lawyer_id: int, user: Lawyer) -> Lawyer:
+    def get_lawyer(self, lawyer_id: int, user: Lawyer | None) -> Lawyer:
         """
         获取律师
 
@@ -56,12 +56,16 @@ class LawyerService:
 
         Raises:
             NotFoundError: 律师不存在
+            AuthenticationError: 未认证
             PermissionDenied: 无权限访问
         """
         lawyer = self.get_lawyer_queryset().filter(id=lawyer_id).first()
 
         if not lawyer:
             raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
+
+        if user is None:
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 权限检查
         if not self._check_read_permission(user, lawyer):
@@ -113,7 +117,7 @@ class LawyerService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawyer(self, data: Any, user: Lawyer, license_pdf: Any = None) -> Lawyer:
+    def create_lawyer(self, data: Any, user: Lawyer | None, license_pdf: Any = None) -> Lawyer:
         """
         创建律师
 
@@ -127,8 +131,13 @@ class LawyerService:
 
         Raises:
             ValidationException: 数据验证失败
+            AuthenticationError: 未认证
             PermissionDenied: 权限不足
         """
+        # 0. 认证检查
+        if user is None:
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
@@ -206,9 +215,13 @@ class LawyerService:
             lawyer.license_pdf.save(license_pdf.name, license_pdf, save=False)
 
     @transaction.atomic
-    def update_lawyer(self, lawyer_id: int, data: Any, user: Lawyer, license_pdf: Any = None) -> Lawyer:
+    def update_lawyer(self, lawyer_id: int, data: Any, user: Lawyer | None, license_pdf: Any = None) -> Lawyer:
         """更新律师"""
+        # get_lawyer 内部已做 None 检查
         lawyer = self.get_lawyer(lawyer_id, user)
+
+        # user 经过 get_lawyer 后必不为 None
+        assert user is not None
 
         if not self._check_update_permission(user, lawyer):
             logger.warning(
@@ -230,7 +243,7 @@ class LawyerService:
         return lawyer
 
     @transaction.atomic
-    def delete_lawyer(self, lawyer_id: int, user: Lawyer) -> None:
+    def delete_lawyer(self, lawyer_id: int, user: Lawyer | None) -> None:
         """
         删除律师
 
@@ -240,11 +253,15 @@ class LawyerService:
 
         Raises:
             NotFoundError: 律师不存在
+            AuthenticationError: 未认证
             PermissionDenied: 权限不足
             ConflictError: 律师正在使用中
         """
-        # 1. 获取律师
+        # 1. 获取律师（get_lawyer 内部已做 None 检查）
         lawyer = self.get_lawyer(lawyer_id, user)
+
+        # user 经过 get_lawyer 后必不为 None
+        assert user is not None
 
         # 2. 权限检查
         if not self._check_delete_permission(user, lawyer):

@@ -12,7 +12,7 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import Count, QuerySet
 
-from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
+from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from apps.organization.models import LawFirm, Lawyer
@@ -45,7 +45,7 @@ class LawFirmService:
         """
         return LawFirm.objects.prefetch_related("lawyers", "teams")
 
-    def get_lawfirm(self, lawfirm_id: int, user: Lawyer) -> LawFirm:
+    def get_lawfirm(self, lawfirm_id: int, user: Lawyer | None) -> LawFirm:
         """
         获取律所
 
@@ -58,12 +58,16 @@ class LawFirmService:
 
         Raises:
             NotFoundError: 律所不存在
+            AuthenticationError: 未认证
             PermissionDenied: 无权限访问
         """
         lawfirm = self.get_lawfirm_queryset().filter(id=lawfirm_id).first()
 
         if not lawfirm:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
+
+        if user is None:
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 权限检查：用户可以访问自己所属的律所或管理员可以访问所有律所
         if not self._check_read_permission(user, lawfirm):
@@ -116,7 +120,7 @@ class LawFirmService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawfirm(self, data: Any, user: Lawyer) -> LawFirm:
+    def create_lawfirm(self, data: Any, user: Lawyer | None) -> LawFirm:
         """
         创建律所
 
@@ -129,8 +133,13 @@ class LawFirmService:
 
         Raises:
             ValidationException: 数据验证失败
+            AuthenticationError: 未认证
             PermissionDenied: 权限不足
         """
+        # 0. 认证检查
+        if user is None:
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+
         # 1. 权限检查
         if not self._check_create_permission(user):
             logger.warning(
@@ -156,7 +165,7 @@ class LawFirmService:
         return lawfirm
 
     @transaction.atomic
-    def update_lawfirm(self, lawfirm_id: int, data: Any, user: Lawyer) -> LawFirm:
+    def update_lawfirm(self, lawfirm_id: int, data: Any, user: Lawyer | None) -> LawFirm:
         """
         更新律所
 
@@ -170,11 +179,15 @@ class LawFirmService:
 
         Raises:
             NotFoundError: 律所不存在
+            AuthenticationError: 未认证
             PermissionDenied: 权限不足
             ValidationException: 数据验证失败
         """
-        # 1. 获取律所
+        # 1. 获取律所（get_lawfirm 内部已做 None 检查）
         lawfirm = self.get_lawfirm(lawfirm_id, user)
+
+        # user 经过 get_lawfirm 后必不为 None
+        assert user is not None
 
         # 2. 权限检查
         if not self._check_update_permission(user, lawfirm):
@@ -205,7 +218,7 @@ class LawFirmService:
         return lawfirm
 
     @transaction.atomic
-    def delete_lawfirm(self, lawfirm_id: int, user: Lawyer) -> None:
+    def delete_lawfirm(self, lawfirm_id: int, user: Lawyer | None) -> None:
         """
         删除律所
 
@@ -215,11 +228,15 @@ class LawFirmService:
 
         Raises:
             NotFoundError: 律所不存在
+            AuthenticationError: 未认证
             PermissionDenied: 权限不足
             ConflictError: 律所正在使用中
         """
-        # 1. 获取律所
+        # 1. 获取律所（get_lawfirm 内部已做 None 检查）
         lawfirm = self.get_lawfirm(lawfirm_id, user)
+
+        # user 经过 get_lawfirm 后必不为 None
+        assert user is not None
 
         # 2. 权限检查
         if not self._check_delete_permission(user, lawfirm):
