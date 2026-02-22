@@ -16,7 +16,7 @@ from .account_credential_service import AccountCredentialService
 if TYPE_CHECKING:
     from apps.core.dto.organization import LawyerDTO
     from apps.organization.services.lawfirm_service import LawFirmService
-    from apps.organization.services.lawyer_service import LawyerService
+    from apps.organization.services.lawyer.facade import LawyerService
     from apps.organization.services.team_service import TeamService
 
 
@@ -68,7 +68,7 @@ class OrganizationServiceAdapter(IOrganizationService):
     def lawyer_service(self) -> LawyerService:
         """延迟加载律师服务"""
         if self._lawyer_service is None:
-            from apps.organization.services.lawyer_service import LawyerService
+            from apps.organization.services.lawyer.facade import LawyerService
 
             self._lawyer_service = LawyerService()
         return self._lawyer_service
