@@ -74,9 +74,9 @@ def build_case_filing_number_service() -> ICaseFilingNumberService:
 
 
 def build_case_chat_service() -> "ICaseChatService":
-    from apps.cases.services.case_chat_service import CaseChatService
+    from apps.cases.services.chat.case_chat_service_adapter import CaseChatServiceAdapter
 
-    return CaseChatService()  # type: ignore[return-value]
+    return CaseChatServiceAdapter()
 
 
 def build_case_number_service() -> ICaseNumberService:

@@ -21,7 +21,7 @@ class CaseAdminServiceMixin:
 
     def _get_case_chat_service(self) -> CaseChatService:
         """工厂方法：获取 CaseChatService 实例（延迟导入避免循环依赖）。"""
-        from apps.cases.services.case_chat_service import CaseChatService
+        from apps.cases.services.chat.case_chat_service import CaseChatService
 
         return CaseChatService()
 

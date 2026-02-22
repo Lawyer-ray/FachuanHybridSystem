@@ -14,6 +14,8 @@ from apps.core.enums import CaseStatus, CaseType
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
+    from apps.cases.models import Case
+
     from .finance import ContractFinanceLog
     from .folder_binding import ContractFolderBinding
     from .party import ContractAssignment, ContractParty
