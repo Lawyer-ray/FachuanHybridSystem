@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import transaction
 from django.db.models import QuerySet
