@@ -13,7 +13,7 @@ from django.core.files.base import ContentFile
 from apps.chat_records.models import ChatRecordProject, ChatRecordScreenshot
 from apps.core.exceptions import ValidationException
 
-from .export_service import ExportLayout
+from .export_types import ExportLayout
 
 logger = logging.getLogger(__name__)
 
