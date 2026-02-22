@@ -70,3 +70,9 @@ class LawyerUpdateDTO:
     password: str | None = None
     lawyer_team_ids: list[int] | None = None
     biz_team_ids: list[int] | None = None
+
+
+@dataclass(frozen=True)
+class LawyerListFiltersDTO:
+    search: str | None = None
+    law_firm_id: int | None = None
