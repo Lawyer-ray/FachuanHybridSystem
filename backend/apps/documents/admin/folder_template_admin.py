@@ -117,7 +117,7 @@ class FolderTemplateForm(forms.ModelForm):
             self.fields["case_stage_field"].initial = case_stages[0] if case_stages else ""
             # 诉讼地位字段
             self.fields["legal_statuses_field"].initial = self.instance.legal_statuses or []
-            self.fields["legal_status_match_mode"].initial = self.instance.legal_status_match_mode or "any"
+            self.fields["legal_status_match_mode"].initial = self.instance.legal_status_match_mode or LegalStatusMatchMode.ANY
 
     def clean_structure(self) -> Any:
         """验证并自动修复文件夹结构中的重复ID"""
@@ -166,7 +166,7 @@ class FolderTemplateForm(forms.ModelForm):
             case_types_field=self.cleaned_data.get("case_types_field", []),
             case_stage_field=self.cleaned_data.get("case_stage_field", ""),
             legal_statuses_field=self.cleaned_data.get("legal_statuses_field", []),
-            legal_status_match_mode=self.cleaned_data.get("legal_status_match_mode", "any"),
+            legal_status_match_mode=self.cleaned_data.get("legal_status_match_mode", LegalStatusMatchMode.ANY),
         )
 
         instance.template_type = save_data["template_type"]
@@ -251,7 +251,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
 
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {
-            "all": ("documents/css/folder_tree.css", "documents/css/multi_select.css")
+            LegalStatusMatchMode.ALL: ("documents/css/folder_tree.css", "documents/css/multi_select.css")
         }
         js: ClassVar[tuple[str, ...]] = (
             "documents/js/folder_tree.js",

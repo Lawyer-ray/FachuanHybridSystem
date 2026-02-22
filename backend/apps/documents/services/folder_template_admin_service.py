@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.documents.models.choices import FolderTemplateType
+from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
 
 import logging
 from typing import Any
@@ -215,26 +215,26 @@ class FolderTemplateAdminService:
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
-            "legal_status_match_mode": "any",
+            "legal_status_match_mode": LegalStatusMatchMode.ANY,
         }
 
         if template_type == FolderTemplateType.CONTRACT:
             data["contract_types"] = contract_types_field or []
             # 合同模板清空诉讼地位字段
             data["legal_statuses"] = []
-            data["legal_status_match_mode"] = "any"
+            data["legal_status_match_mode"] = LegalStatusMatchMode.ANY
         elif template_type == FolderTemplateType.CASE:
             data["case_types"] = case_types_field or []
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             # 案件模板保存诉讼地位字段
             data["legal_statuses"] = legal_statuses_field or []
-            data["legal_status_match_mode"] = legal_status_match_mode or "any"
+            data["legal_status_match_mode"] = legal_status_match_mode or LegalStatusMatchMode.ANY
         else:
             data["contract_types"] = contract_types_field or []
             data["case_types"] = case_types_field or []
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             data["legal_statuses"] = legal_statuses_field or []
-            data["legal_status_match_mode"] = legal_status_match_mode or "any"
+            data["legal_status_match_mode"] = legal_status_match_mode or LegalStatusMatchMode.ANY
 
         return data
 

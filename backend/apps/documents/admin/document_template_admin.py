@@ -53,7 +53,7 @@ class DocumentTemplateFolderBindingInline(admin.TabularInline):
     autocomplete_fields: ClassVar = ["folder_template"]
 
     class Media:
-        css: ClassVar = {"all": ("documents/css/folder_binding_inline.css",)}
+        css: ClassVar = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
         js: tuple[Any, ...] = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
 
 
@@ -252,7 +252,7 @@ class DocumentTemplateForm(forms.ModelForm):
             case_types_field=self.cleaned_data.get("case_types_field", []),
             case_stage_field=self.cleaned_data.get("case_stage_field", ""),
             legal_statuses_field=self.cleaned_data.get("legal_statuses_field", []),
-            legal_status_match_mode=self.cleaned_data.get("legal_status_match_mode", "any"),
+            legal_status_match_mode=self.cleaned_data.get("legal_status_match_mode", LegalStatusMatchMode.ANY),
             file=self.cleaned_data.get("file"),
             file_path=self.cleaned_data.get("file_path"),
         )
@@ -366,7 +366,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
     ]
 
     class Media:
-        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/multi_select.css",)}
+        css: ClassVar[dict[str, tuple[str, ...]]] = {LegalStatusMatchMode.ALL: ("documents/css/multi_select.css",)}
         js: ClassVar[tuple[str, ...]] = ("documents/js/template_type_toggle.js",)
 
     def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:
