@@ -144,7 +144,8 @@ class LawFirmService:
         # 1. 权限检查
         if not self._access_policy.can_create(user):
             logger.warning(
-                f"用户 {user.id} 尝试创建律所但权限不足",
+                "用户 %s 尝试创建律所但权限不足",
+                user.id,
                 extra={"user_id": user.id, "action": "create_lawfirm"},
             )
             raise PermissionDenied(message=_("无权限创建律所"), code="PERMISSION_DENIED")
@@ -193,7 +194,9 @@ class LawFirmService:
         # 2. 权限检查
         if not self._access_policy.can_update_lawfirm(user, lawfirm):
             logger.warning(
-                f"用户 {user.id} 尝试更新律所 {lawfirm_id} 但权限不足",
+                "用户 %s 尝试更新律所 %s 但权限不足",
+                user.id,
+                lawfirm_id,
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "update_lawfirm"},
             )
             raise PermissionDenied(message=_("无权限更新该律所"), code="PERMISSION_DENIED")
@@ -242,7 +245,9 @@ class LawFirmService:
         # 2. 权限检查
         if not self._access_policy.can_delete_lawfirm(user, lawfirm):
             logger.warning(
-                f"用户 {user.id} 尝试删除律所 {lawfirm_id} 但权限不足",
+                "用户 %s 尝试删除律所 %s 但权限不足",
+                user.id,
+                lawfirm_id,
                 extra={"user_id": user.id, "lawfirm_id": lawfirm_id, "action": "delete_lawfirm"},
             )
             raise PermissionDenied(message=_("无权限删除该律所"), code="PERMISSION_DENIED")
