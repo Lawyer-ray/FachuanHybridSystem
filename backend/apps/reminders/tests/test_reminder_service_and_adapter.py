@@ -389,6 +389,14 @@ def test_normalize_due_at_rejects_non_datetime() -> None:
         normalize_due_at("2026-01-01")  # type: ignore[arg-type]
 
 
+@pytest.mark.django_db
+def test_normalize_metadata_rejects_non_serializable() -> None:
+    from apps.reminders.services.validators import normalize_metadata
+
+    with pytest.raises(ValidationException, match="不可序列化"):
+        normalize_metadata({"key": object()})
+
+
 # ── _apply_update_fields FK switching ────────────────────────────────────────
 
 @pytest.mark.django_db
