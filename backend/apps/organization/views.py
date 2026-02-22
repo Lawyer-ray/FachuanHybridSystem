@@ -7,13 +7,12 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import PermissionDenied
+from apps.organization.services.auth_service import AuthService
 
 from .forms import LawyerRegistrationForm
 
 
-def _get_auth_service() -> "AuthService":  # noqa: F821
-    from .services.auth_service import AuthService
-
+def _get_auth_service() -> AuthService:
     return AuthService()
 
 

@@ -54,7 +54,6 @@ class LawyerOut(ModelSchema, SchemaMixin):
             "real_name",
             "phone",
             "license_no",
-            "law_firm",
             "is_admin",
             "is_active",
         ]

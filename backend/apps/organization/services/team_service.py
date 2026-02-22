@@ -53,7 +53,10 @@ class TeamService:
 
         # 权限过滤：非超级用户只能看到自己律所的团队
         if user and not user.is_superuser:
-            qs = qs.filter(law_firm_id=user.law_firm_id)
+            if user.law_firm_id is not None:
+                qs = qs.filter(law_firm_id=user.law_firm_id)
+            else:
+                qs = qs.none()
 
         # 业务过滤
         if law_firm_id is not None:
@@ -176,7 +179,7 @@ class TeamService:
         team.name = data.name
         team.team_type = data.team_type
         team.law_firm = law_firm
-        team.save()
+        team.save(update_fields=["name", "team_type", "law_firm_id"])
 
         # 6. 记录日志
         logger.info(
@@ -222,19 +225,9 @@ class TeamService:
     # ========== 私有方法（业务逻辑封装） ==========
 
     def _validate_team_type(self, team_type: str) -> None:
-        """
-        验证团队类型
-
-        Args:
-            team_type: 团队类型
-
-        Raises:
-            ValidationException: 团队类型无效
-        """
-        valid_types = [TeamType.LAWYER, TeamType.BIZ]
-        if team_type not in valid_types:
+        if team_type not in TeamType.values:
             raise ValidationException(
                 message=_("非法团队类型"),
                 code="INVALID_TEAM_TYPE",
-                errors={"team_type": str(_("团队类型必须是 %(valid_types)s 之一")) % {"valid_types": valid_types}},
+                errors={"team_type": str(_("团队类型必须是 %(valid_types)s 之一")) % {"valid_types": TeamType.values}},
             )
