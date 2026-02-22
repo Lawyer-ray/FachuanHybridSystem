@@ -132,10 +132,14 @@ def test_get_reminder_returns_instance(reminder: Reminder) -> None:
 
 @pytest.mark.django_db
 def test_list_reminders_rejects_dual_binding_filters() -> None:
-    service = ReminderService()
-
     with pytest.raises(ValidationException, match="不能同时查询"):
-        service.list_reminders(contract_id=1, case_log_id=1)
+        ReminderService().list_reminders(contract_id=1, case_log_id=1)
+
+
+@pytest.mark.django_db
+def test_list_reminders_rejects_no_filter() -> None:
+    with pytest.raises(ValidationException, match="必须指定"):
+        ReminderService().list_reminders()
 
 
 @pytest.mark.django_db
@@ -270,7 +274,7 @@ def test_adapter_returns_none_for_invalid_type_code() -> None:
 
 
 @pytest.mark.django_db
-def test_adapter_get_reminder_type_for_document(  ) -> None:
+def test_adapter_get_reminder_type_for_document() -> None:
     adapter = ReminderServiceAdapter()
     result = adapter.get_reminder_type_for_document_internal("court_summons")
     assert result is not None
