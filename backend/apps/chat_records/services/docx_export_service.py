@@ -112,17 +112,18 @@ class DocxExportService:
             with contextlib.suppress(Exception):
                 p.style = document.styles["Title"]
 
-    def _insert_docx_image(self, cell: Any, shot: Any, width: Any) -> None:
+    def _insert_docx_image(self, cell: Any, shot: ChatRecordScreenshot, width: Any) -> None:
         from PIL import Image
 
         try:
             run = cell.paragraphs[0].add_run()
-            with Image.open(shot.image.path) as img:
-                rgb_img = img.convert("RGB")
-                img_buf = io.BytesIO()
-                rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
-                img_buf.seek(0)
-                run.add_picture(img_buf, width=width)
+            with shot.image.open("rb") as fh:
+                with Image.open(fh) as img:
+                    rgb_img = img.convert("RGB")
+                    img_buf = io.BytesIO()
+                    rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
+                    img_buf.seek(0)
+                    run.add_picture(img_buf, width=width)
         except Exception:
             raise ValidationException("Word 导出插图失败") from None
 
