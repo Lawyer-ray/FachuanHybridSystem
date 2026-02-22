@@ -174,6 +174,18 @@ class CompatibleSettings:
             if self._fallback_to_django:
                 setattr(django_settings, name, value)
 
+    def has_setting(self, name: str) -> bool:
+        """
+        检查配置项是否存在（兼容方法）
+
+        Args:
+            name: Django settings 风格的配置项名称（大写）
+
+        Returns:
+            bool: 是否存在
+        """
+        return name in self
+
     def __contains__(self, name: str) -> bool:
         """
         检查配置项是否存在

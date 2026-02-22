@@ -29,11 +29,30 @@ def test_file() -> SimpleUploadedFile:
     return SimpleUploadedFile("test_id_card.jpg", b"fake_image_content", content_type="image/jpeg")
 
 
-@pytest.fixture
-def id_card_result() -> ExtractionResult:
-    return ExtractionResult(
+def _safe_extract_result(
+    success: bool = True,
+    doc_type: str = "身份证",
+    extracted_data: dict | None = None,
+    confidence: float = 0.95,
+    error: str | None = None,
+) -> dict:
+    return {
+        "success": success,
+        "doc_type": doc_type,
+        "extracted_data": extracted_data or {},
+        "confidence": confidence,
+        "error": error,
+    }
+
+
+@patch("apps.client.api.clientidentitydoc_api._get_identity_extraction_service")
+def test_recognize_identity_doc_success(
+    mock_get_service: Mock, mock_request: Mock, test_file: SimpleUploadedFile
+) -> None:
+    mock_service = Mock()
+    mock_get_service.return_value = mock_service
+    mock_service.safe_extract.return_value = _safe_extract_result(
         doc_type="身份证",
-        raw_text="姓名：张三\n身份证号：110101199001010001",
         extracted_data={
             "name": "张三",
             "id_number": "110101199001010001",
@@ -44,17 +63,7 @@ def id_card_result() -> ExtractionResult:
             "birth_date": "1990-01-01",
         },
         confidence=0.95,
-        extraction_method="ocr_ollama",
     )
-
-
-@patch("apps.client.api.clientidentitydoc_api._get_identity_extraction_service")
-def test_recognize_identity_doc_success(
-    mock_get_service: Mock, mock_request: Mock, test_file: SimpleUploadedFile, id_card_result: ExtractionResult
-) -> None:
-    mock_service = Mock()
-    mock_get_service.return_value = mock_service
-    mock_service.extract.return_value = id_card_result
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
 
@@ -73,9 +82,8 @@ def test_recognize_identity_doc_passport_success(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.return_value = ExtractionResult(
+    mock_service.safe_extract.return_value = _safe_extract_result(
         doc_type="护照",
-        raw_text="姓名：ZHANG SAN",
         extracted_data={
             "name": "ZHANG SAN",
             "passport_number": "E12345678",
@@ -84,7 +92,6 @@ def test_recognize_identity_doc_passport_success(
             "birth_date": "1990-01-01",
         },
         confidence=0.88,
-        extraction_method="ocr_ollama",
     )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="护照")
@@ -101,9 +108,8 @@ def test_recognize_identity_doc_business_license_success(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.return_value = ExtractionResult(
+    mock_service.safe_extract.return_value = _safe_extract_result(
         doc_type="营业执照",
-        raw_text="企业名称：北京测试科技有限公司",
         extracted_data={
             "company_name": "北京测试科技有限公司",
             "credit_code": "91110000123456789X",
@@ -113,7 +119,6 @@ def test_recognize_identity_doc_business_license_success(
             "registration_date": "2020-01-01",
         },
         confidence=0.92,
-        extraction_method="ocr_ollama",
     )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="营业执照")
@@ -130,7 +135,11 @@ def test_recognize_identity_doc_validation_error(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.side_effect = ValidationException("无效的证件类型")
+    mock_service.safe_extract.return_value = _safe_extract_result(
+        success=False,
+        confidence=0.0,
+        error="VALIDATION_ERROR: 无效的证件类型",
+    )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="invalid_type")
 
@@ -146,7 +155,9 @@ def test_recognize_identity_doc_ocr_error(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.side_effect = OCRExtractionError("图片文字识别失败")
+    mock_service.safe_extract.return_value = _safe_extract_result(
+        success=False, confidence=0.0, error="识别失败: 图片文字识别失败"
+    )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
 
@@ -160,7 +171,9 @@ def test_recognize_identity_doc_ollama_error(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.side_effect = OllamaExtractionError("AI 信息提取失败")
+    mock_service.safe_extract.return_value = _safe_extract_result(
+        success=False, confidence=0.0, error="识别失败: AI 信息提取失败"
+    )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
 
@@ -174,7 +187,9 @@ def test_recognize_identity_doc_service_unavailable(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.side_effect = ServiceUnavailableError("Ollama 服务不可用")
+    mock_service.safe_extract.return_value = _safe_extract_result(
+        success=False, confidence=0.0, error="服务不可用: Ollama 服务不可用"
+    )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
 
@@ -188,7 +203,9 @@ def test_recognize_identity_doc_unknown_error(
 ) -> None:
     mock_service = Mock()
     mock_get_service.return_value = mock_service
-    mock_service.extract.side_effect = Exception("未知错误")
+    mock_service.safe_extract.return_value = _safe_extract_result(
+        success=False, confidence=0.0, error="未知错误: 未知错误"
+    )
 
     result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
 

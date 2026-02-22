@@ -22,7 +22,7 @@ from .case_number_service import CaseNumberService
 from .case_party_service import CasePartyService
 from .caselog_service import CaseLogService
 from .chat_name_config_service import ChatNameConfigService
-from .data import CauseCourtDataService
+from .data import CauseCourtDataService, LitigationFeeCalculatorService
 from .folder_binding_service import CaseFolderBindingService
 from .case.case_admin_service import CaseAdminService
 from .chat.case_chat_service import CaseChatService
@@ -68,4 +68,5 @@ __all__ = [
     "ChatNameConfigService",
     "CaseFolderBindingService",
     "CauseCourtDataService",
+    "LitigationFeeCalculatorService",
 ]

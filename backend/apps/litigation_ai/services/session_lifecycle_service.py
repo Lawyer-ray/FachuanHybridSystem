@@ -244,11 +244,20 @@ class SessionLifecycleService:
             cursor.execute("DELETE FROM documents_litigationmessage WHERE session_id = %s", [session.id])
 
     def _to_session_dto(self, session: Any) -> SessionDTO:
+        # 安全获取 case_name，避免 Case.DoesNotExist
+        case_name = ""
+        try:
+            case_obj = getattr(session, "case", None)
+            if case_obj is not None:
+                case_name = getattr(case_obj, "name", "") or ""
+        except Exception:
+            case_name = ""
+
         return SessionDTO(
             id=session.id,
             session_id=str(session.session_id),
             case_id=session.case_id,
-            case_name=getattr(session.case, "name", "") if getattr(session, "case", None) else "",
+            case_name=case_name,
             user_id=session.user_id,
             document_type=session.document_type or "",
             status=session.status,

@@ -118,7 +118,9 @@ class PerformanceMonitor:
         cache_key = f"performance:acquisition:{acquisition_id}"
         acquisition_data = cache.get(cache_key)
 
+        site_name = "all"
         if acquisition_data:
+            site_name = acquisition_data.get("site_name", "all") or "all"
             acquisition_data.update(
                 {
                     "end_time": time.time(),
@@ -132,7 +134,7 @@ class PerformanceMonitor:
             cache.set(cache_key, acquisition_data, timeout=CacheTimeout.LONG)
 
         # 更新统计计数器
-        self._update_counters(success, error_type)
+        self._update_counters(success, error_type, site_name=site_name)
 
         # 减少并发计数
         self._decrement_concurrent_count()
@@ -408,25 +410,25 @@ class PerformanceMonitor:
         """获取当前并发计数"""
         return cast(int, cache.get("performance:concurrent_count", 0))
 
-    def _update_counters(self, success: bool, error_type: str | None) -> None:
+    def _update_counters(self, success: bool, error_type: str | None, site_name: str = "all") -> None:
         """更新统计计数器"""
-        # 总数
-        cache.set("performance:counter:total", cache.get("performance:counter:total", 0) + 1, timeout=CacheTimeout.DAY)
+        from apps.core.infrastructure import CacheKeys
 
-        # 成功/失败
+        date = timezone.localdate().strftime("%Y%m%d")
+
+        total_key = CacheKeys.automation_token_perf_counter(date=date, site_name=site_name, metric="total")
+        cache.set(total_key, (cache.get(total_key) or 0) + 1, timeout=CacheTimeout.DAY)
+
         if success:
-            cache.set(
-                "performance:counter:success", cache.get("performance:counter:success", 0) + 1, timeout=CacheTimeout.DAY
-            )
+            success_key = CacheKeys.automation_token_perf_counter(date=date, site_name=site_name, metric="success")
+            cache.set(success_key, (cache.get(success_key) or 0) + 1, timeout=CacheTimeout.DAY)
         else:
-            cache.set(
-                "performance:counter:failed", cache.get("performance:counter:failed", 0) + 1, timeout=CacheTimeout.DAY
-            )
+            failed_key = CacheKeys.automation_token_perf_counter(date=date, site_name=site_name, metric="failed")
+            cache.set(failed_key, (cache.get(failed_key) or 0) + 1, timeout=CacheTimeout.DAY)
 
-            # 错误类型计数
             if error_type:
-                counter_key = f"performance:counter:{error_type}"
-                cache.set(counter_key, cache.get(counter_key, 0) + 1, timeout=CacheTimeout.DAY)
+                error_key = CacheKeys.automation_token_perf_counter(date=date, site_name=site_name, metric=error_type)
+                cache.set(error_key, (cache.get(error_key) or 0) + 1, timeout=CacheTimeout.DAY)
 
     def _get_counters(self) -> dict[str, int]:
         """获取所有计数器"""

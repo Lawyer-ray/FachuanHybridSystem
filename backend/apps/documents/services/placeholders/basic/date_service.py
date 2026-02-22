@@ -42,7 +42,7 @@ class DatePlaceholderService(BasePlaceholderService):
             if hasattr(case, "specified_date") and case.specified_date:
                 result["指定日期"] = self.format_chinese_date(case.specified_date)
             else:
-                result["指定日期"] = self.format_chinese_date(date.today())
+                result["指定日期"] = ""
             return result
 
         if contract:
@@ -50,7 +50,7 @@ class DatePlaceholderService(BasePlaceholderService):
             if hasattr(contract, "specified_date") and contract.specified_date:
                 result["指定日期"] = self.format_chinese_date(contract.specified_date)
             else:
-                result["指定日期"] = self.format_chinese_date(date.today())
+                result["指定日期"] = ""
 
             # {{开始日期}} - 合同开始日期
             if hasattr(contract, "start_date") and contract.start_date:

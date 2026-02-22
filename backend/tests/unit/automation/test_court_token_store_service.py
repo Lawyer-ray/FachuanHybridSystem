@@ -130,7 +130,7 @@ class TestCourtTokenStoreService:
         """测试返回最新的 token"""
         expires_at = timezone.now() + timedelta(hours=1)
 
-        # 创建多个 token（不同创建时间）
+        # 创建旧 token（用不同 account 绕过唯一约束，再用 update 修改 created_at）
         old_token = CourtToken.objects.create(
             site_name="zxfw.court.gov.cn",
             account="test@example.com",
@@ -138,16 +138,13 @@ class TestCourtTokenStoreService:
             token_type="Bearer",
             expires_at=expires_at,
         )
-        old_token.created_at = timezone.now() - timedelta(minutes=10)
-        old_token.save()
-
-        new_token = CourtToken.objects.create(
-            site_name="zxfw.court.gov.cn",
-            account="test@example.com",
-            token="new_token",
-            token_type="Bearer",
-            expires_at=expires_at,
+        # 用 update() 绕过 auto_now_add，将 created_at 设为更早
+        CourtToken.objects.filter(pk=old_token.pk).update(
+            created_at=timezone.now() - timedelta(minutes=10)
         )
+
+        # 更新为新 token（同一 site+account，用 update_or_create 或直接 update）
+        CourtToken.objects.filter(pk=old_token.pk).update(token="new_token")
 
         # 执行测试
         result = self.service.get_latest_valid_token_internal(site_name="zxfw.court.gov.cn")
@@ -201,20 +198,24 @@ class TestCourtTokenStoreService:
         assert call_kwargs["token_type"] == "Bearer"
 
     def test_get_latest_valid_token_with_null_token(self):
-        """测试处理 token 为 None 的情况"""
+        """测试处理 token 为空字符串的情况"""
         expires_at = timezone.now() + timedelta(hours=1)
 
-        # 创建 token 为 None 的记录
+        # 创建 token 为空字符串的记录
         CourtToken.objects.create(
             site_name="zxfw.court.gov.cn",
-            account="test@example.com",
-            token=None,
+            account="null_token@example.com",
+            token="",
             token_type="Bearer",
             expires_at=expires_at,
         )
 
         # 执行测试 - 使用前缀过滤
-        result = self.service.get_latest_valid_token_internal(site_name="zxfw.court.gov.cn", token_prefix="Bearer_")
+        result = self.service.get_latest_valid_token_internal(
+            site_name="zxfw.court.gov.cn",
+            account="null_token@example.com",
+            token_prefix="Bearer_",
+        )
 
         # 断言结果 - 应该返回 None（因为 token 为空字符串不匹配前缀）
         assert result is None
@@ -258,27 +259,26 @@ class TestCourtTokenStoreServiceEdgeCases:
 
     def test_get_token_with_mixed_expired_and_valid(self):
         """测试混合过期和有效 token 时只返回有效的"""
-        # 创建过期的 token
+        # 先创建一条记录，再 update expires_at 为过期，然后再创建有效记录（不同 account）
         expired_time = timezone.now() - timedelta(hours=1)
         CourtToken.objects.create(
             site_name="zxfw.court.gov.cn",
-            account="test@example.com",
+            account="expired@example.com",
             token="expired_token",
             token_type="Bearer",
             expires_at=expired_time,
         )
 
-        # 创建有效的 token
         valid_time = timezone.now() + timedelta(hours=1)
         CourtToken.objects.create(
             site_name="zxfw.court.gov.cn",
-            account="test@example.com",
+            account="valid@example.com",
             token="valid_token",
             token_type="Bearer",
             expires_at=valid_time,
         )
 
-        # 执行测试
+        # 执行测试 - 不指定 account，应该只返回有效的
         result = self.service.get_latest_valid_token_internal(site_name="zxfw.court.gov.cn")
 
         # 断言结果 - 应该返回有效的 token
@@ -299,9 +299,8 @@ class TestCourtTokenStoreServiceEdgeCases:
             token_type="Bearer",
             expires_at=expires_at,
         )
-        token.created_at = created_at
-        token.updated_at = updated_at
-        token.save()
+        # 用 update() 绕过 auto_now_add/auto_now
+        CourtToken.objects.filter(pk=token.pk).update(created_at=created_at, updated_at=updated_at)
 
         # 执行测试
         result = self.service.get_latest_valid_token_internal(site_name="zxfw.court.gov.cn")

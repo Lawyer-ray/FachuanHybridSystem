@@ -1,9 +1,10 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
-from django.utils.translation import gettext_lazy as _
+from datetime import date
 from typing import Any, ClassVar
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import CaseType
 
@@ -19,6 +20,19 @@ from apps.contracts.models import (
 
 class ContractAdminService:
     """合同 Admin 服务"""
+
+    def renew_advisor_contract(self, contract_id: int) -> Contract:
+        """续签常法顾问合同（委托给 ContractAdminMutationService）"""
+        from apps.contracts.services.contract.contract_admin_mutation_service import ContractAdminMutationService
+        return ContractAdminMutationService().renew_advisor_contract(contract_id)
+
+    @staticmethod
+    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str:
+        """生成常法顾问合同名称"""
+        principals_str = "、".join(principal_names)
+        start_str = start_date.strftime("%Y年%m月%d日")
+        end_str = end_date.strftime("%Y年%m月%d日")
+        return f"{principals_str}常法顾问-{start_str}至{end_str}"
 
     @transaction.atomic
     def duplicate_contract(self, contract_id: int) -> Contract:

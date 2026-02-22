@@ -111,13 +111,13 @@ class PrincipalInfoService(BasePlaceholderService):
         if len(principals) == 1:
             # 单个委托人
             client = principals[0]
-            lines.append(f"甲方:{client.name}")
+            lines.append(f"甲方：{client.name}")
             lines.extend(self._format_client_details(client))
         else:
             # 多个委托人
             for i, client in enumerate(principals):
                 number = chinese_numbers[i] if i < len(chinese_numbers) else str(i + 1)
-                lines.append(f"甲方{number}:{client.name}")
+                lines.append(f"甲方{number}：{client.name}")
                 lines.extend(self._format_client_details(client))
                 if i < len(principals) - 1:
                     lines.append("")  # 空行分隔
@@ -149,19 +149,19 @@ class PrincipalInfoService(BasePlaceholderService):
                 is_natural = client_service.is_natural_person_internal(client.id)
                 if is_natural:
                     # 自然人格式
-                    lines.append(f"身份证号码:{getattr(client, 'id_number', '') or ''}")
+                    lines.append(f"身份证号码：{getattr(client, 'id_number', '') or ''}")
                 else:
                     # 法人或非法人组织格式
-                    lines.append(f"统一社会信用代码:{getattr(client, 'id_number', '') or ''}")
-                    lines.append(f"法定代表人:{getattr(client, 'legal_representative', '') or ''}")
+                    lines.append(f"统一社会信用代码：{getattr(client, 'id_number', '') or ''}")
+                    lines.append(f"法定代表人：{getattr(client, 'legal_representative', '') or ''}")
 
-            lines.append(f"地址:{getattr(client, 'address', '') or ''}")
-            lines.append(f"电话:{getattr(client, 'phone', '') or ''}")
+            lines.append(f"地址：{getattr(client, 'address', '') or ''}")
+            lines.append(f"电话：{getattr(client, 'phone', '') or ''}")
 
         except Exception as e:
             logger.warning(f"格式化客户详情失败: {e}", extra={"client_id": getattr(client, "id", None)})
             # 提供基本格式
-            lines.append(f"地址:{getattr(client, 'address', '') or ''}")
-            lines.append(f"电话:{getattr(client, 'phone', '') or ''}")
+            lines.append(f"地址：{getattr(client, 'address', '') or ''}")
+            lines.append(f"电话：{getattr(client, 'phone', '') or ''}")
 
         return lines

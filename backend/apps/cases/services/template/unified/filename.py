@@ -44,16 +44,16 @@ class FilenamePolicy:
 
         if inputs.function_code == legal_rep_cert_code and inputs.client_name:
             safe_client_name = self.safe_name(inputs.client_name)
-            return f"{safe_template_name}({safe_client_name})V1_{date_str}.docx"
+            return f"{safe_template_name}（{safe_client_name}）V1_{date_str}.docx"
 
         if inputs.function_code == power_of_attorney_code:
             is_combined = inputs.mode == "combined"
             if not is_combined and inputs.our_party_count > 1 and inputs.client_name:
                 safe_client_name = self.safe_name(inputs.client_name)
-                return f"{safe_template_name}({safe_client_name})({safe_case_name})V1_{date_str}.docx"
-            return f"{safe_template_name}({safe_case_name})V1_{date_str}.docx"
+                return f"{safe_template_name}（{safe_client_name}）（{safe_case_name}）V1_{date_str}.docx"
+            return f"{safe_template_name}（{safe_case_name}）V1_{date_str}.docx"
 
-        return f"{safe_template_name}({safe_case_name})V1_{date_str}.docx"
+        return f"{safe_template_name}（{safe_case_name}）V1_{date_str}.docx"
 
     def safe_name(self, name: str) -> str:
         value = (name or "").strip()

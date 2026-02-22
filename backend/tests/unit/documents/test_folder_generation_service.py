@@ -145,8 +145,9 @@ class TestFolderGenerationService:
         mock_contract = Mock()
         mock_contract.case_type = "civil"
 
-        # Mock 文件夹模板
+        # Mock 文件夹模板（structure 需要是可迭代的 dict）
         mock_folder_template = Mock()
+        mock_folder_template.structure = {"name": "root", "children": []}
 
         # Mock 文书模板
         mock_doc_template = Mock()
@@ -185,31 +186,36 @@ class TestFolderGenerationService:
 
     def test_generate_folder_with_documents_contract_not_found(self):
         """测试生成文件夹 - 合同不存在"""
-        from apps.contracts.models import Contract
+        mock_contract_service = Mock()
+        mock_contract_service.get_contract_with_details_internal.return_value = None
+        service = FolderGenerationService(contract_service=mock_contract_service)
 
-        with patch("apps.contracts.models.Contract.objects.get") as mock_get:
-            mock_get.side_effect = Contract.DoesNotExist("Contract matching query does not exist.")
-
-            with pytest.raises(NotFoundError, match="合同不存在"):
-                self.service.generate_folder_with_documents(999)
+        with pytest.raises(NotFoundError, match="合同不存在"):
+            service.generate_folder_with_documents(999)
 
     def test_generate_folder_with_documents_no_template(self):
         """测试生成文件夹 - 无匹配模板"""
-        # Mock 合同
-        mock_contract = Mock()
-        mock_contract.case_type = "civil"
+        mock_contract_service = Mock()
+        mock_contract_service.get_contract_with_details_internal.return_value = {
+            "id": 1,
+            "case_type": "civil",
+            "name": "测试合同",
+        }
+        service = FolderGenerationService(contract_service=mock_contract_service)
 
-        with patch("apps.contracts.models.Contract.objects.get", return_value=mock_contract):
-            with patch.object(self.service, "find_matching_folder_template", return_value=None):
-
-                with pytest.raises(ValidationException, match="请先配置文件夹模板"):
-                    self.service.generate_folder_with_documents(1)
+        with patch.object(service, "find_matching_folder_template", return_value=None):
+            with pytest.raises(ValidationException, match="请先配置文件夹模板"):
+                service.generate_folder_with_documents(1)
 
     def test_generate_folder_with_documents_success(self):
         """测试生成文件夹 - 成功"""
-        # Mock 合同
-        mock_contract = Mock()
-        mock_contract.case_type = "civil"
+        mock_contract_service = Mock()
+        mock_contract_service.get_contract_with_details_internal.return_value = {
+            "id": 1,
+            "case_type": "civil",
+            "name": "测试合同",
+        }
+        service = FolderGenerationService(contract_service=mock_contract_service)
 
         # Mock 模板
         mock_template = Mock()
@@ -219,21 +225,19 @@ class TestFolderGenerationService:
         mock_placement.folder_path = ""
         mock_placement.file_name = "test.docx"
 
-        with patch("apps.contracts.models.Contract.objects.get", return_value=mock_contract):
-            with patch.object(self.service, "find_matching_folder_template", return_value=mock_template):
-                with patch.object(self.service, "format_root_folder_name", return_value="test_folder"):
-                    with patch.object(self.service, "generate_folder_structure", return_value={"name": "test_folder"}):
-                        with patch.object(self.service, "get_document_placements", return_value=[mock_placement]):
-                            with patch(
-                                "apps.documents.services.generation.contract_generation_service.ContractGenerationService"
-                            ) as mock_service_class:
-                                mock_service = mock_service_class.return_value
-                                mock_service.generate_contract_document.return_value = (b"content", "test.docx", None)
+        with patch.object(service, "find_matching_folder_template", return_value=mock_template):
+            with patch.object(service, "format_root_folder_name", return_value="test_folder"):
+                with patch.object(service, "generate_folder_structure", return_value={"name": "test_folder"}):
+                    with patch.object(service, "get_document_placements", return_value=[mock_placement]):
+                        with patch(
+                            "apps.documents.services.generation.contract_generation_service.ContractGenerationService"
+                        ) as mock_service_class:
+                            mock_gen_service = mock_service_class.return_value
+                            mock_gen_service.generate_contract_document.return_value = (b"content", "test.docx", None)
 
-                                with patch.object(self.service, "create_zip_package", return_value=b"zip_content"):
+                            with patch.object(service, "create_zip_package", return_value=b"zip_content"):
+                                zip_content, filename, error = service.generate_folder_with_documents(1)
 
-                                    zip_content, filename, error = self.service.generate_folder_with_documents(1)
-
-                                    assert zip_content == b"zip_content"
-                                    assert filename == "test_folder.zip"
-                                    assert error is None
+                                assert zip_content == b"zip_content"
+                                assert filename == "test_folder.zip"
+                                assert error is None

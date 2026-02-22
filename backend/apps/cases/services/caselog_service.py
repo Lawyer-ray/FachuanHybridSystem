@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import Any, ClassVar, cast
+from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -16,6 +16,7 @@ from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationExce
 from apps.core.interfaces import ICaseService, ServiceLocator
 
 from apps.cases.models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
+from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 
 
 class CaseLogService:
@@ -28,23 +29,6 @@ class CaseLogService:
     - 附件管理
     - 版本历史管理
     """
-
-    # 允许的附件扩展名
-    ALLOWED_EXTENSIONS: ClassVar[set[str]] = {
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xls",
-        ".xlsx",
-        ".ppt",
-        ".pptx",
-        ".jpg",
-        ".jpeg",
-        ".png",
-    }
-
-    # 最大文件大小 (50MB)
-    MAX_FILE_SIZE = 50 * 1024 * 1024
 
     def __init__(self, case_service: ICaseService | None = None):
         """
@@ -365,15 +349,15 @@ class CaseLogService:
         name = getattr(file, "name", "")
         ext = os.path.splitext(name)[1].lower()
 
-        if ext not in self.ALLOWED_EXTENSIONS:
+        if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
             raise ValidationException(
-                _("不支持的文件类型"), errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
+                _("不支持的文件类型"), errors={"file": f"允许的类型: {', '.join(CASE_LOG_ALLOWED_EXTENSIONS)}"}
             )
 
         size = getattr(file, "size", 0)
-        if size and size > self.MAX_FILE_SIZE:
+        if size and size > CASE_LOG_MAX_FILE_SIZE:
             raise ValidationException(
-                _("文件大小超过限制"), errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024 * 1024)}MB"}
+                _("文件大小超过限制"), errors={"file": f"最大允许 {CASE_LOG_MAX_FILE_SIZE // (1024 * 1024)}MB"}
             )
 
     # ============================================================

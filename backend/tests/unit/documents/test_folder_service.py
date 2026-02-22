@@ -13,6 +13,7 @@ Requirements: 1.2, 1.4, 1.7, 1.8
 import pytest
 from django.test import TestCase
 
+from apps.core.dependencies.documents_query import build_folder_template_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import DocumentCaseStage, DocumentCaseType, FolderTemplate
 from apps.documents.services import FolderTemplateService
@@ -21,8 +22,8 @@ from apps.documents.services import FolderTemplateService
 class TestFolderTemplateServiceValidation(TestCase):
     """测试文件夹结构验证功能"""
 
-    def setUp(self):
-        self.service = FolderTemplateService()
+    def setUp(self) -> None:
+        self.service = build_folder_template_service()
 
     def test_validate_valid_structure(self):
         """测试有效结构验证通过"""
@@ -106,8 +107,8 @@ class TestFolderTemplateServiceValidation(TestCase):
 class TestFolderTemplateServiceCRUD(TestCase):
     """测试文件夹模板 CRUD 操作"""
 
-    def setUp(self):
-        self.service = FolderTemplateService()
+    def setUp(self) -> None:
+        self.service = build_folder_template_service()
         self.valid_structure = {"children": [{"id": "1", "name": "诉讼材料", "children": []}]}
 
     def test_create_template_success(self):
@@ -192,8 +193,8 @@ class TestFolderTemplateServiceCRUD(TestCase):
 class TestFolderTemplateServiceQuery(TestCase):
     """测试文件夹模板查询功能"""
 
-    def setUp(self):
-        self.service = FolderTemplateService()
+    def setUp(self) -> None:
+        self.service = build_folder_template_service()
         self.valid_structure = {"children": []}
 
     def test_get_template_for_case_returns_latest(self):

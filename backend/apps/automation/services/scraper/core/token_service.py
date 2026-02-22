@@ -219,7 +219,8 @@ class TokenService:
         Returns:
             缓存 key
         """
-        return f"{self.CACHE_KEY_PREFIX}:{site_name}:{account}"
+        from apps.core.infrastructure.cache import CacheKeys
+        return CacheKeys.court_token(site_name=site_name, account=account)
 
 
 class TokenServiceAdapter(ITokenService):

@@ -54,12 +54,21 @@ def is_absolute_path(path_str: str) -> bool:
     return bool(_WINDOWS_ABS_PATH.match(p))
 
 
+def _get_media_root() -> str | None:
+    """优先从 django settings 获取 MEDIA_ROOT，回退到 config。"""
+    from django.conf import settings as django_settings
+    media_root = getattr(django_settings, "MEDIA_ROOT", None)
+    if media_root:
+        return str(media_root)
+    return get_config("django.media_root", None)  # type: ignore[return-value]
+
+
 def to_media_abs(file_path: str) -> Path:
     if not file_path:
         raise ValidationException(
             message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
         )
-    media_root = get_config("django.media_root", None)
+    media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
@@ -93,7 +102,7 @@ def normalize_to_media_rel(file_path: str) -> str:
     if not is_absolute_path(file_path):
         return file_path.replace("\\", "/").lstrip("/")
 
-    media_root = get_config("django.media_root", None)
+    media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
@@ -139,9 +148,8 @@ def save_uploaded_file(
         field_name="file",
         max_size_bytes=_max_size_bytes,
         allowed_extensions=allowed_extensions,
-        allowed_mime_types=allowed_mime_types,
     )
-    media_root = get_config("django.media_root", None)
+    media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
@@ -187,7 +195,7 @@ def delete_media_file(file_path: str) -> None:
     if not file_path:
         return
 
-    media_root = get_config("django.media_root", None)
+    media_root = _get_media_root()
     if not media_root:
         return
     root = Path(str(media_root)).resolve()

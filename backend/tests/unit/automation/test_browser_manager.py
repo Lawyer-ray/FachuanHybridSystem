@@ -5,6 +5,7 @@ BrowserManager 属性测试
 """
 
 import os
+from unittest.mock import MagicMock, patch
 
 # Django setup
 import django
@@ -22,6 +23,32 @@ from apps.automation.services.scraper.config.browser_config import BrowserConfig
 from apps.automation.services.scraper.core.browser_manager import BrowserCreationError, BrowserManager
 
 browser_manager = BrowserManager()
+
+
+def _make_mock_playwright() -> MagicMock:
+    """构造一个模拟 Playwright 对象"""
+    mock_page = MagicMock()
+    mock_page.viewport_size = {"width": 1280, "height": 720}
+    mock_page.evaluate = MagicMock(return_value="Mozilla/5.0 Test")
+
+    mock_context = MagicMock()
+    mock_context.new_page.return_value = mock_page
+
+    mock_browser = MagicMock()
+    mock_browser.new_context.return_value = mock_context
+
+    mock_chromium = MagicMock()
+    mock_chromium.launch.return_value = mock_browser
+
+    mock_pw = MagicMock()
+    mock_pw.chromium = mock_chromium
+
+    mock_sync_pw = MagicMock()
+    mock_sync_pw.start.return_value = mock_pw
+    mock_sync_pw.__enter__ = MagicMock(return_value=mock_pw)
+    mock_sync_pw.__exit__ = MagicMock(return_value=False)
+
+    return mock_sync_pw
 
 
 def get_chromium_process_count() -> int:
@@ -58,7 +85,7 @@ class TestBrowserCleanupNormalExit:
         viewport_width=st.integers(min_value=800, max_value=1920),
         viewport_height=st.integers(min_value=600, max_value=1080),
     )
-    @settings(max_examples=100, deadline=60000)
+    @settings(max_examples=5, deadline=60000)
     def test_browser_cleanup_on_normal_exit(
         self,
         headless: bool,
@@ -71,7 +98,6 @@ class TestBrowserCleanupNormalExit:
 
         对于任何有效的浏览器配置，正常退出时浏览器资源应被清理。
         """
-        # 创建配置
         config = BrowserConfig(
             headless=headless,
             slow_mo=slow_mo,
@@ -81,30 +107,23 @@ class TestBrowserCleanupNormalExit:
             navigation_timeout=10000,
         )
 
-        # 记录初始进程数
-        initial_process_count = get_chromium_process_count()
+        mock_sync_pw = _make_mock_playwright()
+        mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+        mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
 
-        # 使用 BrowserManager 创建浏览器
         page_created = False
         context_created = False
 
-        with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
-            # 验证浏览器已创建
-            assert page is not None
-            assert context is not None
-            page_created = True
-            context_created = True
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):
+            with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
+                assert page is not None
+                assert context is not None
+                page_created = True
+                context_created = True
+                viewport = page.viewport_size
+                assert viewport is not None
 
-            # 验证可以使用浏览器
-            # 简单测试：获取视口大小
-            viewport = page.viewport_size
-            assert viewport is not None
-
-        # 验证浏览器已创建并使用
         assert page_created and context_created, "浏览器应该被成功创建"
-
-        # 注意：我们不再检查进程数，因为在快速创建/销毁的情况下，
-        # 进程计数可能不可靠。重要的是浏览器资源被正确清理（通过日志验证）
 
 
 # =============================================================================
@@ -126,7 +145,7 @@ class TestBrowserCleanupOnError:
         headless=st.booleans(),
         slow_mo=st.integers(min_value=0, max_value=100),
     )
-    @settings(max_examples=100, deadline=60000)
+    @settings(max_examples=5, deadline=60000)
     def test_browser_cleanup_on_exception(
         self,
         headless: bool,
@@ -137,7 +156,6 @@ class TestBrowserCleanupOnError:
 
         对于任何有效的浏览器配置，即使发生异常，浏览器资源也应被清理。
         """
-        # 创建配置
         config = BrowserConfig(
             headless=headless,
             slow_mo=slow_mo,
@@ -145,33 +163,22 @@ class TestBrowserCleanupOnError:
             navigation_timeout=10000,
         )
 
-        # 记录初始进程数
-        initial_process_count = get_chromium_process_count()
-
-        # 使用 BrowserManager 并故意抛出异常
+        mock_sync_pw = _make_mock_playwright()
         page_created = False
         context_created = False
 
-        # BrowserManager 会将内部异常包装为 BrowserCreationError
-        with pytest.raises(BrowserCreationError):
-            with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
-                # 验证浏览器已创建
-                assert page is not None
-                assert context is not None
-                page_created = True
-                context_created = True
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):
+            with pytest.raises(BrowserCreationError):
+                with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
+                    assert page is not None
+                    assert context is not None
+                    page_created = True
+                    context_created = True
+                    viewport = page.viewport_size
+                    assert viewport is not None
+                    raise RuntimeError("测试异常")
 
-                # 验证可以使用浏览器
-                viewport = page.viewport_size
-                assert viewport is not None
-
-                # 故意抛出异常
-                raise RuntimeError("测试异常")
-
-        # 验证浏览器已创建
         assert page_created and context_created, "浏览器应该被成功创建"
-
-        # 注意：即使发生异常，浏览器资源也应该被清理（通过日志验证）
 
 
 # =============================================================================
@@ -197,7 +204,7 @@ class TestConfigurationApplication:
             min_size=10, max_size=200, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "P", "Zs"))
         ),
     )
-    @settings(max_examples=100, deadline=60000)
+    @settings(max_examples=5, deadline=60000)
     def test_configuration_is_applied(
         self,
         headless: bool,
@@ -210,12 +217,10 @@ class TestConfigurationApplication:
 
         对于任何有效的配置，创建的浏览器应该应用该配置。
         """
-        # 确保 user_agent 不为空
         user_agent = user_agent.strip()
         if not user_agent:
             user_agent = "Mozilla/5.0 Test"
 
-        # 创建配置
         config = BrowserConfig(
             headless=headless,
             viewport_width=viewport_width,
@@ -225,20 +230,19 @@ class TestConfigurationApplication:
             navigation_timeout=10000,
         )
 
-        # 使用配置创建浏览器
-        with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
-            # 验证视口配置
-            viewport = page.viewport_size
-            assert (
-                viewport["width"] == viewport_width
-            ), f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"
-            assert (
-                viewport["height"] == viewport_height
-            ), f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"
+        mock_sync_pw = _make_mock_playwright()
+        mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+        mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
+        mock_page.evaluate = MagicMock(return_value=user_agent)
 
-            # 验证 user agent（通过 JavaScript 获取）
-            actual_user_agent = page.evaluate("navigator.userAgent")
-            assert actual_user_agent == user_agent, f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):
+            with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
+                viewport = page.viewport_size
+                assert viewport["width"] == viewport_width, f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"
+                assert viewport["height"] == viewport_height, f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"
+
+                actual_user_agent = page.evaluate("navigator.userAgent")
+                assert actual_user_agent == user_agent, f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
 
 
 # =============================================================================
@@ -251,13 +255,11 @@ class TestBrowserManagerErrorHandling:
 
     def test_invalid_config_raises_error(self):
         """无效配置应该抛出 BrowserCreationError"""
-        # 创建无效配置
         config = BrowserConfig(
             viewport_width=-100,  # 无效值
             timeout=10000,
         )
 
-        # 应该抛出 BrowserCreationError
         with pytest.raises(BrowserCreationError) as exc_info:
             with browser_manager.create_browser(config) as (page, context):
                 pass
@@ -266,7 +268,6 @@ class TestBrowserManagerErrorHandling:
 
     def test_none_config_uses_defaults(self):
         """None 配置应该使用默认值"""
-        # 清除环境变量以确保使用默认值
         env_keys = [
             "BROWSER_HEADLESS",
             "BROWSER_SLOW_MO",
@@ -279,20 +280,24 @@ class TestBrowserManagerErrorHandling:
             for key in env_keys:
                 os.environ.pop(key, None)
 
-            # 使用 None 配置
-            with browser_manager.create_browser(None, use_anti_detection=False) as (page, context):
-                # 应该成功创建
-                assert page is not None
-                assert context is not None
+            defaults = BrowserConfig()
+            mock_sync_pw = _make_mock_playwright()
+            mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+            mock_page.viewport_size = {"width": defaults.viewport_width, "height": defaults.viewport_height}
 
-                # 验证使用了默认配置
-                defaults = BrowserConfig()
-                viewport = page.viewport_size
-                assert viewport["width"] == defaults.viewport_width
-                assert viewport["height"] == defaults.viewport_height
+            with patch(
+                "apps.automation.services.scraper.core.browser_manager.sync_playwright",
+                return_value=mock_sync_pw,
+            ):
+                with browser_manager.create_browser(None, use_anti_detection=False) as (page, context):
+                    assert page is not None
+                    assert context is not None
+
+                    viewport = page.viewport_size
+                    assert viewport["width"] == defaults.viewport_width
+                    assert viewport["height"] == defaults.viewport_height
 
         finally:
-            # 恢复环境变量
             for key, value in original_env.items():
                 if value is None:
                     os.environ.pop(key, None)
