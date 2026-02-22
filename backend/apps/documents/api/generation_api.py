@@ -14,6 +14,7 @@ from typing import Any
 from ninja import Router
 
 from apps.core.auth import JWTOrSessionAuth
+from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .download_response_factory import build_download_response
@@ -31,38 +32,24 @@ def _require_contract_access(request: Any, contract_id: int) -> None:
 
 
 def _get_folder_generation_service() -> Any:
-    """工厂函数:创建 FolderGenerationService 实例"""
-    from apps.core.dependencies import build_contract_folder_binding_service, build_contract_query_service
-    from apps.documents.services.generation.folder_generation_service import FolderGenerationService
+    """工厂函数:通过 ServiceLocator 获取 FolderGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
-    return FolderGenerationService(
-        contract_service=build_contract_query_service(),
-        folder_binding_service=build_contract_folder_binding_service(),
-    )
+    return ServiceLocator.get_folder_generation_service()
 
 
 def _get_supplementary_agreement_service() -> Any:
-    """工厂函数:创建 SupplementaryAgreementGenerationService 实例"""
-    from apps.core.dependencies import build_contract_folder_binding_service, build_contract_query_service
-    from apps.documents.services.generation.supplementary_agreement_generation_service import (
-        SupplementaryAgreementGenerationService,
-    )
+    """工厂函数:通过 ServiceLocator 获取 SupplementaryAgreementGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
-    return SupplementaryAgreementGenerationService(
-        contract_service=build_contract_query_service(),
-        folder_binding_service=build_contract_folder_binding_service(),
-    )
+    return ServiceLocator.get_supplementary_agreement_generation_service()
 
 
 def _get_contract_generation_service() -> Any:
-    """工厂函数:创建 ContractGenerationService 实例"""
-    from apps.core.dependencies import build_contract_folder_binding_service, build_contract_query_service
-    from apps.documents.services.generation.contract_generation_service import ContractGenerationService
+    """工厂函数:通过 ServiceLocator 获取 ContractGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
-    return ContractGenerationService(
-        contract_service=build_contract_query_service(),
-        folder_binding_service=build_contract_folder_binding_service(),
-    )
+    return ServiceLocator.get_contract_generation_service()
 
 
 @router.get("/contracts/{contract_id}/download")
@@ -81,8 +68,6 @@ def download_contract_document(request: Any, contract_id: int) -> Any:
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    from apps.core.exceptions import ValidationException
-
     _require_contract_access(request, contract_id)
     service = _get_contract_generation_service()
 
@@ -136,8 +121,6 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
     Returns:
         ZIP 文件下载响应
     """
-    from apps.core.exceptions import ValidationException
-
     _require_contract_access(request, contract_id)
     service = _get_folder_generation_service()
 
@@ -186,8 +169,6 @@ def download_supplementary_agreement(request: Any, contract_id: int, agreement_i
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    from apps.core.exceptions import ValidationException
-
     _require_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
 

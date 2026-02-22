@@ -91,3 +91,15 @@ class DocumentsServiceLocatorMixin(_ServiceLocatorStub):
                 folder_binding_service=cls.get_contract_folder_binding_service(),
             ),
         )
+    @classmethod
+    def get_folder_generation_service(cls) -> Any:
+        from apps.core.dependencies import build_contract_folder_binding_service, build_contract_query_service
+        from apps.documents.services.generation.folder_generation_service import FolderGenerationService
+
+        return cls.get_or_create(
+            "folder_generation_service",
+            lambda: FolderGenerationService(
+                contract_service=cls.get_contract_service(),
+                folder_binding_service=cls.get_contract_folder_binding_service(),
+            ),
+        )

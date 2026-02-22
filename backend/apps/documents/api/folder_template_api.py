@@ -10,24 +10,23 @@ import logging
 提供文件夹模板的 CRUD 接口.
 """
 
-from typing import Any, cast
+from typing import Any
 
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.core.auth import JWTOrSessionAuth
 from apps.documents.schemas import FolderTemplateIn, FolderTemplateOut, FolderTemplateUpdate
-from apps.documents.services.folder_service import FolderTemplateService
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
 
-def _get_folder_template_service() -> FolderTemplateService:
+def _get_folder_template_service() -> Any:
     """工厂函数:创建 FolderTemplateService 实例"""
-    from apps.core.dependencies.documents import build_folder_template_service
+    from apps.documents.services.folder_service import FolderTemplateService
 
-    return cast(FolderTemplateService, build_folder_template_service())
+    return FolderTemplateService()
 
 
 @router.get("/folder-templates", response=list[FolderTemplateOut])
