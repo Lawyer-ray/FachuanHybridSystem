@@ -20,6 +20,7 @@ __all__ = [
     "EvidenceExportService",
     "EvidenceListPlaceholderService",
     "PDFMergeService",
+    "TemplateAuditLogService",
 ]
 
 
@@ -41,6 +42,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "PlaceholderAdminService": ("apps.documents.services.placeholder_admin_service", "PlaceholderAdminService"),
     "PlaceholderService": ("apps.documents.services.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template_service", "DocumentTemplateService"),
+    "TemplateAuditLogService": (
+        "apps.documents.services.template_audit_log_service",
+        "TemplateAuditLogService",
+    ),
 }
 
 
