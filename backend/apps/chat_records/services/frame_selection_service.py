@@ -44,7 +44,10 @@ class FrameSelectionService:
             x = int(a, 16)
             y = int(b, 16)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "dHash 汉明距离计算失败",
+                extra={"hash_a": a, "hash_b": b},
+            )
             return None
         return (x ^ y).bit_count()
 
@@ -150,7 +153,7 @@ class FrameSelectionService:
             else:
                 dynamic_range = 0
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("OCR 预处理图片动态范围计算失败")
 
             dynamic_range = 0
 

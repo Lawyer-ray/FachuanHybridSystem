@@ -69,7 +69,10 @@ class ScreenshotOut(ModelSchema, SchemaMixin):
         try:
             return str(image.url)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "截图 URL 解析失败",
+                extra={"screenshot_id": getattr(obj, "id", None)},
+            )
             return ""
 
     @staticmethod
@@ -127,7 +130,10 @@ class RecordingOut(ModelSchema, SchemaMixin):
         try:
             return str(video.url)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "录屏 URL 解析失败",
+                extra={"recording_id": getattr(obj, "id", None)},
+            )
             return ""
 
     @staticmethod
