@@ -237,6 +237,7 @@ class AccountCredentialAdminService:
                     start_time=start_time,
                     end_time=end_time,
                 )
+                self.credential_service.update_login_success(credential.id)
 
                 logger.info(
                     "批量登录成功",
@@ -259,6 +260,7 @@ class AccountCredentialAdminService:
                     start_time=start_time,
                     end_time=end_time,
                 )
+                self.credential_service.update_login_failure(credential.id)
 
                 return LoginResult(
                     success=False,
@@ -284,6 +286,7 @@ class AccountCredentialAdminService:
                     "batch_operation": True,
                 },
             )
+            self.credential_service.update_login_failure(credential.id)
 
             logger.error(
                 "批量登录失败",
