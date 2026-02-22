@@ -291,7 +291,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
         return redirect("admin:documents_evidencelist_change", pk)
 
-    def merge_status_view(self, request, pk) -> Any:
+    def merge_status_view(self, request: Any, pk: int) -> Any:
         from django.http import JsonResponse
 
         try:
@@ -321,7 +321,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             }
         )
 
-    def export_list_view(self, request, pk) -> Any:
+    def export_list_view(self, request: Any, pk: int) -> Any:
         try:
             evidence_list = EvidenceList.objects.get(pk=pk)
             admin_service = self._get_admin_service()
@@ -349,7 +349,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.error("导出失败", extra={"pk": pk, "error": error_detail}, exc_info=True)
             raise Http404(f"导出失败: {e!s}") from e
 
-    def download_pdf_view(self, request, pk) -> Any:
+    def download_pdf_view(self, request: Any, pk: int) -> Any:
         try:
             admin_service = self._get_admin_service()
             evidence_list = EvidenceList.objects.select_related("case").get(pk=pk)
@@ -366,7 +366,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         except EvidenceList.DoesNotExist:
             raise Http404("证据清单不存在") from None
 
-    def reorder_view(self, request, pk) -> Any:
+    def reorder_view(self, request: Any, pk: int) -> Any:
         import json
 
         from django.http import JsonResponse
@@ -386,7 +386,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.exception("EvidenceList reorder 失败", extra={"evidence_list_id": pk, "error": str(e)})
             return JsonResponse({"error": str(e)}, status=400)
 
-    def recount_pages_view(self, request, pk) -> Any:
+    def recount_pages_view(self, request: Any, pk: int) -> Any:
         from django.contrib import messages
         from django.shortcuts import redirect
 

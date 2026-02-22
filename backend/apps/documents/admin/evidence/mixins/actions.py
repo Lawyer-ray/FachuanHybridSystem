@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
     @admin.action(description=_("合并选中清单的 PDF"))
-    def merge_pdfs(self, request, queryset) -> None:
+    def merge_pdfs(self, request: Any, queryset: Any) -> None:
         from django.contrib import messages
 
         from apps.documents.models import MergeStatus
@@ -68,7 +68,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             messages.warning(request, f"{error_count} 个清单提交失败")
 
     @admin.action(description=_("导出选中清单的 Word"))
-    def export_list_word(self, request, queryset) -> Any:
+    def export_list_word(self, request: Any, queryset: Any) -> Any:
         from django.contrib import messages
 
         if queryset.count() > 1:
