@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
+from apps.organization.dtos import AccountCredentialUpdateDTO
 from apps.organization.models import AccountCredential, Lawyer
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
@@ -119,13 +120,11 @@ class AccountCredentialService:
 
         return credential
 
-    _UPDATABLE_FIELDS: ClassVar[frozenset[str]] = frozenset({"site_name", "url", "account", "password"})
-
     @transaction.atomic
     def update_credential(
         self,
         credential_id: int,
-        data: dict[str, object],
+        data: AccountCredentialUpdateDTO,
         user: Lawyer | None = None,
     ) -> AccountCredential:
         """
@@ -135,14 +134,21 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限修改该凭证
         """
-        # get_credential 已包含权限检查
         credential = self.get_credential(credential_id, user)
 
         updated_fields: list[str] = []
-        for key, value in data.items():
-            if key in self._UPDATABLE_FIELDS:
-                setattr(credential, key, value)
-                updated_fields.append(key)
+        if data.site_name is not None:
+            credential.site_name = data.site_name
+            updated_fields.append("site_name")
+        if data.url is not None:
+            credential.url = data.url
+            updated_fields.append("url")
+        if data.account is not None:
+            credential.account = data.account
+            updated_fields.append("account")
+        if data.password is not None:
+            credential.password = data.password
+            updated_fields.append("password")
 
         if updated_fields:
             credential.save(update_fields=updated_fields)
