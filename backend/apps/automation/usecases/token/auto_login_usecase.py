@@ -211,7 +211,7 @@ class AutoLoginUsecase:
 
     async def _single_login_attempt(self, credential: AccountCredentialDTO) -> str:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             fn = self.sync_login_attempt or self._sync_login_attempt
             return await loop.run_in_executor(None, fn, credential)
         except Exception as e:
