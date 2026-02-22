@@ -17,5 +17,4 @@ def periodic_recovery_task() -> None:
         task_scheduler=build_task_scheduler(),
     )
     result = service.recover_all_tasks(dry_run=False)
-    logger.info(f"定期恢复任务完成: {result}")
-    return result  # type: ignore[return-value]
+    logger.info("定期恢复任务完成: %s", result)
