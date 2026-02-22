@@ -14,10 +14,9 @@ from apps.core.exceptions import ValidationException
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
-    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.models import Client
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
-    from .client_mutation_service import ClientMutationService
 
 logger = logging.getLogger("apps.client")
 
@@ -38,11 +37,9 @@ class ClientAdminService(ClientAdminFileMixin):
         self,
         identity_doc_service: "ClientIdentityDocService | None" = None,
         internal_query_service: "ClientInternalQueryService | None" = None,
-        mutation_service: "ClientMutationService | None" = None,
     ) -> None:
         self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
-        self._mutation_service = mutation_service
 
     @property
     def identity_doc_service(self) -> "ClientIdentityDocService":
@@ -52,15 +49,6 @@ class ClientAdminService(ClientAdminFileMixin):
 
             self._identity_doc_service = ClientIdentityDocService()
         return self._identity_doc_service
-
-    @property
-    def mutation_service(self) -> "ClientMutationService":
-        """延迟获取 ClientMutationService"""
-        if self._mutation_service is None:
-            from .client_mutation_service import ClientMutationService
-
-            self._mutation_service = ClientMutationService()
-        return self._mutation_service
 
     @property
     def internal_query_service(self) -> "ClientInternalQueryService":

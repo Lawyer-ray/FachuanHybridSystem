@@ -39,7 +39,7 @@ def _get_id_card_merge_service() -> Any:
 def recognize_identity_doc(
     request: Any,
     file: UploadedFile = File(...),  # type: ignore[arg-type]
-    doc_type: str = "身份证",
+    doc_type: str = "id_card",
 ) -> IdentityRecognizeOut:
     """识别证件信息"""
     image_bytes = file.read()

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from apps.client.services.storage import sanitize_upload_filename, save_uploaded_file
 
 if TYPE_CHECKING:
-    from apps.client.models import ClientIdentityDoc
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
 logger = logging.getLogger("apps.client")
