@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from apps.organization.models import AccountCredential
 
@@ -160,7 +161,15 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     ) -> None:
         """标记为优先账号"""
         count = queryset.update(is_preferred=True)
-        self.message_user(request, _(f"已将 {count} 个账号标记为优先使用"))
+        self.message_user(
+            request,
+            ngettext(
+                "已将 %(count)d 个账号标记为优先使用",
+                "已将 %(count)d 个账号标记为优先使用",
+                count,
+            )
+            % {"count": count},
+        )
 
     @admin.action(description=_("取消优先标记"))
     def unmark_as_preferred(
@@ -168,7 +177,15 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     ) -> None:
         """取消优先标记"""
         count = queryset.update(is_preferred=False)
-        self.message_user(request, _(f"已取消 {count} 个账号的优先标记"))
+        self.message_user(
+            request,
+            ngettext(
+                "已取消 %(count)d 个账号的优先标记",
+                "已取消 %(count)d 个账号的优先标记",
+                count,
+            )
+            % {"count": count},
+        )
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[AccountCredential]:
         """优化查询性能"""
