@@ -6,6 +6,7 @@
 import logging
 
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, ServiceLocator
@@ -70,7 +71,7 @@ class SupplementaryAgreementService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist as e:
-            raise NotFoundError("合同不存在") from e
+            raise NotFoundError(_("合同不存在")) from e
 
         # 2. 创建补充协议
         agreement = SupplementaryAgreement.objects.create(contract=contract, name=name)
@@ -115,7 +116,7 @@ class SupplementaryAgreementService:
         try:
             agreement = SupplementaryAgreement.objects.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist as e:
-            raise NotFoundError("补充协议不存在") from e
+            raise NotFoundError(_("补充协议不存在")) from e
 
         # 2. 更新名称
         if name is not None:
@@ -162,7 +163,7 @@ class SupplementaryAgreementService:
                 qs = qs.select_related("contract").prefetch_related("parties__client") # type: ignore
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist as e:
-            raise NotFoundError("补充协议不存在") from e
+            raise NotFoundError(_("补充协议不存在")) from e
 
     def list_by_contract(self, contract_id: int, prefetch: bool = True) -> list[SupplementaryAgreement]:
         """
@@ -199,7 +200,7 @@ class SupplementaryAgreementService:
                 "补充协议删除成功", extra={"agreement_id": agreement_id, "action": "delete_supplementary_agreement"}
             )
         except SupplementaryAgreement.DoesNotExist as e:
-            raise NotFoundError("补充协议不存在") from e
+            raise NotFoundError(_("补充协议不存在")) from e
 
     def _add_parties(self, agreement: SupplementaryAgreement, party_ids: list[int]) -> None:
         """
@@ -216,7 +217,7 @@ class SupplementaryAgreementService:
         # 验证所有客户存在（通过接口）
         clients = self.client_service.get_clients_by_ids(party_ids)
         if len(clients) != len(party_ids):
-            raise NotFoundError("部分客户不存在")
+            raise NotFoundError(_("部分客户不存在"))
 
         # 批量创建当事人关联
         parties = [
@@ -227,4 +228,4 @@ class SupplementaryAgreementService:
         try:
             SupplementaryAgreementParty.objects.bulk_create(parties, batch_size=100)
         except IntegrityError as e:
-            raise ValidationException("不能重复添加同一客户") from e
+            raise ValidationException(_("不能重复添加同一客户")) from e
