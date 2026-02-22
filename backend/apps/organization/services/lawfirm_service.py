@@ -38,13 +38,7 @@ class LawFirmService:
         self._access_policy = OrganizationAccessPolicy()
 
     def get_lawfirm_queryset(self) -> "QuerySet[LawFirm, LawFirm]":
-        """
-        获取带预加载的律所查询集
-
-        Returns:
-            律所查询集
-        """
-        return LawFirm.objects.prefetch_related("lawyers", "teams")
+        return LawFirm.objects.all()
 
     def get_lawfirm(self, lawfirm_id: int, user: Lawyer | None) -> LawFirm:
         """
@@ -188,8 +182,9 @@ class LawFirmService:
         # 1. 获取律所（get_lawfirm 内部已做 None 检查）
         lawfirm = self.get_lawfirm(lawfirm_id, user)
 
-        # user 经过 get_lawfirm 后必不为 None
-        assert user is not None
+        # user 经过 get_lawfirm 后必不为 None（get_lawfirm 对 None 抛 AuthenticationError）
+        if user is None:  # pragma: no cover — 不可达，但消除 mypy 警告
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 2. 权限检查
         if not self._access_policy.can_update_lawfirm(user, lawfirm):
@@ -239,8 +234,9 @@ class LawFirmService:
         # 1. 获取律所（get_lawfirm 内部已做 None 检查）
         lawfirm = self.get_lawfirm(lawfirm_id, user)
 
-        # user 经过 get_lawfirm 后必不为 None
-        assert user is not None
+        # user 经过 get_lawfirm 后必不为 None（get_lawfirm 对 None 抛 AuthenticationError）
+        if user is None:  # pragma: no cover — 不可达，但消除 mypy 警告
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
         # 2. 权限检查
         if not self._access_policy.can_delete_lawfirm(user, lawfirm):
