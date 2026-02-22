@@ -18,6 +18,7 @@ from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
+from .prompts import get_prompt_for_doc_type
 
 logger = logging.getLogger(__name__)
 
@@ -226,8 +227,6 @@ class IdentityExtractionService:
         使用 Ollama 从文字中提取结构化信息
         """
         try:
-            from .prompts import get_prompt_for_doc_type
-
             prompt = get_prompt_for_doc_type(doc_type, raw_text)
 
             messages = [

@@ -227,12 +227,3 @@ def get_prompt_for_doc_type(doc_type: str, raw_text: str = "") -> str:
 
     return PROMPT_MAPPING[doc_type]
 
-
-def get_supported_doc_types() -> list[str]:
-    """
-    获取支持的证件类型列表
-
-    Returns:
-        list[str]: 支持的证件类型列表
-    """
-    return list(PROMPT_MAPPING.keys())
