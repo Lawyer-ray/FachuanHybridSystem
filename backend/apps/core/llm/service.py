@@ -298,3 +298,13 @@ class LLMService:
         """
         return self._get_backend(name)
 
+
+# 模块级单例(延迟初始化)
+_llm_service: LLMService | None = None
+
+
+def get_llm_service() -> LLMService:
+    global _llm_service
+    if _llm_service is None:
+        _llm_service = LLMService()
+    return _llm_service
