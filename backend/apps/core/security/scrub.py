@@ -36,6 +36,28 @@ _SENSITIVE_ATTR_NAMES = {
 }
 
 
+def _mask_match(match: re.Match[str]) -> str:
+    groups = match.groups()
+    if len(groups) == 2:
+        return groups[0] + mask_secret(groups[1])
+    return mask_secret(groups[0])
+
+
+def is_sensitive_key_name(name: str) -> bool:
+    n = name.lower()
+    return any(k in n for k in ("token", "key", "secret", "password", "auth", "credential"))
+
+
+def looks_like_token(value: str) -> bool:
+    return any(p.match(value) for p in _LIKELY_TOKEN_PATTERNS)
+
+
+def mask_value_for_key(key: str, value: Any) -> Any:
+    if isinstance(value, str):
+        return mask_secret(value)
+    return value
+
+
 def fingerprint_sha256(value: str) -> str:
     v = (value or "").encode("utf-8")
     return hashlib.sha256(v).hexdigest()

@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
-from apps.organization.dtos import AccountCredentialUpdateDTO
+from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 from apps.organization.models import AccountCredential, Lawyer
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
@@ -76,11 +76,7 @@ class AccountCredentialService:
     @transaction.atomic
     def create_credential(
         self,
-        lawyer_id: int,
-        site_name: str,
-        account: str,
-        password: str,
-        url: str | None = None,
+        data: AccountCredentialCreateDTO,
         user: Lawyer | None = None,
     ) -> AccountCredential:
         """
