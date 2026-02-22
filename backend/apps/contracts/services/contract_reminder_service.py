@@ -9,6 +9,8 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import QuerySet
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from apps.contracts.models import Contract, ContractReminder
@@ -68,7 +70,7 @@ class ContractReminderService:
         try:
             return cast(ContractReminder, ContractReminder.objects.select_related("contract").get(id=reminder_id))
         except ContractReminder.DoesNotExist as e:
-            raise NotFoundError(f"提醒记录 {reminder_id} 不存在") from e
+            raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id}) from e
 
     @transaction.atomic
     def create_reminder(
@@ -96,15 +98,15 @@ class ContractReminderService:
         """
         # 验证合同存在
         if not Contract.objects.filter(id=contract_id).exists():
-            raise NotFoundError(f"合同 {contract_id} 不存在")
+            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id})
 
         # 验证必填字段
         if not kind or not kind.strip():
-            raise ValidationException("提醒类型不能为空")
+            raise ValidationException(_("提醒类型不能为空"))
         if not content or not content.strip():
-            raise ValidationException("提醒内容不能为空")
+            raise ValidationException(_("提醒内容不能为空"))
         if not due_date:
-            raise ValidationException("到期日期不能为空")
+            raise ValidationException(_("到期日期不能为空"))
 
         # 创建提醒记录
         reminder = ContractReminder.objects.create(
@@ -141,7 +143,7 @@ class ContractReminderService:
         # 更新字段
         if data.get("contract_id"):
             if not Contract.objects.filter(id=data["contract_id"]).exists():
-                raise NotFoundError(f"合同 {data['contract_id']} 不存在")
+                raise NotFoundError(_("合同 %(id)s 不存在") % {"id": data["contract_id"]})
             reminder.contract_id = data["contract_id"]
 
         if "kind" in data:
