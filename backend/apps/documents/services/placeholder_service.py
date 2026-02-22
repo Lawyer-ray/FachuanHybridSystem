@@ -298,6 +298,6 @@ class PlaceholderService:
             except Placeholder.DoesNotExist:
                 logger.warning("占位符 %s 不存在,跳过更新", key)
             except Exception as e:
-                logger.error("更新占位符 %s 失败: %s", key, e)
+                logger.error("更新占位符 %s 失败: %s", key, e, exc_info=True)
 
         return updated_count

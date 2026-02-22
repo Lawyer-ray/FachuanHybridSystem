@@ -151,7 +151,7 @@ class GeneratorRegistry:
                 importlib.import_module(f".generators.{module_name}", package=__package__)
                 logger.debug("加载生成器模块: %s", module_name)
             except Exception as e:
-                logger.error("加载生成器模块失败: %s, 错误: %s", module_name, e)
+                logger.error("加载生成器模块失败: %s, 错误: %s", module_name, e, exc_info=True)
 
     def clear_registry(self) -> None:
         """
