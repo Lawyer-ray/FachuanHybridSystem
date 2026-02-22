@@ -1,9 +1,9 @@
 """当事人列表查询服务。"""
 
-from django.utils.translation import gettext_lazy as _
 from typing import Any
 
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client
 from apps.client.services.client_query_builder import ClientQueryBuilder
@@ -25,16 +25,15 @@ class ClientListQueryService:
         search: str | None = None,
         user: Any | None = None,
     ) -> QuerySet[Client, Client]:
-        if page is None or int(page) < 1:
-            raise ValidationException(message=_("page 无效"), code="INVALID_PAGE", errors={"page": "必须 >= 1"})
+        if page is None or page < 1:
+            raise ValidationException(message=_("page 无效"), code="INVALID_PAGE", errors={"page": _("必须 >= 1")})
 
         if page_size is None:
             page_size = 20
-        if int(page_size) < 1:
+        if page_size < 1:
             raise ValidationException(
-                message=_("page_size 无效"), code="INVALID_PAGE_SIZE", errors={"page_size": "必须 >= 1"}
+                message=_("page_size 无效"), code="INVALID_PAGE_SIZE", errors={"page_size": _("必须 >= 1")}
             )
-        page_size = int(page_size)
 
         if page_size > max_page_size:
             page_size = max_page_size
@@ -45,6 +44,6 @@ class ClientListQueryService:
             search=search,
         )
 
-        start = (int(page) - 1) * page_size
+        start = (page - 1) * page_size
         end = start + page_size
         return queryset[start:end]

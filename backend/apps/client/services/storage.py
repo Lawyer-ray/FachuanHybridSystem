@@ -67,12 +67,12 @@ def _get_media_root() -> str | None:
 def to_media_abs(file_path: str) -> Path:
     if not file_path:
         raise ValidationException(
-            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
+            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": _("不能为空")}
         )
     media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
-            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": _("未配置")}
         )
     root = Path(media_root).resolve()
     p = Path(file_path)
@@ -82,7 +82,7 @@ def to_media_abs(file_path: str) -> Path:
         p = p.resolve()
     except Exception:
         raise ValidationException(
-            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": "无效"}
+            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": _("无效")}
         ) from None
     try:
         p.relative_to(root)
@@ -90,7 +90,7 @@ def to_media_abs(file_path: str) -> Path:
         raise ValidationException(
             message=_("文件路径不在 MEDIA_ROOT 下"),
             code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
-            errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
+            errors={"file_path": _("文件路径不在 MEDIA_ROOT 下")},
         ) from None
     return p
 
@@ -98,7 +98,7 @@ def to_media_abs(file_path: str) -> Path:
 def normalize_to_media_rel(file_path: str) -> str:
     if not file_path:
         raise ValidationException(
-            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
+            message=_("文件路径不能为空"), code="INVALID_FILE_PATH", errors={"file_path": _("不能为空")}
         )
     if not is_absolute_path(file_path):
         return file_path.replace("\\", "/").lstrip("/")
@@ -106,7 +106,7 @@ def normalize_to_media_rel(file_path: str) -> str:
     media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
-            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": _("未配置")}
         )
     root = Path(media_root).resolve()
     p = Path(file_path)
@@ -114,7 +114,7 @@ def normalize_to_media_rel(file_path: str) -> str:
         abs_path = p.resolve()
     except Exception:
         raise ValidationException(
-            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": "无效"}
+            message=_("文件路径无效"), code="INVALID_FILE_PATH", errors={"file_path": _("无效")}
         ) from None
     try:
         rel = abs_path.relative_to(root)
@@ -122,7 +122,7 @@ def normalize_to_media_rel(file_path: str) -> str:
         raise ValidationException(
             message=_("文件路径不在 MEDIA_ROOT 下"),
             code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
-            errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
+            errors={"file_path": _("文件路径不在 MEDIA_ROOT 下")},
         ) from None
     return str(rel).replace("\\", "/")
 
@@ -136,7 +136,7 @@ def save_uploaded_file(
     allowed_extensions: list[str] | None = None,
 ) -> tuple[str, str]:
     if not hasattr(uploaded_file, "name"):
-        raise ValidationException(message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": "缺少文件名"})
+        raise ValidationException(message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": _("缺少文件名")})
 
     original_name = str(getattr(uploaded_file, "name", "") or "")
     safe_original_name = sanitize_upload_filename(original_name)
