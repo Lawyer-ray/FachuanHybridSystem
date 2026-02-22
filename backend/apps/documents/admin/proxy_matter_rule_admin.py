@@ -46,7 +46,7 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin[ProxyMatterRule]):
     search_fields = ("items_text",)
     ordering = ("-is_active", "priority", "id")
 
+    @admin.display(description=_("我方诉讼地位"))
     def legal_statuses_display(self, obj: ProxyMatterRule) -> str:
         return obj.get_legal_statuses_display() or "任意"
 
-    legal_statuses_display.short_description = _("我方诉讼地位")  # type: ignore[attr-defined]
