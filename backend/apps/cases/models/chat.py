@@ -178,7 +178,8 @@ class ChatAuditLog(models.Model):
         except (TypeError, ValueError):
             return str(self.details)
 
-    def get_summary(self) -> str:
+    @property
+    def summary(self) -> str:
         """获取操作摘要"""
         action_display = self.get_action_display()
         summary_parts = [str(action_display)]
@@ -190,7 +191,3 @@ class ChatAuditLog(models.Model):
             summary_parts.append(f"错误:{self.error_message[:50]}...")
         return " | ".join(summary_parts)
 
-    def is_recent(self, hours: int = 24) -> bool:
-        """检查是否为最近的日志"""
-        cutoff_time = timezone.now() - timedelta(hours=hours)
-        return bool(self.timestamp >= cutoff_time)

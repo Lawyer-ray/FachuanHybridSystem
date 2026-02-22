@@ -22,6 +22,7 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from apps.core.dto.chat import ChatResult
 
 from apps.cases.exceptions import ChatCreationException, MessageSendException
-from apps.cases.models import Case, CaseChat
+from apps.cases.models import Case, CaseChat, ChatAuditLog
 from apps.core.dto.chat import MessageContent
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -663,5 +664,17 @@ class CaseChatService:
         if save:
             chat.save(update_fields=["creation_audit_log", "updated_at"])
         logger.info("创建审计日志条目已添加: chat_id=%s, action=%s", chat.pk, action)
+    def is_audit_log_recent(self, log: ChatAuditLog, hours: int = 24) -> bool:
+        """检查审计日志是否为最近的记录
+
+        Args:
+            log: 审计日志对象
+            hours: 时间范围（小时），默认24小时
+
+        Returns:
+            是否在指定时间范围内
+        """
+        cutoff_time = timezone.now() - timedelta(hours=hours)
+        return bool(log.timestamp >= cutoff_time)
 
 
