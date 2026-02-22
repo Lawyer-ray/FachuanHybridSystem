@@ -1,28 +1,20 @@
 # ⏰ 重要日期提醒模块 (Reminders)
 
-Reminders 模块负责维护案件相关的关键日期提醒（到期时间、提醒策略、状态流转），并提供 Admin 与 API 的统一入口。
+管理案件/合同相关的关键日期提醒（开庭、举证到期、上诉期等）。
 
-## 📚 模块概述
-
-本模块提供：
-- 提醒事项的 CRUD 与查询
-- 到期时间/状态管理（到期、已完成、已取消等）
-- 面向其他模块的标准化服务适配器（adapter）
-
-## 📁 目录结构（简要）
+## 📁 目录结构
 
 ```
 reminders/
-├── api/        # Ninja API
+├── api/        # Ninja API（CRUD + 类型枚举）
 ├── admin/      # Django Admin
-├── services/   # reminder_service + adapter
-├── models.py   # Reminder 相关模型
-└── schemas.py  # API/服务层 DTO schema
+├── services/   # ReminderService（业务逻辑）+ Adapter（跨模块接口）
+├── models.py   # Reminder 模型
+└── schemas.py  # API 输入/输出 Schema
 ```
 
-## 🔑 核心入口
+## 🔑 核心设计
 
-- API：`api/reminder_api.py`
-- 服务：`services/reminder_service.py`、`services/reminder_service_adapter.py`
-- Admin：`admin/reminder_admin.py`
-
+- `Reminder` 必须绑定 `contract` 或 `case_log` 之一（DB 级 CheckConstraint）
+- `ReminderServiceAdapter` 实现 `IReminderService` 协议，供案件模块、自动化模块调用
+- 文书类型到提醒类型的映射在 Adapter 的 `DOCUMENT_TYPE_TO_REMINDER_TYPE` 中维护
