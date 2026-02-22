@@ -10,14 +10,13 @@ from typing import Any, ClassVar
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.http import JsonResponse
 from django.urls import path
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import LegalStatus
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import NotFoundError
 from apps.documents.models import (
     DocumentCaseStage,
     DocumentCaseType,
@@ -372,10 +371,11 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
 
     def get_structure_json_view(self, request: Any, pk: int) -> JsonResponse:
         """获取文件夹模板结构JSON(供AJAX调用)"""
+        admin_service = _get_admin_service()
         try:
-            template = FolderTemplate.objects.get(pk=pk)
-            return JsonResponse({"success": True, "structure": template.structure, "name": template.name})
-        except FolderTemplate.DoesNotExist:
+            result: dict[str, Any] = admin_service.get_structure_json(pk)
+            return JsonResponse(result)
+        except NotFoundError:
             return JsonResponse({"success": False, "error": "模板不存在"}, status=404)
 
     def get_form(self, request: Any, obj: FolderTemplate | None = None, **kwargs: Any) -> Any:
@@ -435,23 +435,15 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
     @admin.action(description=_("启用选中的模板"))
     def activate_templates(self, request: Any, queryset: Any) -> None:
         """批量启用模板"""
-        updated = 0
-        for template in queryset:
-            if not template.is_active:
-                template.is_active = True
-                template.save(update_fields=["is_active"])
-                updated += 1
+        admin_service = _get_admin_service()
+        updated: int = admin_service.batch_activate(queryset)
         self.message_user(request, _(f"已启用 {updated} 个模板"))
 
     @admin.action(description=_("禁用选中的模板"))
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
-        updated = 0
-        for template in queryset:
-            if template.is_active:
-                template.is_active = False
-                template.save(update_fields=["is_active"])
-                updated += 1
+        admin_service = _get_admin_service()
+        updated: int = admin_service.batch_deactivate(queryset)
         self.message_user(request, _(f"已禁用 {updated} 个模板"))
 
     @admin.action(description=_("复制选中的模板"))
