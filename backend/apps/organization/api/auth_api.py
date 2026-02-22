@@ -20,13 +20,11 @@ _auth_service = AuthService()
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
 def login_view(request: HttpRequest, payload: LoginIn) -> dict[str, object]:
-    """用户登录"""
     user = _auth_service.login(request, payload.username, payload.password)
     return {"success": True, "user": user}
 
 
 @router.post("/logout", auth=None)
 def logout_view(request: HttpRequest) -> dict[str, bool]:
-    """用户登出"""
     _auth_service.logout(request)
     return {"success": True}

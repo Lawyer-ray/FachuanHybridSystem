@@ -20,32 +20,27 @@ _team_service = TeamService()
 
 @router.get("/teams", response=list[TeamOut])
 def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None) -> list[TeamOut]:
-    """列表查询团队"""
     return list(_team_service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=get_request_user(request)))
 
 
 @router.post("/teams", response=TeamOut)
 def create_team(request: HttpRequest, payload: TeamIn) -> TeamOut:
-    """创建团队"""
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
     return _team_service.create_team(data=dto, user=get_request_user(request))
 
 
 @router.get("/teams/{team_id}", response=TeamOut)
 def get_team(request: HttpRequest, team_id: int) -> TeamOut:
-    """获取团队详情"""
     return _team_service.get_team(team_id=team_id, user=get_request_user(request))
 
 
 @router.put("/teams/{team_id}", response=TeamOut)
 def update_team(request: HttpRequest, team_id: int, payload: TeamIn) -> TeamOut:
-    """更新团队"""
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
     return _team_service.update_team(team_id=team_id, data=dto, user=get_request_user(request))
 
 
 @router.delete("/teams/{team_id}")
 def delete_team(request: HttpRequest, team_id: int) -> dict[str, bool]:
-    """删除团队"""
     _team_service.delete_team(team_id=team_id, user=get_request_user(request))
     return {"success": True}

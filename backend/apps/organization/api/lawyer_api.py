@@ -31,7 +31,6 @@ def list_lawyers(
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
 def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:
-    """获取律师详情"""
     return _lawyer_service.get_lawyer(lawyer_id, get_request_user(request))
 
 
@@ -41,7 +40,6 @@ def create_lawyer(
     payload: LawyerCreateIn,
     license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
 ) -> LawyerOut:
-    """创建律师"""
     dto = LawyerCreateDTO(
         username=payload.username,
         password=payload.password,
@@ -64,7 +62,6 @@ def update_lawyer(
     payload: LawyerUpdateIn,
     license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
 ) -> LawyerOut:
-    """更新律师"""
     dto = LawyerUpdateDTO(
         real_name=payload.real_name,
         phone=payload.phone,
@@ -86,6 +83,5 @@ def update_lawyer(
 
 @router.delete("/lawyers/{lawyer_id}")
 def delete_lawyer(request: HttpRequest, lawyer_id: int) -> dict[str, bool]:
-    """删除律师"""
     _lawyer_service.delete_lawyer(lawyer_id, get_request_user(request))
     return {"success": True}
