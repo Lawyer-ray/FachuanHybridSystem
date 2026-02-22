@@ -13,7 +13,14 @@ from typing import Any
 
 from django.utils import timezone
 
+from typing import TYPE_CHECKING
+
 from apps.core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from apps.organization.services.account_credential_service import (
+        AccountCredentialService,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +58,21 @@ class AccountCredentialAdminService:
     SUPPORTED_SITE = "court_zxfw"
 
     def __init__(self) -> None:
-        self._auto_login_service = None
-        self._token_service = None
-        self._automation_service = None
+        self._auto_login_service: Any | None = None
+        self._token_service: Any | None = None
+        self._automation_service: Any | None = None
+        self._credential_service: AccountCredentialService | None = None
+
+    @property
+    def credential_service(self) -> "AccountCredentialService":
+        """延迟加载 AccountCredentialService"""
+        if self._credential_service is None:
+            from apps.organization.services.account_credential_service import (
+                AccountCredentialService,
+            )
+
+            self._credential_service = AccountCredentialService()
+        return self._credential_service
 
     @property
     def auto_login_service(self) -> "Any":
@@ -61,7 +80,7 @@ class AccountCredentialAdminService:
         if self._auto_login_service is None:
             from apps.core.dependencies import build_auto_login_service
 
-            self._auto_login_service = build_auto_login_service() # type: ignore
+            self._auto_login_service = build_auto_login_service()
         return self._auto_login_service
 
     @property
@@ -70,7 +89,7 @@ class AccountCredentialAdminService:
         if self._token_service is None:
             from apps.core.dependencies import build_auto_token_acquisition_service
 
-            self._token_service = build_auto_token_acquisition_service() # type: ignore
+            self._token_service = build_auto_token_acquisition_service()
         return self._token_service
 
     @property
@@ -79,7 +98,7 @@ class AccountCredentialAdminService:
         if self._automation_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._automation_service = ServiceLocator.get_automation_service() # type: ignore
+            self._automation_service = ServiceLocator.get_automation_service()
         return self._automation_service
 
     def single_auto_login(
@@ -100,12 +119,10 @@ class AccountCredentialAdminService:
         Raises:
             NotFoundError: 凭证不存在
         """
-        from apps.organization.models import AccountCredential
-
         start_time = timezone.now()
 
         # 获取凭证
-        credential = AccountCredential.objects.filter(id=credential_id).first()
+        credential = self.credential_service.get_credential_by_id(credential_id)
         if not credential:
             raise NotFoundError(f"账号凭证 #{credential_id} 不存在")
 
@@ -243,11 +260,9 @@ class AccountCredentialAdminService:
         Returns:
             BatchLoginResult: 批量登录结果
         """
-        from apps.organization.models import AccountCredential
-
         # 只处理法院一张网的账号
-        court_credentials = AccountCredential.objects.filter(
-            id__in=credential_ids,
+        court_credentials = self.credential_service.filter_by_ids_and_site(
+            credential_ids=list(credential_ids),
             site_name=self.SUPPORTED_SITE,
         )
 
