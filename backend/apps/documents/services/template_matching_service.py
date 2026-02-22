@@ -120,7 +120,7 @@ class TemplateMatchingService:
 
             matched: list[dict[str, Any]] = []
             for template in templates:
-                type_list = template.contract_types if template_type == "contract" else template.case_types
+                type_list = template.contract_types if template_type == FolderTemplateType.CONTRACT else template.case_types
                 type_list = type_list or []
                 if not type_list or "all" in type_list or (case_type and case_type in type_list):
                     matched.append({"id": template.id, "name": template.name})
