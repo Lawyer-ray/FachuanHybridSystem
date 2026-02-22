@@ -13,12 +13,9 @@ API 层职责:
 不包含:业务逻辑、权限检查、异常处理(依赖全局异常处理器)
 """
 
-from decimal import Decimal
 from typing import Any, ClassVar
 
 from ninja import Router, Schema
-
-from apps.core.exceptions import ValidationException
 
 router = Router()
 
@@ -78,19 +75,14 @@ def calculate_fee(request: Any, data: FeeCalculationRequest) -> Any:
     Returns:
         FeeCalculationResponse: 包含各类费用明细的响应
     """
-    # 输入验证
-    if data.target_amount is not None and data.target_amount < 0:
-        raise ValidationException("涉案金额不能为负数")
-
-    if data.preservation_amount is not None and data.preservation_amount < 0:
-        raise ValidationException("财产保全金额不能为负数")
-
-    # 转换为 Decimal
-    target_amount = Decimal(str(data.target_amount)) if data.target_amount is not None else None
-    preservation_amount = Decimal(str(data.preservation_amount)) if data.preservation_amount is not None else None
-
-    # 调用 Service 计算费用
     service = _get_litigation_fee_calculator_service()
+
+    # 输入验证和 Decimal 转换由 Service 层负责
+    target_amount, preservation_amount = service.validate_and_convert_fee_inputs(
+        target_amount=data.target_amount,
+        preservation_amount=data.preservation_amount,
+    )
+
     result = service.calculate_all_fees(
         target_amount=target_amount,
         preservation_amount=preservation_amount,

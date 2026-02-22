@@ -4,6 +4,8 @@ import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional
 
+from apps.core.exceptions import ValidationException
+
 if TYPE_CHECKING:
     from .cause_rule_service import CauseRuleService
 
@@ -603,6 +605,40 @@ class LitigationFeeCalculatorService:
             f"减半后受理费: {result['acceptance_fee_half']:.2f} 元(调解/撤诉/简易程序)"
         )
         result["calculation_details"].append(f"支付令申请费: {result['payment_order_fee']:.2f} 元(受理费的1/3)")
+    def validate_and_convert_fee_inputs(
+        self,
+        target_amount: float | None,
+        preservation_amount: float | None,
+    ) -> tuple[Decimal | None, Decimal | None]:
+        """
+        验证并转换费用计算输入参数
+
+        Args:
+            target_amount: 涉案金额（浮点数）
+            preservation_amount: 财产保全金额（浮点数）
+
+        Returns:
+            转换后的 (target_amount, preservation_amount) Decimal 元组
+
+        Raises:
+            ValidationException: 金额为负数时抛出
+        """
+        if target_amount is not None and target_amount < 0:
+            raise ValidationException("涉案金额不能为负数")
+
+        if preservation_amount is not None and preservation_amount < 0:
+            raise ValidationException("财产保全金额不能为负数")
+
+        converted_target = (
+            Decimal(str(target_amount)) if target_amount is not None else None
+        )
+        converted_preservation = (
+            Decimal(str(preservation_amount))
+            if preservation_amount is not None
+            else None
+        )
+
+        return converted_target, converted_preservation
 
     def calculate_all_fees(
         self,
