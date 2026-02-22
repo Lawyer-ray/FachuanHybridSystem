@@ -212,9 +212,9 @@ class BaseGenerator(ABC):
         duration_ms = int((time.time() - start_time) * 1000)
 
         if success:
-            logger.info(f"文书生成成功 - 生成器: {self.name}, 耗时: {duration_ms}ms")
+            logger.info("文书生成成功 - 生成器: %s, 耗时: %sms", self.name, duration_ms)
         else:
-            logger.error(f"文书生成失败 - 生成器: {self.name}, 耗时: {duration_ms}ms, 错误: {error_message}")
+            logger.error("文书生成失败 - 生成器: %s, 耗时: %sms, 错误: %s", self.name, duration_ms, error_message)
 
         return duration_ms
 

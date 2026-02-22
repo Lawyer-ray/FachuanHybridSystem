@@ -4,10 +4,9 @@ Playwright 配置工具
 """
 
 import os
+from pathlib import Path
 
 from django.conf import settings
-
-from apps.core.path import Path
 
 
 def get_playwright_downloads_dir() -> str:
@@ -15,11 +14,10 @@ def get_playwright_downloads_dir() -> str:
     获取 Playwright 下载目录
     统一设置为项目的 media/automation/screenshots 目录
     """
-    # 使用项目根目录下的 backend/media 目录
     project_root = Path(settings.BASE_DIR).parent  # 从 apiSystem 到 backend
     downloads_dir = project_root / "media" / "automation" / "screenshots"
-    downloads_dir.makedirs_p()
-    return str(downloads_dir.abspath())
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+    return str(downloads_dir.resolve())
 
 
 def get_screenshot_path(name: str = "screenshot") -> str:
@@ -34,5 +32,6 @@ def get_screenshot_path(name: str = "screenshot") -> str:
     return str(downloads_dir / filename)
 
 
-# 设置环境变量,确保 MCP Playwright 使用正确的下载目录
-os.environ["PLAYWRIGHT_DOWNLOADS_DIR"] = get_playwright_downloads_dir()
+def setup_playwright_env() -> None:
+    """设置 Playwright 环境变量，应在应用启动时显式调用"""
+    os.environ.setdefault("PLAYWRIGHT_DOWNLOADS_DIR", get_playwright_downloads_dir())

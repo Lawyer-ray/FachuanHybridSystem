@@ -157,12 +157,12 @@ class PreservationMaterialsGenerationService:
                 preservation_bytes, _ = self.generate_preservation_application(case_id)
                 zf.writestr("财产保全申请书.docx", preservation_bytes)
             except NotFoundError:
-                logger.warning(f"未找到财产保全申请书模板: case_id={case_id}")
+                logger.warning("未找到财产保全申请书模板: case_id=%s", case_id)
             try:
                 delay_bytes, _ = self.generate_delay_delivery_application(case_id)
                 zf.writestr("暂缓送达申请书.docx", delay_bytes)
             except NotFoundError:
-                logger.warning(f"未找到暂缓送达申请书模板: case_id={case_id}")
+                logger.warning("未找到暂缓送达申请书模板: case_id=%s", case_id)
             zf.writestr("保单保函/", "")
             if missing_clue_respondents:
                 report = self._generate_missing_clues_report(missing_clue_respondents)

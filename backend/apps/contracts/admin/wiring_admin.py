@@ -65,3 +65,15 @@ def get_contract_admin_action_service() -> Any:
         "contracts.contract_admin_action_service",
         build_contract_admin_action_service,
     )
+
+
+def get_contract_assignment_query_service() -> Any:
+    from apps.contracts.services.assignment.contract_assignment_query_service import ContractAssignmentQueryService
+
+    if ServiceLocator._scope.get() is None:
+        return ContractAssignmentQueryService()
+
+    return ServiceLocator.get_or_create(
+        "contracts.contract_assignment_query_service",
+        lambda: ContractAssignmentQueryService(),
+    )

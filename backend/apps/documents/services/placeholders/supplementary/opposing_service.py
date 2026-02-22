@@ -139,7 +139,7 @@ class SupplementaryAgreementOpposingService(BasePlaceholderService):
                     parts.append(f"名称:{name},统一社会信用代码{id_number}")
 
             except Exception as e:
-                logger.warning(f"格式化对方当事人信息失败: {e}", extra={"client_id": getattr(client, "id", None)})
+                logger.warning("格式化对方当事人信息失败: %s", e, extra={"client_id": getattr(client, "id", None)})
                 # 提供基本格式,默认为法人
                 name = self._strip_whitespace(client.name) if client.name else ""
                 parts.append(f"名称:{name}")

@@ -157,7 +157,7 @@ class LitigationGenerationService:
 
         # 5. 生成文件名
         filename = self._generate_filename(case_id, "complaint")
-        logger.info(f"生成起诉状文件名: {filename}")
+        logger.info("生成起诉状文件名: %s", filename)
 
         # 6. 渲染模板
         doc_bytes = self._render_template(self.COMPLAINT_TEMPLATE, context)
@@ -203,7 +203,7 @@ class LitigationGenerationService:
 
         # 5. 生成文件名
         filename = self._generate_filename(case_id, "defense")
-        logger.info(f"生成答辩状文件名: {filename}")
+        logger.info("生成答辩状文件名: %s", filename)
 
         # 6. 渲染模板
         doc_bytes = self._render_template(self.DEFENSE_TEMPLATE, context)
@@ -331,7 +331,7 @@ class LitigationGenerationService:
 
         try:
             # 记录上下文键用于调试
-            logger.info(f"模板上下文包含的占位符: {list(context.keys())}")
+            logger.info("模板上下文包含的占位符: %s", list(context.keys()))
             if "年份" not in context:
                 context["年份"] = str(date.today().year)
 
@@ -340,7 +340,7 @@ class LitigationGenerationService:
             return DocxRenderer().render(str(template_path), context)
 
         except Exception as e:
-            logger.error(f"模板渲染失败: {e!s}", exc_info=True)
+            logger.error("模板渲染失败: %s", e, exc_info=True)
             raise ValidationException(
                 message=f"模板渲染失败: {e!s}", code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e

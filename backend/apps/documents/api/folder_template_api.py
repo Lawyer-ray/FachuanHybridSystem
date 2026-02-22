@@ -60,7 +60,7 @@ def create_folder_template(request: Any, payload: FolderTemplateIn) -> Any:
     """创建文件夹模板"""
     service = _get_folder_template_service()
     template = service.create_template_from_dict(payload.dict())
-    logger.info(f"创建文件夹模板: {template.name} (ID: {template.id})")
+    logger.info("创建文件夹模板: %s (ID: %s)", template.name, template.id)
     return template
 
 
@@ -69,7 +69,7 @@ def update_folder_template(request: Any, template_id: int, payload: FolderTempla
     """更新文件夹模板"""
     service = _get_folder_template_service()
     template = service.update_template_from_dict(template_id, schema_to_update_dict(payload))
-    logger.info(f"更新文件夹模板: {template.name} (ID: {template.id})")
+    logger.info("更新文件夹模板: %s (ID: %s)", template.name, template.id)
     return template
 
 

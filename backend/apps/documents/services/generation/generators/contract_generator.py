@@ -60,7 +60,7 @@ class ContractGenerator(BaseGenerator):
         # 验证上下文
         is_valid, missing = self.validate_context(context)
         if not is_valid:
-            logger.warning(f"上下文缺少必需占位符: {missing}")
+            logger.warning("上下文缺少必需占位符: %s", missing)
             # 继续生成,缺失的占位符使用空字符串
             for key in missing:
                 context[key] = ""
@@ -82,7 +82,7 @@ class ContractGenerator(BaseGenerator):
                 f.write(content)
 
             duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(f"生成文书成功: {output_path}, 耗时: {duration_ms}ms")
+            logger.info("生成文书成功: %s, 耗时: %sms", output_path, duration_ms)
 
             return GenerationResult(
                 success=True,

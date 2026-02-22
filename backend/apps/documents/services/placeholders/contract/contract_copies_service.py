@@ -56,7 +56,7 @@ class ContractCopiesService(BasePlaceholderService):
             principal_count = self._get_principal_count(contract)
             return principal_count + 2
         except Exception as e:
-            logger.warning(f"计算合同份数失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("计算合同份数失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return 2  # 默认返回2份
 
     def _get_principal_count(self, contract: Any) -> int:
@@ -78,5 +78,5 @@ class ContractCopiesService(BasePlaceholderService):
                     count += 1
             return count
         except Exception as e:
-            logger.warning(f"获取委托人数量失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("获取委托人数量失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return 0

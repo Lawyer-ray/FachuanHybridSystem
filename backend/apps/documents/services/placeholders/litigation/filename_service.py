@@ -45,7 +45,7 @@ class FilenameService:
         case = case_service.get_case_by_id_internal(case_id)
 
         if not case:
-            logger.error(f"案件不存在: case_id={case_id}")
+            logger.error("案件不存在: case_id=%s", case_id)
             raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
@@ -57,7 +57,7 @@ class FilenameService:
         # 生成文件名:起诉状(案件名称)V1_日期.docx
         filename = f"起诉状({case_name})V1_{date_str}.docx"
 
-        logger.info(f"生成起诉状文件名: {filename}")
+        logger.info("生成起诉状文件名: %s", filename)
 
         return filename
 
@@ -81,7 +81,7 @@ class FilenameService:
         case = case_service.get_case_by_id_internal(case_id)
 
         if not case:
-            logger.error(f"案件不存在: case_id={case_id}")
+            logger.error("案件不存在: case_id=%s", case_id)
             raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
@@ -93,6 +93,6 @@ class FilenameService:
         # 生成文件名:答辩状(案件名称)V1_日期.docx
         filename = f"答辩状({case_name})V1_{date_str}.docx"
 
-        logger.info(f"生成答辩状文件名: {filename}")
+        logger.info("生成答辩状文件名: %s", filename)
 
         return filename

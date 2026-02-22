@@ -95,7 +95,7 @@ class ContextBuilder:
             try:
                 context = self.enhanced_builder.build_contract_context(contract_id)
                 if context:
-                    logger.debug(f"使用 EnhancedContextBuilder 构建合同上下文成功,合同ID: {contract_id}")
+                    logger.debug("使用 EnhancedContextBuilder 构建合同上下文成功,合同ID: %s", contract_id)
                     return cast(dict[str, Any], context)
             except Exception as e:
                 logger.warning(
@@ -121,7 +121,7 @@ class ContextBuilder:
         # Requirements: 1.3
         contract_dto = self.contract_service.get_contract_with_details_internal(contract_id)
         if contract_dto is None:
-            logger.warning(f"合同不存在: {contract_id}")
+            logger.warning("合同不存在: %s", contract_id)
             return {}
 
         # 从 DTO 构建上下文

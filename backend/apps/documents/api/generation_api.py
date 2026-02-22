@@ -75,7 +75,7 @@ def download_contract_document(request: Any, contract_id: int) -> Any:
     content, filename, saved_path, error = service.generate_contract_document_result(contract_id)
 
     if error:
-        logger.warning(f"生成合同文档失败: {error}", extra={"contract_id": contract_id, "error": error})
+        logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
             message="生成合同文档失败", code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
         )
@@ -128,7 +128,7 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
     zip_content, zip_filename, extract_path, error = service.generate_folder_with_documents_result(contract_id)
 
     if error:
-        logger.warning(f"生成合同文件夹失败: {error}", extra={"contract_id": contract_id, "error": error})
+        logger.warning("生成合同文件夹失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
             message="生成合同文件夹失败", code="FOLDER_GENERATION_FAILED", errors={"detail": error}
         )

@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import TokenError
 from apps.core.models import CauseOfAction, Court
+from apps.core.repositories import CauseCourtRepository
 
 from .court_api_client import CauseItem, CourtApiClient, CourtItem
 
@@ -105,15 +106,18 @@ class CauseCourtInitializationService:
         self,
         api_client: CourtApiClient | None = None,
         auto_token_service: "IAutoTokenAcquisitionService | None" = None,
+        repository: CauseCourtRepository | None = None,
     ) -> None:
         """初始化服务
 
         Args:
             api_client: 法院 API 客户端,为 None 时创建新实例
             auto_token_service: 自动 Token 获取服务,为 None 时使用 ServiceLocator 获取
+            repository: 数据访问层,为 None 时创建新实例
         """
         self._api_client = api_client
         self._auto_token_service = auto_token_service
+        self._repository = repository or CauseCourtRepository()
 
     @property
     def api_client(self) -> CourtApiClient:
@@ -361,7 +365,7 @@ class CauseCourtInitializationService:
 
         try:
             # 查找或创建案由记录
-            cause, created = CauseOfAction.objects.update_or_create(
+            cause, created = self._repository.update_or_create_cause(
                 code=item.code,
                 defaults={
                     "name": item.name,
@@ -415,7 +419,7 @@ class CauseCourtInitializationService:
         result = InitializationResult()
 
         # 查找数据库中存在但 API 中不存在的案由
-        db_causes = CauseOfAction.objects.filter(is_deprecated=False).exclude(code__in=api_codes)
+        db_causes = self._repository.get_non_deprecated_causes_excluding_codes(list(api_codes))
 
         for cause in db_causes:
             try:
@@ -565,7 +569,7 @@ class CauseCourtInitializationService:
 
         try:
             # 查找或创建法院记录
-            court, created = Court.objects.update_or_create(
+            court, created = self._repository.update_or_create_court(
                 code=item.code,
                 defaults={
                     "name": item.name,
@@ -614,7 +618,7 @@ class CauseCourtInitializationService:
         result = InitializationResult()
 
         # 查找数据库中存在但 API 中不存在的法院
-        db_courts = Court.objects.exclude(code__in=api_codes)
+        db_courts = self._repository.get_courts_excluding_codes(list(api_codes))
 
         for court in db_courts:
             try:

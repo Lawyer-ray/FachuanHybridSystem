@@ -88,7 +88,7 @@ class DocumentServiceAdapter:
 
             return format_template_names(matched_templates)
         except Exception as e:
-            logger.error(f"获取文书模板失败,案件类型: {case_type},错误: {e!s}")
+            logger.error("获取文书模板失败,案件类型: %s,错误: %s", case_type, e)
             return "查询失败"
 
     def get_matched_folder_templates(self, case_type: str) -> str:

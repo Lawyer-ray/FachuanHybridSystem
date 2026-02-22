@@ -38,7 +38,7 @@ def format_date(d: date | str | None, fmt: str = DEFAULT_DATE_FORMAT) -> str:
             d = datetime.strptime(d, "%Y-%m-%d").date()
         return d.strftime(fmt)
     except Exception as e:
-        logger.warning(f"格式化日期失败: {e}")
+        logger.warning("格式化日期失败: %s", e)
         return ""
 
 
@@ -62,7 +62,7 @@ def format_date_chinese(d: date | None, default_today: bool = False) -> str:
     try:
         return f"{d.year}年{d.month:02d}月{d.day:02d}日"
     except Exception as e:
-        logger.warning(f"格式化日期失败: {e}")
+        logger.warning("格式化日期失败: %s", e)
         return "____年____月____日"
 
 
@@ -86,7 +86,7 @@ def format_currency(amount: Decimal | None, include_symbol: bool = False) -> str
             return f"¥{formatted}"
         return formatted
     except Exception as e:
-        logger.warning(f"格式化货币失败: {e}")
+        logger.warning("格式化货币失败: %s", e)
         return ""
 
 
@@ -109,7 +109,7 @@ def format_percentage(rate: Decimal | None, decimal_places: int = 2) -> str:
             return f"{rate:.{decimal_places}f}%"
         return f"{rate}%"
     except Exception as e:
-        logger.warning(f"格式化百分比失败: {e}")
+        logger.warning("格式化百分比失败: %s", e)
         return ""
 
 
@@ -131,5 +131,5 @@ def get_choice_display(value: str, choices_class: type[Any]) -> str:
         result = dict(choices_class.choices).get(value, value)
         return str(result) if result is not None else value
     except Exception as e:
-        logger.warning(f"获取选项显示文本失败: {e}")
+        logger.warning("获取选项显示文本失败: %s", e)
         return value

@@ -78,7 +78,7 @@ class SupplementaryAgreementBasicService(BasePlaceholderService):
                     principal_count += 1
             return principal_count + 2
         except Exception as e:
-            logger.warning(f"计算补充协议份数失败: {e}")
+            logger.warning("计算补充协议份数失败: %s", e)
             return 2
 
     def get_current_year(self) -> str:
@@ -92,5 +92,5 @@ class SupplementaryAgreementBasicService(BasePlaceholderService):
             current_date = date.today()
             return str(current_date.year)
         except Exception as e:
-            logger.warning(f"获取当前年份失败: {e}")
+            logger.warning("获取当前年份失败: %s", e)
             return ""

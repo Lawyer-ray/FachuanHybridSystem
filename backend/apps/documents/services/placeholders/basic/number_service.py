@@ -73,7 +73,7 @@ class NumberPlaceholderService(BasePlaceholderService):
             return cast(str, result) # type: ignore
 
         except (ValueError, TypeError, ArithmeticError) as e:
-            logger.warning(f"数字转换失败: {e}", extra={"amount": amount})
+            logger.warning("数字转换失败: %s", e, extra={"amount": amount})
             return "零"
 
     def _convert_integer_part(self, integer_part: str) -> str:

@@ -82,5 +82,5 @@ class DatePlaceholderService(BasePlaceholderService):
         try:
             return f"{d.year}年{d.month:02d}月{d.day:02d}日"
         except (AttributeError, ValueError) as e:
-            logger.warning(f"日期格式化失败: {e}", extra={"date": d})
+            logger.warning("日期格式化失败: %s", e, extra={"date": d})
             return ""

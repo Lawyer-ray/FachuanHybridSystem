@@ -9,6 +9,8 @@ from typing import Any
 
 from django.contrib import messages
 
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+
 logger = logging.getLogger("apps.contracts")
 
 
@@ -55,7 +57,7 @@ class ContractSaveMixin:
                         "is_archived": obj.is_archived,
                     },
                 )
-        except Exception as e:
+        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
             logger.error(
                 f"处理合同 {obj.id} 建档编号失败: {e!s}",
                 extra={"contract_id": obj.id},
@@ -73,7 +75,7 @@ class ContractSaveMixin:
         try:
             action_service = _get_contract_admin_action_service()
             action_service.sync_case_assignments_from_contract(contract.id, user=getattr(request, "user", None))
-        except Exception as e:
+        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
             logger.error(
                 f"同步合同 {contract.id} 关联案件的律师指派失败: {e!s}",
                 extra={"contract_id": contract.id},
@@ -102,7 +104,7 @@ class ContractSaveMixin:
 
             super().delete_model(request, obj)
 
-        except Exception as e:
+        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
             logger.error(
                 f"删除合同 {obj.id} 失败: {e!s}",
                 extra={"contract_id": obj.id},
@@ -132,7 +134,7 @@ class ContractSaveMixin:
 
             super().delete_queryset(request, queryset)
 
-        except Exception as e:
+        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
             logger.error(f"批量删除合同失败: {e!s}", exc_info=True)
             messages.error(request, f"批量删除合同失败: {e!s}")
             raise

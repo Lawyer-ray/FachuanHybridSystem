@@ -79,10 +79,10 @@ class PromptVersionServiceAdapter:
             prompt_version = PromptVersion.objects.filter(name=name, is_active=True).first()
 
             if prompt_version:
-                logger.debug(f"获取 Prompt 模板成功: {name} (版本: {prompt_version.version})")
+                logger.debug("获取 Prompt 模板成功: %s (版本: %s)", name, prompt_version.version)
                 return prompt_version.template
 
-            logger.debug(f"未找到激活的 Prompt 模板: {name}")
+            logger.debug("未找到激活的 Prompt 模板: %s", name)
             return None
 
         except Exception:

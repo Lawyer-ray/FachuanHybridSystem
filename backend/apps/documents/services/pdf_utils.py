@@ -45,7 +45,7 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
         last_error = e
 
     error_text = str(last_error) if last_error else "unknown error"
-    logger.warning(f"PDF 页数识别失败: {error_text}")
+    logger.warning("PDF 页数识别失败: %s", error_text)
     return default, error_text
 
 

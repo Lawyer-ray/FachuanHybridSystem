@@ -60,12 +60,12 @@ class SupervisingAuthorityService(BasePlaceholderService):
                 if authority.get("authority_type") == AuthorityType.TRIAL:
                     name = authority.get("name")
                     if name:
-                        logger.info(f"找到审理机构: {name}")
+                        logger.info("找到审理机构: %s", name)
                         return name
 
-            logger.warning(f"未找到审理机构: case_id={case_id}")
+            logger.warning("未找到审理机构: case_id=%s", case_id)
             return ""
 
         except Exception as e:
-            logger.error(f"查询审理机构失败: {e!s}", exc_info=True)
+            logger.error("查询审理机构失败: %s", e, exc_info=True)
             return ""

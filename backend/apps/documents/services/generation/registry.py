@@ -77,7 +77,7 @@ class GeneratorRegistry:
             )
 
         instance._generators[name] = generator_class
-        logger.info(f"注册生成器: {name} ({generator_class.__name__})")
+        logger.info("注册生成器: %s (%s)", name, generator_class.__name__)
         return generator_class
 
     def get_generator(self, name: str) -> BaseGenerator:
@@ -144,19 +144,19 @@ class GeneratorRegistry:
         """
         generators_path = Path(__file__).parent / "generators"
         if not generators_path.exists():
-            logger.warning(f"生成器目录不存在: {generators_path}")
+            logger.warning("生成器目录不存在: %s", generators_path)
             return
 
-        logger.debug(f"开始自动发现生成器,目录: {generators_path}")
+        logger.debug("开始自动发现生成器,目录: %s", generators_path)
 
         for module_info in pkgutil.iter_modules([str(generators_path)]):
             module_name = module_info.name
             try:
                 # 导入模块以触发装饰器注册
                 importlib.import_module(f".generators.{module_name}", package=__package__)
-                logger.debug(f"加载生成器模块: {module_name}")
+                logger.debug("加载生成器模块: %s", module_name)
             except Exception as e:
-                logger.error(f"加载生成器模块失败: {module_name}, 错误: {e}")
+                logger.error("加载生成器模块失败: %s, 错误: %s", module_name, e)
 
     def clear_registry(self) -> None:
         """

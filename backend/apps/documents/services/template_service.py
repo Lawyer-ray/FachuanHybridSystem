@@ -110,7 +110,7 @@ class DocumentTemplateService:
             contract_types=contract_types or [],
             is_active=is_active,
         )
-        logger.info(f"创建文书模板: {template.name} (ID: {cast(int, template.pk)})")
+        logger.info("创建文书模板: %s (ID: %s)", template.name, cast(int, template.pk))
         return template
 
     def update_template(
@@ -178,7 +178,7 @@ class DocumentTemplateService:
             is_active=is_active,
             created_by=created_by,
         )
-        logger.info(f"更新文书模板: {template.name} (ID: {cast(int, template.pk)})")
+        logger.info("更新文书模板: %s (ID: %s)", template.name, cast(int, template.pk))
         return template
 
     def validate_file_path(self, file_path: str) -> Any:
@@ -210,10 +210,10 @@ class DocumentTemplateService:
         try:
             file_path = template.get_file_location()
             if file_path and Path(file_path).exists():
-                logger.debug(f"模板 {template.name} (ID: {cast(int, template.pk)}) 文件路径: {file_path}")
+                logger.debug("模板 %s (ID: %s) 文件路径: %s", template.name, cast(int, template.pk), file_path)
                 return file_path
             else:
-                logger.warning(f"模板 {template.name} (ID: {cast(int, template.pk)}) 文件不存在: {file_path}")
+                logger.warning("模板 %s (ID: %s) 文件不存在: %s", template.name, cast(int, template.pk), file_path)
                 return None
         except Exception:
             logger.exception(
@@ -238,11 +238,11 @@ class DocumentTemplateService:
         """
         file_path = self.get_full_file_path(template)
         if not file_path:
-            logger.warning(f"模板文件不存在: {template.name} (ID: {cast(int, template.pk)})")
+            logger.warning("模板文件不存在: %s (ID: %s)", template.name, cast(int, template.pk))
             return []
         try:
             result = extract_placeholders_from_file(file_path)
-            logger.info(f"模板 {template.name} (ID: {cast(int, template.pk)}) 提取到 {len(result)} 个占位符: {result}")
+            logger.info("模板 %s (ID: %s) 提取到 %s 个占位符: %s", template.name, cast(int, template.pk), len(result), result)
             return result
         except Exception:
             logger.exception(
@@ -340,7 +340,7 @@ class DocumentTemplateService:
             ) from None
         template.is_active = False
         template.save(update_fields=["is_active", "updated_at"])
-        logger.info(f"软删除文书模板: {template.name} (ID: {cast(int, template.pk)})")
+        logger.info("软删除文书模板: %s (ID: %s)", template.name, cast(int, template.pk))
         return True
 
     def create_template_from_dict(self, data: dict[str, Any]) -> DocumentTemplate:
@@ -361,7 +361,7 @@ class DocumentTemplateService:
         Requirements: 1.1
         """
         template = self.workflow.create_from_dict(data)
-        logger.info(f"创建文书模板: {template.name} (ID: {cast(int, template.pk)})")
+        logger.info("创建文书模板: %s (ID: %s)", template.name, cast(int, template.pk))
         return template
 
     def update_template_from_dict(self, template_id: int, data: dict[str, Any]) -> DocumentTemplate:
@@ -392,5 +392,5 @@ class DocumentTemplateService:
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
         template = self.workflow.update_from_dict(template, data)
-        logger.info(f"更新文书模板: {template.name} (ID: {cast(int, template.pk)})")
+        logger.info("更新文书模板: %s (ID: %s)", template.name, cast(int, template.pk))
         return template

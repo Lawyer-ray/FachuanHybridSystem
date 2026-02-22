@@ -113,7 +113,7 @@ class PrincipalSignatureService(BasePlaceholderService):
             return "\n".join(lines)
 
         except Exception as e:
-            logger.warning(f"格式化委托人签名信息失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("格式化委托人签名信息失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return ""
 
     def _is_natural_person(self, client: Any) -> Any:

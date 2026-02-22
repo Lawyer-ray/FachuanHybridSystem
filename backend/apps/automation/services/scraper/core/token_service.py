@@ -230,14 +230,16 @@ class TokenServiceAdapter(ITokenService):
     实现 ITokenService Protocol，将 TokenService 适配为标准接口
     """
 
-    def __init__(self, service: TokenService | None = None):
+    def __init__(self, service: TokenService | None = None, default_account: str = "default"):
         """
         初始化适配器
 
         Args:
             service: TokenService 实例，为 None 时创建新实例
+            default_account: 默认账号名称，用于公开接口中未指定账号的场景
         """
         self._service = service
+        self._default_account = default_account
 
     @property
     def service(self) -> TokenService:
@@ -250,8 +252,7 @@ class TokenServiceAdapter(ITokenService):
         """
         获取指定站点的 Token
 
-        注意：当前实现假设每个站点只有一个默认账号
-        实际使用时可能需要根据业务逻辑选择账号
+        使用构造时传入的 default_account 作为账号。
 
         Args:
             site_name: 站点名称
@@ -261,10 +262,7 @@ class TokenServiceAdapter(ITokenService):
         """
         from asgiref.sync import sync_to_async
 
-        # TODO: 这里需要根据实际业务逻辑获取账号
-        # 暂时使用 "default" 作为默认账号
-        account = "default"
-        return await sync_to_async(self.service.get_token)(site_name, account)
+        return await sync_to_async(self.service.get_token)(site_name, self._default_account)
 
     async def save_token(self, site_name: str, token: str, expires_in: int) -> None:
         """
@@ -277,10 +275,7 @@ class TokenServiceAdapter(ITokenService):
         """
         from asgiref.sync import sync_to_async
 
-        # TODO: 这里需要根据实际业务逻辑获取账号
-        # 暂时使用 "default" 作为默认账号
-        account = "default"
-        await sync_to_async(self.service.save_token)(site_name, account, token, expires_in)
+        await sync_to_async(self.service.save_token)(site_name, self._default_account, token, expires_in)
 
     async def delete_token(self, site_name: str) -> None:
         """
@@ -291,10 +286,7 @@ class TokenServiceAdapter(ITokenService):
         """
         from asgiref.sync import sync_to_async
 
-        # TODO: 这里需要根据实际业务逻辑获取账号
-        # 暂时使用 "default" 作为默认账号
-        account = "default"
-        await sync_to_async(self.service.delete_token)(site_name, account)
+        await sync_to_async(self.service.delete_token)(site_name, self._default_account)
 
     # 内部方法版本，供其他模块调用
     async def get_token_internal(self, site_name: str, account: str = "default") -> str | None:

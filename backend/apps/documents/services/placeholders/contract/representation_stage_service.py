@@ -74,5 +74,5 @@ class RepresentationStageService(BasePlaceholderService):
                 return "、".join(stage_names)
 
         except Exception as e:
-            logger.warning(f"格式化代理阶段失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("格式化代理阶段失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return ""

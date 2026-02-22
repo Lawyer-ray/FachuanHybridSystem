@@ -68,7 +68,7 @@ class PlaceholderService:
                 description=description,
                 is_active=is_active,
             )
-            logger.info(f"创建占位符: {key}")
+            logger.info("创建占位符: %s", key)
             return placeholder
         except IntegrityError as e:
             raise ValidationException(
@@ -201,7 +201,7 @@ class PlaceholderService:
 
         try:
             placeholder.save()
-            logger.info(f"更新占位符: {placeholder.key} (ID: {placeholder.pk})")
+            logger.info("更新占位符: %s (ID: %s)", placeholder.key, placeholder.pk)
             return placeholder
         except IntegrityError as e:
             raise ValidationException(
@@ -234,7 +234,7 @@ class PlaceholderService:
 
         placeholder.is_active = False
         placeholder.save(update_fields=["is_active"])
-        logger.info(f"软删除占位符: {placeholder.key} (ID: {placeholder.pk})")
+        logger.info("软删除占位符: %s (ID: %s)", placeholder.key, placeholder.pk)
         return True
 
     def list_placeholders(self, is_active: bool | None = None) -> list[Placeholder]:
@@ -294,10 +294,10 @@ class PlaceholderService:
                         setattr(placeholder, field, value)
                 placeholder.save()
                 updated_count += 1
-                logger.info(f"更新占位符: {key}")
+                logger.info("更新占位符: %s", key)
             except Placeholder.DoesNotExist:
-                logger.warning(f"占位符 {key} 不存在,跳过更新")
+                logger.warning("占位符 %s 不存在,跳过更新", key)
             except Exception as e:
-                logger.error(f"更新占位符 {key} 失败: {e}")
+                logger.error("更新占位符 %s 失败: %s", key, e)
 
         return updated_count

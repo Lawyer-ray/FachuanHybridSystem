@@ -79,7 +79,7 @@ class CaseDetailService(BasePlaceholderService):
             lines = [f"对方当事人名称:{opposing_names}", "案由:", "审理机关:", "案件金额:"]
             return "\n".join(lines)
         except Exception as e:
-            logger.warning(f"格式化无案件详情失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("格式化无案件详情失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return "对方当事人名称:\n案由:\n审理机关:\n案件金额:"
 
     def _format_with_cases(self, cases: list[Any]) -> str:
@@ -102,7 +102,7 @@ class CaseDetailService(BasePlaceholderService):
                     case_details.append(detail)
             return "\x07".join(case_details)
         except Exception as e:
-            logger.warning(f"格式化有案件详情失败: {e}")
+            logger.warning("格式化有案件详情失败: %s", e)
             return ""
 
     def _format_single_case_detail(self, case_index: int, case: Any) -> str:
@@ -132,7 +132,7 @@ class CaseDetailService(BasePlaceholderService):
             ]
             return "\n".join(lines)
         except Exception as e:
-            logger.warning(f"格式化案件详情失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("格式化案件详情失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""
 
     def _format_case_number(self, num: int) -> str:
@@ -161,7 +161,7 @@ class CaseDetailService(BasePlaceholderService):
             chinese_num = chinese_numbers.get(num, str(num))
             return f"案件{chinese_num}:"
         except Exception as e:
-            logger.warning(f"格式化案件序号失败: {e}", extra={"num": num})
+            logger.warning("格式化案件序号失败: %s", e, extra={"num": num})
             return "案件:"
 
     def _extract_opposing_parties_from_case(self, case: Any) -> list[str]:
@@ -210,7 +210,7 @@ class CaseDetailService(BasePlaceholderService):
                 return cause.split("-")[0].strip()
             return cause.strip()
         except Exception as e:
-            logger.warning(f"提取案由失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("提取案由失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""
 
     def _extract_supervising_authority(self, case: Any) -> str:
@@ -231,7 +231,7 @@ class CaseDetailService(BasePlaceholderService):
                     return authority.name or ""
             return ""
         except Exception as e:
-            logger.warning(f"提取审理机关失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("提取审理机关失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""
 
     def _format_target_amount(self, case: Any) -> str:
@@ -250,5 +250,5 @@ class CaseDetailService(BasePlaceholderService):
                 return ""
             return f"{amount:.2f}元"
         except Exception as e:
-            logger.warning(f"格式化案件金额失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("格式化案件金额失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""

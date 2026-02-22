@@ -74,7 +74,7 @@ class PlaceholderRegistry:
 
         # 注册服务
         registry._services[service_class.name] = service_class
-        logger.info(f"注册占位符服务: {service_class.name} ({service_class.__name__})")
+        logger.info("注册占位符服务: %s (%s)", service_class.name, service_class.__name__)
 
         return service_class
 

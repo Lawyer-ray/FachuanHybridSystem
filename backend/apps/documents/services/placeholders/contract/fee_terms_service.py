@@ -70,7 +70,7 @@ class FeeTermsService(BasePlaceholderService):
                 return "收费条款待定。"
 
         except Exception as e:
-            logger.warning(f"生成收费条款失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("生成收费条款失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return "收费条款待定。"
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:
@@ -134,5 +134,5 @@ class FeeTermsService(BasePlaceholderService):
             number_service = NumberPlaceholderService()
             return number_service.number_to_chinese(amount)
         except Exception as e:
-            logger.warning(f"数字转换失败: {e}", extra={"amount": amount})
+            logger.warning("数字转换失败: %s", e, extra={"amount": amount})
             return "零"

@@ -88,7 +88,7 @@ class CriminalCauseService(BasePlaceholderService):
             logger.warning("合同对象没有 cases 属性", extra={"contract_id": getattr(contract, "id", None)})
             return ""
         except Exception as e:
-            logger.warning(f"提取案由失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
+            logger.warning("提取案由失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return ""
 
     def _clean_cause_of_action(self, case: Any) -> Any:
@@ -115,5 +115,5 @@ class CriminalCauseService(BasePlaceholderService):
             return cause.strip()
 
         except Exception as e:
-            logger.warning(f"清理案由失败: {e}", extra={"case_id": getattr(case, "id", None)})
+            logger.warning("清理案由失败: %s", e, extra={"case_id": getattr(case, "id", None)})
             return ""

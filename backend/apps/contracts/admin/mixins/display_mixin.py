@@ -14,6 +14,9 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions import PermissionDenied as AppPermissionDenied
+
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.contracts")
@@ -46,8 +49,12 @@ class ContractDisplayMixin:
 
     def get_primary_lawyer(self, obj) -> Any:
         """显示主办律师"""
-        lawyer = obj.primary_lawyer
-        if lawyer:
+        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
+
+        service = get_contract_assignment_query_service()
+        assignment = service.get_primary_lawyer(obj.pk)
+        if assignment:
+            lawyer = assignment.lawyer
             return lawyer.real_name or lawyer.username
         return "-"
 
@@ -55,8 +62,12 @@ class ContractDisplayMixin:
 
     def get_primary_lawyer_display(self, obj) -> Any:
         """详情页显示主办律师(只读)"""
-        lawyer = obj.primary_lawyer
-        if lawyer:
+        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
+
+        service = get_contract_assignment_query_service()
+        assignment = service.get_primary_lawyer(obj.pk)
+        if assignment:
+            lawyer = assignment.lawyer
             name = lawyer.real_name or lawyer.username
             return f"{name} (ID: {lawyer.id})"
         return "无"
@@ -87,7 +98,7 @@ class ContractDisplayMixin:
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
-        except Exception as e:
+        except (NotFoundError, ValidationException, AppPermissionDenied, PermissionDenied, RuntimeError) as e:
             logger.error(f"获取合同 {obj.id} 匹配模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
@@ -104,7 +115,7 @@ class ContractDisplayMixin:
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
-        except Exception as e:
+        except (NotFoundError, ValidationException, AppPermissionDenied, PermissionDenied, RuntimeError) as e:
             logger.error(f"获取合同 {obj.id} 匹配文件夹模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
@@ -184,7 +195,7 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             result = display_service.get_matched_document_template(contract)
             return result not in ["无匹配模板", "查询失败"]
-        except Exception as e:
+        except (NotFoundError, ValidationException, AppPermissionDenied, PermissionDenied, RuntimeError) as e:
             logger.error(f"检查合同 {contract.id} 的文书模板失败: {e!s}", exc_info=True)
             return False
 
@@ -201,6 +212,6 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             result = display_service.get_matched_folder_templates(contract)
             return result not in ["无匹配模板", "查询失败"]
-        except Exception as e:
+        except (NotFoundError, ValidationException, AppPermissionDenied, PermissionDenied, RuntimeError) as e:
             logger.error(f"检查合同 {contract.id} 的文件夹模板失败: {e!s}", exc_info=True)
             return False

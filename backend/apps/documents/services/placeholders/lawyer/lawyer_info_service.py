@@ -83,7 +83,7 @@ class LawyerInfoService(BasePlaceholderService):
             logger.info("律师分配列表为空")
             return ""
 
-        logger.info(f"开始格式化律师姓名,共 {len(assignments)} 个律师分配")
+        logger.info("开始格式化律师姓名,共 %s 个律师分配", len(assignments))
 
         primary_lawyers: list[Any] = []
         assistant_lawyers: list[Any] = []
@@ -114,7 +114,7 @@ class LawyerInfoService(BasePlaceholderService):
         all_lawyers = primary_lawyers + assistant_lawyers
 
         result = "、".join(all_lawyers)
-        logger.info(f"格式化完成,结果: {result}")
+        logger.info("格式化完成,结果: %s", result)
 
         return result
 

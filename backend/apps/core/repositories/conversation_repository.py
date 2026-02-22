@@ -6,6 +6,8 @@ ConversationHistory Repository
 
 from typing import Any
 
+from django.db.models import QuerySet
+
 from apps.core.models.conversation import ConversationHistory
 
 
@@ -14,33 +16,33 @@ class ConversationHistoryRepository:
 
     def create(
         self,
+        *,
         session_id: str,
         user_id: str,
         role: str,
         content: str,
-        metadata: dict[str, Any] | None = None,
+        metadata: dict[str, Any],
+        litigation_session_id: int | None = None,
+        step: str = "",
     ) -> ConversationHistory:
-        """创建对话记录"""
         return ConversationHistory.objects.create(
             session_id=session_id,
             user_id=user_id,
             role=role,
             content=content,
-            metadata=metadata or {},
+            metadata=metadata,
+            litigation_session_id=litigation_session_id,
+            step=step,
         )
 
-    def get_by_session(self, session_id: str, limit: int = 20) -> list[ConversationHistory]:
-        """根据 session_id 获取对话历史"""
-        return list(ConversationHistory.objects.filter(session_id=session_id).order_by("created_at")[:limit])
+    def get_by_session_id(self, session_id: str) -> QuerySet[ConversationHistory]:
+        return ConversationHistory.objects.filter(session_id=session_id)
 
-    def get_all(self) -> list[ConversationHistory]:
-        """获取所有对话记录"""
-        return list(ConversationHistory.objects.all())
+    def get_by_litigation_session_ids(self, litigation_session_ids: list[int]) -> QuerySet[ConversationHistory]:
+        return ConversationHistory.objects.filter(litigation_session_id__in=litigation_session_ids)
 
-    def filter_by_user(self, user_id: str) -> list[ConversationHistory]:
-        """根据用户ID过滤"""
-        return list(ConversationHistory.objects.filter(user_id=user_id))
+    def get_all(self) -> QuerySet[ConversationHistory]:
+        return ConversationHistory.objects.all()
 
-    def filter_by_role(self, role: str) -> list[ConversationHistory]:
-        """根据角色过滤"""
-        return list(ConversationHistory.objects.filter(role=role))
+    def delete_by_session_id(self, session_id: str) -> tuple[int, dict[str, int]]:
+        return ConversationHistory.objects.filter(session_id=session_id).delete()

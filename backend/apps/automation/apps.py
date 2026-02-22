@@ -8,6 +8,7 @@ class AutomationConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.automation"
     verbose_name = _("自动化工具")
+    _recovery_scheduled: bool = False
 
     def ready(self) -> None:
         """应用启动时的配置"""

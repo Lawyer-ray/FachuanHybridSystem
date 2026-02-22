@@ -157,7 +157,7 @@ class PreservationPropertyClueService(BasePlaceholderService):
         )
 
         if not respondent_party_dtos:
-            logger.warning(f"未找到被申请人: case_id={case_id}")
+            logger.warning("未找到被申请人: case_id=%s", case_id)
             return ""
 
         result_parts: list[Any] = []
@@ -210,7 +210,7 @@ class PreservationPropertyClueService(BasePlaceholderService):
         # 用 \a\a 分隔各被申请人
         result = "\a\a".join(result_parts)
 
-        logger.info(f"生成财产保全申请书财产线索成功: case_id={case_id}, 被申请人数={len(respondent_party_dtos)}")
+        logger.info("生成财产保全申请书财产线索成功: case_id=%s, 被申请人数=%s", case_id, len(respondent_party_dtos))
 
         return result
 

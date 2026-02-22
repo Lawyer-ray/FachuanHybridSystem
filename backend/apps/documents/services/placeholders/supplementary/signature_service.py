@@ -157,7 +157,7 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
             client_service = get_client_service()
             return client_service.is_natural_person_internal(client.id)
         except Exception as e:
-            logger.warning(f"判断客户类型失败: {e}", extra={"client_id": getattr(client, "id", None)})
+            logger.warning("判断客户类型失败: %s", e, extra={"client_id": getattr(client, "id", None)})
             # 默认认为是法人(更安全的选择,会包含"代表:")
             return False
 
