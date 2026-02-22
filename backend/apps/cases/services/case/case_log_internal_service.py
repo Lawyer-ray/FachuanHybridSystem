@@ -21,7 +21,7 @@ class CaseLogInternalService:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
         actor_id = user_id
         if not actor_id:
             actor_id = get_organization_service().get_default_lawyer_id_internal()
@@ -47,7 +47,7 @@ class CaseLogInternalService:
         try:
             case_log = CaseLog.objects.get(id=case_log_id)
         except CaseLog.DoesNotExist:
-            raise NotFoundError(f"案件日志 {case_log_id} 不存在") from None
+            raise NotFoundError(_("案件日志 %(id)s 不存在") % {"id": case_log_id}) from None
         try:
             from apps.cases.models import CaseLogAttachment
 
@@ -65,7 +65,8 @@ class CaseLogInternalService:
             return True
         except Exception as e:
             logger.error(
-                f"添加案件日志附件失败:{e}",
+                "添加案件日志附件失败: %s",
+                e,
                 extra={
                     "action": "add_case_log_attachment_internal",
                     "case_log_id": case_log_id,

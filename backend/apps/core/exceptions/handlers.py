@@ -93,9 +93,7 @@ def _attach_request_meta(request: HttpRequest, payload: Any) -> Any:
         from apps.core.infrastructure.request_context import get_trace_ids
 
         trace_id, span_id = get_trace_ids()
-    except Exception:
-        _meta_logger = logging.getLogger(__name__)
-        _meta_logger.exception("Failed to get trace IDs")
+    except (ImportError, AttributeError):
         trace_id, span_id = None, None
     payload.setdefault("request_id", request_id)
     payload.setdefault("trace_id", trace_id or request_id)
@@ -120,8 +118,7 @@ def _set_retry_after_header(response: HttpResponse, retry_after: int) -> None:
     """Set Retry-After response header."""
     try:
         response.headers["Retry-After"] = str(max(0, retry_after))
-    except Exception:
-        logger.exception("Failed to set Retry-After header")
+    except (AttributeError, TypeError, KeyError):
         response["Retry-After"] = str(max(0, retry_after))
 
 
@@ -284,8 +281,8 @@ def _register_llm_handlers(api: NinjaAPI, create_response: _CreateResponse) -> N
 
     except ImportError:
         pass
-    except Exception:
-        logger.exception("Failed to register LLM exception handlers")
+    except (AttributeError, TypeError):
+        logger.warning("Failed to register LLM exception handlers")
 
 
 def _register_django_handlers(api: NinjaAPI, create_response: _CreateResponse) -> None:

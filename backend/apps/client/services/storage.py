@@ -134,7 +134,6 @@ def save_uploaded_file(
     use_uuid_name: bool = True,
     max_size_bytes: int | None = None,
     allowed_extensions: list[str] | None = None,
-    allowed_mime_types: list[str] | None = None,
 ) -> tuple[str, str]:
     if not hasattr(uploaded_file, "name"):
         raise ValidationException(message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": "缺少文件名"})

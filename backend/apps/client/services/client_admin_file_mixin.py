@@ -60,10 +60,10 @@ class ClientAdminFileMixin:
         doc_type_display: str = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
         file_path = self._save_uploaded_file(uploaded_file, client_name, doc_type_display)
         if file_path:
-            ClientIdentityDoc.objects.filter(id=doc_id).update(file_path=file_path)
-            doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
-            if doc:
-                self.identity_doc_service.rename_uploaded_file(doc)
+            doc = self.identity_doc_service.get_identity_doc(doc_id)
+            doc.file_path = file_path
+            doc.save(update_fields=["file_path"])
+            self.identity_doc_service.rename_uploaded_file(doc)
             logger.info(
                 "证件文件保存成功",
                 extra={

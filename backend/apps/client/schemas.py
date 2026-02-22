@@ -151,20 +151,19 @@ class PropertyClueOut(Schema):
         return str(getattr(obj, "clue_type", ""))
 
     @staticmethod
-    def resolve_attachments(obj: Any) -> list[dict[str, Any]]:
+    def resolve_attachments(obj: Any) -> list[PropertyClueAttachmentOut]:
         """解析财产线索附件列表。"""
         if not hasattr(obj, "attachments"):
             return []
-        items = obj.attachments.all()
         return [
-            {
-                "id": item.id,
-                "file_path": item.file_path,
-                "file_name": item.file_name,
-                "uploaded_at": item.uploaded_at,
-                "media_url": item.media_url if hasattr(item, "media_url") else None,
-            }
-            for item in items
+            PropertyClueAttachmentOut(
+                id=item.id,
+                file_path=item.file_path,
+                file_name=item.file_name,
+                uploaded_at=item.uploaded_at,
+                media_url=item.media_url if hasattr(item, "media_url") else None,
+            )
+            for item in obj.attachments.all()
         ]
 
 

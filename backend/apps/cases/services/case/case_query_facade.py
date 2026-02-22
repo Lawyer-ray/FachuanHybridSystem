@@ -121,7 +121,7 @@ class CaseQueryFacade:
         try:
             case = self.get_case_queryset().get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         self.access_policy.ensure_access(
             case_id=case.id,
@@ -138,7 +138,7 @@ class CaseQueryFacade:
         try:
             case = self.get_case_queryset().get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         self.access_policy.ensure_access_ctx(case_id=case.id, ctx=ctx, case=case, message=_("无权限访问此案件"))
 

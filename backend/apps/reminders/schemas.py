@@ -72,14 +72,6 @@ class ReminderOut(SchemaMixin, Schema):
     created_at: str | None = None
 
     @staticmethod
-    def resolve_contract_id(obj: Reminder) -> int | None:
-        return obj.contract_id
-
-    @staticmethod
-    def resolve_case_log_id(obj: Reminder) -> int | None:
-        return obj.case_log_id
-
-    @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:
         return SchemaMixin._get_display(obj, "reminder_type") or ""
 

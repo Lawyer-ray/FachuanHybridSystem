@@ -106,9 +106,7 @@ class ExceptionPresenter:
                     ),
                     status,
                 )
-        except Exception:
-            logger.exception("操作失败")
-
+        except (ImportError, AttributeError):
             pass
 
         try:
@@ -119,9 +117,7 @@ class ExceptionPresenter:
                     message="大模型鉴权失败,请检查配置", code="LLM_AUTH_ERROR", errors={"detail": str(exc)}
                 )
                 return self.present(mapped, channel=channel, debug=debug)
-        except Exception:
-            logger.exception("操作失败")
-
+        except (ImportError, AttributeError):
             pass
 
         message = str(exc) if debug else "系统错误,请稍后重试"

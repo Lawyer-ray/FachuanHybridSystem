@@ -133,8 +133,6 @@ class ReminderService:
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""
-        if case_log_id is None:
-            raise ValidationException(_("案件日志ID 不能为空"))
         return set(
             Reminder.objects.filter(
                 case_log_id=case_log_id,
