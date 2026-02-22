@@ -69,7 +69,7 @@ class EvidenceListPlaceholderService:
         "证据清单签名盖章信息",
     ]
 
-    def __init__(self, case_service: Optional["ICaseService"] = None) -> None:
+    def __init__(self, case_service: "ICaseService" | None = None) -> None:
         """
         初始化服务
 

@@ -36,7 +36,7 @@ class BaseGenerator(ABC):
     category: str = "general"  # 分类:litigation, non_litigation, general
     template_type: str = "contract"  # 模板类型:contract, case, authorization
 
-    def __init__(self, context_builder: Optional["ContextBuilder"] = None) -> None:
+    def __init__(self, context_builder: "ContextBuilder" | None = None) -> None:
         """
         初始化生成器
 

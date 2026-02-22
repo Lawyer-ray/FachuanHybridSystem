@@ -50,8 +50,6 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 except Exception:
                     logger.exception("操作失败")
 
-                    pass
-
         required_previous_type = LIST_TYPE_PREVIOUS.get(obj.list_type)
         if required_previous_type:
             previous_list = EvidenceList.objects.filter(case=obj.case, list_type=required_previous_type).first()

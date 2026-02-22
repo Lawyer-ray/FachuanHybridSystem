@@ -28,7 +28,7 @@ class SupplementaryAgreementGenerationService:
     def __init__(
         self,
         contract_service: IContractService | None = None,
-        folder_binding_service: Optional["IContractFolderBindingService"] = None,
+        folder_binding_service: "IContractFolderBindingService" | None = None,
     ) -> None:
         """
         初始化服务
@@ -50,7 +50,7 @@ class SupplementaryAgreementGenerationService:
         return self._contract_service
 
     @property
-    def folder_binding_service(self) -> Optional["IContractFolderBindingService"]:
+    def folder_binding_service(self) -> "IContractFolderBindingService" | None:
         return self._folder_binding_service
 
     def generate_supplementary_agreement(
@@ -105,7 +105,7 @@ class SupplementaryAgreementGenerationService:
         content, filename, error = self.generate_supplementary_agreement(contract_id, agreement_id)
         return (content, filename, self._last_saved_path, error)
 
-    def find_supplementary_agreement_template(self, case_type: str) -> Optional["DocumentTemplate"]:
+    def find_supplementary_agreement_template(self, case_type: str) -> "DocumentTemplate" | None:
         """
         查找补充协议模板
 
@@ -117,7 +117,7 @@ class SupplementaryAgreementGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return cast(Optional["DocumentTemplate"], TemplateMatcher().match_supplementary_agreement_template(case_type))
+        return cast("DocumentTemplate" | None, TemplateMatcher().match_supplementary_agreement_template(case_type))
 
     def build_context(self, contract: Any, agreement: Any) -> dict[str, Any]:
         """

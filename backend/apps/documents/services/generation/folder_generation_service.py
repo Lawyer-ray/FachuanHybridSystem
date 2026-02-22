@@ -43,7 +43,7 @@ class FolderGenerationService:
 
     def __init__(
         self,
-        contract_service: Optional["IContractService"] = None,
+        contract_service: "IContractService" | None = None,
         folder_binding_service: Any | None = None,
     ) -> None:
         """
@@ -72,7 +72,7 @@ class FolderGenerationService:
     def folder_binding_service(self) -> Any | None:
         return self._folder_binding_service
 
-    def find_matching_folder_template(self, case_type: str) -> Optional["FolderTemplate"]:
+    def find_matching_folder_template(self, case_type: str) -> "FolderTemplate" | None:
         """
         根据合同类型查找匹配的文件夹模板
 
@@ -84,7 +84,7 @@ class FolderGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return cast(Optional["FolderTemplate"], TemplateMatcher().match_folder_template(case_type))
+        return cast("FolderTemplate" | None, TemplateMatcher().match_folder_template(case_type))
 
     def format_root_folder_name(self, contract: Any) -> str:
         """
