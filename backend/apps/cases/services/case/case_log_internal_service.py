@@ -29,7 +29,7 @@ class CaseLogInternalService:
                 raise NotFoundError(
                     message=_("系统中没有律师用户,无法创建日志"),
                     code="NO_DEFAULT_ACTOR",
-                    errors={"actor": "请先创建律师用户"},
+                    errors={"actor": str(_("请先创建律师用户"))},
                 )
         case_log = CaseLog.objects.create(case=case, content=content, actor_id=actor_id)
         logger.info(

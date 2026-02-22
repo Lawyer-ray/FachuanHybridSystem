@@ -45,7 +45,7 @@ class PartySelectionPolicy:
                 raise ValidationException(
                     message=_("法定代表人身份证明书需要指定当事人"),
                     code="INVALID_CLIENT",
-                    errors={"client_id": "必须提供 client_id"},
+                    errors={"client_id": str(_("必须提供 client_id"))},
                 )
             client = self._get_our_legal_client(case=case, client_id=client_id)
             return SelectedParties(client=client, clients=None)

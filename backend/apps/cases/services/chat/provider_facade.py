@@ -37,7 +37,7 @@ class ChatProviderFacade:
                 message=_("群聊平台不可用: %(platform)s") % {"platform": platform.label},
                 code="PROVIDER_NOT_AVAILABLE",
                 platform=platform.value,
-                errors={"platform_status": "配置不完整或服务不可用"},
+                errors={"platform_status": str(_("配置不完整或服务不可用"))},
             )
         return provider
 

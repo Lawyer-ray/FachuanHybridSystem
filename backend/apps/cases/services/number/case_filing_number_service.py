@@ -23,7 +23,7 @@ class CaseFilingNumberService:
                 raise ValidationException(
                     message=_("案件类型不能为空"),
                     code="INVALID_CASE_TYPE",
-                    errors={"case_type": "案件类型不能为空"},
+                    errors={"case_type": str(_("案件类型不能为空"))},
                 )
 
             if not (1900 <= created_year <= 2100):
@@ -52,10 +52,10 @@ class CaseFilingNumberService:
                         message=_("建档编号生成失败(数据库未迁移)"),
                         code="FILING_NUMBER_MIGRATION_REQUIRED",
                         errors={
-                            "detail": (
+                            "detail": str(_(
                                 "缺少表 cases_casefilingnumbersequence,"
                                 "请执行迁移 cases.0009_case_filing_number_sequence"
-                            ),
+                            )),
                         },
                     ) from e
                 raise
