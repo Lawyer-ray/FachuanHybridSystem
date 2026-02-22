@@ -15,6 +15,9 @@ from .account_credential_service import AccountCredentialService
 
 if TYPE_CHECKING:
     from apps.core.dto.organization import LawyerDTO
+    from apps.organization.services.lawfirm_service import LawFirmService
+    from apps.organization.services.lawyer_service import LawyerService
+    from apps.organization.services.team_service import TeamService
 
 
 class OrganizationServiceAdapter(IOrganizationService):
@@ -32,6 +35,9 @@ class OrganizationServiceAdapter(IOrganizationService):
             account_credential_service: 账号凭证服务（可选，用于依赖注入）
         """
         self._account_credential_service = account_credential_service
+        self._lawfirm_service: LawFirmService | None = None
+        self._team_service: TeamService | None = None
+        self._lawyer_service: LawyerService | None = None
 
     @property
     def account_credential_service(self) -> AccountCredentialService:
@@ -39,6 +45,33 @@ class OrganizationServiceAdapter(IOrganizationService):
         if self._account_credential_service is None:
             self._account_credential_service = AccountCredentialService()
         return self._account_credential_service
+
+    @property
+    def lawfirm_service(self) -> LawFirmService:
+        """延迟加载律所服务"""
+        if self._lawfirm_service is None:
+            from apps.organization.services.lawfirm_service import LawFirmService
+
+            self._lawfirm_service = LawFirmService()
+        return self._lawfirm_service
+
+    @property
+    def team_service(self) -> TeamService:
+        """延迟加载团队服务"""
+        if self._team_service is None:
+            from apps.organization.services.team_service import TeamService
+
+            self._team_service = TeamService()
+        return self._team_service
+
+    @property
+    def lawyer_service(self) -> LawyerService:
+        """延迟加载律师服务"""
+        if self._lawyer_service is None:
+            from apps.organization.services.lawyer_service import LawyerService
+
+            self._lawyer_service = LawyerService()
+        return self._lawyer_service
 
     def get_law_firm(self, law_firm_id: int) -> dict[str, Any] | None:
         """
@@ -50,9 +83,16 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             律所信息字典，不存在时返回 None
         """
-        # TODO: 实现律所信息获取逻辑
-        # 这里暂时返回None，后续可以通过LawFirmService实现
-        return None
+        lawfirm = self.lawfirm_service._get_lawfirm_internal(law_firm_id)
+        if lawfirm is None:
+            return None
+        return {
+            "id": lawfirm.id,
+            "name": lawfirm.name,
+            "address": lawfirm.address,
+            "phone": lawfirm.phone,
+            "social_credit_code": lawfirm.social_credit_code,
+        }
 
     def get_team(self, team_id: int) -> dict[str, Any] | None:
         """
@@ -64,23 +104,35 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             团队信息字典，不存在时返回 None
         """
-        # TODO: 实现团队信息获取逻辑
-        # 这里暂时返回None，后续可以通过TeamService实现
-        return None
+        from apps.organization.models import Team
 
-    def get_lawyers_in_organization(self, organization_id: int) -> list[AccountCredentialDTO]: # type: ignore
+        team = Team.objects.select_related("law_firm").filter(id=team_id).first()
+        if team is None:
+            return None
+        return {
+            "id": team.id,
+            "name": team.name,
+            "team_type": team.team_type,
+            "law_firm_id": team.law_firm_id,
+            "law_firm_name": team.law_firm.name if team.law_firm else None,
+        }
+
+    def get_lawyers_in_organization(self, organization_id: int) -> list[LawyerDTO]:
         """
         获取组织内的所有律师
 
         Args:
-            organization_id: 组织 ID
+            organization_id: 组织 ID（律所 ID）
 
         Returns:
             律师 DTO 列表
         """
-        # TODO: 实现组织内律师获取逻辑
-        # 这里暂时返回空列表，后续可以通过LawyerService实现
-        return []
+        from apps.organization.models import Lawyer
+        from apps.organization.services.dto_assemblers import LawyerDtoAssembler
+
+        lawyers = Lawyer.objects.select_related("law_firm").filter(law_firm_id=organization_id)
+        assembler = LawyerDtoAssembler()
+        return [assembler.to_dto(lawyer) for lawyer in lawyers]
 
     def get_all_credentials_internal(self) -> list[AccountCredentialDTO]:
         """
@@ -89,7 +141,6 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             所有账号凭证的 DTO 列表
         """
-        # 直接从数据库获取所有凭证，绕过权限检查
         from apps.organization.models import AccountCredential
 
         credentials = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").all()
@@ -129,12 +180,10 @@ class OrganizationServiceAdapter(IOrganizationService):
 
         from apps.organization.models import AccountCredential
 
-        # 站点名称到URL关键字的映射
         SITE_URL_MAPPING = {
             "court_zxfw": "zxfw.court.gov.cn",
         }
 
-        # 构建查询条件
         url_keyword = SITE_URL_MAPPING.get(site_name, site_name)
 
         credentials = (
@@ -204,7 +253,7 @@ class OrganizationServiceAdapter(IOrganizationService):
 
         AccountCredential.objects.filter(id=credential_id).update(login_failure_count=F("login_failure_count") + 1)
 
-    def get_lawyer_by_id_internal(self, lawyer_id: int) -> "LawyerDTO | None":
+    def get_lawyer_by_id_internal(self, lawyer_id: int) -> LawyerDTO | None:
         """
         内部方法：根据 ID 获取律师信息（无权限检查）
 
@@ -214,12 +263,12 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             LawyerDTO，不存在返回 None
         """
-        from apps.core.dto.organization import LawyerDTO
+        from apps.core.dto.organization import LawyerDTO as LawyerDTOClass
         from apps.organization.models import Lawyer
 
         try:
             lawyer = Lawyer.objects.select_related("law_firm").get(id=lawyer_id)
-            return LawyerDTO.from_model(lawyer)
+            return LawyerDTOClass.from_model(lawyer)
         except Lawyer.DoesNotExist:
             return None
 
