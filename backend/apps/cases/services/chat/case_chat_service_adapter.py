@@ -27,7 +27,6 @@ class CaseChatServiceAdapter(ICaseChatService):
         """
         初始化适配器
 
-        Args:
             service: CaseChatService 实例,如果为 None 则创建新实例
         """
         self.service = service or CaseChatService()
@@ -36,15 +35,12 @@ class CaseChatServiceAdapter(ICaseChatService):
         """
         发送消息到案件群聊
 
-        Args:
             case_id: 案件 ID
             message: 消息内容
             files: 附件文件路径列表(可选)
 
-        Returns:
             是否发送成功
 
-        Raises:
             NotFoundError: 案件不存在或未配置群聊
             BusinessException: 消息发送失败
         """
@@ -94,10 +90,8 @@ class CaseChatServiceAdapter(ICaseChatService):
         """
         获取案件的群聊ID
 
-        Args:
             case_id: 案件 ID
 
-        Returns:
             群聊 ID,未配置时返回 None
         """
         try:

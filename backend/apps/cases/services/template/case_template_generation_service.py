@@ -42,17 +42,14 @@ class CaseTemplateGenerationService:
         """
         生成模板文档
 
-        Args:
             case_id: 案件ID
             template_id: 模板ID
             client_id: 当事人ID(可选,用于法定代表人身份证明书、单独授权)
             client_ids: 当事人ID列表(可选,用于合并授权)
             mode: 授权模式(可选): 'individual' | 'combined'
 
-        Returns:
             Tuple[bytes, str]: (文档字节流, 文件名)
 
-        Raises:
             NotFoundError: 案件或模板不存在
             ValidationException: 模板文件无效或当事人无效
 
@@ -100,10 +97,8 @@ class CaseTemplateGenerationService:
         """
         判断是否为法定代表人身份证明书模板
 
-        Args:
             template: DocumentTemplate 模型实例
 
-        Returns:
             bool: 是否为法定代表人身份证明书模板
         """
         return template.name == self.LEGAL_REP_CERT_TEMPLATE
@@ -112,10 +107,8 @@ class CaseTemplateGenerationService:
         """
         判断是否为授权委托书模板
 
-        Args:
             template: DocumentTemplate 模型实例
 
-        Returns:
             bool: 是否为授权委托书模板
         """
         return template.name == self.POWER_OF_ATTORNEY_TEMPLATE
@@ -124,14 +117,11 @@ class CaseTemplateGenerationService:
         """
         获取我方当事人
 
-        Args:
             case: Case 模型实例
             client_id: 当事人ID
 
-        Returns:
             Client 模型实例
 
-        Raises:
             ValidationException: 当事人不存在或非我方当事人
 
         Requirements: 4.3
@@ -157,14 +147,11 @@ class CaseTemplateGenerationService:
         """
         获取我方法人当事人
 
-        Args:
             case: Case 模型实例
             client_id: 当事人ID
 
-        Returns:
             Client 模型实例
 
-        Raises:
             ValidationException: 当事人不存在、非我方当事人或非法人
 
         Requirements: 4.3
@@ -184,10 +171,8 @@ class CaseTemplateGenerationService:
         """
         统计我方当事人数量
 
-        Args:
             case: Case 模型实例
 
-        Returns:
             int: 我方当事人数量
         """
         return case.parties.filter(client__is_our_client=True).count()
@@ -196,13 +181,10 @@ class CaseTemplateGenerationService:
         """
         获取案件模型
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             Case 模型实例
 
-        Raises:
             NotFoundError: 案件不存在
         """
         case_service = get_case_service()
@@ -217,13 +199,10 @@ class CaseTemplateGenerationService:
         """
         获取模板模型
 
-        Args:
             template_id: 模板ID
 
-        Returns:
             DocumentTemplate 模型实例
 
-        Raises:
             NotFoundError: 模板不存在
         """
         document_service = get_document_service()
@@ -240,13 +219,10 @@ class CaseTemplateGenerationService:
         """
         获取模板文件路径
 
-        Args:
             template: DocumentTemplate 模型实例
 
-        Returns:
             模板文件路径
 
-        Raises:
             ValidationException: 模板文件路径无效
         """
         location = (getattr(template, "file_path", None) or "").strip()
@@ -267,12 +243,10 @@ class CaseTemplateGenerationService:
         """
         使用 EnhancedContextBuilder 构建上下文
 
-        Args:
             case: Case 模型实例
             client: 单个当事人(可选)
             clients: 当事人列表(可选,用于合并授权)
 
-        Returns:
             占位符上下文字典
 
         Requirements: 3.1
@@ -290,14 +264,11 @@ class CaseTemplateGenerationService:
         """
         使用 docxtpl 渲染模板
 
-        Args:
             template_path: 模板文件路径
             context: 占位符上下文字典
 
-        Returns:
             渲染后的文档字节流
 
-        Raises:
             ValidationException: 模板渲染失败
 
         Requirements: 3.2, 3.3, 3.4
@@ -335,14 +306,12 @@ class CaseTemplateGenerationService:
         - 授权委托书(单独授权,多当事人): {模板名称}({当事人名称})({案件名称})V1_{日期}.docx
         - 授权委托书(合并授权或单当事人): {模板名称}({案件名称})V1_{日期}.docx
 
-        Args:
             template_name: 模板名称
             case_name: 案件名称
             client_name: 当事人名称(可选)
             is_combined: 是否为合并授权
             our_party_count: 我方当事人数量
 
-        Returns:
             安全的文件名
 
         Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
@@ -366,10 +335,8 @@ class CaseTemplateGenerationService:
 
         替换特殊字符: /, \\, \\n, \\r, \\t
 
-        Args:
             name: 原始名称
 
-        Returns:
             安全的名称
 
         Requirements: 4.2

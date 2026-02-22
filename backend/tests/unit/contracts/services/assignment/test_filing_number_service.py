@@ -12,7 +12,7 @@ def test_generate_contract_filing_number_on_sqlite_does_not_fail():
     created_year = contract.specified_date.year  # type: ignore[attr-defined]
 
     filing_number = service.generate_contract_filing_number(
-        contract_id=contract.id, # type: ignore
+        contract_id=contract.id,  # type: ignore
         case_type=contract.case_type,
         created_year=created_year,
     )
@@ -24,7 +24,7 @@ def test_generate_contract_filing_number_on_sqlite_does_not_fail():
 
     contract2 = ContractFactory(case_type=CaseType.CIVIL, specified_date=contract.specified_date)
     filing_number2 = service.generate_contract_filing_number(
-        contract_id=contract2.id, # type: ignore
+        contract_id=contract2.id,  # type: ignore
         case_type=contract2.case_type,
         created_year=created_year,
     )

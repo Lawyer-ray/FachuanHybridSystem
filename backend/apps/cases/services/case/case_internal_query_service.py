@@ -109,11 +109,9 @@ class CaseInternalQueryService:
 
         支持按案件名称、案号、当事人搜索.
 
-        Args:
             search_term: 搜索关键词
             limit: 返回数量限制
 
-        Returns:
             案件信息字典列表
         """
         from django.db.models import Q

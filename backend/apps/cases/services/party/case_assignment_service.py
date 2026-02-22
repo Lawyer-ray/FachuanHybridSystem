@@ -38,7 +38,6 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         初始化服务(依赖注入)
 
-        Args:
             case_service: 案件服务接口(注入)
         """
         self._case_service = case_service
@@ -67,12 +66,10 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         获取指派列表
 
-        Args:
             case_id: 案件 ID(可选,用于过滤)
             lawyer_id: 律师 ID(可选,用于过滤)
             user: 当前用户
 
-        Returns:
             指派查询集
         """
         self.ensure_admin(user, perm_open_access=perm_open_access)
@@ -107,14 +104,11 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         获取单个指派
 
-        Args:
             assignment_id: 指派 ID
             user: 当前用户
 
-        Returns:
             指派对象
 
-        Raises:
             NotFoundError: 指派不存在
         """
         self.ensure_admin(user, perm_open_access=perm_open_access)
@@ -160,15 +154,12 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         创建指派
 
-        Args:
             case_id: 案件 ID
             lawyer_id: 律师 ID
             user: 当前用户
 
-        Returns:
             创建的指派对象
 
-        Raises:
             NotFoundError: 案件不存在
             ConflictError: 指派已存在
             ValidationException: 数据验证失败
@@ -236,15 +227,12 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         更新指派
 
-        Args:
             assignment_id: 指派 ID
             data: 更新数据
             user: 当前用户
 
-        Returns:
             更新后的指派对象
 
-        Raises:
             NotFoundError: 指派不存在
             ValidationException: 数据验证失败
         """
@@ -322,14 +310,11 @@ class CaseAssignmentService(DjangoPermsMixin):
         """
         删除指派
 
-        Args:
             assignment_id: 指派 ID
             user: 当前用户
 
-        Returns:
             {"success": True}
 
-        Raises:
             NotFoundError: 指派不存在
         """
         self.ensure_admin(user, perm_open_access=perm_open_access)

@@ -15,7 +15,7 @@ from ninja_jwt.routers.verify import verify_router
 
 from apps.core.auth import JWTOrSessionAuth
 from apps.core.exceptions import register_exception_handlers
-from apps.core.infrastructure import ( # type: ignore
+from apps.core.infrastructure import (  # type: ignore
     HealthChecker,
     ResourceUsage,
     get_resource_status,
@@ -125,7 +125,7 @@ def health_check(request: HttpRequest) -> dict[str, Any]:
     返回系统整体健康状态
     """
     health = HealthChecker.get_system_health(include_details=False)
-    return health.to_dict() # type: ignore
+    return health.to_dict()  # type: ignore
 
 
 @api_v1.get("/health/detail", tags=["系统"], auth=JWTOrSessionAuth())
@@ -137,7 +137,7 @@ def health_check_detail(request: HttpRequest) -> dict[str, Any]:
     ensure_admin_request(request, message="无权限访问健康检查详情", code="PERMISSION_DENIED")
 
     health = HealthChecker.get_system_health(include_details=True)
-    return health.to_dict() # type: ignore
+    return health.to_dict()  # type: ignore
 
 
 @api_v1.get("/health/live", tags=["系统"])
@@ -146,7 +146,7 @@ def liveness_probe(request: HttpRequest) -> dict[str, Any]:
     存活探针 (Kubernetes liveness probe)
     仅检查应用是否运行
     """
-    return HealthChecker.liveness_check() # type: ignore
+    return HealthChecker.liveness_check()  # type: ignore
 
 
 @api_v1.get("/health/ready", tags=["系统"])
@@ -155,7 +155,7 @@ def readiness_probe(request: HttpRequest) -> dict[str, Any]:
     就绪探针 (Kubernetes readiness probe)
     检查应用是否可以接收流量
     """
-    return HealthChecker.readiness_check() # type: ignore
+    return HealthChecker.readiness_check()  # type: ignore
 
 
 # ============================================================
@@ -176,7 +176,7 @@ def resource_status(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.1, 4.2, 4.3, 4.4 - 资源监控和状态查询
     """
     _require_admin(request)
-    return get_resource_status() # type: ignore
+    return get_resource_status()  # type: ignore
 
 
 @api_v1.get("/resource/usage", tags=["资源监控"], auth=JWTOrSessionAuth())

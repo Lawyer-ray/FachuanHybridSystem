@@ -44,7 +44,6 @@ class CaseLogService:
         """
         构造函数,支持依赖注入
 
-        Args:
             case_service: 案件服务实例,None 时使用 ServiceLocator 获取
         """
         self._case_service = case_service or get_case_service()
@@ -101,13 +100,11 @@ class CaseLogService:
         """
         获取日志列表
 
-        Args:
             case_id: 案件 ID(可选,用于过滤)
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             日志查询集
         """
         return self.query_service.list_logs(
@@ -124,16 +121,13 @@ class CaseLogService:
         """
         获取单个日志
 
-        Args:
             log_id: 日志 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             日志对象
 
-        Raises:
             NotFoundError: 日志不存在
             PermissionDenied: 无权限访问
         """
@@ -154,17 +148,14 @@ class CaseLogService:
         """
         创建案件日志
 
-        Args:
             case_id: 案件 ID
             content: 日志内容
             user: 当前用户
             reminder_type: 提醒类型
             reminder_time: 提醒时间
 
-        Returns:
             创建的日志对象
 
-        Raises:
             NotFoundError: 案件不存在
         """
         return self.mutation_service.create_log(
@@ -188,17 +179,14 @@ class CaseLogService:
         """
         更新案件日志(保存历史版本)
 
-        Args:
             log_id: 日志 ID
             data: 更新数据字典
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             更新后的日志对象
 
-        Raises:
             NotFoundError: 日志不存在
             PermissionDenied: 无权限修改
         """
@@ -216,16 +204,13 @@ class CaseLogService:
         """
         删除案件日志
 
-        Args:
             log_id: 日志 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             {"success": True}
 
-        Raises:
             NotFoundError: 日志不存在
             PermissionDenied: 无权限删除
         """
@@ -244,17 +229,14 @@ class CaseLogService:
         """
         上传日志附件
 
-        Args:
             log_id: 日志 ID
             files: 上传的文件列表
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             创建的附件对象列表
 
-        Raises:
             NotFoundError: 日志不存在
             PermissionDenied: 无权限上传
             ValidationException: 文件验证失败
@@ -273,13 +255,11 @@ class CaseLogService:
         """
         获取案件的所有日志
 
-        Args:
             case_id: 案件 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             日志查询集
         """
         return self.list_logs(case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
@@ -294,16 +274,13 @@ class CaseLogService:
         """
         获取日志的历史版本
 
-        Args:
             log_id: 日志 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             历史版本列表
 
-        Raises:
             NotFoundError: 日志不存在
             PermissionDenied: 无权限访问
         """
@@ -321,16 +298,13 @@ class CaseLogService:
         """
         删除日志附件
 
-        Args:
             attachment_id: 附件 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否有开放访问权限
 
-        Returns:
             {"success": True}
 
-        Raises:
             NotFoundError: 附件不存在
             PermissionDenied: 无权限删除
         """

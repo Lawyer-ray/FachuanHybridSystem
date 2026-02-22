@@ -104,15 +104,12 @@ class CaseChatService:
         通过群聊提供者工厂获取对应平台的提供者,创建群聊并保存记录.
         使用数据库事务确保群聊创建和数据持久化的一致性.
 
-        Args:
             case_id: 案件ID
             platform: 群聊平台,默认为飞书
             owner_id: 群主ID(可选,某些平台需要)
 
-        Returns:
             CaseChat: 创建的群聊记录
 
-        Raises:
             NotFoundError: 当案件不存在时
             ChatCreationException: 当群聊创建失败时
             ValidationException: 当参数无效时
@@ -176,15 +173,12 @@ class CaseChatService:
         检查指定案件和平台是否已存在活跃的群聊记录.
         如果存在则直接返回,不存在则自动创建新的群聊.
 
-        Args:
             case_id: 案件ID
             platform: 群聊平台,默认为飞书
             owner_id: 群主ID(仅在创建时使用)
 
-        Returns:
             CaseChat: 现有或新创建的群聊记录
 
-        Raises:
             NotFoundError: 当案件不存在时
             ChatCreationException: 当群聊创建失败时
             ValidationException: 当参数无效时
@@ -237,17 +231,14 @@ class CaseChatService:
         获取或创建指定案件的群聊,然后发送文书通知消息.
         支持同时发送文本消息和多个文件附件.
 
-        Args:
             case_id: 案件ID
             sms_content: 短信内容(作为消息正文)
             document_paths: 文书文件路径列表(可选)
             platform: 群聊平台,默认为飞书
             title: 消息标题,默认为"📋 法院文书通知"
 
-        Returns:
             ChatResult: 消息发送结果
 
-        Raises:
             NotFoundError: 当案件不存在时
             MessageSendException: 当消息发送失败时
             ChatCreationException: 当群聊创建失败时
@@ -316,13 +307,10 @@ class CaseChatService:
         将指定的群聊记录标记为非活跃状态,但不删除数据库记录.
         这样可以保留历史记录,同时使群聊不再参与业务逻辑.
 
-        Args:
             chat_id: 群聊记录ID(不是平台的chat_id)
 
-        Returns:
             bool: 是否成功解除绑定
 
-        Raises:
             ValidationException: 当chat_id无效时
 
         Requirements: 5.2
@@ -360,16 +348,13 @@ class CaseChatService:
         将已存在的群聊(通过chat_id标识)绑定到指定案件.
         适用于手动管理群聊绑定关系的场景.
 
-        Args:
             case_id: 案件ID
             platform: 群聊平台
             chat_id: 平台群聊ID
             chat_name: 群聊名称(可选,如果不提供会尝试从平台获取)
 
-        Returns:
             CaseChat: 创建的群聊绑定记录
 
-        Raises:
             NotFoundError: 当案件不存在时
             ValidationException: 当参数无效或群聊已绑定时
             ChatCreationException: 当无法获取群聊信息时

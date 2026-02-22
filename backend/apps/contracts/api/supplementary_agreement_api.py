@@ -90,7 +90,7 @@ def update_supplementary_agreement(
     service = _get_supplementary_agreement_service()
 
     # 提取更新数据（只包含实际提供的字段）
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     return service.update_supplementary_agreement(
         agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")

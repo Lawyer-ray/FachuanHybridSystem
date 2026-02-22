@@ -46,15 +46,15 @@ steering:
         config_manager.add_provider(yaml_provider)
 
         config_manager.load()
-        config_manager.enable_steering_integration()
+        config_manager.enable_steering_integration()  # type: ignore[attr-defined]
 
-        integration = config_manager.get_steering_integration()
+        integration = config_manager.get_steering_integration()  # type: ignore[attr-defined]
 
         if integration:
             cache_enabled = config_manager.get("steering.cache.enabled", False)
             assert cache_enabled is True
 
-            specs = config_manager.load_steering_specifications("backend/apps/client/api/client_api.py")
+            specs = config_manager.load_steering_specifications("backend/apps/client/api/client_api.py")  # type: ignore[attr-defined]
             assert isinstance(specs, list)
 
             stats = integration.get_integration_stats()

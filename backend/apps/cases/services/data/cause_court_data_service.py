@@ -434,10 +434,8 @@ class CauseCourtDataService:
     def get_cause_by_id(self, cause_id: int) -> dict[str, Any] | None:
         """根据 ID 获取案由信息
 
-        Args:
             cause_id: 案由 ID
 
-        Returns:
             案由信息字典,不存在则返回 None
         """
         from apps.core.interfaces import ServiceLocator

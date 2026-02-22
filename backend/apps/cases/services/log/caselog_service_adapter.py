@@ -148,17 +148,14 @@ class CaseLogServiceAdapter(ICaseLogService):
 
         供跨模块调用,不进行权限检查.
 
-        Args:
             case_id: 案件 ID
             content: 日志内容
             user_id: 用户 ID(可选)
             reminder_type: 提醒类型(可选)
             reminder_time: 提醒时间(可选)
 
-        Returns:
             创建的日志 ID
 
-        Raises:
             NotFoundError: 案件不存在
         """
         from apps.cases.models import Case, CaseLog

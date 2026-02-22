@@ -20,7 +20,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
 
 from apps.automation.services.scraper.config.browser_config import BrowserConfig
-from apps.automation.services.scraper.core.browser_manager import BrowserCreationError, BrowserManager # type: ignore[attr-defined]
+from apps.automation.services.scraper.core.browser_manager import BrowserCreationError, BrowserManager
 
 browser_manager = BrowserManager()
 
@@ -242,11 +242,11 @@ class TestConfigurationApplication:
         with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 viewport = page.viewport_size
-                assert viewport["width"] == viewport_width, ( # type: ignore
-                    f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}" # type: ignore
+                assert viewport["width"] == viewport_width, (  # type: ignore
+                    f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"  # type: ignore
                 )
-                assert viewport["height"] == viewport_height, ( # type: ignore
-                    f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}" # type: ignore
+                assert viewport["height"] == viewport_height, (  # type: ignore
+                    f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"  # type: ignore
                 )
 
                 actual_user_agent = page.evaluate("navigator.userAgent")

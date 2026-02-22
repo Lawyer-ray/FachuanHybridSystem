@@ -35,10 +35,8 @@ def calculate_fee(request: HttpRequest, data: FeeCalculationRequest) -> FeeCalcu
 
     根据涉案金额、财产保全金额、案件类型等参数计算各类诉讼费用.
 
-    Args:
         data: 费用计算请求参数
 
-    Returns:
         FeeCalculationResponse: 包含各类费用明细的响应
     """
     service = _get_litigation_fee_calculator_service()

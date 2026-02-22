@@ -139,8 +139,8 @@ class TestCookieLoadingBeforeLogin:
         mock_cookie_service = MockCookieService()
 
         service = CourtZxfwService(
-            mock_page, # type: ignore
-            mock_context, # type: ignore
+            mock_page,  # type: ignore
+            mock_context,  # type: ignore
             captcha_recognizer=MockCaptchaRecognizer(),
             cookie_service=mock_cookie_service,
         )

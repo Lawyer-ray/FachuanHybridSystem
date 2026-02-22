@@ -30,7 +30,6 @@ class CaseAccessService(DjangoPermsMixin):
         """
         构造函数,支持依赖注入
 
-        Args:
             case_service: 案件服务实例,None 时使用 ServiceLocator 获取
         """
         self._case_service = case_service
@@ -54,14 +53,12 @@ class CaseAccessService(DjangoPermsMixin):
         """
         获取授权列表
 
-        Args:
             case_id: 案件 ID(可选,用于过滤)
             grantee_id: 被授权用户 ID(可选,用于过滤)
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否开放访问权限
 
-        Returns:
             授权查询集
         """
         qs = CaseAccessGrant.objects.all().order_by("-id").select_related("grantee", "case")
@@ -91,16 +88,13 @@ class CaseAccessService(DjangoPermsMixin):
         """
         获取单个授权
 
-        Args:
             grant_id: 授权 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否开放访问权限
 
-        Returns:
             授权对象
 
-        Raises:
             NotFoundError: 授权不存在
         """
         try:
@@ -121,15 +115,12 @@ class CaseAccessService(DjangoPermsMixin):
         """
         创建授权(授予用户案件访问权限)
 
-        Args:
             case_id: 案件 ID
             grantee_id: 被授权用户 ID
             user: 当前用户
 
-        Returns:
             创建的授权对象
 
-        Raises:
             NotFoundError: 案件不存在
             ConflictError: 授权已存在
         """
@@ -154,17 +145,14 @@ class CaseAccessService(DjangoPermsMixin):
         """
         更新授权
 
-        Args:
             grant_id: 授权 ID
             data: 更新数据字典
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否开放访问权限
 
-        Returns:
             更新后的授权对象
 
-        Raises:
             NotFoundError: 授权不存在
         """
         self.ensure_admin(user)
@@ -188,16 +176,13 @@ class CaseAccessService(DjangoPermsMixin):
         """
         删除授权(通过授权 ID 撤销访问权限)
 
-        Args:
             grant_id: 授权 ID
             user: 当前用户
             org_access: 组织访问策略
             perm_open_access: 是否开放访问权限
 
-        Returns:
             {"success": True}
 
-        Raises:
             NotFoundError: 授权不存在
         """
         self.ensure_admin(user)
@@ -213,11 +198,9 @@ class CaseAccessService(DjangoPermsMixin):
         """
         获取案件的所有访问授权
 
-        Args:
             case_id: 案件 ID
             user: 当前用户
 
-        Returns:
             授权查询集
         """
         self.ensure_admin(user)
@@ -227,11 +210,9 @@ class CaseAccessService(DjangoPermsMixin):
         """
         获取用户的所有案件访问授权
 
-        Args:
             user_id: 用户 ID
             user: 当前用户
 
-        Returns:
             授权查询集
         """
         self.ensure_authenticated(user)
@@ -243,11 +224,9 @@ class CaseAccessService(DjangoPermsMixin):
         """
         获取用户可访问的案件 ID 集合
 
-        Args:
             user_id: 用户 ID
             user: 当前用户
 
-        Returns:
             案件 ID 集合
         """
         self.ensure_authenticated(user)
@@ -259,15 +238,12 @@ class CaseAccessService(DjangoPermsMixin):
         """
         授予用户案件访问权限(别名方法,保持向后兼容)
 
-        Args:
             case_id: 案件 ID
             grantee_id: 被授权用户 ID
             user: 当前用户
 
-        Returns:
             创建的授权对象
 
-        Raises:
             NotFoundError: 案件不存在
             ConflictError: 授权已存在
         """
@@ -277,15 +253,12 @@ class CaseAccessService(DjangoPermsMixin):
         """
         撤销用户案件访问权限
 
-        Args:
             case_id: 案件 ID
             grantee_id: 被撤销用户 ID
             user: 当前用户
 
-        Returns:
             是否成功
 
-        Raises:
             NotFoundError: 授权不存在
         """
         self.ensure_admin(user)
@@ -301,14 +274,11 @@ class CaseAccessService(DjangoPermsMixin):
         """
         通过授权 ID 撤销访问权限(别名方法,保持向后兼容)
 
-        Args:
             grant_id: 授权 ID
             user: 当前用户
 
-        Returns:
             是否成功
 
-        Raises:
             NotFoundError: 授权不存在
         """
         self.ensure_admin(user)
@@ -321,15 +291,12 @@ class CaseAccessService(DjangoPermsMixin):
         """
         批量授予案件访问权限
 
-        Args:
             case_id: 案件 ID
             grantee_ids: 被授权用户 ID 列表
             user: 当前用户
 
-        Returns:
             创建的授权对象列表
 
-        Raises:
             NotFoundError: 案件不存在
         """
         self.ensure_admin(user)

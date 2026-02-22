@@ -64,12 +64,10 @@ class CaseTemplateBindingService:
         """
         获取案件的所有模板(绑定模板 + 通用模板),按分类分组
 
-        Args:
             case_id: 案件ID
             case_type: 案件类型(用于匹配通用模板)
             case_stage: 案件阶段(用于匹配通用模板)
 
-        Returns:
             包含 categories 和 total_count 的字典
         """
         # 验证案件存在
@@ -110,13 +108,11 @@ class CaseTemplateBindingService:
         """
         获取通用模板(根据案件类型、阶段和诉讼地位匹配)
 
-        Args:
             case_type: 案件类型
             case_stage: 案件阶段
             exclude_ids: 需要排除的模板ID集合
             legal_statuses: 我方当事人的诉讼地位列表
 
-        Returns:
             匹配的模板列表
         """
         templates = [
@@ -133,10 +129,8 @@ class CaseTemplateBindingService:
         """
         获取可绑定的模板列表(排除已绑定和通用模板)
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             可绑定模板列表
         """
         # 验证案件存在并获取案件信息
@@ -169,11 +163,9 @@ class CaseTemplateBindingService:
         """
         手动绑定模板
 
-        Args:
             case_id: 案件ID
             template_id: 模板ID
 
-        Returns:
             绑定记录信息
         """
         # 验证案件存在
@@ -222,11 +214,9 @@ class CaseTemplateBindingService:
         """
         解绑模板
 
-        Args:
             case_id: 案件ID
             binding_id: 绑定记录ID
 
-        Raises:
             NotFoundError: 案件或绑定记录不存在
             ValidationException: 自动推荐的绑定不允许删除 (Requirements 3.4)
         """
@@ -260,7 +250,6 @@ class CaseTemplateBindingService:
         根据案件的 case_type、current_stage 和诉讼地位重新计算匹配的模板,
         更新自动推荐的绑定,保留手动绑定不变.
 
-        Args:
             case_id: 案件ID
         """
         # 获取案件
@@ -306,10 +295,8 @@ class CaseTemplateBindingService:
         返回案件绑定的所有模板(包括手动绑定和通用模板),
         每个模板包含 function_code 字段.
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             模板列表,每个模板包含:
             - template_id: 模板ID
             - name: 模板名称

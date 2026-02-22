@@ -132,10 +132,8 @@ class CauseRuleService:
         从当前案由向上遍历到根案由,返回所有案由的编码.
         顺序为从当前案由到根案由.
 
-        Args:
             cause_id: 案由ID
 
-        Returns:
             List[str]: 祖先链编码列表,从当前案由到根案由
 
         Requirements: 1.1, 1.2, 1.3
@@ -153,10 +151,8 @@ class CauseRuleService:
         从当前案由向上遍历到根案由,返回所有案由的名称.
         顺序为从当前案由到根案由.
 
-        Args:
             cause_id: 案由ID
 
-        Returns:
             List[str]: 祖先链名称列表,从当前案由到根案由
 
         Requirements: 1.1, 1.2, 1.3
@@ -175,10 +171,8 @@ class CauseRuleService:
         1. 基于名称匹配(申请支付令、撤销仲裁、公示催告、劳动争议)
         2. 基于编码匹配(人格权、知识产权)
 
-        Args:
             cause_id: 案由ID
 
-        Returns:
             特殊案件类型字符串,或 None(普通案件)
             - "personality_rights": 人格权侵权案件
             - "ip": 知识产权案件
@@ -225,10 +219,8 @@ class CauseRuleService:
 
         根据案由类型返回相应的费用计算规则配置.
 
-        Args:
             cause_id: 案由ID
 
-        Returns:
             dict[str, Any]: 费用计算规则配置
             {
                 "special_case_type": str | None,      # 特殊案件类型

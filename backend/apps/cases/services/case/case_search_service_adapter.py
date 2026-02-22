@@ -20,11 +20,9 @@ class CaseSearchServiceAdapter(ICaseSearchService):
 
         支持按案件名称、案号、当事人搜索.
 
-        Args:
             query: 搜索关键词(案件名称、案号、当事人)
             limit: 返回结果数量限制,默认20
 
-        Returns:
             匹配的案件搜索结果 DTO 列表
         """
         from django.db.models import Q
