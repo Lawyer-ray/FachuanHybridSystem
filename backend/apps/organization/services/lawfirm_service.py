@@ -23,7 +23,6 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawFirmService:
-    """律所服务，封装律所相关的所有业务逻辑。"""
 
     def __init__(self) -> None:
         self._access_policy = OrganizationAccessPolicy()
@@ -60,7 +59,6 @@ class LawFirmService:
         name: str | None = None,
         user: Lawyer | None = None,
     ) -> "QuerySet[LawFirm, LawFirm]":
-        """列表查询"""
         queryset = self.get_lawfirm_queryset()
 
         # 应用权限过滤
@@ -220,7 +218,6 @@ class LawFirmService:
     # ========== 私有方法（业务逻辑封装） ==========
 
     def _validate_create_data(self, data: LawFirmCreateDTO) -> None:
-        """验证创建数据（私有方法）"""
         # 检查名称是否重复
         if LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
@@ -228,7 +225,6 @@ class LawFirmService:
             )
 
     def _validate_update_data(self, lawfirm: LawFirm, data: LawFirmUpdateDTO) -> None:
-        """验证更新数据（私有方法）"""
         # 检查名称是否与其他律所重复
         if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
@@ -236,12 +232,10 @@ class LawFirmService:
             )
 
     def _get_lawfirm_internal(self, lawfirm_id: int) -> LawFirm | None:
-        """内部方法：获取律所（无权限检查），供 ServiceAdapter 调用。"""
         return self.get_lawfirm_queryset().filter(id=lawfirm_id).first()
 
 
 class LawFirmServiceAdapter(ILawFirmService):
-    """律所服务适配器，实现跨模块接口，将 Model 转换为 DTO。"""
 
     _assembler: ClassVar[LawFirmDtoAssembler] = LawFirmDtoAssembler()
 

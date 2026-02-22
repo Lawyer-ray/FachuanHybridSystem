@@ -1,4 +1,3 @@
-"""Business logic services."""
 
 from __future__ import annotations
 
@@ -107,7 +106,6 @@ class LawyerMutationService:
         return lawyer
 
     def _apply_field_updates(self, lawyer: Lawyer, data: LawyerUpdateDTO) -> list[str]:
-        """返回实际更新的字段列表。"""
         updated: list[str] = []
 
         if data.real_name is not None:
