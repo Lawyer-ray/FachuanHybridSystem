@@ -8,6 +8,7 @@ from __future__ import annotations
 from ninja import File, Router
 from ninja.files import UploadedFile
 from django.http import HttpRequest
+from apps.organization.api._utils import get_request_user
 
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
@@ -25,7 +26,7 @@ def _get_lawyer_service() -> LawyerService:
 def list_lawyers(request: HttpRequest) -> list[LawyerOut]:
     """列表查询律师"""
     service = _get_lawyer_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     lawyers = service.list_lawyers(user=user)
     return list(lawyers)
 
@@ -34,7 +35,7 @@ def list_lawyers(request: HttpRequest) -> list[LawyerOut]:
 def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:
     """获取律师详情"""
     service = _get_lawyer_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     lawyer = service.get_lawyer(lawyer_id, user)
     return lawyer
 
@@ -47,7 +48,7 @@ def create_lawyer(
 ) -> LawyerOut:
     """创建律师"""
     service = _get_lawyer_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = LawyerCreateDTO(
         username=payload.username,
         password=payload.password,
@@ -73,7 +74,7 @@ def update_lawyer(
 ) -> LawyerOut:
     """更新律师"""
     service = _get_lawyer_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = LawyerUpdateDTO(
         real_name=payload.real_name,
         phone=payload.phone,
@@ -98,6 +99,6 @@ def update_lawyer(
 def delete_lawyer(request: HttpRequest, lawyer_id: int) -> dict[str, bool]:
     """删除律师"""
     service = _get_lawyer_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     service.delete_lawyer(lawyer_id, user)
     return {"success": True}

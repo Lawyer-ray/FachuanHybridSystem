@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
+from apps.organization.api._utils import get_request_user
 from ninja import Router
 
 from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
@@ -24,7 +25,7 @@ def _get_lawfirm_service() -> LawFirmService:
 def list_lawfirms(request: HttpRequest) -> list[LawFirmOut]:
     """列表查询律所"""
     service = _get_lawfirm_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return list(service.list_lawfirms(user=user))
 
 
@@ -32,7 +33,7 @@ def list_lawfirms(request: HttpRequest) -> list[LawFirmOut]:
 def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:
     """获取律所详情"""
     service = _get_lawfirm_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.get_lawfirm(law_firm_id, user)
 
 
@@ -40,7 +41,7 @@ def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:
 def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:
     """创建律所"""
     service = _get_lawfirm_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = LawFirmCreateDTO(
         name=payload.name,
         address=payload.address,
@@ -54,7 +55,7 @@ def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:
 def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:
     """更新律所"""
     service = _get_lawfirm_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = LawFirmUpdateDTO(
         name=payload.name,
         address=payload.address,
@@ -68,6 +69,6 @@ def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdat
 def delete_lawfirm(request: HttpRequest, law_firm_id: int) -> dict[str, bool]:
     """删除律所"""
     service = _get_lawfirm_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     service.delete_lawfirm(law_firm_id, user)
     return {"success": True}

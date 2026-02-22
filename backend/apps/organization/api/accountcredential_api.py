@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
+from apps.organization.api._utils import get_request_user
 from ninja import Router
 
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
@@ -28,7 +29,7 @@ def list_credentials(
         lawyer_name: 按律师姓名过滤（支持模糊匹配 real_name 或 username）
     """
     service = _get_credential_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.list_credentials(
         lawyer_id=lawyer_id,
         lawyer_name=lawyer_name,
@@ -40,7 +41,7 @@ def list_credentials(
 def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
     """获取单个凭证"""
     service = _get_credential_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.get_credential(cred_id, user=user)
 
 
@@ -48,7 +49,7 @@ def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
 def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
     """创建凭证"""
     service = _get_credential_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.create_credential(
         lawyer_id=payload.lawyer_id,
         site_name=payload.site_name,
@@ -63,7 +64,7 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
 def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
     """更新凭证"""
     service = _get_credential_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.update_credential(
         credential_id=cred_id,
         data=payload.model_dump(exclude_unset=True),
@@ -75,6 +76,6 @@ def update_credential(request: HttpRequest, cred_id: int, payload: AccountCreden
 def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:
     """删除凭证"""
     service = _get_credential_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     service.delete_credential(cred_id, user=user)
     return {"success": True}
