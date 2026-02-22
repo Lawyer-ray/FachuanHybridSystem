@@ -18,9 +18,9 @@ router = Router()
 
 def _get_service() -> ReminderService:
     """获取 ReminderService 实例（延迟导入）。"""
-    from apps.reminders.services import ReminderService as _ReminderService
+    from apps.core.dependencies.business_organization import build_reminder_api_service
 
-    return _ReminderService()
+    return build_reminder_api_service()
 
 
 @router.get("/list", response=list[ReminderOut])
