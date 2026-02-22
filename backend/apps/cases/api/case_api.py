@@ -26,23 +26,7 @@ router = Router()
 
 
 def _get_case_service() -> CaseService:
-    """
-    创建 CaseService 实例（注入依赖）
-
-    Returns:
-        CaseService 实例
-    """
     return CaseService(contract_service=ServiceLocator.get_contract_service())
-
-
-def _get_case_query_facade() -> CaseService:
-    """Query facade — 只读操作"""
-    return _get_case_service()
-
-
-def _get_case_mutation_facade() -> CaseService:
-    """Mutation facade — 写操作"""
-    return _get_case_service()
 
 
 @router.get("/cases/search", response=list[CaseOut])
@@ -52,7 +36,7 @@ def search_cases(
     limit: int | None = 10,
 ) -> list[CaseOut]:
     """搜索案件"""
-    service = _get_case_query_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
 
     return cast(
@@ -75,7 +59,7 @@ def list_cases(
     case_number: str | None = None,
 ) -> list[CaseOut]:
     """获取案件列表"""
-    service = _get_case_query_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
 
     if case_number:
@@ -104,7 +88,7 @@ def list_cases(
 @router.get("/cases/{case_id}", response=CaseOut)
 def get_case(request: HttpRequest, case_id: int) -> CaseOut:
     """获取单个案件"""
-    service = _get_case_query_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
 
     return cast(
@@ -121,7 +105,7 @@ def get_case(request: HttpRequest, case_id: int) -> CaseOut:
 @router.post("/cases", response=CaseOut)
 def create_case(request: HttpRequest, payload: CaseIn) -> CaseOut:
     """创建案件"""
-    service = _get_case_mutation_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
     data = payload.dict()
 
@@ -131,7 +115,7 @@ def create_case(request: HttpRequest, payload: CaseIn) -> CaseOut:
 @router.put("/cases/{case_id}", response=CaseOut)
 def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -> CaseOut:
     """更新案件"""
-    service = _get_case_mutation_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
 
@@ -141,7 +125,7 @@ def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -> Case
 @router.delete("/cases/{case_id}")
 def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:
     """删除案件"""
-    service = _get_case_mutation_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
 
     service.delete_case(case_id, user=ctx.user)
@@ -152,7 +136,7 @@ def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:
 @router.post("/cases/full", response=CaseFullOut)
 def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> CaseFullOut:
     """创建完整案件（包含当事人、指派、日志）"""
-    service = _get_case_mutation_facade()
+    service = _get_case_service()
     ctx = extract_request_context(request)
     actor_id = getattr(ctx.user, "id", None) if ctx.user else None
 

@@ -196,8 +196,6 @@ class AccountCredentialAdminService:
                 error_count += 1
 
         # 汇总结果
-        avg_duration = total_duration / total_count if total_count > 0 else 0
-
         logger.info(
             "批量自动登录完成",
             extra={
@@ -206,7 +204,7 @@ class AccountCredentialAdminService:
                 "success_count": success_count,
                 "error_count": error_count,
                 "total_duration": total_duration,
-                "avg_duration": avg_duration,
+                "avg_duration": total_duration / total_count if total_count > 0 else 0,
             },
         )
 

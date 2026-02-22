@@ -44,17 +44,7 @@ class AccountCredentialService:
         lawyer_name: str | None = None,
         user: Lawyer | None = None,
     ) -> "QuerySet[AccountCredential, AccountCredential]":
-        """
-        获取凭证列表
-
-        Args:
-            lawyer_id: 按律师 ID 过滤
-            lawyer_name: 按律师姓名过滤（支持模糊匹配 real_name 或 username）
-            user: 当前用户
-
-        Returns:
-            凭证查询集（根据用户权限过滤）
-        """
+        """获取凭证列表"""
         qs = self._get_base_queryset()
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
@@ -78,13 +68,6 @@ class AccountCredentialService:
     def get_credential(self, credential_id: int, user: Lawyer | None = None) -> AccountCredential:
         """
         获取单个凭证
-
-        Args:
-            credential_id: 凭证 ID
-            user: 当前用户
-
-        Returns:
-            凭证对象
 
         Raises:
             NotFoundError: 凭证不存在
@@ -110,17 +93,6 @@ class AccountCredentialService:
     ) -> AccountCredential:
         """
         创建凭证
-
-        Args:
-            lawyer_id: 律师 ID
-            site_name: 网站名称
-            account: 账号
-            password: 密码
-            url: URL
-            user: 当前用户
-
-        Returns:
-            创建的凭证对象
 
         Raises:
             NotFoundError: 律师不存在
@@ -167,14 +139,6 @@ class AccountCredentialService:
         """
         更新凭证
 
-        Args:
-            credential_id: 凭证 ID
-            data: 更新数据（仅允许 site_name/url/account/password）
-            user: 当前用户
-
-        Returns:
-            更新后的凭证对象
-
         Raises:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限修改该凭证
@@ -200,10 +164,6 @@ class AccountCredentialService:
         """
         删除凭证
 
-        Args:
-            credential_id: 凭证 ID
-            user: 当前用户
-
         Raises:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限删除该凭证
@@ -215,16 +175,7 @@ class AccountCredentialService:
         logger.info("凭证删除成功", extra={"credential_id": credential_id, "action": "delete_credential"})
 
     def _get_credential_internal(self, credential_id: int) -> AccountCredential:
-        """
-        内部方法：获取凭证，无权限检查
-
-        供内部方法和 Adapter 调用
-
-        Args:
-            credential_id: 凭证 ID
-
-        Returns:
-            凭证对象
+        """内部方法：获取凭证（无权限检查），供 Adapter 调用。
 
         Raises:
             NotFoundError: 凭证不存在
@@ -264,16 +215,7 @@ class AccountCredentialService:
         credential_ids: list[int],
         site_name: str,
     ) -> "QuerySet[AccountCredential, AccountCredential]":
-        """
-        按 ID 列表和站点名称过滤凭证
-
-        Args:
-            credential_ids: 凭证 ID 列表
-            site_name: 站点名称
-
-        Returns:
-            过滤后的凭证查询集
-        """
+        """按 ID 列表和站点名称过滤凭证。"""
         return self._get_base_queryset().filter(
             id__in=credential_ids,
             site_name=site_name,
@@ -284,17 +226,7 @@ class AccountCredentialService:
     }
 
     def get_credentials_by_site(self, site_name: str) -> "QuerySet[AccountCredential, AccountCredential]":
-        """
-        根据站点名称获取凭证（无权限检查，内部使用）
-
-        支持精确匹配 site_name 和 URL 包含匹配。
-
-        Args:
-            site_name: 站点名称或URL关键字
-
-        Returns:
-            凭证查询集
-        """
+        """根据站点名称获取凭证（无权限检查，内部使用）。支持精确匹配 site_name 和 URL 包含匹配。"""
         url_keyword = self.SITE_URL_MAPPING.get(site_name, site_name)
         return (
             self._get_base_queryset()
@@ -303,15 +235,7 @@ class AccountCredentialService:
         )
 
     def get_credential_by_account(self, account: str, site_name: str) -> AccountCredential:
-        """
-        根据账号和站点获取凭证（无权限检查，内部使用）
-
-        Args:
-            account: 账号名称
-            site_name: 站点名称
-
-        Returns:
-            凭证对象
+        """根据账号和站点获取凭证（无权限检查，内部使用）。
 
         Raises:
             NotFoundError: 凭证不存在
