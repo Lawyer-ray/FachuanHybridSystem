@@ -43,11 +43,11 @@ class TestClientIdentityDocModel(TestCase):
         doc = ClientIdentityDocFactory(client=self.client, doc_type=ClientIdentityDoc.ID_CARD, expiry_date=None)
 
         # 验证可以保存
-        doc.full_clean()
-        doc.save()
+        doc.full_clean()  # type: ignore[attr-defined]
+        doc.save()  # type: ignore[attr-defined]
 
         # 验证字段为空
-        self.assertIsNone(doc.expiry_date)
+        self.assertIsNone(doc.expiry_date)  # type: ignore[attr-defined]
 
     def test_expiry_date_field_accepts_date(self):
         """验证 expiry_date 字段接受日期值"""
@@ -57,11 +57,11 @@ class TestClientIdentityDocModel(TestCase):
         doc = ClientIdentityDocFactory(client=self.client, doc_type=ClientIdentityDoc.ID_CARD, expiry_date=expiry_date)
 
         # 验证可以保存
-        doc.full_clean()
-        doc.save()
+        doc.full_clean()  # type: ignore[attr-defined]
+        doc.save()  # type: ignore[attr-defined]
 
         # 验证日期值正确
-        self.assertEqual(doc.expiry_date, expiry_date)
+        self.assertEqual(doc.expiry_date, expiry_date)  # type: ignore[attr-defined]
 
     def test_old_data_compatibility(self):
         """验证旧数据兼容性 - 现有记录不会因为模型变更而出错"""
@@ -79,8 +79,8 @@ class TestClientIdentityDocModel(TestCase):
             )
 
             # 验证旧数据可以正常验证和保存
-            doc.full_clean()
-            doc.save()
+            doc.full_clean()  # type: ignore[attr-defined]
+            doc.save()  # type: ignore[attr-defined]
 
             # 验证字符串表示正常
             str_repr = str(doc)
@@ -97,8 +97,8 @@ class TestClientIdentityDocModel(TestCase):
             )
 
             # 验证旧数据可以正常验证和保存
-            doc.full_clean()
-            doc.save()
+            doc.full_clean()  # type: ignore[attr-defined]
+            doc.save()  # type: ignore[attr-defined]
 
             # 验证字符串表示正常
             str_repr = str(doc)
@@ -121,7 +121,7 @@ class TestClientIdentityDocModel(TestCase):
         for doc_type in valid_types:
             doc = ClientIdentityDocFactory(client=natural_client, doc_type=doc_type)
             # 应该通过验证
-            doc.full_clean()
+            doc.full_clean()  # type: ignore[attr-defined]
 
     def test_legal_person_doc_type_validation(self):
         """验证法人证件类型验证"""
@@ -137,14 +137,14 @@ class TestClientIdentityDocModel(TestCase):
         for doc_type in valid_types:
             doc = ClientIdentityDocFactory(client=legal_client, doc_type=doc_type)
             # 应该通过验证
-            doc.full_clean()
+            doc.full_clean()  # type: ignore[attr-defined]
 
     def test_media_url_method(self):
         """验证 media_url 方法"""
         doc = ClientIdentityDocFactory(client=self.client, file_path="client_identity_docs/test.jpg")
 
         # 验证 media_url 方法存在且可调用
-        media_url = doc.media_url()
+        media_url = doc.media_url()  # type: ignore[attr-defined]
 
         # 如果有文件路径，应该返回 URL 字符串或 None
         self.assertTrue(isinstance(media_url, (str, type(None))))

@@ -49,7 +49,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.add_message(session_id="00000000-0000-0000-0000-000000000000", role="user", content="测试消息")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "SESSION_NOT_FOUND"
 
     def test_add_message_without_metadata(self):
@@ -86,7 +86,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_messages("00000000-0000-0000-0000-000000000000")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_get_messages_with_limit(self):
         """测试获取消息列表限制数量"""
@@ -142,7 +142,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_message_count("00000000-0000-0000-0000-000000000000")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_get_message_count_empty(self):
         """测试获取消息数量为空"""
@@ -193,7 +193,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_messages_batch("00000000-0000-0000-0000-000000000000")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_save_conversation_summary_success(self):
         """测试保存对话摘要成功"""
@@ -213,7 +213,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.save_conversation_summary(session_id="00000000-0000-0000-0000-000000000000", summary="摘要")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_save_conversation_summary_update(self):
         """测试更新对话摘要"""
@@ -295,7 +295,7 @@ class TestSessionMessageService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.add_messages_batch(session_id="00000000-0000-0000-0000-000000000000", messages=messages)
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_add_messages_batch_empty(self):
         """测试批量添加空消息列表"""

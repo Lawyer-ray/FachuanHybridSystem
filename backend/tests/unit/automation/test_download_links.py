@@ -188,7 +188,7 @@ def test_gdems_download(download_dir: Path):
     print("=" * 70)
 
     config = TEST_LINKS["gdems"]
-    url = config["url"]
+    url = config["url"]  # type: ignore[index]
     print(f"URL: {url}")
 
     with sync_playwright() as p:
@@ -273,7 +273,7 @@ def test_gdems_download(download_dir: Path):
             # 3. 点击下载按钮
             print("\n📍 步骤3: 点击下载按钮...")
 
-            download_xpath = config["download_xpath"]
+            download_xpath = config["download_xpath"]  # type: ignore[index]
             download_button = None
 
             # 方式1: 使用提供的 XPath
@@ -355,7 +355,7 @@ def test_zxfw_download(download_dir: Path):
     print("=" * 70)
 
     config = TEST_LINKS["zxfw"]
-    url = config["url"]
+    url = config["url"]  # type: ignore[index]
     print(f"URL: {url[:80]}...")
 
     with sync_playwright() as p:
@@ -416,7 +416,7 @@ def test_zxfw_download(download_dir: Path):
                 print("\n📍 步骤3: 在 iframe 内查找下载按钮...")
 
                 # 查找下载按钮
-                download_xpath = config["download_xpath"]
+                download_xpath = config["download_xpath"]  # type: ignore[index]
                 download_button = None
 
                 # 方式1: 使用提供的 XPath
@@ -539,7 +539,7 @@ def test_zxfw_multi_download(download_dir: Path):
     print("=" * 70)
 
     config = TEST_LINKS["zxfw_multi"]
-    url = config["url"]
+    url = config["url"]  # type: ignore[index]
     print(f"URL: {url[:80]}...")
 
     with sync_playwright() as p:

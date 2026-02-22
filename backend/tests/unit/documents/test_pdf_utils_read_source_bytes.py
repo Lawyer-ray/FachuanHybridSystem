@@ -14,4 +14,4 @@ def test_path_bytes_reads_file(tmp_path):
     p = tmp_path / "b.bin"
     p.write_bytes(b"xyz")
 
-    assert Path(str(p)).bytes() == b"xyz"
+    assert Path(str(p)).bytes() == b"xyz"  # type: ignore[attr-defined]

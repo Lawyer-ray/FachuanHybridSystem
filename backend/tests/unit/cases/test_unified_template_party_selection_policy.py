@@ -86,4 +86,4 @@ def test_power_of_attorney_combined_selects_multiple_clients():
         power_of_attorney_code="power_of_attorney",
     )
     assert selected.client is None
-    assert [c.name for c in selected.clients] == ["张三", "李四"]
+    assert [c.name for c in selected.clients] == ["张三", "李四"]  # type: ignore[union-attr]

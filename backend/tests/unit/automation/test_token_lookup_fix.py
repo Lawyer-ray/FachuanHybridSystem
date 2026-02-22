@@ -11,7 +11,7 @@ import pytest
 from django.utils import timezone
 
 from apps.automation.models import CourtToken, PreservationQuote, QuoteStatus
-from apps.automation.services.insurance.preservation_quote_service import get_or_create_token
+from apps.automation.services.insurance.preservation_quote_service import get_or_create_token  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db(transaction=True)

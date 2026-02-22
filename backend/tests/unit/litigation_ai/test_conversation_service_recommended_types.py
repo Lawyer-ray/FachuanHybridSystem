@@ -23,11 +23,11 @@ def test_recommended_types_plaintiff_without_counterclaim(monkeypatch):
         "case_service",
         SimpleNamespace(
             get_case_internal=lambda case_id: case,
-            get_case_parties_internal=lambda case_id: list(case.parties.all()),
+            get_case_parties_internal=lambda case_id: list(case.parties.all()),  # type: ignore[attr-defined]
         ),
     )
 
-    types_ = service.get_recommended_document_types(case.id)
+    types_ = service.get_recommended_document_types(case.id)  # type: ignore[attr-defined]
     assert "complaint" in types_
     assert "counterclaim_defense" not in types_
 
@@ -48,11 +48,11 @@ def test_recommended_types_plaintiff_with_counterclaim(monkeypatch):
         "case_service",
         SimpleNamespace(
             get_case_internal=lambda case_id: case,
-            get_case_parties_internal=lambda case_id: list(case.parties.all()),
+            get_case_parties_internal=lambda case_id: list(case.parties.all()),  # type: ignore[attr-defined]
         ),
     )
 
-    types_ = service.get_recommended_document_types(case.id)
+    types_ = service.get_recommended_document_types(case.id)  # type: ignore[attr-defined]
     assert "complaint" in types_
     assert "counterclaim_defense" in types_
 
@@ -73,10 +73,10 @@ def test_recommended_types_defendant(monkeypatch):
         "case_service",
         SimpleNamespace(
             get_case_internal=lambda case_id: case,
-            get_case_parties_internal=lambda case_id: list(case.parties.all()),
+            get_case_parties_internal=lambda case_id: list(case.parties.all()),  # type: ignore[attr-defined]
         ),
     )
 
-    types_ = service.get_recommended_document_types(case.id)
+    types_ = service.get_recommended_document_types(case.id)  # type: ignore[attr-defined]
     assert "defense" in types_
     assert "counterclaim" in types_

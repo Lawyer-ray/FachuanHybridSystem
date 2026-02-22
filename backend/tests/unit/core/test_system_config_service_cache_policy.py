@@ -16,7 +16,7 @@ class _FakeModel:
 class SystemConfigServiceCachePolicyTest(SimpleTestCase):
     def test_missing_sentinel_returns_default(self):
         model = _FakeModel()
-        service = SystemConfigService(model=model)
+        service = SystemConfigService(model=model)  # type: ignore[call-arg]
 
         with patch("apps.core.services.system_config_service.cache.get", return_value=_MISSING_SENTINEL):
             out = service.get_value("X", default="D")
@@ -27,7 +27,7 @@ class SystemConfigServiceCachePolicyTest(SimpleTestCase):
     def test_cache_negative_on_missing_row(self):
         model = _FakeModel()
         model.objects.get.side_effect = model.DoesNotExist()
-        service = SystemConfigService(model=model)
+        service = SystemConfigService(model=model)  # type: ignore[call-arg]
 
         with patch("apps.core.services.system_config_service.cache.get", return_value=None), patch(
             "apps.core.services.system_config_service.cache.set"

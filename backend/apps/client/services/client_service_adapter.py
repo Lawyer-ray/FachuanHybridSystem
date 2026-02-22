@@ -53,13 +53,11 @@ class ClientServiceAdapter(IClientService):
         return self.dto_assembler.to_dto(client)
 
     def get_client(self, client_id: int) -> ClientDTO | None:
-        return self.get_client_internal(client_id)
+        client = self.internal_query_service.get_client(client_id=client_id)
+        return self._to_dto(client) if client else None
 
     def get_client_internal(self, client_id: int) -> ClientDTO | None:
-        client = self.internal_query_service.get_client(client_id=client_id)
-        if client:
-            return self._to_dto(client)
-        return None
+        return self.get_client(client_id)
 
     def get_clients_by_ids(self, client_ids: list[int]) -> list[ClientDTO]:
         clients = self.internal_query_service.get_clients_by_ids(client_ids=client_ids)
@@ -70,9 +68,7 @@ class ClientServiceAdapter(IClientService):
 
     def get_client_by_name(self, name: str) -> ClientDTO | None:
         client = self.internal_query_service.get_client_by_name(name=name)
-        if client:
-            return self._to_dto(client)
-        return None
+        return self._to_dto(client) if client else None
 
     def get_all_clients_internal(self) -> list[ClientDTO]:
         clients = self.internal_query_service.list_all_clients()

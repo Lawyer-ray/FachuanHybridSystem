@@ -43,8 +43,8 @@ class LawyerFactory(DjangoModelFactory):
             return
 
         password = extracted or "testpass123"
-        obj.set_password(password)
-        obj.save()
+        obj.set_password(password)  # type: ignore[attr-defined]
+        obj.save()  # type: ignore[attr-defined]
 
 
 class TeamFactory(DjangoModelFactory):

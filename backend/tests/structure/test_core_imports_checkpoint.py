@@ -12,14 +12,14 @@ def test_import_service_locator_from_interfaces():
 
 def test_import_event_bus_from_interfaces():
     """确认 from apps.core.interfaces import EventBus 正常工作。"""
-    from apps.core.interfaces import EventBus
+    from apps.core.interfaces import EventBus  # type: ignore[attr-defined]
 
     assert EventBus is not None
 
 
 def test_import_events_from_interfaces():
     """确认 from apps.core.interfaces import Events 正常工作。"""
-    from apps.core.interfaces import Events
+    from apps.core.interfaces import Events  # type: ignore[attr-defined]
 
     assert Events is not None
 
@@ -35,6 +35,6 @@ def test_service_locator_is_mixin_version():
 def test_event_bus_identity():
     """确认 interfaces 导出的 EventBus 与 event_bus 模块中的是同一个对象。"""
     from apps.core.event_bus import EventBus as DirectEventBus
-    from apps.core.interfaces import EventBus
+    from apps.core.interfaces import EventBus  # type: ignore[attr-defined]
 
     assert EventBus is DirectEventBus, "interfaces 导出的 EventBus 应该与 event_bus 模块中的是同一个"

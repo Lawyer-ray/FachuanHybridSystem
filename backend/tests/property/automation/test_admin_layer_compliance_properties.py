@@ -715,14 +715,14 @@ class TestAdminLayerCompliance:
 
             # 记录结果
             if not violations:
-                compliance_report["compliant_admins"] += 1
+                compliance_report["compliant_admins"] += 1  # type: ignore[operator]
             else:
-                compliance_report["violations"].append({"admin": admin_class.__name__, "violations": violations})
+                compliance_report["violations"].append({"admin": admin_class.__name__, "violations": violations})  # type: ignore[attr-defined]
 
         # 计算合规率
         compliance_rate = (
-            compliance_report["compliant_admins"] / compliance_report["total_admins"] * 100
-            if compliance_report["total_admins"] > 0
+            compliance_report["compliant_admins"] / compliance_report["total_admins"] * 100  # type: ignore[operator]
+            if compliance_report["total_admins"] > 0  # type: ignore[operator]
             else 0
         )
 
@@ -734,7 +734,7 @@ class TestAdminLayerCompliance:
 
         if compliance_report["violations"]:
             print(f"\n违规详情:")
-            for violation in compliance_report["violations"]:
+            for violation in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"  {violation['admin']}:")
                 for v in violation["violations"]:
                     print(f"    - {v}")
@@ -742,7 +742,7 @@ class TestAdminLayerCompliance:
         # 要求至少80%的合规率
         assert compliance_rate >= 80.0, (
             f"Admin层合规率 {compliance_rate:.1f}% 低于要求的80%。"
-            f"违规Admin: {[v['admin'] for v in compliance_report['violations']]}"
+            f"违规Admin: {[v['admin'] for v in compliance_report['violations']]}"  # type: ignore[attr-defined]
         )
 
 

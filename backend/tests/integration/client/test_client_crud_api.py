@@ -154,9 +154,9 @@ class TestClientGetAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        result = get_client(request, client.id)
+        result = get_client(request, client.id)  # type: ignore[attr-defined]
 
-        assert result.id == client.id
+        assert result.id == client.id  # type: ignore[attr-defined]
         assert result.name == "详情测试客户"
 
     def test_get_client_not_found(self) -> None:
@@ -180,10 +180,10 @@ class TestClientUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = ClientUpdateIn(name="新名称")
-        result = update_client(request, client.id, payload)
+        result = update_client(request, client.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "新名称"
-        client.refresh_from_db()
+        client.refresh_from_db()  # type: ignore[attr-defined]
         assert client.name == "新名称"
 
     def test_update_client_partial(self) -> None:
@@ -193,7 +193,7 @@ class TestClientUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = ClientUpdateIn(phone="13900000000")
-        result = update_client(request, client.id, payload)
+        result = update_client(request, client.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "原名称"
         assert result.phone == "13900000000"
@@ -216,7 +216,7 @@ class TestClientDeleteAPI:
     def test_delete_client_success(self) -> None:
         """删除客户"""
         client = ClientFactory()
-        client_id = client.id
+        client_id = client.id  # type: ignore[attr-defined]
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 

@@ -63,7 +63,7 @@ class TestCourtSMSSubmitAPI:
         """提交法院短信成功"""
         mock_sms = self._create_mock_sms("【佛山市禅城区人民法院】尊敬的律师，您有一份文书待查收")
         request = _make_request()
-        payload = CourtSMSSubmitIn(
+        payload = CourtSMSSubmitIn(  # type: ignore[call-arg]
             content="【佛山市禅城区人民法院】尊敬的律师，您有一份文书待查收",
             received_at=timezone.now(),
         )
@@ -84,7 +84,7 @@ class TestCourtSMSSubmitAPI:
         """最小字段提交短信"""
         mock_sms = self._create_mock_sms()
         request = _make_request()
-        payload = CourtSMSSubmitIn(content="测试短信内容")
+        payload = CourtSMSSubmitIn(content="测试短信内容")  # type: ignore[call-arg]
 
         with patch("apps.automation.api.court_sms_api._get_court_sms_service") as mock_factory:
             mock_service = Mock()
@@ -99,7 +99,7 @@ class TestCourtSMSSubmitAPI:
     def test_submit_sms_empty_content_rejected(self) -> None:
         """空内容被 Schema 验证拒绝"""
         with pytest.raises(Exception):
-            CourtSMSSubmitIn(content="")
+            CourtSMSSubmitIn(content="")  # type: ignore[call-arg]
 
 
 # ============================================================================
@@ -110,7 +110,7 @@ class TestCourtSMSSubmitAPI:
 def _create_credential() -> AccountCredential:
     """创建测试凭证。"""
     lawyer = LawyerFactory()
-    return AccountCredential.objects.create(
+    return AccountCredential.objects.create(  # type: ignore[misc]
         lawyer=lawyer,
         site_name="court_zxfw",
         account="test_account",
@@ -277,7 +277,7 @@ class TestDocumentDeliveryScheduleUpdateAPI:
         )
 
         request = _make_request()
-        payload = DocumentDeliveryScheduleUpdateIn(cutoff_hours=48)
+        payload = DocumentDeliveryScheduleUpdateIn(cutoff_hours=48)  # type: ignore[call-arg]
         result = update_schedule(request, schedule.id, payload)
 
         assert result.cutoff_hours == 48
@@ -294,7 +294,7 @@ class TestDocumentDeliveryScheduleUpdateAPI:
         )
 
         request = _make_request()
-        payload = DocumentDeliveryScheduleUpdateIn(is_active=False)
+        payload = DocumentDeliveryScheduleUpdateIn(is_active=False)  # type: ignore[call-arg]
         result = update_schedule(request, schedule.id, payload)
 
         assert result.is_active is False
@@ -302,7 +302,7 @@ class TestDocumentDeliveryScheduleUpdateAPI:
     def test_update_schedule_not_found(self) -> None:
         """更新不存在的定时任务"""
         request = _make_request()
-        payload = DocumentDeliveryScheduleUpdateIn(runs_per_day=2)
+        payload = DocumentDeliveryScheduleUpdateIn(runs_per_day=2)  # type: ignore[call-arg]
 
         with pytest.raises(NotFoundError):
             update_schedule(request, 999999, payload)

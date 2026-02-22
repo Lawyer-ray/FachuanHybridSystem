@@ -186,7 +186,7 @@ class TestPreservationQuoteAutoTokenIntegration:
         self.adapter.service.list_quotes = Mock(return_value=([], 0)) # type: ignore[method-assign]
 
         # 测试create_quote代理
-        result = self.adapter.create_quote(
+        result = self.adapter.create_quote(  # type: ignore[call-arg]
             preserve_amount=Decimal("10000"), corp_id="test_corp", category_id="test_category", credential_id=1
         )
         assert result == mock_quote
@@ -209,7 +209,7 @@ class TestPreservationQuoteAutoTokenIntegration:
         self.adapter.service.retry_quote = AsyncMock(return_value=mock_result) # type: ignore[method-assign]
 
         # 测试execute_quote代理
-        result = await self.adapter.execute_quote(1)
+        result = await self.adapter.execute_quote(1)  # type: ignore[misc]
         assert result == mock_result
 
         # 测试retry_quote代理

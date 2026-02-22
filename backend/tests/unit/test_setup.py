@@ -21,7 +21,7 @@ class TestFactorySetup:
         """测试律师工厂"""
         lawyer = LawyerFactory()
 
-        assert lawyer.id is not None
+        assert lawyer.id is not None  # type: ignore[attr-defined]
         assert lawyer.username
         assert lawyer.law_firm is not None
 
@@ -29,7 +29,7 @@ class TestFactorySetup:
         """测试案件工厂"""
         case = CaseFactory()
 
-        assert case.id is not None
+        assert case.id is not None  # type: ignore[attr-defined]
         assert case.name
         assert case.contract is not None
 

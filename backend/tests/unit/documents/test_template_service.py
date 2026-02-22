@@ -219,7 +219,7 @@ class TestDocumentTemplateServicePlaceholders:
         )
 
         # 注册一个占位符
-        Placeholder.objects.create(
+        Placeholder.objects.create(  # type: ignore[misc]
             key="case_name", display_name="案件名称", data_path="case.name", category=PlaceholderCategory.CASE
         )
 

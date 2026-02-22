@@ -26,21 +26,21 @@ from tests.factories import ClientFactory, ContractFactory, LawyerFactory
 def test_contract_clone_workflow_clones_related_data():
     original_contract = ContractFactory(name="源合同")
     client = ClientFactory()
-    ContractParty.objects.create(contract=original_contract, client=client, role=PartyRole.PRINCIPAL)
+    ContractParty.objects.create(contract=original_contract, client=client, role=PartyRole.PRINCIPAL)  # type: ignore[misc]
 
     lawyer = LawyerFactory()
-    ContractAssignment.objects.create(contract=original_contract, lawyer=lawyer, is_primary=True, order=0)
+    ContractAssignment.objects.create(contract=original_contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
 
     due_at = timezone.make_aware(datetime(2025, 5, 1, 0, 0, 0))
-    Reminder.objects.create(
+    Reminder.objects.create(  # type: ignore[misc]
         contract=original_contract,
         reminder_type=ReminderType.HEARING,
         content="测试提醒",
         due_at=due_at,
     )
 
-    agreement = SupplementaryAgreement.objects.create(contract=original_contract, name="补充协议")
-    SupplementaryAgreementParty.objects.create(
+    agreement = SupplementaryAgreement.objects.create(contract=original_contract, name="补充协议")  # type: ignore[misc]
+    SupplementaryAgreementParty.objects.create(  # type: ignore[misc]
         supplementary_agreement=agreement, client=client, role=PartyRole.PRINCIPAL
     )
 
@@ -60,19 +60,19 @@ def test_contract_clone_workflow_clones_related_data():
     workflow = ContractCloneWorkflow(reminder_service=FakeReminderService())
     workflow.clone_related_data(source_contract=original_contract, target_contract=target_contract)
 
-    assert target_contract.contract_parties.count() == 1
-    assert target_contract.assignments.count() == 1
-    assert target_contract.reminders.count() == 1
-    assert target_contract.reminders.first().due_at == due_at
-    assert target_contract.supplementary_agreements.count() == 1
-    assert target_contract.supplementary_agreements.first().parties.count() == 1
+    assert target_contract.contract_parties.count() == 1  # type: ignore[attr-defined]
+    assert target_contract.assignments.count() == 1  # type: ignore[attr-defined]
+    assert target_contract.reminders.count() == 1  # type: ignore[attr-defined]
+    assert target_contract.reminders.first().due_at == due_at  # type: ignore[attr-defined]
+    assert target_contract.supplementary_agreements.count() == 1  # type: ignore[attr-defined]
+    assert target_contract.supplementary_agreements.first().parties.count() == 1  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
 def test_contract_clone_workflow_due_at_transform():
     original_contract = ContractFactory(name="源合同")
     due_at = timezone.make_aware(datetime(2025, 5, 1, 0, 0, 0))
-    Reminder.objects.create(
+    Reminder.objects.create(  # type: ignore[misc]
         contract=original_contract,
         reminder_type=ReminderType.HEARING,
         content="测试提醒",
@@ -98,8 +98,8 @@ def test_contract_clone_workflow_due_at_transform():
         due_at_transform=ContractCloneWorkflow.plus_one_year_due_at,
     )
 
-    assert target_contract.reminders.count() == 1
-    assert target_contract.reminders.first().due_at == due_at + relativedelta(years=1)
+    assert target_contract.reminders.count() == 1  # type: ignore[attr-defined]
+    assert target_contract.reminders.first().due_at == due_at + relativedelta(years=1)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -112,8 +112,8 @@ def test_contract_filing_number_workflow_generates_and_saves():
     filing_number = workflow.ensure_filing_number(contract=contract)
 
     assert filing_number == "X-TEST"
-    contract.refresh_from_db()
-    assert contract.filing_number == "X-TEST"
+    contract.refresh_from_db()  # type: ignore[attr-defined]
+    assert contract.filing_number == "X-TEST"  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -121,13 +121,13 @@ def test_contract_case_creation_workflow_calls_case_service():
     contract = ContractFactory(name="合同")
     client1 = ClientFactory()
     client2 = ClientFactory()
-    ContractParty.objects.create(contract=contract, client=client1, role=PartyRole.PRINCIPAL)
-    ContractParty.objects.create(contract=contract, client=client2, role=PartyRole.PRINCIPAL)
+    ContractParty.objects.create(contract=contract, client=client1, role=PartyRole.PRINCIPAL)  # type: ignore[misc]
+    ContractParty.objects.create(contract=contract, client=client2, role=PartyRole.PRINCIPAL)  # type: ignore[misc]
 
     lawyer1 = LawyerFactory()
     lawyer2 = LawyerFactory()
-    ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)
-    ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)
+    ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)  # type: ignore[misc]
+    ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)  # type: ignore[misc]
 
     case_service = MagicMock()
     case_service.create_case.return_value = SimpleNamespace(id=123)
@@ -135,7 +135,7 @@ def test_contract_case_creation_workflow_calls_case_service():
     workflow = ContractCaseCreationWorkflow(case_service=case_service)
     case_dto = workflow.create_case_from_contract(
         contract=contract,
-        case_data={"name": "案件", "contract_id": contract.id, "case_type": "civil", "is_archived": False},
+        case_data={"name": "案件", "contract_id": contract.id, "case_type": "civil", "is_archived": False},  # type: ignore[attr-defined]
         user="u",
         org_access={"x": 1},
         perm_open_access=True,

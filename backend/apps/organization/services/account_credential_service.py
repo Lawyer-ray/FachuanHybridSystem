@@ -58,8 +58,8 @@ class AccountCredentialService:
         qs = self._get_base_queryset()
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
-        if not getattr(user, "is_superuser", False):
-            user_law_firm_id = getattr(user, "law_firm_id", None) if user else None
+        if user is None or not user.is_superuser:
+            user_law_firm_id = user.law_firm_id if user else None
             if user_law_firm_id is not None:
                 qs = qs.filter(lawyer__law_firm_id=user_law_firm_id)
             else:

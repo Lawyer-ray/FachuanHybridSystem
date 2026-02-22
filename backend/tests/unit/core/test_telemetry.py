@@ -6,7 +6,7 @@ def test_utc_now_iso_ends_with_z():
 
 
 def test_build_event_extra_includes_request_id_and_timestamp():
-    from apps.core.telemetry import build_event_extra
+    from apps.core.telemetry import build_event_extra  # type: ignore[attr-defined]
 
     extra = build_event_extra(action="test_action", foo="bar")
     assert extra["action"] == "test_action"

@@ -162,7 +162,7 @@ def test_get_rate_limit_config_reads_settings(settings):
 def test_rate_limit_by_user_uses_user_or_ip_branches(monkeypatch):
     cache.clear()
     request_user = DummyRequest(path="/by-user", ip="10.0.0.1")
-    request_user.user = type("U", (), {"is_authenticated": True, "id": 123})()
+    request_user.user = type("U", (), {"is_authenticated": True, "id": 123})()  # type: ignore[attr-defined]
 
     @rate_limit_by_user(requests=1, window=60)
     def handler(_request):
@@ -174,7 +174,7 @@ def test_rate_limit_by_user_uses_user_or_ip_branches(monkeypatch):
 
     cache.clear()
     request_anon = DummyRequest(path="/by-user", ip="10.0.0.2")
-    request_anon.user = type("U", (), {"is_authenticated": False, "id": 999})()
+    request_anon.user = type("U", (), {"is_authenticated": False, "id": 999})()  # type: ignore[attr-defined]
     assert handler(request_anon) == {"ok": True}
     with pytest.raises(RateLimitError):
         handler(request_anon)

@@ -49,16 +49,16 @@ class TestCaseCreateAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        payload = CaseIn(
+        payload = CaseIn(  # type: ignore[call-arg]
             name="测试案件",
             is_archived=False,
             current_stage="first_trial",
         )
         result = create_case(request, payload)
 
-        assert result.id is not None
-        assert result.name == "测试案件"
-        assert result.is_archived is False
+        assert result.id is not None  # type: ignore[attr-defined]
+        assert result.name == "测试案件"  # type: ignore[attr-defined]
+        assert result.is_archived is False  # type: ignore[attr-defined]
 
     def test_create_case_with_contract(self) -> None:
         """关联合同创建案件"""
@@ -73,18 +73,18 @@ class TestCaseCreateAPI:
         data = {
             "name": "合同关联案件",
             "is_archived": False,
-            "contract_id": contract.id,
+            "contract_id": contract.id,  # type: ignore[attr-defined]
         }
         result = service.create_case(data, user=lawyer)
 
-        assert result.contract_id == contract.id
+        assert result.contract_id == contract.id  # type: ignore[attr-defined]
 
     def test_create_case_with_full_fields(self) -> None:
         """完整字段创建案件"""
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        payload = CaseIn(
+        payload = CaseIn(  # type: ignore[call-arg]
             name="完整案件",
             status="active",
             is_archived=True,
@@ -96,10 +96,10 @@ class TestCaseCreateAPI:
         )
         result = create_case(request, payload)
 
-        assert result.name == "完整案件"
-        assert result.is_archived is True
-        assert result.case_type == "civil"
-        assert result.cause_of_action == "合同纠纷"
+        assert result.name == "完整案件"  # type: ignore[attr-defined]
+        assert result.is_archived is True  # type: ignore[attr-defined]
+        assert result.case_type == "civil"  # type: ignore[attr-defined]
+        assert result.cause_of_action == "合同纠纷"  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -142,7 +142,7 @@ class TestCaseListAPI:
         case = CaseFactory()
         from apps.cases.utils import normalize_case_number
 
-        CaseNumber.objects.create(
+        CaseNumber.objects.create(  # type: ignore[misc]
             case=case,
             number=normalize_case_number("（2024）粤01民初12345号"),
         )
@@ -153,7 +153,7 @@ class TestCaseListAPI:
         result = list_cases(request, case_number="（2024）粤01民初12345号")
         result_list = list(result)
         assert len(result_list) >= 1
-        assert case.id in [c.id for c in result_list]
+        assert case.id in [c.id for c in result_list]  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -167,10 +167,10 @@ class TestCaseGetAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        result = get_case(request, case.id)
+        result = get_case(request, case.id)  # type: ignore[attr-defined]
 
-        assert result.id == case.id
-        assert result.name == "详情测试案件"
+        assert result.id == case.id  # type: ignore[attr-defined]
+        assert result.name == "详情测试案件"  # type: ignore[attr-defined]
 
     def test_get_case_not_found(self) -> None:
         """获取不存在的案件"""
@@ -191,7 +191,7 @@ class TestCaseGetAPI:
         )
 
         with pytest.raises(ForbiddenError):
-            get_case(request, case.id)
+            get_case(request, case.id)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -206,10 +206,10 @@ class TestCaseUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = CaseUpdate(name="新名称")
-        result = update_case(request, case.id, payload)
+        result = update_case(request, case.id, payload)  # type: ignore[attr-defined]
 
-        assert result.name == "新名称"
-        case.refresh_from_db()
+        assert result.name == "新名称"  # type: ignore[attr-defined]
+        case.refresh_from_db()  # type: ignore[attr-defined]
         assert case.name == "新名称"
 
     def test_update_case_status(self) -> None:
@@ -219,9 +219,9 @@ class TestCaseUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = CaseUpdate(status="closed")
-        result = update_case(request, case.id, payload)
+        result = update_case(request, case.id, payload)  # type: ignore[attr-defined]
 
-        assert result.status == "closed"
+        assert result.status == "closed"  # type: ignore[attr-defined]
 
     def test_update_case_not_found(self) -> None:
         """更新不存在的案件"""
@@ -239,10 +239,10 @@ class TestCaseUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = CaseUpdate(cause_of_action="侵权纠纷")
-        result = update_case(request, case.id, payload)
+        result = update_case(request, case.id, payload)  # type: ignore[attr-defined]
 
-        assert result.name == "原名称"
-        assert result.cause_of_action == "侵权纠纷"
+        assert result.name == "原名称"  # type: ignore[attr-defined]
+        assert result.cause_of_action == "侵权纠纷"  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -253,7 +253,7 @@ class TestCaseDeleteAPI:
     def test_delete_case_success(self) -> None:
         """删除案件"""
         case = CaseFactory()
-        case_id = case.id
+        case_id = case.id  # type: ignore[attr-defined]
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -285,7 +285,7 @@ class TestCaseSearchAPI:
 
         result = search_cases(request, q="张三")
         assert len(result) == 1
-        assert result[0].name == "张三诉李四合同纠纷"
+        assert result[0].name == "张三诉李四合同纠纷"  # type: ignore[attr-defined]
 
     def test_search_by_party_name(self) -> None:
         """按当事人姓名搜索"""
@@ -298,7 +298,7 @@ class TestCaseSearchAPI:
 
         result = search_cases(request, q="测试当事人甲")
         assert len(result) >= 1
-        assert case.id in [c.id for c in result]
+        assert case.id in [c.id for c in result]  # type: ignore[attr-defined]
 
     def test_search_empty_query(self) -> None:
         """空查询返回空结果"""

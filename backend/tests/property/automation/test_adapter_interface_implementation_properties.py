@@ -153,7 +153,7 @@ class TestAdapterInterfaceImplementationProperties:
                 pytest.fail(f"适配器 {adapter_class.__name__} 无参数初始化失败: {e}")
 
             # 验证构造函数支持依赖注入（可选参数）
-            init_signature = inspect.signature(adapter_class.__init__)
+            init_signature = inspect.signature(adapter_class.__init__)  # type: ignore[misc]
             parameters = list(init_signature.parameters.values())[1:]  # 跳过self参数
 
             # 所有参数都应该有默认值（支持依赖注入）

@@ -70,7 +70,7 @@ class TestSessionLifecycleService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_session(_NONEXISTENT_UUID)
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "SESSION_NOT_FOUND"
 
     def test_update_session_status_success(self):
@@ -91,7 +91,7 @@ class TestSessionLifecycleService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.update_session_status(session_id=session_dto.session_id, status="invalid_status")
 
-        assert "无效的状态" in exc_info.value.message
+        assert "无效的状态" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "INVALID_STATUS"
 
     def test_update_session_status_not_found(self):
@@ -99,7 +99,7 @@ class TestSessionLifecycleService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.update_session_status(session_id=_NONEXISTENT_UUID, status="completed")
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_list_sessions_all(self):
         """测试列出所有会话"""
@@ -184,7 +184,7 @@ class TestSessionLifecycleService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.delete_session(_NONEXISTENT_UUID, user=user)
 
-        assert "会话不存在" in exc_info.value.message
+        assert "会话不存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_delete_session_permission_denied(self):
         """测试删除会话权限不足"""
@@ -198,7 +198,7 @@ class TestSessionLifecycleService:
         with pytest.raises(PermissionDenied) as exc_info:
             self.service.delete_session(session_dto.session_id, user=user)
 
-        assert "无权限删除此会话" in exc_info.value.message
+        assert "无权限删除此会话" in exc_info.value.message  # type: ignore[operator]
 
     def test_delete_session_without_user(self):
         """测试删除会话不检查权限"""
@@ -268,7 +268,7 @@ class TestSessionLifecycleService:
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_recommended_document_types(case_id=999)
 
-        assert "案件不存在" in exc_info.value.message
+        assert "案件不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "CASE_NOT_FOUND"
 
 

@@ -68,7 +68,7 @@ class TestPerformanceMonitor(TestCase):
 
     def test_statistics_report_generation(self):
         """测试统计报告生成"""
-        start_date = timezone.now() - timezone.timedelta(days=1)
+        start_date = timezone.now() - timezone.timedelta(days=1)  # type: ignore[attr-defined]
         end_date = timezone.now()
 
         with patch("apps.automation.models.TokenAcquisitionHistory.objects") as mock_queryset:
@@ -159,7 +159,7 @@ class TestTokenCacheManager(TestCase):
         result = self.cache_manager.get_cached_credentials(site_name)
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].account, "test1")
+        self.assertEqual(result[0].account, "test1")  # type: ignore[index]
 
     def test_cache_key_generation(self):
         """测试缓存键生成"""
@@ -267,7 +267,7 @@ class TestTokenHistoryRecorder(TestCase):
             mock_objects.create.return_value = Mock(id=1)
 
             # 记录历史
-            await TokenHistoryRecorder.record_acquisition_history(
+            await TokenHistoryRecorder.record_acquisition_history(  # type: ignore[call-arg]
                 acquisition_id, site_name, account, credential_id, result
             )
 
@@ -294,7 +294,7 @@ class TestTokenHistoryRecorder(TestCase):
                 {"login_duration__avg": 8.0},
             ]
 
-            stats = await TokenHistoryRecorder.get_recent_statistics(hours=24)
+            stats = await TokenHistoryRecorder.get_recent_statistics(hours=24)  # type: ignore[call-arg]
 
             self.assertIn("total_acquisitions", stats)
             self.assertIn("success_rate", stats)
@@ -308,7 +308,7 @@ class TestTokenHistoryRecorder(TestCase):
             mock_objects.filter.return_value = mock_queryset
             mock_queryset.delete.return_value = (5, {})
 
-            deleted_count = await TokenHistoryRecorder.cleanup_old_records(days=30)
+            deleted_count = await TokenHistoryRecorder.cleanup_old_records(days=30)  # type: ignore[call-arg]
 
             self.assertEqual(deleted_count, 5)
             mock_objects.filter.assert_called_once()

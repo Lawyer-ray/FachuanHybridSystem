@@ -64,7 +64,7 @@ class TestContractService:
             "status": "active",
             "fee_mode": FeeMode.FIXED,
             "fixed_amount": Decimal("10000.00"),
-            "lawyer_ids": [lawyer1.id, lawyer2.id],
+            "lawyer_ids": [lawyer1.id, lawyer2.id],  # type: ignore[attr-defined]
         }
 
         # 执行测试
@@ -103,14 +103,14 @@ class TestContractService:
         }
 
         # 执行测试
-        updated_contract = self.service.update_contract(contract.id, data)
+        updated_contract = self.service.update_contract(contract.id, data)  # type: ignore[attr-defined]
 
         # 断言结果
         assert updated_contract.name == "新合同名称"
         assert updated_contract.status == "completed"
 
         # 验证数据库
-        contract.refresh_from_db()
+        contract.refresh_from_db()  # type: ignore[attr-defined]
         assert contract.name == "新合同名称"
 
     def test_update_contract_not_found(self):
@@ -133,7 +133,7 @@ class TestContractService:
         assert result is None
 
         # 验证合同已删除
-        assert not Contract.objects.filter(id=contract.id).exists()
+        assert not Contract.objects.filter(id=contract.id).exists()  # type: ignore[attr-defined]
 
     def test_delete_contract_not_found(self):
         """测试删除不存在的合同"""
@@ -147,10 +147,10 @@ class TestContractService:
         contract = ContractFactory()
 
         # 执行查询
-        result = self.service.get_contract(contract_id=contract.id, perm_open_access=True)
+        result = self.service.get_contract(contract_id=contract.id, perm_open_access=True)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert result.id == contract.id
+        assert result.id == contract.id  # type: ignore[attr-defined]
         assert result.name == contract.name
 
     def test_get_contract_not_found(self):
@@ -177,7 +177,7 @@ class TestContractService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_contract(contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False)
+            self.service.get_contract(contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False)  # type: ignore[attr-defined]
 
     def test_get_contract_with_admin(self):
         """测试管理员可以访问任何合同"""
@@ -190,10 +190,10 @@ class TestContractService:
         admin_user.is_admin = True
 
         # 执行查询
-        result = self.service.get_contract(contract_id=contract.id, user=admin_user, perm_open_access=False)
+        result = self.service.get_contract(contract_id=contract.id, user=admin_user, perm_open_access=False)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert result.id == contract.id
+        assert result.id == contract.id  # type: ignore[attr-defined]
 
     def test_get_contract_with_assigned_lawyer(self):
         """测试分配的律师有权限访问合同"""
@@ -206,20 +206,20 @@ class TestContractService:
         user = Mock()
         user.is_authenticated = True
         user.is_admin = False
-        user.id = lawyer.id
+        user.id = lawyer.id  # type: ignore[attr-defined]
 
         # 配置权限
         org_access = {
-            "lawyers": {lawyer.id},
+            "lawyers": {lawyer.id},  # type: ignore[attr-defined]
         }
 
         # 执行查询
         result = self.service.get_contract(
-            contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False
+            contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False  # type: ignore[attr-defined]
         )
 
         # 断言结果
-        assert result.id == contract.id
+        assert result.id == contract.id  # type: ignore[attr-defined]
 
     def test_list_contracts_all(self):
         """测试获取所有合同"""
@@ -231,7 +231,7 @@ class TestContractService:
         result = self.service.list_contracts(perm_open_access=True)
 
         # 断言结果
-        assert result.count() == 2
+        assert result.count() == 2  # type: ignore[call-arg]
 
     def test_list_contracts_filter_by_case_type(self):
         """测试按案件类型过滤合同"""
@@ -243,8 +243,8 @@ class TestContractService:
         result = self.service.list_contracts(case_type="civil", perm_open_access=True)
 
         # 断言结果
-        assert result.count() == 1
-        assert result.first().case_type == "civil"
+        assert result.count() == 1  # type: ignore[call-arg]
+        assert result.first().case_type == "civil"  # type: ignore[attr-defined]
 
     def test_list_contracts_filter_by_status(self):
         """测试按状态过滤合同"""
@@ -256,8 +256,8 @@ class TestContractService:
         result = self.service.list_contracts(status="active", perm_open_access=True)
 
         # 断言结果
-        assert result.count() == 1
-        assert result.first().status == "active"
+        assert result.count() == 1  # type: ignore[call-arg]
+        assert result.first().status == "active"  # type: ignore[attr-defined]
 
     def test_list_contracts_with_admin_permission(self):
         """测试管理员权限获取所有合同"""
@@ -274,7 +274,7 @@ class TestContractService:
         result = self.service.list_contracts(user=admin_user, perm_open_access=False)
 
         # 断言结果
-        assert result.count() == 2
+        assert result.count() == 2  # type: ignore[call-arg]
 
     def test_list_contracts_with_lawyer_permission(self):
         """测试律师权限只能看到自己的合同"""
@@ -292,19 +292,19 @@ class TestContractService:
         user = Mock()
         user.is_authenticated = True
         user.is_admin = False
-        user.id = lawyer.id
+        user.id = lawyer.id  # type: ignore[attr-defined]
 
         # 配置权限
         org_access = {
-            "lawyers": {lawyer.id},
+            "lawyers": {lawyer.id},  # type: ignore[attr-defined]
         }
 
         # 执行查询
         result = self.service.list_contracts(user=user, org_access=org_access, perm_open_access=False)
 
         # 断言结果（只能看到分配给自己的合同）
-        assert result.count() == 1
-        assert result.first().id == contract1.id
+        assert result.count() == 1  # type: ignore[call-arg]
+        assert result.first().id == contract1.id  # type: ignore[attr-defined]
 
     def test_get_finance_summary(self):
         """测试获取合同财务汇总"""
@@ -314,10 +314,10 @@ class TestContractService:
         ContractPaymentFactory(contract=contract, amount=Decimal("2000.00"), invoiced_amount=Decimal("1000.00"))
 
         # 执行测试
-        summary = self.service.get_finance_summary(contract.id)
+        summary = self.service.get_finance_summary(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert summary["contract_id"] == contract.id
+        assert summary["contract_id"] == contract.id  # type: ignore[attr-defined]
         assert summary["total_received"] == 5000.00
         assert summary["total_invoiced"] == 4000.00
         assert summary["unpaid_amount"] == 5000.00  # 10000 - 5000
@@ -326,7 +326,7 @@ class TestContractService:
         """测试全风险收费的合同财务汇总（无固定金额）"""
         contract = ContractFactory(fee_mode=FeeMode.FULL_RISK, fixed_amount=None)
         ContractPaymentFactory(contract=contract, amount=Decimal("1000.00"))
-        summary = self.service.get_finance_summary(contract.id)
+        summary = self.service.get_finance_summary(contract.id)  # type: ignore[attr-defined]
         assert summary["total_received"] == 1000.00
         assert summary["unpaid_amount"] is None  # 非固定收费没有未收金额
 
@@ -337,12 +337,12 @@ class TestContractService:
         client = ClientFactory()
 
         # 执行测试
-        party = self.service.add_party(contract.id, client.id)
+        party = self.service.add_party(contract.id, client.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert party.id is not None
-        assert party.contract_id == contract.id
-        assert party.client_id == client.id
+        assert party.contract_id == contract.id  # type: ignore[attr-defined]
+        assert party.client_id == client.id  # type: ignore[attr-defined]
 
     def test_add_party_contract_not_found(self):
         """测试添加当事人时合同不存在"""
@@ -350,14 +350,14 @@ class TestContractService:
 
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            self.service.add_party(999, client.id)
+            self.service.add_party(999, client.id)  # type: ignore[attr-defined]
 
     def test_remove_party_success(self):
         """测试移除当事人成功"""
         # 创建合同、客户和当事人关系
         contract = ContractFactory()
         client = ClientFactory()
-        ContractParty.objects.create(contract=contract, client=client)
+        ContractParty.objects.create(contract=contract, client=client)  # type: ignore[misc]
 
         # 执行测试（返回 None）
         result = self.service.remove_party(contract.id, client.id) # type: ignore[func-returns-value]
@@ -366,7 +366,7 @@ class TestContractService:
         assert result is None
 
         # 验证当事人已删除
-        assert not ContractParty.objects.filter(contract_id=contract.id, client_id=client.id).exists()
+        assert not ContractParty.objects.filter(contract_id=contract.id, client_id=client.id).exists()  # type: ignore[attr-defined]
 
     def test_remove_party_not_found(self):
         """测试移除不存在的当事人抛出 NotFoundError"""
@@ -374,7 +374,7 @@ class TestContractService:
 
         # 执行测试（不存在的当事人应抛出异常）
         with pytest.raises(NotFoundError):
-            self.service.remove_party(contract.id, 999)
+            self.service.remove_party(contract.id, 999)  # type: ignore[attr-defined]
 
     def test_update_contract_lawyers(self):
         """测试更新合同律师"""
@@ -384,24 +384,24 @@ class TestContractService:
         lawyer2 = LawyerFactory()
 
         # 执行测试
-        assignments = self.service.update_contract_lawyers(contract.id, [lawyer1.id, lawyer2.id])
+        assignments = self.service.update_contract_lawyers(contract.id, [lawyer1.id, lawyer2.id])  # type: ignore[attr-defined]
 
         # 断言结果
         assert len(assignments) == 2
-        assert contract.assignments.count() == 2
+        assert contract.assignments.count() == 2  # type: ignore[attr-defined]
 
     def test_validate_fee_mode_fixed_without_amount(self):
         """测试固定收费模式验证：缺少金额"""
         data = {"fee_mode": FeeMode.FIXED, "fixed_amount": None}
         with pytest.raises(ValidationException) as exc_info:
-            self.service._validate_fee_mode(data)
+            self.service._validate_fee_mode(data)  # type: ignore[attr-defined]
         assert "固定收费需填写金额" in str(exc_info.value.errors)
 
     def test_validate_fee_mode_hourly_with_amount(self):
         """测试半风险收费模式验证：缺少风险比例"""
         data = {"fee_mode": FeeMode.SEMI_RISK, "fixed_amount": Decimal("10000.00"), "risk_rate": None}
         with pytest.raises(ValidationException) as exc_info:
-            self.service._validate_fee_mode(data)
+            self.service._validate_fee_mode(data)  # type: ignore[attr-defined]
         assert "半风险需填写风险比例" in str(exc_info.value.errors)
 
     def test_validate_stages_success(self):
@@ -409,7 +409,7 @@ class TestContractService:
         stages = ["first_trial", "second_trial"]
 
         # 执行测试
-        result = self.service._validate_stages(stages, "civil")
+        result = self.service._validate_stages(stages, "civil")  # type: ignore[attr-defined]
 
         # 断言结果
         assert result == stages
@@ -420,11 +420,11 @@ class TestContractService:
         contract = ContractFactory()
         client1 = ClientFactory(name="客户1")
         client2 = ClientFactory(name="客户2")
-        ContractParty.objects.create(contract=contract, client=client1)
-        ContractParty.objects.create(contract=contract, client=client2)
+        ContractParty.objects.create(contract=contract, client=client1)  # type: ignore[misc]
+        ContractParty.objects.create(contract=contract, client=client2)  # type: ignore[misc]
 
         # 执行测试
-        parties = self.service.get_all_parties(contract.id)
+        parties = self.service.get_all_parties(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert len(parties) == 2
@@ -452,16 +452,16 @@ class TestContractServiceQueryOptimization:
             reset_queries()
 
             # 获取合同
-            qs = service.get_contract_queryset().filter(id=contract.id)
+            qs = service.get_contract_queryset().filter(id=contract.id)  # type: ignore[attr-defined]
             contract_obj = qs.first()
 
             # 访问关联对象不应该产生额外查询
             initial_query_count = len(connection.queries)
 
             # 访问预加载的关系
-            _ = list(contract_obj.cases.all())
-            _ = list(contract_obj.payments.all())
-            _ = list(contract_obj.assignments.all())
+            _ = list(contract_obj.cases.all())  # type: ignore[union-attr]
+            _ = list(contract_obj.payments.all())  # type: ignore[union-attr]
+            _ = list(contract_obj.assignments.all())  # type: ignore[union-attr]
 
             # 查询次数不应该增加（因为已经预加载）
             final_query_count = len(connection.queries)
@@ -486,11 +486,11 @@ class TestContractServiceAdapter:
         contract = ContractFactory()
 
         # 执行测试
-        dto = self.adapter.get_contract(contract.id)
+        dto = self.adapter.get_contract(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert dto is not None
-        assert dto.id == contract.id
+        assert dto.id == contract.id  # type: ignore[attr-defined]
         assert dto.name == contract.name
 
     def test_get_contract_not_found_returns_none(self):
@@ -507,7 +507,7 @@ class TestContractServiceAdapter:
         contract = ContractFactory(representation_stages=["first_trial", "second_trial"])
 
         # 执行测试
-        stages = self.adapter.get_contract_stages(contract.id)
+        stages = self.adapter.get_contract_stages(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert stages == ["first_trial", "second_trial"]
@@ -518,7 +518,7 @@ class TestContractServiceAdapter:
         active_contract = ContractFactory(status="active")
 
         # 执行测试
-        result = self.adapter.validate_contract_active(active_contract.id)
+        result = self.adapter.validate_contract_active(active_contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result is True
@@ -529,7 +529,7 @@ class TestContractServiceAdapter:
         inactive_contract = ContractFactory(status="draft")
 
         # 执行测试
-        result = self.adapter.validate_contract_active(inactive_contract.id)
+        result = self.adapter.validate_contract_active(inactive_contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result is False
@@ -541,12 +541,12 @@ class TestContractServiceAdapter:
         contract2 = ContractFactory()
 
         # 执行测试
-        dtos = self.adapter.get_contracts_by_ids([contract1.id, contract2.id])
+        dtos = self.adapter.get_contracts_by_ids([contract1.id, contract2.id])  # type: ignore[attr-defined]
 
         # 断言结果
         assert len(dtos) == 2
-        assert dtos[0].id == contract1.id
-        assert dtos[1].id == contract2.id
+        assert dtos[0].id == contract1.id  # type: ignore[attr-defined]
+        assert dtos[1].id == contract2.id  # type: ignore[attr-defined]
 
     def test_get_contract_assigned_lawyer_id(self):
         """测试获取合同主要负责律师 ID"""
@@ -556,10 +556,10 @@ class TestContractServiceAdapter:
         ContractAssignmentFactory(contract=contract, lawyer=lawyer, is_primary=True)
 
         # 执行测试
-        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)
+        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert lawyer_id == lawyer.id
+        assert lawyer_id == lawyer.id  # type: ignore[attr-defined]
 
     def test_get_contract_assigned_lawyer_id_no_primary(self):
         """测试获取合同主要负责律师 ID（无主要律师）"""
@@ -567,7 +567,7 @@ class TestContractServiceAdapter:
         contract = ContractFactory()
 
         # 执行测试
-        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)
+        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert lawyer_id is None
@@ -582,7 +582,7 @@ class TestContractServiceAdapter:
         ContractAssignmentFactory(contract=contract, lawyer=lawyer2)
 
         # 执行测试
-        lawyers = self.adapter.get_contract_lawyers(contract.id)
+        lawyers = self.adapter.get_contract_lawyers(contract.id)  # type: ignore[attr-defined]
 
         # 断言结果
         assert len(lawyers) == 2

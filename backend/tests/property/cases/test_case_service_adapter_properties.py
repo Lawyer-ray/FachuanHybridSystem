@@ -123,13 +123,13 @@ class TestCaseServiceAdapterAssignmentProperties:
         lawyer = LawyerFactory()
 
         # 创建指派
-        result = adapter.create_case_assignment(case.id, lawyer.id)
+        result = adapter.create_case_assignment(case.id, lawyer.id)  # type: ignore[attr-defined]
 
         # 验证返回 True
         assert result is True
 
         # 验证数据库中存在指派记录
-        assert CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).exists()
+        assert CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).exists()  # type: ignore[attr-defined]
 
     @given(
         case_name=st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=30).filter(
@@ -155,15 +155,15 @@ class TestCaseServiceAdapterAssignmentProperties:
         lawyer = LawyerFactory()
 
         # 多次创建指派
-        result1 = adapter.create_case_assignment(case.id, lawyer.id)
-        result2 = adapter.create_case_assignment(case.id, lawyer.id)
+        result1 = adapter.create_case_assignment(case.id, lawyer.id)  # type: ignore[attr-defined]
+        result2 = adapter.create_case_assignment(case.id, lawyer.id)  # type: ignore[attr-defined]
 
         # 验证都返回 True
         assert result1 is True
         assert result2 is True
 
         # 验证数据库中只有一条记录
-        count = CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).count()
+        count = CaseAssignment.objects.filter(case_id=case.id, lawyer_id=lawyer.id).count()  # type: ignore[attr-defined]
         assert count == 1
 
     def test_create_case_assignment_nonexistent_case(self):
@@ -210,13 +210,13 @@ class TestCaseServiceAdapterPartyProperties:
         client = ClientFactory()
 
         # 创建当事人
-        result = adapter.create_case_party(case.id, client.id, legal_status)
+        result = adapter.create_case_party(case.id, client.id, legal_status)  # type: ignore[attr-defined]
 
         # 验证返回 True
         assert result is True
 
         # 验证数据库中存在当事人记录
-        party = CaseParty.objects.filter(case_id=case.id, client_id=client.id).first()
+        party = CaseParty.objects.filter(case_id=case.id, client_id=client.id).first()  # type: ignore[attr-defined]
         assert party is not None
         assert party.legal_status == legal_status
 
@@ -244,15 +244,15 @@ class TestCaseServiceAdapterPartyProperties:
         client = ClientFactory()
 
         # 多次创建当事人
-        result1 = adapter.create_case_party(case.id, client.id, "plaintiff")
-        result2 = adapter.create_case_party(case.id, client.id, "defendant")
+        result1 = adapter.create_case_party(case.id, client.id, "plaintiff")  # type: ignore[attr-defined]
+        result2 = adapter.create_case_party(case.id, client.id, "defendant")  # type: ignore[attr-defined]
 
         # 验证都返回 True
         assert result1 is True
         assert result2 is True
 
         # 验证数据库中只有一条记录
-        count = CaseParty.objects.filter(case_id=case.id, client_id=client.id).count()
+        count = CaseParty.objects.filter(case_id=case.id, client_id=client.id).count()  # type: ignore[attr-defined]
         assert count == 1
 
     def test_create_case_party_nonexistent_case(self):

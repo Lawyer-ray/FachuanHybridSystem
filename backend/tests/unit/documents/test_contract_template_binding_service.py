@@ -28,10 +28,10 @@ def test_get_contract_subdir_path_internal_returns_folder_node_path():
     )
 
     doc_template = DocumentTemplateFactory(contract_types=["civil"])
-    doc_template.contract_sub_type = "contract"
-    doc_template.save(update_fields=["contract_sub_type"])
+    doc_template.contract_sub_type = "contract"  # type: ignore[attr-defined]
+    doc_template.save(update_fields=["contract_sub_type"])  # type: ignore[attr-defined]
 
-    binding = DocumentTemplateFolderBinding.objects.create(
+    binding = DocumentTemplateFolderBinding.objects.create(  # type: ignore[misc]
         document_template=doc_template,
         folder_template=folder_template,
         folder_node_id="node2",

@@ -17,13 +17,13 @@ class TestContractInSchema:
     def test_lawyer_ids_required(self):
         """测试 lawyer_ids 必填"""
         with pytest.raises(ValidationError) as exc_info:
-            ContractIn(name="测试合同", case_type="civil", status="active", lawyer_ids=[])  # 空列表应该失败
+            ContractIn(name="测试合同", case_type="civil", status="active", lawyer_ids=[])  # 空列表应该失败  # type: ignore[call-arg]
 
         assert "至少需要指派一个律师" in str(exc_info.value)
 
     def test_lawyer_ids_valid(self):
         """测试有效的 lawyer_ids"""
-        contract_in = ContractIn(
+        contract_in = ContractIn(  # type: ignore[call-arg]
             name="测试合同",
             case_type="civil",
             status="active",
@@ -33,13 +33,13 @@ class TestContractInSchema:
         )
 
         assert contract_in.lawyer_ids == [1, 2, 3]
-        assert contract_in.name == "测试合同"
+        assert contract_in.name == "测试合同"  # type: ignore[attr-defined]
 
     def test_no_assigned_lawyer_id_field(self):
         """测试 assigned_lawyer_id 字段已移除"""
         # 尝试使用旧字段应该失败
         with pytest.raises(ValidationError):
-            ContractIn(
+            ContractIn(  # type: ignore[call-arg]
                 name="测试合同",
                 case_type="civil",
                 status="active",
@@ -57,12 +57,12 @@ class TestContractAssignmentOutSchema:
         """测试从 ContractAssignment 创建 Schema"""
         lawyer = LawyerFactory(real_name="张律师")
         contract = ContractFactory()
-        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
+        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
 
         schema = ContractAssignmentOut.from_assignment(assignment)
 
         assert schema.id == assignment.id
-        assert schema.lawyer_id == lawyer.id
+        assert schema.lawyer_id == lawyer.id  # type: ignore[attr-defined]
         assert schema.lawyer_name == "张律师"
         assert schema.is_primary is True
         assert schema.order == 0
@@ -71,7 +71,7 @@ class TestContractAssignmentOutSchema:
         """测试律师没有真实姓名时使用用户名"""
         lawyer = LawyerFactory(real_name="", username="lawyer1")
         contract = ContractFactory()
-        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=False, order=1)
+        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=False, order=1)  # type: ignore[misc]
 
         schema = ContractAssignmentOut.from_assignment(assignment)
 
@@ -89,8 +89,8 @@ class TestContractOutSchema:
         contract = ContractFactory()
 
         # 创建指派
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)  # type: ignore[misc]
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)  # type: ignore[misc]
 
         # 解析 assignments
         assignments = ContractOut.resolve_assignments(contract)
@@ -107,13 +107,13 @@ class TestContractOutSchema:
         contract = ContractFactory()
 
         # 创建主办律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
 
         # 解析 primary_lawyer
         primary_lawyer = ContractOut.resolve_primary_lawyer(contract)
 
         assert primary_lawyer is not None
-        assert primary_lawyer.id == lawyer.id
+        assert primary_lawyer.id == lawyer.id  # type: ignore[attr-defined]
 
     def test_resolve_primary_lawyer_no_assignment(self):
         """测试无主办律师指派时返回 None"""

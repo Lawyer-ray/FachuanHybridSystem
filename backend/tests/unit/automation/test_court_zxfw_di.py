@@ -92,7 +92,7 @@ class TestDependencyInjection:
         service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)
 
         assert service.captcha_recognizer is mock_recognizer
-        assert service.captcha_recognizer.return_value == "TEST5678"
+        assert service.captcha_recognizer.return_value == "TEST5678"  # type: ignore[attr-defined]
 
     def test_inject_custom_cookie_service(self):
         """测试注入自定义 Cookie 服务"""

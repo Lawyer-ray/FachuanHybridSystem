@@ -41,7 +41,7 @@ class TestWizardView:
         # 应该返回 302 重定向
         assert response.status_code == 302
         # 重定向目标应该包含登录页面
-        assert "login" in response.url.lower()
+        assert "login" in response.url.lower()  # type: ignore[attr-defined]
 
     @override_settings(ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"])
     def test_authenticated_access(self):

@@ -10,8 +10,6 @@ from apps.core.schemas import SchemaMixin
 __all__: list[str] = [
     "ClientIdentityDocLiteOut",
     "ClientLiteOut",
-    "LawyerLiteOut",
-    "SuccessOut",
 ]
 
 
@@ -65,22 +63,3 @@ class ClientLiteOut(SchemaMixin, Schema):
             identity_docs=docs,
         )
 
-
-class SuccessOut(Schema):
-    success: bool
-
-
-class LawyerLiteOut(Schema):
-    id: int
-    username: str
-    real_name: str | None = None
-    phone: str | None = None
-
-    @classmethod
-    def from_model(cls, obj: Any) -> "LawyerLiteOut":
-        return cls(
-            id=obj.id,
-            username=getattr(obj, "username", ""),
-            real_name=getattr(obj, "real_name", None) or None,
-            phone=getattr(obj, "phone", None) or None,
-        )

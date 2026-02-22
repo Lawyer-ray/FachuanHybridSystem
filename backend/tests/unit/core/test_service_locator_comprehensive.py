@@ -62,10 +62,10 @@ class TestBaseServiceLocator:
         service2 = MockService("second")
 
         BaseServiceLocator.register("test", service1)
-        assert BaseServiceLocator.get("test").get_name() == "first"
+        assert BaseServiceLocator.get("test").get_name() == "first"  # type: ignore[union-attr]
 
         BaseServiceLocator.register("test", service2)
-        assert BaseServiceLocator.get("test").get_name() == "second"
+        assert BaseServiceLocator.get("test").get_name() == "second"  # type: ignore[union-attr]
 
     def test_clear_specific_service(self):
         """测试清除特定服务"""
@@ -207,7 +207,7 @@ class TestBaseServiceLocator:
             return "result"
 
         BaseServiceLocator.register("func", test_func)
-        assert BaseServiceLocator.get("func")() == "result"
+        assert BaseServiceLocator.get("func")() == "result"  # type: ignore[misc]
 
     def test_get_or_create_with_lambda(self):
         """测试 get_or_create 使用 lambda"""

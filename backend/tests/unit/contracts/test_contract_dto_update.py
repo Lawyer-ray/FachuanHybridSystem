@@ -32,7 +32,7 @@ class TestContractDTOUpdate:
         assert hasattr(dto, "primary_lawyer_name")
 
         # 验证值正确
-        assert dto.primary_lawyer_id == lawyer.id
+        assert dto.primary_lawyer_id == lawyer.id  # type: ignore[attr-defined]
         assert dto.primary_lawyer_name == "张三"
 
     def test_contract_dto_primary_lawyer_with_assignment(self):
@@ -45,14 +45,14 @@ class TestContractDTOUpdate:
         contract = ContractFactory()
 
         # 创建主办律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=primary_lawyer, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=contract, lawyer=primary_lawyer, is_primary=True, order=0)  # type: ignore[misc]
         # 创建协办律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=secondary_lawyer, is_primary=False, order=1)
+        ContractAssignment.objects.create(contract=contract, lawyer=secondary_lawyer, is_primary=False, order=1)  # type: ignore[misc]
 
         dto = ContractDTO.from_model(contract)
 
         # 应该使用 ContractAssignment 的主办律师
-        assert dto.primary_lawyer_id == primary_lawyer.id
+        assert dto.primary_lawyer_id == primary_lawyer.id  # type: ignore[attr-defined]
         assert dto.primary_lawyer_name == "主办律师"
 
     def test_contract_dto_no_primary_lawyer(self):
@@ -84,13 +84,13 @@ class TestContractServiceAdapterUpdate:
         contract = ContractFactory()
 
         # 创建主办律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=primary_lawyer, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=contract, lawyer=primary_lawyer, is_primary=True, order=0)  # type: ignore[misc]
         # 创建协办律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=secondary_lawyer, is_primary=False, order=1)
+        ContractAssignment.objects.create(contract=contract, lawyer=secondary_lawyer, is_primary=False, order=1)  # type: ignore[misc]
 
         # 应该返回主办律师的 ID
-        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)
-        assert lawyer_id == primary_lawyer.id
+        lawyer_id = self.adapter.get_contract_assigned_lawyer_id(contract.id)  # type: ignore[attr-defined]
+        assert lawyer_id == primary_lawyer.id  # type: ignore[attr-defined]
 
     def test_get_contract_lawyers(self):
         """测试 get_contract_lawyers 方法"""
@@ -104,12 +104,12 @@ class TestContractServiceAdapterUpdate:
         contract = ContractFactory()
 
         # 创建律师指派
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer3, is_primary=False, order=2)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer1, is_primary=True, order=0)  # type: ignore[misc]
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)  # type: ignore[misc]
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer3, is_primary=False, order=2)  # type: ignore[misc]
 
         # 获取所有律师
-        lawyers = self.adapter.get_contract_lawyers(contract.id)
+        lawyers = self.adapter.get_contract_lawyers(contract.id)  # type: ignore[attr-defined]
 
         # 验证返回类型
         assert isinstance(lawyers, list)
@@ -117,16 +117,16 @@ class TestContractServiceAdapterUpdate:
         assert all(isinstance(lawyer, LawyerDTO) for lawyer in lawyers)
 
         # 验证排序（主办律师在前）
-        assert lawyers[0].id == lawyer1.id
+        assert lawyers[0].id == lawyer1.id  # type: ignore[attr-defined]
         assert lawyers[0].real_name == "主办律师"
-        assert lawyers[1].id == lawyer2.id
-        assert lawyers[2].id == lawyer3.id
+        assert lawyers[1].id == lawyer2.id  # type: ignore[attr-defined]
+        assert lawyers[2].id == lawyer3.id  # type: ignore[attr-defined]
 
     def test_get_contract_lawyers_empty(self):
         """测试 get_contract_lawyers 无律师指派时"""
         contract = ContractFactory()
 
-        lawyers = self.adapter.get_contract_lawyers(contract.id)
+        lawyers = self.adapter.get_contract_lawyers(contract.id)  # type: ignore[attr-defined]
 
         # 应该返回空列表
         assert isinstance(lawyers, list)

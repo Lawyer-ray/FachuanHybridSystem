@@ -28,7 +28,7 @@ def test_clear_token_cache_command_executes_targeted(monkeypatch):
         called["accounts"] = accounts
 
     def fake_invalidate_blacklist_cache(self):
-        called["blacklist"] += 1
+        called["blacklist"] += 1  # type: ignore[operator]
 
     monkeypatch.setattr(TokenCacheManager, "invalidate_site_cache", fake_invalidate_site_cache)
     monkeypatch.setattr(TokenCacheManager, "invalidate_blacklist_cache", fake_invalidate_blacklist_cache)

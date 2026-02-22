@@ -126,9 +126,9 @@ class TestDocumentTemplateGetAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        result = get_document_template(request, template.id)
+        result = get_document_template(request, template.id)  # type: ignore[attr-defined]
 
-        assert result.id == template.id
+        assert result.id == template.id  # type: ignore[attr-defined]
         assert result.name == "详情测试模板"
 
     def test_get_template_not_found(self) -> None:
@@ -152,10 +152,10 @@ class TestDocumentTemplateUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = DocumentTemplateUpdate(name="新名称")
-        result = update_document_template(request, template.id, payload)
+        result = update_document_template(request, template.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "新名称"
-        template.refresh_from_db()
+        template.refresh_from_db()  # type: ignore[attr-defined]
         assert template.name == "新名称"
 
     def test_update_template_partial(self) -> None:
@@ -165,7 +165,7 @@ class TestDocumentTemplateUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = DocumentTemplateUpdate(description="新描述")
-        result = update_document_template(request, template.id, payload)
+        result = update_document_template(request, template.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "原名称"
         assert result.description == "新描述"
@@ -188,14 +188,14 @@ class TestDocumentTemplateDeleteAPI:
     def test_delete_template_success(self) -> None:
         """软删除模板"""
         template = DocumentTemplateFactory()
-        template_id = template.id
+        template_id = template.id  # type: ignore[attr-defined]
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
         result = delete_document_template(request, template_id)
 
         assert result["success"] is True
-        template.refresh_from_db()
+        template.refresh_from_db()  # type: ignore[attr-defined]
         assert template.is_active is False
 
     def test_delete_template_not_found(self) -> None:

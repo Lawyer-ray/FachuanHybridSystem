@@ -93,7 +93,7 @@ class CourtSMSAdminTest(TestCase):
         # 创建请求
         request = self.factory.post("/admin/automation/courtsms/")
         request.user = self.user
-        request._messages = Mock()
+        request._messages = Mock()  # type: ignore[attr-defined]
 
         # 执行操作
         queryset = CourtSMS.objects.filter(id=self.sms.id)
@@ -125,13 +125,13 @@ class CourtSMSAdminTest(TestCase):
         # 创建请求
         request = self.factory.post("/admin/automation/courtsms/submit/", {"content": "测试短信内容"})
         request.user = self.user
-        request._messages = Mock()
+        request._messages = Mock()  # type: ignore[attr-defined]
 
         response = self.admin.submit_sms_view(request)
 
         # 验证重定向
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/automation/courtsms/123/change/", response.url)
+        self.assertIn("/admin/automation/courtsms/123/change/", response.url)  # type: ignore[attr-defined]
 
         # 验证服务调用
         mock_service.submit_sms.assert_called_once()

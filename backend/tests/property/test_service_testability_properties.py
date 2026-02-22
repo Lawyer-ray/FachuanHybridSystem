@@ -82,7 +82,7 @@ def contract_create_data(draw):
                 unique=True,
             )
         ),
-        "lawyer_ids": [lawyer.id],  # 通过 lawyer_ids 指派律师（create_contract 会 pop 此字段）
+        "lawyer_ids": [lawyer.id],  # 通过 lawyer_ids 指派律师（create_contract 会 pop 此字段）  # type: ignore[attr-defined]
     }
 
     # 根据收费模式添加必要字段
@@ -332,7 +332,7 @@ def test_contract_service_get_without_http_request(contract_id):
     """
     # 创建测试数据（不指定 id，避免 Hypothesis 重复生成相同 id 触发 UNIQUE 约束）
     contract = ContractFactory()
-    actual_id = contract.id
+    actual_id = contract.id  # type: ignore[attr-defined]
 
     # 创建 Service 实例
     service = ContractService()
@@ -586,9 +586,9 @@ def test_service_can_be_tested_in_isolation():
     # 创建真实合同记录（满足外键约束），同时注入 Mock 服务
     real_contract = ContractFactory()
     mock_contract_service.set_contract(
-        real_contract.id,
+        real_contract.id,  # type: ignore[attr-defined]
         ContractDTO(
-            id=real_contract.id,
+            id=real_contract.id,  # type: ignore[attr-defined]
             name="测试合同",
             case_type="criminal",  # 使用 criminal 类型，支持 investigation 阶段
             status="active",
@@ -606,7 +606,7 @@ def test_service_can_be_tested_in_isolation():
 
     # 调用 Service 方法
     case = service.create_case(
-        {"name": "测试案件", "contract_id": real_contract.id, "current_stage": "investigation"}, user=user
+        {"name": "测试案件", "contract_id": real_contract.id, "current_stage": "investigation"}, user=user  # type: ignore[attr-defined]
     )
 
     # 验证：方法成功执行

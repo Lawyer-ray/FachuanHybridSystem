@@ -47,14 +47,14 @@ class TestContractAdminService:
 
         # 添加当事人
         client = ClientFactory()
-        ContractParty.objects.create(contract=original_contract, client=client, role=PartyRole.PRINCIPAL)
+        ContractParty.objects.create(contract=original_contract, client=client, role=PartyRole.PRINCIPAL)  # type: ignore[misc]
 
         # 添加律师指派
         lawyer = LawyerFactory()
-        ContractAssignment.objects.create(contract=original_contract, lawyer=lawyer, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=original_contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
 
         # 添加提醒
-        Reminder.objects.create(
+        Reminder.objects.create(  # type: ignore[misc]
             contract=original_contract,
             reminder_type=ReminderType.HEARING,
             content="测试提醒",
@@ -62,10 +62,10 @@ class TestContractAdminService:
         )
 
         # 执行续签
-        new_contract = self.service.renew_advisor_contract(original_contract.id)
+        new_contract = self.service.renew_advisor_contract(original_contract.id)  # type: ignore[attr-defined]
 
         # 验证新合同基本信息
-        assert new_contract.id != original_contract.id
+        assert new_contract.id != original_contract.id  # type: ignore[attr-defined]
         assert new_contract.name == original_contract.name
         assert new_contract.case_type == CaseType.ADVISOR
         assert new_contract.status == original_contract.status
@@ -80,13 +80,13 @@ class TestContractAdminService:
         # 验证当事人被复制
         new_parties = new_contract.contract_parties.all()
         assert new_parties.count() == 1
-        assert new_parties.first().client_id == client.id
+        assert new_parties.first().client_id == client.id  # type: ignore[attr-defined]
         assert new_parties.first().role == PartyRole.PRINCIPAL
 
         # 验证律师指派被复制
         new_assignments = new_contract.assignments.all()
         assert new_assignments.count() == 1
-        assert new_assignments.first().lawyer_id == lawyer.id
+        assert new_assignments.first().lawyer_id == lawyer.id  # type: ignore[attr-defined]
         assert new_assignments.first().is_primary is True
 
         # 验证提醒被复制且日期增加一年
@@ -105,16 +105,16 @@ class TestContractAdminService:
         )
 
         # 创建补充协议
-        agreement = SupplementaryAgreement.objects.create(contract=original_contract, name="测试补充协议")
+        agreement = SupplementaryAgreement.objects.create(contract=original_contract, name="测试补充协议")  # type: ignore[misc]
 
         # 添加补充协议当事人
         client = ClientFactory()
-        SupplementaryAgreementParty.objects.create(
+        SupplementaryAgreementParty.objects.create(  # type: ignore[misc]
             supplementary_agreement=agreement, client=client, role=PartyRole.PRINCIPAL
         )
 
         # 执行续签
-        new_contract = self.service.renew_advisor_contract(original_contract.id)
+        new_contract = self.service.renew_advisor_contract(original_contract.id)  # type: ignore[attr-defined]
 
         # 验证补充协议被复制
         new_agreements = new_contract.supplementary_agreements.all()
@@ -125,14 +125,14 @@ class TestContractAdminService:
         # 验证补充协议当事人被复制
         new_agreement_parties = new_agreement.parties.all()
         assert new_agreement_parties.count() == 1
-        assert new_agreement_parties.first().client_id == client.id
+        assert new_agreement_parties.first().client_id == client.id  # type: ignore[attr-defined]
 
     def test_renew_advisor_contract_not_found(self):
         """测试续签不存在的合同"""
         with pytest.raises(NotFoundError) as exc_info:
             self.service.renew_advisor_contract(999)
 
-        assert "合同不存在" in exc_info.value.message
+        assert "合同不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "CONTRACT_NOT_FOUND"
 
     def test_renew_advisor_contract_invalid_type(self):
@@ -141,9 +141,9 @@ class TestContractAdminService:
         civil_contract = ContractFactory(case_type=CaseType.CIVIL)
 
         with pytest.raises(ValidationException) as exc_info:
-            self.service.renew_advisor_contract(civil_contract.id)
+            self.service.renew_advisor_contract(civil_contract.id)  # type: ignore[attr-defined]
 
-        assert "只有常法顾问合同才能续签" in exc_info.value.message
+        assert "只有常法顾问合同才能续签" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "INVALID_CONTRACT_TYPE"
 
     def test_renew_advisor_contract_date_calculation(self):
@@ -153,7 +153,7 @@ class TestContractAdminService:
             case_type=CaseType.ADVISOR, start_date=date(2024, 2, 29), end_date=date(2025, 2, 28)  # 闰年2月29日
         )
 
-        new_contract = self.service.renew_advisor_contract(original_contract.id)
+        new_contract = self.service.renew_advisor_contract(original_contract.id)  # type: ignore[attr-defined]
 
         # 验证闰年日期正确处理
         assert new_contract.start_date == date(2025, 2, 28)  # 2025年不是闰年
@@ -163,7 +163,7 @@ class TestContractAdminService:
         """测试续签没有开始/结束日期的合同"""
         original_contract = ContractFactory(case_type=CaseType.ADVISOR, start_date=None, end_date=None)
 
-        new_contract = self.service.renew_advisor_contract(original_contract.id)
+        new_contract = self.service.renew_advisor_contract(original_contract.id)  # type: ignore[attr-defined]
 
         # 验证空日期保持为空
         assert new_contract.start_date is None

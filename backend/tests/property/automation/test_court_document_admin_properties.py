@@ -66,7 +66,7 @@ class TestCourtDocumentAdminSearchProperties:
 
         # 创建测试任务
         self.case = CaseFactory()
-        self.task = ScraperTask.objects.create(
+        self.task = ScraperTask.objects.create(  # type: ignore[misc]
             task_type="court_document", status="success", url="https://test.com", case=self.case
         )
 
@@ -95,7 +95,7 @@ class TestCourtDocumentAdminSearchProperties:
 
         unique_id = str(uuid.uuid4())[:8]
 
-        document = CourtDocument.objects.create(
+        document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"{search_data['c_sdbh']}_{unique_id}",
@@ -111,7 +111,7 @@ class TestCourtDocumentAdminSearchProperties:
         )
 
         # 创建不匹配的文书记录
-        non_matching_document = CourtDocument.objects.create(
+        non_matching_document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"different_sdbh_{unique_id}",
@@ -160,7 +160,7 @@ class TestCourtDocumentAdminSearchProperties:
 
         unique_id = str(uuid.uuid4())[:8]
 
-        document = CourtDocument.objects.create(
+        document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"{search_data['c_sdbh']}_{unique_id}",
@@ -176,7 +176,7 @@ class TestCourtDocumentAdminSearchProperties:
         )
 
         # 创建不匹配的文书记录
-        non_matching_document = CourtDocument.objects.create(
+        non_matching_document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"different_sdbh_{unique_id}",
@@ -225,7 +225,7 @@ class TestCourtDocumentAdminSearchProperties:
 
         unique_id = str(uuid.uuid4())[:8]
 
-        document = CourtDocument.objects.create(
+        document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"{search_data['c_sdbh']}_{unique_id}",
@@ -241,7 +241,7 @@ class TestCourtDocumentAdminSearchProperties:
         )
 
         # 创建不匹配的文书记录
-        non_matching_document = CourtDocument.objects.create(
+        non_matching_document = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"different_sdbh_{unique_id}",
@@ -290,7 +290,7 @@ class TestCourtDocumentAdminSearchProperties:
 
         unique_id = str(uuid.uuid4())[:8]
 
-        document1 = CourtDocument.objects.create(
+        document1 = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"{search_data['c_sdbh']}_{unique_id}_1",
@@ -305,7 +305,7 @@ class TestCourtDocumentAdminSearchProperties:
             download_status="success",
         )
 
-        document2 = CourtDocument.objects.create(
+        document2 = CourtDocument.objects.create(  # type: ignore[misc]
             scraper_task=self.task,
             case=self.case,
             c_sdbh=f"different_sdbh_{unique_id}_2",

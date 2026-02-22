@@ -46,8 +46,8 @@ class TestAPIExceptionConversion:
         # 创建模拟的 request 对象
         factory = RequestFactory()
         request = factory.post("/api/v1/automation/preservation-quotes")
-        request.auth = Mock()
-        request.auth.id = 1
+        request.auth = Mock()  # type: ignore[attr-defined]
+        request.auth.id = 1  # type: ignore[attr-defined]
 
         # 创建测试数据
         data = PreservationQuoteCreateSchema(
@@ -88,8 +88,8 @@ class TestAPIExceptionConversion:
         # 创建模拟的 request 对象
         factory = RequestFactory()
         request = factory.get("/api/v1/automation/preservation-quotes/999")
-        request.auth = Mock()
-        request.auth.id = 1
+        request.auth = Mock()  # type: ignore[attr-defined]
+        request.auth.id = 1  # type: ignore[attr-defined]
 
         # Mock Service 抛出 NotFoundError
         with patch("apps.automation.api.preservation_quote_api.PreservationQuoteService") as MockService:
@@ -123,8 +123,8 @@ class TestAPIExceptionConversion:
         # 创建模拟的 request 对象
         factory = RequestFactory()
         request = factory.get(f"/api/v1/automation/preservation-quotes?page={page}")
-        request.auth = Mock()
-        request.auth.id = 1
+        request.auth = Mock()  # type: ignore[attr-defined]
+        request.auth.id = 1  # type: ignore[attr-defined]
 
         # Mock Service 抛出 ValidationError
         with patch("apps.automation.api.preservation_quote_api.PreservationQuoteService") as MockService:

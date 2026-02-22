@@ -195,7 +195,7 @@ class TestDocumentClassifier:
             classifier.classify("一些文书内容")
 
         assert exc_info.value.code == "OLLAMA_SERVICE_UNAVAILABLE"
-        assert "AI 服务暂时不可用" in exc_info.value.message
+        assert "AI 服务暂时不可用" in exc_info.value.message  # type: ignore[operator]
 
     @patch("apps.automation.services.court_document_recognition.document_classifier.chat")
     def test_classify_confidence_clamping(self, mock_chat):
