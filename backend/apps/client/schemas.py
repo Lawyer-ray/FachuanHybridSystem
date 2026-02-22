@@ -23,6 +23,17 @@ class ClientIdentityDocOut(Schema):
     media_url: str | None = None
 
 
+class IdentityDocDetailOut(Schema):
+    """证件文档详情输出 Schema"""
+
+    id: int
+    client_id: int
+    doc_type: str
+    file_path: str
+    uploaded_at: datetime
+    media_url: str | None = None
+
+
 class ClientOut(ModelSchema, SchemaMixin):
     """客户输出 Schema"""
 

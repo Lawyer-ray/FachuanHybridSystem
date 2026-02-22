@@ -8,7 +8,7 @@ from typing import Any
 
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -156,12 +156,7 @@ def save_uploaded_file(
         )
     base_dir = Path(str(media_root)) / rel_dir
 
-    if hasattr(base_dir, "makedirs_p"):
-        base_dir.makedirs_p()
-    else:
-        import os
-
-        os.makedirs(str(base_dir), exist_ok=True)
+    base_dir.mkdir(parents=True, exist_ok=True)
 
     preferred = preferred_filename or safe_original_name
     preferred = sanitize_upload_filename(preferred)

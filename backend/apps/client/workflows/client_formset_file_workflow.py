@@ -6,6 +6,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.client.models import Client, ClientIdentityDoc
 from apps.core.exceptions import ValidationException
 
@@ -26,7 +28,7 @@ class ClientFormsetFileWorkflow:
         client = Client.objects.filter(id=client_id).first()
         if not client:
             raise ValidationException(
-                message="客户不存在",
+                message=_("客户不存在"),
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )

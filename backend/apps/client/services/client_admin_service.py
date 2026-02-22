@@ -6,7 +6,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -49,9 +49,9 @@ class ClientAdminService(ClientAdminFileMixin):
 
     def __init__(
         self,
-        client_service: Optional["ClientService"] = None,
-        identity_doc_service: Optional["ClientIdentityDocService"] = None,
-        internal_query_service: Optional["ClientInternalQueryService"] = None,
+        client_service: "ClientService | None" = None,
+        identity_doc_service: "ClientIdentityDocService | None" = None,
+        internal_query_service: "ClientInternalQueryService | None" = None,
     ):
         """
         初始化服务

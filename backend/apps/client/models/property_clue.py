@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -80,10 +82,6 @@ class PropertyClueAttachment(models.Model):
 
     def media_url(self) -> str | None:
         """返回附件的媒体 URL"""
-        from pathlib import Path
-
-        from django.conf import settings
-
         if not self.file_path:
             return None
         try:

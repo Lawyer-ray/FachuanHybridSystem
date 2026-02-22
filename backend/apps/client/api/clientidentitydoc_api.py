@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
-from apps.client.schemas import IdentityRecognizeOut
+from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
 from apps.client.services.storage import save_uploaded_file
 from apps.core.services.django_q_tasks import get_q_task_status, submit_q_task
 
@@ -80,8 +80,8 @@ def add_identity_doc(
     return {"success": True, "doc_id": identity_doc.id, "message": _("证件文档添加成功")}
 
 
-@router.get("/identity-docs/{doc_id}")
-def get_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
+@router.get("/identity-docs/{doc_id}", response=IdentityDocDetailOut)
+def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:
     """
     获取证件文档
 
@@ -95,14 +95,14 @@ def get_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     service = _get_identity_doc_service()
     identity_doc = service.get_identity_doc(doc_id)
 
-    return {
-        "id": identity_doc.id,
-        "client_id": identity_doc.client_id,
-        "doc_type": identity_doc.doc_type,
-        "file_path": identity_doc.file_path,
-        "created_at": identity_doc.created_at.isoformat() if hasattr(identity_doc, "created_at") else None,
-        "updated_at": identity_doc.updated_at.isoformat() if hasattr(identity_doc, "updated_at") else None,
-    }
+    return IdentityDocDetailOut(
+        id=identity_doc.id,
+        client_id=identity_doc.client_id,
+        doc_type=identity_doc.doc_type,
+        file_path=identity_doc.file_path,
+        uploaded_at=identity_doc.uploaded_at,
+        media_url=identity_doc.media_url(),
+    )
 
 
 @router.delete("/identity-docs/{doc_id}")
@@ -123,20 +123,18 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     return {"success": True, "message": _("证件文档删除成功")}
 
 
-@router.api_operation(["GET", "POST"], "/parse-text")
-def parse_text_any(request: Any) -> dict[str, Any]:
+@router.get("/parse-text")
+def parse_text(request: Any, text: str = "") -> dict[str, Any]:
     """
     解析客户文本
 
     Args:
         request: HTTP 请求
+        text: 待解析的文本（查询参数）
 
     Returns:
         解析后的客户数据
     """
-    text = request.GET.get("text") or request.POST.get("text") or ""
-
-    # 委托给 ClientService 处理文本解析
     service = _get_client_service()
     parsed_data = service.parse_client_text(text)
 
