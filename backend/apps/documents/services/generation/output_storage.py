@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from apps.core.path import Path
 
 
@@ -22,7 +20,7 @@ class GeneratedDocumentStorage:
             raise RuntimeError("GeneratedDocumentStorage.media_root 未配置")
         return Path(str(value))
 
-    def save_bytes(self, *, relative_dir: str, filename: str, content: bytes) -> Any:
+    def save_bytes(self, *, relative_dir: str, filename: str, content: bytes) -> str:
         media_root = self.media_root
         target_dir = media_root / relative_dir
         target_dir.makedirs_p()
@@ -33,5 +31,5 @@ class GeneratedDocumentStorage:
 
         return str(file_path.relative_to(media_root))
 
-    def save_for_case(self, *, case_id: int, filename: str, content: bytes) -> Any:
+    def save_for_case(self, *, case_id: int, filename: str, content: bytes) -> str:
         return self.save_bytes(relative_dir=f"generated_documents/case_{case_id}", filename=filename, content=content)
