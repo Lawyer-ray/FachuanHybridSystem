@@ -75,9 +75,9 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
                 context["auto_detect_failed"] = True
                 context["front_image_url"] = result.get("front_image_url", "")
                 context["back_image_url"] = result.get("back_image_url", "")
-                messages.warning(request, _("自动检测失败:") + str(message))
+                messages.warning(request, _("自动检测失败: %(msg)s") % {"msg": message})
             else:
-                messages.error(request, _("合并失败:") + str(message))
+                messages.error(request, _("合并失败: %(msg)s") % {"msg": message})
 
     return render(request, "admin/client/id_card_merge.html", context)
 
@@ -125,7 +125,7 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
         )
     else:
         message = result.get("message", _("未知错误"))
-        messages.error(request, _("合并失败:") + str(message))
+        messages.error(request, _("合并失败: %(msg)s") % {"msg": message})
 
     return redirect("admin:id_card_merge")
 

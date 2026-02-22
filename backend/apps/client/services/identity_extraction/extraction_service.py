@@ -260,7 +260,7 @@ class IdentityExtractionService:
 
                 extracted_data = json.loads(content)
                 logger.info("Ollama 提取成功,字段数量: %s", len(extracted_data))
-                logger.info("Ollama 提取内容: %s", json.dumps(extracted_data, ensure_ascii=False, indent=2))
+                logger.debug("Ollama 提取内容: %s", json.dumps(extracted_data, ensure_ascii=False))
                 return dict(extracted_data)
 
             except json.JSONDecodeError as e:

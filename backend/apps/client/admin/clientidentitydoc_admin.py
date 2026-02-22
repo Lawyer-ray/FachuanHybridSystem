@@ -79,7 +79,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
             if change:
                 messages.success(request, _("文件已重命名为标准格式"))
         except Exception as e:
-            messages.warning(request, _("文件重命名失败: ") + str(e))
+            messages.warning(request, _("文件重命名失败: %(error)s") % {"error": str(e)})
 
     def rename_files(self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]) -> None:
         """批量重命名文件"""
