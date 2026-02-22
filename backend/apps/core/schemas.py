@@ -15,8 +15,8 @@ class TimestampMixin:
     为 Schema 提供统一的时间字段处理
     """
 
-    @staticmethod
-    def _resolve_datetime(value: Any) -> datetime | None:
+    @classmethod
+    def _resolve_datetime(cls, value: Any) -> datetime | None:
         """
         统一处理 datetime 字段，转换为本地时间
 
@@ -33,8 +33,8 @@ class TimestampMixin:
         except Exception:
             return cast(datetime | None, value)
 
-    @staticmethod
-    def _resolve_datetime_iso(value: Any) -> str | None:
+    @classmethod
+    def _resolve_datetime_iso(cls, value: Any) -> str | None:
         """
         统一处理 datetime 字段，转换为 ISO 格式字符串
 
@@ -59,8 +59,8 @@ class DisplayLabelMixin:
     为 choices 字段提供统一的 label 获取方法
     """
 
-    @staticmethod
-    def _get_display(obj: Any, field_name: str) -> str | None:
+    @classmethod
+    def _get_display(cls, obj: Any, field_name: str) -> str | None:
         """
         获取 choices 字段的显示值
 
@@ -86,8 +86,8 @@ class FileFieldMixin:
     为 FileField 提供统一的 URL 和路径获取方法
     """
 
-    @staticmethod
-    def _get_file_url(file_field: Any) -> str | None:
+    @classmethod
+    def _get_file_url(cls, file_field: Any) -> str | None:
         """
         获取文件的 URL
 
@@ -104,8 +104,8 @@ class FileFieldMixin:
         except Exception:
             return None
 
-    @staticmethod
-    def _get_file_path(file_field: Any) -> str | None:
+    @classmethod
+    def _get_file_path(cls, file_field: Any) -> str | None:
         """
         获取文件的路径
 
