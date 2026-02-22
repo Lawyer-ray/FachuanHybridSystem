@@ -11,6 +11,7 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.storage import sanitize_upload_filename
 
 logger = logging.getLogger("apps.client")
@@ -20,10 +21,8 @@ class ClientIdentityDocService:
     """当事人证件服务"""
 
     @transaction.atomic
-    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> Any:
+    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:
         """添加当事人证件"""
-        from apps.client.models import Client, ClientIdentityDoc
-
         client = Client.objects.filter(id=client_id).first()
         if not client:
             raise NotFoundError(
@@ -41,7 +40,7 @@ class ClientIdentityDocService:
 
         return doc
 
-    def rename_uploaded_file(self, doc_instance: Any) -> None:
+    def rename_uploaded_file(self, doc_instance: ClientIdentityDoc) -> None:
         """重命名上传的文件"""
         if not doc_instance.file_path or not doc_instance.client:
             return
@@ -100,10 +99,8 @@ class ClientIdentityDocService:
                     errors={"file": str(e)},
                 ) from e
 
-    def get_identity_doc(self, doc_id: int) -> Any:
+    def get_identity_doc(self, doc_id: int) -> ClientIdentityDoc:
         """获取证件文档，不存在则抛出 NotFoundError"""
-        from apps.client.models import ClientIdentityDoc
-
         doc = ClientIdentityDoc.objects.filter(id=doc_id).first()
         if not doc:
             raise NotFoundError(
@@ -112,6 +109,7 @@ class ClientIdentityDocService:
                 errors={"doc_id": f"ID 为 {doc_id} 的证件文档不存在"},
             )
         return doc
+
     def update_expiry_date(self, doc_id: int, expiry_date: date) -> None:
         """更新证件到期日期"""
         doc = self.get_identity_doc(doc_id)
@@ -139,7 +137,7 @@ class ClientIdentityDocService:
         doc_type: str,
         uploaded_file: Any,
         user: Any = None,
-    ) -> Any:
+    ) -> ClientIdentityDoc:
         """从上传文件添加当事人证件（文件 IO 在 Service 层处理）"""
         from apps.core.services.file_upload_service import FileUploadService
 

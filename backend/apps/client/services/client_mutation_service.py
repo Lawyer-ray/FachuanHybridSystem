@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人写操作服务。"""
 
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
@@ -12,9 +12,12 @@ from apps.client.models import Client
 from apps.core.exceptions import ForbiddenError, ValidationException
 
 if TYPE_CHECKING:
+    from ninja.files import UploadedFile
+
     from apps.client.workflows import ClientDeletionWorkflow
 
     from .client_access_policy import ClientAccessPolicy
+    from .client_identity_doc_service import ClientIdentityDocService
     from .client_query_service import ClientQueryService
 
 logger = logging.getLogger("apps.client")
@@ -26,10 +29,12 @@ class ClientMutationService:
         access_policy: ClientAccessPolicy | None = None,
         query_service: ClientQueryService | None = None,
         deletion_workflow: ClientDeletionWorkflow | None = None,
+        identity_doc_service: ClientIdentityDocService | None = None,
     ) -> None:
         self._access_policy = access_policy
         self._query_service = query_service
         self._deletion_workflow = deletion_workflow
+        self._identity_doc_service = identity_doc_service
 
     @property
     def access_policy(self) -> ClientAccessPolicy:
@@ -46,6 +51,14 @@ class ClientMutationService:
 
             self._query_service = ClientQueryService()
         return self._query_service
+
+    @property
+    def identity_doc_service(self) -> ClientIdentityDocService:
+        if self._identity_doc_service is None:
+            from .client_identity_doc_service import ClientIdentityDocService
+
+            self._identity_doc_service = ClientIdentityDocService()
+        return self._identity_doc_service
 
     @property
     def deletion_workflow(self) -> ClientDeletionWorkflow:
@@ -121,6 +134,26 @@ class ClientMutationService:
             "客户删除成功",
             extra={"client_id": client_id, "user_id": getattr(user, "id", None), "action": "delete_client"},
         )
+
+    @transaction.atomic
+    def create_client_with_docs(
+        self,
+        *,
+        data: dict[str, Any],
+        doc_types: list[str],
+        files: list[UploadedFile],
+        user: Any | None = None,
+    ) -> Client:
+        """创建客户并上传证件文档（事务内完成）。"""
+        client = self.create_client(data=data, user=user)
+        for doc_type, file in zip(doc_types, files, strict=True):
+            self.identity_doc_service.add_identity_doc_from_upload(
+                client_id=client.id,
+                doc_type=doc_type,
+                uploaded_file=file,
+                user=user,
+            )
+        return client
 
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):

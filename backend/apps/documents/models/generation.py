@@ -7,13 +7,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-
-if TYPE_CHECKING:
-    from .folder_template import FolderTemplate
 
 logger = logging.getLogger("apps.documents")
 
@@ -143,15 +140,6 @@ class GenerationTask(models.Model):
     def folder_template_id(self, value: int | None) -> None:
         self.metadata = self.metadata or {}
         self.metadata["folder_template_id"] = value
-
-    @property
-    def folder_template(self) -> FolderTemplate | None:
-        template_id = self.folder_template_id
-        if not template_id:
-            return None
-        from .folder_template import FolderTemplate
-
-        return FolderTemplate.objects.filter(id=template_id).first()
 
     @property
     def output_path(self) -> str | None:
