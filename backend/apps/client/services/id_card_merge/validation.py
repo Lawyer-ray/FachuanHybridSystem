@@ -58,7 +58,7 @@ def order_corners(corners: NDArray[np.float32]) -> NDArray[np.float32]:
     return ordered
 
 
-def validate_corners(corners: list[list[int]]) -> str | None | None:
+def validate_corners(corners: list[list[int]]) -> str | None:
     if not corners or len(corners) != 4:
         return "必须提供 4 个角点坐标"
 

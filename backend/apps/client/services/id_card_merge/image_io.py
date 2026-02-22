@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import logging
 import uuid
-from pathlib import Path as StdPath
+from pathlib import Path
 from typing import Any, cast
 
 import cv2
 import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
-
-from apps.core.path import Path
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
 
 def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:
     filename = getattr(image, "name", "image.jpg")
-    ext = StdPath(filename).suffix
+    ext = Path(filename).suffix
     if not ext:
         ext = ".jpg"
 

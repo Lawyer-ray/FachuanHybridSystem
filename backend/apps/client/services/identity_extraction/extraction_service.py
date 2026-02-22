@@ -14,7 +14,7 @@ from apps.client.dependencies import get_ocr_engine
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
-from apps.core.path import Path
+from pathlib import Path
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
 
@@ -44,12 +44,12 @@ class IdentityExtractionService:
         """
         if not image_bytes:
             raise ValidationException(
-                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": "图片数据不能为空"}
+                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": str(_("图片数据不能为空"))}
             )
 
         if not doc_type:
             raise ValidationException(
-                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": "证件类型不能为空"}
+                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": str(_("证件类型不能为空"))}
             )
 
         try:
@@ -70,9 +70,9 @@ class IdentityExtractionService:
         except (OCRExtractionError, OllamaExtractionError, ServiceUnavailableError):
             raise
         except Exception as e:
-            logger.error("证件信息提取失败: %s", e)
+            logger.exception("证件信息提取失败: %s", e)
             raise ValidationException(
-                message=f"证件信息提取失败: {e!s}", code="EXTRACTION_FAILED", errors={"extraction": str(e)}
+                message=_("证件信息提取失败: %(error)s") % {"error": str(e)}, code="EXTRACTION_FAILED", errors={"extraction": str(e)}
             ) from e
 
     def _ocr_extract(self, image_bytes: bytes) -> str:
@@ -108,7 +108,7 @@ class IdentityExtractionService:
         except OCRExtractionError:
             raise
         except Exception as e:
-            logger.error("OCR 提取失败: %s", e)
+            logger.exception("OCR 提取失败: %s", e)
             raise OCRExtractionError(f"OCR 提取失败: {e!s}") from e
 
     def _is_pdf_file(self, file_bytes: bytes) -> bool:
@@ -152,9 +152,9 @@ class IdentityExtractionService:
         try:
             img = Image.open(BytesIO(image_bytes))
             if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")
+                img = img.convert("RGB")  # type: ignore[assignment]
         except Exception as e:
-            logger.error("图片格式无效: %s", e)
+            logger.exception("图片格式无效: %s", e)
             raise OCRExtractionError("图片格式无效,请上传 JPG 或 PNG 格式的图片") from e
 
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -222,7 +222,7 @@ class IdentityExtractionService:
         except OCRExtractionError:
             raise
         except Exception as e:
-            logger.error("PDF 处理失败: %s", e)
+            logger.exception("PDF 处理失败: %s", e)
             raise OCRExtractionError(f"PDF 处理失败: {e!s}") from e
 
     def _ollama_extract(self, raw_text: str, doc_type: str) -> dict[str, Any]:
@@ -261,19 +261,19 @@ class IdentityExtractionService:
                 extracted_data = json.loads(content)
                 logger.info("Ollama 提取成功,字段数量: %s", len(extracted_data))
                 logger.info("Ollama 提取内容: %s", json.dumps(extracted_data, ensure_ascii=False, indent=2))
-                return dict[str, Any](extracted_data)
+                return dict(extracted_data)
 
             except json.JSONDecodeError as e:
-                logger.error("Ollama 返回的 JSON 格式错误: %s", e)
+                logger.exception("Ollama 返回的 JSON 格式错误: %s", e)
                 raise OllamaExtractionError(f"Ollama 返回的 JSON 格式错误: {e!s}") from e
 
         except ConnectionError as e:
-            logger.error("Ollama 服务连接失败: %s", e)
+            logger.exception("Ollama 服务连接失败: %s", e)
             raise ServiceUnavailableError(message=f"Ollama 服务连接失败: {e!s}", service_name="Ollama") from e
         except OllamaExtractionError:
             raise
         except Exception as e:
-            logger.error("Ollama 提取失败: %s", e)
+            logger.exception("Ollama 提取失败: %s", e)
             raise OllamaExtractionError(f"Ollama 提取失败: {e!s}") from e
 
     def safe_extract(self, image_bytes: bytes, doc_type: str) -> dict[str, Any]:
