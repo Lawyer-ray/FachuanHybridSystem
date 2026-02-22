@@ -30,8 +30,6 @@ class RequestMetricsMiddleware:
             response = self.get_response(request)
             status_code = response.status_code
             return response
-        except Exception:
-            raise
         finally:
             if enabled:
                 duration_ms = int((time.monotonic() - start) * 1000)

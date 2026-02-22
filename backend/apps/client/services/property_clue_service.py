@@ -33,6 +33,29 @@ class PropertyClueService:
             self._internal_query_service = ClientInternalQueryService()
         return self._internal_query_service
 
+    def _validate_clue_type(self, clue_type: str) -> None:
+        """验证线索类型是否有效。"""
+        from apps.client.models import PropertyClue
+
+        valid_types = dict(PropertyClue.CLUE_TYPE_CHOICES)
+        if clue_type not in valid_types:
+            raise ValidationException(
+                message=_("无效的线索类型"),
+                code="INVALID_CLUE_TYPE",
+                errors={"clue_type": f"线索类型必须是: {', '.join(valid_types.keys())}"},
+            )
+
+    def _get_client_or_404(self, client_id: int) -> Any:
+        """获取当事人，不存在则抛出 NotFoundError。"""
+        client = self.internal_query_service.get_client(client_id=client_id)
+        if not client:
+            raise NotFoundError(
+                message=_("当事人不存在"),
+                code="CLIENT_NOT_FOUND",
+                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
+            )
+        return client
+
     @transaction.atomic
     def create_clue(
         self,
@@ -43,44 +66,17 @@ class PropertyClueService:
         """
         创建财产线索
 
-        Args:
-            client_id: 当事人 ID
-            data: 线索数据（包含 clue_type, content）
-            user: 当前用户
-
-        Returns:
-            创建的财产线索对象
-
-        Raises:
-            NotFoundError: 当事人不存在
-            ValidationException: 数据验证失败
-
         Requirements: 1.1
         """
         from apps.client.models import PropertyClue
 
-        # 1. 验证当事人是否存在
-        client = self.internal_query_service.get_client(client_id=client_id)
-        if not client:
-            raise NotFoundError(
-                message=_("当事人不存在"),
-                code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
-            )
+        client = self._get_client_or_404(client_id)
 
-        # 2. 验证线索类型
         clue_type = data.get("clue_type", PropertyClue.BANK)
-        if clue_type not in dict(PropertyClue.CLUE_TYPE_CHOICES).keys():
-            raise ValidationException(
-                message=_("无效的线索类型"),
-                code="INVALID_CLUE_TYPE",
-                errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
-            )
+        self._validate_clue_type(clue_type)
 
-        # 3. 创建财产线索
         clue = PropertyClue.objects.create(client=client, clue_type=clue_type, content=data.get("content", ""))
 
-        # 4. 记录日志
         logger.info(
             "财产线索创建成功",
             extra={
@@ -95,24 +91,9 @@ class PropertyClueService:
         return clue
 
     def get_clue(self, clue_id: int, user: Any = None) -> PropertyClue:
-        """
-        获取单个财产线索
-
-        Args:
-            clue_id: 线索 ID
-            user: 当前用户
-
-        Returns:
-            财产线索对象
-
-        Raises:
-            NotFoundError: 线索不存在
-
-        Requirements: 1.1
-        """
+        """获取单个财产线索，不存在则抛出 NotFoundError。"""
         from apps.client.models import PropertyClue
 
-        # 使用 prefetch_related 优化附件查询
         clue = PropertyClue.objects.prefetch_related("attachments").filter(id=clue_id).first()
 
         if not clue:
@@ -133,27 +114,12 @@ class PropertyClueService:
         """
         获取当事人的所有财产线索
 
-        Args:
-            client_id: 当事人 ID
-            user: 当前用户
-
-        Returns:
-            财产线索列表
-
         Requirements: 4.1
         """
         from apps.client.models import PropertyClue
 
-        # 验证当事人是否存在
-        client = self.internal_query_service.get_client(client_id=client_id)
-        if not client:
-            raise NotFoundError(
-                message=_("当事人不存在"),
-                code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
-            )
+        self._get_client_or_404(client_id)
 
-        # 使用 prefetch_related 优化附件查询
         clues = PropertyClue.objects.prefetch_related("attachments").filter(client_id=client_id).order_by("-created_at")
 
         return list(clues)
@@ -168,44 +134,22 @@ class PropertyClueService:
         """
         更新财产线索
 
-        Args:
-            clue_id: 线索 ID
-            data: 更新数据（可包含 clue_type, content）
-            user: 当前用户
-
-        Returns:
-            更新后的财产线索对象
-
-        Raises:
-            NotFoundError: 线索不存在
-            ValidationException: 数据验证失败
-
         Requirements: 5.1
         """
-        from apps.client.models import PropertyClue
-
         # 1. 获取线索
         clue = self.get_clue(clue_id, user)
 
-        # 2. 验证线索类型（如果提供）
+        # 2. 验证并更新线索类型
         if "clue_type" in data:
-            clue_type = data["clue_type"]
-            if clue_type not in dict(PropertyClue.CLUE_TYPE_CHOICES).keys():
-                raise ValidationException(
-                    message=_("无效的线索类型"),
-                    code="INVALID_CLUE_TYPE",
-                    errors={"clue_type": f"线索类型必须是: {', '.join(dict(PropertyClue.CLUE_TYPE_CHOICES).keys())}"},
-                )
-            clue.clue_type = clue_type
+            self._validate_clue_type(data["clue_type"])
+            clue.clue_type = data["clue_type"]
 
-        # 3. 更新内容（如果提供）
+        # 3. 更新内容
         if "content" in data:
             clue.content = data["content"]
 
-        # 4. 保存更新
         clue.save()
 
-        # 5. 记录日志
         logger.info(
             "财产线索更新成功",
             extra={
@@ -219,25 +163,9 @@ class PropertyClueService:
 
     @transaction.atomic
     def delete_clue(self, clue_id: int, user: Any = None) -> None:
-        """
-        删除财产线索及其所有附件
-
-        Args:
-            clue_id: 线索 ID
-            user: 当前用户
-
-        Raises:
-            NotFoundError: 线索不存在
-
-        Requirements: 5.2, 7.2
-        """
-        # 1. 获取线索
+        """删除财产线索及其所有附件。"""
         clue = self.get_clue(clue_id, user)
-
-        # 2. 删除线索（级联删除附件）
         clue.delete()
-
-        # 3. 记录日志
         logger.info(
             "财产线索删除成功",
             extra={
@@ -255,30 +183,11 @@ class PropertyClueService:
         file_name: str,
         user: Any = None,
     ) -> PropertyClueAttachment:
-        """
-        为财产线索添加附件
-
-        Args:
-            clue_id: 线索 ID
-            file_path: 文件路径
-            file_name: 文件名
-            user: 当前用户
-
-        Returns:
-            创建的附件对象
-
-        Raises:
-            NotFoundError: 线索不存在
-            ValidationException: 数据验证失败
-
-        Requirements: 3.1
-        """
+        """为财产线索添加附件。"""
         from apps.client.models import PropertyClueAttachment
 
-        # 1. 验证线索是否存在
         clue = self.get_clue(clue_id, user)
 
-        # 2. 验证文件信息
         if not file_path or not file_name:
             raise ValidationException(
                 message=_("文件路径和文件名不能为空"),
@@ -289,10 +198,8 @@ class PropertyClueService:
                 },
             )
 
-        # 3. 创建附件
         attachment = PropertyClueAttachment.objects.create(property_clue=clue, file_path=file_path, file_name=file_name)
 
-        # 4. 记录日志
         logger.info(
             "财产线索附件添加成功",
             extra={
@@ -338,21 +245,9 @@ class PropertyClueService:
 
     @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: Any = None) -> None:
-        """
-        删除财产线索附件
-
-        Args:
-            attachment_id: 附件 ID
-            user: 当前用户
-
-        Raises:
-            NotFoundError: 附件不存在
-
-        Requirements: 5.3
-        """
+        """删除财产线索附件。"""
         from apps.client.models import PropertyClueAttachment
 
-        # 1. 获取附件
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
         except PropertyClueAttachment.DoesNotExist as e:
@@ -362,10 +257,7 @@ class PropertyClueService:
                 errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
             ) from e
 
-        # 2. 删除附件
         attachment.delete()
-
-        # 3. 记录日志
         logger.info(
             "财产线索附件删除成功",
             extra={
@@ -376,17 +268,7 @@ class PropertyClueService:
         )
 
     def get_content_template(self, clue_type: str) -> str:
-        """
-        获取指定线索类型的内容模板
-
-        Args:
-            clue_type: 线索类型
-
-        Returns:
-            内容模板字符串
-
-        Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
-        """
+        """获取指定线索类型的内容模板。"""
         from apps.client.models import PropertyClue
 
         return str(PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))

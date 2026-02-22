@@ -40,7 +40,7 @@ class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, P
     def file_link(self, obj: PropertyClueAttachment) -> str:
         """显示文件链接"""
         if obj.id:
-            url = obj.media_url()
+            url = obj.media_url
             if url:
                 return format_html('<a href="{}" target="_blank">{}</a>', url, obj.file_name)
         return obj.file_name if obj.file_name else ""

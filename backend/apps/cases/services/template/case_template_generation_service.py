@@ -302,7 +302,7 @@ class CaseTemplateGenerationService:
         """
         try:
             logger.info(
-                "渲染模板", extra={"template_path": str(template_path), "context_keys": list[Any](context.keys())}
+                "渲染模板", extra={"template_path": str(template_path), "context_keys": list(context.keys())}
             )
             doc = DocxTemplate(str(template_path))
             doc.render(context)

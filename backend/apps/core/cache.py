@@ -15,7 +15,7 @@ def _safe_get_config(key: str, default: Any = None) -> Any:
         from .config import get_config
 
         return get_config(key, default)
-    except Exception:
+    except (ImportError, AttributeError, KeyError):
         return default
 
 

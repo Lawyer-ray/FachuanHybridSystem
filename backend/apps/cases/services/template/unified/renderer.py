@@ -19,7 +19,7 @@ class DocxRenderer:
                 "渲染模板",
                 extra={
                     "template_path": str(template_path),
-                    "context_keys": list[Any](context.keys()),
+                    "context_keys": list(context.keys()),
                 },
             )
 

@@ -20,10 +20,8 @@ def _httpx_event_hooks() -> dict[str, list[Callable[..., Any]]] | None:
     def _on_request(request: httpx.Request) -> None:
         try:
             request.extensions["metrics_started_at"] = time.perf_counter()
-        except Exception:
-            logger.exception("操作失败")
-
-            return
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning("Failed to set metrics start time: %s", e)
 
     def _on_response(response: httpx.Response) -> None:
         try:
@@ -40,10 +38,8 @@ def _httpx_event_hooks() -> dict[str, list[Callable[..., Any]]] | None:
                 status_code=int(getattr(response, "status_code", 0) or 0),
                 duration_ms=duration_ms,
             )
-        except Exception:
-            logger.exception("操作失败")
-
-            return
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            logger.warning("Failed to record httpx metrics: %s", e)
 
     return {"request": [_on_request], "response": [_on_response]}
 
@@ -71,15 +67,16 @@ def get_async_http_client() -> httpx.AsyncClient:
 
 
 async def aclose_http_clients() -> None:
+    """关闭 HTTP 客户端连接"""
     try:
         await get_async_http_client().aclose()
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         logger.debug(
             "关闭 async http client 失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True
         )
     try:
         get_sync_http_client().close()
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         logger.debug(
             "关闭 sync http client 失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True
         )
