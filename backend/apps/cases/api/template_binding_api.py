@@ -12,72 +12,19 @@ from typing import Any
 from urllib.parse import quote
 
 from django.http import HttpRequest, HttpResponse
-from ninja import Router, Schema
+from ninja import Router
 
 from apps.cases.schemas import UnifiedGenerateRequest
+from apps.cases.schemas.template_binding_schemas import (
+    AvailableTemplateSchema,
+    BindingsResponseSchema,
+    BindTemplateRequestSchema,
+    GenerateTemplateRequestSchema,
+    SuccessResponseSchema,
+    TemplateBindingSchema,
+)
 
 router = Router()
-
-
-# ==================== Request/Response Schemas ====================
-
-
-class BindTemplateRequestSchema(Schema):
-    """绑定模板请求"""
-
-    template_id: int
-
-
-class GenerateTemplateRequestSchema(Schema):
-    """生成模板请求"""
-
-    template_id: int
-    client_id: int | None = None  # 单个当事人ID(法定代表人身份证明书、单独授权)
-    client_ids: list[int] | None = None  # 多个当事人ID(合并授权)
-    mode: str | None = None  # 授权模式: 'individual' | 'combined'
-
-
-class TemplateBindingSchema(Schema):
-    """模板绑定信息"""
-
-    binding_id: int | None = None  # 通用模板无绑定记录,binding_id 为 None
-    template_id: int
-    name: str
-    description: str = ""
-    binding_source: str
-    binding_source_display: str
-    created_at: str | None = None
-
-
-class TemplateCategorySchema(Schema):
-    """模板分类"""
-
-    category: str
-    category_display: str
-    templates: list[TemplateBindingSchema]
-
-
-class BindingsResponseSchema(Schema):
-    """绑定列表响应"""
-
-    categories: list[TemplateCategorySchema]
-    total_count: int
-
-
-class AvailableTemplateSchema(Schema):
-    """可用模板信息"""
-
-    template_id: int
-    name: str
-    description: str = ""
-    case_sub_type: str | None = None
-    case_sub_type_display: str = ""
-
-
-class SuccessResponseSchema(Schema):
-    """成功响应"""
-
-    success: bool = True
 
 
 # ==================== Factory Function ====================
