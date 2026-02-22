@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_DATE_FORMAT = "%Y年%m月%d日"
 
 
-def format_date(d: date | None, fmt: str = DEFAULT_DATE_FORMAT) -> str:
+def format_date(d: date | str | None, fmt: str = DEFAULT_DATE_FORMAT) -> str:
     """
     格式化日期
 
     Args:
-        d: 日期对象
+        d: 日期对象或 ISO 格式日期字符串（如 "2024-01-15"）
         fmt: 日期格式字符串,默认为 "%Y年%m月%d日"
 
     Returns:
@@ -33,6 +33,9 @@ def format_date(d: date | None, fmt: str = DEFAULT_DATE_FORMAT) -> str:
     if d is None:
         return ""
     try:
+        if isinstance(d, str):
+            from datetime import datetime
+            d = datetime.strptime(d, "%Y-%m-%d").date()
         return d.strftime(fmt)
     except Exception as e:
         logger.warning(f"格式化日期失败: {e}")

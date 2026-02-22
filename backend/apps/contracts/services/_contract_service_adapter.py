@@ -119,8 +119,38 @@ class ContractServiceAdapter:
         contract = self.get_contract_model_internal(contract_id)
         if not contract:
             return None
-        # 构建完整的详情字典，包含 display 字段
-        result: dict[str, Any] = {
+
+        contract_parties = []
+        for party in contract.contract_parties.all():
+            client = party.client
+            contract_parties.append(
+                {
+                    "id": party.id,
+                    "client_id": client.id,
+                    "client_name": client.name,
+                    "id_number": getattr(client, "id_number", None),
+                    "address": getattr(client, "address", None),
+                    "phone": getattr(client, "phone", None),
+                    "role": party.role,
+                }
+            )
+
+        assignments = []
+        for assignment in contract.assignments.all():
+            lawyer = assignment.lawyer
+            assignments.append(
+                {
+                    "id": assignment.id,
+                    "lawyer_id": lawyer.id,
+                    "lawyer_name": getattr(lawyer, "real_name", None) or str(lawyer),
+                    "lawyer_phone": getattr(lawyer, "phone", None),
+                    "lawyer_license_no": getattr(lawyer, "license_no", None),
+                    "is_primary": assignment.is_primary,
+                    "order": getattr(assignment, "order", 0),
+                }
+            )
+
+        return {
             "id": contract.id,
             "name": contract.name,
             "case_type": contract.case_type,
@@ -137,5 +167,6 @@ class ContractServiceAdapter:
             "start_date": str(contract.start_date) if getattr(contract, "start_date", None) else None,
             "end_date": str(contract.end_date) if getattr(contract, "end_date", None) else None,
             "is_archived": getattr(contract, "is_archived", False),
+            "contract_parties": contract_parties,
+            "assignments": assignments,
         }
-        return result

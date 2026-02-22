@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -113,6 +113,24 @@ class TokenAcquisitionHistory(models.Model):
 
     def __str__(self) -> str:
         return f"{self.site_name} - {self.account} - {self.get_status_display()}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """保存前对敏感字段进行脱敏处理"""
+        from apps.core.security.scrub import fingerprint_sha256, mask_secret, scrub_obj, scrub_text
+
+        if self.token_preview:
+            raw = self.token_preview
+            self.token_fingerprint = fingerprint_sha256(raw)
+            self.token_redacted = mask_secret(raw)
+            self.token_preview = None
+
+        if self.error_message:
+            self.error_message = scrub_text(self.error_message)
+
+        if self.error_details:
+            self.error_details = scrub_obj(self.error_details)
+
+        super().save(*args, **kwargs)
 
     def get_success_rate_display(self) -> str:
         """获取成功率显示"""

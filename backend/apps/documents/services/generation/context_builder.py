@@ -149,18 +149,27 @@ class ContextBuilder:
         beneficiaries = [p for p in parties if p.get("role") == _ROLE_BENEFICIARY]
         opposing = [p for p in parties if p.get("role") == _ROLE_OPPOSING]
 
+        def _get_client_field(party: dict[str, Any], field: str) -> str:
+            """兼容嵌套 client 字典和扁平结构两种 DTO 格式"""
+            nested = party.get("client")
+            if isinstance(nested, dict):
+                return nested.get(field) or ""
+            # 扁平结构：client_name / id_number / phone / address 直接在 party 里
+            if field == "name":
+                return party.get("client_name") or ""
+            return party.get(field) or ""
+
         if principals:
-            principal_client = principals[0].get("client") or {}
             context.update(
                 {
-                    "principal_name": principal_client.get("name") or "",
-                    "principal_id_number": principal_client.get("id_number") or "",
-                    "principal_phone": principal_client.get("phone") or "",
-                    "principal_address": principal_client.get("address") or "",
+                    "principal_name": _get_client_field(principals[0], "name"),
+                    "principal_id_number": _get_client_field(principals[0], "id_number"),
+                    "principal_phone": _get_client_field(principals[0], "phone"),
+                    "principal_address": _get_client_field(principals[0], "address"),
                     "all_principals": [
                         {
-                            "name": p.get("client", {}).get("name") or "",
-                            "id_number": p.get("client", {}).get("id_number") or "",
+                            "name": _get_client_field(p, "name"),
+                            "id_number": _get_client_field(p, "id_number"),
                         }
                         for p in principals
                     ],
@@ -178,11 +187,10 @@ class ContextBuilder:
             )
 
         if beneficiaries:
-            beneficiary_client = beneficiaries[0].get("client") or {}
             context.update(
                 {
-                    "beneficiary_name": beneficiary_client.get("name") or "",
-                    "beneficiary_id_number": beneficiary_client.get("id_number") or "",
+                    "beneficiary_name": _get_client_field(beneficiaries[0], "name"),
+                    "beneficiary_id_number": _get_client_field(beneficiaries[0], "id_number"),
                 }
             )
         else:
@@ -191,8 +199,8 @@ class ContextBuilder:
         if opposing:
             context.update(
                 {
-                    "opposing_party_name": opposing[0].get("client", {}).get("name") or "",
-                    "all_opposing_parties": [p.get("client", {}).get("name") or "" for p in opposing],
+                    "opposing_party_name": _get_client_field(opposing[0], "name"),
+                    "all_opposing_parties": [_get_client_field(p, "name") for p in opposing],
                 }
             )
         else:
@@ -200,19 +208,37 @@ class ContextBuilder:
 
         # 处理律师信息
         assignments = contract_dto.get("assignments") or []
-        primary_assignment = next((a for a in assignments if a.get("is_primary")), None)
-        primary_lawyer = (
-            primary_assignment.get("lawyer")
-            if primary_assignment
-            else (assignments[0].get("lawyer") if assignments else None)
-        )
 
-        if primary_lawyer:
+        def _get_lawyer_field(assignment: dict[str, Any], field: str) -> str:
+            """兼容嵌套 lawyer 字典和扁平结构两种 DTO 格式"""
+            nested = assignment.get("lawyer")
+            if isinstance(nested, dict):
+                return nested.get(field) or ""
+            # 扁平结构：lawyer_name / lawyer_phone / lawyer_license_no 直接在 assignment 里
+            if field in ("real_name", "username"):
+                return assignment.get("lawyer_name") or ""
+            if field == "phone":
+                return assignment.get("lawyer_phone") or ""
+            if field == "license_no":
+                return assignment.get("lawyer_license_no") or ""
+            return assignment.get(field) or ""
+
+        primary_assignment = next((a for a in assignments if a.get("is_primary")), None)
+
+        if primary_assignment:
             context.update(
                 {
-                    "primary_lawyer_name": primary_lawyer.get("real_name") or primary_lawyer.get("username") or "",
-                    "primary_lawyer_phone": primary_lawyer.get("phone") or "",
-                    "primary_lawyer_license": primary_lawyer.get("license_no") or "",
+                    "primary_lawyer_name": _get_lawyer_field(primary_assignment, "real_name"),
+                    "primary_lawyer_phone": _get_lawyer_field(primary_assignment, "phone"),
+                    "primary_lawyer_license": _get_lawyer_field(primary_assignment, "license_no"),
+                }
+            )
+        elif assignments:
+            context.update(
+                {
+                    "primary_lawyer_name": _get_lawyer_field(assignments[0], "real_name"),
+                    "primary_lawyer_phone": _get_lawyer_field(assignments[0], "phone"),
+                    "primary_lawyer_license": _get_lawyer_field(assignments[0], "license_no"),
                 }
             )
         else:
@@ -220,7 +246,7 @@ class ContextBuilder:
 
         context["all_lawyers"] = [
             {
-                "name": (a.get("lawyer", {}).get("real_name") or a.get("lawyer", {}).get("username") or ""),
+                "name": _get_lawyer_field(a, "real_name"),
                 "is_primary": bool(a.get("is_primary")),
             }
             for a in assignments

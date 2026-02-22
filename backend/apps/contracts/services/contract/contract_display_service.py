@@ -105,7 +105,7 @@ class ContractDisplayService:
                 type_display = template.get("type_display", "")
                 name = template.get("name", "")
                 if type_display:
-                    template_displays.append(f"{name}({type_display})")
+                    template_displays.append(f"{name}（{type_display}）")
                 else:
                     template_displays.append(name)
 
@@ -193,7 +193,7 @@ class ContractDisplayService:
                 template_cache[case_type] = self._fetch_template_info_for_case_type(case_type)
 
             for contract in contracts:
-                result[cast(int, contract.pk)] = template_cache.get( # type: ignore
+                result[contract.id] = template_cache.get(
                     contract.case_type,
                     {"document_template": "查询失败", "folder_template": "查询失败", "has_templates": False},
                 )
@@ -203,7 +203,7 @@ class ContractDisplayService:
         except Exception as e:
             logger.error(f"批量获取模板信息失败: {e!s}", exc_info=True)
             for contract in contracts:
-                result[cast(int, contract.pk)] = { # type: ignore
+                result[contract.id] = {
                     "document_template": "查询失败",
                     "folder_template": "查询失败",
                     "has_templates": False,
@@ -247,7 +247,7 @@ class ContractDisplayService:
         for t in doc_templates:
             type_display = t.get("type_display", "")
             name = t.get("name", "")
-            displays.append(f"{name}({type_display})" if type_display else name)
+            displays.append(f"{name}（{type_display}）" if type_display else name)
         return "、".join(displays)
 
     def _format_folder_templates(self, folder_templates: list[dict[str, Any]]) -> str:

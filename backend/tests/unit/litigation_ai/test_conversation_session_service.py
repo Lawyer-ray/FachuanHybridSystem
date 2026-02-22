@@ -16,6 +16,11 @@ class TestLitigationConversationSessionService:
 
     def setup_method(self):
         """每个测试方法前执行"""
+        from apps.cases.models import Case
+        from apps.organization.models import Lawyer
+        Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
+        Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
+        Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
         self.service = LitigationConversationSessionService()
 
     def test_service_initialization(self):
@@ -176,15 +181,21 @@ class TestLitigationConversationSessionService:
         # 配置 Mock
         mock_case = Mock()
         mock_case.id = 1
-        mock_case_service.return_value.get_case_internal.return_value = mock_case
 
         mock_party = Mock()
         mock_party.legal_status = LegalStatus.PLAINTIFF
-        mock_case_service.return_value.get_case_parties_internal.return_value = [mock_party]
 
         mock_signals = Mock()
         mock_signals.has_counterclaim = False
-        mock_signals_service.return_value.get_signals_internal.return_value = mock_signals
+
+        # 直接 mock 已实例化的 case_service 和 signals service
+        self.service._lifecycle.case_service = Mock()
+        self.service._lifecycle.case_service.get_case_internal.return_value = mock_case
+        self.service._lifecycle.case_service.get_case_parties_internal.return_value = [mock_party]
+
+        mock_signals_instance = Mock()
+        mock_signals_instance.get_signals_internal.return_value = mock_signals
+        mock_signals_service.return_value = mock_signals_instance
 
         # 执行测试
         result = self.service.get_recommended_document_types(case_id=1)
@@ -199,6 +210,11 @@ class TestLitigationConversationSessionServiceProperties:
 
     def setup_method(self):
         """每个测试方法前执行"""
+        from apps.cases.models import Case
+        from apps.organization.models import Lawyer
+        Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
+        Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
+        Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
         self.service = LitigationConversationSessionService()
 
     def test_case_service_property(self):
@@ -232,6 +248,11 @@ class TestLitigationConversationSessionServiceBackwardCompatibility:
 
     def setup_method(self):
         """每个测试方法前执行"""
+        from apps.cases.models import Case
+        from apps.organization.models import Lawyer
+        Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
+        Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
+        Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
         self.service = LitigationConversationSessionService()
 
     def test_to_session_dto_backward_compatibility(self):
@@ -254,9 +275,9 @@ class TestLitigationConversationSessionServiceBackwardCompatibility:
         message_dto = self.service.add_message(session_id=session_dto.session_id, role="user", content="测试消息")
 
         # 从数据库获取消息对象
-        from apps.conversation_history.models import ConversationMessage
+        from apps.core.models import ConversationHistory
 
-        message = ConversationMessage.objects.get(id=message_dto.id)
+        message = ConversationHistory.objects.get(id=message_dto.id)
 
         # 执行测试
         dto = self.service._to_message_dto(message)
@@ -271,6 +292,12 @@ class TestLitigationConversationSessionServiceIntegration:
 
     def setup_method(self):
         """每个测试方法前执行"""
+        from apps.cases.models import Case
+        from apps.organization.models import Lawyer
+        Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
+        Lawyer.objects.get_or_create(id=200, defaults={"username": "test_user_200", "password": "!"})
+        Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
+        Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
         self.service = LitigationConversationSessionService()
 
     def test_full_conversation_flow(self):

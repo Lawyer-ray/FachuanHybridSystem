@@ -17,6 +17,7 @@ from typing import Any
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.litigation_ai.services.wiring import get_case_service, get_conversation_history_service, get_court_pleading_signals_service
 
 from .session_shared import SessionDTO
 
@@ -28,7 +29,6 @@ class SessionLifecycleService:
 
     def __init__(self) -> None:
         from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
-        from apps.litigation_ai.services.wiring import get_case_service, get_conversation_history_service
 
         self.case_service = get_case_service()
         self.conversation_history_service = get_conversation_history_service()
@@ -86,7 +86,6 @@ class SessionLifecycleService:
     def get_recommended_document_types(self, case_id: int) -> list[str]:
         from apps.core.enums import LegalStatus
         from apps.litigation_ai.models.choices import DocumentType
-        from apps.litigation_ai.services.wiring import get_court_pleading_signals_service
 
         case = self.case_service.get_case_internal(case_id)
         if not case:
