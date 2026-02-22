@@ -89,10 +89,7 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限访问该凭证
         """
-        credential = self._get_base_queryset().filter(id=credential_id).first()
-
-        if not credential:
-            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+        credential = self._get_credential_internal(credential_id)
 
         # 权限检查：复用 OrganizationAccessPolicy 的律师读取权限
         if not self._access_policy.can_read_lawyer(user=user, lawyer=credential.lawyer):
@@ -256,34 +253,10 @@ class AccountCredentialService:
         logger.info("登录失败统计已更新", extra={"credential_id": credential_id, "action": "update_login_failure"})
 
     def batch_mark_preferred(self, credential_ids: list[int]) -> int:
-        """
-        批量标记凭证为优先
-
-        Args:
-            credential_ids: 凭证 ID 列表
-
-        Returns:
-            更新的记录数
-        """
-        updated: int = AccountCredential.objects.filter(
-            id__in=credential_ids,
-        ).update(is_preferred=True)
-        return updated
+        return AccountCredential.objects.filter(id__in=credential_ids).update(is_preferred=True)
 
     def batch_unmark_preferred(self, credential_ids: list[int]) -> int:
-        """
-        批量取消凭证优先标记
-
-        Args:
-            credential_ids: 凭证 ID 列表
-
-        Returns:
-            更新的记录数
-        """
-        updated: int = AccountCredential.objects.filter(
-            id__in=credential_ids,
-        ).update(is_preferred=False)
-        return updated
+        return AccountCredential.objects.filter(id__in=credential_ids).update(is_preferred=False)
 
     def filter_by_ids_and_site(
         self,
