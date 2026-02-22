@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import io
 import logging
-import os
 import tempfile
+from pathlib import Path
 from typing import Any
 
 from PIL import Image as _PILImage
@@ -49,7 +49,7 @@ def convert_image_to_pdf(image_path: str) -> str:
         c.drawImage(temp_img_path, x, y, new_width, new_height)
         c.save()
 
-        os.remove(temp_img_path)
+        Path(temp_img_path).unlink(missing_ok=True)
         return pdf_path
 
     except Exception as e:

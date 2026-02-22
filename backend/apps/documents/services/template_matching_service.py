@@ -135,7 +135,7 @@ class TemplateMatchingService:
         folder_templates = self.find_matching_folder_templates("contract", case_type)
         document_templates = self.find_matching_contract_templates(case_type)
         return cast(
-            dict[str, bool], {"has_folder": len(folder_templates) > 0, "has_document": len(document_templates) > 0}
+            dict[str, bool], {"has_folder": bool(folder_templates), "has_document": bool(document_templates)}
         )
 
     def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:

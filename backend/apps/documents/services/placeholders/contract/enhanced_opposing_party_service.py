@@ -113,7 +113,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
                 if part:
                     case_parts.append(part)
             result = " | ".join(case_parts) if case_parts else ""
-            if result and len(cases) > 0:
+            if result and cases:
                 result = f"{result}{self._format_case_count(len(cases))}"
             return result
         except Exception as e:
