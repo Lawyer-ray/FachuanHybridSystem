@@ -73,7 +73,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.COMPLAINT_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore[no-any-return]
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_LITIGATION_REQUEST: self.convert_to_paragraphs(
@@ -98,7 +98,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.DEFENSE_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore[no-any-return]
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_DEFENSE_OPINION: llm_result.defense_opinion,
