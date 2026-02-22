@@ -1,19 +1,23 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
+import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordRecording, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.tasking import TaskContext, TaskSubmissionService
 
 from .access_policy import ensure_can_access_project
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -111,3 +115,44 @@ class RecordingExtractFacade:
         )
         recording.refresh_from_db()
         return recording
+
+    def update_extract_progress(
+        self,
+        *,
+        recording_id: str,
+        status: str | None = None,
+        progress: int | None = None,
+        current: int | None = None,
+        total: int | None = None,
+        message: str = "",
+        error: str = "",
+        started_at: datetime | None = None,
+        finished_at: datetime | None = None,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """单次数据库操作更新抽帧任务的状态和进度。"""
+        fields: dict[str, Any] = {"updated_at": timezone.now()}
+
+        if status is not None:
+            fields["extract_status"] = status
+        if progress is not None:
+            fields["extract_progress"] = progress
+        if current is not None:
+            fields["extract_current"] = current
+        if total is not None:
+            fields["extract_total"] = total
+        if message:
+            fields["extract_message"] = message
+        if error:
+            fields["extract_error"] = error
+        if started_at is not None:
+            fields["extract_started_at"] = started_at
+        if finished_at is not None:
+            fields["extract_finished_at"] = finished_at
+        if duration_seconds is not None:
+            fields["duration_seconds"] = duration_seconds
+
+        rows: int = ChatRecordRecording.objects.filter(id=recording_id).update(**fields)
+        if rows == 0:
+            logger.warning("录屏 %s 不存在，跳过进度更新", recording_id)
+
