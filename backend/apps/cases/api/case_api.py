@@ -15,6 +15,7 @@ from typing import Any, cast
 
 from ninja import Router
 
+from apps.core.interfaces import ServiceLocator
 from apps.core.request_context import extract_request_context
 
 from apps.cases.schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
@@ -30,8 +31,7 @@ def _get_case_service() -> CaseService:
     Returns:
         CaseService 实例
     """
-    from apps.contracts.services import ContractService
-    return CaseService(contract_service=ContractService())
+    return CaseService(contract_service=ServiceLocator.get_contract_service())
 
 
 def _get_case_query_facade() -> CaseService:
