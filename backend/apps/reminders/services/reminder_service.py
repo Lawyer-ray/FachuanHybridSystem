@@ -43,7 +43,7 @@ class ReminderService:
 
         return qs
 
-    def get_reminder(self, reminder_id: int, *, select_related: bool = True) -> Reminder:
+    def get_reminder(self, reminder_id: int, *, select_related: bool = False) -> Reminder:
         try:
             qs = Reminder.objects.all()
             if select_related:
