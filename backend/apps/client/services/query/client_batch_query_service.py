@@ -1,6 +1,13 @@
 """当事人批量查询服务。"""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from apps.client.services.client_internal_query_service import ClientInternalQueryService
+
+if TYPE_CHECKING:
+    from apps.client.models import Client
 
 
 class ClientBatchQueryService:
