@@ -109,13 +109,15 @@ def export_chat_record_task(task_id: str) -> Any:
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
 
+
 def extract_recording_frames_task(
     recording_id: str,
     interval_seconds: float = 1.0,
 ) -> dict[str, Any]:
     import tempfile
 
-    from django.db.models import Max
+    from django.core.files.base import ContentFile
+    from django.db.models import Case, IntegerField, Max, Value, When
 
     from apps.chat_records.models import (
         ChatRecordRecording,
@@ -126,11 +128,13 @@ def extract_recording_frames_task(
     from apps.chat_records.services.extract_helpers import DedupState, ExtractParams
     from apps.chat_records.services.frame_processing_service import FrameProcessingService
     from apps.chat_records.services.frame_selection_service import FrameSelectionService
+    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
     from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
     from apps.core.interfaces import ServiceLocator
     from apps.core.tasking.runtime import CancellationToken, ProgressReporter, TaskRunContext
 
     fps = FrameProcessingService()
+    facade = RecordingExtractFacade.__new__(RecordingExtractFacade)
 
     try:
         recording = ChatRecordRecording.objects.select_related("project").get(id=recording_id)
@@ -142,21 +146,89 @@ def extract_recording_frames_task(
     run_ctx = TaskRunContext.from_django_q()
     soft_deadline = float(run_ctx.soft_deadline_monotonic)
 
-    ChatRecordRecording.objects.filter(id=recording.id).update(
-        extract_status=ExtractStatus.RUNNING,
-        extract_started_at=timezone.now(),
-        extract_finished_at=None,
-        extract_error="",
-        extract_progress=0,
-        extract_current=0,
-        extract_total=0,
-        extract_message="准备抽帧",
-        updated_at=timezone.now(),
+    facade.update_extract_progress(
+        recording_id=recording_id,
+        status=ExtractStatus.RUNNING,
+        progress=0,
+        current=0,
+        total=0,
+        message="准备抽帧",
+        started_at=timezone.now(),
     )
 
     service = VideoFrameExtractService()
     selection_service = FrameSelectionService()
     ocr_service = ServiceLocator.get_ocr_service() if params.strategy == "ocr" else None
+
+    # ---- ScreenshotCreator 回调 ----
+    class _ScreenshotCreatorImpl:
+        def create_screenshot(
+            self,
+            *,
+            project_id: int,
+            ordering: int,
+            sha256: str,
+            dhash: str,
+            capture_time_seconds: float | None,
+            source: str,
+            frame_score: float | None,
+            image_name: str,
+            image_content: bytes,
+        ) -> None:
+            shot = ChatRecordScreenshot(
+                project_id=project_id,
+                ordering=ordering,
+                sha256=sha256,
+                dhash=dhash,
+                capture_time_seconds=capture_time_seconds,
+                source=source,
+                frame_score=frame_score,
+            )
+            shot.image.save(image_name, ContentFile(image_content), save=False)
+            shot.save()
+
+    # ---- ProgressUpdater 回调 ----
+    class _ProgressUpdaterImpl:
+        def update_progress(
+            self,
+            *,
+            progress: int,
+            current: int,
+            total: int,
+            message: str,
+        ) -> None:
+            facade.update_extract_progress(
+                recording_id=recording_id,
+                progress=min(int(progress), 99),
+                current=int(current),
+                total=int(total),
+                message=message,
+            )
+
+    screenshot_creator = _ScreenshotCreatorImpl()
+    progress_updater = _ProgressUpdaterImpl()
+
+    # ---- ReorderCallback ----
+    def _reorder_callback(project_id: int) -> None:
+        all_ids = list(
+            ChatRecordScreenshot.objects.filter(project_id=project_id)
+            .order_by(
+                Case(
+                    When(capture_time_seconds__isnull=True, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                ),
+                "capture_time_seconds",
+                "created_at",
+            )
+            .values_list("id", flat=True)
+        )
+        if not all_ids:
+            return
+        cases = [When(id=sid, then=Value(idx)) for idx, sid in enumerate(all_ids, start=1)]
+        ChatRecordScreenshot.objects.filter(project_id=project_id).update(
+            ordering=Case(*cases, output_field=IntegerField())
+        )
 
     try:
         info = service.probe(recording.video.path)
@@ -170,12 +242,12 @@ def extract_recording_frames_task(
         )
 
         def _update_progress(progress: int, current: int, total: int, message: str) -> Any:
-            ChatRecordRecording.objects.filter(id=recording.id).update(
-                extract_progress=min(int(progress), 99),
-                extract_current=int(current),
-                extract_total=int(total),
-                extract_message=message,
-                updated_at=timezone.now(),
+            facade.update_extract_progress(
+                recording_id=recording_id,
+                progress=min(int(progress), 99),
+                current=int(current),
+                total=int(total),
+                message=message,
             )
 
         ffmpeg_reporter = ProgressReporter(update_fn=_update_progress, min_interval_seconds=0.5)
@@ -183,14 +255,17 @@ def extract_recording_frames_task(
 
         with tempfile.TemporaryDirectory(prefix="chat_records_frames_") as tmpdir:
             total_estimate, should_cancel = fps.run_ffmpeg_phase(
-                service, recording, info, params, cancel_token, ffmpeg_reporter, soft_deadline, tmpdir
+                service, recording.video.path, str(recording.id),
+                info, params, cancel_token, ffmpeg_reporter, progress_updater,
+                soft_deadline, tmpdir,
             )
 
             frame_files = fps.collect_frame_files(tmpdir)
             total_files = len(frame_files)
             if total_files:
-                ChatRecordRecording.objects.filter(id=recording.id).update(
-                    extract_total=total_files, updated_at=timezone.now()
+                facade.update_extract_progress(
+                    recording_id=recording_id,
+                    total=total_files,
                 )
 
             ChatRecordScreenshot.objects.filter(
@@ -222,7 +297,7 @@ def extract_recording_frames_task(
                 fps.process_single_frame(
                     path,
                     index,
-                    recording,
+                    recording.project_id,
                     info,
                     params,
                     state,
@@ -232,6 +307,8 @@ def extract_recording_frames_task(
                     base_ordering,
                     window,
                     pixel_diff_threshold,
+                    screenshot_creator,
+                    progress_updater,
                 )
 
                 progress = int(state.processed_count * 100 / total_files) if total_files else 100
@@ -243,7 +320,7 @@ def extract_recording_frames_task(
                     force=(state.processed_count == total_files),
                 )
 
-            fps.reorder_screenshots(recording.project_id)
+            fps.reorder_screenshots(recording.project_id, _reorder_callback)
 
         if params.strategy == "ocr":
             logger.info(
@@ -255,23 +332,24 @@ def extract_recording_frames_task(
                     "ocr_disabled": bool(state.ocr_disabled),
                 },
             )
-        ChatRecordRecording.objects.filter(id=recording.id).update(
-            extract_status=ExtractStatus.SUCCESS,
-            extract_progress=100,
-            extract_current=state.created_count,
-            extract_total=state.created_count,
-            extract_message="抽帧完成",
-            extract_finished_at=timezone.now(),
-            updated_at=timezone.now(),
+        facade.update_extract_progress(
+            recording_id=recording_id,
+            status=ExtractStatus.SUCCESS,
+            progress=100,
+            current=state.created_count,
+            total=state.created_count,
+            message="抽帧完成",
+            finished_at=timezone.now(),
         )
         return {"recording_id": recording_id, "status": "success"}
     except Exception as e:
         logger.error("录屏抽帧失败", extra={"recording_id": recording_id, "error": str(e)}, exc_info=True)
-        ChatRecordRecording.objects.filter(id=recording.id).update(
-            extract_status=ExtractStatus.FAILED,
-            extract_error=str(e),
-            extract_message="抽帧失败",
-            extract_finished_at=timezone.now(),
-            updated_at=timezone.now(),
+        facade.update_extract_progress(
+            recording_id=recording_id,
+            status=ExtractStatus.FAILED,
+            error=str(e),
+            message="抽帧失败",
+            finished_at=timezone.now(),
         )
         return {"recording_id": recording_id, "status": "failed", "error": str(e)}
+
