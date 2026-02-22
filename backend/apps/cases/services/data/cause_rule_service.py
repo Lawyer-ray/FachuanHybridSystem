@@ -4,12 +4,6 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-"""案由规则服务 - 判断案由类型并返回适用的计算规则
-
-根据案由的层级结构(祖先链)识别特殊案件类型,并应用相应的费用计算规则.
-支持的特殊案件类型:人格权侵权、知识产权、申请支付令、申请撤销仲裁裁决、公示催告程序、劳动争议.
-"""
-
 import logging
 from decimal import Decimal
 

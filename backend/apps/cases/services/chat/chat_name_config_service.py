@@ -2,25 +2,6 @@
 
 from __future__ import annotations
 
-"""
-群聊名称配置服务
-
-本模块提供群聊名称相关配置的读取和模板渲染功能.
-通过 SystemConfig 模型读取配置,支持缓存机制提高性能.
-
-设计原则:
-- 单一职责:专注于群名配置的读取和渲染
-- 配置热更新:每次读取从缓存获取最新值
-- 默认值回退:配置不存在时使用默认值
-- 容错处理:无效占位符不影响正常渲染
-
-主要功能:
-- 读取群名模板配置
-- 读取默认阶段显示配置
-- 读取群名最大长度配置
-- 渲染群聊名称(模板替换 + 长度截断)
-"""
-
 import logging
 import re
 from typing import TYPE_CHECKING, ClassVar, cast

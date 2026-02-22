@@ -1,8 +1,5 @@
 from collections.abc import Iterable
 
-"""Data repository layer."""
-
-
 from apps.cases.models import CaseAssignment
 
 

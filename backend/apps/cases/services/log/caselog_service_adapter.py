@@ -2,15 +2,6 @@
 
 from __future__ import annotations
 
-"""
-案件日志服务适配器
-
-实现 ICaseLogService 接口,供跨模块调用.
-封装案件日志创建逻辑,避免其他模块直接导入 CaseLog Model.
-
-Requirements: 2.2, 2.4
-"""
-
 from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _

@@ -1,8 +1,5 @@
 from collections.abc import Iterable
 
-"""Data repository layer."""
-
-
 from django.db.models import Q
 
 from apps.cases.models import Case, CaseParty

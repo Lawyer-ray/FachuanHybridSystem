@@ -2,13 +2,6 @@
 
 from __future__ import annotations
 
-"""
-案由和法院数据服务层
-处理案由和法院数据的加载、解析和搜索业务逻辑
-
-支持数据库优先查询,当数据库为空时回退到 JSON 文件
-"""
-
 import json
 import logging
 from functools import lru_cache
