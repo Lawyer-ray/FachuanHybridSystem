@@ -201,8 +201,7 @@ def delete_media_file(file_path: str) -> None:
     try:
         p = p.resolve()
     except Exception:
-        logger.exception("操作失败")
-
+        logger.exception("文件路径解析失败", extra={"file_path": file_path})
         return
 
     try:
@@ -213,6 +212,5 @@ def delete_media_file(file_path: str) -> None:
     try:
         p.unlink(missing_ok=True)
     except Exception:
-        logger.exception("操作失败")
-
+        logger.exception("删除媒体文件失败", extra={"file_path": file_path})
         return

@@ -8,7 +8,8 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.client.models import Client, ClientIdentityDoc
+from apps.client.models import Client
+from apps.client.models import ClientIdentityDoc
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.client")
@@ -20,9 +21,11 @@ class ClientFormsetFileWorkflow:
         *,
         handle_file_storage: Callable[[dict[str, Any], str, str], str | None],
         update_identity_doc: Callable[[int, str, str], None],
+        create_identity_doc: Callable[[int, str, str], None],
     ) -> None:
         self.handle_file_storage = handle_file_storage
         self.update_identity_doc = update_identity_doc
+        self.create_identity_doc = create_identity_doc
 
     def run(self, *, client_id: int, formset_data: list[dict[str, Any]], admin_user: str) -> None:
         client = Client.objects.filter(id=client_id).first()
@@ -82,6 +85,6 @@ class ClientFormsetFileWorkflow:
         if doc_id:
             self.update_identity_doc(int(doc_id), file_path, admin_user)
         else:
-            ClientIdentityDoc.objects.create(client_id=client.id, doc_type=doc_type, file_path=file_path)
+            self.create_identity_doc(client.id, doc_type, file_path)
 
         return {"doc_type": doc_type, "file_path": file_path, "doc_id": doc_id}

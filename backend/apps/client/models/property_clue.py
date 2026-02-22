@@ -93,7 +93,7 @@ class PropertyClueAttachment(models.Model):
             elif not file_path.is_absolute():
                 return settings.MEDIA_URL + str(file_path).replace("\\", "/")
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("附件媒体URL解析失败", extra={"file_path": self.file_path})
             return None
         return None
 
