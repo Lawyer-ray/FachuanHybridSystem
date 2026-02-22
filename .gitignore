@@ -114,3 +114,4 @@ backend/scripts/
 backend/tests/screenshots/
 backend/tests/
 *.mo
+.dmypy.json
