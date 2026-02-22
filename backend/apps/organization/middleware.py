@@ -15,7 +15,6 @@ from .services.wiring import build_org_access_computation_service
 
 
 class OrgAccessMiddleware(MiddlewareMixin):
-    """为每个请求计算用户的访问权限范围，并缓存结果。"""
 
     def process_request(self, request: HttpRequest) -> None:
         user = getattr(request, "user", None)
@@ -35,7 +34,6 @@ class OrgAccessMiddleware(MiddlewareMixin):
 
 
 class ApiTrailingSlashMiddleware(MiddlewareMixin):
-    """移除 API 路径末尾的斜杠，保持 URL 一致性。"""
 
     def process_request(self, request: HttpRequest) -> None:
         path = request.path_info or ""
@@ -45,5 +43,4 @@ class ApiTrailingSlashMiddleware(MiddlewareMixin):
 
 
 def invalidate_user_org_cache(user_id: int) -> None:
-    """使用户组织权限缓存失效（团队变更或案件授权变更时调用）。"""
     cache.delete(CacheKeys.user_org_access(user_id))
