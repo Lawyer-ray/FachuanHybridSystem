@@ -79,12 +79,14 @@ class ReminderService:
     @transaction.atomic
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
         reminder = self.get_reminder(reminder_id)
-        self._apply_update_fields(reminder, data)
-        reminder.save()
+        changed = self._apply_update_fields(reminder, data)
+        if changed:
+            reminder.save(update_fields=changed)
         return reminder
 
-    def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> None:
-        """将 data 中的字段应用到 reminder 实例，复用 validators 校验。"""
+    def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> list[str]:
+        """将 data 中的字段应用到 reminder 实例，返回变更的字段名列表。"""
+        changed: list[str] = []
         new_contract_id: int | None = reminder.contract_id
         new_case_log_id: int | None = reminder.case_log_id
         fk_changed = False
@@ -104,17 +106,25 @@ class ReminderService:
             )
             if "contract_id" in data:
                 reminder.contract_id = new_contract_id
+                changed.append("contract_id")
             if "case_log_id" in data:
                 reminder.case_log_id = new_case_log_id
+                changed.append("case_log_id")
 
         if "reminder_type" in data and data["reminder_type"] is not None:
             reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
+            changed.append("reminder_type")
         if "content" in data and data["content"] is not None:
             reminder.content = normalize_content(data["content"])
+            changed.append("content")
         if "metadata" in data:
             reminder.metadata = normalize_metadata(data["metadata"])
+            changed.append("metadata")
         if "due_at" in data and data["due_at"] is not None:
             reminder.due_at = normalize_due_at(data["due_at"])
+            changed.append("due_at")
+
+        return changed
 
     @transaction.atomic
     def delete_reminder(self, reminder_id: int) -> None:

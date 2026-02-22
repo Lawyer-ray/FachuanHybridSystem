@@ -11,9 +11,7 @@ def _parse_suffix_range(end_s: str, file_size: int) -> tuple[int, int] | None:
     """处理后缀范围请求,如 bytes=-500"""
     try:
         suffix = int(end_s)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, TypeError):
         return None
     if suffix <= 0:
         return None
@@ -25,9 +23,7 @@ def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int
     """处理显式范围请求,如 bytes=0-499"""
     try:
         start = int(start_s)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, TypeError):
         return None
     if start < 0:
         return None
@@ -37,9 +33,7 @@ def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int
     else:
         try:
             end = int(end_s)
-        except Exception:
-            logger.exception("操作失败")
-
+        except (ValueError, TypeError):
             return None
 
     if end < start:

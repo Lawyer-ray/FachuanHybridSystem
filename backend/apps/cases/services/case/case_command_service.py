@@ -45,12 +45,12 @@ class CaseCommandService(PermissionMixin):
         """验证案件阶段是否合法。"""
         if case_type and not business_config.is_stage_valid_for_case_type(stage, case_type):
             raise ValidationException(
-                "该案件类型不支持此阶段",
+                _("该案件类型不支持此阶段"),
                 errors={"current_stage": "阶段不适用于此案件类型"},
             )
         if representation_stages and stage not in representation_stages:
             raise ValidationException(
-                "当前阶段必须属于代理阶段集合",
+                _("当前阶段必须属于代理阶段集合"),
                 errors={"current_stage": "阶段不在代理范围内"},
             )
         return stage
@@ -159,7 +159,7 @@ class CaseCommandService(PermissionMixin):
         try:
             case = get_case_queryset().select_related("contract").get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
@@ -231,7 +231,7 @@ class CaseCommandService(PermissionMixin):
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
@@ -290,7 +290,7 @@ class CaseCommandService(PermissionMixin):
         parties: list[CaseParty] = []
         for party in parties_data:
             if CaseParty.objects.filter(case=case, client_id=party["client_id"]).exists():
-                raise ConflictError("该当事人已存在于此案件")
+                raise ConflictError(_("该当事人已存在于此案件"))
             parties.append(
                 CaseParty.objects.create(
                     case=case,

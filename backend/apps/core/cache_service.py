@@ -55,7 +55,7 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:
                 result = cache.get(cache_key)
                 if result is not None:
                     return result
-            except Exception:
+            except (ConnectionError, TimeoutError, OSError):
                 logger.warning("缓存读取失败，降级为直接查询: key=%s", cache_key)
                 return func(*args, **kwargs)
 
@@ -63,7 +63,7 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:
 
             try:
                 cache.set(cache_key, result, timeout)
-            except Exception:
+            except (ConnectionError, TimeoutError, OSError):
                 logger.warning("缓存写入失败: key=%s", cache_key)
 
             return result
@@ -84,5 +84,5 @@ def invalidate_cache(key: str) -> None:
     """
     try:
         cache.delete(key)
-    except Exception:
+    except (ConnectionError, TimeoutError, OSError):
         logger.warning("缓存失效操作失败: key=%s", key)

@@ -102,7 +102,7 @@ class PromptVersionAdmin(admin.ModelAdmin):
 
         try:
             service.activate_version(version.id)
-            self.message_user(request, _(f"已激活版本:{version}"))
+            self.message_user(request, _("已激活版本:%(version)s") % {"version": version})
         except Exception as e:
             logger.exception("操作失败")
-            self.message_user(request, _(f"激活失败:{e!s}"), level="error")
+            self.message_user(request, _("激活失败:%(error)s") % {"error": e}, level="error")

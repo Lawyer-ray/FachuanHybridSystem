@@ -179,7 +179,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
                 placeholder.is_active = True
                 placeholder.save(update_fields=["is_active"])
                 updated += 1
-        self.message_user(request, _(f"已启用 {updated} 个替换词"))
+        self.message_user(request, _("已启用 %(count)d 个替换词") % {"count": updated})
 
     @admin.action(description=_("禁用选中的替换词"))
     def deactivate_placeholders(self, request, queryset) -> None:
@@ -190,7 +190,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
                 placeholder.is_active = False
                 placeholder.save(update_fields=["is_active"])
                 updated += 1
-        self.message_user(request, _(f"已禁用 {updated} 个替换词"))
+        self.message_user(request, _("已禁用 %(count)d 个替换词") % {"count": updated})
 
     @admin.action(description=_("复制选中的替换词"))
     def duplicate_placeholders(self, request: Any, queryset: QuerySet[Any]) -> None:
@@ -201,7 +201,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
             service.duplicate_placeholder(placeholder)
             count += 1
 
-        self.message_user(request, _(f"已复制 {count} 个替换词"))
+        self.message_user(request, _("已复制 %(count)d 个替换词") % {"count": count})
 
     def get_readonly_fields(self, request, obj=None) -> None:
         """编辑时 key 字段只读"""

@@ -438,18 +438,18 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
         """批量启用模板"""
         admin_service = _get_admin_service()
         updated: int = admin_service.batch_activate(queryset)
-        self.message_user(request, _(f"已启用 {updated} 个模板"))
+        self.message_user(request, _("已启用 %(count)d 个模板") % {"count": updated})
 
     @admin.action(description=_("禁用选中的模板"))
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         admin_service = _get_admin_service()
         updated: int = admin_service.batch_deactivate(queryset)
-        self.message_user(request, _(f"已禁用 {updated} 个模板"))
+        self.message_user(request, _("已禁用 %(count)d 个模板") % {"count": updated})
 
     @admin.action(description=_("复制选中的模板"))
     def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文件夹模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)
-        self.message_user(request, _(f"已复制 {count} 个模板"))
+        self.message_user(request, _("已复制 %(count)d 个模板") % {"count": count})

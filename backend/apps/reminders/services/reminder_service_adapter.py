@@ -50,13 +50,13 @@ class ReminderServiceAdapter:
             return None
 
         reminder_type_label = ReminderType(reminder_type).label
-        metadata = {"created_by_user_id": user_id} if user_id else {}
+        metadata = {"created_by_user_id": user_id} if user_id is not None else {}
 
         try:
             reminder = self._service.create_reminder(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
-                content=normalize_content(str(reminder_type_label)),
+                content=str(reminder_type_label),
                 due_at=reminder_time,
                 metadata=metadata,
             )
