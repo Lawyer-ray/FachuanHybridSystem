@@ -87,7 +87,7 @@ class AccountCredentialService:
             PermissionDenied: 无权限为该律师创建凭证
         """
         # 验证律师存在
-        lawyer = Lawyer.objects.select_related("law_firm").filter(id=lawyer_id).first()
+        lawyer = Lawyer.objects.select_related("law_firm").filter(id=data.lawyer_id).first()
         if not lawyer:
             raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
@@ -97,18 +97,18 @@ class AccountCredentialService:
 
         credential = AccountCredential.objects.create(
             lawyer=lawyer,
-            site_name=site_name,
-            url=url or "",
-            account=account,
-            password=password,
+            site_name=data.site_name,
+            url=data.url or "",
+            account=data.account,
+            password=data.password,
         )
 
         logger.info(
             "凭证创建成功",
             extra={
                 "credential_id": credential.id,
-                "lawyer_id": lawyer_id,
-                "site_name": site_name,
+                "lawyer_id": data.lawyer_id,
+                "site_name": data.site_name,
                 "action": "create_credential",
             },
         )
