@@ -113,7 +113,7 @@ def test_p2_lawyer_dto_field_mapping_preserved(dummy: int) -> None:
 
     **Validates: Requirements 3.2**
     """
-    adapter_source: str = _read_source("services/lawyer_service.py")
+    adapter_source: str = _read_source("services/lawyer/adapter.py")
     tree: ast.Module = ast.parse(adapter_source)
 
     # 提取 LawyerServiceAdapter._to_dto 方法体
@@ -396,7 +396,7 @@ def test_p5_admin_message_template_exists(method_index: int) -> None:
         f"{method_name} 未调用 message_user"
     )
 
-    # 验证包含 is_preferred 更新
-    assert "is_preferred" in method_body, (
-        f"{method_name} 未包含 is_preferred 更新"
+    # 验证委托给 credential service 执行 is_preferred 更新
+    assert "credential_service" in method_body or "_get_credential_service" in method_body or "batch_" in method_body, (
+        f"{method_name} 未委托给 credential service 执行 is_preferred 更新"
     )

@@ -120,7 +120,7 @@ def test_c2_lawyer_adapter_delegates_to_assembler() -> None:
 
     **Validates: Requirements 1.2**
     """
-    adapter_file = ORG_DIR / "services" / "lawyer_service.py"
+    adapter_file = ORG_DIR / "services" / "lawyer" / "adapter.py"
     source = adapter_file.read_text(encoding="utf-8")
 
     tree = ast.parse(source)

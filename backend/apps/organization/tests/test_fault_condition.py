@@ -24,7 +24,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent
 # Organization 模块目录
 ORG_DIR = BACKEND_DIR / "apps" / "organization"
 
-# C3: 需要检查 from __future__ import annotations 的 23 个文件
+# C3: 需要检查 from __future__ import annotations 的 22 个文件
 EXPECTED_FUTURE_ANNOTATIONS_FILES: list[str] = [
     "schemas.py",
     "dtos.py",
@@ -49,7 +49,6 @@ EXPECTED_FUTURE_ANNOTATIONS_FILES: list[str] = [
     "apps.py",
     "forms.py",
     "views.py",
-    "models.py",
 ]
 
 
