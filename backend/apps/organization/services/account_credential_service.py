@@ -42,11 +42,10 @@ class AccountCredentialService:
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
         if user is None or not user.is_superuser:
-            user_law_firm_id = user.law_firm_id if user else None
-            if user_law_firm_id is not None:
-                qs = qs.filter(lawyer__law_firm_id=user_law_firm_id)
+            law_firm_id = user.law_firm_id if user else None
+            if law_firm_id is not None:
+                qs = qs.filter(lawyer__law_firm_id=law_firm_id)
             else:
-                # 用户没有关联律所，返回空查询集
                 qs = qs.none()
 
         if lawyer_id is not None:
