@@ -3,10 +3,12 @@ from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
-from ninja import File, Router
+from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityRecognizeOut
+from apps.client.services.storage import save_uploaded_file
+from apps.core.services.django_q_tasks import get_q_task_status, submit_q_task
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,13 @@ def _get_identity_extraction_service() -> Any:
     from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
     return IdentityExtractionService()
+
+
+def _get_id_card_merge_service() -> Any:
+    """工厂函数：创建 IdCardMergeService 实例"""
+    from apps.client.services.id_card_merge import IdCardMergeService
+
+    return IdCardMergeService()
 
 
 @router.post("/identity-doc/recognize", response=IdentityRecognizeOut)
@@ -132,3 +141,65 @@ def parse_text_any(request: Any) -> dict[str, Any]:
     parsed_data = service.parse_client_text(text)
 
     return cast(dict[str, Any], parsed_data)
+
+
+class MergeIdCardManualIn(Schema):
+    """手动合并身份证请求体"""
+
+    front_image_path: str
+    back_image_path: str
+    front_corners: list[list[int]]
+    back_corners: list[list[int]]
+
+
+@router.post("/identity-docs/merge-id-card")
+def merge_id_card(
+    request: Any,
+    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+) -> dict[str, Any]:
+    """自动检测并合并身份证正反面为 PDF"""
+    service = _get_id_card_merge_service()
+    result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
+    return result
+
+
+@router.post("/identity-docs/merge-id-card-manual")
+def merge_id_card_manual(
+    request: Any,
+    data: MergeIdCardManualIn,
+) -> dict[str, Any]:
+    """手动指定四角坐标合并身份证"""
+    service = _get_id_card_merge_service()
+    result: dict[str, Any] = service.merge_id_card_manual(
+        front_image_path=data.front_image_path,
+        back_image_path=data.back_image_path,
+        front_corners=data.front_corners,
+        back_corners=data.back_corners,
+    )
+    return result
+
+
+@router.post("/identity-doc/recognize/submit")
+def submit_recognize_task(
+    request: Any,
+    file: UploadedFile = File(...),  # type: ignore[arg-type]
+) -> dict[str, Any]:
+    """提交证件识别异步任务"""
+    rel_path, _ = save_uploaded_file(file, rel_dir="client_docs/recognize")
+    task_id: str = submit_q_task(
+        "apps.client.services.identity_extraction.extraction_service.extract_identity_doc_task",
+        rel_path,
+    )
+    logger.info("证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path})
+    return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/identity-doc/task/{task_id}")
+def get_recognize_task_status(
+    request: Any,
+    task_id: str,
+) -> dict[str, Any]:
+    """查询证件识别任务状态"""
+    result: dict[str, Any] = get_q_task_status(task_id)
+    return result
