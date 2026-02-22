@@ -1,17 +1,16 @@
 """媒体路径工具。"""
 
-from django.conf import settings
-
-from apps.core.config import get_config
 from pathlib import Path
+
+from django.utils.translation import gettext_lazy as _
+
+from apps.client.services.storage import _get_media_root
 
 
 def get_media_root() -> Path:
-    media_root = getattr(settings, "MEDIA_ROOT", None)
+    media_root = _get_media_root()
     if not media_root:
-        media_root = get_config("django.media_root", None)
-    if not media_root:
-        raise RuntimeError("MEDIA_ROOT 未配置")
+        raise RuntimeError(_("MEDIA_ROOT 未配置"))
     return Path(media_root)
 
 
