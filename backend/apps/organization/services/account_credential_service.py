@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.organization.models import AccountCredential, Lawyer
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 logger = logging.getLogger("apps.organization")
 
@@ -30,8 +31,6 @@ class AccountCredentialService:
 
     def __init__(self) -> None:
         """初始化服务"""
-        from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
-
         self._access_policy = OrganizationAccessPolicy()
 
     def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
@@ -95,8 +96,6 @@ class AuthService:
         Raises:
             PermissionDenied: 生产环境注册第一个用户时未提供正确的 bootstrap_token
         """
-        from django.conf import settings
-
         is_first_user = not Lawyer.objects.exists()
         allow_first_superuser = getattr(settings, "ALLOW_FIRST_USER_SUPERUSER", False)
 
