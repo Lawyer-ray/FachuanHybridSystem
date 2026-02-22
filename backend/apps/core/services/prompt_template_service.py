@@ -101,14 +101,13 @@ class PromptTemplateService:
         Returns:
             更新后的 PromptTemplate 实例
         """
-        try:
-            prompt_template = PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist as e:
+        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            ) from e
+            )
 
         if title is not None:
             if not title or not title.strip():
@@ -155,14 +154,13 @@ class PromptTemplateService:
         Returns:
             是否成功
         """
-        try:
-            prompt_template = PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist as e:
+        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            ) from e
+            )
 
         name = prompt_template.name
         prompt_template.delete()
@@ -182,14 +180,14 @@ class PromptTemplateService:
         Returns:
             PromptTemplate 实例
         """
-        try:
-            return PromptTemplate.objects.get(id=template_id)
-        except PromptTemplate.DoesNotExist as e:
+        prompt_template = PromptTemplate.objects.filter(id=template_id).first()
+        if prompt_template is None:
             raise NotFoundError(
                 message=_("Prompt 模板不存在"),
                 code="PROMPT_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
-            ) from e
+            )
+        return prompt_template
 
     def get_template_by_name(self, name: str) -> PromptTemplate | None:
         """
