@@ -2,6 +2,8 @@
 Organization App API 模块
 """
 
+from __future__ import annotations
+
 from ninja import Router
 
 from .auth_api import router as auth_router

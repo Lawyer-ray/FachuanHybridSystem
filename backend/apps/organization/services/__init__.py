@@ -3,6 +3,8 @@ Organization Services Module
 组织模块服务层
 """
 
+from __future__ import annotations
+
 from .lawyer_service import LawyerService, LawyerServiceAdapter
 from .lawfirm_service import LawFirmService, LawFirmServiceAdapter
 from .account_credential_service import AccountCredentialService

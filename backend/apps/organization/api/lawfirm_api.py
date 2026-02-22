@@ -3,6 +3,8 @@
 只负责请求/响应处理，业务逻辑在 Service 层
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from ninja import Router

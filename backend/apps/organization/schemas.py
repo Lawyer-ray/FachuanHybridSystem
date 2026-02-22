@@ -3,6 +3,8 @@ Organization App Schemas
 提供组织模块的数据传输对象定义
 """
 
+from __future__ import annotations
+
 from typing import ClassVar
 
 from ninja import ModelSchema, Schema
@@ -58,12 +60,10 @@ class LawyerOut(ModelSchema, SchemaMixin):
             "is_active",
         ]
 
-    @staticmethod
-    def resolve_license_pdf_url(obj: Lawyer) -> str | None:
-        return SchemaMixin._get_file_url(obj.license_pdf)
+    def resolve_license_pdf_url(self, obj: Lawyer) -> str | None:
+        return self._get_file_url(obj.license_pdf)
 
-    @staticmethod
-    def resolve_law_firm_detail(obj: Lawyer) -> LawFirmOut | None:
+    def resolve_law_firm_detail(self, obj: Lawyer) -> LawFirmOut | None:
         return obj.law_firm if obj.law_firm else None  # type: ignore[return-value]
 
 

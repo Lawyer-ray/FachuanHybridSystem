@@ -9,6 +9,7 @@ from typing import Any
 
 from django import forms
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.enums import CaseStage, CaseStatus
@@ -21,7 +22,7 @@ class ContractAdminForm(forms.ModelForm[Contract]):
         choices=CaseStage.choices,
         required=False,
         widget=forms.SelectMultiple,
-        label="代理阶段",
+        label=_("代理阶段"),
     )
 
     class Meta:

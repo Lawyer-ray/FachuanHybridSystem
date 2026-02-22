@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import ContractPayment, InvoiceStatus
 
@@ -41,7 +42,7 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
                 inv = form.cleaned_data.get("invoiced_amount") or 0
                 if amt and inv is not None:
                     if float(inv) - float(amt) > 1e-6:
-                        form.add_error("invoiced_amount", "开票金额不能大于收款金额")
+                        form.add_error("invoiced_amount", _("开票金额不能大于收款金额"))
                     else:
                         if float(inv) == 0:
                             form.cleaned_data["invoice_status"] = InvoiceStatus.UNINVOICED

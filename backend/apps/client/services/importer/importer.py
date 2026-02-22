@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""当事人 JSON 导入编排器。"""
 
 import logging
 from dataclasses import dataclass

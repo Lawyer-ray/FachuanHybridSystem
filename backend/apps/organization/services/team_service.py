@@ -3,6 +3,8 @@
 处理团队相关的业务逻辑
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
