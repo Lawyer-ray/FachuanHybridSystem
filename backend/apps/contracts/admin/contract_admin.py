@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
-from django.contrib import admin, messages
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.urls import reverse
+from django.contrib import admin
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -16,6 +14,7 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
+from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
 from apps.core.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
@@ -33,8 +32,6 @@ else:
         BaseModelAdmin = admin.ModelAdmin
         BaseStackedInline = admin.StackedInline
         BaseTabularInline = admin.TabularInline
-
-
 
 
 class ContractPartyInline(BaseTabularInline):
@@ -75,7 +72,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 
 @admin.register(Contract)
-class ContractAdmin(BaseModelAdmin):
+class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -170,45 +167,3 @@ class ContractAdmin(BaseModelAdmin):
 
     change_form_template = "admin/contracts/contract/change_form.html"
 
-    def response_change(self, request: HttpRequest, obj: Contract) -> HttpResponse:
-        """处理保存并复制、保存并创建案件按钮"""
-        if "_save_and_duplicate" in request.POST:
-            try:
-                service = _get_contract_admin_service()
-                new_contract = service.duplicate_contract(obj.pk)
-                messages.success(request, f"已复制合同，正在编辑新合同: {new_contract.name}")
-                return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[new_contract.pk]))
-            except Exception as e:
-                messages.error(request, f"复制失败: {e!s}")
-                return HttpResponseRedirect(request.path)
-
-        if "_save_and_create_case" in request.POST:
-            try:
-                service = _get_contract_admin_service()
-                new_case = service.create_case_from_contract(obj.pk)
-                messages.success(request, f"已创建案件: {new_case.name}")
-                return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
-            except Exception as e:
-                messages.error(request, f"创建案件失败: {e!s}")
-                return HttpResponseRedirect(request.path)
-
-        return super().response_change(request, obj)
-
-    def response_add(
-        self,
-        request: HttpRequest,
-        obj: Contract,
-        post_url_continue: str | None = None,
-    ) -> HttpResponse:
-        """处理新建合同后的保存并创建案件按钮"""
-        if "_save_and_create_case" in request.POST:
-            try:
-                service = _get_contract_admin_service()
-                new_case = service.create_case_from_contract(obj.pk)
-                messages.success(request, f"已创建案件: {new_case.name}")
-                return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
-            except Exception as e:
-                messages.error(request, f"创建案件失败: {e!s}")
-                return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[obj.pk]))
-
-        return super().response_add(request, obj, post_url_continue)
