@@ -147,7 +147,7 @@ def _extract_name_smart(text: str) -> str | None:
     if match:
         name = match.group(1).strip()
         # 清理名称中的换行
-        name = re.sub(r"\s+", "", name)
+        name = _WHITESPACE_PATTERN.sub("", name)
         if name:
             return name
 
@@ -272,91 +272,41 @@ def _extract_name(text: str) -> str | None:
 
 def _extract_credit_code(text: str) -> str | None:
     """提取统一社会信用代码"""
-    patterns = [
-        r"统一社会信用代码\s*[:：]\s*([A-Z0-9]{18})",
-        r"信用代码\s*[:：]\s*([A-Z0-9]{18})",
-        r"社会信用代码\s*[:：]\s*([A-Z0-9]{18})",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-
-    return None
+    match = _CREDIT_CODE_PATTERN.search(text)
+    return match.group(1).strip() if match else None
 
 
 def _extract_id_number(text: str) -> str | None:
     """提取身份证号码"""
-    patterns = [
-        r"身份证号码\s*[:：]\s*([0-9Xx]{15,18})",
-        r"身份证号\s*[:：]\s*([0-9Xx]{15,18})",
-        r"身份证\s*[:：]\s*([0-9Xx]{15,18})",
-        r"证件号码\s*[:：]\s*([0-9Xx]{15,18})",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-
-    return None
+    match = _ID_NUMBER_PATTERN.search(text)
+    return match.group(1).strip() if match else None
 
 
 def _extract_address(text: str) -> str | None:
     """提取地址"""
-    patterns = [
-        r"地址\s*[:：]\s*([^\n]*?)(?=\n|$)",
-        r"住址\s*[:：]\s*([^\n]*?)(?=\n|$)",
-        r"住所地\s*[:：]\s*([^\n]*?)(?=\n|$)",
-        r"住所\s*[:：]\s*([^\n]*?)(?=\n|$)",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            address = match.group(1).strip()
-            # 去除括号内的备注
-            address = re.sub(r"（[^）]*）", "", address)
-            address = re.sub(r"\([^)]*\)", "", address)
-            return address.strip() if address.strip() else None
-
-    return None
+    match = _ADDRESS_PATTERN.search(text)
+    if not match:
+        return None
+    address = _PAREN_CLEANUP_PATTERN.sub("", match.group(1).strip()).strip()
+    return address or None
 
 
 def _extract_phone(text: str) -> str | None:
     """提取电话号码"""
-    patterns = [
-        r"联系电话\s*[:：]\s*([0-9\-\+\s]{7,20})",
-        r"电话\s*[:：]\s*([0-9\-\+\s]{7,20})",
-        r"联系方式\s*[:：]\s*([0-9\-\+\s]{7,20})",
-        r"手机\s*[:：]\s*([0-9\-\+\s]{7,20})",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            phone = match.group(1).strip()
-            # 清理电话号码格式
-            phone = re.sub(r"\s+", "", phone)
-            return phone if phone else None
-
-    return None
+    match = _PHONE_PATTERN.search(text)
+    if not match:
+        return None
+    phone = _WHITESPACE_PATTERN.sub("", match.group(1).strip())
+    return phone or None
 
 
 def _extract_legal_representative(text: str) -> str | None:
     """提取法定代表人"""
-    patterns = [
-        r"法定代表人\s*[:：]\s*([^\n]*?)(?=\n|$)",
-        r"法人代表\s*[:：]\s*([^\n]*?)(?=\n|$)",
-        r"负责人\s*[:：]\s*([^\n]*?)(?=\n|$)",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            legal_rep = match.group(1).strip()
-            return legal_rep if legal_rep else None
+    match = _LEGAL_REP_PATTERN.search(text)
+    if not match:
+        return None
+    legal_rep = match.group(1).strip()
+    return legal_rep or None
 
     return None
 
