@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
+from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
 from .account_credential_service import AccountCredentialService
 
@@ -117,20 +118,8 @@ class OrganizationServiceAdapter(IOrganizationService):
         }
 
     def get_lawyers_in_organization(self, organization_id: int) -> list[LawyerDTO]:
-        """
-        获取组织内的所有律师
-
-        Args:
-            organization_id: 组织 ID（律所 ID）
-
-        Returns:
-            律师 DTO 列表
-        """
         lawyers = self.lawyer_service.list_lawyers(filters={"law_firm_id": organization_id})
-        from apps.organization.services.dto_assemblers import LawyerDtoAssembler
-
-        assembler = LawyerDtoAssembler()
-        return [assembler.to_dto(lawyer) for lawyer in lawyers]
+        return [LawyerDtoAssembler().to_dto(lawyer) for lawyer in lawyers]
 
     def get_all_credentials_internal(self) -> list[AccountCredentialDTO]:
         """
@@ -216,8 +205,6 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             LawyerDTO，不存在返回 None
         """
-        from apps.organization.services.dto_assemblers import LawyerDtoAssembler
-
         lawyer = self.lawyer_service._get_lawyer_internal(lawyer_id)
         if not lawyer:
             return None

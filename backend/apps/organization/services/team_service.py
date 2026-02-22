@@ -5,17 +5,16 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
-from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
-
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 logger = logging.getLogger("apps.organization")
 
@@ -90,7 +89,7 @@ class TeamService:
         if user is not None and not self._access_policy.can_read_team(user, team):
             raise PermissionDenied(message=_("无权限访问该团队"), code="PERMISSION_DENIED")
 
-        return cast(Team, team)
+        return team
 
     @transaction.atomic
     def create_team(self, data: Any, user: Lawyer | None = None) -> Team:

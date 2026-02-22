@@ -5,15 +5,15 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import F, Q, QuerySet
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
-
 from apps.organization.models import AccountCredential, Lawyer
 
 logger = logging.getLogger("apps.organization")
@@ -238,49 +238,24 @@ class AccountCredentialService:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
         return credential
 
-    @transaction.atomic
     def update_login_success(self, credential_id: int) -> None:
-        """
-        更新登录成功统计（使用 F() 表达式避免竞态条件）
-
-        Args:
-            credential_id: 凭证 ID
-        """
-        from django.db.models import F
-        from django.utils import timezone
-
+        """更新登录成功统计（F() 表达式避免竞态条件）"""
         updated = AccountCredential.objects.filter(id=credential_id).update(
             login_success_count=F("login_success_count") + 1,
             last_login_success_at=timezone.now(),
         )
         if not updated:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+        logger.info("登录成功统计已更新", extra={"credential_id": credential_id, "action": "update_login_success"})
 
-        logger.info(
-            "登录成功统计已更新",
-            extra={"credential_id": credential_id, "action": "update_login_success"},
-        )
-
-    @transaction.atomic
     def update_login_failure(self, credential_id: int) -> None:
-        """
-        更新登录失败统计（使用 F() 表达式避免竞态条件）
-
-        Args:
-            credential_id: 凭证 ID
-        """
-        from django.db.models import F
-
+        """更新登录失败统计（F() 表达式避免竞态条件）"""
         updated = AccountCredential.objects.filter(id=credential_id).update(
             login_failure_count=F("login_failure_count") + 1,
         )
         if not updated:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
-
-        logger.info(
-            "登录失败统计已更新",
-            extra={"credential_id": credential_id, "action": "update_login_failure"},
-        )
+        logger.info("登录失败统计已更新", extra={"credential_id": credential_id, "action": "update_login_failure"})
 
     def batch_mark_preferred(self, credential_ids: list[int]) -> int:
         """
