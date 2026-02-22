@@ -6,6 +6,7 @@ from ninja import Router
 
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
 from apps.organization.services import AccountCredentialService
+from apps.organization.dtos import AccountCredentialUpdateDTO
 
 router = Router()
 
@@ -48,9 +49,15 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
 def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
     """更新凭证"""
+    dto = AccountCredentialUpdateDTO(
+        site_name=payload.site_name,
+        url=payload.url,
+        account=payload.account,
+        password=payload.password,
+    )
     return _credential_service.update_credential(
         credential_id=cred_id,
-        data=payload.model_dump(exclude_unset=True),
+        data=dto,
         user=get_request_user(request),
     )
 
