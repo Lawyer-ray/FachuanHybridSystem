@@ -130,7 +130,7 @@ class PdfExportService:
     def _draw_pdf_image(
         self,
         c: Any,
-        shot: Any,
+        shot: ChatRecordScreenshot,
         x0: float,
         y0: float,
         cell_w: float,
@@ -140,42 +140,36 @@ class PdfExportService:
         from PIL import Image
         from reportlab.lib.utils import ImageReader
 
-        try:
-            with Image.open(shot.image.path) as img:
-                rgb_img = img.convert("RGB")
-                iw, ih = rgb_img.size
-        except Exception:
-            logger.exception(
-                "PDF 截图图片打开失败",
-                extra={"screenshot_id": getattr(shot, "id", None)},
-            )
-            return 1
-
         max_w = cell_w - 12
         max_h = cell_h - 28
-        scale = min(max_w / iw, max_h / ih, 1.0)
-        draw_w = iw * scale
-        draw_h = ih * scale
-        draw_x = x0 + (cell_w - draw_w) / 2
-        draw_y = y0 + (cell_h - draw_h) / 2
 
         try:
-            with Image.open(shot.image.path) as img:
-                rgb_img = img.convert("RGB")
-                rgb_img.thumbnail(
-                    (max(1, int(draw_w * 2)), max(1, int(draw_h * 2))),
-                    _get_lanczos(),
-                )
-                img_buf = io.BytesIO()
-                rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
-                img_buf.seek(0)
-                img_reader = ImageReader(img_buf)
+            with shot.image.open("rb") as fh:
+                with Image.open(fh) as img:
+                    rgb_img = img.convert("RGB")
+                    iw, ih = rgb_img.size
+
+                    scale = min(max_w / iw, max_h / ih, 1.0)
+                    draw_w = iw * scale
+                    draw_h = ih * scale
+
+                    rgb_img.thumbnail(
+                        (max(1, int(draw_w * 2)), max(1, int(draw_h * 2))),
+                        _get_lanczos(),
+                    )
+                    img_buf = io.BytesIO()
+                    rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
+                    img_buf.seek(0)
+                    img_reader = ImageReader(img_buf)
         except Exception:
             logger.exception(
-                "PDF 截图缩略图生成失败",
+                "PDF 截图图片处理失败",
                 extra={"screenshot_id": getattr(shot, "id", None)},
             )
             return 1
+
+        draw_x = x0 + (cell_w - draw_w) / 2
+        draw_y = y0 + (cell_h - draw_h) / 2
 
         c.drawImage(
             img_reader, draw_x, draw_y,
