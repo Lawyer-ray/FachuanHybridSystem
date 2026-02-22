@@ -69,8 +69,6 @@ class Reminder(models.Model):
     def __str__(self) -> str:
         if self.contract_id is not None:
             target = f"contract:{self.contract_id}"
-        elif self.case_log_id is not None:
-            target = f"case_log:{self.case_log_id}"
         else:
-            target = "unbound"
+            target = f"case_log:{self.case_log_id}"
         return f"{target}-{self.reminder_type}-{self.due_at}"

@@ -132,7 +132,9 @@ class ReminderService:
 
     def delete_reminder(self, reminder_id: int) -> None:
         reminder = self.get_reminder(reminder_id, select_related=False)
-        reminder.delete()
+        count, _ = reminder.delete()
+        if count == 0:
+            raise NotFoundError(f"提醒记录 {reminder_id} 不存在")
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""
