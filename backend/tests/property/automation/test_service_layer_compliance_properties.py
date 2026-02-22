@@ -515,7 +515,7 @@ class TestServiceLayerPropertyBasedCompliance:
                             (hasattr(decorator, "attr") and decorator.attr == "atomic")
                             or (hasattr(decorator, "id") and "atomic" in decorator.id)
                             or "transaction" in str(decorator)
-                        ):  # noqa: E501
+                        ):
                             has_transaction = True
                             break
 

@@ -153,7 +153,7 @@ class TestIdentityExtractionService:
         self.mock_recognizer.classification.return_value = "test text"
 
         llm_content = (
-            '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。'  # noqa: E501
+            '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。'
         )
         mock_llm = Mock()
         mock_llm.chat.return_value = _make_llm_response(llm_content)

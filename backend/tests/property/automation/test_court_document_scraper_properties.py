@@ -163,7 +163,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
         with patch(
             "apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger"
-        ) as mock_logger:  # noqa: E501
+        ) as mock_logger:
 
             def capture_log(*args, **kwargs):
                 log_calls.append({"args": args, "kwargs": kwargs})

@@ -38,7 +38,7 @@ class TestCourtInsuranceClient:
 
     def _mock_post(
         self, client: CourtInsuranceClient, data: dict | None = None, status: int = 200, text: str = ""
-    ) -> None:  # noqa: E501
+    ) -> None:
         mock_resp = Mock()
         mock_resp.status_code = status
         mock_resp.text = text
@@ -81,7 +81,7 @@ class TestCourtInsuranceClient:
     @pytest.mark.anyio
     async def test_fetch_insurance_companies_incomplete_data(
         self, client: CourtInsuranceClient, mock_token: str
-    ) -> None:  # noqa: E501
+    ) -> None:
         self._mock_get(
             client,
             {

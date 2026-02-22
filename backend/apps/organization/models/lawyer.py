@@ -11,17 +11,11 @@ from .team import Team, TeamType
 
 
 def lawyer_license_upload_path(instance: object, filename: str) -> str:
-    """
-    生成律师执业证文件上传路径
-    """
     return f"lawyers/licenses/{filename}"
 
 
 class Lawyer(AbstractUser):
-    """
-    律师模型
-    扩展自 Django AbstractUser,代表系统用户
-    """
+    """律师模型，扩展自 Django AbstractUser，代表系统用户。"""
 
     real_name = models.CharField(max_length=255, blank=True, verbose_name=_("真实姓名"))
     law_firm_id: int | None  # 外键ID字段

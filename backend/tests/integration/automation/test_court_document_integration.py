@@ -572,7 +572,8 @@ class TestCourtDocumentPerformanceOptimization:
 
         # 验证：使用 select_related 的查询次数更少
         assert query_count_with_select_related < query_count_without_select_related, (
-            f"select_related 应该减少查询次数: {query_count_with_select_related} vs {query_count_without_select_related}"
+            f"select_related 应该减少查询次数: "
+            f"{query_count_with_select_related} vs {query_count_without_select_related}"
         )
 
         # 打印查询信息

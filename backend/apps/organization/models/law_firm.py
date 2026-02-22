@@ -5,10 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class LawFirm(models.Model):
-    """
-    律所模型
-    代表一个律师事务所实体
-    """
+    """律所模型，代表一个律师事务所实体。"""
 
     id: int
     name = models.CharField(max_length=255, verbose_name=_("律所名称"))
