@@ -1,6 +1,7 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable
 from decimal import Decimal
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import Count, Sum
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractPayment
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -170,7 +172,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         try:
             from apps.contracts.models import ContractFinanceLog
 
-            ContractFinanceLog.objects.create( # type: ignore
+            ContractFinanceLog.objects.create(
                 contract_id=contract_id,
                 action=action,
                 level=level,

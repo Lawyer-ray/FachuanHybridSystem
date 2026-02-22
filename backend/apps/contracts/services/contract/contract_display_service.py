@@ -14,7 +14,7 @@ Requirements: 1.1, 4.1, 4.2, 7.1, 8.1, 3.3, 10.3
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from .contract_template_cache import ContractTemplateCache
 from .wiring import get_document_service
@@ -90,7 +90,7 @@ class ContractDisplayService:
             templates = self.template_cache.get_document_templates(contract.case_type)
 
             if templates is not None:
-                logger.debug(f"从缓存获取合同 {cast(int, contract.pk)} 的文书模板") # type: ignore
+                logger.debug(f"从缓存获取合同 {contract.pk} 的文书模板")
             else:
                 # 缓存未命中,从数据库查询
                 templates = self.document_service.find_matching_contract_templates(contract.case_type)
@@ -98,7 +98,7 @@ class ContractDisplayService:
                 self.template_cache.set_document_templates(contract.case_type, templates)
 
             if not templates:
-                logger.debug(f"合同 {cast(int, contract.pk)} ({contract.case_type}) 无匹配的文书模板") # type: ignore
+                logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文书模板")
                 return "无匹配模板"
 
             # 格式化显示文本
@@ -112,11 +112,11 @@ class ContractDisplayService:
                     template_displays.append(name)
 
             result = "、".join(template_displays)
-            logger.debug(f"合同 {cast(int, contract.pk)} 匹配的文书模板: {result}") # type: ignore
+            logger.debug(f"合同 {contract.pk} 匹配的文书模板: {result}")
             return result
 
         except Exception as e:
-            logger.error(f"查询合同 {cast(int, contract.pk)} 的文书模板失败: {e!s}", exc_info=True) # type: ignore
+            logger.error(f"查询合同 {contract.pk} 的文书模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
     def get_matched_folder_templates(self, contract: "Contract") -> str:
@@ -126,7 +126,7 @@ class ContractDisplayService:
             templates = self.template_cache.get_folder_templates(contract.case_type)
 
             if templates is not None:
-                logger.debug(f"从缓存获取合同 {cast(int, contract.pk)} 的文件夹模板") # type: ignore
+                logger.debug(f"从缓存获取合同 {contract.pk} 的文件夹模板")
             else:
                 # 缓存未命中,从数据库查询
                 templates = self.document_service.find_matching_folder_templates(
@@ -136,18 +136,18 @@ class ContractDisplayService:
                 self.template_cache.set_folder_templates(contract.case_type, templates)
 
             if not templates:
-                logger.debug(f"合同 {cast(int, contract.pk)} ({contract.case_type}) 无匹配的文件夹模板") # type: ignore
+                logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文件夹模板")
                 return "无匹配模板"
 
             # 提取模板名称并用顿号连接
             template_names = [template.get("name", "") for template in templates]
             result = "、".join(template_names)
 
-            logger.debug(f"合同 {cast(int, contract.pk)} 匹配的文件夹模板: {result}") # type: ignore
+            logger.debug(f"合同 {contract.pk} 匹配的文件夹模板: {result}")
             return result
 
         except Exception as e:
-            logger.error(f"查询合同 {cast(int, contract.pk)} 的文件夹模板失败: {e!s}", exc_info=True) # type: ignore
+            logger.error(f"查询合同 {contract.pk} 的文件夹模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
     def has_matched_templates(self, contract: "Contract") -> bool:
@@ -157,7 +157,7 @@ class ContractDisplayService:
             result = self.template_cache.get_template_check(contract.case_type)
 
             if result is not None:
-                logger.debug(f"从缓存获取合同 {cast(int, contract.pk)} 的模板检查结果") # type: ignore
+                logger.debug(f"从缓存获取合同 {contract.pk} 的模板检查结果")
             else:
                 # 缓存未命中,从数据库查询
                 result = self.document_service.check_has_matching_templates(contract.case_type)
@@ -171,17 +171,17 @@ class ContractDisplayService:
             has_both = has_folder and has_document
 
             logger.debug(
-                f"合同 {cast(int, contract.pk)} 模板检查: 文件夹={has_folder}, 文书={has_document}, 结果={has_both}" # type: ignore
+                f"合同 {contract.pk} 模板检查: 文件夹={has_folder}, 文书={has_document}, 结果={has_both}"
             )
             return has_both
 
         except Exception as e:
-            logger.error(f"检查合同 {cast(int, contract.pk)} 的模板失败: {e!s}", exc_info=True) # type: ignore
+            logger.error(f"检查合同 {contract.pk} 的模板失败: {e!s}", exc_info=True)
             return False
 
     def batch_get_template_info(self, contracts: list["Contract"]) -> dict[int, dict[str, Any]]:
         """批量获取合同的模板信息"""
-        result = {} # type: ignore
+        result = {}
         if not contracts:
             return result
 

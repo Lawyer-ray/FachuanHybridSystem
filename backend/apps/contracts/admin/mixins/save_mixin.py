@@ -11,6 +11,7 @@ from django.contrib import messages
 
 from apps.core.exceptions import BusinessException
 
+
 logger = logging.getLogger("apps.contracts")
 
 

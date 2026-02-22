@@ -95,7 +95,7 @@ class ContractDisplayMixin:
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
-        except (BusinessException, PermissionDenied, RuntimeError, Exception) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"获取合同 {obj.id} 匹配模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
@@ -112,7 +112,7 @@ class ContractDisplayMixin:
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
-        except (BusinessException, PermissionDenied, RuntimeError, Exception) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"获取合同 {obj.id} 匹配文件夹模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
@@ -192,7 +192,7 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             result = display_service.get_matched_document_template(contract)
             return result not in ["无匹配模板", "查询失败"]
-        except (BusinessException, PermissionDenied, RuntimeError, Exception) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"检查合同 {contract.id} 的文书模板失败: {e!s}", exc_info=True)
             return False
 
@@ -209,6 +209,6 @@ class ContractDisplayMixin:
             display_service = _get_contract_display_service()
             result = display_service.get_matched_folder_templates(contract)
             return result not in ["无匹配模板", "查询失败"]
-        except (BusinessException, PermissionDenied, RuntimeError, Exception) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"检查合同 {contract.id} 的文件夹模板失败: {e!s}", exc_info=True)
             return False
