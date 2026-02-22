@@ -20,12 +20,12 @@ class ContractPartyService:
             raise NotFoundError(f"合同 {contract_id} 中不存在客户 {client_id} 的当事人记录")
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
-        contract = Contract.objects.filter(id=contract_id).prefetch_related("parties__client").first()
+        contract = Contract.objects.filter(id=contract_id).prefetch_related("contract_parties__client").first()
         if not contract:
             raise NotFoundError(f"合同 {contract_id} 不存在")
 
         parties = []
-        for party in contract.parties.all():
+        for party in contract.contract_parties.all():
             client = party.client
             parties.append(
                 {

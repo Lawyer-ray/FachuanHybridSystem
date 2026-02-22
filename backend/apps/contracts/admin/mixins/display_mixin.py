@@ -17,8 +17,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 from apps.core.exceptions import PermissionDenied as AppPermissionDenied
 
-from apps.core.exceptions import NotFoundError
-
 logger = logging.getLogger("apps.contracts")
 
 

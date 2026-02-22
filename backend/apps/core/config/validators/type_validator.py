@@ -165,7 +165,7 @@ class TypeValidator(ConfigValidator):
             result = json.loads(value)
             if isinstance(result, dict):
                 return result
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             pass
         return None
 

@@ -186,7 +186,7 @@ class DjangoProvider(ConfigProvider):
                 config_key = self._normalize_django_key(key)
                 config[config_key] = value
 
-            except Exception:
+            except (AttributeError, TypeError):
                 # 忽略无法访问的配置项
                 continue
 

@@ -73,7 +73,7 @@ class CasePartyMutationService:
         # 检查与现有诉讼地位的兼容性（简单检查：同一案件不能有完全相同的诉讼地位组合冲突）
         if not is_compatible:
             raise ValidationException(
-                message=f"诉讼地位 {legal_status} 不适用于当前案件",
+                message=_("诉讼地位 %(status)s 不适用于当前案件") % {"status": legal_status},
                 code="INCOMPATIBLE_LEGAL_STATUS",
                 errors={
                     "legal_status": "诉讼地位与现有当事人不兼容",
@@ -269,9 +269,7 @@ class CasePartyMutationService:
         case = self.repo.get_case(case_id)
         if not case:
             return False
-        return False
         if self.repo.party_exists(case_id=case_id, client_id=client_id):
             return True
-        return True
         self.repo.create_party(case=case, client_id=client_id, legal_status=legal_status)
         return True

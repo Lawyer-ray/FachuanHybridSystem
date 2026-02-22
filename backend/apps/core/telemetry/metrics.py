@@ -129,9 +129,7 @@ def _add_to_index(index_key: str, value: str, *, timeout: int) -> None:
         if len(items) > 200:
             items = items[-200:]
         cache.set(index_key, json.dumps(items, ensure_ascii=False), timeout=timeout)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, TypeError, KeyError, ConnectionError, TimeoutError, OSError):
         return
 
 
@@ -320,9 +318,7 @@ def _iter_suffixes(index_key: str) -> Iterable[str]:
         else:
             values = list(raw)
         return [str(v) for v in values if v]
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, TypeError, KeyError):
         return []
 
 

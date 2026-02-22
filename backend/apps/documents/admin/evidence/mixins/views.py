@@ -3,14 +3,12 @@
 import logging
 from typing import Any
 
-from django.db import models
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import (
-    LIST_TYPE_PREVIOUS,
     DocumentCaseFileSubType,
     DocumentTemplateType,
     EvidenceList,

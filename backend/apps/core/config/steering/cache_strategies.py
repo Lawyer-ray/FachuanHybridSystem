@@ -498,7 +498,7 @@ class SteeringCacheStrategyManager:
             import sys
 
             return sys.getsizeof(data)
-        except Exception:
+        except (ImportError, TypeError, AttributeError):
             return 1024  # 默认 1KB
 
 

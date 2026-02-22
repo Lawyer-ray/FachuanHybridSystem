@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 from django.db import transaction
 from django.db.models import Count, Sum
 
-from apps.contracts.models import Contract, ContractPayment, FeeMode
+from apps.contracts.models import Contract, ContractPayment
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security import DjangoPermsMixin
 
@@ -179,39 +179,3 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             )
         except Exception:
             logger.exception("操作失败")
-
-            pass
-
-    def validate_fee_mode(self, data: dict[str, Any]) -> None:
-        fee_mode = data.get("fee_mode")
-        errors: dict[str, str] = {}
-
-        _FEE_MODE_VALIDATORS = {
-            FeeMode.FIXED: lambda d, e: (
-                e.update({"fixed_amount": "固定收费模式下,固定金额必须大于0"})
-                if not d.get("fixed_amount") or float(d["fixed_amount"]) <= 0
-                else None
-            ),
-            FeeMode.FULL_RISK: lambda d, e: (
-                e.update({"risk_rate": "全风险模式下,风险费率必须大于0"})
-                if not d.get("risk_rate") or float(d["risk_rate"]) <= 0
-                else None
-            ),
-            FeeMode.CUSTOM: lambda d, e: (
-                e.update({"custom_terms": "自定义模式下,自定义条款不能为空"}) if not d.get("custom_terms") else None
-            ),
-        }
-
-        validator = _FEE_MODE_VALIDATORS.get(fee_mode) if isinstance(fee_mode, FeeMode) else None
-        if validator:
-            validator(data, errors)
-
-        # SEMI_RISK 需要检查两个字段
-        if fee_mode == FeeMode.SEMI_RISK:
-            if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-                errors["fixed_amount"] = "半风险模式下,固定金额必须大于0"
-            if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-                errors["risk_rate"] = "半风险模式下,风险费率必须大于0"
-
-        if errors:
-            raise ValidationException(message=_("收费模式数据验证失败"), code="INVALID_FEE_MODE", errors=errors)

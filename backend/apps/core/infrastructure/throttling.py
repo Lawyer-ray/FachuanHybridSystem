@@ -65,9 +65,7 @@ class RateLimiter:
                 from django.conf import settings
 
                 allow_unverified_xff = bool(getattr(settings, "DEBUG", False))
-            except Exception:
-                logger.exception("操作失败")
-
+            except (ImportError, AttributeError):
                 allow_unverified_xff = False
 
         remote_addr_is_trusted = isinstance(remote_addr, str) and remote_addr and remote_addr in trusted_proxies
@@ -157,9 +155,7 @@ def get_rate_limit_config(kind: str, *, fallback_requests: int, fallback_window:
         from django.conf import settings
 
         cfg = getattr(settings, "RATE_LIMIT", None) or {}
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ImportError, AttributeError):
         cfg = {}
 
     default_requests = int(cfg.get("DEFAULT_REQUESTS", fallback_requests) or fallback_requests)

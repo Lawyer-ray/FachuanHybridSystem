@@ -30,7 +30,7 @@ def _safe_save_task(task: ScraperTask) -> None:
         connection.close()
         task.save()
     except Exception as e:
-        logger.warning(f"保存任务状态时出错: {e}", exc_info=True)
+        logger.warning("保存任务状态时出错: %s", e, exc_info=True)
 
 
 class BaseScraper:

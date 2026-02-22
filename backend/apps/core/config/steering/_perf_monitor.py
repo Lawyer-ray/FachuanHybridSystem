@@ -63,7 +63,7 @@ class SteeringPerformanceMonitor:
                 file_path = Path(".kiro/steering") / spec_path
                 if file_path.exists():
                     file_size = file_path.stat().st_size
-            except Exception:
+            except (OSError, AttributeError):
                 pass
 
             perf_data = self.data_collector.record_loading_end(

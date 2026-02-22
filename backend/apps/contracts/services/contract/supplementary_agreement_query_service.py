@@ -30,7 +30,7 @@ class SupplementaryAgreementQueryService:
             logger.exception("get_supplementary_agreements_internal_failed", extra={"contract_id": contract_id})
             raise
 
-    def get_supplementary_agreement_model_internal(self, contract_id: int, agreement_id: int) -> Any | None | None:
+    def get_supplementary_agreement_model_internal(self, contract_id: int, agreement_id: int) -> Any | None:
         try:
             from apps.contracts.models import SupplementaryAgreement
 

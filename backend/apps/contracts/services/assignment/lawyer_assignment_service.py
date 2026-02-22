@@ -195,7 +195,7 @@ class LawyerAssignmentService:
 
         return assignment
 
-    def get_primary_lawyer(self, contract_id: int) -> LawyerDTO | None | None:
+    def get_primary_lawyer(self, contract_id: int) -> LawyerDTO | None:
         """
         获取主办律师
 

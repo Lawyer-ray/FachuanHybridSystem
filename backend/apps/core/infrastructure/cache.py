@@ -307,9 +307,7 @@ def bump_cache_version(key: str, *, timeout: int) -> int:
     cache.add(key, 1, timeout=timeout)
     try:
         return int(cache.incr(key))
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError):
         current = int(cache.get(key) or 1)
         new_val = current + 1
         cache.set(key, new_val, timeout=timeout)

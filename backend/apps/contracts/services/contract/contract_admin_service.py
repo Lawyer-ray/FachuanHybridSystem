@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import Sum
 from django.utils import timezone

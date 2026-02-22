@@ -193,7 +193,7 @@ class PerformanceDataCollector:
             process = psutil.Process()
             memory_info = process.memory_info()
             return float(memory_info.rss / (1024 * 1024))  # 转换为 MB
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             return 0.0
 
     def _start_memory_monitoring(self) -> None:
