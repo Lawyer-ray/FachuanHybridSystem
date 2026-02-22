@@ -143,15 +143,15 @@ class DocumentTemplateAdminService:
             "contract_sub_type": contract_sub_type,
             "case_sub_type": case_sub_type,
         }
-        if template_type == "contract":
+        if template_type == DocumentTemplateType.CONTRACT:
             if not contract_sub_type:
                 result["is_valid"] = False
                 result["errors"]["contract_sub_type"] = _("选择合同文书模板时,必须选择合同子类型")
             result["case_sub_type"] = None
-        elif template_type == "case":
+        elif template_type == DocumentTemplateType.CASE:
             result["contract_sub_type"] = None
             should_require_case_sub_type = not is_editing or (
-                original_template_type is not None and original_template_type != "case"
+                original_template_type is not None and original_template_type != DocumentTemplateType.CASE
             )
             if should_require_case_sub_type and (not case_sub_type):
                 result["is_valid"] = False
@@ -191,8 +191,8 @@ class DocumentTemplateAdminService:
         """
         data = {
             "template_type": template_type,
-            "contract_sub_type": contract_sub_type if template_type == "contract" else None,
-            "case_sub_type": case_sub_type if template_type == "case" else None,
+            "contract_sub_type": contract_sub_type if template_type == DocumentTemplateType.CONTRACT else None,
+            "case_sub_type": case_sub_type if template_type == DocumentTemplateType.CASE else None,
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
@@ -201,9 +201,9 @@ class DocumentTemplateAdminService:
             "file": file,
             "file_path": file_path,
         }
-        if template_type == "contract":
+        if template_type == DocumentTemplateType.CONTRACT:
             data["contract_types"] = contract_types_field or []
-        elif template_type == "case":
+        elif template_type == DocumentTemplateType.CASE:
             data["case_types"] = case_types_field or []
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             data["legal_statuses"] = legal_statuses_field or []

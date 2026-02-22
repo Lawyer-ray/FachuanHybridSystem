@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.documents.models.choices import FolderTemplateType
+
 import logging
 from typing import Any
 
@@ -216,12 +218,12 @@ class FolderTemplateAdminService:
             "legal_status_match_mode": "any",
         }
 
-        if template_type == "contract":
+        if template_type == FolderTemplateType.CONTRACT:
             data["contract_types"] = contract_types_field or []
             # 合同模板清空诉讼地位字段
             data["legal_statuses"] = []
             data["legal_status_match_mode"] = "any"
-        elif template_type == "case":
+        elif template_type == FolderTemplateType.CASE:
             data["case_types"] = case_types_field or []
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             # 案件模板保存诉讼地位字段
