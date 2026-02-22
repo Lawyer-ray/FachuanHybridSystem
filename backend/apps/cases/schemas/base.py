@@ -22,7 +22,7 @@ from apps.cases.models import (
 from apps.core.schemas import SchemaMixin
 from apps.core.schemas_shared import ClientIdentityDocLiteOut as ClientIdentityDocOut
 from apps.core.schemas_shared import ClientLiteOut as ClientOut
-from apps.core.schemas_shared import ReminderLiteOut as ReminderOut
+from apps.reminders.schemas import ReminderOut
 
 __all__: list[str] = [
     "Any",
