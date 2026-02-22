@@ -62,7 +62,9 @@ class LawyerOut(ModelSchema, SchemaMixin):
         return self._get_file_url(obj.license_pdf)
 
     def resolve_law_firm_detail(self, obj: Lawyer) -> LawFirmOut | None:
-        return obj.law_firm if obj.law_firm else None  # type: ignore[return-value]
+        if not obj.law_firm:
+            return None
+        return LawFirmOut.from_orm(obj.law_firm)
 
 
 class LawyerCreateIn(Schema):

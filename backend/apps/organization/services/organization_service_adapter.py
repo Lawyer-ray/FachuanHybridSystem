@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
@@ -103,8 +104,6 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             团队信息字典，不存在时返回 None
         """
-        from apps.core.exceptions import NotFoundError
-
         try:
             team = self.team_service.get_team(team_id)
         except NotFoundError:
