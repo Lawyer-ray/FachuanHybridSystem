@@ -113,7 +113,7 @@ class CaseChatService:
             except (AttributeError, ValueError):
                 # 如果获取显示名称失败，使用原始值
                 stage_display = case.current_stage
-                logger.warning(f"无法获取案件阶段显示名称: {case.current_stage}, 使用原始值")
+                logger.warning("无法获取案件阶段显示名称: %s, 使用原始值", case.current_stage)
 
         # 获取案件类型显示名称
         case_type_display = None
@@ -122,14 +122,14 @@ class CaseChatService:
                 case_type_display = case.get_case_type_display()
             except (AttributeError, ValueError):
                 case_type_display = case.case_type
-                logger.warning(f"无法获取案件类型显示名称: {case.case_type}, 使用原始值")
+                logger.warning("无法获取案件类型显示名称: %s, 使用原始值", case.case_type)
 
         # 使用配置服务渲染群名（包含模板替换和长度截断）
         chat_name = config_service.render_chat_name(
             case_name=case.name, stage=stage_display, case_type=case_type_display
         )
 
-        logger.debug(f"生成群聊名称: {chat_name} (案件ID: {case.id})")
+        logger.debug("生成群聊名称: %s (案件ID: %s)", chat_name, case.id)
         return chat_name
 
     def _get_case(self, case_id: int) -> Case:
@@ -156,10 +156,10 @@ class CaseChatService:
 
         try:
             case = Case.objects.get(id=case_id)
-            logger.debug(f"获取案件成功: ID={case_id}, 名称={case.name}")
+            logger.debug("获取案件成功: ID=%s, 名称=%s", case_id, case.name)
             return case
         except ObjectDoesNotExist as e:
-            logger.error(f"案件不存在: ID={case_id}")
+            logger.error("案件不存在: ID=%s", case_id)
             raise NotFoundError(
                 message=f"案件不存在: ID={case_id}", code="CASE_NOT_FOUND", errors={"case_id": case_id}
             ) from e
@@ -174,7 +174,7 @@ class CaseChatService:
         svc = SystemConfigService()
         default_owner = svc.get_value("CASE_CHAT_DEFAULT_OWNER_ID", "")
         if default_owner:
-            logger.debug(f"使用默认群主: {default_owner}")
+            logger.debug("使用默认群主: %s", default_owner)
             return default_owner
         return None
 
@@ -183,7 +183,7 @@ class CaseChatService:
         try:
             provider = self.factory.get_provider(platform)
         except Exception as e:
-            logger.error(f"获取群聊提供者失败: platform={platform.value}, error={e!s}")
+            logger.error("获取群聊提供者失败: platform=%s, error=%s", platform.value, e)
             raise ChatCreationException(
                 message=f"无法获取群聊提供者: {platform.label}",
                 code="PROVIDER_UNAVAILABLE",
@@ -191,7 +191,7 @@ class CaseChatService:
                 errors={"original_error": str(e)},
             ) from e
         if not provider.is_available():
-            logger.error(f"群聊提供者不可用: platform={platform.value}")
+            logger.error("群聊提供者不可用: platform=%s", platform.value)
             raise ChatCreationException(
                 message=f"群聊平台不可用: {platform.label}",
                 code="PROVIDER_NOT_AVAILABLE",
@@ -209,7 +209,7 @@ class CaseChatService:
             with transaction.atomic():
                 result = provider.create_chat(chat_name, owner_id)
                 if not result.success:
-                    logger.error(f"群聊创建失败: {result.message}, error_code={result.error_code}")
+                    logger.error("群聊创建失败: %s, error_code=%s", result.message, result.error_code)
                     raise ChatCreationException(
                         message=result.message or "群聊创建失败",
                         code="CHAT_CREATION_FAILED",
@@ -225,14 +225,15 @@ class CaseChatService:
                     is_active=True,
                 )
                 logger.info(
-                    f"群聊创建成功: case_id={case.pk}, chat_id={result.chat_id},"
-                    f" platform={platform.value}, name={case_chat.name}"
+                    "群聊创建成功: case_id=%s, chat_id=%s,"
+                    " platform=%s, name=%s",
+                    case.pk, result.chat_id, platform.value, case_chat.name
                 )
                 return case_chat
         except ChatCreationException:
             raise
         except Exception as e:
-            logger.error(f"创建群聊时发生未预期错误: case_id={case.pk}, error={e!s}")
+            logger.error("创建群聊时发生未预期错误: case_id=%s, error=%s", case.pk, e)
             raise ChatCreationException(
                 message=_("创建群聊时发生系统错误"),
                 code="SYSTEM_ERROR",
@@ -244,7 +245,7 @@ class CaseChatService:
         self, case_id: int, platform: ChatPlatform = ChatPlatform.FEISHU, owner_id: str | None = None
     ) -> CaseChat:
         """为案件创建群聊"""
-        logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
+        logger.info("开始为案件创建群聊: case_id=%s, platform=%s", case_id, platform.value)
         case = self._get_case(case_id)
         chat_name = self._build_chat_name(case)
         resolved_owner = self._resolve_owner_id(owner_id)
@@ -281,7 +282,7 @@ class CaseChatService:
             chat2 = service.get_or_create_chat(case_id=123)
             assert chat1.id == chat2.id
         """
-        logger.debug(f"获取或创建群聊: case_id={case_id}, platform={platform.value}")
+        logger.debug("获取或创建群聊: case_id=%s, platform=%s", case_id, platform.value)
 
         # 验证案件存在性（这也会验证 case_id 的有效性）
         self._get_case(case_id)
@@ -290,11 +291,11 @@ class CaseChatService:
         existing_chat = CaseChat.objects.filter(case_id=case_id, platform=platform, is_active=True).first()
 
         if existing_chat:
-            logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
+            logger.debug("找到现有群聊: chat_id=%s, name=%s", existing_chat.chat_id, existing_chat.name)
             return cast(CaseChat, existing_chat)
 
         # 不存在则创建新群聊
-        logger.info(f"未找到现有群聊，开始创建新群聊: case_id={case_id}, platform={platform.value}")
+        logger.info("未找到现有群聊，开始创建新群聊: case_id=%s, platform=%s", case_id, platform.value)
         return self.create_chat_for_case(case_id, platform, owner_id)
 
     def _send_files_to_chat(self, provider: Any, chat: Any, document_paths: list[Any]) -> str:
@@ -306,11 +307,11 @@ class CaseChatService:
                 r = provider.send_file(chat.chat_id, file_path)
                 if r.success:
                     ok += 1
-                    logger.info(f"文件发送成功 ({i}/{total}): {file_path}")
+                    logger.info("文件发送成功 (%s/%s): %s", i, total, file_path)
                 else:
-                    logger.warning(f"文件发送失败 ({i}/{total}): {file_path}, 错误: {r.message}")
+                    logger.warning("文件发送失败 (%s/%s): %s, 错误: %s", i, total, file_path, r.message)
             except Exception as e:
-                logger.error(f"文件发送异常 ({i}/{total}): {file_path}, 错误: {e!s}")
+                logger.error("文件发送异常 (%s/%s): %s, 错误: %s", i, total, file_path, e)
         if ok == total:
             return f"消息和所有文件发送成功 ({ok} 个文件)"
         if ok > 0:
@@ -321,20 +322,20 @@ class CaseChatService:
         self, provider: Any, chat: Any, content: Any, case_id: int, platform: ChatPlatform, result: Any
     ) -> tuple[Any, Any]:
         """群聊解散时重建群聊并重试发送，返回 (new_result, new_chat)"""
-        logger.warning(f"群聊可能已解散，尝试创建新群聊: chat_id={chat.chat_id}")
+        logger.warning("群聊可能已解散，尝试创建新群聊: chat_id=%s", chat.chat_id)
         chat.is_active = False
         chat.save()
         try:
             new_chat = self.create_chat_for_case(case_id, platform)
-            logger.info(f"创建新群聊成功，重试发送消息: old={chat.chat_id}, new={new_chat.chat_id}")
+            logger.info("创建新群聊成功，重试发送消息: old=%s, new=%s", chat.chat_id, new_chat.chat_id)
             new_result = provider.send_message(new_chat.chat_id, content)
             if new_result.success:
-                logger.info(f"重试发送消息成功: new_chat_id={new_chat.chat_id}")
+                logger.info("重试发送消息成功: new_chat_id=%s", new_chat.chat_id)
             else:
-                logger.error(f"重试发送消息仍然失败: new_chat_id={new_chat.chat_id}")
+                logger.error("重试发送消息仍然失败: new_chat_id=%s", new_chat.chat_id)
             return new_result, new_chat
         except Exception as retry_error:
-            logger.error(f"创建新群聊或重试发送失败: {retry_error!s}")
+            logger.error("创建新群聊或重试发送失败: %s", retry_error)
             raise MessageSendException(
                 message=f"群聊已解散，重新创建群聊失败: {retry_error!s}",
                 code="CHAT_RECREATE_FAILED",
@@ -358,8 +359,9 @@ class CaseChatService:
     ) -> ChatResult:
         """发送文书通知到群聊"""
         logger.info(
-            f"发送文书通知: case_id={case_id}, platform={platform.value},"
-            f" file_count={len(document_paths) if document_paths else 0}"
+            "发送文书通知: case_id=%s, platform=%s,"
+            " file_count=%s",
+            case_id, platform.value, len(document_paths) if document_paths else 0
         )
 
         if not sms_content or not sms_content.strip():
@@ -374,7 +376,7 @@ class CaseChatService:
         try:
             provider = self.factory.get_provider(platform)
         except Exception as e:
-            logger.error(f"获取群聊提供者失败: platform={platform.value}, error={e!s}")
+            logger.error("获取群聊提供者失败: platform=%s, error=%s", platform.value, e)
             raise MessageSendException(
                 message=f"无法获取群聊提供者: {platform.label}",
                 code="PROVIDER_UNAVAILABLE",
@@ -390,7 +392,8 @@ class CaseChatService:
 
             if not result.success:
                 logger.error(
-                    f"消息发送失败: chat_id={chat.chat_id}, message={result.message}, error_code={result.error_code}"
+                    "消息发送失败: chat_id=%s, message=%s, error_code=%s",
+                    chat.chat_id, result.message, result.error_code
                 )
                 if self._is_chat_not_found_error(result):
                     result, chat = self._retry_send_after_chat_recreate(
@@ -408,16 +411,16 @@ class CaseChatService:
                 )
 
             if document_paths and result.success:
-                logger.info(f"开始发送 {len(document_paths)} 个文件到群聊: chat_id={chat.chat_id}")
+                logger.info("开始发送 %s 个文件到群聊: chat_id=%s", len(document_paths), chat.chat_id)
                 result.message = self._send_files_to_chat(provider, chat, document_paths)
 
-            logger.info(f"文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}")
+            logger.info("文书通知发送完成: case_id=%s, chat_id=%s, success=%s", case_id, chat.chat_id, result.success)
             return result # type: ignore
 
         except MessageSendException:
             raise
         except Exception as e:
-            logger.error(f"发送文书通知时发生未预期错误: case_id={case_id}, chat_id={chat.chat_id}, error={e!s}")
+            logger.error("发送文书通知时发生未预期错误: case_id=%s, chat_id=%s, error=%s", case_id, chat.chat_id, e)
             raise MessageSendException(
                 message=_("发送文书通知时发生系统错误"),
                 code="SYSTEM_ERROR",
@@ -494,7 +497,7 @@ class CaseChatService:
             if success:
                 logger.info("群聊绑定已解除")
         """
-        logger.info(f"解除群聊绑定: chat_id={chat_id}")
+        logger.info("解除群聊绑定: chat_id=%s", chat_id)
         if not chat_id or not isinstance(chat_id, int) or chat_id <= 0:
             raise ValidationException(
                 message=_("无效的群聊ID"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID必须是正整数"}
@@ -509,14 +512,14 @@ class CaseChatService:
             success = updated_count > 0
 
             if success:
-                logger.info(f"群聊绑定解除成功: chat_id={chat_id}")
+                logger.info("群聊绑定解除成功: chat_id=%s", chat_id)
             else:
-                logger.warning(f"群聊绑定解除失败，记录不存在或已解除: chat_id={chat_id}")
+                logger.warning("群聊绑定解除失败，记录不存在或已解除: chat_id=%s", chat_id)
 
             return success
 
         except Exception as e:
-            logger.error(f"解除群聊绑定时发生错误: chat_id={chat_id}, error={e!s}")
+            logger.error("解除群聊绑定时发生错误: chat_id=%s, error=%s", chat_id, e)
             raise ValidationException(
                 message=_("解除群聊绑定时发生系统错误"),
                 code="SYSTEM_ERROR",
@@ -556,7 +559,7 @@ class CaseChatService:
                 chat_name="【一审】张三诉李四合同纠纷案"
             )
         """
-        logger.info(f"绑定已存在的群聊: case_id={case_id}, platform={platform.value}, chat_id={chat_id}")
+        logger.info("绑定已存在的群聊: case_id=%s, platform=%s, chat_id=%s", case_id, platform.value, chat_id)
 
         # 验证参数
         if not chat_id or not chat_id.strip():
@@ -575,7 +578,7 @@ class CaseChatService:
         ).first()
 
         if existing_binding:
-            logger.warning(f"群聊绑定已存在: case_id={case_id}, chat_id={chat_id}")
+            logger.warning("群聊绑定已存在: case_id=%s, chat_id=%s", case_id, chat_id)
             raise ValidationException(
                 message=_("该群聊已绑定到此案件"),
                 code="CHAT_ALREADY_BOUND",
@@ -590,18 +593,18 @@ class CaseChatService:
                     result = provider.get_chat_info(chat_id)
                     if result.success and result.chat_name:
                         chat_name = result.chat_name
-                        logger.debug(f"从平台获取群聊名称: {chat_name}")
+                        logger.debug("从平台获取群聊名称: %s", chat_name)
                     else:
-                        logger.warning(f"无法从平台获取群聊名称: {result.message}")
+                        logger.warning("无法从平台获取群聊名称: %s", result.message)
                 else:
-                    logger.warning(f"平台提供者不可用，无法获取群聊名称: {platform.value}")
+                    logger.warning("平台提供者不可用，无法获取群聊名称: %s", platform.value)
             except Exception as e:
-                logger.warning(f"获取群聊信息失败: {e!s}")
+                logger.warning("获取群聊信息失败: %s", e)
 
         # 如果仍然没有群聊名称，使用默认格式
         if not chat_name:
             chat_name = self._build_chat_name(case)
-            logger.debug(f"使用默认群聊名称: {chat_name}")
+            logger.debug("使用默认群聊名称: %s", chat_name)
 
         # 创建绑定记录
         try:
@@ -611,13 +614,14 @@ class CaseChatService:
                 )
 
                 logger.info(
-                    f"群聊绑定成功: case_id={case_id}, chat_id={chat_id}, platform={platform.value}, name={chat_name}"
+                    "群聊绑定成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
+                    case_id, chat_id, platform.value, chat_name
                 )
 
                 return case_chat
 
         except Exception as e:
-            logger.error(f"创建群聊绑定记录失败: case_id={case_id}, chat_id={chat_id}, error={e!s}")
+            logger.error("创建群聊绑定记录失败: case_id=%s, chat_id=%s, error=%s", case_id, chat_id, e)
             raise ValidationException(
                 message=_("创建群聊绑定记录失败"),
                 code="BINDING_CREATION_ERROR",
