@@ -1,16 +1,18 @@
 """财产线索服务层。"""
 
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-from apps.client.models import PropertyClue, PropertyClueAttachment
-
 if TYPE_CHECKING:
+    from apps.client.models import PropertyClue, PropertyClueAttachment
+
     from .client_internal_query_service import ClientInternalQueryService
 
 logger = logging.getLogger("apps.client")
@@ -55,6 +57,8 @@ class PropertyClueService:
 
         Requirements: 1.1
         """
+        from apps.client.models import PropertyClue
+
         # 1. 验证当事人是否存在
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
@@ -106,6 +110,8 @@ class PropertyClueService:
 
         Requirements: 1.1
         """
+        from apps.client.models import PropertyClue
+
         # 使用 prefetch_related 优化附件查询
         clue = PropertyClue.objects.prefetch_related("attachments").filter(id=clue_id).first()
 
@@ -136,6 +142,8 @@ class PropertyClueService:
 
         Requirements: 4.1
         """
+        from apps.client.models import PropertyClue
+
         # 验证当事人是否存在
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
@@ -174,6 +182,8 @@ class PropertyClueService:
 
         Requirements: 5.1
         """
+        from apps.client.models import PropertyClue
+
         # 1. 获取线索
         clue = self.get_clue(clue_id, user)
 
@@ -263,6 +273,8 @@ class PropertyClueService:
 
         Requirements: 3.1
         """
+        from apps.client.models import PropertyClueAttachment
+
         # 1. 验证线索是否存在
         clue = self.get_clue(clue_id, user)
 
@@ -338,6 +350,8 @@ class PropertyClueService:
 
         Requirements: 5.3
         """
+        from apps.client.models import PropertyClueAttachment
+
         # 1. 获取附件
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
@@ -373,4 +387,6 @@ class PropertyClueService:
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
+        from apps.client.models import PropertyClue
+
         return str(PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))
