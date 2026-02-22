@@ -272,7 +272,7 @@ class LawFirmService:
         # 检查名称是否重复
         if LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
-                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
+                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": str(_("该名称已被使用"))}
             )
 
     def _validate_update_data(self, lawfirm: LawFirm, data: Any) -> None:
@@ -280,7 +280,7 @@ class LawFirmService:
         # 检查名称是否与其他律所重复
         if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
             raise ValidationException(
-                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": "该名称已被使用"}
+                message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": str(_("该名称已被使用"))}
             )
 
     def _get_lawfirm_internal(self, lawfirm_id: int) -> LawFirm | None:
