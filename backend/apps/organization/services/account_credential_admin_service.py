@@ -60,14 +60,7 @@ class BatchLoginResult:
 
 
 class AccountCredentialAdminService:
-    """
-    账号凭证管理服务 - 封装 Admin 层业务逻辑
-
-    职责：
-    - 批量自动登录
-    - 单个账号自动登录
-    - 记录登录历史
-    """
+    """账号凭证管理服务，封装 Admin 层批量/单个自动登录业务逻辑。"""
 
     SUPPORTED_SITE: ClassVar[str] = "court_zxfw"
 
@@ -141,16 +134,7 @@ class AccountCredentialAdminService:
         credential_ids: list[int],
         admin_user: str,
     ) -> BatchLoginResult:
-        """
-        批量自动登录
-
-        Args:
-            credential_ids: 凭证ID列表
-            admin_user: 管理员用户名
-
-        Returns:
-            BatchLoginResult: 批量登录结果
-        """
+        """批量自动登录。"""
         # 只处理法院一张网的账号，物化为列表避免多次 SQL 查询
         court_credentials = list(
             self.credential_service.filter_by_ids_and_site(
@@ -229,17 +213,7 @@ class AccountCredentialAdminService:
         admin_user: str,
         trigger_reason: str,
     ) -> LoginResult:
-        """
-        执行单个账号登录（内部方法）
-
-        Args:
-            credential: AccountCredential 实例
-            admin_user: 管理员用户名
-            trigger_reason: 触发原因
-
-        Returns:
-            LoginResult: 登录结果
-        """
+        """执行单个账号登录（内部方法）。"""
         start_time = timezone.now()
 
         try:
@@ -337,20 +311,7 @@ class AccountCredentialAdminService:
         error_message: str | None = None,
         error_details: dict[str, object] | None = None,
     ) -> None:
-        """
-        记录登录历史
-
-        Args:
-            credential: AccountCredential 实例
-            success: 是否成功
-            duration: 耗时（秒）
-            trigger_reason: 触发原因
-            start_time: 开始时间
-            end_time: 结束时间
-            token: Token（成功时）
-            error_message: 错误消息（失败时）
-            error_details: 错误详情（失败时）
-        """
+        """记录登录历史。"""
         # 通过automation服务获取
         try:
             automation_service = self.automation_service

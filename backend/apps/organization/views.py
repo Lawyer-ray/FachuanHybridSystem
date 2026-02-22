@@ -12,13 +12,9 @@ from apps.organization.services.auth_service import AuthService
 from .forms import LawyerRegistrationForm
 
 
-def _get_auth_service() -> AuthService:
-    return AuthService()
-
-
 def register(request: HttpRequest) -> HttpResponse:
     """用户注册视图"""
-    auth_service = _get_auth_service()
+    auth_service = AuthService()
     is_first_user = auth_service.is_first_user()
 
     if request.method == "POST":
