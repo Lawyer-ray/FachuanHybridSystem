@@ -45,21 +45,21 @@ def _get_folder_binding_service() -> Any:
     return FolderBindingService(document_template_binding_service=build_document_template_binding_service())
 
 
-def _require_contract_access(request: Any, contract_id: int) -> None:
+def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
     from apps.contracts.services.contract import wiring
 
     ctx = get_request_access_context(request)
     wiring.get_contract_query_facade().get_contract_ctx(contract_id=contract_id, ctx=ctx)
 
 
-def _require_admin(request: Any) -> None:
+def _require_admin(request: HttpRequest) -> None:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False) or not getattr(user, "is_admin", False):
         raise PermissionDenied(_("需要管理员权限"))
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)
-def create_folder_binding(request: Any, contract_id: int, data: FolderBindingCreateSchema) -> Any:
+def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBindingCreateSchema) -> Any:
     """
     创建或更新文件夹绑定
 
@@ -105,7 +105,7 @@ def create_folder_binding(request: Any, contract_id: int, data: FolderBindingCre
 
 
 @router.get("/{contract_id}/folder-binding", response=FolderBindingResponseSchema | None)
-def get_folder_binding(request: Any, contract_id: int) -> Any:
+def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:
     """
     获取文件夹绑定信息
 
@@ -134,7 +134,7 @@ def get_folder_binding(request: Any, contract_id: int) -> Any:
 
 
 @router.delete("/{contract_id}/folder-binding")
-def delete_folder_binding(request: Any, contract_id: int) -> Any:
+def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:
     """
     删除文件夹绑定
 
@@ -167,7 +167,7 @@ def delete_folder_binding(request: Any, contract_id: int) -> Any:
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
-def browse_folders(request: Any, path: str | None = None, include_hidden: bool = False) -> Any:
+def browse_folders(request: HttpRequest, path: str | None = None, include_hidden: bool = False) -> Any:
     _require_admin(request)
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
