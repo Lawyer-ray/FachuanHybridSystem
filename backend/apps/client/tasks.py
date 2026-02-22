@@ -1,5 +1,6 @@
 """Module for tasks."""
 
+from datetime import date
 from typing import Any
 
 from apps.client.services.identity_extraction import IdentityExtractionService
@@ -23,16 +24,13 @@ def execute_identity_doc_recognition(file_path: str, doc_type: str) -> dict[str,
 
 def recognize_expiry_date_task(doc_id: int) -> dict[str, Any]:
     """识别证件到期日期并更新数据库。"""
-    from datetime import date
-
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
-    from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService as _Service
 
     doc_service = ClientIdentityDocService()
     doc = doc_service.get_identity_doc(doc_id)
     abs_path = to_media_abs(doc.file_path)
     content = abs_path.read_bytes()
-    service = _Service()
+    service = IdentityExtractionService()
     result = service.extract(content, doc.doc_type)
     expiry_str: str | None = result.extracted_data.get("expiry_date")
     if expiry_str:
