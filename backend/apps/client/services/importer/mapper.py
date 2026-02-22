@@ -18,30 +18,20 @@ class ClientImportCommand:
 
 
 class ClientJsonImportMapper:
+    _CLIENT_FIELDS: tuple[str, ...] = (
+        "name", "phone", "address", "client_type",
+        "id_number", "legal_representative", "is_our_client",
+    )
+
     def to_command(self, json_data: dict[str, Any], admin_user: str) -> ClientImportCommand:
         client_data = self._extract_client_data(json_data)
         identity_docs = self._extract_identity_docs(json_data.get("identity_docs"))
         return ClientImportCommand(client_data=client_data, identity_docs=identity_docs, admin_user=admin_user)
 
     def _extract_client_data(self, json_data: dict[str, Any]) -> dict[str, Any]:
-        client_fields = [
-            "name",
-            "phone",
-            "address",
-            "client_type",
-            "id_number",
-            "legal_representative",
-            "is_our_client",
-        ]
-
-        client_data: dict[str, Any] = {}
-        for field in client_fields:
-            if field in json_data:
-                client_data[field] = json_data[field]
-
+        client_data: dict[str, Any] = {f: json_data[f] for f in self._CLIENT_FIELDS if f in json_data}
         if "is_our_client" not in client_data:
             client_data["is_our_client"] = False
-
         return client_data
 
     def _extract_identity_docs(self, docs_data: Any | None) -> list[ClientIdentityDocCommand]:
