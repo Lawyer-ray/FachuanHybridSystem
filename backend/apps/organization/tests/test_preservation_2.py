@@ -292,8 +292,9 @@ def test_p3_team_permission_logic_equivalence(pair_index: int) -> None:
 # ---------------------------------------------------------------------------
 # P4: 注册流程中管理员权限设置不变
 #
-# 验证：LawyerRegistrationForm.save() 中包含第一个用户获得管理员权限的逻辑，
-# 且 AuthService.register() 中也有对应逻辑，确保迁移后行为不变。
+# 验证：业务逻辑已从 forms.py 迁移到 AuthService.register()，
+# forms.py 仅保留 real_name = username 映射，
+# AuthService.register() 包含完整的管理员权限判断逻辑。
 # ---------------------------------------------------------------------------
 
 
@@ -301,39 +302,52 @@ def test_p3_team_permission_logic_equivalence(pair_index: int) -> None:
 @settings(max_examples=5)
 def test_p4_registration_admin_privilege_logic_preserved(dummy: int) -> None:
     """
-    属性测试：LawyerRegistrationForm.save() 中第一个用户获得管理员权限的逻辑
-    在 forms.py 中存在，且设置了 is_staff、is_superuser、is_admin。
+    属性测试：管理员权限设置逻辑已从 LawyerRegistrationForm.save() 迁移到
+    AuthService.register()。
 
-    修复后此逻辑将移至 AuthService.register()，但行为不变：
-    第一个用户获得管理员权限，后续用户为普通用户。
+    forms.py 仅负责数据保存（real_name = username 映射），
+    AuthService.register() 包含第一个用户管理员权限判断逻辑。
 
     **Validates: Requirements 3.7**
     """
-    source: str = _read_source("forms.py")
-    tree: ast.Module = ast.parse(source)
+    # 验证 forms.py 不包含业务逻辑
+    form_source: str = _read_source("forms.py")
+    form_tree: ast.Module = ast.parse(form_source)
 
-    # 找到 LawyerRegistrationForm.save() 方法
     save_body: str | None = None
-    for node in ast.walk(tree):
+    for node in ast.walk(form_tree):
         if isinstance(node, ast.ClassDef) and node.name == "LawyerRegistrationForm":
             for item in node.body:
                 if isinstance(item, ast.FunctionDef) and item.name == "save":
-                    save_body = ast.get_source_segment(source, item)
+                    save_body = ast.get_source_segment(form_source, item)
                     break
 
     assert save_body is not None, "LawyerRegistrationForm.save() 未找到"
 
-    # 验证当前 save() 中包含管理员权限设置逻辑
-    assert "is_staff" in save_body, "save() 中未找到 is_staff 设置"
-    assert "is_superuser" in save_body, "save() 中未找到 is_superuser 设置"
-    assert "is_admin" in save_body, "save() 中未找到 is_admin 设置"
-
-    # 验证包含 real_name = username 映射
+    # forms.py 仅保留 real_name 映射
     assert "real_name" in save_body, "save() 中未找到 real_name 映射"
     assert "username" in save_body, "save() 中未找到 username 引用"
 
-    # 验证包含第一个用户判断逻辑
-    assert "_is_first_user" in save_body, "save() 中未找到 _is_first_user 调用"
+    # forms.py 不应包含业务逻辑
+    for attr in ("is_staff", "is_superuser", "is_admin"):
+        assert attr not in save_body, f"save() 不应包含 {attr} 设置"
+
+    # 验证 AuthService.register() 包含管理员权限逻辑
+    auth_source: str = _read_source("services/auth_service.py")
+    auth_tree: ast.Module = ast.parse(auth_source)
+
+    register_body: str | None = None
+    for node in ast.walk(auth_tree):
+        if isinstance(node, ast.ClassDef) and node.name == "AuthService":
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "register":
+                    register_body = ast.get_source_segment(auth_source, item)
+                    break
+
+    assert register_body is not None, "AuthService.register() 未找到"
+    assert "is_superuser" in register_body, "register() 中未找到 is_superuser 设置"
+    assert "is_admin" in register_body, "register() 中未找到 is_admin 设置"
+    assert "is_active" in register_body, "register() 中未找到 is_active 设置"
 
 
 # ---------------------------------------------------------------------------

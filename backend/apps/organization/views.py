@@ -13,6 +13,12 @@ from .forms import LawyerRegistrationForm
 from .models import Lawyer
 
 
+def _get_auth_service() -> "AuthService":  # noqa: F821
+    from .services.auth_service import AuthService
+
+    return AuthService()
+
+
 def register(request: HttpRequest) -> HttpResponse:
     """用户注册视图"""
     is_first_user = not Lawyer.objects.exists()
@@ -20,12 +26,21 @@ def register(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         form = LawyerRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            if user.is_staff:
+            auth_service = _get_auth_service()
+            username: str = form.cleaned_data["username"]
+            password: str = form.cleaned_data["password1"]
+            result = auth_service.register(
+                username=username,
+                password=password,
+                real_name=username,
+            )
+            user = result.user
+            if user.is_admin:
                 # 第一个用户（管理员）自动登录
                 login(request, user)
                 messages.success(
-                    request, f"注册成功！您是第一个用户，已自动获得管理员权限。欢迎 {user.real_name or user.username}"
+                    request,
+                    f"注册成功！您是第一个用户，已自动获得管理员权限。欢迎 {user.real_name or user.username}",
                 )
                 return redirect("admin:index")
             else:
