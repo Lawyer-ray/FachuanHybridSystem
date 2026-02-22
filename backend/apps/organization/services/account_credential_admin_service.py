@@ -11,7 +11,7 @@ import logging
 from collections.abc import Coroutine
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -69,7 +69,7 @@ class AccountCredentialAdminService:
     - 记录登录历史
     """
 
-    SUPPORTED_SITE = "court_zxfw"
+    SUPPORTED_SITE: ClassVar[str] = "court_zxfw"
 
     def __init__(self) -> None:
         self._token_service: IAutoTokenAcquisitionService | None = None

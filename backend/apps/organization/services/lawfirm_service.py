@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+from typing import ClassVar
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -305,15 +306,10 @@ class LawFirmServiceAdapter(ILawFirmService):
     实现跨模块接口，将 Model 转换为 DTO
     """
 
-    def __init__(self, lawfirm_service: LawFirmService | None = None):
-        """
-        初始化适配器（依赖注入）
+    _assembler: ClassVar[LawFirmDtoAssembler] = LawFirmDtoAssembler()
 
-        Args:
-            lawfirm_service: 律所服务实例（可选，默认创建新实例）
-        """
+    def __init__(self, lawfirm_service: LawFirmService | None = None):
         self.service = lawfirm_service or LawFirmService()
-        self._assembler = LawFirmDtoAssembler()
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
         """获取律所信息"""
