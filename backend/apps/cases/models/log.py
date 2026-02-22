@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.utils import validate_case_log_attachment
+from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.storage import KeepOriginalNameStorage
 
 from .case import Case
@@ -21,13 +22,17 @@ case_log_storage = KeepOriginalNameStorage()
 
 def validate_log_attachment(file: Any) -> None:
     """验证日志附件"""
-    name = getattr(file, "name", "")
-    size = getattr(file, "size", 0)
-    ok, error = validate_case_log_attachment(name, size)
-    if not ok:
+    name = str(getattr(file, "name", ""))
+    size: int = getattr(file, "size", 0)
+    ext = Path(name).suffix.lower()
+    if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
         from django.core.exceptions import ValidationError
 
-        raise ValidationError(_(error or "附件校验失败"))
+        raise ValidationError(_("不支持的文件类型"))
+    if size and size > CASE_LOG_MAX_FILE_SIZE:
+        from django.core.exceptions import ValidationError
+
+        raise ValidationError(_("文件大小超过50MB限制"))
 
 
 class CaseLog(models.Model):
