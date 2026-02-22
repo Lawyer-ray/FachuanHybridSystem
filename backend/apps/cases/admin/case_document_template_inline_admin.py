@@ -21,13 +21,6 @@ from apps.cases.models import BindingSource, CaseTemplateBinding
 logger = logging.getLogger(__name__)
 
 
-def _get_case_document_template_admin_service() -> Any:
-    """工厂函数获取案件文件模板 Admin 服务"""
-    from apps.cases.services.template.wiring import get_case_document_template_admin_service
-
-    return get_case_document_template_admin_service()
-
-
 class CaseDocumentTemplateInline(BaseTabularInline):
     """
     案件文件模板内联管理
