@@ -11,6 +11,8 @@ from django.db import transaction
 from django.db.models import Q, QuerySet, Sum
 from django.utils import timezone
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 
 from apps.contracts.models import Contract, ContractFinanceLog, ContractPayment, InvoiceStatus
@@ -96,7 +98,7 @@ class ContractPaymentService:
         try:
             return cast(ContractPayment, ContractPayment.objects.select_related("contract").get(id=payment_id))
         except ContractPayment.DoesNotExist as e:
-            raise NotFoundError(f"收款记录 {payment_id} 不存在") from e
+            raise NotFoundError(_(f"收款记录 {payment_id} 不存在")) from e
 
     @transaction.atomic
     def create_payment(
@@ -136,7 +138,7 @@ class ContractPaymentService:
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException("关键操作需二次确认")
+            raise ValidationException(_("关键操作需二次确认"))
 
         # 获取合同
         contract = self._get_contract(contract_id)
@@ -144,7 +146,7 @@ class ContractPaymentService:
         # 金额校验
         amount_float = float(amount)
         if amount_float <= 0:
-            raise ValidationException("收款金额需大于0")
+            raise ValidationException(_("收款金额需大于0"))
 
         # 合规性校验：累计收款不超过合同固定金额
         total_received = self._get_total_received(contract_id)
@@ -161,12 +163,12 @@ class ContractPaymentService:
                         "fixed_amount": float(contract.fixed_amount),
                     },
                 )
-                raise ValidationException("累计收款超过合同固定金额")
+                raise ValidationException(_("累计收款超过合同固定金额"))
 
         # 发票校验和状态计算
         invoiced_amount_float = float(invoiced_amount or 0)
         if invoiced_amount_float < 0 or invoiced_amount_float - amount_float > 1e-6:
-            raise ValidationException("开票金额不能大于收款金额")
+            raise ValidationException(_("开票金额不能大于收款金额"))
 
         inv_status = self._calculate_invoice_status(invoiced_amount_float, amount_float, invoice_status)
 
@@ -221,7 +223,7 @@ class ContractPaymentService:
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException("关键操作需二次确认")
+            raise ValidationException(_("关键操作需二次确认"))
 
         # 获取收款记录
         obj = self.get_payment(payment_id)
@@ -239,7 +241,7 @@ class ContractPaymentService:
         if "amount" in data:
             amount = float(data["amount"])
             if amount <= 0:
-                raise ValidationException("收款金额需大于0")
+                raise ValidationException(_("收款金额需大于0"))
 
             # 合规校验：替换后累计不超过固定金额
             total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
@@ -257,7 +259,7 @@ class ContractPaymentService:
                             "fixed_amount": float(contract.fixed_amount),
                         },
                     )
-                    raise ValidationException("累计收款超过合同固定金额")
+                    raise ValidationException(_("累计收款超过合同固定金额"))
             obj.amount = Decimal(str(amount))
 
         # 更新收款日期
@@ -268,7 +270,7 @@ class ContractPaymentService:
         if "invoiced_amount" in data or "invoice_status" in data:
             invoiced_amount = float(data.get("invoiced_amount", obj.invoiced_amount))
             if invoiced_amount < 0 or invoiced_amount - float(obj.amount) > 1e-6:
-                raise ValidationException("开票金额不能大于收款金额")
+                raise ValidationException(_("开票金额不能大于收款金额"))
 
             inv_status = self._calculate_invoice_status(
                 invoiced_amount,
@@ -323,7 +325,7 @@ class ContractPaymentService:
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException("关键操作需二次确认")
+            raise ValidationException(_("关键操作需二次确认"))
 
         # 获取收款记录
         obj = self.get_payment(payment_id)
@@ -356,7 +358,7 @@ class ContractPaymentService:
             PermissionDenied: 无管理员权限
         """
         if not (getattr(user, "is_authenticated", False) and getattr(user, "is_admin", False)):
-            raise PermissionDenied("无权限")
+            raise PermissionDenied(_("无权限"))
 
     def _get_contract(self, contract_id: int) -> Contract:
         """
@@ -374,7 +376,7 @@ class ContractPaymentService:
         try:
             return Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist as e:
-            raise NotFoundError(f"合同 {contract_id} 不存在") from e
+            raise NotFoundError(_(f"合同 {contract_id} 不存在")) from e
 
     def _get_total_received(self, contract_id: int, exclude_id: int | None = None) -> Decimal:
         """
