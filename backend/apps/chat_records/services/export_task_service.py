@@ -1,12 +1,14 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
+import logging
+from datetime import datetime
 from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -14,6 +16,8 @@ from apps.core.tasking import TaskSubmissionService
 
 from .access_policy import ensure_can_access_project
 from .project_service import ProjectService
+
+logger = logging.getLogger(__name__)
 
 
 class ExportTaskService:
@@ -75,3 +79,41 @@ class ExportTaskService:
             updated_at=timezone.now(),
         )
         return {"success": True}
+
+    def update_export_progress(
+        self,
+        *,
+        task_id: str,
+        status: str | None = None,
+        progress: int | None = None,
+        current: int | None = None,
+        total: int | None = None,
+        message: str = "",
+        error: str = "",
+        started_at: datetime | None = None,
+        finished_at: datetime | None = None,
+    ) -> None:
+        """单次数据库操作更新导出任务的状态和进度。"""
+        fields: dict[str, Any] = {"updated_at": timezone.now()}
+
+        if status is not None:
+            fields["status"] = status
+        if progress is not None:
+            fields["progress"] = progress
+        if current is not None:
+            fields["current"] = current
+        if total is not None:
+            fields["total"] = total
+        if message:
+            fields["message"] = message
+        if error:
+            fields["error"] = error
+        if started_at is not None:
+            fields["started_at"] = started_at
+        if finished_at is not None:
+            fields["finished_at"] = finished_at
+
+        rows = ChatRecordExportTask.objects.filter(id=task_id).update(**fields)
+        if rows == 0:
+            logger.warning("导出任务 %s 不存在，跳过进度更新", task_id)
+
