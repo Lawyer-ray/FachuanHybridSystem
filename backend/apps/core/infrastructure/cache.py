@@ -17,9 +17,7 @@ def _safe_get_config(key: str, default: Any | None = None) -> Any:
         from apps.core.config import get_config
 
         return get_config(key, default)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ImportError, AttributeError, KeyError):
         return default
 
 

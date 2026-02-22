@@ -79,7 +79,7 @@ def test_1_2_contract_admin_service_no_staticmethod() -> None:
     **Validates: Requirements 1.2**
     """
     service_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services" / "contract_admin_service.py"
+        BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
     )
     source: str = service_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
@@ -115,7 +115,7 @@ def test_1_3_contract_admin_service_no_direct_orm() -> None:
     **Validates: Requirements 1.3**
     """
     service_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services" / "contract_admin_service.py"
+        BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
     )
     source: str = service_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
