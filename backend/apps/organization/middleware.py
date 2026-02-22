@@ -11,7 +11,7 @@ from django.core.cache import cache
 from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
 
-from apps.core.cache import CacheKeys, CacheTimeout
+from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
 from .services.wiring import build_org_access_computation_service
 
 

@@ -5,16 +5,15 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Count, QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
-
 from apps.organization.models import LawFirm, Lawyer
 from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
@@ -91,15 +90,14 @@ class LawFirmService:
         """
         filters = filters or {}
 
-        # 构建基础查询（使用 prefetch_related 优化）
-        qs: Any = self.get_lawfirm_queryset()
-        queryset = cast("QuerySet[LawFirm, LawFirm]", qs.annotate(lawyer_count=Count("lawyers")))
+        queryset = self.get_lawfirm_queryset().annotate(lawyer_count=Count("lawyers"))
 
         # 应用权限过滤
         if user and not user.is_superuser:
-            # 普通用户只能看到自己所属的律所
             if user.law_firm_id is not None:
                 queryset = queryset.filter(id=user.law_firm_id)
+            else:
+                return queryset.none()
 
         # 应用业务过滤
         if filters.get("name"):

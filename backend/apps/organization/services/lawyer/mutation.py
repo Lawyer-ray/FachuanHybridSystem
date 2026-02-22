@@ -1,15 +1,16 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from ninja.files import UploadedFile
 
 from apps.core.exceptions import ConflictError, PermissionDenied, ValidationException
+from apps.core.infrastructure import invalidate_users_access_context  # type: ignore[attr-defined]
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 
@@ -148,9 +149,7 @@ class LawyerMutationService:
 
         lawyer.delete()
 
-        from apps.core.infrastructure import invalidate_users_access_context
-
-        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False) # type: ignore
+        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)  # type: ignore
         logger.info(
             "律师删除成功",
             extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "delete_lawyer"},
@@ -198,9 +197,7 @@ class LawyerMutationService:
             Lawyer.objects.filter(lawyer_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
         )
 
-        from apps.core.infrastructure import invalidate_users_access_context
-
-        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False) # type: ignore
+        invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)  # type: ignore
 
     def _set_biz_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.BIZ))

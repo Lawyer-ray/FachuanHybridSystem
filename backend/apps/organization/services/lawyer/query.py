@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 from typing import Any, cast
 
 from django.db.models import Q, QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.organization.models import Lawyer
@@ -44,6 +43,8 @@ class LawyerQueryService:
             user_law_firm_id = cast(int | None, getattr(user, "law_firm_id", None))
             if user_law_firm_id is not None:
                 queryset = queryset.filter(law_firm_id=user_law_firm_id)
+            else:
+                return queryset.none()
 
         if filters.get("search"):
             queryset = queryset.filter(
