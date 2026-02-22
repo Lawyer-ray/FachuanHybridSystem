@@ -17,6 +17,8 @@ from typing import Any
 
 from ninja import Router, Schema
 
+from apps.core.exceptions import NotFoundError
+
 router = Router()
 
 
@@ -103,9 +105,7 @@ def get_cause_by_id(request: Any, cause_id: int) -> Any:
     service = _get_cause_court_data_service()
     result = service.get_cause_by_id(cause_id)
     if result is None:
-        from ninja import HttpError  # type: ignore[attr-defined]
-
-        raise HttpError(404, "案由不存在") from None
+        raise NotFoundError(message="案由不存在", code="CAUSE_NOT_FOUND")
     return result
 
 
