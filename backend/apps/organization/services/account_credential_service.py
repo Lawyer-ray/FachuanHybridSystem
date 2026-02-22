@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.db import transaction
 from django.db.models import F, Q, QuerySet
@@ -43,7 +42,7 @@ class AccountCredentialService:
         self,
         lawyer_id: int | None = None,
         lawyer_name: str | None = None,
-        user: Any = None,
+        user: Lawyer | None = None,
     ) -> "QuerySet[AccountCredential, AccountCredential]":
         """
         获取凭证列表
@@ -76,7 +75,7 @@ class AccountCredentialService:
 
         return qs
 
-    def get_credential(self, credential_id: int, user: Any = None) -> AccountCredential:
+    def get_credential(self, credential_id: int, user: Lawyer | None = None) -> AccountCredential:
         """
         获取单个凭证
 
@@ -110,7 +109,7 @@ class AccountCredentialService:
         account: str,
         password: str,
         url: str | None = None,
-        user: Any = None,
+        user: Lawyer | None = None,
     ) -> AccountCredential:
         """
         创建凭证
@@ -165,8 +164,8 @@ class AccountCredentialService:
     def update_credential(
         self,
         credential_id: int,
-        data: dict[str, Any],
-        user: Any = None,
+        data: dict[str, object],
+        user: Lawyer | None = None,
     ) -> AccountCredential:
         """
         更新凭证
@@ -200,7 +199,7 @@ class AccountCredentialService:
         return credential
 
     @transaction.atomic
-    def delete_credential(self, credential_id: int, user: Any = None) -> None:
+    def delete_credential(self, credential_id: int, user: Lawyer | None = None) -> None:
         """
         删除凭证
 

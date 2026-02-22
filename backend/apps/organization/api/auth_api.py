@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from django.http import HttpRequest
 from ninja import Router
+
 from apps.organization.schemas import LoginIn, LoginOut
 from apps.organization.services import AuthService
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -21,7 +22,7 @@ def _get_auth_service() -> AuthService:
 
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def login_view(request: Any, payload: LoginIn) -> dict[str, Any]:
+def login_view(request: HttpRequest, payload: LoginIn) -> dict[str, object]:
     """用户登录"""
     service = _get_auth_service()
     user = service.login(request, payload.username, payload.password)
@@ -29,7 +30,7 @@ def login_view(request: Any, payload: LoginIn) -> dict[str, Any]:
 
 
 @router.post("/logout", auth=None)
-def logout_view(request: Any) -> dict[str, bool]:
+def logout_view(request: HttpRequest) -> dict[str, bool]:
     """用户登出"""
     service = _get_auth_service()
     service.logout(request)

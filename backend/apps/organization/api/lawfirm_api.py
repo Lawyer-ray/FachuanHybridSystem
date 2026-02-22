@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
@@ -22,25 +21,23 @@ def _get_lawfirm_service() -> LawFirmService:
 
 
 @router.get("/lawfirms", response=list[LawFirmOut])
-def list_lawfirms(request: Any) -> Any:
+def list_lawfirms(request: HttpRequest) -> list[LawFirmOut]:
     """列表查询律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirms = service.list_lawfirms(user=user)
-    return list(lawfirms)
+    return list(service.list_lawfirms(user=user))
 
 
 @router.get("/lawfirms/{law_firm_id}", response=LawFirmOut)
-def get_lawfirm(request: Any, law_firm_id: int) -> Any:
+def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:
     """获取律所详情"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.get_lawfirm(law_firm_id, user)
-    return lawfirm
+    return service.get_lawfirm(law_firm_id, user)
 
 
 @router.post("/lawfirms", response=LawFirmOut)
-def create_lawfirm(request: Any, payload: LawFirmIn) -> Any:
+def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:
     """创建律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -50,12 +47,11 @@ def create_lawfirm(request: Any, payload: LawFirmIn) -> Any:
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    lawfirm = service.create_lawfirm(data=dto, user=user)
-    return lawfirm
+    return service.create_lawfirm(data=dto, user=user)
 
 
 @router.put("/lawfirms/{law_firm_id}", response=LawFirmOut)
-def update_lawfirm(request: Any, law_firm_id: int, payload: LawFirmUpdateIn) -> Any:
+def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:
     """更新律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -65,12 +61,11 @@ def update_lawfirm(request: Any, law_firm_id: int, payload: LawFirmUpdateIn) -> 
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    lawfirm = service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=user)
-    return lawfirm
+    return service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=user)
 
 
 @router.delete("/lawfirms/{law_firm_id}")
-def delete_lawfirm(request: Any, law_firm_id: int) -> dict[str, bool]:
+def delete_lawfirm(request: HttpRequest, law_firm_id: int) -> dict[str, bool]:
     """删除律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)

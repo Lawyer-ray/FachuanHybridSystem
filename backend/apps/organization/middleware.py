@@ -4,14 +4,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
 
 from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
+from apps.organization.models import Lawyer
 from .services.wiring import build_org_access_computation_service
 
 
@@ -38,7 +37,7 @@ class OrgAccessMiddleware(MiddlewareMixin):
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
         return None
 
-    def _compute_org_access(self, user: Any) -> dict[str, Any]:
+    def _compute_org_access(self, user: Lawyer) -> dict[str, object]:
         """
         计算用户的组织访问权限
         委托给 OrgAccessComputationService 处理
