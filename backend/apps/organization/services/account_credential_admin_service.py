@@ -170,7 +170,7 @@ class AccountCredentialAdminService:
                     credential=credential,
                     success=False,
                     duration=duration,
-                    error_message=_("登录失败，未返回Token"), # type: ignore
+                    error_message=str(_("登录失败，未返回Token")),
                     trigger_reason="manual_trigger_admin",
                     start_time=start_time,
                     end_time=end_time,
@@ -189,7 +189,7 @@ class AccountCredentialAdminService:
                 return LoginResult(
                     success=False,
                     duration=duration,
-                    error_message=_("登录失败，未返回Token"), # type: ignore
+                    error_message=str(_("登录失败，未返回Token")),
                 )
 
         except Exception as e:
@@ -256,7 +256,7 @@ class AccountCredentialAdminService:
                 success_count=0,
                 error_count=0,
                 total_duration=0,
-                message=_("没有找到法院一张网账号"), # type: ignore
+                message=str(_("没有找到法院一张网账号")),
             )
 
         logger.info(
@@ -374,7 +374,7 @@ class AccountCredentialAdminService:
                     credential=credential,
                     success=False,
                     duration=duration,
-                    error_message=_("登录失败，未返回Token"), # type: ignore
+                    error_message=str(_("登录失败，未返回Token")),
                     trigger_reason=trigger_reason,
                     start_time=start_time,
                     end_time=end_time,
@@ -383,7 +383,7 @@ class AccountCredentialAdminService:
                 return LoginResult(
                     success=False,
                     duration=duration,
-                    error_message=_("登录失败，未返回Token"), # type: ignore
+                    error_message=str(_("登录失败，未返回Token")),
                 )
 
         except Exception as e:
