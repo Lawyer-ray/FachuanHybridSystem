@@ -210,12 +210,6 @@ class DocumentTemplate(models.Model):
         labels = [str(choices.get(code, code)) for code in statuses]
         return "、".join([x for x in labels if x]) or "任意"
 
-    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        result = super().delete(*args, **kwargs)
-        from apps.core.infrastructure import CacheKeys, CacheTimeout, bump_cache_version
-
-        bump_cache_version(CacheKeys.documents_matching_version_document_templates(), timeout=CacheTimeout.get_day())
-        return result
 
 
 class DocumentTemplateFolderBinding(models.Model):
