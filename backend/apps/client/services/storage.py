@@ -143,7 +143,7 @@ def save_uploaded_file(
     safe_original_name = sanitize_upload_filename(original_name)
     from apps.core.validators import Validators
 
-    _max_size_bytes = int(max_size_bytes) if max_size_bytes is not None else 20 * 1024 * 1024
+    _max_size_bytes = max_size_bytes if max_size_bytes is not None else 20 * 1024 * 1024
     Validators.validate_uploaded_file(
         uploaded_file,
         field_name="file",
@@ -153,7 +153,7 @@ def save_uploaded_file(
     media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
-            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
+            message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": _("未配置")}
         )
     base_dir = Path(media_root) / rel_dir
 
