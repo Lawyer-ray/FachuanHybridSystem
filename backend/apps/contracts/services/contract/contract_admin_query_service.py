@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.contracts.models import Contract
 from apps.core.enums import CaseType
 from apps.core.exceptions import NotFoundError
@@ -40,7 +42,7 @@ class ContractAdminQueryService:
                 .get(pk=contract_id)
             )
         except Contract.DoesNotExist as exc:
-            raise NotFoundError(f"合同 {contract_id} 不存在") from exc
+            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from exc
 
     def get_related_cases(self, contract_id: int) -> list[dict[str, Any]]:
         case_service = get_case_service()

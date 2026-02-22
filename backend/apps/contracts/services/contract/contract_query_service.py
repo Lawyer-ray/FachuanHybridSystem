@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.exceptions import NotFoundError
@@ -88,7 +89,7 @@ class ContractQueryService:
         try:
             contract = self.get_contract_queryset().get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(f"合同 {contract_id} 不存在") from None
+            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
         return contract
 
     def get_contract_with_details_model_internal(self, contract_id: int) -> Any:
