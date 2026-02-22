@@ -36,19 +36,18 @@ class LawFirmService:
         获取律所
 
         Raises:
-            NotFoundError: 律所不存在
             AuthenticationError: 未认证
+            NotFoundError: 律所不存在
             PermissionDenied: 无权限访问
         """
+        if user is None:
+            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+
         lawfirm = self._get_lawfirm_internal(lawfirm_id)
 
         if not lawfirm:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
-        if user is None:
-            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
-
-        # 权限检查：用户可以访问自己所属的律所或管理员可以访问所有律所
         if not self._access_policy.can_read_lawfirm(user, lawfirm):
             raise PermissionDenied(message=_("无权限访问该律所"), code="PERMISSION_DENIED")
 
