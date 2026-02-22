@@ -254,7 +254,7 @@ class EvidenceAdminService:
         """重新识别证据清单中所有 PDF 文件的页数"""
         from apps.documents.models import EvidenceList
 
-        evidence_list = EvidenceList.objects.get(pk=list_id)
+        evidence_list = EvidenceList.objects.prefetch_related("items").get(pk=list_id)
         items = evidence_list.items.all()
 
         updated = 0
