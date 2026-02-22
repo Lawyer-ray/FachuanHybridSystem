@@ -255,7 +255,7 @@ class PreservationMaterialsGenerationService:
                 template_dto = document_service.get_template_by_id_internal(binding.template_id)
                 if template_dto and template_dto.file_path:
                     return Path(template_dto.file_path)
-        template_query = Q(is_active=True, template_type="case")
+        template_query = Q(is_active=True, template_type=DocumentTemplateType.CASE)
         if name_keyword:
             template_query &= Q(function_code=function_code) | Q(name__contains=name_keyword)
         else:

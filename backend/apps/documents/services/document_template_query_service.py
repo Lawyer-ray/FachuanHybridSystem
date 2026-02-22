@@ -79,7 +79,7 @@ class DocumentTemplateQueryService:
 
     def list_case_templates_internal(self, is_active: bool = True) -> list[Any]:
 
-        queryset = DocumentTemplate.objects.filter(template_type="case")
+        queryset = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CASE)
         if is_active:
             queryset = queryset.filter(is_active=True)
         return [self.assembler.to_dto(t) for t in queryset]

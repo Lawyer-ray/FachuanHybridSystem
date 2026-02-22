@@ -373,7 +373,7 @@ def test_contracts_api_does_not_import_service_locator():
 
     assert len(violations) == 0, (
         "apps/contracts/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
-        + "\n".join(  # noqa: E501
+        + "\n".join(
             f"  {name}:{line} - {stmt}" for name, line, stmt in violations
         )
     )
@@ -393,7 +393,7 @@ def test_documents_api_does_not_import_service_locator():
 
     assert len(violations) == 0, (
         "apps/documents/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
-        + "\n".join(  # noqa: E501
+        + "\n".join(
             f"  {name}:{line} - {stmt}" for name, line, stmt in violations
         )
     )

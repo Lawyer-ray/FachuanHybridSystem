@@ -1,14 +1,12 @@
 """统一配置管理器"""
 
 import logging
-import os
 import threading
 import time
 from typing import Any, TypeVar, cast
 
 from .cache import ConfigCache
 from .exceptions import ConfigException, ConfigNotFoundError, ConfigTypeError, ConfigValidationError
-from .hot_reload import HotReloadManager
 from .notifications import ConfigChangeEvent, ConfigChangeListener, ConfigNotificationManager
 from .providers.base import ConfigProvider
 from .schema.schema import ConfigSchema
@@ -38,8 +36,6 @@ class ConfigManager:
         self._lock = threading.RLock()
         self._loaded = False
         self._last_reload_time = 0.0
-        self._hot_reload_manager = HotReloadManager(self)
-        self._auto_reload_enabled = False
 
     def add_provider(self, provider: ConfigProvider) -> None:
         with self._lock:
@@ -71,20 +67,11 @@ class ConfigManager:
                         provider_config = provider.load()
                         if provider_config:
                             self._merge_config(provider_config)
-                        if provider.supports_reload() and hasattr(provider, "get_file_path"):
-                            file_path = provider.get_file_path()
-                            if file_path and os.path.exists(file_path):
-                                self._hot_reload_manager.add_watch_file(file_path)
                     except Exception as e:
                         raise ConfigException(f"从 {provider.get_name()} 加载配置失败: {e}") from e
                 self._validate_config()
                 self._loaded = True
                 self._last_reload_time = time.time()
-                if self._auto_reload_enabled and not self._hot_reload_manager.is_enabled():
-                    try:
-                        self._hot_reload_manager.start()
-                    except (OSError, RuntimeError) as e:
-                        logger.error(f"启动热重载失败: {e}")
                 self._notify_changes(old_raw_config, self._raw_config)
                 self._notification_manager.notify_reload()
             except Exception as e:

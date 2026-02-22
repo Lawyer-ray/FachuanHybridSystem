@@ -101,7 +101,7 @@ class TestLawFirmAPI:
 
         # 执行测试
         response = self.client.put(
-            f"  # type: ignore[attr-defined]api/v1/organization/lawfirms/{lawfirm.id}",
+            f"api/v1/organization/lawfirms/{lawfirm.id}",  # type: ignore[attr-defined]
             data={"name": "新名称"},
             content_type="application/json",
         )

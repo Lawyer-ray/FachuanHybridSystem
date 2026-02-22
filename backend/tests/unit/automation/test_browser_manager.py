@@ -110,7 +110,7 @@ class TestBrowserCleanupNormalExit:
         mock_sync_pw = _make_mock_playwright()
         mock_page = (
             mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
-        )  # noqa: E501
+        )
         mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
 
         page_created = False
@@ -235,7 +235,7 @@ class TestConfigurationApplication:
         mock_sync_pw = _make_mock_playwright()
         mock_page = (
             mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
-        )  # noqa: E501
+        )
         mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
         mock_page.evaluate = MagicMock(return_value=user_agent)
 
@@ -244,15 +244,15 @@ class TestConfigurationApplication:
                 viewport = page.viewport_size
                 assert viewport["width"] == viewport_width, ( # type: ignore
                     f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}" # type: ignore
-                ) # noqa: E501
+                )
                 assert viewport["height"] == viewport_height, ( # type: ignore
                     f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}" # type: ignore
-                ) # noqa: E501
+                )
 
                 actual_user_agent = page.evaluate("navigator.userAgent")
                 assert actual_user_agent == user_agent, (
                     f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
-                )  # noqa: E501
+                )
 
 
 # =============================================================================

@@ -356,7 +356,7 @@ class TestFinalFailureHandlingProperties:
         site_name=st.text(min_size=1, max_size=20).filter(lambda x: x.strip() and x.isalnum()),
         failure_reason=st.sampled_from(
             ["no_accounts", "all_accounts_failed", "network_timeout", "service_unavailable"]
-        ),  # noqa: E501
+        ),
     )
     @settings(max_examples=8, deadline=10000)
     def test_final_failure_handling_consistency(self, site_name: str, failure_reason: str) -> None:
