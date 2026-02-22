@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
+from apps.organization.api._utils import get_request_user
 from ninja import Router
 
 from apps.organization.dtos import TeamUpsertDTO
@@ -24,7 +25,7 @@ def _get_team_service() -> TeamService:
 def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None) -> list[TeamOut]:
     """列表查询团队"""
     service = _get_team_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=user)
 
 
@@ -32,7 +33,7 @@ def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: 
 def create_team(request: HttpRequest, payload: TeamIn) -> TeamOut:
     """创建团队"""
     service = _get_team_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
     return service.create_team(data=dto, user=user)
 
@@ -41,7 +42,7 @@ def create_team(request: HttpRequest, payload: TeamIn) -> TeamOut:
 def get_team(request: HttpRequest, team_id: int) -> TeamOut:
     """获取团队详情"""
     service = _get_team_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     return service.get_team(team_id=team_id, user=user)
 
 
@@ -49,7 +50,7 @@ def get_team(request: HttpRequest, team_id: int) -> TeamOut:
 def update_team(request: HttpRequest, team_id: int, payload: TeamIn) -> TeamOut:
     """更新团队"""
     service = _get_team_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
     return service.update_team(team_id=team_id, data=dto, user=user)
 
@@ -58,6 +59,6 @@ def update_team(request: HttpRequest, team_id: int, payload: TeamIn) -> TeamOut:
 def delete_team(request: HttpRequest, team_id: int) -> dict[str, bool]:
     """删除团队"""
     service = _get_team_service()
-    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    user = get_request_user(request)
     service.delete_team(team_id=team_id, user=user)
     return {"success": True}
