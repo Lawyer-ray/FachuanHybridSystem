@@ -606,7 +606,7 @@ def test_service_can_be_tested_in_isolation():
 
     # 调用 Service 方法
     case = service.create_case(
-        {"name": "测试案件", "contract_id": real_contract.id, "current_stage": "investigation"},
+        {"name": "测试案件", "contract_id": real_contract.id, "current_stage": "investigation"}, # type: ignore
         user=user,
     )
 

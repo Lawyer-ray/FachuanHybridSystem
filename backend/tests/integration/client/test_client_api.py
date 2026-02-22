@@ -139,7 +139,7 @@ class TestClientAPI:
 
         # 执行请求
         response = self.http_client.put(
-            f"  # type: ignore[attr-defined]api/v1/client/clients/{client.id}",
+            f"api/v1/client/clients/{client.id}",  # type: ignore[attr-defined]
             data=data,
             content_type="application/json",
         )
