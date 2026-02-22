@@ -155,7 +155,7 @@ class FolderTemplateForm(forms.ModelForm):
 
         return structure
 
-    def save(self, commit=True) -> None:
+    def save(self, commit: bool = True) -> Any:
         """保存时将多选字段值写入JSON字段,根据模板类型处理相应字段"""
         instance = super().save(commit=False)
 

@@ -177,7 +177,7 @@ class DocumentTemplateForm(forms.ModelForm):
             if initial_values["file_path"] == "":
                 self.initial["file_path"] = ""
 
-    def clean(self) -> None:
+    def clean(self) -> Any:
         """验证文件选择逻辑和模板类型逻辑"""
         cleaned_data = super().clean()
         existing_file = cleaned_data.get("existing_file")
@@ -239,7 +239,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
         return cleaned_data
 
-    def save(self, commit=True) -> None:
+    def save(self, commit: bool = True) -> Any:
         """保存时将多选字段值写入JSON字段,根据模板类型处理相应字段"""
         instance = super().save(commit=False)
 
