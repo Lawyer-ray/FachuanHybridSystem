@@ -28,7 +28,7 @@ class ClientInternalQueryService:
         return Client.objects.filter(name=name).first()
 
     def list_all_clients(self) -> list[Client]:
-        return list(Client.objects.all())
+        return list(Client.objects.order_by("id"))
 
     def search_clients_by_name(
         self, *, name: str, exact_match: bool = False

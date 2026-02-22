@@ -161,7 +161,7 @@ def submit_recognize_task(
     service = _get_identity_doc_service()
     rel_path = service.save_uploaded_file_to_dir(file, rel_dir="client_docs/recognize")
     task_id: str = submit_q_task(
-        "apps.client.services.identity_extraction.extraction_service.extract_identity_doc_task",
+        "apps.client.tasks.execute_identity_doc_recognition",
         rel_path,
     )
     logger.info("证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path})

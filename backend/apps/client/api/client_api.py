@@ -109,7 +109,7 @@ def create_client(request: Any, payload: ClientIn) -> Any:
     """创建客户"""
     service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return service.create_client(data=payload.dict(), user=user)
+    return service.create_client(data=payload.model_dump(), user=user)
 
 
 @router.post("/clients-with-docs", response=ClientOut)
@@ -130,7 +130,7 @@ def create_client_with_docs(
     mutation_service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     return mutation_service.create_client_with_docs(
-        data=payload.dict(),
+        data=payload.model_dump(),
         doc_types=doc_types,
         files=list(files),
         user=user,
@@ -141,7 +141,7 @@ def create_client_with_docs(
 def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:
     """更新客户"""
     service = _get_mutation_service()
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     user = getattr(request, "auth", None) or extract_request_context(request).user
     return service.update_client(client_id=client_id, data=data, user=user)
 
