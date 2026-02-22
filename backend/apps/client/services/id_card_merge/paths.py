@@ -3,7 +3,7 @@
 from django.conf import settings
 
 from apps.core.config import get_config
-from apps.core.path import Path
+from pathlib import Path
 
 
 def get_media_root() -> Path:
@@ -16,12 +16,12 @@ def get_media_root() -> Path:
 
 
 def ensure_output_dir(media_root: Path) -> Path:
-    output_dir = Path(str(media_root / "id_card_merged"))
+    output_dir = media_root / "id_card_merged"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
 def ensure_temp_dir(media_root: Path) -> Path:
-    temp_dir = Path(str(media_root / "temp"))
+    temp_dir = media_root / "temp"
     temp_dir.mkdir(parents=True, exist_ok=True)
     return temp_dir

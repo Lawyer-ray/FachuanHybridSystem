@@ -18,7 +18,7 @@ from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
     from .client_service import ClientService
-    from .clientidentitydoc_service import ClientIdentityDocService
+    from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
 
 User = get_user_model()
@@ -139,7 +139,7 @@ class ClientAdminService(ClientAdminFileMixin):
             raise
         except Exception as e:
             # 记录错误日志
-            logger.error(
+            logger.exception(
                 "JSON 导入客户失败: %s",
                 e,
                 extra={"admin_user": admin_user, "action": "import_from_json", "error": str(e)},
@@ -298,7 +298,7 @@ class ClientAdminService(ClientAdminFileMixin):
 
         except Exception as e:
             # 记录错误日志
-            logger.error(
+            logger.exception(
                 "表单集文件处理失败: %s",
                 e,
                 extra={

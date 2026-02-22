@@ -1,7 +1,6 @@
 """Business logic services."""
 
 import logging
-import os
 import uuid
 from typing import Any
 
@@ -12,7 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from apps.core.path import Path
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,7 @@ def generate_a4_pdf(
     finally:
         if front_temp_path.exists():
             try:
-                os.remove(str(front_temp_path))
+                front_temp_path.unlink()
             except OSError as e:
                 logger.warning(
                     "清理临时文件失败",
@@ -87,7 +86,7 @@ def generate_a4_pdf(
 
         if back_temp_path.exists():
             try:
-                os.remove(str(back_temp_path))
+                back_temp_path.unlink()
             except OSError as e:
                 logger.warning(
                     "清理临时文件失败",

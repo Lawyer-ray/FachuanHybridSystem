@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -13,9 +13,6 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from .client import Client
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +45,6 @@ class ClientIdentityDoc(models.Model):
     RESIDENCE_PERMIT = "residence_permit"
     HOUSEHOLD_REGISTER = "household_register"
     BUSINESS_LICENSE = "business_license"
-    LEGAL_REP_CERT = "legal_rep_certificate"
     LEGAL_REP_ID_CARD = "legal_rep_id_card"
     DOC_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (ID_CARD, "身份证"),

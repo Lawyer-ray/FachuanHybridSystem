@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, ClassVar
 
 import cv2
 import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
+
+from pathlib import Path
 
 from . import detection, image_io, pdf, validation
 from .paths import ensure_output_dir, ensure_temp_dir, get_media_root
@@ -131,7 +132,7 @@ class IdCardMergeService:
         if "temp/" not in rel_path:
             return
         try:
-            os.remove(str(full_path))
+            Path(str(full_path)).unlink()
             logger.info("清理临时图片", extra={"path": str(full_path)})
         except OSError as e:
             logger.warning("清理临时图片失败", extra={"path": str(full_path), "error": str(e)})
