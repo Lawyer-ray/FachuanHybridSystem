@@ -40,7 +40,6 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
         self.fields["password2"].help_text = ""
 
     def clean_username(self) -> str:
-        """验证用户名必须是中文"""
         username: str | None = self.cleaned_data.get("username")
         if username:
             if not re.match(r"^[\u4e00-\u9fa5]+$", username):
