@@ -41,10 +41,6 @@ class ClientService:
             raise NotFoundError(message=_("客户不存在"), code="CLIENT_NOT_FOUND")
         return client
 
-    def _get_client_internal(self, client_id: int) -> Client | None:
-        """内部方法：无权限检查的客户查询，供 Adapter 调用。"""
-        return self.internal_query_service.get_client(client_id=client_id)
-
     def parse_client_text(self, text: str) -> dict[str, Any]:
         """解析客户文本。"""
         from .text_parser import parse_client_text

@@ -34,7 +34,7 @@ class ClientIdentityDocService:
             raise NotFoundError(
                 message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
+                errors={"client_id": str(_("ID 为 %(id)s 的当事人不存在") % {"id": client_id})},
             )
 
         # 创建证件记录
@@ -122,7 +122,7 @@ class ClientIdentityDocService:
             raise NotFoundError(
                 message=_("证件文档不存在"),
                 code="IDENTITY_DOC_NOT_FOUND",
-                errors={"doc_id": f"ID 为 {doc_id} 的证件文档不存在"},
+                errors={"doc_id": str(_("ID 为 %(id)s 的证件文档不存在") % {"id": doc_id})},
             )
         return doc
 

@@ -42,7 +42,7 @@ class PropertyClueService:
             raise ValidationException(
                 message=_("无效的线索类型"),
                 code="INVALID_CLUE_TYPE",
-                errors={"clue_type": f"线索类型必须是: {', '.join(valid_types.keys())}"},
+                errors={"clue_type": str(_("线索类型必须是: %(types)s") % {"types": ", ".join(valid_types.keys())})},
             )
 
     def _get_client_or_404(self, client_id: int) -> Any:
@@ -52,7 +52,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
+                errors={"client_id": str(_("ID 为 %(id)s 的当事人不存在") % {"id": client_id})},
             )
         return client
 
@@ -100,7 +100,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=_("财产线索不存在"),
                 code="CLUE_NOT_FOUND",
-                errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"},
+                errors={"clue_id": str(_("ID 为 %(id)s 的财产线索不存在") % {"id": clue_id})},
             )
 
         return clue
@@ -269,7 +269,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=_("附件不存在"),
                 code="ATTACHMENT_NOT_FOUND",
-                errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
+                errors={"attachment_id": str(_("ID 为 %(id)s 的附件不存在") % {"id": attachment_id})},
             ) from e
 
         file_path = attachment.file_path
