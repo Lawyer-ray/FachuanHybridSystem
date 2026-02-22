@@ -1,6 +1,5 @@
 """PDF 生成。"""
 
-import logging
 import uuid
 from typing import Any
 
@@ -12,8 +11,6 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 
 def generate_a4_pdf(

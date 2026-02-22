@@ -1,6 +1,5 @@
 """身份证边缘检测。"""
 
-import logging
 from typing import Any, cast
 
 import cv2
@@ -8,8 +7,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .validation import order_corners
-
-logger = logging.getLogger(__name__)
 
 
 def detect_id_card_corners(
