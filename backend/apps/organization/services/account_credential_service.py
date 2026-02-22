@@ -23,6 +23,9 @@ logger = logging.getLogger("apps.organization")
 
 class AccountCredentialService:
 
+    SITE_URL_MAPPING: ClassVar[dict[str, str]] = {
+        "court_zxfw": "zxfw.court.gov.cn",
+    }
 
     def __init__(self) -> None:
         self._access_policy = OrganizationAccessPolicy()
@@ -208,10 +211,6 @@ class AccountCredentialService:
             id__in=credential_ids,
             site_name=site_name,
         )
-
-    SITE_URL_MAPPING: ClassVar[dict[str, str]] = {
-        "court_zxfw": "zxfw.court.gov.cn",
-    }
 
     def get_credentials_by_site(self, site_name: str) -> "QuerySet[AccountCredential, AccountCredential]":
         url_keyword = self.SITE_URL_MAPPING.get(site_name, site_name)
