@@ -302,11 +302,7 @@ class CauseCourtInitializationService:
         from .wiring import get_baoquan_token_service
 
         baoquan_token_service = get_baoquan_token_service()
-        try:
-            return await baoquan_token_service.get_valid_baoquan_token(credential_id)
-        except Exception as e:
-            logger.error(f"❌ 保全系统 Token 获取失败: {e}", exc_info=True)
-            raise TokenError(f"保全系统 Token 获取失败: {e}") from e
+        return await baoquan_token_service.get_valid_baoquan_token(credential_id)
 
     def _collect_cause_codes(self, items: list[CauseItem]) -> set[str]:
         """递归收集所有案由编码
