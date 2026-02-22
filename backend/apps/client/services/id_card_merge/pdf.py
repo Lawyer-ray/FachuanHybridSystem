@@ -75,20 +75,8 @@ def generate_a4_pdf(
         )
         return f"id_card_merged/{pdf_filename}"
     finally:
-        if front_temp_path.exists():
+        for tmp_path in (front_temp_path, back_temp_path):
             try:
-                front_temp_path.unlink()
+                tmp_path.unlink(missing_ok=True)
             except OSError as e:
-                logger.warning(
-                    "清理临时文件失败",
-                    extra={"file": str(front_temp_path), "error": str(e)},
-                )
-
-        if back_temp_path.exists():
-            try:
-                back_temp_path.unlink()
-            except OSError as e:
-                logger.warning(
-                    "清理临时文件失败",
-                    extra={"file": str(back_temp_path), "error": str(e)},
-                )
+                logger.warning("清理临时文件失败", extra={"file": str(tmp_path), "error": str(e)})

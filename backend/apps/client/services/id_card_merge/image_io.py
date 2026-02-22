@@ -42,9 +42,7 @@ def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger:
     temp_path = temp_dir / temp_filename
 
     image.seek(0)
-    with open(temp_path, "wb") as f:
-        for chunk in image.chunks():
-            f.write(chunk)
+    temp_path.write_bytes(image.read())
     image.seek(0)
 
     logger.info(
