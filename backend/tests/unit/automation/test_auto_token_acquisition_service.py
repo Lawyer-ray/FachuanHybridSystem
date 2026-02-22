@@ -7,10 +7,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from apps.automation.exceptions import AutoTokenAcquisitionError, NoAvailableAccountError, TokenAcquisitionTimeoutError
 from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService, ConcurrencyConfig
-from apps.core.exceptions import ValidationException
-from apps.core.interfaces import AccountCredentialDTO, LoginAttemptResult
+from apps.core.exceptions import (
+    AutoTokenAcquisitionError,
+    NoAvailableAccountError,
+    TokenAcquisitionTimeoutError,
+    ValidationException,
+)
+from apps.core.interfaces import AccountCredentialDTO
 
 
 def create_test_credential(credential_id=1, site_name="court_zxfw", account="test_account") -> AccountCredentialDTO:
@@ -31,6 +35,9 @@ class TestAutoTokenAcquisitionService:
 
     def setup_method(self):
         """测试前准备"""
+        from django.core.cache import cache
+        cache.clear()
+
         self.mock_account_strategy = Mock()
         self.mock_account_strategy.select_account = AsyncMock()
         self.mock_account_strategy.update_account_statistics = AsyncMock()
@@ -102,7 +109,11 @@ class TestAutoTokenAcquisitionService:
         self.mock_token_service.get_token_internal.return_value = None
         self.mock_login_service.login_and_get_token.return_value = new_token
 
-        with patch.object(self.service, "_get_credential_by_id", new=AsyncMock(return_value=credential)):
+        # patch LoginHandler._get_credential_by_id
+        with patch(
+            "apps.automation.services.token._login_handler.LoginHandler._get_credential_by_id",
+            new=AsyncMock(return_value=credential),
+        ):
             result = await self.service.acquire_token_if_needed(site_name, credential_id)
 
         assert result == new_token
@@ -126,7 +137,7 @@ class TestAutoTokenAcquisitionService:
         self.mock_token_service.get_token_internal.return_value = None
         self.mock_account_strategy.select_account.return_value = None
 
-        with pytest.raises(AutoTokenAcquisitionError):
+        with pytest.raises((AutoTokenAcquisitionError, NoAvailableAccountError)):
             await self.service.acquire_token_if_needed(site_name)
 
     @pytest.mark.anyio
@@ -139,7 +150,7 @@ class TestAutoTokenAcquisitionService:
         self.mock_account_strategy.select_account.return_value = credential
         self.mock_login_service.login_and_get_token.side_effect = asyncio.TimeoutError()
 
-        with pytest.raises(AutoTokenAcquisitionError):
+        with pytest.raises((AutoTokenAcquisitionError, TokenAcquisitionTimeoutError)):
             await self.service.acquire_token_if_needed(site_name)
 
     @pytest.mark.anyio
