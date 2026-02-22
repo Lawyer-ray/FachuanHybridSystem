@@ -3,6 +3,8 @@
 """
 
 from apps.client.models import ClientIdentityDoc
+from apps.core.exceptions import ValidationException
+from django.utils.translation import gettext_lazy as _
 
 # 身份证提示词模板
 ID_CARD_PROMPT = """
@@ -216,14 +218,11 @@ def get_prompt_for_doc_type(doc_type: str, raw_text: str = "") -> str:
         ValidationException: 不支持的证件类型
     """
     if doc_type not in PROMPT_MAPPING:
-        from apps.core.exceptions import ValidationException
-        from django.utils.translation import gettext_lazy as _
-
         supported_types = list(PROMPT_MAPPING.keys())
         raise ValidationException(
             message=_("不支持的证件类型"),
             code="UNSUPPORTED_DOC_TYPE",
-            errors={"doc_type": str(_("不支持: %(t)s，支持: %(s)s") % {"t": doc_type, "s": supported_types})},
+            errors={"doc_type": _("不支持: %(t)s，支持: %(s)s") % {"t": doc_type, "s": supported_types}},
         )
 
     return PROMPT_MAPPING[doc_type]
