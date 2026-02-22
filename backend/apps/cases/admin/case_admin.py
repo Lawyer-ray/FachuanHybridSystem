@@ -17,7 +17,12 @@ from apps.cases.models import (
     CaseStage,
     SupervisingAuthority,
 )
-from apps.cases.admin.mixins import CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminServiceMixin, CaseAdminViewsMixin
+from apps.cases.admin.mixins import (
+    CaseAdminActionsMixin,
+    CaseAdminSaveMixin,
+    CaseAdminServiceMixin,
+    CaseAdminViewsMixin,
+)
 
 
 class CasePartyInline(BaseTabularInline):

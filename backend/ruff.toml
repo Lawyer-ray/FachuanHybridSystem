@@ -69,6 +69,7 @@ ignore = [
 "apps/automation/services/token/token_acquisition_orchestrator.py" = ["C901"]
 "apps/cases/admin/case_inlines_admin.py" = ["C901"]
 "apps/cases/admin/case_widgets_admin.py" = ["F821"]
+"apps/cases/admin/base.py" = ["UP040"]  # TypeAlias 在 TYPE_CHECKING 块中无法使用 type 关键字替代
 "apps/automation/services/ai/prompts.py" = ["E501"]
 "apps/core/utils/typing_helpers.py" = ["UP047"]  # TypeVar 方式与 mypy --strict 更兼容，暂不迁移到 PEP 695 type parameters 语法
 
