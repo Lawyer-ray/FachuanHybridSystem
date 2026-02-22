@@ -144,6 +144,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
     @staticmethod
     def _count_pdf_pages(items: list[Any], request: Any, messages: Any) -> None:
         """识别 PDF 页数"""
+        to_update = []
         for obj in items:
             try:
                 from apps.documents.services.pdf_utils import get_pdf_page_count_with_error
@@ -151,7 +152,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 page_count, error = get_pdf_page_count_with_error(obj.file, default=1)
                 if page_count != obj.page_count:
                     obj.page_count = page_count
-                    obj.save(update_fields=["page_count"])
+                    to_update.append(obj)
                 if error:
                     messages.warning(
                         request,
@@ -168,27 +169,34 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                     exc_info=True,
                 )
                 messages.warning(request, _("文件 %(n)s 页数识别失败: %(e)s") % {"n": obj.file_name, "e": e})
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["page_count"])
 
     def _handle_file_cleared(self, formset: Any) -> None:
+        to_update = []
         for form in formset.forms:
             if form.instance.pk and not form.cleaned_data.get("DELETE", False):
                 instance = form.instance
                 instance.refresh_from_db()
-
                 if not instance.file and (instance.page_count != 0 or instance.file_name or instance.file_size):
                     instance.page_count = 0
                     instance.file_name = ""
                     instance.file_size = 0
                     instance.page_start = None
                     instance.page_end = None
-                    instance.save(update_fields=["page_count", "file_name", "file_size", "page_start", "page_end"])
+                    to_update.append(instance)
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["page_count", "file_name", "file_size", "page_start", "page_end"])
 
     def _reorder_items_after_delete(self, evidence_list: EvidenceList) -> None:
-        items = evidence_list.items.order_by("order")
+        items = list(evidence_list.items.order_by("order"))
+        to_update = []
         for index, item in enumerate(items, start=1):
             if item.order != index:
                 item.order = index
-                item.save(update_fields=["order"])
+                to_update.append(item)
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["order"])
 
     def _recalculate_list_pages(self, evidence_list: EvidenceList) -> None:
         evidence_list.refresh_from_db()

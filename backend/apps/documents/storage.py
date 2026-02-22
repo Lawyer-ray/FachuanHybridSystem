@@ -74,14 +74,6 @@ class DocumentTemplateStorage(FileSystemStorage):
 
         return super().save(name, content, max_length)
 
-    def _is_in_docx_templates(self, file_path: Path) -> bool:
-        """检查文件是否已在docx_templates目录中"""
-        try:
-            file_path.resolve().relative_to(self.docx_templates_root.resolve())
-            return True
-        except ValueError:
-            return False
-
     def url(self, name: str | None) -> str:
         """返回文件URL - 返回绝对路径供下载"""
         # 返回 media URL 或直接返回文件路径

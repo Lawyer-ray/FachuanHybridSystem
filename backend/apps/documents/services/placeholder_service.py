@@ -281,23 +281,29 @@ class PlaceholderService:
 
         Requirements: 3.4
         """
-        updated_count = 0
+        keys = [u["key"] for u in updates if u.get("key")]
+        if not keys:
+            return 0
+
+        placeholders_by_key = {p.key: p for p in Placeholder.objects.filter(key__in=keys)}
+        update_fields: set[str] = set()
+        to_update: list[Placeholder] = []
+
         for update_data in updates:
-            key = update_data.pop("key", None)
-            if not key:
+            key = update_data.get("key")
+            if not key or key not in placeholders_by_key:
+                if key:
+                    logger.warning("占位符 %s 不存在,跳过更新", key)
                 continue
+            placeholder = placeholders_by_key[key]
+            for field, value in update_data.items():
+                if field != "key" and hasattr(placeholder, field):
+                    setattr(placeholder, field, value)
+                    update_fields.add(field)
+            to_update.append(placeholder)
 
-            try:
-                placeholder = Placeholder.objects.get(key=key)
-                for field, value in update_data.items():
-                    if hasattr(placeholder, field):
-                        setattr(placeholder, field, value)
-                placeholder.save()
-                updated_count += 1
-                logger.info("更新占位符: %s", key)
-            except Placeholder.DoesNotExist:
-                logger.warning("占位符 %s 不存在,跳过更新", key)
-            except Exception as e:
-                logger.error("更新占位符 %s 失败: %s", key, e, exc_info=True)
+        if to_update and update_fields:
+            Placeholder.objects.bulk_update(to_update, list(update_fields))
+            logger.info("批量更新占位符: %s 个", len(to_update))
 
-        return updated_count
+        return len(to_update)
