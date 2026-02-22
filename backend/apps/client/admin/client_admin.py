@@ -122,4 +122,4 @@ class ClientAdmin(admin.ModelAdmin[Client]):
                             uploaded_file=info["uploaded_file"],
                         )
                     except Exception as e:
-                        logger.error(f"文件处理失败: {e}")
+                        logger.error("文件处理失败: %s", e)
