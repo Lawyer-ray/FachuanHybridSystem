@@ -11,6 +11,7 @@ from typing import Any
 from django.db.models import QuerySet
 from ninja.files import UploadedFile
 
+from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.models import Lawyer
 
 from .mutation import LawyerMutationService
@@ -68,7 +69,7 @@ class LawyerService:
     # ---- Mutation 代理 ----
 
     def create_lawyer(
-        self, data: Any, user: Lawyer | None, license_pdf: UploadedFile | None = None
+        self, data: LawyerCreateDTO, user: Lawyer | None, license_pdf: UploadedFile | None = None
     ) -> Lawyer:
         if user is None:
             from apps.core.exceptions import AuthenticationError
@@ -80,7 +81,7 @@ class LawyerService:
     def update_lawyer(
         self,
         lawyer_id: int,
-        data: Any,
+        data: LawyerUpdateDTO,
         user: Lawyer | None,
         license_pdf: UploadedFile | None = None,
     ) -> Lawyer:
