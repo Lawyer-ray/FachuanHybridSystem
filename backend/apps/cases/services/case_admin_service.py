@@ -1,5 +1,7 @@
 """案件 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
+from __future__ import annotations
+
 from django.db import transaction
 
 from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty, SupervisingAuthority

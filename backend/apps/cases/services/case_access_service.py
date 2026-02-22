@@ -4,7 +4,9 @@
 符合四层架构规范：业务逻辑、权限检查、依赖注入
 """
 
-from typing import Any, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models import QuerySet
 
@@ -13,6 +15,9 @@ from apps.core.interfaces import ICaseService, ServiceLocator
 from apps.organization.middleware import invalidate_user_org_cache
 
 from apps.cases.models import Case, CaseAccessGrant
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
 
 
 class CaseAccessService:
@@ -45,10 +50,10 @@ class CaseAccessService:
         self,
         case_id: int | None = None,
         grantee_id: int | None = None,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
+    ) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取授权列表
 
@@ -82,7 +87,7 @@ class CaseAccessService:
     def get_grant(
         self,
         grant_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
@@ -110,7 +115,7 @@ class CaseAccessService:
         self,
         case_id: int,
         grantee_id: int,
-        user: Any = None,
+        user: User | None = None,
     ) -> CaseAccessGrant:
         """
         创建授权（授予用户案件访问权限）
@@ -149,7 +154,7 @@ class CaseAccessService:
         self,
         grant_id: int,
         data: dict[str, Any],
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseAccessGrant:
@@ -183,7 +188,7 @@ class CaseAccessService:
     def delete_grant(
         self,
         grant_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
@@ -211,7 +216,7 @@ class CaseAccessService:
 
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user: Any = None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
+    def get_grants_for_case(self, case_id: int, user: User | None = None) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取案件的所有访问授权
 
@@ -224,7 +229,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
 
-    def get_grants_for_user(self, user_id: int, user: Any = None) -> "QuerySet[CaseAccessGrant, CaseAccessGrant]":
+    def get_grants_for_user(self, user_id: int, user: User | None = None) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取用户的所有案件访问授权
 
@@ -237,7 +242,7 @@ class CaseAccessService:
         """
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
-    def get_accessible_case_ids(self, user_id: int, user: Any = None) -> set[int]:
+    def get_accessible_case_ids(self, user_id: int, user: User | None = None) -> set[int]:
         """
         获取用户可访问的案件 ID 集合
 
@@ -250,7 +255,7 @@ class CaseAccessService:
         """
         return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 
-    def grant_access(self, case_id: int, grantee_id: int, user: Any = None) -> CaseAccessGrant:
+    def grant_access(self, case_id: int, grantee_id: int, user: User | None = None) -> CaseAccessGrant:
         """
         授予用户案件访问权限（别名方法，保持向后兼容）
 
@@ -268,7 +273,7 @@ class CaseAccessService:
         """
         return self.create_grant(case_id=case_id, grantee_id=grantee_id, user=user)
 
-    def revoke_access(self, case_id: int, grantee_id: int, user: Any = None) -> bool:
+    def revoke_access(self, case_id: int, grantee_id: int, user: User | None = None) -> bool:
         """
         撤销用户案件访问权限
 
@@ -295,7 +300,7 @@ class CaseAccessService:
 
         return True
 
-    def revoke_access_by_id(self, grant_id: int, user: Any = None) -> bool:
+    def revoke_access_by_id(self, grant_id: int, user: User | None = None) -> bool:
         """
         通过授权 ID 撤销访问权限（别名方法，保持向后兼容）
 
@@ -316,7 +321,7 @@ class CaseAccessService:
         self,
         case_id: int,
         grantee_ids: list[int],
-        user: Any = None,
+        user: User | None = None,
     ) -> list[CaseAccessGrant]:
         """
         批量授予案件访问权限

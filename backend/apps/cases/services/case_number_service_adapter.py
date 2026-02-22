@@ -4,9 +4,13 @@
 实现 ICaseNumberService 接口，供跨模块调用
 """
 
+from __future__ import annotations
+
 from typing import Any, cast
 
 from apps.core.interfaces import ICaseNumberService
+
+from .case_number_service import CaseNumberService
 
 
 class CaseNumberServiceAdapter(ICaseNumberService):
@@ -16,15 +20,13 @@ class CaseNumberServiceAdapter(ICaseNumberService):
     实现跨模块接口，委托给 CaseNumberService 执行
     """
 
-    def __init__(self, case_number_service: Any | None = None):
+    def __init__(self, case_number_service: CaseNumberService | None = None):
         self._case_number_service = case_number_service
 
     @property
-    def case_number_service(self) -> Any:
+    def case_number_service(self) -> CaseNumberService:
         """延迟加载 CaseNumberService"""
         if self._case_number_service is None:
-            from .case_number_service import CaseNumberService
-
             self._case_number_service = CaseNumberService()
         return self._case_number_service
 

@@ -3,9 +3,11 @@
 处理案件指派相关的业务逻辑
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -14,6 +16,9 @@ from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService, IContractAssignmentQueryService, ServiceLocator
 
 from apps.cases.models import Case, CaseAssignment
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
 
 logger = logging.getLogger("apps.cases")
 
@@ -55,8 +60,8 @@ class CaseAssignmentService:
         self,
         case_id: int | None = None,
         lawyer_id: int | None = None,
-        user: Any | None = None,
-    ) -> "QuerySet[CaseAssignment, CaseAssignment]":
+        user: User | None = None,
+    ) -> QuerySet[CaseAssignment, CaseAssignment]:
         """
         获取指派列表
 
@@ -92,7 +97,7 @@ class CaseAssignmentService:
     def get_assignment(
         self,
         assignment_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseAssignment:
         """
         获取单个指派
@@ -142,7 +147,7 @@ class CaseAssignmentService:
         self,
         case_id: int,
         lawyer_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseAssignment:
         """
         创建指派
@@ -215,7 +220,7 @@ class CaseAssignmentService:
         self,
         assignment_id: int,
         data: dict[str, Any],
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseAssignment:
         """
         更新指派
@@ -298,7 +303,7 @@ class CaseAssignmentService:
     def delete_assignment(
         self,
         assignment_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> dict[str, bool]:
         """
         删除指派

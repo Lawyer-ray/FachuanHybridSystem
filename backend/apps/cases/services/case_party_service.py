@@ -3,6 +3,8 @@
 处理案件当事人相关的业务逻辑
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, cast
@@ -16,7 +18,7 @@ from apps.core.interfaces import ICaseService, IClientService, IContractService,
 from apps.cases.models import Case, CaseParty
 
 if TYPE_CHECKING:
-    pass
+    from django.contrib.auth.models import AbstractBaseUser as User
 
 logger = logging.getLogger("apps.cases")
 
@@ -178,8 +180,8 @@ class CasePartyService:
     def list_parties(
         self,
         case_id: int | None = None,
-        user: Any | None = None,
-    ) -> "QuerySet[CaseParty, CaseParty]":
+        user: User | None = None,
+    ) -> QuerySet[CaseParty, CaseParty]:
         """
         获取当事人列表
 
@@ -211,7 +213,7 @@ class CasePartyService:
     def get_party(
         self,
         party_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseParty:
         """
         获取单个当事人
@@ -262,7 +264,7 @@ class CasePartyService:
         case_id: int,
         client_id: int,
         legal_status: str | None = None,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseParty:
         """
         创建当事人
@@ -358,7 +360,7 @@ class CasePartyService:
         self,
         party_id: int,
         data: dict[str, Any],
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseParty:
         """
         更新当事人
@@ -448,7 +450,7 @@ class CasePartyService:
     def delete_party(
         self,
         party_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> dict[str, bool]:
         """
         删除当事人
