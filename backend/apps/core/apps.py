@@ -97,7 +97,7 @@ class CoreConfig(AppConfig):
                     value = config_manager.get(config_key)
                     if value is None:
                         missing_configs.append(config_key)
-                except Exception:
+                except (KeyError, AttributeError):
                     missing_configs.append(config_key)
 
             if missing_configs:
@@ -109,7 +109,7 @@ class CoreConfig(AppConfig):
             if not getattr(settings, "DEBUG", True):
                 self._validate_production_config(config_manager)
 
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError) as e:
             logger.error(f"配置验证失败: {e}")
             raise
 
@@ -131,7 +131,7 @@ class CoreConfig(AppConfig):
                     value = config_manager.get(config_key)
                     if not value:
                         env_missing.append(config_key)
-                except Exception:
+                except (KeyError, AttributeError):
                     env_missing.append(config_key)
 
             if env_missing:
@@ -140,7 +140,7 @@ class CoreConfig(AppConfig):
 
             logger.info("生产环境配置验证通过")
 
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError) as e:
             logger.error(f"生产环境配置验证失败: {e}")
             raise
 

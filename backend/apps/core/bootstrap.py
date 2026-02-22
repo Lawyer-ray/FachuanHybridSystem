@@ -77,9 +77,7 @@ def _validate_configuration() -> None:
             value = config_manager.get(config_key)
             if value is None:
                 missing_configs.append(config_key)
-        except Exception:
-            logger.exception("操作失败")
-
+        except (KeyError, AttributeError):
             missing_configs.append(config_key)
 
     if missing_configs:
@@ -105,9 +103,7 @@ def _validate_production_config(config_manager: Any) -> None:
             value = config_manager.get(config_key)
             if not value:
                 env_missing.append(config_key)
-        except Exception:
-            logger.exception("操作失败")
-
+        except (KeyError, AttributeError):
             env_missing.append(config_key)
 
     if env_missing:
