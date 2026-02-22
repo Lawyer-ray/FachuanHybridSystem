@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
+from apps.client.services.storage import delete_media_file, save_uploaded_file
 
 if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService
@@ -164,7 +165,6 @@ class PropertyClueService:
     @transaction.atomic
     def delete_clue(self, clue_id: int, user: Any = None) -> None:
         """删除财产线索及其所有附件（含磁盘文件）。"""
-        from apps.client.services.storage import delete_media_file
 
         clue = self.get_clue(clue_id, user)
 
@@ -225,7 +225,6 @@ class PropertyClueService:
 
     def save_uploaded_file_to_dir(self, uploaded_file: Any, rel_dir: str) -> tuple[str, str]:
         """保存上传文件到指定目录，返回 (rel_path, original_name)（供 Admin Form 使用）"""
-        from apps.client.services.storage import save_uploaded_file
 
         return save_uploaded_file(uploaded_file, rel_dir=rel_dir)
 
@@ -256,7 +255,6 @@ class PropertyClueService:
     @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: Any = None) -> None:
         """删除财产线索附件（含磁盘文件）。"""
-        from apps.client.services.storage import delete_media_file
 
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)

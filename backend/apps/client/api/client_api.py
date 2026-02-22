@@ -27,13 +27,6 @@ class ParseTextRequest(BaseModel):
 router = Router(tags=["Client"])
 
 
-def _get_client_service() -> Any:
-    """工厂函数：创建 ClientService 实例"""
-    from apps.client.services import ClientService
-
-    return ClientService()
-
-
 def _get_query_facade() -> Any:
     """工厂函数：创建 ClientQueryFacade 实例"""
     from apps.client.services.client_query_facade import ClientQueryFacade
@@ -74,14 +67,13 @@ def list_clients(
 @router.post("/clients/parse-text")
 def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:
     """解析客户文本信息"""
-    service = _get_client_service()
+    from apps.client.services.text_parser import parse_client_text as _parse, parse_multiple_clients_text as _parse_multi
 
     if payload.parse_multiple:
-        parsed_clients = service.parse_multiple_clients_text(payload.text)
-        results = [c for c in parsed_clients if c.get("name")]
+        results = [c for c in _parse_multi(payload.text) if c.get("name")]
         return {"success": True, "clients": results}
     else:
-        result = service.parse_client_text(payload.text)
+        result = _parse(payload.text)
         if result.get("name"):
             return {"success": True, "client": result}
         else:
@@ -91,9 +83,9 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 @router.get("/parse-text")
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
-    service = _get_client_service()
-    parsed_data = service.parse_client_text(text)
-    return parsed_data
+    from apps.client.services.text_parser import parse_client_text as _parse
+
+    return _parse(text)
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
