@@ -8,13 +8,16 @@ from typing import Any, ClassVar
 import cv2
 import numpy as np
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from numpy.typing import NDArray
 
 from pathlib import Path
 
+from apps.core.exceptions import ValidationException
+
 from . import detection, image_io, pdf, validation
 from .paths import ensure_output_dir, ensure_temp_dir, get_media_root
+from .transform import perspective_transform
 
 logger = logging.getLogger("apps.client")
 
@@ -121,9 +124,6 @@ class IdCardMergeService:
         return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
 
     def _resolve_image_path(self, image_path: str, media_root: Path) -> tuple[Path, str]:
-        from apps.core.exceptions import ValidationException
-        from django.utils.translation import gettext_lazy as _
-
         rel_path = image_path.lstrip("/")
         if rel_path.startswith("media/"):
             rel_path = rel_path[6:]
@@ -192,8 +192,6 @@ class IdCardMergeService:
 def apply_perspective_transform(
     image: NDArray[np.uint8], corners: NDArray[np.float32], *, id_card_aspect_ratio: float, logger: Any
 ) -> NDArray[np.uint8]:
-    from .transform import perspective_transform
-
     return perspective_transform(
         image, corners, id_card_aspect_ratio=id_card_aspect_ratio, min_output_width=400, logger=logger
     )
