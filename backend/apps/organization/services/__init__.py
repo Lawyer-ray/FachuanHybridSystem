@@ -5,7 +5,7 @@ Organization Services Module
 
 from __future__ import annotations
 
-from .lawyer_service import LawyerService, LawyerServiceAdapter
+from .lawyer import LawyerService, LawyerServiceAdapter
 from .lawfirm_service import LawFirmService, LawFirmServiceAdapter
 from .account_credential_service import AccountCredentialService
 from .team_service import TeamService
