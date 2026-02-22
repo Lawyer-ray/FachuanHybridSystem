@@ -45,16 +45,21 @@ class LawyerServiceAdapter(ILawyerService):
 
     def get_admin_lawyer_internal(self) -> LawyerDTO | None:
         """内部方法：获取管理员律师"""
-        admin_lawyer = Lawyer.objects.filter(is_admin=True).first()
+        admin_lawyer = (
+            self.service.get_lawyer_queryset().filter(is_admin=True).first()
+        )
         if admin_lawyer:
             return self._to_dto(admin_lawyer)
         return None
 
     def get_all_lawyer_names_internal(self) -> list[str]:
         """内部方法：获取所有律师姓名"""
-        names = Lawyer.objects.values_list(
-            "real_name", flat=True
-        ).filter(real_name__isnull=False).exclude(real_name="")
+        names = (
+            self.service.get_lawyer_queryset()
+            .filter(real_name__isnull=False)
+            .exclude(real_name="")
+            .values_list("real_name", flat=True)
+        )
         return list(names)
 
     def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
