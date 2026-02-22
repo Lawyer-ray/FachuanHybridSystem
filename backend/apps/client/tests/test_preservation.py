@@ -294,3 +294,436 @@ def test_client_service_adapter_has_full_methods() -> None:
         assert callable(getattr(ClientServiceAdapter, method, None)), (
             f"ClientServiceAdapter 缺少方法: {method}"
         )
+
+
+# ============================================================
+# Task 2 Preservation Tests (client-module-fixes-v2)
+# 验证修复前后行为一致的基线
+# Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
+# ============================================================
+
+
+# ---- Test 2a: add_identity_doc 创建证件记录 ----
+
+@pytest.mark.django_db
+def test_2a_add_identity_doc_creates_record(tmp_path: object) -> None:
+    """
+    add_identity_doc() 创建证件记录并自动重命名文件。
+
+    **Validates: Requirements 3.1, 3.2**
+    """
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from django.test import override_settings
+
+    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.services.client_identity_doc_service import ClientIdentityDocService
+
+    tmp = Path(str(tmp_path))  # type: ignore[arg-type]
+    # 创建测试客户
+    client = Client.objects.create(name="测试客户", client_type="natural")
+
+    # 创建一个临时文件模拟上传
+    fake_file = tmp / "test.jpg"
+    fake_file.write_bytes(b"fake image content")
+
+    with override_settings(MEDIA_ROOT=str(tmp)):
+        svc = ClientIdentityDocService()
+        doc = svc.add_identity_doc(
+            client_id=client.id,
+            doc_type="id_card",
+            file_path=str(fake_file),
+        )
+
+    assert doc.pk is not None
+    assert doc.client_id == client.id
+    assert doc.doc_type == "id_card"
+    # 记录已持久化
+    assert ClientIdentityDoc.objects.filter(pk=doc.pk).exists()
+
+
+@pytest.mark.django_db
+def test_2a_add_identity_doc_raises_not_found_for_missing_client() -> None:
+    """add_identity_doc() 当事人不存在时抛出 NotFoundError。"""
+    from apps.core.exceptions import NotFoundError
+    from apps.client.services.client_identity_doc_service import ClientIdentityDocService
+
+    svc = ClientIdentityDocService()
+    with pytest.raises(NotFoundError):
+        svc.add_identity_doc(client_id=999999, doc_type="id_card", file_path="x.jpg")
+
+
+# ---- Test 2b: rename_uploaded_file 按标准格式重命名 ----
+
+@pytest.mark.django_db
+def test_2b_rename_uploaded_file_renames_correctly(tmp_path: object) -> None:
+    """
+    rename_uploaded_file() 按 {doc_type_display}（{client_name}）.ext 格式重命名。
+
+    **Validates: Requirements 3.2**
+    """
+    from pathlib import Path
+
+    from django.test import override_settings
+
+    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.services.client_identity_doc_service import ClientIdentityDocService
+
+    tmp = Path(str(tmp_path))  # type: ignore[arg-type]
+    client = Client.objects.create(name="张三", client_type="natural")
+
+    # 创建原始文件
+    original = tmp / "upload_abc123.jpg"
+    original.write_bytes(b"fake")
+
+    with override_settings(MEDIA_ROOT=str(tmp)):
+        doc = ClientIdentityDoc.objects.create(
+            client=client,
+            doc_type="id_card",
+            file_path=str(original.relative_to(tmp)),
+        )
+        svc = ClientIdentityDocService()
+        svc.rename_uploaded_file(doc)
+
+    # 文件名应包含客户名
+    assert "张三" in doc.file_path or "张三" in str(doc.file_path)
+
+
+@pytest.mark.django_db
+def test_2b_rename_uploaded_file_noop_when_no_file(tmp_path: object) -> None:
+    """rename_uploaded_file() 文件路径为空时不报错。"""
+    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.services.client_identity_doc_service import ClientIdentityDocService
+
+    client = Client.objects.create(name="李四", client_type="natural")
+    doc = ClientIdentityDoc.objects.create(client=client, doc_type="id_card", file_path="")
+
+    svc = ClientIdentityDocService()
+    svc.rename_uploaded_file(doc)  # 不应抛出异常
+
+
+# ---- Test 2c: IdCardMergeService 合并身份证（mock 文件 IO）----
+
+def test_2c_idcard_merge_service_returns_success_structure() -> None:
+    """
+    IdCardMergeService.merge_id_card() 成功时返回含 pdf_path 和 pdf_url 的字典。
+
+    **Validates: Requirements 3.3**
+    """
+    from unittest.mock import MagicMock, patch
+
+    from apps.client.services.id_card_merge.facade import IdCardMergeService
+
+    svc = IdCardMergeService()
+
+    mock_file = MagicMock()
+    mock_file.name = "test.jpg"
+    mock_file.content_type = "image/jpeg"
+
+    with patch.object(svc, "_validate_image_format", return_value=None), \
+         patch.object(svc, "_read_uploaded_image", return_value=MagicMock()), \
+         patch.object(svc, "_validate_image_size", return_value=None), \
+         patch.object(svc, "_generate_pdf", return_value="id_card_pdfs/output.pdf"):
+        result = svc.merge_id_card(mock_file, mock_file)
+
+    assert result["success"] is True
+    assert "pdf_path" in result
+    assert "pdf_url" in result
+    assert result["pdf_path"] == "id_card_pdfs/output.pdf"
+    assert "/media/" in result["pdf_url"]
+
+
+def test_2c_idcard_merge_service_returns_error_on_invalid_format() -> None:
+    """IdCardMergeService.merge_id_card() 格式验证失败时返回错误结构。"""
+    from unittest.mock import MagicMock, patch
+
+    from apps.client.services.id_card_merge.facade import IdCardMergeService
+
+    svc = IdCardMergeService()
+    mock_file = MagicMock()
+    mock_file.name = "test.bmp"
+    mock_file.content_type = "image/bmp"
+
+    error_result = {"success": False, "error": "INVALID_FORMAT", "message": "不支持的格式"}
+    with patch.object(svc, "_validate_image_format", return_value=error_result):
+        result = svc.merge_id_card(mock_file, mock_file)
+
+    assert result["success"] is False
+    assert "error" in result
+
+
+# ---- Test 2d: PropertyClueService CRUD ----
+
+@pytest.mark.django_db
+def test_2d_property_clue_service_create_and_get() -> None:
+    """
+    PropertyClueService.create_clue() 创建线索，get_clue() 可查询。
+
+    **Validates: Requirements 3.4**
+    """
+    from apps.client.models import Client
+    from apps.client.services.property_clue_service import PropertyClueService
+
+    client = Client.objects.create(name="王五", client_type="natural")
+    svc = PropertyClueService()
+
+    clue = svc.create_clue(client_id=client.id, data={"clue_type": "bank", "content": "工商银行"})
+    assert clue.pk is not None
+    assert clue.content == "工商银行"
+
+    fetched = svc.get_clue(clue.pk)
+    assert fetched.pk == clue.pk
+
+
+@pytest.mark.django_db
+def test_2d_property_clue_service_update() -> None:
+    """PropertyClueService.update_clue() 更新线索内容。"""
+    from apps.client.models import Client
+    from apps.client.services.property_clue_service import PropertyClueService
+
+    client = Client.objects.create(name="赵六", client_type="natural")
+    svc = PropertyClueService()
+    clue = svc.create_clue(client_id=client.id, data={"clue_type": "bank", "content": "原内容"})
+
+    updated = svc.update_clue(clue.pk, data={"content": "新内容"})
+    assert updated.content == "新内容"
+
+
+@pytest.mark.django_db
+def test_2d_property_clue_service_delete() -> None:
+    """PropertyClueService.delete_clue() 删除线索。"""
+    from apps.client.models import Client, PropertyClue
+    from apps.client.services.property_clue_service import PropertyClueService
+
+    client = Client.objects.create(name="孙七", client_type="natural")
+    svc = PropertyClueService()
+    clue = svc.create_clue(client_id=client.id, data={"clue_type": "bank", "content": "待删除"})
+    clue_id = clue.pk
+
+    svc.delete_clue(clue_id)
+    assert not PropertyClue.objects.filter(pk=clue_id).exists()
+
+
+@pytest.mark.django_db
+def test_2d_property_clue_service_list_by_client() -> None:
+    """PropertyClueService.list_clues_by_client() 返回该客户的所有线索。"""
+    from apps.client.models import Client
+    from apps.client.services.property_clue_service import PropertyClueService
+
+    client = Client.objects.create(name="周八", client_type="natural")
+    svc = PropertyClueService()
+    svc.create_clue(client_id=client.id, data={"clue_type": "bank", "content": "线索1"})
+    svc.create_clue(client_id=client.id, data={"clue_type": "real_estate", "content": "线索2"})
+
+    clues = svc.list_clues_by_client(client_id=client.id)
+    assert len(clues) == 2
+
+
+# ---- Test 2e: ClientDtoAssembler.to_dto() 返回完整 DTO ----
+
+@pytest.mark.django_db
+def test_2e_client_dto_assembler_returns_complete_dto() -> None:
+    """
+    ClientDtoAssembler.to_dto() 返回包含所有字段的 ClientDTO。
+
+    **Validates: Requirements 3.6**
+    """
+    from apps.client.models import Client
+    from apps.client.services.client_dto_assembler import ClientDtoAssembler
+    from apps.core.interfaces import ClientDTO
+
+    client = Client.objects.create(
+        name="测试法人",
+        client_type="legal",
+        phone="13800138000",
+        id_number="91110000123456789X",
+        address="北京市朝阳区",
+        is_our_client=True,
+    )
+
+    assembler = ClientDtoAssembler()
+    dto = assembler.to_dto(client)
+
+    assert isinstance(dto, ClientDTO)
+    assert dto.id == client.id
+    assert dto.name == "测试法人"
+    assert dto.client_type == "legal"
+    assert dto.phone == "13800138000"
+    assert dto.id_number == "91110000123456789X"
+    assert dto.address == "北京市朝阳区"
+    assert dto.is_our_client is True
+
+
+@pytest.mark.django_db
+def test_2e_client_dto_assembler_handles_null_fields() -> None:
+    """ClientDtoAssembler.to_dto() 处理可选字段为 None 的情况。"""
+    from apps.client.models import Client
+    from apps.client.services.client_dto_assembler import ClientDtoAssembler
+
+    client = Client.objects.create(name="最简客户", client_type="natural")
+
+    assembler = ClientDtoAssembler()
+    dto = assembler.to_dto(client)
+
+    assert dto.id == client.id
+    assert dto.name == "最简客户"
+
+
+# ---- Test 2f: ClientAdminService.import_from_json() 正确创建客户 ----
+
+@pytest.mark.django_db
+def test_2f_import_from_json_creates_client(tmp_path: object) -> None:
+    """
+    ClientAdminService.import_from_json() 正确创建客户。
+
+    **Validates: Requirements 3.7**
+    """
+    from pathlib import Path
+
+    from django.test import override_settings
+
+    from apps.client.models import Client
+    from apps.client.services.client_admin_service import ClientAdminService
+
+    tmp = Path(str(tmp_path))  # type: ignore[arg-type]
+
+    json_data = {
+        "name": "JSON导入客户",
+        "client_type": "natural",
+        "phone": "13900139000",
+    }
+
+    with override_settings(MEDIA_ROOT=str(tmp)):
+        svc = ClientAdminService()
+        result = svc.import_from_json(json_data, admin_user="admin")
+
+    assert result.success is True
+    assert result.client is not None
+    assert result.client.name == "JSON导入客户"
+    assert Client.objects.filter(name="JSON导入客户").exists()
+
+
+@pytest.mark.django_db
+def test_2f_import_from_json_creates_identity_docs(tmp_path: object) -> None:
+    """ClientAdminService.import_from_json() 同时创建关联证件。"""
+    from pathlib import Path
+
+    from django.test import override_settings
+
+    from apps.client.models import ClientIdentityDoc
+    from apps.client.services.client_admin_service import ClientAdminService
+
+    tmp = Path(str(tmp_path))  # type: ignore[arg-type]
+    fake_file = tmp / "doc.jpg"
+    fake_file.write_bytes(b"fake")
+
+    json_data = {
+        "name": "带证件客户",
+        "client_type": "natural",
+        "identity_docs": [
+            {"doc_type": "id_card", "file_path": str(fake_file)},
+        ],
+    }
+
+    with override_settings(MEDIA_ROOT=str(tmp)):
+        svc = ClientAdminService()
+        result = svc.import_from_json(json_data, admin_user="admin")
+
+    assert result.success is True
+    assert result.client is not None
+    assert ClientIdentityDoc.objects.filter(client=result.client).count() == 1
+
+
+@pytest.mark.django_db
+def test_2f_import_from_json_fails_on_invalid_data() -> None:
+    """ClientAdminService.import_from_json() 数据无效时返回失败或抛出 ValidationException。"""
+    from apps.client.services.client_admin_service import ClientAdminService
+    from apps.core.exceptions import ValidationException
+
+    svc = ClientAdminService()
+    with pytest.raises(ValidationException):
+        svc.import_from_json({"name": ""}, admin_user="admin")
+
+
+# ---- Test 2g: ClientServiceAdapter 各方法正确转换 DTO ----
+
+@pytest.mark.django_db
+def test_2g_client_service_adapter_get_client_returns_dto() -> None:
+    """
+    ClientServiceAdapter.get_client() 返回 ClientDTO。
+
+    **Validates: Requirements 3.8**
+    """
+    from apps.client.models import Client
+    from apps.client.services.client_service_adapter import ClientServiceAdapter
+    from apps.core.interfaces import ClientDTO
+
+    client = Client.objects.create(name="适配器测试", client_type="natural")
+
+    adapter = ClientServiceAdapter()
+    dto = adapter.get_client(client.id)
+
+    assert dto is not None
+    assert isinstance(dto, ClientDTO)
+    assert dto.id == client.id
+    assert dto.name == "适配器测试"
+
+
+@pytest.mark.django_db
+def test_2g_client_service_adapter_get_client_returns_none_for_missing() -> None:
+    """ClientServiceAdapter.get_client() 不存在时返回 None。"""
+    from apps.client.services.client_service_adapter import ClientServiceAdapter
+
+    adapter = ClientServiceAdapter()
+    result = adapter.get_client(999999)
+    assert result is None
+
+
+@pytest.mark.django_db
+def test_2g_client_service_adapter_get_clients_by_ids() -> None:
+    """ClientServiceAdapter.get_clients_by_ids() 批量返回 DTO 列表。"""
+    from apps.client.models import Client
+    from apps.client.services.client_service_adapter import ClientServiceAdapter
+
+    c1 = Client.objects.create(name="批量1", client_type="natural")
+    c2 = Client.objects.create(name="批量2", client_type="natural")
+
+    adapter = ClientServiceAdapter()
+    dtos = adapter.get_clients_by_ids([c1.id, c2.id])
+
+    assert len(dtos) == 2
+    names = {d.name for d in dtos}
+    assert "批量1" in names
+    assert "批量2" in names
+
+
+@pytest.mark.django_db
+def test_2g_client_service_adapter_validate_client_exists() -> None:
+    """ClientServiceAdapter.validate_client_exists() 正确判断存在性。"""
+    from apps.client.models import Client
+    from apps.client.services.client_service_adapter import ClientServiceAdapter
+
+    client = Client.objects.create(name="存在性测试", client_type="natural")
+    adapter = ClientServiceAdapter()
+
+    assert adapter.validate_client_exists(client.id) is True
+    assert adapter.validate_client_exists(999999) is False
+
+
+@pytest.mark.django_db
+def test_2g_client_service_adapter_get_identity_docs_by_client() -> None:
+    """ClientServiceAdapter.get_identity_docs_by_client_internal() 返回证件 DTO 列表。"""
+    from pathlib import Path
+
+    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.services.client_service_adapter import ClientServiceAdapter
+
+    client = Client.objects.create(name="证件适配器测试", client_type="natural")
+    ClientIdentityDoc.objects.create(client=client, doc_type="id_card", file_path="test.jpg")
+
+    adapter = ClientServiceAdapter()
+    docs = adapter.get_identity_docs_by_client_internal(client.id)
+
+    assert len(docs) == 1
+    assert docs[0].doc_type == "id_card"
