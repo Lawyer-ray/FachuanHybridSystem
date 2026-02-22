@@ -6,7 +6,7 @@ from .contracts import ContractDTO, PartyRoleDTO, SupplementaryAgreementDTO
 from .conversation import ConversationHistoryDTO
 from .documents import DocumentTemplateDTO, EvidenceItemDigestDTO, GenerationTaskDTO
 from .litigation import CourtPleadingSignalsDTO
-from .organization import AccountCredentialDTO, LawFirmDTO, LawyerDTO, TeamDTO
+from .organization import AccountCredentialDTO, LawFirmDTO, LawyerDTO
 from .reminders import ReminderDTO, ReminderTypeDTO
 
 __all__ = [

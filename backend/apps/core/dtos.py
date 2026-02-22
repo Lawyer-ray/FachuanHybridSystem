@@ -28,6 +28,7 @@ from .dto import (
     ReminderDTO,
     ReminderTypeDTO,
     SupplementaryAgreementDTO,
+    TeamDTO,
     TokenAcquisitionResult,
 )
 
@@ -53,5 +54,6 @@ __all__: list[str] = [
     "ReminderDTO",
     "ReminderTypeDTO",
     "SupplementaryAgreementDTO",
+    "TeamDTO",
     "TokenAcquisitionResult",
 ]
