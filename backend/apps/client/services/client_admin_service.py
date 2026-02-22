@@ -19,6 +19,7 @@ from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 if TYPE_CHECKING:
     from .client_service import ClientService
     from .clientidentitydoc_service import ClientIdentityDocService
+    from .client_internal_query_service import ClientInternalQueryService
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")
@@ -50,6 +51,7 @@ class ClientAdminService(ClientAdminFileMixin):
         self,
         client_service: Optional["ClientService"] = None,
         identity_doc_service: Optional["ClientIdentityDocService"] = None,
+        internal_query_service: Optional["ClientInternalQueryService"] = None,
     ):
         """
         初始化服务
@@ -57,9 +59,11 @@ class ClientAdminService(ClientAdminFileMixin):
         Args:
             client_service: ClientService 实例，支持依赖注入
             identity_doc_service: ClientIdentityDocService 实例，支持依赖注入
+            internal_query_service: ClientInternalQueryService 实例，支持依赖注入
         """
         self._client_service = client_service
         self._identity_doc_service = identity_doc_service
+        self._internal_query_service = internal_query_service
 
     @property
     def client_service(self) -> "ClientService":
@@ -78,6 +82,15 @@ class ClientAdminService(ClientAdminFileMixin):
 
             self._identity_doc_service = ClientIdentityDocService()
         return self._identity_doc_service
+
+    @property
+    def internal_query_service(self) -> "ClientInternalQueryService":
+        """延迟获取 ClientInternalQueryService"""
+        if self._internal_query_service is None:
+            from .client_internal_query_service import ClientInternalQueryService
+
+            self._internal_query_service = ClientInternalQueryService()
+        return self._internal_query_service
 
     @transaction.atomic
     def import_from_json(self, json_data: dict[str, Any], admin_user: str) -> ImportResult:
@@ -336,7 +349,7 @@ class ClientAdminService(ClientAdminFileMixin):
             return None
 
         # 2. 获取当事人名称和证件类型显示名
-        client = Client.objects.filter(id=client_id).first()
+        client = self.internal_query_service.get_client(client_id=client_id)
         client_name = client.name if client else ""
         doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
 
@@ -351,8 +364,12 @@ class ClientAdminService(ClientAdminFileMixin):
             # 更新现有记录
             self._update_identity_doc(doc_id, file_path, admin_user)
         else:
-            # 创建新记录（直接创建，不调用 add_identity_doc 避免重复重命名）
-            ClientIdentityDoc.objects.create(client_id=client_id, doc_type=doc_type, file_path=file_path)
+            # 创建新记录，通过 identity_doc_service 委托
+            self.identity_doc_service.add_identity_doc(
+                client_id=client_id,
+                doc_type=doc_type,
+                file_path=file_path,
+            )
 
         return {"doc_type": doc_type, "file_path": file_path, "doc_id": doc_id}
 
