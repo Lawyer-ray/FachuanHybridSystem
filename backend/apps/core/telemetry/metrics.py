@@ -76,9 +76,7 @@ def _set_meta_once(*, kind: str, suffix: str, meta: dict[str, Any], timeout: int
     key = f"metrics:meta:{kind}:{suffix}"
     try:
         cache.add(key, json.dumps(meta, ensure_ascii=False, separators=(",", ":")), timeout=timeout)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ConnectionError, TimeoutError, OSError):
         return
 
 
@@ -91,9 +89,7 @@ def _get_meta(*, kind: str, suffix: str) -> dict[str, Any] | None:
         if isinstance(raw, str):
             return dict(json.loads(raw))
         return dict(raw)
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, TypeError, KeyError):
         return None
 
 
@@ -111,9 +107,7 @@ def normalize_path_group(path: str, *, max_segments: int = 3) -> str:
 def _status_class(status_code: int) -> str:
     try:
         return f"{int(status_code) // 100}xx"
-    except Exception:
-        logger.exception("操作失败")
-
+    except (TypeError, ValueError):
         return "unknown"
 
 

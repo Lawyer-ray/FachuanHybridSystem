@@ -32,7 +32,7 @@ def _get_template_service() -> DocumentTemplateService:
 @router.get("/templates", response=list[DocumentTemplateOut])
 def list_document_templates(
     request: Any, template_type: str | None = None, case_type: str | None = None, is_active: bool | None = None
-) -> None:
+) -> Any:
     """
     获取文件模板列表
 

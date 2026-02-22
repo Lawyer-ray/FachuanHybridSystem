@@ -51,7 +51,7 @@ class CaseInternalQueryService:
             self._orchestrator = CaseQueryOrchestrator(**self._orchestrator_kwargs) # type: ignore
         return self._orchestrator
 
-    def get_case_internal(self, case_id: int) -> CaseDTO | None | None:
+    def get_case_internal(self, case_id: int) -> CaseDTO | None:
         try:
             return self.orchestrator.get_case(case_id)
         except NotFoundError:

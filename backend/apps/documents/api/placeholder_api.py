@@ -46,7 +46,7 @@ def _safe_value(value: Any) -> Any:
 
 
 @router.get("/placeholders", response=list[PlaceholderOut])
-def list_placeholders(request: Any, is_active: bool | None = None) -> None:
+def list_placeholders(request: Any, is_active: bool | None = None) -> Any:
     """
     获取替换词列表
 
@@ -107,7 +107,7 @@ def delete_placeholder(request: Any, placeholder_id: int) -> Any:
 
 
 @router.get("/placeholders/preview/{contract_id}", response=PlaceholderPreviewOut)
-def preview_placeholders(request: Any, contract_id: int) -> None:
+def preview_placeholders(request: Any, contract_id: int) -> Any:
     builder = EnhancedContextBuilder()
     context = builder.build_contract_context(contract_id)
 

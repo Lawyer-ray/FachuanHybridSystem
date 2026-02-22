@@ -32,7 +32,7 @@ def _get_folder_template_service() -> Any:
 @router.get("/folder-templates", response=list[FolderTemplateOut])
 def list_folder_templates(
     request: Any, template_type: str | None = None, case_type: str | None = None, is_active: bool | None = None
-) -> None:
+) -> Any:
     """
     获取文件夹模板列表
 

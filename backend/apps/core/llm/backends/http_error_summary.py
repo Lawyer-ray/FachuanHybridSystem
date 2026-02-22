@@ -50,9 +50,7 @@ def summarize_http_error_response(
             if error_message:
                 summary["upstream_error_message"] = _truncate(error_message, max_text_len)
             return summary
-    except Exception:
-        logger.exception("操作失败")
-
+    except (ValueError, KeyError, AttributeError):
         pass
 
     text = (response.text or "").strip()

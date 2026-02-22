@@ -80,7 +80,7 @@ class PromptVersionAdmin(admin.ModelAdmin):
 
     is_active_badge.short_description = _("状态")
 
-    def description_short(self, obj) -> None:
+    def description_short(self, obj) -> Any:
         """显示简短描述"""
         if not obj.description:
             return "-"

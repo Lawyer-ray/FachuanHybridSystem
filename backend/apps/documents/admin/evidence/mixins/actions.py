@@ -1,6 +1,7 @@
 """Module for actions."""
 
 import logging
+from typing import Any
 
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
@@ -67,7 +68,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             messages.warning(request, f"{error_count} 个清单提交失败")
 
     @admin.action(description=_("导出选中清单的 Word"))
-    def export_list_word(self, request, queryset) -> None:
+    def export_list_word(self, request, queryset) -> Any:
         from django.contrib import messages
 
         if queryset.count() > 1:

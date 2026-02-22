@@ -120,7 +120,7 @@ class FolderTemplateForm(forms.ModelForm):
             self.fields["legal_statuses_field"].initial = self.instance.legal_statuses or []
             self.fields["legal_status_match_mode"].initial = self.instance.legal_status_match_mode or "any"
 
-    def clean_structure(self) -> None:
+    def clean_structure(self) -> Any:
         """验证并自动修复文件夹结构中的重复ID"""
         structure = self.cleaned_data.get("structure")
 
