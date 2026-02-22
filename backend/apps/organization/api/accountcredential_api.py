@@ -31,7 +31,7 @@ def list_credentials(
         lawyer_name: 按律师姓名过滤（支持模糊匹配 real_name 或 username）
     """
     service = _get_credential_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.list_credentials(
         lawyer_id=lawyer_id,
         lawyer_name=lawyer_name,
@@ -43,7 +43,7 @@ def list_credentials(
 def get_credential(request: Any, cred_id: int) -> Any:
     """获取单个凭证"""
     service = _get_credential_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.get_credential(cred_id, user=user)
 
 
@@ -51,7 +51,7 @@ def get_credential(request: Any, cred_id: int) -> Any:
 def create_credential(request: Any, payload: AccountCredentialIn) -> Any:
     """创建凭证"""
     service = _get_credential_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.create_credential(
         lawyer_id=payload.lawyer_id,
         site_name=payload.site_name,
@@ -66,7 +66,7 @@ def create_credential(request: Any, payload: AccountCredentialIn) -> Any:
 def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpdateIn) -> Any:
     """更新凭证"""
     service = _get_credential_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.update_credential(
         credential_id=cred_id,
         data=payload.dict(exclude_unset=True),
@@ -78,6 +78,6 @@ def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpda
 def delete_credential(request: Any, cred_id: int) -> dict[str, bool]:
     """删除凭证"""
     service = _get_credential_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     service.delete_credential(cred_id, user=user)
     return {"success": True}

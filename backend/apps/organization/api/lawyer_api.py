@@ -37,7 +37,7 @@ def get_lawyer(request: Any, lawyer_id: int) -> Any:
     """获取律师详情"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawyer = service.get_lawyer(lawyer_id, user)  # type: ignore[arg-type]
+    lawyer = service.get_lawyer(lawyer_id, user)
     return lawyer
 
 
@@ -50,7 +50,7 @@ def create_lawyer(
     """创建律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawyer = service.create_lawyer(data=payload, user=user, license_pdf=license_pdf)  # type: ignore[arg-type]
+    lawyer = service.create_lawyer(data=payload, user=user, license_pdf=license_pdf)
     return lawyer
 
 
@@ -67,7 +67,7 @@ def update_lawyer(
     lawyer = service.update_lawyer(
         lawyer_id=lawyer_id,
         data=payload,
-        user=user,  # type: ignore[arg-type]
+        user=user,
         license_pdf=license_pdf,
     )
     return lawyer
@@ -78,5 +78,5 @@ def delete_lawyer(request: Any, lawyer_id: int) -> dict[str, bool]:
     """删除律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    service.delete_lawyer(lawyer_id, user)  # type: ignore[arg-type]
+    service.delete_lawyer(lawyer_id, user)
     return {"success": True}

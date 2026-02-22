@@ -27,7 +27,7 @@ def list_lawfirms(request: Any) -> Any:
     """列表查询律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirms = service.list_lawfirms(user=user)  # type: ignore[arg-type]
+    lawfirms = service.list_lawfirms(user=user)
     return list(lawfirms)
 
 
@@ -36,7 +36,7 @@ def get_lawfirm(request: Any, law_firm_id: int) -> Any:
     """获取律所详情"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.get_lawfirm(law_firm_id, user)  # type: ignore[arg-type]
+    lawfirm = service.get_lawfirm(law_firm_id, user)
     return lawfirm
 
 
@@ -45,7 +45,7 @@ def create_lawfirm(request: Any, payload: LawFirmIn) -> Any:
     """创建律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.create_lawfirm(data=payload, user=user)  # type: ignore[arg-type]
+    lawfirm = service.create_lawfirm(data=payload, user=user)
     return lawfirm
 
 
@@ -54,7 +54,7 @@ def update_lawfirm(request: Any, law_firm_id: int, payload: LawFirmUpdateIn) -> 
     """更新律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.update_lawfirm(lawfirm_id=law_firm_id, data=payload, user=user)  # type: ignore[arg-type]
+    lawfirm = service.update_lawfirm(lawfirm_id=law_firm_id, data=payload, user=user)
     return lawfirm
 
 
@@ -63,5 +63,5 @@ def delete_lawfirm(request: Any, law_firm_id: int) -> dict[str, bool]:
     """删除律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    service.delete_lawfirm(law_firm_id, user)  # type: ignore[arg-type]
+    service.delete_lawfirm(law_firm_id, user)
     return {"success": True}
