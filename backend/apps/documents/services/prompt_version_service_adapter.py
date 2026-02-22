@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class PromptVersionServiceAdapter:
-    _MISSING_SENTINEL = "__prompt_version_missing__"
-
     """
     Prompt 版本服务适配器
 
@@ -28,6 +26,8 @@ class PromptVersionServiceAdapter:
 
     Requirements: 6.5, 4.3
     """
+
+    _MISSING_SENTINEL = "__prompt_version_missing__"
 
     def get_active_prompt_template(self, name: str) -> Any:
         """
