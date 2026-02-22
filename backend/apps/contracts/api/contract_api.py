@@ -114,8 +114,8 @@ def update_contract(
     request: Any,
     contract_id: int,
     payload: ContractUpdate,
-    sync_cases: bool | None = False,
-    confirm_finance: bool | None = False,
+    sync_cases: bool = False,
+    confirm_finance: bool = False,
     new_payments: list[ContractPaymentIn] | None = None,
 ) -> Any:
     """
@@ -131,7 +131,7 @@ def update_contract(
         contract_id=contract_id,
         update_data=data,
         user=ctx.user,
-        confirm_finance=confirm_finance,  # type: ignore[arg-type]
+        confirm_finance=confirm_finance,
         new_payments=[p.dict() for p in new_payments] if new_payments else None,
     )
 
@@ -143,7 +143,7 @@ def create_contract(
     request: Any,
     payload: ContractIn,
     payments: list[ContractPaymentIn] | None = None,
-    confirm_finance: bool | None = False,
+    confirm_finance: bool = False,
 ) -> Any:
     """
     创建合同
@@ -161,7 +161,7 @@ def create_contract(
         cases_data=None,
         assigned_lawyer_ids=lawyer_ids,
         payments_data=[p.dict() for p in payments] if payments else None,
-        confirm_finance=confirm_finance,  # type: ignore[arg-type]
+        confirm_finance=confirm_finance,
         user=ctx.user,
     )
 

@@ -1,15 +1,13 @@
-"""API schemas and serializers."""
-
-from __future__ import annotations
-
 """
 Contract Schemas - Contract
 
 合同核心 CRUD 相关的 Schema 定义.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
@@ -171,7 +169,7 @@ class ContractOut(ModelSchema):
 
     @staticmethod
     def resolve_fee_mode(obj: Contract) -> str:
-        return cast(str, obj.get_fee_mode_display())  # type: ignore[attr-defined]
+        return obj.get_fee_mode_display()  # type: ignore[attr-defined, no-any-return]
 
     @staticmethod
     def resolve_contract_parties(obj: Contract) -> list[Any]:
@@ -208,49 +206,22 @@ class ContractOut(ModelSchema):
             return list(obj.payments.all())  # type: ignore[attr-defined]
         except Exception:
             logger.exception("操作失败")
-
-            try:
-                return list(obj.contractpayment_set.all())  # type: ignore[attr-defined]
-            except Exception:
-                logger.exception("操作失败")
-                return []
+            return []
 
     @staticmethod
     def resolve_total_received(obj: Contract) -> float:
         try:
-            items = getattr(obj, "payments", None)
-            qs = (
-                items.all()  # type: ignore[union-attr]
-                if hasattr(items, "all")
-                else (
-                    getattr(obj, "contractpayment_set", []).all()  # type: ignore[union-attr]
-                    if hasattr(getattr(obj, "contractpayment_set", []), "all")
-                    else []
-                )
-            )
-            return float(sum(float(p.amount or 0) for p in qs))
+            return float(sum(float(p.amount or 0) for p in obj.payments.all()))  # type: ignore[attr-defined]
         except Exception:
             logger.exception("操作失败")
-
             return 0.0
 
     @staticmethod
     def resolve_total_invoiced(obj: Contract) -> float:
         try:
-            items = getattr(obj, "payments", None)
-            qs = (
-                items.all()  # type: ignore[union-attr]
-                if hasattr(items, "all")
-                else (
-                    getattr(obj, "contractpayment_set", []).all()  # type: ignore[union-attr]
-                    if hasattr(getattr(obj, "contractpayment_set", []), "all")
-                    else []
-                )
-            )
-            return float(sum(float(p.invoiced_amount or 0) for p in qs))
+            return float(sum(float(p.invoiced_amount or 0) for p in obj.payments.all()))  # type: ignore[attr-defined]
         except Exception:
             logger.exception("操作失败")
-
             return 0.0
 
     @staticmethod
