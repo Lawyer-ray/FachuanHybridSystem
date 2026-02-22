@@ -184,30 +184,6 @@ class ContractFinanceLog(models.Model):
         return f"{self.contract_id}-{self.action}-{self.level}"
 
 
-class ContractReminderType(models.TextChoices):
-    HEARING = "hearing", _("开庭")
-    ASSET_PRESERVATION = "asset_preservation", _("财产保全")
-    EVIDENCE_DEADLINE = "evidence_deadline", _("举证期限")
-    STATUTE_LIMITATIONS = "statute_limitations", _("时效")
-    APPEAL_PERIOD = "appeal_period", _("上诉期")
-    OTHER = "other", _("其他")
-
-
-class ContractReminder(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="reminders", verbose_name=_("合同"))
-    kind = models.CharField(max_length=32, choices=ContractReminderType.choices, verbose_name=_("类型"))
-    content = models.CharField(max_length=255, verbose_name=_("提醒事项"))
-    due_date = models.DateField(verbose_name=_("到期日期"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-
-    class Meta:
-        verbose_name = _("重要日期提醒")
-        verbose_name_plural = _("重要日期提醒")
-
-    def __str__(self):
-        return f"{self.contract_id}-{self.kind}-{self.due_date}"
-
-
 class SupplementaryAgreement(models.Model):
     """补充协议模型"""
 

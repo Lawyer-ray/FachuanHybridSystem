@@ -11,10 +11,11 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import QuerySet
 
-from apps.chat_records.models import ChatRecordProject, ChatRecordRecording, ChatRecordScreenshot, ExtractStatus
+from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .access_policy import ensure_can_access_project
+from .project_service import ProjectService
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,11 @@ logger = logging.getLogger(__name__)
 class RecordingService:
     DEFAULT_MAX_VIDEO_SIZE_BYTES = 2 * 1024 * 1024 * 1024
 
+    def __init__(self, *, project_service: ProjectService) -> None:
+        self._project_service = project_service
+
     def list_recordings(self, *, user: Any, project_id: int) -> QuerySet[ChatRecordRecording, ChatRecordRecording]:
-        self._get_project(user=user, project_id=project_id)
+        self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordRecording.objects.filter(project_id=project_id).order_by("-created_at")
 
     def get_recording(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
@@ -39,7 +43,7 @@ class RecordingService:
 
     @transaction.atomic
     def upload_recording(self, *, user: Any, project_id: int, file: Any) -> ChatRecordRecording:
-        project = self._get_project(user=user, project_id=project_id)
+        project = self._project_service.get_project(user=user, project_id=project_id)
         if not file:
             raise ValidationException("请上传录屏文件")
 
@@ -93,13 +97,6 @@ class RecordingService:
         recording.save(update_fields=["duration_seconds"])
         return recording
 
-    def _get_project(self, *, user: Any, project_id: int) -> ChatRecordProject:
-        try:
-            project = ChatRecordProject.objects.get(id=project_id)
-        except ChatRecordProject.DoesNotExist:
-            raise NotFoundError(f"项目 {project_id} 不存在") from None
-        ensure_can_access_project(user=user, project=project)
-        return project
 
     def _get_max_video_size_bytes(self) -> int:
         from apps.core.services.system_config_service import SystemConfigService

@@ -20,9 +20,6 @@ from apps.reminders.schemas import ReminderOut
 # Client Schemas
 from .client_schemas import ClientIdentityDocOut, ClientOut
 
-# Contract Reminder Schemas
-from .contract_reminder_schemas import ContractReminderIn, ContractReminderOut, ContractReminderUpdate
-
 # Contract Core Schemas
 from .contract_schemas import ContractAssignmentOut, ContractIn, ContractOut, ContractUpdate, UpdateLawyersIn
 
@@ -97,8 +94,4 @@ __all__ = [
     "ContractAssignmentOut",
     "ContractOut",
     "ContractUpdate",
-    # Contract Reminder
-    "ContractReminderIn",
-    "ContractReminderOut",
-    "ContractReminderUpdate",
 ]

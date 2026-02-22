@@ -186,13 +186,14 @@ def save_uploaded_file(
     return str(rel_path).replace("\\", "/"), safe_original_name
 
 
-def delete_media_file(file_path: str) -> None:
+
+def delete_media_file(file_path: str) -> bool:
     if not file_path:
-        return
+        return False
 
     media_root = _get_media_root()
     if not media_root:
-        return
+        return False
     root = Path(str(media_root)).resolve()
     p = Path(file_path)
     if not p.is_absolute():
@@ -202,15 +203,18 @@ def delete_media_file(file_path: str) -> None:
         p = p.resolve()
     except Exception:
         logger.exception("文件路径解析失败", extra={"file_path": file_path})
-        return
+        return False
 
     try:
         p.relative_to(root)
     except ValueError:
-        return
+        return False
 
     try:
         p.unlink(missing_ok=True)
     except Exception:
         logger.exception("删除媒体文件失败", extra={"file_path": file_path})
-        return
+        return False
+
+    return True
+

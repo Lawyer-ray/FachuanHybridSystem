@@ -122,7 +122,7 @@ def test_1_3_contract_admin_service_no_direct_orm() -> None:
 
     # Model.objects 调用模式
     orm_pattern: re.Pattern[str] = re.compile(
-        r"\b(Contract|ContractParty|ContractAssignment|ContractReminder|"
+        r"\b(Contract|ContractParty|ContractAssignment|"
         r"SupplementaryAgreement|SupplementaryAgreementParty)\.objects\."
     )
 

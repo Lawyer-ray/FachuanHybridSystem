@@ -11,11 +11,12 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import F, Max, QuerySet
 
-from apps.chat_records.models import ChatRecordProject, ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
+from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .access_policy import ensure_can_access_project
 from .frame_selection_service import FrameSelectionService
+from .project_service import ProjectService
 
 logger = logging.getLogger("apps.chat_records")
 
@@ -23,17 +24,13 @@ logger = logging.getLogger("apps.chat_records")
 class ScreenshotService:
     MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024
 
+    def __init__(self, *, project_service: ProjectService) -> None:
+        self._project_service = project_service
+
     def list_screenshots(self, *, user: Any, project_id: int) -> QuerySet[ChatRecordScreenshot, ChatRecordScreenshot]:
-        self._get_project(user=user, project_id=project_id)
+        self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordScreenshot.objects.filter(project_id=project_id).order_by("ordering", "created_at")
 
-    def _get_project(self, *, user: Any, project_id: int) -> ChatRecordProject:
-        try:
-            project = ChatRecordProject.objects.get(id=project_id)
-        except ChatRecordProject.DoesNotExist:
-            raise NotFoundError(f"项目 {project_id} 不存在") from None
-        ensure_can_access_project(user=user, project=project)
-        return project
 
     def get_screenshot(self, *, user: Any, screenshot_id: str) -> ChatRecordScreenshot:
         try:
@@ -56,7 +53,7 @@ class ScreenshotService:
         deduplicate: bool = True,
         capture_time_seconds: float | None = None,
     ) -> list[ChatRecordScreenshot]:
-        project = self._get_project(user=user, project_id=project_id)
+        project = self._project_service.get_project(user=user, project_id=project_id)
         files_list = [f for f in files if f]
         if not files_list:
             raise ValidationException("请上传至少一张图片")
@@ -175,7 +172,7 @@ class ScreenshotService:
 
     @transaction.atomic
     def reorder_screenshots(self, *, user: Any, project_id: int, screenshot_ids: list[str]) -> dict[str, bool]:
-        self._get_project(user=user, project_id=project_id)
+        self._project_service.get_project(user=user, project_id=project_id)
         existing_ids = list(ChatRecordScreenshot.objects.filter(project_id=project_id).values_list("id", flat=True))
         if set(existing_ids) != set(screenshot_ids):
             raise ValidationException("截图列表不匹配,无法保存顺序")
@@ -184,8 +181,3 @@ class ScreenshotService:
             ChatRecordScreenshot.objects.filter(project_id=project_id, id=sid).update(ordering=index)
         return {"success": True}
 
-    def _calc_sha256(self, file: UploadedFile) -> str:
-        hasher = hashlib.sha256()
-        for chunk in file.chunks():
-            hasher.update(chunk)
-        return hasher.hexdigest()

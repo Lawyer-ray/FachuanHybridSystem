@@ -27,7 +27,6 @@ BACKEND_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent.parent
 I18N_FILES: Final[list[Path]] = [
     BACKEND_DIR / "apps" / "contracts" / "services" / "contract_payment_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "payment" / "contract_payment_service.py",
-    BACKEND_DIR / "apps" / "contracts" / "services" / "contract_reminder_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "supplementary_agreement_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "supplementary" / "supplementary_agreement_service.py",
     BACKEND_DIR / "apps" / "contracts" / "services" / "contract_service" / "_finance.py",

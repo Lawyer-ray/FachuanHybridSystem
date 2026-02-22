@@ -10,7 +10,6 @@ from .models import (
     Contract,
     ContractParty,
     ContractPayment,
-    ContractReminder,
     FeeMode,
     InvoiceStatus,
     PartyRole,
@@ -210,7 +209,6 @@ class ContractOut(ModelSchema):
     contract_parties: list[ContractPartyOut]
     case_type_label: str | None
     status_label: str | None
-    reminders: list["ContractReminderOut"]
     payments: list["ContractPaymentOut"]
     supplementary_agreements: list["SupplementaryAgreementOut"]
     total_received: float
@@ -275,10 +273,6 @@ class ContractOut(ModelSchema):
             return obj.get_status_display()
         except Exception:
             return None
-
-    @staticmethod
-    def resolve_reminders(obj: Contract):
-        return list(obj.reminders.all())
 
     @staticmethod
     def resolve_payments(obj: Contract):
@@ -419,43 +413,6 @@ class FinanceStatsOut(Schema):
     items: list[FinanceStatsItem]
     total_received_all: float
     total_invoiced_all: float
-
-
-class ContractReminderIn(Schema):
-    contract_id: int
-    kind: str
-    content: str
-    due_date: str
-
-
-class ContractReminderUpdate(Schema):
-    contract_id: int | None = None
-    kind: str | None = None
-    content: str | None = None
-    due_date: str | None = None
-
-
-class ContractReminderOut(ModelSchema, SchemaMixin):
-    kind_label: str
-
-    class Meta:
-        model = ContractReminder
-        fields: ClassVar[list[str]] = [
-            "id",
-            "contract",
-            "kind",
-            "content",
-            "due_date",
-            "created_at",
-        ]
-
-    @staticmethod
-    def resolve_kind_label(obj: ContractReminder) -> str:
-        return SchemaMixin._get_display(obj, "kind") or ""
-
-    @staticmethod
-    def resolve_created_at(obj: ContractReminder):
-        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
 
 class ContractUpdate(Schema):

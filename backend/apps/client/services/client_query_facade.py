@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 from django.db.models import QuerySet
 
-from apps.client.models import Client
-
 from .client_access_policy import ClientAccessPolicy
 from .client_query_service import ClientQueryService
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractBaseUser as User
+
+    from apps.client.models import Client
 
 
 class ClientQueryFacade:
