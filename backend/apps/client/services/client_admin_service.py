@@ -52,15 +52,6 @@ class ClientAdminService(ClientAdminFileMixin):
         internal_query_service: "ClientInternalQueryService | None" = None,
         mutation_service: "ClientMutationService | None" = None,
     ) -> None:
-        """
-        初始化服务
-
-        Args:
-            client_service: ClientService 实例，支持依赖注入
-            identity_doc_service: ClientIdentityDocService 实例，支持依赖注入
-            internal_query_service: ClientInternalQueryService 实例，支持依赖注入
-            mutation_service: ClientMutationService 实例，支持依赖注入
-        """
         self._client_service = client_service
         self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
@@ -104,153 +95,15 @@ class ClientAdminService(ClientAdminFileMixin):
 
     @transaction.atomic
     def import_from_json(self, json_data: dict[str, Any], admin_user: str) -> ImportResult:
-        """
-        从 JSON 导入客户
+        """从 JSON 导入客户，委托给 ClientJsonImporter。"""
+        from .importer import ClientJsonImporter
 
-        Args:
-            json_data: JSON 数据字典
-            admin_user: 管理员用户名
-
-        Returns:
-            ImportResult: 导入结果
-
-        Raises:
-            ValidationException: 数据验证失败
-        """
-        # 1. 验证 JSON 数据完整性
-        self._validate_json_data(json_data)
-
-        # 2. 提取客户基本信息
-        client_data = self._extract_client_data(json_data)
-
-        # 3. 创建客户
-        client = self.mutation_service.create_client(data=client_data, user=None)
-
-        # 4. 创建关联的证件文档
-        if "identity_docs" in json_data:
-            self._create_identity_docs(client, json_data["identity_docs"], admin_user)
-
-        # 5. 记录操作日志
-        logger.info(
-            "JSON 导入客户成功",
-            extra={
-                "client_id": client.id,
-                "client_name": client.name,
-                "admin_user": admin_user,
-                "action": "import_from_json",
-            },
-        )
-
-        return ImportResult(success=True, client=client)
-
-    def _validate_json_data(self, json_data: dict[str, Any]) -> None:
-        """
-        验证 JSON 数据完整性
-
-        Args:
-            json_data: JSON 数据字典
-
-        Raises:
-            ValidationException: 数据验证失败
-        """
-        errors = {}
-
-        # 验证必填字段
-        if not json_data.get("name"):
-            errors["name"] = "客户名称不能为空"
-
-        # 验证客户类型
-        client_type = json_data.get("client_type")
-        valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
-        if not client_type or client_type not in valid_types:
-            errors["client_type"] = f"客户类型必须是: {', '.join(valid_types)}"
-
-        # 验证法人必须有法定代表人
-        if client_type == Client.LEGAL and not json_data.get("legal_representative"):
-            errors["legal_representative"] = "法人客户必须填写法定代表人"
-
-        # 验证证件文档数据
-        if "identity_docs" in json_data:
-            self._validate_identity_docs_data(json_data["identity_docs"], errors)
-
-        if errors:
-            raise ValidationException(message=_("JSON 数据验证失败"), code="INVALID_JSON", errors=errors)
-
-    def _validate_identity_docs_data(self, docs_data: list[dict[str, Any]], errors: dict[str, Any]) -> None:
-        """
-        验证证件文档数据
-
-        Args:
-            docs_data: 证件文档数据列表
-            errors: 错误字典
-        """
-        if not isinstance(docs_data, list):
-            errors["identity_docs"] = "证件文档数据必须是数组"
-            return
-
-        valid_doc_types = [choice[0] for choice in ClientIdentityDoc.DOC_TYPE_CHOICES]
-
-        for i, doc_data in enumerate(docs_data):
-            doc_errors = {}
-
-            if not doc_data.get("doc_type"):
-                doc_errors["doc_type"] = "证件类型不能为空"
-            elif doc_data["doc_type"] not in valid_doc_types:
-                doc_errors["doc_type"] = f"证件类型必须是: {', '.join(valid_doc_types)}"
-
-            if not doc_data.get("file_path"):
-                doc_errors["file_path"] = "文件路径不能为空"
-
-            if doc_errors:
-                errors[f"identity_docs[{i}]"] = doc_errors
-
-    def _extract_client_data(self, json_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        提取客户基本信息
-
-        Args:
-            json_data: JSON 数据字典
-
-        Returns:
-            客户数据字典
-        """
-        client_fields = [
-            "name",
-            "phone",
-            "address",
-            "client_type",
-            "id_number",
-            "legal_representative",
-            "is_our_client",
-        ]
-
-        client_data = {}
-        for field in client_fields:
-            if field in json_data:
-                client_data[field] = json_data[field]
-
-        # 设置默认值
-        if "is_our_client" not in client_data:
-            client_data["is_our_client"] = False
-
-        return client_data
-
-    def _create_identity_docs(self, client: Client, docs_data: list[dict[str, Any]], admin_user: str) -> None:
-        """
-        创建关联的证件文档
-
-        Args:
-            client: 客户对象
-            docs_data: 证件文档数据列表
-            admin_user: 管理员用户名
-        """
-        for doc_data in docs_data:
-            self.identity_doc_service.add_identity_doc(
-                client_id=client.id,
-                doc_type=doc_data["doc_type"],
-                file_path=doc_data["file_path"],
-                user=None,  # Admin 操作，用户信息在日志中记录
-            )
+        importer = ClientJsonImporter()
+        result = importer.import_from_json(json_data, admin_user=admin_user)
+        if result.success and result.client_id is not None:
+            client = self.internal_query_service.get_client(client_id=result.client_id)
+            return ImportResult(success=True, client=client)
+        return ImportResult(success=False, error_message=result.error_message)
 
     def process_formset_files(self, client_id: int, formset_data: list[dict[str, Any]], admin_user: str) -> None:
         """
@@ -354,31 +207,3 @@ class ClientAdminService(ClientAdminFileMixin):
             )
 
         return {"doc_type": doc_type, "file_path": file_path, "doc_id": doc_id}
-
-    def parse_client_text(self, text: str) -> dict[str, Any]:
-        """
-        解析客户文本信息
-
-        Args:
-            text: 待解析的文本
-
-        Returns:
-            解析后的客户数据字典
-        """
-        from .text_parser import parse_client_text
-
-        return parse_client_text(text)
-
-    def parse_multiple_clients_text(self, text: str) -> list[dict[str, Any]]:
-        """
-        解析包含多个客户的文本信息
-
-        Args:
-            text: 待解析的文本
-
-        Returns:
-            解析后的客户数据列表
-        """
-        from .text_parser import parse_multiple_clients_text
-
-        return parse_multiple_clients_text(text)

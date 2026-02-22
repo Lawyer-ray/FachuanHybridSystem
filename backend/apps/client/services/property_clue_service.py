@@ -1,7 +1,4 @@
-"""
-财产线索服务层
-处理财产线索相关的业务逻辑
-"""
+"""财产线索服务层。"""
 
 from django.utils.translation import gettext_lazy as _
 import logging
@@ -14,39 +11,25 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.client.models import PropertyClue, PropertyClueAttachment
 
 if TYPE_CHECKING:
-    from .client_service import ClientService
+    from .client_internal_query_service import ClientInternalQueryService
 
 logger = logging.getLogger("apps.client")
 
 
 class PropertyClueService:
-    """
-    财产线索服务
+    """财产线索服务。"""
 
-    职责：
-    1. 封装财产线索相关的所有业务逻辑
-    2. 管理数据库事务
-    3. 优化数据库查询
-    4. 提供内容模板功能
-    """
-
-    def __init__(self, client_service: "ClientService | None" = None):
-        """
-        初始化服务
-
-        Args:
-            client_service: ClientService 实例，支持依赖注入
-        """
-        self._client_service = client_service
+    def __init__(self, internal_query_service: "ClientInternalQueryService | None" = None) -> None:
+        self._internal_query_service = internal_query_service
 
     @property
-    def client_service(self) -> "ClientService":
-        """延迟获取 ClientService"""
-        if self._client_service is None:
-            from .client_service import ClientService
+    def internal_query_service(self) -> "ClientInternalQueryService":
+        """延迟获取 ClientInternalQueryService"""
+        if self._internal_query_service is None:
+            from .client_internal_query_service import ClientInternalQueryService
 
-            self._client_service = ClientService()
-        return self._client_service
+            self._internal_query_service = ClientInternalQueryService()
+        return self._internal_query_service
 
     @transaction.atomic
     def create_clue(
@@ -73,7 +56,7 @@ class PropertyClueService:
         Requirements: 1.1
         """
         # 1. 验证当事人是否存在
-        client = self.client_service._get_client_internal(client_id)
+        client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise NotFoundError(
                 message=_("当事人不存在"),
@@ -154,7 +137,7 @@ class PropertyClueService:
         Requirements: 4.1
         """
         # 验证当事人是否存在
-        client = self.client_service._get_client_internal(client_id)
+        client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise NotFoundError(
                 message=_("当事人不存在"),
