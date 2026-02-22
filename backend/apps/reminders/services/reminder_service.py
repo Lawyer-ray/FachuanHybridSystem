@@ -30,7 +30,7 @@ class ReminderService:
         self,
         contract_id: int | None = None,
         case_log_id: int | None = None,
-    ) -> QuerySet[Reminder, Reminder]:
+    ) -> QuerySet[Reminder]:
         if contract_id is not None and case_log_id is not None:
             raise ValidationException(_("不能同时查询合同和案件日志的提醒"))
 

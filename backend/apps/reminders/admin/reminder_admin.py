@@ -55,6 +55,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         "contract",
         "case_log",
         "created_at",
+        "updated_at",
     )
     list_display_links = ("id", "content")
     list_filter = ("reminder_type", "due_at", "created_at")

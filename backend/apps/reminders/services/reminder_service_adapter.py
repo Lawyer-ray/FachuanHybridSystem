@@ -143,7 +143,7 @@ class ReminderServiceAdapter:
             case_log_id=reminder.case_log_id,
             contract_id=reminder.contract_id,
             reminder_type=str(reminder.reminder_type),
-            reminder_time=reminder.due_at.isoformat() if reminder.due_at else "",
+            reminder_time=reminder.due_at.isoformat(),
             is_completed=False,
-            created_at=reminder.created_at.isoformat() if reminder.created_at else None,
+            created_at=reminder.created_at.isoformat(),
         )
