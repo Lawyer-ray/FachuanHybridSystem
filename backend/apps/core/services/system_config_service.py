@@ -101,14 +101,13 @@ class SystemConfigService:
         Returns:
             更新后的 SystemConfig 实例
         """
-        try:
-            config = self._model.objects.get(id=config_id)
-        except self._model.DoesNotExist as e:
+        config = self._model.objects.filter(id=config_id).first()
+        if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            ) from e
+            )
 
         if value is not None:
             config.value = value
@@ -143,14 +142,13 @@ class SystemConfigService:
         Returns:
             是否成功
         """
-        try:
-            config = self._model.objects.get(id=config_id)
-        except self._model.DoesNotExist as e:
+        config = self._model.objects.filter(id=config_id).first()
+        if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            ) from e
+            )
 
         key = config.key
         config.delete()
@@ -170,14 +168,14 @@ class SystemConfigService:
         Returns:
             SystemConfig 实例
         """
-        try:
-            return cast(SystemConfig, self._model.objects.get(id=config_id))
-        except self._model.DoesNotExist as e:
+        config = self._model.objects.filter(id=config_id).first()
+        if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
-            ) from e
+            )
+        return cast(SystemConfig, config)
 
     def get_config_by_key(self, key: str) -> SystemConfig | None:
         """
@@ -209,9 +207,8 @@ class SystemConfigService:
         if cached is not None:
             return cached if isinstance(cached, str) else str(cached)
 
-        try:
-            config = self._model.objects.get(key=key, is_active=True)
-        except self._model.DoesNotExist:
+        config = self._model.objects.filter(key=key, is_active=True).first()
+        if config is None:
             cache.set(cache_key, _MISSING_SENTINEL, timeout=self._cache_timeout)
             return default
 

@@ -43,20 +43,6 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
         if self.instance and self.instance.pk:
             self.fields["file_upload"].help_text = f"当前文件：{Path(self.instance.file_path or '').name}"
 
-    def save(self, commit: bool = True) -> ClientIdentityDoc:
-        instance = super().save(commit=False)
-
-        if self.cleaned_data.get("file_upload"):
-            uploaded_file = self.cleaned_data["file_upload"]
-            service = _get_identity_doc_service()
-            instance.file_path = service.save_uploaded_file_to_dir(
-                uploaded_file, rel_dir="client_identity_docs"
-            )
-
-        if commit:
-            instance.save()
-        return instance
-
 
 @admin.register(ClientIdentityDoc)
 class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
@@ -76,7 +62,14 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
     file_link.short_description = _("文件")  # type: ignore[attr-defined]
 
     def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:
-        """保存时自动重命名文件"""
+        """保存时处理文件上传并自动重命名"""
+        uploaded_file = form.cleaned_data.get("file_upload")
+        if uploaded_file:
+            service = _get_identity_doc_service()
+            obj.file_path = service.save_uploaded_file_to_dir(
+                uploaded_file, rel_dir="client_identity_docs"
+            )
+
         super().save_model(request, obj, form, change)
 
         service = _get_identity_doc_service()

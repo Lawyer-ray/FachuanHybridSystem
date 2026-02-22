@@ -7,7 +7,6 @@ from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
-from apps.client.services.storage import save_uploaded_file
 from apps.core.services.django_q_tasks import get_q_task_status, submit_q_task
 
 logger = logging.getLogger(__name__)
@@ -184,7 +183,8 @@ def submit_recognize_task(
     file: UploadedFile = File(...),  # type: ignore[arg-type]
 ) -> dict[str, Any]:
     """提交证件识别异步任务"""
-    rel_path, _ = save_uploaded_file(file, rel_dir="client_docs/recognize")
+    service = _get_identity_doc_service()
+    rel_path = service.save_uploaded_file_to_dir(file, rel_dir="client_docs/recognize")
     task_id: str = submit_q_task(
         "apps.client.services.identity_extraction.extraction_service.extract_identity_doc_task",
         rel_path,

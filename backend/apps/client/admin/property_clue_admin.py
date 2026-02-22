@@ -27,23 +27,6 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
         model = PropertyClueAttachment
         fields = ("file_name", "file_path")
 
-    def save(self, commit: bool = True) -> PropertyClueAttachment:
-        instance = super().save(commit=False)
-
-        if self.cleaned_data.get("file_upload"):
-            uploaded_file = self.cleaned_data["file_upload"]
-            service = _get_property_clue_service()
-            rel_path, _ = service.save_uploaded_file_to_dir(
-                uploaded_file, rel_dir="property_clue_attachments"
-            )
-            instance.file_path = rel_path
-            instance.file_name = uploaded_file.name
-
-        if commit:
-            instance.save()
-
-        return instance
-
 
 class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):
     """财产线索附件内联编辑"""
@@ -113,3 +96,26 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
         return "无附件"
 
     attachment_count.short_description = _("附件")  # type: ignore[attr-defined]
+
+    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
+        """处理附件内联表单的文件上传"""
+        instances = formset.save(commit=False)
+
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        service = _get_property_clue_service()
+        for instance in instances:
+            # 查找对应的 form
+            for f in formset.forms:
+                if f.instance == instance and f.cleaned_data.get("file_upload"):
+                    uploaded_file = f.cleaned_data["file_upload"]
+                    rel_path, _ = service.save_uploaded_file_to_dir(
+                        uploaded_file, rel_dir="property_clue_attachments"
+                    )
+                    instance.file_path = rel_path
+                    instance.file_name = uploaded_file.name
+                    break
+            instance.save()
+
+        formset.save_m2m()
