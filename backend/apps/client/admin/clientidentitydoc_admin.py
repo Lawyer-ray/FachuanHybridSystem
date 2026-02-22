@@ -64,16 +64,15 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
 
     def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:
         """保存时处理文件上传并自动重命名"""
+        service = _get_identity_doc_service()
         uploaded_file = form.cleaned_data.get("file_upload")
         if uploaded_file:
-            service = _get_identity_doc_service()
             obj.file_path = service.save_uploaded_file_to_dir(
                 uploaded_file, rel_dir="client_identity_docs"
             )
 
         super().save_model(request, obj, form, change)
 
-        service = _get_identity_doc_service()
         try:
             service.rename_uploaded_file(obj)
             if change:

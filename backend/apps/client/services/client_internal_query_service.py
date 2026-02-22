@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import logging
-
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue
-
-logger: logging.Logger = logging.getLogger("apps.client")
 
 
 class ClientInternalQueryService:

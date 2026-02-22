@@ -265,7 +265,7 @@ class AccountCredentialAdminService:
         # 只处理法院一张网的账号，物化为列表避免多次 SQL 查询
         court_credentials = list(
             self.credential_service.filter_by_ids_and_site(
-                credential_ids=list(credential_ids),
+                credential_ids=credential_ids,
                 site_name=self.SUPPORTED_SITE,
             )
         )

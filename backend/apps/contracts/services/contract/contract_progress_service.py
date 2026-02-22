@@ -23,9 +23,6 @@ class ContractProgressService:
     - 计算开票汇总(已开票/未开票)
     """
 
-    def __init__(self) -> None:
-        """构造函数,预留依赖注入扩展"""
-
     def _get_contract(self, contract_id: int) -> Contract:
         """
         获取合同

@@ -37,9 +37,6 @@ class ContractValidator:
         if errors:
             raise ValidationException(_("收费模式验证失败"), errors=errors)
 
-    # 向后兼容（旧版 ContractHelpersMixin 使用下划线前缀）
-    _validate_fee_mode = validate_fee_mode
-
     def _validate_fixed(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
             errors["fixed_amount"] = _("固定收费需填写金额")
@@ -70,7 +67,3 @@ class ContractValidator:
             )
 
         return stages
-
-
-# 向后兼容别名
-ContractHelpersMixin = ContractValidator

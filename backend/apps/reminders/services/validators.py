@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -76,4 +77,8 @@ def normalize_metadata(metadata: Any) -> dict[str, Any]:
         return {}
     if not isinstance(metadata, dict):
         raise ValidationException(_("扩展数据必须为 JSON 对象"))
+    try:
+        json.dumps(metadata)
+    except (TypeError, ValueError):
+        raise ValidationException(_("扩展数据包含不可序列化的值"))
     return metadata
