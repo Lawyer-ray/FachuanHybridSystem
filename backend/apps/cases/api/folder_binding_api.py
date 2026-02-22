@@ -18,17 +18,10 @@ from apps.cases.schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
-from apps.core.exceptions import PermissionDenied
 from apps.core.security import get_request_access_context
 
 logger = logging.getLogger("apps.cases.api")
 router = Router()
-
-
-def _require_admin(request: Any) -> None:
-    user = getattr(request, "user", None)
-    if not user or not getattr(user, "is_authenticated", False) or not getattr(user, "is_admin", False):
-        raise PermissionDenied("需要管理员权限")
 
 
 def _get_folder_binding_service() -> Any:
@@ -41,11 +34,11 @@ def _get_folder_binding_service() -> Any:
         build_document_service,
     )
 
-    contract_service = build_contract_query_service()
     return CaseFolderBindingService(
         document_service=build_document_service(),
         case_service=build_case_service_with_deps(
-            contract_service=contract_service, client_service=build_client_service()
+            contract_service=build_contract_query_service(),
+            client_service=build_client_service(),
         ),
     )
 
@@ -120,9 +113,9 @@ def delete_folder_binding(request: HttpRequest, case_id: int) -> Any:
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
 def browse_folders(request: HttpRequest, path: str | None = None, include_hidden: bool = False) -> Any:
-    _require_admin(request)
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
+    service.require_admin(ctx)
 
     if not path or not str(path).strip():
         roots = service.get_browse_roots()
