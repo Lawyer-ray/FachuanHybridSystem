@@ -138,13 +138,13 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin[DocumentTemplateFolder
     class Media:
         js: ClassVar[tuple[str, ...]] = ("documents/js/folder_binding_admin.js",)
 
+    @admin.display(description=_("文件夹路径"))
     def folder_path_display(self, obj: DocumentTemplateFolderBinding) -> Any:
         """显示文件夹路径"""
         if obj.folder_node_path:
             return format_html('<span style="color: #666; font-family: monospace;">{}</span>', obj.folder_node_path)
         return "-"
 
-    folder_path_display.short_description = _("文件夹路径")  # type: ignore[attr-defined]
 
     def save_model(self, request: HttpRequest, obj: DocumentTemplateFolderBinding, form: Any, change: bool) -> None:
         """保存时自动计算路径"""
