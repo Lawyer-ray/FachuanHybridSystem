@@ -4,6 +4,8 @@ Contract Admin - Save Mixin
 保存和删除钩子方法.
 """
 
+
+from __future__ import annotations
 import logging
 from typing import Any
 

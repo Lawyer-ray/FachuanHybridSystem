@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 from dateutil.relativedelta import relativedelta
 
@@ -34,7 +34,7 @@ class ContractCloneWorkflow:
                     client=party.client,
                     role=party.role,
                 )
-                for party in cast(Any, source_contract.contract_parties).all()
+                for party in source_contract.contract_parties.all()  # type: ignore[attr-defined]
             ]
         )
 
@@ -46,12 +46,12 @@ class ContractCloneWorkflow:
                     is_primary=assignment.is_primary,
                     order=assignment.order,
                 )
-                for assignment in cast(Any, source_contract.assignments).all()
+                for assignment in source_contract.assignments.all()  # type: ignore[attr-defined]
             ]
         )
 
         reminders: list[dict[str, Any]] = []
-        for reminder in cast(Any, source_contract.reminders).all():
+        for reminder in source_contract.reminders.all():  # type: ignore[attr-defined]
             due_at = reminder.due_at
             if due_at_transform is not None:
                 due_at = due_at_transform(due_at)
@@ -72,7 +72,7 @@ class ContractCloneWorkflow:
 
         agreements_data = [
             {"agreement": agreement, "parties": list(agreement.parties.all())}
-            for agreement in cast(Any, source_contract.supplementary_agreements).all()
+            for agreement in source_contract.supplementary_agreements.all()  # type: ignore[attr-defined]
         ]
         if not agreements_data:
             return

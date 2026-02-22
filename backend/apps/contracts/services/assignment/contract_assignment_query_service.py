@@ -1,5 +1,7 @@
 """Business logic services."""
 
+
+from __future__ import annotations
 from apps.contracts.models import Contract, ContractAssignment
 
 

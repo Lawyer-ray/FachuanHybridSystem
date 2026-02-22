@@ -4,6 +4,8 @@ Contract Admin - Action Mixin
 操作处理方法:生成文档、复制合同、创建案件等.
 """
 
+
+from __future__ import annotations
 import logging
 import urllib.parse
 from typing import Any
