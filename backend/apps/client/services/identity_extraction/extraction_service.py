@@ -92,10 +92,10 @@ class IdentityExtractionService:
                 try:
                     raw_text = self._recognizer.classification(image_bytes) or ""
                 except Exception as e:
-                    raise OCRExtractionError(f"OCR 提取失败: {e!s}") from e
+                    raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
                 if raw_text.strip():
                     return raw_text.strip()
-                raise OCRExtractionError("OCR 未能提取到有效文字")
+                raise OCRExtractionError(_("OCR 未能提取到有效文字"))
 
             # 检测是否为 PDF(更健壮的检测方式)
             is_pdf = self._is_pdf_file(image_bytes)
@@ -111,7 +111,7 @@ class IdentityExtractionService:
             raise
         except Exception as e:
             logger.exception("OCR 提取失败: %s", e)
-            raise OCRExtractionError(f"OCR 提取失败: {e!s}") from e
+            raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
 
     def _is_pdf_file(self, file_bytes: bytes) -> bool:
         """
@@ -155,13 +155,12 @@ class IdentityExtractionService:
                 img = img.convert("RGB")  # type: ignore[assignment]
         except Exception as e:
             logger.exception("图片格式无效: %s", e)
-            raise OCRExtractionError("图片格式无效,请上传 JPG 或 PNG 格式的图片") from e
+            raise OCRExtractionError(_("图片格式无效,请上传 JPG 或 PNG 格式的图片")) from e
 
-        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
             img.save(tmp, format="JPEG", quality=95)
             tmp_path = tmp.name
 
-        try:
             ocr = get_ocr_engine()
             result = ocr(tmp_path)
 
@@ -173,9 +172,7 @@ class IdentityExtractionService:
                     logger.info("RapidOCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
                     return raw_text.strip()
 
-            raise OCRExtractionError("OCR 未能提取到有效文字")
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+            raise OCRExtractionError(_("OCR 未能提取到有效文字"))
 
     def _extract_from_pdf(self, pdf_bytes: bytes) -> str:
         """从 PDF 提取文字(图片型PDF)"""
@@ -217,13 +214,13 @@ class IdentityExtractionService:
                 logger.info("PDF OCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
                 return raw_text.strip()
 
-            raise OCRExtractionError("PDF OCR 未能提取到有效文字")
+            raise OCRExtractionError(_("PDF OCR 未能提取到有效文字"))
 
         except OCRExtractionError:
             raise
         except Exception as e:
             logger.exception("PDF 处理失败: %s", e)
-            raise OCRExtractionError(f"PDF 处理失败: {e!s}") from e
+            raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
 
     def _ollama_extract(self, raw_text: str, doc_type: str) -> dict[str, Any]:
         """
@@ -243,7 +240,7 @@ class IdentityExtractionService:
             llm_resp = llm_service.chat(messages=messages, backend="ollama", model=self._ollama_model, fallback=False)
             content = llm_resp.content or ""
             if not content:
-                raise OllamaExtractionError("Ollama 返回内容为空")
+                raise OllamaExtractionError(_("Ollama 返回内容为空"))
 
             # 解析 JSON
             try:
@@ -265,7 +262,7 @@ class IdentityExtractionService:
 
             except json.JSONDecodeError as e:
                 logger.exception("Ollama 返回的 JSON 格式错误: %s", e)
-                raise OllamaExtractionError(f"Ollama 返回的 JSON 格式错误: {e!s}") from e
+                raise OllamaExtractionError(_("Ollama 返回的 JSON 格式错误: %(e)s") % {"e": e}) from e
 
         except ConnectionError as e:
             logger.exception("Ollama 服务连接失败: %s", e)
@@ -274,7 +271,7 @@ class IdentityExtractionService:
             raise
         except Exception as e:
             logger.exception("Ollama 提取失败: %s", e)
-            raise OllamaExtractionError(f"Ollama 提取失败: {e!s}") from e
+            raise OllamaExtractionError(_("Ollama 提取失败: %(e)s") % {"e": e}) from e
 
     def safe_extract(self, image_bytes: bytes, doc_type: str) -> dict[str, Any]:
         """
