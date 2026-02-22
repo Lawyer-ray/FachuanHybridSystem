@@ -34,7 +34,7 @@ class ReminderService:
         if contract_id is not None and case_log_id is not None:
             raise ValidationException(_("不能同时查询合同和案件日志的提醒"))
 
-        qs = Reminder.objects.all().select_related("contract", "case_log").order_by("-due_at", "-id")
+        qs = Reminder.objects.order_by("-due_at", "-id")
 
         if contract_id is not None:
             qs = qs.filter(contract_id=contract_id)
@@ -43,9 +43,12 @@ class ReminderService:
 
         return qs
 
-    def get_reminder(self, reminder_id: int) -> Reminder:
+    def get_reminder(self, reminder_id: int, *, select_related: bool = True) -> Reminder:
         try:
-            return Reminder.objects.select_related("contract", "case_log").get(id=reminder_id)
+            qs = Reminder.objects.all()
+            if select_related:
+                qs = qs.select_related("contract", "case_log")
+            return qs.get(id=reminder_id)
         except Reminder.DoesNotExist:
             raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id}) from None
 
@@ -78,7 +81,7 @@ class ReminderService:
 
     @transaction.atomic
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
-        reminder = self.get_reminder(reminder_id)
+        reminder = self.get_reminder(reminder_id, select_related=False)
         changed = self._apply_update_fields(reminder, data)
         if changed:
             reminder.save(update_fields=changed)
@@ -128,7 +131,7 @@ class ReminderService:
 
     @transaction.atomic
     def delete_reminder(self, reminder_id: int) -> None:
-        reminder = self.get_reminder(reminder_id)
+        reminder = self.get_reminder(reminder_id, select_related=False)
         reminder.delete()
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:

@@ -50,10 +50,15 @@ def normalize_reminder_type(reminder_type: str) -> str:
     return value
 
 
+_CONTENT_MAX_LENGTH = 255
+
+
 def normalize_content(content: str) -> str:
     value = str(content).strip()
     if not value:
         raise ValidationException(_("提醒事项不能为空"))
+    if len(value) > _CONTENT_MAX_LENGTH:
+        raise ValidationException(_("提醒事项不能超过 %(max)d 个字符") % {"max": _CONTENT_MAX_LENGTH})
     return value
 
 
