@@ -48,12 +48,3 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
         if username is None:
             username = ""
         return username
-
-    def save(self, commit: bool = True) -> Lawyer:
-        """保存用户，仅负责表单数据映射"""
-        user = super().save(commit=False)
-        user.real_name = user.username
-
-        if commit:
-            user.save()
-        return user

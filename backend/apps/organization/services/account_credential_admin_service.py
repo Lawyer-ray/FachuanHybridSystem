@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from apps.organization.services.account_credential_service import (
@@ -123,10 +122,8 @@ class AccountCredentialAdminService:
         """
         start_time = timezone.now()
 
-        # 获取凭证
-        credential = self.credential_service.get_credential_by_id(credential_id)
-        if not credential:
-            raise NotFoundError(message=_("账号凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+        # 获取凭证（不存在时抛 NotFoundError）
+        credential = self.credential_service._get_credential_internal(credential_id)
 
         # 检查是否支持自动登录
         if credential.site_name != self.SUPPORTED_SITE:

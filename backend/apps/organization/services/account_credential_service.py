@@ -309,21 +309,6 @@ class AccountCredentialService:
         ).update(is_preferred=False)
         return updated
 
-    def get_credential_by_id(self, credential_id: int) -> AccountCredential | None:
-        """
-        按 ID 获取凭证（无权限检查，内部使用）
-
-        Args:
-            credential_id: 凭证 ID
-
-        Returns:
-            凭证对象或 None
-        """
-        credential: AccountCredential | None = (
-            self._get_base_queryset().filter(id=credential_id).first()
-        )
-        return credential
-
     def filter_by_ids_and_site(
         self,
         credential_ids: list[int],
