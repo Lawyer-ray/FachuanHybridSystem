@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentOut
-from .base import Case, ModelSchema, Optional, Schema
+from .base import Case, ModelSchema, Schema
 from .log_schemas import CaseLogCreate, CaseLogOut
 from .number_schemas import CaseNumberIn, CaseNumberOut
 from .party_schemas import CasePartyCreate, CasePartyOut
@@ -86,24 +86,24 @@ class CaseOut(ModelSchema):
 
 
 class CaseUpdate(Schema):
-    name: Optional[str] = None
-    status: Optional[str] = None
-    is_archived: Optional[bool] = None
-    case_type: Optional[str] = None
-    target_amount: Optional[float] = None
-    preservation_amount: Optional[float] = None
-    cause_of_action: Optional[str] = None
-    current_stage: Optional[str] = None
-    effective_date: Optional[str] = None
+    name: str | None = None
+    status: str | None = None
+    is_archived: bool | None = None
+    case_type: str | None = None
+    target_amount: float | None = None
+    preservation_amount: float | None = None
+    cause_of_action: str | None = None
+    current_stage: str | None = None
+    effective_date: str | None = None
 
 
 class CaseCreateFull(Schema):
     case: CaseIn
-    parties: Optional[list[CasePartyCreate]] = None
-    assignments: Optional[list[CaseAssignmentCreate]] = None
-    logs: Optional[list[CaseLogCreate]] = None
-    case_numbers: Optional[list[CaseNumberIn]] = None
-    supervising_authorities: Optional[list[SupervisingAuthorityIn]] = None
+    parties: list[CasePartyCreate] | None = None
+    assignments: list[CaseAssignmentCreate] | None = None
+    logs: list[CaseLogCreate] | None = None
+    case_numbers: list[CaseNumberIn] | None = None
+    supervising_authorities: list[SupervisingAuthorityIn] | None = None
 
 
 class CaseFullOut(Schema):
@@ -121,11 +121,11 @@ class LegalStatusItem(Schema):
 
 
 class UnifiedGenerateRequest(Schema):
-    template_id: Optional[int] = None
-    function_code: Optional[str] = None
-    client_id: Optional[int] = None
-    client_ids: Optional[list[int]] = None
-    mode: Optional[str] = None
+    template_id: int | None = None
+    function_code: str | None = None
+    client_id: int | None = None
+    client_ids: list[int] | None = None
+    mode: str | None = None
 
 
 __all__: list[str] = [

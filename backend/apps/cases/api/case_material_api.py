@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.cases.schemas import (
@@ -29,7 +30,7 @@ def _get_caselog_service() -> CaseLogService:
 
 
 @router.get("/{case_id}/materials/bind-candidates", response=list[CaseMaterialBindCandidateOut])
-def list_bind_candidates(request: Any, case_id: int) -> Any:
+def list_bind_candidates(request: HttpRequest, case_id: int) -> Any:
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     return service.list_bind_candidates(
@@ -42,7 +43,7 @@ def list_bind_candidates(request: Any, case_id: int) -> Any:
 
 @router.post("/{case_id}/materials/bind")
 @rate_limit_from_settings("TASK", by_user=True)
-def bind_materials(request: Any, case_id: int, payload: CaseMaterialBindIn) -> Any:
+def bind_materials(request: HttpRequest, case_id: int, payload: CaseMaterialBindIn) -> dict[str, int]:
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     items: list[dict[str, Any]] = [x.model_dump() for x in payload.items]
@@ -58,7 +59,7 @@ def bind_materials(request: Any, case_id: int, payload: CaseMaterialBindIn) -> A
 
 @router.post("/{case_id}/materials/group-order")
 @rate_limit_from_settings("TASK", by_user=True)
-def save_group_order(request: Any, case_id: int, payload: CaseMaterialGroupOrderIn) -> Any:
+def save_group_order(request: HttpRequest, case_id: int, payload: CaseMaterialGroupOrderIn) -> dict[str, bool]:
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     service.save_group_order(
@@ -76,7 +77,7 @@ def save_group_order(request: Any, case_id: int, payload: CaseMaterialGroupOrder
 
 @router.post("/{case_id}/materials/upload", response=CaseMaterialUploadOut)
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_materials(request: Any, case_id: int) -> Any:
+def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:
     service = _get_caselog_service()
     ctx = get_request_access_context(request)
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []

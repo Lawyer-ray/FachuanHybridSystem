@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.request_context import extract_request_context
@@ -24,7 +25,7 @@ def _get_case_number_service() -> Any:
 
 
 @router.get("/case-numbers", response=list[CaseNumberOut])
-def list_case_numbers(request: Any, case_id: int | None = None) -> list[CaseNumberOut]:
+def list_case_numbers(request: HttpRequest, case_id: int | None = None) -> list[CaseNumberOut]:
     """获取案号列表"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -32,7 +33,7 @@ def list_case_numbers(request: Any, case_id: int | None = None) -> list[CaseNumb
 
 
 @router.get("/case-numbers/{number_id}", response=CaseNumberOut)
-def get_case_number(request: Any, number_id: int) -> CaseNumberOut:
+def get_case_number(request: HttpRequest, number_id: int) -> CaseNumberOut:
     """获取单个案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -40,7 +41,7 @@ def get_case_number(request: Any, number_id: int) -> CaseNumberOut:
 
 
 @router.post("/case-numbers", response=CaseNumberOut)
-def create_case_number(request: Any, payload: CaseNumberIn) -> CaseNumberOut:
+def create_case_number(request: HttpRequest, payload: CaseNumberIn) -> CaseNumberOut:
     """创建案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -51,7 +52,7 @@ def create_case_number(request: Any, payload: CaseNumberIn) -> CaseNumberOut:
 
 
 @router.put("/case-numbers/{number_id}", response=CaseNumberOut)
-def update_case_number(request: Any, number_id: int, payload: CaseNumberUpdate) -> CaseNumberOut:
+def update_case_number(request: HttpRequest, number_id: int, payload: CaseNumberUpdate) -> CaseNumberOut:
     """更新案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -60,7 +61,7 @@ def update_case_number(request: Any, number_id: int, payload: CaseNumberUpdate) 
 
 
 @router.delete("/case-numbers/{number_id}")
-def delete_case_number(request: Any, number_id: int) -> Any:
+def delete_case_number(request: HttpRequest, number_id: int) -> Any:
     """删除案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)

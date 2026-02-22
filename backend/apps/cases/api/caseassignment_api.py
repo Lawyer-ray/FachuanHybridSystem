@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.request_context import extract_request_context
@@ -24,14 +25,16 @@ def _get_case_assignment_service() -> Any:
 
 
 @router.get("/assignments", response=list[CaseAssignmentOut])
-def list_assignments(request: Any, case_id: int | None = None, lawyer_id: int | None = None) -> list[CaseAssignmentOut]:
+def list_assignments(
+    request: HttpRequest, case_id: int | None = None, lawyer_id: int | None = None
+) -> list[CaseAssignmentOut]:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     return cast(list[CaseAssignmentOut], service.list_assignments(case_id=case_id, lawyer_id=lawyer_id, user=ctx.user))
 
 
 @router.post("/assignments", response=CaseAssignmentOut)
-def create_assignment(request: Any, payload: CaseAssignmentIn) -> CaseAssignmentOut:
+def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     return cast(
@@ -41,14 +44,14 @@ def create_assignment(request: Any, payload: CaseAssignmentIn) -> CaseAssignment
 
 
 @router.get("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def get_assignment(request: Any, assignment_id: int) -> CaseAssignmentOut:
+def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     return cast(CaseAssignmentOut, service.get_assignment(assignment_id=assignment_id, user=ctx.user))
 
 
 @router.put("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def update_assignment(request: Any, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:
+def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
@@ -56,7 +59,7 @@ def update_assignment(request: Any, assignment_id: int, payload: CaseAssignmentU
 
 
 @router.delete("/assignments/{assignment_id}")
-def delete_assignment(request: Any, assignment_id: int) -> Any:
+def delete_assignment(request: HttpRequest, assignment_id: int) -> Any:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     return service.delete_assignment(assignment_id=assignment_id, user=ctx.user)

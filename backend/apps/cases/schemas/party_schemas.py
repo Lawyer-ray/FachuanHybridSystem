@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional
+from typing import ClassVar
 
-from .base import CaseParty, ClientOut, ModelSchema, Optional, Schema
+from .base import CaseParty, ClientOut, ModelSchema, Schema
 
 
 class CasePartyIn(Schema):
     case_id: int
     client_id: int
-    legal_status: Optional[str] = None
+    legal_status: str | None = None
 
 
 class CasePartyUpdate(Schema):
-    case_id: Optional[int] = None
-    client_id: Optional[int] = None
-    legal_status: Optional[str] = None
+    case_id: int | None = None
+    client_id: int | None = None
+    legal_status: str | None = None
 
 
 class CasePartyOut(ModelSchema):
@@ -37,7 +37,7 @@ class CasePartyOut(ModelSchema):
 
 class CasePartyCreate(Schema):
     client_id: int
-    legal_status: Optional[str] = None
+    legal_status: str | None = None
 
 
 __all__: list[str] = [

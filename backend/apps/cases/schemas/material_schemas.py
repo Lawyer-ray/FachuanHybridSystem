@@ -1,18 +1,20 @@
 """API schemas and serializers."""
 
-from typing import ClassVar, Optional
+from __future__ import annotations
 
-from .base import Optional, Schema, datetime
+from typing import ClassVar
+
+from .base import Schema, datetime
 
 
 class CaseMaterialBindingOut(Schema):
     id: int
     category: str
-    type_id: Optional[int] = None
+    type_id: int | None = None
     type_name: str
-    side: Optional[str] = None
+    side: str | None = None
     party_ids: ClassVar[list[int]] = []
-    supervising_authority_id: Optional[int] = None
+    supervising_authority_id: int | None = None
 
 
 class CaseMaterialBindCandidateOut(Schema):
@@ -21,19 +23,19 @@ class CaseMaterialBindCandidateOut(Schema):
     file_url: str
     uploaded_at: datetime
     log_id: int
-    log_created_at: Optional[datetime] = None
+    log_created_at: datetime | None = None
     actor_name: str
-    material: Optional[CaseMaterialBindingOut] = None
+    material: CaseMaterialBindingOut | None = None
 
 
 class CaseMaterialBindItemIn(Schema):
     attachment_id: int
     category: str
-    type_id: Optional[int] = None
+    type_id: int | None = None
     type_name: str
-    side: Optional[str] = None
+    side: str | None = None
     party_ids: ClassVar[list[int]] = []
-    supervising_authority_id: Optional[int] = None
+    supervising_authority_id: int | None = None
 
 
 class CaseMaterialBindIn(Schema):
@@ -43,8 +45,8 @@ class CaseMaterialBindIn(Schema):
 class CaseMaterialGroupOrderIn(Schema):
     category: str
     ordered_type_ids: list[int]
-    side: Optional[str] = None
-    supervising_authority_id: Optional[int] = None
+    side: str | None = None
+    supervising_authority_id: int | None = None
 
 
 class CaseMaterialUploadOut(Schema):

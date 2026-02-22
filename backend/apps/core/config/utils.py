@@ -59,17 +59,19 @@ def get_nested_config_value(config_dict: dict[str, Any], key: str, default: Any 
     return config_dict.get(key, default)
 
 
+
 def get_feishu_category_configs() -> dict[str, Any]:
     """
-    批量获取飞书分类配置（替代 SystemConfig.get_category_configs("feishu")）
+    批量获取飞书分类配置
 
     Returns:
         飞书配置字典，key 为 DB 键名（如 FEISHU_APP_ID），value 为配置值
     """
     try:
-        from apps.core.models import SystemConfig
+        from apps.core.services.system_config_service import SystemConfigService
 
-        result: dict[str, Any] = SystemConfig.get_category_configs("feishu")  # type: ignore[attr-defined]
+        service = SystemConfigService()
+        result: dict[str, Any] = service.get_category_configs("feishu")
         return result
     except Exception as e:
         logger.debug(f"从 SystemConfig 批量获取飞书配置失败: {e}")
@@ -78,7 +80,7 @@ def get_feishu_category_configs() -> dict[str, Any]:
 
 def get_system_config_value(key: str, default: Any = None) -> Any:
     """
-    获取 SystemConfig 单个配置值（替代 SystemConfig.get_value(key, default=...)）
+    获取 SystemConfig 单个配置值
 
     Args:
         key: 配置键
@@ -88,12 +90,14 @@ def get_system_config_value(key: str, default: Any = None) -> Any:
         配置值
     """
     try:
-        from apps.core.models import SystemConfig
+        from apps.core.services.system_config_service import SystemConfigService
 
-        return SystemConfig.get_value(key, default=default)  # type: ignore[attr-defined]
+        service = SystemConfigService()
+        return service.get_value(key, default=default if default is not None else "")
     except Exception as e:
         logger.debug(f"从 SystemConfig 获取配置 {key} 失败: {e}")
         return default
+
 
 
 def get_feishu_config(key: str, default: Any = None) -> Any:

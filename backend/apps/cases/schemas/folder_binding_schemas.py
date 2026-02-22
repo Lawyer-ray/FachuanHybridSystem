@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from .base import CaseFolderBinding, Optional, Schema, SchemaMixin, field_validator
+from .base import CaseFolderBinding, Schema, SchemaMixin, field_validator
 
 
 class CaseFolderBindingCreateSchema(Schema):
@@ -49,9 +49,9 @@ class FolderBrowseEntrySchema(Schema):
 
 class FolderBrowseResponseSchema(Schema):
     browsable: bool
-    message: Optional[str] = None
-    path: Optional[str] = None
-    parent_path: Optional[str] = None
+    message: str | None = None
+    path: str | None = None
+    parent_path: str | None = None
     entries: list[FolderBrowseEntrySchema]
 
 

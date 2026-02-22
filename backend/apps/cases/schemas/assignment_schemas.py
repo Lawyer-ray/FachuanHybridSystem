@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional
+from typing import ClassVar
 
-from .base import CaseAssignment, ModelSchema, Optional, Schema
+from .base import CaseAssignment, ModelSchema, Schema
 from .lawyer_schemas import LawyerOutFromDTO
 
 
@@ -14,8 +14,8 @@ class CaseAssignmentIn(Schema):
 
 
 class CaseAssignmentUpdate(Schema):
-    case_id: Optional[int] = None
-    lawyer_id: Optional[int] = None
+    case_id: int | None = None
+    lawyer_id: int | None = None
 
 
 class CaseAssignmentOut(ModelSchema):
