@@ -68,26 +68,26 @@ class ReminderOut(SchemaMixin, Schema):
     reminder_type: str
     reminder_type_label: str
     content: str
-    metadata: dict[str, Any] = {}
-    due_at: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    due_at: str
+    created_at: str
+    updated_at: str
 
     @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:
         return SchemaMixin._get_display(obj, "reminder_type") or ""
 
     @staticmethod
-    def resolve_due_at(obj: Reminder) -> str | None:
-        return SchemaMixin._resolve_datetime_iso(obj.due_at)
+    def resolve_due_at(obj: Reminder) -> str:
+        return SchemaMixin._resolve_datetime_iso(obj.due_at) or obj.due_at.isoformat()
 
     @staticmethod
-    def resolve_created_at(obj: Reminder) -> str | None:
-        return SchemaMixin._resolve_datetime_iso(obj.created_at)
+    def resolve_created_at(obj: Reminder) -> str:
+        return SchemaMixin._resolve_datetime_iso(obj.created_at) or obj.created_at.isoformat()
 
     @staticmethod
-    def resolve_updated_at(obj: Reminder) -> str | None:
-        return SchemaMixin._resolve_datetime_iso(obj.updated_at)
+    def resolve_updated_at(obj: Reminder) -> str:
+        return SchemaMixin._resolve_datetime_iso(obj.updated_at) or obj.updated_at.isoformat()
 
 
 class ReminderTypeItem(Schema):

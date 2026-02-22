@@ -125,7 +125,7 @@ class TestRefactoringImports:
 
     def test_core_infrastructure_imports(self):
         """测试 Core 模块 infrastructure 导入"""
-        from apps.core.infrastructure import (
+        from apps.core.infrastructure import ( # type: ignore
             CacheKeys,
             CacheTimeout,
             HealthChecker,

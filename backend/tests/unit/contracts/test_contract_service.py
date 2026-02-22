@@ -215,7 +215,7 @@ class TestContractService:
 
         # 执行查询
         result = self.service.get_contract(
-            contract_id=contract.id,
+            contract_id=contract.id, # type: ignore
             user=user,
             org_access=org_access,
             perm_open_access=False,

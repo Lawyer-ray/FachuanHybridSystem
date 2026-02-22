@@ -268,10 +268,10 @@ class TestTokenHistoryRecorder(TestCase):
 
             # 记录历史
             await TokenHistoryRecorder.record_acquisition_history(  # type: ignore[call-arg]
-                acquisition_id,
+                acquisition_id, # type: ignore
                 site_name,
                 account,
-                credential_id,
+                credential_id, # type: ignore
                 result,  # type: ignore[arg-type]
             )
 

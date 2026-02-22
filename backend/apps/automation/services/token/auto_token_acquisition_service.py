@@ -159,6 +159,7 @@ class AutoTokenAcquisitionService:
             credential_id or "auto", # type: ignore
         )
 
+        perf_recorded = False
         try:
             # 并发控制和资源获取
             await concurrency_optimizer.acquire_resource(
@@ -193,6 +194,7 @@ class AutoTokenAcquisitionService:
                         total_duration,
                         result.login_attempts[0].attempt_duration if result.login_attempts else None,
                     )
+                    perf_recorded = True
 
                     # 记录历史到数据库
                     await history_recorder.record_acquisition_history(
@@ -223,6 +225,7 @@ class AutoTokenAcquisitionService:
                     performance_monitor.record_acquisition_end(
                         acquisition_id, False, total_duration, error_type=error_type
                     )
+                    perf_recorded = True
 
                     # 记录历史到数据库
                     await history_recorder.record_acquisition_history(
@@ -262,9 +265,10 @@ class AutoTokenAcquisitionService:
         except Exception as e:
             total_duration = time.time() - start_time
 
-            # 记录性能监控结束（异常）
-            error_type = type(e).__name__
-            performance_monitor.record_acquisition_end(acquisition_id, False, total_duration, error_type=error_type)
+            # 记录性能监控结束（异常）——仅在尚未记录时
+            if not perf_recorded:
+                error_type = type(e).__name__
+                performance_monitor.record_acquisition_end(acquisition_id, False, total_duration, error_type=error_type)
 
             if isinstance(
                 e,
