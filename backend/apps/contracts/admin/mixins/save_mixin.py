@@ -14,10 +14,9 @@ logger = logging.getLogger("apps.contracts")
 
 def _get_contract_admin_service() -> Any:
     """工厂函数获取合同 Admin 服务"""
-    from apps.contracts.services import ContractAdminService, ContractDisplayService
+    from apps.contracts.admin.wiring_admin import get_contract_admin_service
 
-    display_service = ContractDisplayService()
-    return ContractAdminService(display_service=display_service)
+    return get_contract_admin_service()
 
 
 def _get_contract_admin_action_service() -> Any:

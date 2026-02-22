@@ -169,7 +169,7 @@ class TestValidateFeeModePreservation:
 
     def _get_mixin_instance(self) -> Any:
         """创建 ContractHelpersMixin 实例用于测试。"""
-        from apps.contracts.services._contract_helpers_mixin import ContractHelpersMixin
+        from apps.contracts.services.contract.contract_validator import ContractHelpersMixin
         from apps.core.business_config import BusinessConfig
 
         instance = ContractHelpersMixin()

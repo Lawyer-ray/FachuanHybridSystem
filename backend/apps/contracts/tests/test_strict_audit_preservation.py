@@ -74,7 +74,7 @@ class TestServiceExceptionTypesPreservation:
 
         **Validates: Requirements 3.1**
         """
-        from apps.contracts.services.contract_payment_service import (
+        from apps.contracts.services.payment.contract_payment_service import (
             ContractPaymentService,
         )
 
@@ -97,7 +97,7 @@ class TestServiceExceptionTypesPreservation:
 
     def test_payment_service_validation_no_confirm(self) -> None:
         """create_payment 未确认时抛出 ValidationException。"""
-        from apps.contracts.services.contract_payment_service import (
+        from apps.contracts.services.payment.contract_payment_service import (
             ContractPaymentService,
         )
 

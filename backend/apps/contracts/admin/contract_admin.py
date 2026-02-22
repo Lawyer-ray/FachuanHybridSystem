@@ -97,12 +97,11 @@ class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
         def clean(self) -> dict[str, Any]:
             cleaned = super().clean() or {}
             try:
-                from apps.cases.validators import normalize_stages
+                from apps.contracts.validators import normalize_representation_stages
 
                 ctype = cleaned.get("case_type")
                 rep = cleaned.get("representation_stages") or []
-                rep2, _ = normalize_stages(ctype, rep, None, strict=False)
-                cleaned["representation_stages"] = rep2
+                cleaned["representation_stages"] = normalize_representation_stages(ctype, rep, strict=False)
             except Exception:
                 pass
             return cleaned

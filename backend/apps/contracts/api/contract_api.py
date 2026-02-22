@@ -15,7 +15,7 @@ from apps.contracts.schemas import (
     ContractUpdate,
     UpdateLawyersIn,
 )
-from apps.contracts.services.contract_service import ContractService
+from apps.contracts.services.contract.contract_service import ContractService
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
@@ -30,8 +30,8 @@ def _get_contract_service() -> ContractService:
     from apps.cases.services import CaseServiceAdapter
     from apps.client.services import ClientServiceAdapter
 
-    from apps.contracts.services.contract_payment_service import ContractPaymentService
-    from apps.contracts.services.supplementary_agreement_service import SupplementaryAgreementService
+    from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
+    from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
 
     case_service = CaseServiceAdapter()
     payment_service = ContractPaymentService()

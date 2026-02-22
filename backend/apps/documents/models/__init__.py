@@ -23,11 +23,12 @@ from .choices import (
     DocumentContractType,
     DocumentTemplateType,
     FolderTemplateType,
+    LegalStatusMatchMode,
     PlaceholderCategory,
     PlaceholderFormatType,
     TemplateAuditAction,
 )
-from .document_template import DocumentTemplate, DocumentTemplateFolderBinding, LegalStatusMatchMode
+from .document_template import DocumentTemplate, DocumentTemplateFolderBinding
 from .evidence import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType, MergeStatus
 
 # 导入所有模型类
@@ -70,7 +71,6 @@ __all__ = [
     "GenerationConfig",
     "GenerationMethod",
     "GenerationStatus",
-    "GenerationTaskStatus",
     # 授权委托书
     "ProxyMatterRule",
     # 诉讼地位匹配

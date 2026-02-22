@@ -211,7 +211,7 @@ class ContractAdminMutationService:
         return f"{principals_str}常法顾问-{start_str}至{end_str}"
 
     @transaction.atomic
-    def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None | None:
+    def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
         try:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:

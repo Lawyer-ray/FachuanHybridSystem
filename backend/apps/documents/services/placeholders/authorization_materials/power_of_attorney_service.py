@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any, ClassVar
 
 from apps.documents.models import ProxyMatterRule
+from apps.documents.models.choices import LegalStatusMatchMode
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 

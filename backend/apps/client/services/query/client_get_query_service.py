@@ -3,13 +3,9 @@
 from django.utils.translation import gettext_lazy as _
 from typing import Any
 
-from django.contrib.auth import get_user_model
-
 from apps.client.models import Client
 from apps.client.services.client_internal_query_service import ClientInternalQueryService
 from apps.core.exceptions import NotFoundError
-
-User = get_user_model()
 
 
 class ClientGetQueryService:

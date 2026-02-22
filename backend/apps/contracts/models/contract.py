@@ -62,6 +62,7 @@ class Contract(models.Model):
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
 
     if TYPE_CHECKING:
+        cases: RelatedManager[Case]
         finance_logs: RelatedManager[ContractFinanceLog]
         folder_binding: ContractFolderBinding
         contract_parties: RelatedManager[ContractParty]

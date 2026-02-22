@@ -28,9 +28,9 @@ def _get_contract_admin_service() -> Any:
 
 def _get_contract_display_service() -> Any:
     """工厂函数获取合同显示服务"""
-    from apps.contracts.services import ContractDisplayService
+    from apps.contracts.admin.wiring_admin import get_contract_display_service
 
-    return ContractDisplayService()
+    return get_contract_display_service()
 
 
 class ContractDisplayMixin:

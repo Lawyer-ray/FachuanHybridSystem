@@ -13,6 +13,7 @@ from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.system_config import SystemConfig
+from apps.core.repositories.system_config_repository import SystemConfigRepository
 
 
 class _MissingSentinel:
@@ -27,9 +28,12 @@ class SystemConfigService:
     """系统配置服务"""
 
     def __init__(
-        self, *, model: type[Any] = SystemConfig, cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS
+        self,
+        *,
+        repository: SystemConfigRepository | None = None,
+        cache_timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS,
     ) -> None:
-        self._model = model
+        self._repository = repository or SystemConfigRepository()
         self._cache_timeout = cache_timeout
 
     @transaction.atomic
@@ -63,7 +67,7 @@ class SystemConfigService:
                 errors={"key": "配置键不能为空"},
             )
 
-        config = self._model.objects.create(
+        config = self._repository.create(
             key=key.strip(),
             value=value,
             category=category,
@@ -142,7 +146,7 @@ class SystemConfigService:
         Returns:
             是否成功
         """
-        config = self._model.objects.filter(id=config_id).first()
+        config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
@@ -151,7 +155,7 @@ class SystemConfigService:
             )
 
         key = config.key
-        config.delete()
+        self._repository.delete(config_id)
 
         # 清除缓存
         self._clear_cache(key)
@@ -168,7 +172,7 @@ class SystemConfigService:
         Returns:
             SystemConfig 实例
         """
-        config = self._model.objects.filter(id=config_id).first()
+        config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
@@ -187,7 +191,7 @@ class SystemConfigService:
         Returns:
             SystemConfig 实例,不存在时返回 None
         """
-        return self._model.objects.filter(key=key, is_active=True).first()  # type: ignore[no-any-return]  # QuerySet.first() 返回 Any
+        return self._repository.get_by_key(key)
 
     def get_value(self, key: str, default: str = "") -> str:
         """
@@ -207,8 +211,8 @@ class SystemConfigService:
         if cached is not None:
             return cached if isinstance(cached, str) else str(cached)
 
-        config = self._model.objects.filter(key=key, is_active=True).first()
-        if config is None:
+        config = self._repository.get_by_key(key)
+        if config is None or not config.is_active:
             cache.set(cache_key, _MISSING_SENTINEL, timeout=self._cache_timeout)
             return default
 

@@ -60,7 +60,7 @@ class ContractServiceAdapter:
         contracts = Contract.objects.filter(id__in=contract_ids).prefetch_related("assignments__lawyer__law_firm")
         return [self.dto_assembler.to_dto(c) for c in contracts]
 
-    def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None | None:
+    def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None:
         try:
             contract = self.contract_service.query_service.get_contract_internal(contract_id)
             primary_lawyer = getattr(contract, "primary_lawyer", None)

@@ -102,8 +102,10 @@ class ReminderService:
                 contract_id=new_contract_id if "contract_id" in data else None,
                 case_log_id=new_case_log_id if "case_log_id" in data else None,
             )
-            reminder.contract_id = new_contract_id
-            reminder.case_log_id = new_case_log_id
+            if "contract_id" in data:
+                reminder.contract_id = new_contract_id
+            if "case_log_id" in data:
+                reminder.case_log_id = new_case_log_id
 
         if "reminder_type" in data and data["reminder_type"] is not None:
             reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
