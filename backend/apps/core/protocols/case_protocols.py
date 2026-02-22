@@ -469,9 +469,26 @@ class ICaseNumberService(Protocol):
         """
         ...
 
+    def format_case_number(self, number: str) -> str:
+        """
+        格式化案号:统一括号、删除空格
+
+        在保存前调用此方法，确保案号格式统一。
+
+        Args:
+            number: 原始案号
+
+        Returns:
+            格式化后的案号
+        """
+        ...
+
     def normalize_case_number(self, number: str) -> str:
         """
         规范化案号:统一括号、删除空格
+
+        .. deprecated::
+            使用 :meth:`format_case_number` 代替
 
         Args:
             number: 原始案号

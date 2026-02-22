@@ -36,6 +36,10 @@ class CaseNumberServiceAdapter(ICaseNumberService):
         """内部方法：创建案号"""
         return self.case_number_service.create_number(case_id=case_id, number=number, remarks=remarks)
 
+    def format_case_number(self, number: str) -> str:
+        """格式化案号"""
+        return cast(str, self.case_number_service.format_case_number(number))
+
     def normalize_case_number(self, number: str) -> str:
         """规范化案号"""
-        return cast(str, self.case_number_service.normalize_case_number(number))
+        return self.format_case_number(number)

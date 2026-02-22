@@ -3,6 +3,7 @@
 from django.db import transaction
 
 from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty, SupervisingAuthority
+from apps.cases.utils import normalize_case_number
 
 
 class CaseAdminService:
@@ -62,7 +63,7 @@ class CaseAdminService:
         for case_number in original.case_numbers.all():
             CaseNumber.objects.create(
                 case=new_case,
-                number=case_number.number,
+                number=normalize_case_number(case_number.number),
                 remarks=case_number.remarks,
             )
 

@@ -113,13 +113,10 @@ class ClientAdmin(admin.ModelAdmin[Client]):
             for info in upload_info:
                 instance = info["form"].instance
                 if instance.pk:
-                    try:
-                        admin_service.save_and_rename_file(
-                            client_id=client.id,
-                            client_name=client.name,
-                            doc_id=instance.pk,
-                            doc_type=info["doc_type"],
-                            uploaded_file=info["uploaded_file"],
-                        )
-                    except Exception:
-                        logger.exception("文件处理失败")
+                    admin_service.save_and_rename_file(
+                        client_id=client.id,
+                        client_name=client.name,
+                        doc_id=instance.pk,
+                        doc_type=info["doc_type"],
+                        uploaded_file=info["uploaded_file"],
+                    )
