@@ -35,11 +35,6 @@ else:
         BaseTabularInline = admin.TabularInline
 
 
-def _get_contract_admin_service() -> Any:
-    """工厂函数获取合同 Admin 服务"""
-    from apps.contracts.services.contract_admin_service import ContractAdminService
-
-    return ContractAdminService()
 
 
 class ContractPartyInline(BaseTabularInline):
