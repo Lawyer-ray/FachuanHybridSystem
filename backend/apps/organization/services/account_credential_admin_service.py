@@ -133,7 +133,7 @@ class AccountCredentialAdminService:
             return LoginResult(
                 success=False,
                 duration=0,
-                error_message=f"账号 {credential.account} 不支持自动登录（仅支持法院一张网）",
+                error_message=str(_("账号 %(account)s 不支持自动登录（仅支持法院一张网）")) % {"account": credential.account},
             )
 
         logger.info(
@@ -331,7 +331,7 @@ class AccountCredentialAdminService:
             success_count=success_count,
             error_count=error_count,
             total_duration=total_duration,
-            message="，".join(messages),
+            message=str(_("，")).join(messages),
         )
 
     def _execute_single_login(

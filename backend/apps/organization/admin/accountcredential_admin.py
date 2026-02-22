@@ -129,22 +129,22 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
         if delta.days > 30:
             color = "#dc3545"
-            time_str = f"{delta.days}天前"
+            time_str = str(_("%(days)d天前")) % {"days": delta.days}
         elif delta.days > 7:
             color = "#ffc107"
-            time_str = f"{delta.days}天前"
+            time_str = str(_("%(days)d天前")) % {"days": delta.days}
         elif delta.days > 0:
             color = "#007bff"
-            time_str = f"{delta.days}天前"
+            time_str = str(_("%(days)d天前")) % {"days": delta.days}
         else:
             hours = delta.seconds // 3600
             if hours > 0:
                 color = "#28a745"
-                time_str = f"{hours}小时前"
+                time_str = str(_("%(hours)d小时前")) % {"hours": hours}
             else:
                 minutes = delta.seconds // 60
                 color = "#28a745"
-                time_str = f"{minutes}分钟前"
+                time_str = str(_("%(minutes)d分钟前")) % {"minutes": minutes}
 
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
@@ -152,11 +152,14 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     def auto_login_button(self, obj: AccountCredential) -> SafeString:
         """操作按钮 - 查看历史"""
         if obj.site_name == "court_zxfw":
+            from django.urls import reverse
+            url = reverse("admin:automation_tokenacquisitionhistory_changelist")
             return format_html(
-                '<a class="button" href="/admin/automation/tokenacquisitionhistory/?credential_id={}" '
+                '<a class="button" href="{}?credential_id={}" '
                 'style="background-color: #28a745; color: white; padding: 5px 8px; '
                 'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 12px;">'
                 "📊 查看历史</a>",
+                url,
                 obj.id,
             )
         else:
