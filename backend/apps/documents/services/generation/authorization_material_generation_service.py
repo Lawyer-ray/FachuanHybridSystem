@@ -1,10 +1,10 @@
 """Business logic services."""
 
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import io
 import logging
 import zipfile
-from datetime import datetime
 from pathlib import Path as StdPath
 from typing import Any, ClassVar, cast
 
@@ -145,7 +145,7 @@ class AuthorizationMaterialGenerationService:
 
         missing_lines: list[str] = []
 
-        now = datetime.now()
+        now = timezone.now()
         zip_filename = f"全套授权委托材料({getattr(case, 'name', '') or '案件'})V1_{now.strftime('%Y%m%d')}.zip"
 
         buffer = io.BytesIO()
@@ -567,13 +567,13 @@ class AuthorizationMaterialGenerationService:
             ) from e
 
     def _build_authority_letter_filename(self, *, case_name: str) -> str:
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
         template_name = "所函"
         safe_case_name = case_name or "案件"
         return f"{template_name}({safe_case_name})V1_{date_str}.docx"
 
     def _build_legal_rep_certificate_filename(self, *, company_name: str) -> str:
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
         template_name = "法定代表人身份证明书"
         safe_company_name = company_name or "公司"
         return f"{template_name}({safe_company_name})V1_{date_str}.docx"
@@ -581,7 +581,7 @@ class AuthorizationMaterialGenerationService:
     def _build_power_of_attorney_filename(
         self, *, case: Any, selected_clients: list[Any], combined: bool = False
     ) -> str:
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
         template_name = "授权委托书"
         case_name = getattr(case, "name", "") or "案件"
 

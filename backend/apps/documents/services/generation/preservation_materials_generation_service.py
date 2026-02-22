@@ -7,10 +7,10 @@ Requirements: 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 10.1, 10.2, 10.3, 10.4, 10.5, 1
 """
 
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import io
 import logging
 import zipfile
-from datetime import datetime
 from typing import Any, cast
 
 from docxtpl import DocxTemplate
@@ -148,7 +148,7 @@ class PreservationMaterialsGenerationService:
                 errors={"case_id": str(case_id)},
             )
         missing_clue_respondents = self.property_clue_service.get_respondents_without_clues(case_id)
-        now = datetime.now()
+        now = timezone.now()
         case_name = getattr(case, "name", "") or "案件"
         zip_filename = f"全套保全材料({case_name})V1_{now.strftime('%Y%m%d')}.zip"
         buffer = io.BytesIO()
@@ -325,6 +325,6 @@ class PreservationMaterialsGenerationService:
 
         Requirements: 3.1, 3.2, 3.4
         """
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
         case_name = getattr(case, "name", "") or "案件"
         return f"{template_name}({case_name})V1_{date_str}.docx"

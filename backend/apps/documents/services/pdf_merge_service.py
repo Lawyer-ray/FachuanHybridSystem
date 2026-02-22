@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import contextlib
 import io
 from pathlib import Path
@@ -130,10 +131,9 @@ class PDFMergeWorkflow:
         return add_page_numbers_util(pdf_input, start_page)
 
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
-        from datetime import datetime
-
+        
         case_name = evidence_list.case.name
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
         list_suffix = ""
         title = evidence_list.title
         if title.startswith("证据清单"):

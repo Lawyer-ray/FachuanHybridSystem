@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 import io
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from docx import Document
@@ -402,7 +402,7 @@ class EvidenceExportService:
         case_name = evidence_list.case.name
 
         # 获取日期(格式:YYYYMMDD)
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
 
         # 根据文档类型生成文件名
         if doc_type == "证据清单":
