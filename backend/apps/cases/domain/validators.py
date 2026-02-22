@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.enums import CaseStage, CaseType
 
 __all__: list[str] = [
@@ -26,7 +28,7 @@ def is_applicable(case_type: str | None) -> bool:
     return bool(case_type) and case_type in APPLICABLE_TYPES
 
 
-def _allowed() -> set[str]:
+def _allowed_stages() -> set[str]:
     """获取所有允许的案件阶段值。"""
     return {str(c[0]) for c in CaseStage.choices}
 
@@ -40,17 +42,19 @@ def normalize_stages(
     """规范化案件阶段数据。"""
     if not is_applicable(case_type):
         if strict and (representation_stages or current_stage):
-            raise ValueError("stages_not_applicable")
+            raise ValueError(_("stages_not_applicable"))
         return [], None
     rep = list(representation_stages or [])
     cur = current_stage or None
-    allowed = _allowed()
+    allowed = _allowed_stages()
     invalid = set(rep) - allowed
     if invalid:
-        raise ValueError(f"invalid_rep:{','.join(sorted(invalid))}")
+        raise ValueError(
+            _("invalid_rep:%(stages)s") % {"stages": ",".join(sorted(invalid))}
+        )
     if cur:
         if cur not in allowed:
-            raise ValueError("invalid_cur")
+            raise ValueError(_("invalid_cur"))
         if rep and cur not in set(rep):
-            raise ValueError("cur_not_in_rep")
+            raise ValueError(_("cur_not_in_rep"))
     return rep, cur
