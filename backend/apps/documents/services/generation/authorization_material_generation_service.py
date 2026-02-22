@@ -553,7 +553,7 @@ class AuthorizationMaterialGenerationService:
 
         try:
             logger.info(
-                "授权委托材料渲染模板", extra={"template_path": str(template_path), "keys": list[Any](context.keys())}
+                "授权委托材料渲染模板", extra={"template_path": str(template_path), "keys": list(context.keys())}
             )
             from .pipeline import DocxRenderer
 

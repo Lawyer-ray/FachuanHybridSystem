@@ -31,7 +31,7 @@ class LitigationLLMGenerator:
             prompt = self._prompt_factory.get_complaint_prompt()
             structured_llm = self.llm_service.get_structured_llm(ComplaintOutput, method="json_mode")
             chain = (prompt | structured_llm).with_retry(stop_after_attempt=3, wait_exponential_jitter=True)
-            logger.info("开始生成起诉状", extra={"case_data_keys": list[Any](case_data.keys())})
+            logger.info("开始生成起诉状", extra={"case_data_keys": list(case_data.keys())})
             result = chain.invoke(case_data)
             logger.info("起诉状生成成功")
             return result
@@ -61,7 +61,7 @@ class LitigationLLMGenerator:
             prompt = self._prompt_factory.get_defense_prompt()
             structured_llm = self.llm_service.get_structured_llm(DefenseOutput, method="json_mode")
             chain = (prompt | structured_llm).with_retry(stop_after_attempt=3, wait_exponential_jitter=True)
-            logger.info("开始生成答辩状", extra={"case_data_keys": list[Any](case_data.keys())})
+            logger.info("开始生成答辩状", extra={"case_data_keys": list(case_data.keys())})
             result = chain.invoke(case_data)
             logger.info("答辩状生成成功")
             return result
