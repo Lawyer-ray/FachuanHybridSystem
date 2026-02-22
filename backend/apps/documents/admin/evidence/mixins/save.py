@@ -61,8 +61,6 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         super().save_model(request, obj, form, change)
 
     def save_formset(self, request: Any, form: Any, formset: Any, change: Any) -> None:
-        import traceback
-
         from django.contrib import messages
 
         try:
@@ -73,7 +71,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
             max_order = evidence_list.items.aggregate(max_order=models.Max("order"))["max_order"] or 0
             items_need_page_count: list[Any] = []
 
-            max_order = self._save_instances(instances, max_order, items_need_page_count, request, messages, traceback)
+            max_order = self._save_instances(instances, max_order, items_need_page_count, request, messages)
             self._count_pdf_pages(items_need_page_count, request, messages)
             self._delete_removed_objects(formset, request, messages)
             self._handle_file_cleared(formset)
@@ -82,7 +80,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
             formset.save_m2m()
 
         except Exception as e:
-            logger.error("保存过程出错", extra={"error": str(e), "traceback": traceback.format_exc()}, exc_info=True)
+            logger.error("保存过程出错", extra={"error": str(e)}, exc_info=True)
             messages.error(request, _("保存过程出错: %(e)s") % {"e": e})
             raise
 
@@ -95,7 +93,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
-    def _save_instances(self, instances: Any, max_order: int, items_need_page_count: list[Any], request: Any, messages: Any, traceback: Any) -> Any:
+    def _save_instances(self, instances: Any, max_order: int, items_need_page_count: list[Any], request: Any, messages: Any) -> Any:
         for obj in instances:
             if isinstance(obj, EvidenceItem):
                 self._prepare_evidence_item(obj, max_order, items_need_page_count)
@@ -103,7 +101,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
             try:
                 obj.save()
             except Exception as e:
-                logger.error("保存失败", extra={"error": str(e), "traceback": traceback.format_exc()}, exc_info=True)
+                logger.error("保存失败", extra={"error": str(e)}, exc_info=True)
                 messages.error(request, _("保存失败: %(e)s") % {"e": e})
                 raise
         return max_order
