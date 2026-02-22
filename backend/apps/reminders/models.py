@@ -44,6 +44,7 @@ class Reminder(models.Model):
     due_at = models.DateTimeField(verbose_name=_("到期时间"))
     metadata = models.JSONField(default=dict, blank=True, verbose_name=_("扩展数据"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("重要日期提醒")

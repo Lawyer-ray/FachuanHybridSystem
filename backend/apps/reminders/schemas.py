@@ -68,9 +68,10 @@ class ReminderOut(SchemaMixin, Schema):
     reminder_type: str
     reminder_type_label: str
     content: str
-    metadata: dict[str, Any] | None = None
+    metadata: dict[str, Any] = {}
     due_at: str | None = None
     created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:
@@ -83,6 +84,10 @@ class ReminderOut(SchemaMixin, Schema):
     @staticmethod
     def resolve_created_at(obj: Reminder) -> str | None:
         return SchemaMixin._resolve_datetime_iso(obj.created_at)
+
+    @staticmethod
+    def resolve_updated_at(obj: Reminder) -> str | None:
+        return SchemaMixin._resolve_datetime_iso(obj.updated_at)
 
 
 class ReminderTypeItem(Schema):
