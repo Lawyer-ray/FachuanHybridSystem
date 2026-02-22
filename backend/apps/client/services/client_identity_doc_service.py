@@ -1,7 +1,6 @@
 """当事人证件文档服务。"""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 import shutil
@@ -10,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.client.models import Client, ClientIdentityDoc
