@@ -91,7 +91,7 @@ class ChatNameConfigService:
 
         # 如果配置值为空,使用默认模板
         if not template or not template.strip():
-            logger.debug(f"群名模板配置为空,使用默认模板: {self.DEFAULT_TEMPLATE}")
+            logger.debug("群名模板配置为空,使用默认模板: %s", self.DEFAULT_TEMPLATE)
             return self.DEFAULT_TEMPLATE
 
         return template.strip()
@@ -111,7 +111,7 @@ class ChatNameConfigService:
 
         # 如果配置值为空,使用默认值
         if not default_stage or not default_stage.strip():
-            logger.debug(f"默认阶段配置为空,使用默认值: {self.DEFAULT_STAGE}")
+            logger.debug("默认阶段配置为空,使用默认值: %s", self.DEFAULT_STAGE)
             return self.DEFAULT_STAGE
 
         return default_stage.strip()
@@ -134,11 +134,11 @@ class ChatNameConfigService:
         try:
             max_length = int(max_length_str)
             if max_length <= 0:
-                logger.warning(f"群名最大长度配置无效 ({max_length}),使用默认值: {self.DEFAULT_MAX_LENGTH}")
+                logger.warning("群名最大长度配置无效 (%s),使用默认值: %s", max_length, self.DEFAULT_MAX_LENGTH)
                 return self.DEFAULT_MAX_LENGTH
             return max_length
         except (ValueError, TypeError):
-            logger.warning(f"群名最大长度配置格式错误 ({max_length_str}),使用默认值: {self.DEFAULT_MAX_LENGTH}")
+            logger.warning("群名最大长度配置格式错误 (%s),使用默认值: %s", max_length_str, self.DEFAULT_MAX_LENGTH)
             return self.DEFAULT_MAX_LENGTH
 
     def render_chat_name(self, case_name: str, stage: str | None = None, case_type: str | None = None) -> str:
@@ -197,7 +197,7 @@ class ChatNameConfigService:
         if len(chat_name) > max_length:
             chat_name = self._truncate_chat_name(chat_name, max_length, template, stage, case_name, case_type)
 
-        logger.debug(f"渲染群聊名称: {chat_name}")
+        logger.debug("渲染群聊名称: %s", chat_name)
         return chat_name
 
     def _render_template(self, template: str, stage: str, case_name: str, case_type: str) -> str:
@@ -230,7 +230,7 @@ class ChatNameConfigService:
         # 检查无效占位符
         for placeholder in found_placeholders:
             if placeholder not in self.VALID_PLACEHOLDERS:
-                logger.warning(f"模板中包含无效占位符: {{{placeholder}}},将保留原文")
+                logger.warning("模板中包含无效占位符: {%s},将保留原文", placeholder)
 
         # 替换有效占位符
         result = template
@@ -290,5 +290,5 @@ class ChatNameConfigService:
             ellipsis = "..."
             truncated_name = chat_name[: max_length - len(ellipsis)] + ellipsis
 
-        logger.debug(f"群名截断: {chat_name} -> {truncated_name} (最大长度: {max_length})")
+        logger.debug("群名截断: %s -> %s (最大长度: %s)", chat_name, truncated_name, max_length)
         return truncated_name

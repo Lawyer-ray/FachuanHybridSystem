@@ -41,7 +41,7 @@ class ChatNameBuilder:
                 stage_display = case.get_current_stage_display()
             except (AttributeError, ValueError):
                 stage_display = case.current_stage
-                logger.warning(f"无法获取案件阶段显示名称: {case.current_stage}, 使用原始值")
+                logger.warning("无法获取案件阶段显示名称: %s, 使用原始值", case.current_stage)
 
         case_type_display: str | None = None
         if getattr(case, "case_type", None):
@@ -49,10 +49,10 @@ class ChatNameBuilder:
                 case_type_display = case.get_case_type_display()
             except (AttributeError, ValueError):
                 case_type_display = case.case_type
-                logger.warning(f"无法获取案件类型显示名称: {case.case_type}, 使用原始值")
+                logger.warning("无法获取案件类型显示名称: %s, 使用原始值", case.case_type)
 
         chat_name = self.config_service.render_chat_name(
             case_name=case.name, stage=stage_display, case_type=case_type_display
         )
-        logger.debug(f"生成群聊名称: {chat_name} (案件ID: {getattr(case, 'id', None)})")
+        logger.debug("生成群聊名称: %s (案件ID: %s)", chat_name, getattr(case, 'id', None))
         return cast(str, chat_name)

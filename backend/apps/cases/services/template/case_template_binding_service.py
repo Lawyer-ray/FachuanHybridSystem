@@ -203,7 +203,7 @@ class CaseTemplateBindingService:
 
         binding = self.repo.create_binding(case_id=case_id, template_id=template_id, source=BindingSource.MANUAL_BOUND)
 
-        logger.info(f"手动绑定模板: case_id={case_id}, template_id={template_id}")
+        logger.info("手动绑定模板: case_id=%s, template_id=%s", case_id, template_id)
 
         return {
             "binding_id": binding.id,
@@ -248,7 +248,7 @@ class CaseTemplateBindingService:
         template_id = binding.template_id
         self.repo.delete_binding(binding)
 
-        logger.info(f"解绑模板: case_id={case_id}, binding_id={binding_id}, template_id={template_id}")
+        logger.info("解绑模板: case_id=%s, binding_id=%s, template_id=%s", case_id, binding_id, template_id)
 
     @transaction.atomic
     def sync_auto_recommendations(self, case_id: int) -> None:
@@ -290,12 +290,12 @@ class CaseTemplateBindingService:
         # 删除不再匹配的自动推荐绑定
         if to_remove:
             self.repo.delete_auto_bindings(case_id, to_remove)
-            logger.info(f"删除自动推荐绑定: case_id={case_id}, template_ids={to_remove}")
+            logger.info("删除自动推荐绑定: case_id=%s, template_ids=%s", case_id, to_remove)
 
         # 添加新匹配的自动推荐绑定
         if to_add:
             self.repo.bulk_create_auto_bindings(case_id, to_add)
-            logger.info(f"添加自动推荐绑定: case_id={case_id}, template_ids={to_add}")
+            logger.info("添加自动推荐绑定: case_id=%s, template_ids=%s", case_id, to_add)
 
     def get_unified_templates(self, case_id: int) -> list[dict[str, Any]]:
         """
@@ -358,7 +358,7 @@ class CaseTemplateBindingService:
                     }
                 )
 
-        logger.info(f"获取统一模板列表: case_id={case_id}, count={len(templates)}")
+        logger.info("获取统一模板列表: case_id=%s, count=%s", case_id, len(templates))
 
         return templates
 

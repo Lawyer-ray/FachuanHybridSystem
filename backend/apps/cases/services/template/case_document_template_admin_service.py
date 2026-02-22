@@ -95,7 +95,7 @@ class CaseDocumentTemplateAdminService:
         """
 
         if not case_type:
-            logger.info(f"案件 {case_id} 未设置案件类型,返回空匹配列表")
+            logger.info("案件 %s 未设置案件类型,返回空匹配列表", case_id)
             return []
 
         templates = self.document_service.list_case_templates_internal(is_active=True)
@@ -142,9 +142,8 @@ class CaseDocumentTemplateAdminService:
             )
 
         logger.info(
-            f"案件 {case_id} 匹配到 {len(matched)} 个文件模板,"
-            f"case_type={case_type}, case_stage={case_stage}, "
-            f"legal_statuses={legal_statuses}"
+            "案件 %s 匹配到 %s 个文件模板,case_type=%s, case_stage=%s, legal_statuses=%s",
+            case_id, len(matched), case_type, case_stage, legal_statuses,
         )
 
         return matched
@@ -194,7 +193,7 @@ class CaseDocumentTemplateAdminService:
             for t in templates
         ]
 
-        logger.info(f"案件 {case_id} 可绑定模板数量: {len(result)},排除模板数量: {len(exclude_template_ids)}")
+        logger.info("案件 %s 可绑定模板数量: %s,排除模板数量: %s", case_id, len(result), len(exclude_template_ids))
 
         return result
 

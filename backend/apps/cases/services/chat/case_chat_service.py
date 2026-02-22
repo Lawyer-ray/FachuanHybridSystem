@@ -125,9 +125,9 @@ class CaseChatService:
                 case_id=123,
                 platform=ChatPlatform.FEISHU
             )
-            logger.info(f"创建群聊成功: {chat.name}")
+            logger.info("创建群聊成功: %s", chat.name)
         """
-        logger.info(f"开始为案件创建群聊: case_id={case_id}, platform={platform.value}")
+        logger.info("开始为案件创建群聊: case_id=%s, platform=%s", case_id, platform.value)
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
         chat_name = self.name_builder.build(case=case)
@@ -147,8 +147,8 @@ class CaseChatService:
                 case=case, platform=platform, chat_id=result.chat_id, name=result.chat_name or chat_name, is_active=True
             )
             logger.info(
-                f"群聊创建成功: case_id={case_id}, chat_id={result.chat_id},"
-                f" platform={platform.value}, name={case_chat.name}"
+                "群聊创建成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
+                case_id, result.chat_id, platform.value, case_chat.name,
             )
             return case_chat
         except ChatCreationException:
@@ -199,14 +199,14 @@ class CaseChatService:
             chat2 = service.get_or_create_chat(case_id=123)
             assert chat1.id == chat2.id
         """
-        logger.debug(f"获取或创建群聊: case_id={case_id}, platform={platform.value}")
+        logger.debug("获取或创建群聊: case_id=%s, platform=%s", case_id, platform.value)
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
         existing_chat = self.repo.get_active_chat(case_id=case_id, platform=platform)
         if existing_chat:
-            logger.debug(f"找到现有群聊: chat_id={existing_chat.chat_id}, name={existing_chat.name}")
+            logger.debug("找到现有群聊: chat_id=%s, name=%s", existing_chat.chat_id, existing_chat.name)
             return existing_chat
-        logger.info(f"未找到现有群聊,开始创建新群聊: case_id={case_id}, platform={platform.value}")
+        logger.info("未找到现有群聊,开始创建新群聊: case_id=%s, platform=%s", case_id, platform.value)
         return cast(
             None,
             self.create_chat_for_case(
@@ -266,8 +266,8 @@ class CaseChatService:
             logger.info("通知发送成功")
         """
         logger.info(
-            f"发送文书通知: case_id={case_id}, platform={platform.value},"
-            f" file_count={(len(document_paths) if document_paths else 0)}"
+            "发送文书通知: case_id=%s, platform=%s, file_count=%s",
+            case_id, platform.value, len(document_paths) if document_paths else 0,
         )
         if not sms_content or not sms_content.strip():
             raise ValidationException(
@@ -287,7 +287,7 @@ class CaseChatService:
             result = usecase.execute(
                 case_id=case_id, platform=platform, chat=chat, content=content, document_paths=document_paths
             )
-            logger.info(f"文书通知发送完成: case_id={case_id}, chat_id={chat.chat_id}, success={result.success}")
+            logger.info("文书通知发送完成: case_id=%s, chat_id=%s, success=%s", case_id, chat.chat_id, result.success)
             return result
         except MessageSendException:
             raise
@@ -385,7 +385,7 @@ class CaseChatService:
                 chat_name="【一审】张三诉李四合同纠纷案"
             )
         """
-        logger.info(f"绑定已存在的群聊: case_id={case_id}, platform={platform.value}, chat_id={chat_id}")
+        logger.info("绑定已存在的群聊: case_id=%s, platform=%s, chat_id=%s", case_id, platform.value, chat_id)
         if not chat_id or not chat_id.strip():
             raise ValidationException(
                 message=_("群聊ID不能为空"), code="INVALID_CHAT_ID", errors={"chat_id": "群聊ID为必填项"}
@@ -403,7 +403,8 @@ class CaseChatService:
                 case=case, platform=platform, chat_id=chat_id, name=chat_name, is_active=True
             )
             logger.info(
-                f"群聊绑定成功: case_id={case_id}, chat_id={chat_id}, platform={platform.value}, name={chat_name}"
+                "群聊绑定成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
+                case_id, chat_id, platform.value, chat_name,
             )
             return case_chat
         except ValidationException:
