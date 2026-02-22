@@ -12,6 +12,9 @@ from typing import Any
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import NotFoundError
+from apps.core.path import Path
+
 logger = logging.getLogger(__name__)
 
 
@@ -344,3 +347,70 @@ class DocumentTemplateAdminService:
             return template_set == case_set
         else:
             return bool(template_set & case_set)
+
+    def download_file(self, template: Any) -> tuple[Path, str]:
+        """
+        检查文件存在性并返回文件路径和文件名
+
+        Args:
+            template: 文书模板实例
+
+        Returns:
+            (文件路径, 文件名) 元组
+
+        Raises:
+            NotFoundError: 文件不存在
+        """
+        file_location: str = template.get_file_location()
+        if not file_location:
+            raise NotFoundError(
+                message=_("文件不存在"),
+                code="TEMPLATE_FILE_NOT_FOUND",
+            )
+
+        file_path = Path(file_location)
+        if not file_path.exists():
+            raise NotFoundError(
+                message=_("文件不存在"),
+                code="TEMPLATE_FILE_NOT_FOUND",
+            )
+
+        filename: str = file_path.name
+        return file_path, filename
+
+    def batch_activate(self, queryset: Any) -> int:
+        """
+        批量启用模板
+
+        Args:
+            queryset: 要启用的模板查询集
+
+        Returns:
+            实际启用的数量
+        """
+        updated: int = 0
+        for template in queryset:
+            if not template.is_active:
+                template.is_active = True
+                template.save(update_fields=["is_active"])
+                updated += 1
+        return updated
+
+    def batch_deactivate(self, queryset: Any) -> int:
+        """
+        批量禁用模板
+
+        Args:
+            queryset: 要禁用的模板查询集
+
+        Returns:
+            实际禁用的数量
+        """
+        updated: int = 0
+        for template in queryset:
+            if template.is_active:
+                template.is_active = False
+                template.save(update_fields=["is_active"])
+                updated += 1
+        return updated
+
