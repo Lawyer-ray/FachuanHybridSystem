@@ -93,7 +93,7 @@ def test_existing_endpoint_parse_text_not_404() -> None:
     """/parse-text 端点存在（非 404）"""
     from ninja.testing import TestClient
 
-    from apps.client.api.clientidentitydoc_api import router
+    from apps.client.api.client_api import router
 
     client = TestClient(router)
     response = client.get("/parse-text")
