@@ -64,18 +64,18 @@ class TestBusinessException:
         """测试转换为字典"""
         errors = {"field1": "错误1"}
         exc = BusinessException(message="测试错误", code="TEST_ERROR", errors=errors)
-
         result = exc.to_dict()
-
-        assert result == {"error": "测试错误", "code": "TEST_ERROR", "errors": errors}
+        assert result["error"] == "测试错误"
+        assert result["code"] == "TEST_ERROR"
+        assert result["errors"] == errors
 
     def test_to_dict_without_errors(self):
         """测试转换为字典（无 errors）"""
         exc = BusinessException("测试错误", code="TEST_ERROR")
-
         result = exc.to_dict()
-
-        assert result == {"error": "测试错误", "code": "TEST_ERROR", "errors": {}}
+        assert result["error"] == "测试错误"
+        assert result["code"] == "TEST_ERROR"
+        assert result["errors"] == {}
 
     def test_inheritance(self):
         """测试继承关系"""

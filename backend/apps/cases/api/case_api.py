@@ -36,14 +36,12 @@ def _get_case_service() -> CaseService:
 
 def _get_case_query_facade() -> CaseService:
     """Query facade — 只读操作"""
-    from apps.contracts.services import ContractService
-    return CaseService(contract_service=ContractService())
+    return _get_case_service()
 
 
 def _get_case_mutation_facade() -> CaseService:
     """Mutation facade — 写操作"""
-    from apps.contracts.services import ContractService
-    return CaseService(contract_service=ContractService())
+    return _get_case_service()
 
 
 @router.get("/cases/search", response=list[CaseOut])

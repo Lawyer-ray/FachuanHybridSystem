@@ -216,6 +216,11 @@ class SystemConfigService:
             return default
 
         value = config.value
+        if config.is_secret:
+            from apps.core.security.secret_codec import SecretCodec
+            codec = SecretCodec()
+            if codec.is_encrypted(value):
+                value = codec.decrypt(value)
         cache.set(cache_key, value, timeout=self._cache_timeout)
         return cast(str, value)
 
@@ -305,10 +310,15 @@ class SystemConfigService:
         Returns:
             SystemConfig 实例
         """
+        stored_value = value
+        if is_secret:
+            from apps.core.security.secret_codec import SecretCodec
+            stored_value = SecretCodec().encrypt(value)
+
         config, _created = self._model.objects.update_or_create(
             key=key,
             defaults={
-                "value": value,
+                "value": stored_value,
                 "category": category,
                 "description": description,
                 "is_secret": is_secret,

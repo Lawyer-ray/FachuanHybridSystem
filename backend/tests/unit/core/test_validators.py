@@ -177,9 +177,9 @@ class ValidatorsTest(TestCase):
 
     def test_validate_decimal_precision(self):
         """测试 Decimal 精度验证"""
-        # 测试整数部分过大
+        # 测试整数部分过大（13位整数 + 2位小数 = 15位，超过max_digits=14）
         with self.assertRaises(ValidationException):
-            Validators.validate_decimal("123456789012.34", "amount", max_digits=14, decimal_places=2)
+            Validators.validate_decimal("1234567890123.34", "amount", max_digits=14, decimal_places=2)
 
     def test_validate_date(self):
         """测试日期验证"""

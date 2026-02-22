@@ -39,6 +39,8 @@ class Validators:
             return None
 
         phone = phone.strip()
+        if not phone:
+            return None
         if not cls.PHONE_PATTERN.match(phone):
             raise ValidationException("手机号码格式不正确", errors={field_name: "请输入有效的11位手机号码"})
         return phone
@@ -111,8 +113,8 @@ class Validators:
         max_length: int | None = None,
     ) -> str | None:
         """验证字符串长度"""
-        if not value:
-            return value
+        if value is None or value == "":
+            return None
 
         length = len(value)
 
@@ -232,12 +234,23 @@ class Validators:
 
         return value
 
+    # 可执行文件 magic bytes（PE/ELF/Mach-O）
+    EXECUTABLE_MAGIC: tuple[bytes, ...] = (
+        b"MZ",       # Windows PE
+        b"\x7fELF",  # Linux ELF
+        b"\xfe\xed\xfa\xce",  # Mach-O 32-bit
+        b"\xfe\xed\xfa\xcf",  # Mach-O 64-bit
+        b"\xce\xfa\xed\xfe",  # Mach-O 32-bit LE
+        b"\xcf\xfa\xed\xfe",  # Mach-O 64-bit LE
+    )
+
     @classmethod
     def validate_uploaded_file(
         cls,
         uploaded_file: Any,
         allowed_extensions: list[str] | None = None,
         max_size_mb: float | None = None,
+        max_size_bytes: int | None = None,
         field_name: str = "file",
     ) -> Any:
         """
@@ -247,6 +260,7 @@ class Validators:
             uploaded_file: 上传的文件对象
             allowed_extensions: 允许的扩展名列表，如 [".pdf", ".jpg"]
             max_size_mb: 最大文件大小（MB），None 表示不限制
+            max_size_bytes: 最大文件大小（字节），None 表示不限制
             field_name: 字段名（用于错误信息）
 
         Returns:
@@ -267,13 +281,29 @@ class Validators:
                     errors={field_name: f"允许的格式: {', '.join(allowed_extensions)}"},
                 )
 
-        if max_size_mb is not None:
-            size: int = getattr(uploaded_file, "size", 0) or 0
-            if size > max_size_mb * 1024 * 1024:
+        size: int = getattr(uploaded_file, "size", 0) or 0
+        if max_size_bytes is not None and size > max_size_bytes:
+            raise ValidationException(
+                "文件大小超限",
+                errors={field_name: f"文件大小不能超过 {max_size_bytes} 字节"},
+            )
+        if max_size_mb is not None and size > max_size_mb * 1024 * 1024:
+            raise ValidationException(
+                "文件大小超限",
+                errors={field_name: f"文件大小不能超过 {max_size_mb} MB"},
+            )
+
+        # 检测可执行文件 magic bytes
+        try:
+            header: bytes = uploaded_file.read(8)
+            uploaded_file.seek(0)
+            if any(header.startswith(magic) for magic in cls.EXECUTABLE_MAGIC):
                 raise ValidationException(
-                    "文件大小超限",
-                    errors={field_name: f"文件大小不能超过 {max_size_mb} MB"},
+                    "不允许上传可执行文件",
+                    errors={field_name: "文件内容被识别为可执行文件"},
                 )
+        except (AttributeError, OSError):
+            pass
 
         return uploaded_file
 

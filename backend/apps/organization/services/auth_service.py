@@ -3,14 +3,21 @@
 封装用户认证相关的业务逻辑
 """
 
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth import authenticate, login, logout
+from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import AuthenticationError
-
+from apps.core.exceptions import AuthenticationError, PermissionDenied
 from apps.organization.models import Lawyer
+
+
+@dataclass
+class RegisterResult:
+    user: Any
 
 
 class AuthService:
@@ -20,6 +27,7 @@ class AuthService:
     职责：
     - 用户登录认证
     - 用户登出
+    - 用户注册
     - 认证失败时抛出 AuthenticationError
     """
 
@@ -53,3 +61,56 @@ class AuthService:
             request: Django 请求对象
         """
         logout(request)
+
+    def register(
+        self,
+        username: str,
+        password: str,
+        real_name: str,
+        bootstrap_token: str | None = None,
+    ) -> RegisterResult:
+        """
+        用户注册
+
+        Args:
+            username: 用户名
+            password: 密码
+            real_name: 真实姓名
+            bootstrap_token: 引导令牌（第一个管理员注册时需要）
+
+        Returns:
+            RegisterResult: 包含 user 属性的注册结果
+
+        Raises:
+            PermissionDenied: 生产环境注册第一个用户时未提供正确的 bootstrap_token
+        """
+        from django.conf import settings
+
+        is_first_user = not Lawyer.objects.exists()
+        allow_first_superuser = getattr(settings, "ALLOW_FIRST_USER_SUPERUSER", False)
+
+        if is_first_user and allow_first_superuser and not getattr(settings, "DEBUG", True):
+            expected_token = getattr(settings, "BOOTSTRAP_ADMIN_TOKEN", None)
+            if not bootstrap_token or bootstrap_token != expected_token:
+                raise PermissionDenied(
+                    message=_("需要 Bootstrap Token 才能注册第一个管理员"),
+                    code="BOOTSTRAP_FORBIDDEN",
+                )
+            user = Lawyer.objects.create_user(
+                username=username,
+                password=password,
+                real_name=real_name,
+                is_superuser=True,
+                is_admin=True,
+                is_active=True,
+            )
+        else:
+            user = Lawyer.objects.create_user(
+                username=username,
+                password=password,
+                real_name=real_name,
+                is_superuser=False,
+                is_admin=False,
+                is_active=False,
+            )
+        return RegisterResult(user=user)

@@ -58,12 +58,8 @@ class TestFolderBindingService:
     @pytest.mark.django_db
     def test_create_binding_success(self):
         """测试创建绑定成功"""
-        # 创建测试合同
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        # 创建绑定
-        binding = self.service.create_binding(contract.id, "/test/path")
-
+        binding = self.service.create_binding(owner_id=contract.id, folder_path="/test/path")
         assert binding.contract_id == contract.id
         assert binding.folder_path == "/test/path"
 
@@ -71,27 +67,21 @@ class TestFolderBindingService:
     def test_create_binding_contract_not_found(self):
         """测试合同不存在"""
         with pytest.raises(NotFoundError):
-            self.service.create_binding(999, "/test/path")
+            self.service.create_binding(owner_id=999, folder_path="/test/path")
 
     @pytest.mark.django_db
     def test_create_binding_invalid_path(self):
         """测试无效路径"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
         with pytest.raises(ValidationException):
-            self.service.create_binding(contract.id, "")
+            self.service.create_binding(owner_id=contract.id, folder_path="")
 
     @pytest.mark.django_db
     def test_get_binding_exists(self):
         """测试获取存在的绑定"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        # 创建绑定
-        created_binding = self.service.create_binding(contract.id, "/test/path")
-
-        # 获取绑定
-        binding = self.service.get_binding(contract.id)
-
+        created_binding = self.service.create_binding(owner_id=contract.id, folder_path="/test/path")
+        binding = self.service.get_binding(owner_id=contract.id)
         assert binding is not None
         assert binding.id == created_binding.id
 
@@ -99,32 +89,24 @@ class TestFolderBindingService:
     def test_get_binding_not_exists(self):
         """测试获取不存在的绑定"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        binding = self.service.get_binding(contract.id)
+        binding = self.service.get_binding(owner_id=contract.id)
         assert binding is None
 
     @pytest.mark.django_db
     def test_delete_binding_success(self):
         """测试删除绑定成功"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        # 创建绑定
-        self.service.create_binding(contract.id, "/test/path")
-
-        # 删除绑定
-        result = self.service.delete_binding(contract.id)
+        self.service.create_binding(owner_id=contract.id, folder_path="/test/path")
+        result = self.service.delete_binding(owner_id=contract.id)
         assert result is True
-
-        # 验证已删除
-        binding = self.service.get_binding(contract.id)
+        binding = self.service.get_binding(owner_id=contract.id)
         assert binding is None
 
     @pytest.mark.django_db
     def test_delete_binding_not_exists(self):
         """测试删除不存在的绑定"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        result = self.service.delete_binding(contract.id)
+        result = self.service.delete_binding(owner_id=contract.id)
         assert result is False
 
     def test_format_path_for_display_short(self):
@@ -166,13 +148,8 @@ class TestFolderBindingService:
     def test_save_file_to_bound_folder_success(self, mock_mkdir, mock_file):
         """测试文件保存成功"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        # 创建绑定
-        self.service.create_binding(contract.id, "/test/path")
-
-        # 保存文件
+        self.service.create_binding(owner_id=contract.id, folder_path="/test/path")
         result = self.service.save_file_to_bound_folder(contract.id, b"test content", "test.pdf")
-
         assert result is not None
         assert "test.pdf" in result
         mock_file.assert_called_once()
@@ -192,16 +169,9 @@ class TestFolderBindingService:
     def test_extract_zip_to_bound_folder_success(self, mock_mkdir, mock_zipfile):
         """测试ZIP解压成功"""
         contract = Contract.objects.create(name="测试合同", case_type="CIVIL")
-
-        # 创建绑定
-        self.service.create_binding(contract.id, "/test/path")
-
-        # 模拟ZIP文件
+        self.service.create_binding(owner_id=contract.id, folder_path="/test/path")
         mock_zip_instance = mock_zipfile.return_value.__enter__.return_value
-
-        # 解压ZIP
         result = self.service.extract_zip_to_bound_folder(contract.id, b"fake zip content")
-
         assert result is not None
         assert result == "/test/path"
         mock_zip_instance.extractall.assert_called_once()

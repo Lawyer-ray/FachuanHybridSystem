@@ -60,17 +60,18 @@ class AdvisorFeeTermsService(BasePlaceholderService):
 
             # 使用字符串常量代替直接导入 FeeMode 枚举
             # Requirements: 3.2
-            if fee_mode == "FIXED":
+            fee_mode_upper = (fee_mode or "").upper()
+            if fee_mode_upper == "FIXED":
                 return self._generate_fixed_fee_terms(contract)
-            elif fee_mode == "CUSTOM":
+            elif fee_mode_upper == "CUSTOM":
                 return self._generate_custom_fee_terms(contract)
             else:
                 # 顾问合同只支持固定收费和自定义收费
-                return "收费条款待定."
+                return "收费条款待定。"
 
         except Exception as e:
             logger.warning(f"生成顾问合同收费条款失败: {e}", extra={"contract_id": getattr(contract, "id", None)})
-            return "收费条款待定."
+            return "收费条款待定。"
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:
         """
@@ -83,9 +84,9 @@ class AdvisorFeeTermsService(BasePlaceholderService):
         if fixed_amount:
             amount_str = str(fixed_amount)
             amount_chinese = self._number_to_chinese(fixed_amount)
-            return f"甲方向乙方支付法律顾问费¥{amount_str}元(大写:人民币{amount_chinese})"
+            return f"甲方向乙方支付法律顾问费¥{amount_str}元（大写：人民币{amount_chinese}）"
         else:
-            return "甲方向乙方支付法律顾问费¥[金额待定]元(大写:人民币[金额待定])"
+            return "甲方向乙方支付法律顾问费¥[金额待定]元（大写：人民币[金额待定]）"
 
     def _generate_custom_fee_terms(self, contract: Any) -> str:
         """生成自定义收费条款"""

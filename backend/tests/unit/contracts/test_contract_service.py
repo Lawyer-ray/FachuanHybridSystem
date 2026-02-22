@@ -89,7 +89,7 @@ class TestContractService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_contract(data)
 
-        assert "固定收费模式必须指定金额" in str(exc_info.value.message)
+        assert "固定收费需填写金额" in str(exc_info.value.errors)
 
     def test_update_contract_success(self):
         """测试更新合同成功"""
@@ -323,17 +323,12 @@ class TestContractService:
         assert summary["unpaid_amount"] == 5000.00  # 10000 - 5000
 
     def test_get_finance_summary_hourly_fee(self):
-        """测试按小时收费的合同财务汇总"""
-        # 创建按小时收费的合同
-        contract = ContractFactory(fee_mode=FeeMode.HOURLY, fixed_amount=None)
+        """测试全风险收费的合同财务汇总（无固定金额）"""
+        contract = ContractFactory(fee_mode=FeeMode.FULL_RISK, fixed_amount=None)
         ContractPaymentFactory(contract=contract, amount=Decimal("1000.00"))
-
-        # 执行测试
         summary = self.service.get_finance_summary(contract.id)
-
-        # 断言结果
         assert summary["total_received"] == 1000.00
-        assert summary["unpaid_amount"] is None  # 按小时收费没有未收金额
+        assert summary["unpaid_amount"] is None  # 非固定收费没有未收金额
 
     def test_add_party_success(self):
         """测试添加当事人成功"""
@@ -397,29 +392,17 @@ class TestContractService:
 
     def test_validate_fee_mode_fixed_without_amount(self):
         """测试固定收费模式验证：缺少金额"""
-        data = {
-            "fee_mode": FeeMode.FIXED,
-            "fixed_amount": None,
-        }
-
-        # 断言抛出异常
+        data = {"fee_mode": FeeMode.FIXED, "fixed_amount": None}
         with pytest.raises(ValidationException) as exc_info:
             self.service._validate_fee_mode(data)
-
-        assert "固定收费模式必须指定金额" in str(exc_info.value.message)
+        assert "固定收费需填写金额" in str(exc_info.value.errors)
 
     def test_validate_fee_mode_hourly_with_amount(self):
-        """测试按小时收费模式验证：不应有固定金额"""
-        data = {
-            "fee_mode": FeeMode.HOURLY,
-            "fixed_amount": Decimal("10000.00"),
-        }
-
-        # 断言抛出异常
+        """测试半风险收费模式验证：缺少风险比例"""
+        data = {"fee_mode": FeeMode.SEMI_RISK, "fixed_amount": Decimal("10000.00"), "risk_rate": None}
         with pytest.raises(ValidationException) as exc_info:
             self.service._validate_fee_mode(data)
-
-        assert "按小时收费模式不应指定固定金额" in str(exc_info.value.message)
+        assert "半风险需填写风险比例" in str(exc_info.value.errors)
 
     def test_validate_stages_success(self):
         """测试验证代理阶段成功"""

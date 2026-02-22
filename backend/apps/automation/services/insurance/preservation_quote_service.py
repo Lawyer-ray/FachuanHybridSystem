@@ -158,7 +158,6 @@ class PreservationQuoteService(QuoteExecutionMixin):
 
         return quote
 
-    @transaction.atomic
     async def execute_quote(self, quote_id: int) -> dict[str, Any]:
         """
         执行询价流程
@@ -375,7 +374,6 @@ class PreservationQuoteService(QuoteExecutionMixin):
                 errors={"quote_id": quote_id},
             ) from e
 
-    @transaction.atomic
     async def retry_quote(self, quote_id: int) -> dict[str, Any]:
         """
         重试失败的询价任务
@@ -421,9 +419,8 @@ class PreservationQuoteService(QuoteExecutionMixin):
                     "current_status": quote.status,
                 },
             )
-            raise ValidationError( # type: ignore
+            raise ValidationError(
                 message=f"任务状态为 {quote.get_status_display()}，不允许重试。只有失败或部分成功的任务可以重试。",
-                code="INVALID_QUOTE_STATUS",
                 errors={"status": quote.status},
             )
 
@@ -507,7 +504,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
 
         if errors:
-            raise ValidationError(message=_("参数验证失败"), code="INVALID_PARAMETERS", errors=errors) # type: ignore
+            raise ValidationError(message=_("参数验证失败"), errors=errors)
 
         logger.info(
             "查询询价任务列表",
@@ -582,4 +579,4 @@ class PreservationQuoteService(QuoteExecutionMixin):
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message=_("数据验证失败"), code="INVALID_CREATE_PARAMS", errors=errors) # type: ignore
+            raise ValidationError(message=_("数据验证失败"), errors=errors)
