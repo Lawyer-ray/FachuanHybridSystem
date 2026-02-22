@@ -5,6 +5,7 @@ Requirements: 6.1, 2.9, 2.10
 """
 
 import logging
+from pathlib import Path
 from typing import Any, ClassVar
 
 from django import forms
@@ -409,7 +410,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         except NotFoundError:
             raise Http404("文件不存在")
 
-        response: Any = FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)
+        response: Any = FileResponse(Path(file_path).open("rb"), as_attachment=True, filename=filename)
         return response
 
     @admin.display(description=_("模板类型"))
