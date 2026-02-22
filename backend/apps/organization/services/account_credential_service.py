@@ -341,3 +341,34 @@ class AccountCredentialService:
                 "action": "update_login_failure",
             },
         )
+
+    def batch_mark_preferred(self, credential_ids: list[int]) -> int:
+        """
+        批量标记凭证为优先
+
+        Args:
+            credential_ids: 凭证 ID 列表
+
+        Returns:
+            更新的记录数
+        """
+        updated: int = AccountCredential.objects.filter(
+            id__in=credential_ids,
+        ).update(is_preferred=True)
+        return updated
+
+    def batch_unmark_preferred(self, credential_ids: list[int]) -> int:
+        """
+        批量取消凭证优先标记
+
+        Args:
+            credential_ids: 凭证 ID 列表
+
+        Returns:
+            更新的记录数
+        """
+        updated: int = AccountCredential.objects.filter(
+            id__in=credential_ids,
+        ).update(is_preferred=False)
+        return updated
+
