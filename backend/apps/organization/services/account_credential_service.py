@@ -22,13 +22,12 @@ logger = logging.getLogger("apps.organization")
 
 
 class AccountCredentialService:
-    """账号凭证服务，封装账号凭证相关的所有业务逻辑。"""
+
 
     def __init__(self) -> None:
         self._access_policy = OrganizationAccessPolicy()
 
     def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":
-        """获取带预加载的基础查询集"""
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
     def list_credentials(
@@ -37,7 +36,6 @@ class AccountCredentialService:
         lawyer_name: str | None = None,
         user: Lawyer | None = None,
     ) -> "QuerySet[AccountCredential, AccountCredential]":
-        """获取凭证列表"""
         qs = self._get_base_queryset()
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
@@ -179,7 +177,6 @@ class AccountCredentialService:
         return credential
 
     def update_login_success(self, credential_id: int) -> None:
-        """更新登录成功统计（F() 表达式避免竞态条件）"""
         updated = AccountCredential.objects.filter(id=credential_id).update(
             login_success_count=F("login_success_count") + 1,
             last_login_success_at=timezone.now(),
@@ -189,7 +186,6 @@ class AccountCredentialService:
         logger.info("登录成功统计已更新", extra={"credential_id": credential_id, "action": "update_login_success"})
 
     def update_login_failure(self, credential_id: int) -> None:
-        """更新登录失败统计（F() 表达式避免竞态条件）"""
         updated = AccountCredential.objects.filter(id=credential_id).update(
             login_failure_count=F("login_failure_count") + 1,
         )
@@ -208,7 +204,6 @@ class AccountCredentialService:
         credential_ids: list[int],
         site_name: str,
     ) -> "QuerySet[AccountCredential, AccountCredential]":
-        """按 ID 列表和站点名称过滤凭证。"""
         return self._get_base_queryset().filter(
             id__in=credential_ids,
             site_name=site_name,
@@ -219,7 +214,6 @@ class AccountCredentialService:
     }
 
     def get_credentials_by_site(self, site_name: str) -> "QuerySet[AccountCredential, AccountCredential]":
-        """根据站点名称获取凭证（无权限检查，内部使用）。支持精确匹配 site_name 和 URL 包含匹配。"""
         url_keyword = self.SITE_URL_MAPPING.get(site_name, site_name)
         return (
             self._get_base_queryset()
