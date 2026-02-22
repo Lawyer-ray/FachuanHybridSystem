@@ -75,8 +75,8 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         return list(obj.attachments.all())
 
     @staticmethod
-    def resolve_reminders(obj: CaseLog) -> list[ReminderOut]:
-        return [ReminderOut.from_model(item) for item in obj.reminders.all()]
+    def resolve_reminders(obj: CaseLog) -> Any:
+        return obj.reminders.all()
 
     @staticmethod
     def resolve_actor(obj: CaseLog) -> int:

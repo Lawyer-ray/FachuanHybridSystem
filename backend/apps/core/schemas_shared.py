@@ -11,7 +11,6 @@ __all__: list[str] = [
     "ClientIdentityDocLiteOut",
     "ClientLiteOut",
     "LawyerLiteOut",
-    "ReminderLiteOut",
     "SuccessOut",
 ]
 
@@ -69,32 +68,6 @@ class ClientLiteOut(SchemaMixin, Schema):
 
 class SuccessOut(Schema):
     success: bool
-
-
-class ReminderLiteOut(SchemaMixin, Schema):
-    id: int
-    contract_id: int | None = None
-    case_log_id: int | None = None
-    reminder_type: str
-    content: str
-    metadata: dict[str, Any] | None = None
-    due_at: str | None
-    created_at: str | None
-    reminder_type_label: str
-
-    @classmethod
-    def from_model(cls, obj: Any) -> "ReminderLiteOut":
-        return cls(
-            id=obj.id,
-            contract_id=getattr(obj, "contract_id", None),
-            case_log_id=getattr(obj, "case_log_id", None),
-            reminder_type=getattr(obj, "reminder_type", ""),
-            content=getattr(obj, "content", "") or "",
-            metadata=getattr(obj, "metadata", None),
-            due_at=SchemaMixin._resolve_datetime_iso(getattr(obj, "due_at", None)),
-            created_at=SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None)),
-            reminder_type_label=SchemaMixin._get_display(obj, "reminder_type") or "",
-        )
 
 
 class LawyerLiteOut(Schema):
