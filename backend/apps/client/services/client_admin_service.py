@@ -1,5 +1,7 @@
 """当事人 Admin 服务层。"""
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass
@@ -10,10 +12,10 @@ from django.db import transaction
 
 from apps.core.exceptions import ValidationException
 
-from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
+    from apps.client.models import Client, ClientIdentityDoc
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
     from .client_mutation_service import ClientMutationService
@@ -172,6 +174,8 @@ class ClientAdminService(ClientAdminFileMixin):
             return None
 
         # 2. 获取当事人名称和证件类型显示名
+        from apps.client.models import ClientIdentityDoc  # noqa: PLC0415
+
         client = self.internal_query_service.get_client(client_id=client_id)
         client_name = client.name if client else ""
         doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
