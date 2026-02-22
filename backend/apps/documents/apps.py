@@ -18,7 +18,7 @@ class DocumentsConfig(AppConfig):
     name: str = "apps.documents"
     verbose_name = _("文书生成")
 
-    def ready(self) -> Any:
+    def ready(self) -> None:
         """应用启动时的初始化"""
         from .services.code_placeholder_autodiscover import autodiscover_code_placeholders
 
@@ -31,7 +31,7 @@ class DocumentsConfig(AppConfig):
 
         post_migrate.connect(self._on_post_migrate, sender=self)
 
-    def _on_post_migrate(self, sender: Any, **kwargs: Any) -> Any:
+    def _on_post_migrate(self, sender: Any, **kwargs: Any) -> None:
         """
         数据库迁移完成后自动初始化默认文件夹模板
 
