@@ -34,14 +34,14 @@ class PerformanceMonitor:
     SLOW_QUERY_THRESHOLD_MS = 100  # 慢查询阈值(毫秒)
     MAX_QUERY_COUNT = 10  # 最大查询次数阈值
 
-    @staticmethod
-    def _should_collect_queries() -> bool:
+    @classmethod
+    def _should_collect_queries(cls) -> bool:
         env = (os.environ.get("DJANGO_DB_QUERY_METRICS", "") or "").lower().strip()
         enabled = env in ("true", "1", "yes")
         return bool(getattr(settings, "DEBUG", False) or enabled)
 
-    @staticmethod
-    def monitor_api(endpoint: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    @classmethod
+    def monitor_api(cls, endpoint: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
         API 性能监控装饰器
 
@@ -59,7 +59,7 @@ class PerformanceMonitor:
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @wraps(func)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                collect_queries = PerformanceMonitor._should_collect_queries()
+                collect_queries = cls._should_collect_queries()
                 prev_force_debug_cursor = getattr(connection, "force_debug_cursor", False)
                 if collect_queries and not prev_force_debug_cursor:
                     connection.force_debug_cursor = True
@@ -79,7 +79,7 @@ class PerformanceMonitor:
                     query_count = len(connection.queries) - start_query_count if collect_queries else 0
 
                     # 记录性能日志
-                    PerformanceMonitor._log_performance(
+                    cls._log_performance(
                         endpoint=endpoint,
                         duration_ms=duration_ms,
                         query_count=query_count,
@@ -88,7 +88,7 @@ class PerformanceMonitor:
                     )
 
                     # 检查性能问题
-                    PerformanceMonitor._check_performance_issues(
+                    cls._check_performance_issues(
                         endpoint=endpoint, duration_ms=duration_ms, query_count=query_count
                     )
 
@@ -99,7 +99,7 @@ class PerformanceMonitor:
                     duration_ms = (time.time() - start_time) * 1000
                     query_count = len(connection.queries) - start_query_count if collect_queries else 0
 
-                    PerformanceMonitor._log_performance(
+                    cls._log_performance(
                         endpoint=endpoint,
                         duration_ms=duration_ms,
                         query_count=query_count,
@@ -117,9 +117,9 @@ class PerformanceMonitor:
 
         return decorator
 
-    @staticmethod
+    @classmethod
     @contextmanager
-    def monitor_operation(operation_name: str) -> Any:
+    def monitor_operation(cls, operation_name: str) -> Any:
         """
         操作性能监控上下文管理器
 
@@ -132,7 +132,7 @@ class PerformanceMonitor:
             with monitor_operation("fetch_external_data"):
                 data = fetch_data()
         """
-        collect_queries = PerformanceMonitor._should_collect_queries()
+        collect_queries = cls._should_collect_queries()
         prev_force_debug_cursor = getattr(connection, "force_debug_cursor", False)
         if collect_queries and not prev_force_debug_cursor:
             connection.force_debug_cursor = True
@@ -151,7 +151,7 @@ class PerformanceMonitor:
             query_count = len(connection.queries) - start_query_count if collect_queries else 0
 
             # 记录性能日志
-            PerformanceMonitor._log_performance(
+            cls._log_performance(
                 endpoint=operation_name,
                 duration_ms=duration_ms,
                 query_count=query_count,
@@ -160,7 +160,7 @@ class PerformanceMonitor:
             )
 
             # 检查性能问题
-            PerformanceMonitor._check_performance_issues(
+            cls._check_performance_issues(
                 endpoint=operation_name, duration_ms=duration_ms, query_count=query_count
             )
 
@@ -169,7 +169,7 @@ class PerformanceMonitor:
             duration_ms = (time.time() - start_time) * 1000
             query_count = len(connection.queries) - start_query_count if collect_queries else 0
 
-            PerformanceMonitor._log_performance(
+            cls._log_performance(
                 endpoint=operation_name,
                 duration_ms=duration_ms,
                 query_count=query_count,
@@ -183,8 +183,9 @@ class PerformanceMonitor:
             if collect_queries and not prev_force_debug_cursor:
                 connection.force_debug_cursor = prev_force_debug_cursor
 
-    @staticmethod
+    @classmethod
     def _log_performance(
+        cls,
         endpoint: str,
         duration_ms: float,
         query_count: int,
@@ -217,13 +218,13 @@ class PerformanceMonitor:
         # 根据性能情况选择日志级别
         if not success:
             logger.error(f"API 执行失败: {endpoint}", extra=log_data)
-        elif duration_ms > PerformanceMonitor.SLOW_API_THRESHOLD_MS:
+        elif duration_ms > cls.SLOW_API_THRESHOLD_MS:
             logger.warning(f"慢 API 检测: {endpoint}", extra=log_data)
         else:
             logger.info(f"API 执行完成: {endpoint}", extra=log_data)
 
-    @staticmethod
-    def _check_performance_issues(endpoint: str, duration_ms: float, query_count: int) -> None:
+    @classmethod
+    def _check_performance_issues(cls, endpoint: str, duration_ms: float, query_count: int) -> None:
         """
         检查性能问题
 
@@ -235,13 +236,13 @@ class PerformanceMonitor:
         issues = []
 
         # 检查响应时间
-        if duration_ms > PerformanceMonitor.SLOW_API_THRESHOLD_MS:
-            issues.append(f"响应时间过长: {duration_ms:.2f}ms (阈值: {PerformanceMonitor.SLOW_API_THRESHOLD_MS}ms)")
+        if duration_ms > cls.SLOW_API_THRESHOLD_MS:
+            issues.append(f"响应时间过长: {duration_ms:.2f}ms (阈值: {cls.SLOW_API_THRESHOLD_MS}ms)")
 
         # 检查查询次数
-        if query_count > PerformanceMonitor.MAX_QUERY_COUNT:
+        if query_count > cls.MAX_QUERY_COUNT:
             issues.append(
-                f"查询次数过多: {query_count} 次 (阈值: {PerformanceMonitor.MAX_QUERY_COUNT} 次,可能存在 N+1 查询问题)"
+                f"查询次数过多: {query_count} 次 (阈值: {cls.MAX_QUERY_COUNT} 次,可能存在 N+1 查询问题)"
             )
 
         # 记录性能问题
@@ -256,15 +257,15 @@ class PerformanceMonitor:
                 },
             )
 
-    @staticmethod
-    def get_query_details() -> list[Any]:
+    @classmethod
+    def get_query_details(cls) -> list[Any]:
         """
         获取查询详情(仅在 DEBUG 模式下可用)
 
         Returns:
             查询详情列表
         """
-        if not PerformanceMonitor._should_collect_queries():
+        if not cls._should_collect_queries():
             return []
 
         queries = []
@@ -278,15 +279,15 @@ class PerformanceMonitor:
 
         return queries
 
-    @staticmethod
-    def analyze_queries() -> dict[str, Any]:
+    @classmethod
+    def analyze_queries(cls) -> dict[str, Any]:
         """
         分析查询性能(仅在 DEBUG 模式下可用)
 
         Returns:
             查询分析结果
         """
-        if not PerformanceMonitor._should_collect_queries():
+        if not cls._should_collect_queries():
             return {
                 "total_queries": 0,
                 "total_time_ms": 0,
@@ -301,7 +302,7 @@ class PerformanceMonitor:
         slow_queries = [
             {"sql": q["sql"], "time_ms": float(q["time"]) * 1000}
             for q in queries
-            if float(q["time"]) * 1000 > PerformanceMonitor.SLOW_QUERY_THRESHOLD_MS
+            if float(q["time"]) * 1000 > cls.SLOW_QUERY_THRESHOLD_MS
         ]
 
         return {
