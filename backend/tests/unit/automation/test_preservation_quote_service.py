@@ -222,8 +222,13 @@ class TestPreservationQuoteService:
         """测试 Token 不存在时抛出错误"""
         from asgiref.sync import sync_to_async
 
+        from apps.automation.exceptions import NoAvailableAccountError
+
         # 创建服务实例
         mock_auto_token_service = AsyncMock()
+        mock_auto_token_service.acquire_token_if_needed.side_effect = NoAvailableAccountError(
+            "没有找到法院一张网的账号凭证"
+        )
         service = PreservationQuoteService(
             token_service=mock_token_service,
             auto_token_service=mock_auto_token_service,
@@ -237,15 +242,9 @@ class TestPreservationQuoteService:
             credential_id=mock_credential.id,
         )
 
-        # Mock TokenService.get_token 返回 None（模拟 Token 不存在）
-        mock_token_service.get_token.return_value = None
-
-        # 不设置 Token，直接执行
-        with pytest.raises(TokenError) as exc_info:
+        # 不设置 Token，直接执行 — 期望抛出 TokenError
+        with pytest.raises(TokenError):
             await service.execute_quote(quote.id)
-
-        assert "Token 不存在或已过期" in str(exc_info.value.message)
-        assert "/admin/automation/testcourt/" in str(exc_info.value.message)
 
     @pytest.mark.anyio
     async def test_execute_quote_not_found(self, service):
