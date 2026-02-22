@@ -122,13 +122,25 @@ class IdCardMergeService:
         logger.info("手动合并身份证成功", extra={"pdf_path": pdf_path})
         return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
 
-    def _resolve_image_path(self, image_path: str, media_root: Any) -> Any:
+    def _resolve_image_path(self, image_path: str, media_root: Path) -> tuple[Path, str]:
+        from apps.core.exceptions import ValidationException
+        from django.utils.translation import gettext_lazy as _
+
         rel_path = image_path.lstrip("/")
         if rel_path.startswith("media/"):
             rel_path = rel_path[6:]
-        return (media_root / rel_path, rel_path)
+        full_path = (media_root / rel_path).resolve()
+        try:
+            full_path.relative_to(media_root.resolve())
+        except ValueError:
+            raise ValidationException(
+                message=_("非法的文件路径"),
+                code="INVALID_FILE_PATH",
+                errors={"path": "文件路径不在允许的范围内"},
+            ) from None
+        return (full_path, rel_path)
 
-    def _cleanup_temp_file(self, rel_path: str, full_path: Any) -> None:
+    def _cleanup_temp_file(self, rel_path: str, full_path: Path) -> None:
         if "temp/" not in rel_path:
             return
         try:

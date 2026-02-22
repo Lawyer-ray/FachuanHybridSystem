@@ -328,10 +328,11 @@ class CaseNumberService:
 
         return {"success": True}
 
-    def normalize_case_number(self, number: str) -> str:
+    def format_case_number(self, number: str) -> str:
         """
-        规范化案号：统一括号、删除空格
+        格式化案号（供外部调用的公共 API）
 
+        在保存前调用此方法，确保案号格式统一。
         处理规则：
         1. 英文括号 () 转中文括号 （）
         2. 六角括号 〔〕 转中文括号 （）
@@ -342,17 +343,29 @@ class CaseNumberService:
             number: 原始案号
 
         Returns:
-            规范化后的案号
+            格式化后的案号
         """
         if not number:
             return ""
 
-        # 统一括号：英文、六角、中括号 -> 中文括号
         result = number.replace("(", "（").replace(")", "）")
         result = result.replace("〔", "（").replace("〕", "）")
         result = result.replace("[", "（").replace("]", "）")
-
-        # 删除所有空格（包括全角空格）
         result = result.replace(" ", "").replace("\u3000", "")
 
         return result
+
+    def normalize_case_number(self, number: str) -> str:
+        """
+        规范化案号：统一括号、删除空格
+
+        .. deprecated::
+            使用 :meth:`format_case_number` 代替
+
+        Args:
+            number: 原始案号
+
+        Returns:
+            规范化后的案号
+        """
+        return self.format_case_number(number)

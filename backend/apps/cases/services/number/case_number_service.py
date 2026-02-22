@@ -390,20 +390,31 @@ class CaseNumberService(DjangoPermsMixin):
 
         return {"success": True}
 
+    def format_case_number(self, number: str) -> str:
+        """
+        格式化案号（供外部调用的公共 API）
+
+        在保存前调用此方法，确保案号格式统一。
+
+        Args:
+            number: 原始案号
+
+        Returns:
+            格式化后的案号
+        """
+        return normalize_case_number_util(number, ensure_hao=False)
+
     def normalize_case_number(self, number: str) -> str:
         """
         规范化案号:统一括号、删除空格
 
-        处理规则:
-        1. 英文括号 () 转中文括号 ()
-        2. 六角括号 〔〕 转中文括号 ()
-        3. 中括号 [] 转中文括号 ()
-        4. 删除所有空格(包括全角空格)
+        .. deprecated::
+            使用 :meth:`format_case_number` 代替
 
         Args:
-        number: 原始案号
+            number: 原始案号
 
         Returns:
-        规范化后的案号
+            规范化后的案号
         """
-        return normalize_case_number_util(number, ensure_hao=False)
+        return self.format_case_number(number)

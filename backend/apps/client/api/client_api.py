@@ -13,6 +13,8 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
+from django.db import transaction
+
 from apps.core.exceptions import ValidationException
 from apps.core.request_context import extract_request_context
 
@@ -128,18 +130,20 @@ def create_client_with_docs(
         )
 
     mutation_service = _get_mutation_service()
+    identity_doc_service = _get_identity_doc_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    client = mutation_service.create_client(data=payload.dict(), user=user)
 
-    if doc_types and files:
-        identity_doc_service = _get_identity_doc_service()
-        for doc_type, file in zip(doc_types, files, strict=True):
-            identity_doc_service.add_identity_doc_from_upload(
-                client_id=client.id,
-                doc_type=doc_type,
-                uploaded_file=file,
-                user=user,
-            )
+    with transaction.atomic():
+        client = mutation_service.create_client(data=payload.dict(), user=user)
+
+        if doc_types and files:
+            for doc_type, file in zip(doc_types, files, strict=True):
+                identity_doc_service.add_identity_doc_from_upload(
+                    client_id=client.id,
+                    doc_type=doc_type,
+                    uploaded_file=file,
+                    user=user,
+                )
 
     return client
 
