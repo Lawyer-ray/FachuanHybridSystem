@@ -313,7 +313,7 @@ class CaseTemplateGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=f"模板渲染失败: {e!s}", code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message=_("模板渲染失败: %(err)s") % {"err": str(e)}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e
 
     def _build_filename(

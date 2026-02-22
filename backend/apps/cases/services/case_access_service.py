@@ -340,7 +340,7 @@ class CaseAccessService:
         """
         # 验证案件存在
         if not Case.objects.filter(id=case_id).exists():
-            raise NotFoundError(f"案件 {case_id} 不存在")
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id})
 
         # 获取已存在的授权
         existing = set(

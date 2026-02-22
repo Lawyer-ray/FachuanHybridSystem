@@ -76,7 +76,7 @@ class TemplateResolver:
         )
         if not template:
             raise NotFoundError(
-                message=f"未找到功能标识为 {function_code} 的活跃模板",
+                message=_("未找到功能标识为 %(code)s 的活跃模板") % {"code": function_code},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"function_code": f"未找到功能标识为 {function_code} 的活跃模板"},
             )

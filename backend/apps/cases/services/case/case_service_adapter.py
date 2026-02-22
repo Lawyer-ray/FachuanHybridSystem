@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import CaseDTO, IClientService, IContractService
 
@@ -83,7 +85,7 @@ class CaseServiceAdapter:
         case = self.service.create_case(data, user=user, org_access=org_access, perm_open_access=perm_open_access)
         dto = self.service.internal_query_service.get_case_internal(case_id=case.id)
         if not dto:
-            raise NotFoundError(f"案件 {case.id} 不存在")
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case.id})
         return dto
 
     def create_case_assignment(self, case_id: int, lawyer_id: int) -> Any:

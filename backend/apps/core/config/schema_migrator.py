@@ -105,9 +105,7 @@ class DjangoSettingsCompatibilityLayer:
             config_key = self._django_to_config_mapping[django_key]
             try:
                 return self.config_manager.get(config_key, default)
-            except Exception:
-                logger.exception("操作失败")
-
+            except (KeyError, AttributeError):
                 pass
 
         # 回退到 Django settings
@@ -161,9 +159,7 @@ class DjangoSettingsCompatibilityLayer:
             if not attr_name.startswith("_") and attr_name.isupper():
                 try:
                     configs[attr_name] = getattr(django_settings, attr_name)
-                except Exception:
-                    logger.exception("操作失败")
-
+                except (AttributeError, TypeError):
                     # 忽略无法获取的属性
                     continue
 

@@ -229,7 +229,7 @@ class ConfigManager:
         try:
             self.load(force_reload=True)
             return True
-        except Exception:
+        except (OSError, ValueError, KeyError):
             return False
 
     def add_listener(
@@ -327,7 +327,7 @@ class ConfigManager:
                         self._notify_changes(old_config, self._raw_config)
                         return True
             return False
-        except Exception:
+        except (OSError, ValueError, KeyError):
             return False
 
     def export(
@@ -574,10 +574,10 @@ class ConfigManager:
                         "config_count": sd.get("config_count", 0),
                         "file_path": snapshot_path,
                     })
-                except Exception:
+                except (OSError, ValueError, KeyError):
                     continue
             snapshots.sort(key=lambda x: x["created_at"], reverse=True)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             raise ConfigException(f"列出快照失败: {e}") from e
         return snapshots
 
@@ -588,7 +588,7 @@ class ConfigManager:
                 os.remove(snapshot_path)
                 return True
             return False
-        except Exception:
+        except OSError:
             return False
 
     def _get_snapshot_directory(self) -> str:

@@ -103,13 +103,11 @@ def list_snapshots(self: Any) -> list[dict[str, Any]]:
                         "file_path": snapshot_path,
                     }
                 )
-            except Exception:
-                logger.exception("操作失败")
-
+            except (OSError, ValueError, KeyError):
                 continue
 
         snapshots.sort(key=lambda x: x["created_at"], reverse=True)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         raise ConfigException(f"列出快照失败: {e}") from e
 
     return snapshots
@@ -122,13 +120,7 @@ def delete_snapshot(self: Any, snapshot_id: str) -> bool:
             Path(str(snapshot_path)).remove_p()
             return True
         return False
-    except Exception:
-        # 静默处理:文件操作失败不影响主流程
-        # 静默处理:文件操作失败不影响主流程
-        # 静默处理:文件操作失败不影响主流程
-
-        # 静默处理:文件操作失败不影响主流程
-
+    except OSError:
         return False
 
 
