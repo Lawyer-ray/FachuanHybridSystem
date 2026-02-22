@@ -9,7 +9,6 @@ class ReminderDTO:
     case_log_id: int | None
     reminder_type: str
     reminder_time: str
-    is_completed: bool = False
     contract_id: int | None = None
     created_at: str | None = None
 
