@@ -398,7 +398,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
             from django.contrib import messages
 
             for message in form._fix_messages:
-                messages.success(request, f"✅ {message}")
+                messages.success(request, "✅ " + str(message))
 
         super().save_model(request, obj, form, change)
 

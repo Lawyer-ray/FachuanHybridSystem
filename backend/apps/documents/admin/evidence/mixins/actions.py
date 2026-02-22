@@ -56,16 +56,16 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
                 submitted_count += 1
             except Exception as e:
                 error_count += 1
-                messages.warning(request, f"清单 {evidence_list.id} 提交失败: {e!s}")
+                messages.warning(request, _("清单 %(id)s 提交失败: %(e)s") % {"id": evidence_list.id, "e": e})
 
         if submitted_count > 0:
-            messages.success(request, f"已提交 {submitted_count} 个合并任务")
+            messages.success(request, _("已提交 %(n)s 个合并任务") % {"n": submitted_count})
         if skipped_count > 0:
-            messages.info(request, f"{skipped_count} 个清单正在合并中,已跳过")
+            messages.info(request, _("%(n)s 个清单正在合并中,已跳过") % {"n": skipped_count})
         if no_files_count > 0:
-            messages.warning(request, f"{no_files_count} 个清单没有文件,已跳过")
+            messages.warning(request, _("%(n)s 个清单没有文件,已跳过") % {"n": no_files_count})
         if error_count > 0:
-            messages.warning(request, f"{error_count} 个清单提交失败")
+            messages.warning(request, _("%(n)s 个清单提交失败") % {"n": error_count})
 
     @admin.action(description=_("导出选中清单的 Word"))
     def export_list_word(self, request: Any, queryset: Any) -> Any:
