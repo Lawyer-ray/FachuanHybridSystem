@@ -23,11 +23,11 @@ router = Router(auth=JWTOrSessionAuth())
 
 
 def _require_contract_access(request: Any, contract_id: int) -> None:
-    from apps.core.dependencies import build_contract_query_service
+    from apps.core.interfaces import ServiceLocator
     from apps.core.security.access_context import get_request_access_context
 
     ctx = get_request_access_context(request)
-    build_contract_query_service().ensure_contract_access_ctx(contract_id=contract_id, ctx=ctx)
+    ServiceLocator.get_contract_query_service().ensure_contract_access_ctx(contract_id=contract_id, ctx=ctx)
 
 
 def _get_folder_generation_service() -> Any:

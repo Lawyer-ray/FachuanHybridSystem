@@ -11,6 +11,7 @@ from typing import Any
 from ninja import Router, Schema
 
 from apps.core.auth import JWTOrSessionAuth
+from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger("apps.documents.api")
@@ -130,8 +131,6 @@ def download_litigation_document(request: Any, case_id: int, litigation_type: st
 
     Requirements: 7.1, 2.3, 4.4
     """
-    from apps.core.exceptions import ValidationException
-
     from .download_response_factory import build_download_response
 
     start_time = time.time()
