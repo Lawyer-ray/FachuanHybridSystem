@@ -11,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from ninja.files import UploadedFile
 
 from apps.core.exceptions import AuthenticationError
-from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
+from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
 from apps.organization.models import Lawyer
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
@@ -48,7 +48,7 @@ class LawyerService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, object] | None = None,
+        filters: LawyerListFiltersDTO | None = None,
         user: Lawyer | None = None,
     ) -> QuerySet[Lawyer, Lawyer]:
         return self._query.list_lawyers(page=page, page_size=page_size, filters=filters, user=user)

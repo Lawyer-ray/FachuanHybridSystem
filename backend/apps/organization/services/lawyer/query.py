@@ -6,6 +6,7 @@ from django.db.models import Q, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
+from apps.organization.dtos import LawyerListFiltersDTO
 from apps.organization.models import Lawyer
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
@@ -31,11 +32,9 @@ class LawyerQueryService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, object] | None = None,
+        filters: LawyerListFiltersDTO | None = None,
         user: Lawyer | None = None,
     ) -> QuerySet[Lawyer, Lawyer]:
-        filters = filters or {}
-
         queryset = self.get_lawyer_queryset()
 
         if user and not user.is_superuser:
@@ -45,13 +44,13 @@ class LawyerQueryService:
             else:
                 return queryset.none()
 
-        if filters.get("search"):
+        if filters and filters.search:
             queryset = queryset.filter(
-                Q(username__icontains=filters["search"]) | Q(real_name__icontains=filters["search"])
+                Q(username__icontains=filters.search) | Q(real_name__icontains=filters.search)
             )
 
-        if filters.get("law_firm_id"):
-            queryset = queryset.filter(law_firm_id=filters["law_firm_id"])
+        if filters and filters.law_firm_id is not None:
+            queryset = queryset.filter(law_firm_id=filters.law_firm_id)
 
         queryset = queryset.order_by("-id")
 
