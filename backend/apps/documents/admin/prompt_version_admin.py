@@ -80,7 +80,7 @@ class PromptVersionAdmin(admin.ModelAdmin):
 
     is_active_badge.short_description = _("状态")
 
-    def description_short(self, obj) -> Any:
+    def description_short(self, obj: Any) -> Any:
         """显示简短描述"""
         if not obj.description:
             return "-"
@@ -91,7 +91,7 @@ class PromptVersionAdmin(admin.ModelAdmin):
     description_short.short_description = _("版本说明")
 
     @admin.action(description=_("激活选中的版本"))
-    def activate_version(self, request, queryset) -> None:
+    def activate_version(self, request: Any, queryset: Any) -> None:
         """激活选中的版本"""
         if queryset.count() != 1:
             self.message_user(request, _("请选择一个版本进行激活"), level="error")

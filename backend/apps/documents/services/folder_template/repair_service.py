@@ -43,7 +43,7 @@ class FolderTemplateStructureIdRepairService:
                 new_id = self.id_service.generate_unique_id()
             return new_id
 
-        def repair_node(node) -> Any: # type: ignore
+        def repair_node(node: Any) -> Any: # type: ignore
             nonlocal changes
             if not isinstance(node, dict):
                 return cast(None, node)
