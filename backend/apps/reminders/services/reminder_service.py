@@ -84,6 +84,7 @@ class ReminderService:
         reminder = self.get_reminder(reminder_id, select_related=False)
         changed = self._apply_update_fields(reminder, data)
         if changed:
+            changed.append("updated_at")
             reminder.save(update_fields=changed)
         return reminder
 
@@ -129,7 +130,6 @@ class ReminderService:
 
         return changed
 
-    @transaction.atomic
     def delete_reminder(self, reminder_id: int) -> None:
         reminder = self.get_reminder(reminder_id, select_related=False)
         reminder.delete()

@@ -197,6 +197,14 @@ def test_update_reminder_updates_content(reminder: Reminder) -> None:
 
 
 @pytest.mark.django_db
+def test_update_reminder_updates_updated_at(reminder: Reminder) -> None:
+    """update_fields 包含 updated_at，确保 auto_now 生效。"""
+    old_updated_at = reminder.updated_at
+    updated = ReminderService().update_reminder(reminder.id, {"content": "触发更新"})
+    assert updated.updated_at >= old_updated_at
+
+
+@pytest.mark.django_db
 def test_update_reminder_empty_data_no_save(reminder: Reminder) -> None:
     """空 data 不触发 save，返回原实例。"""
     original_content = reminder.content
@@ -430,6 +438,22 @@ def test_update_reminder_fk_switch_to_new_contract(contract: Contract) -> None:
     )
     updated = service.update_reminder(reminder.id, {"contract_id": contract2.id})
     assert updated.contract_id == contract2.id
+
+
+@pytest.mark.django_db
+def test_update_reminder_fk_switch_case_log(case_log: CaseLog) -> None:
+    """_apply_update_fields: 只传 case_log_id 切换到另一个 case_log。"""
+    service = ReminderService()
+    reminder = service.create_reminder(
+        case_log_id=case_log.id,
+        reminder_type=ReminderType.HEARING,
+        content="提醒",
+        due_at=timezone.now() + timedelta(days=1),
+    )
+    case2 = Case.objects.create(name="第二案件", contract=Contract.objects.create(name="c2", case_type=CaseType.CIVIL))
+    log2 = CaseLog.objects.create(case=case2, content="日志2", actor=Lawyer.objects.first())  # type: ignore[misc]
+    updated = service.update_reminder(reminder.id, {"case_log_id": log2.id})
+    assert updated.case_log_id == log2.id
 
 
 @pytest.mark.django_db
