@@ -67,7 +67,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
         contract: Contract | None = None,
-        message: str = "无权限访问该合同",
+        message: str | Any = "无权限访问该合同",
     ) -> None:
         if self.has_access(
             contract_id=contract_id,
@@ -122,7 +122,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         contract_id: int,
         ctx: "AccessContext",
         contract: Contract | None = None,
-        message: str = "无权限访问该合同",
+        message: str | Any = "无权限访问该合同",
     ) -> None:
         return self.ensure_access(
             contract_id=contract_id,

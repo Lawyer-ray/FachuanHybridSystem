@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db.models import Sum
 from django.utils import timezone
@@ -193,20 +193,20 @@ class ContractAdminService:
             contract_template_display = self.display_service.get_matched_document_template(contract)
             has_contract_template = contract_template_display not in ["无匹配模板", "查询失败"]
         except Exception as exc:
-            logger.error(f"检查合同 {cast(int, contract.pk)} 的文书模板失败: {exc!s}", exc_info=True)
+            logger.error(f"检查合同 {contract.pk} 的文书模板失败: {exc!s}", exc_info=True)
             has_contract_template = False
 
         try:
             folder_template_display = self.display_service.get_matched_folder_templates(contract)
             has_folder_template = folder_template_display not in ["无匹配模板", "查询失败"]
         except Exception as exc:
-            logger.error(f"检查合同 {cast(int, contract.pk)} 的文件夹模板失败: {exc!s}", exc_info=True)
+            logger.error(f"检查合同 {contract.pk} 的文件夹模板失败: {exc!s}", exc_info=True)
             has_folder_template = False
 
         payment_progress = self.progress_service.get_payment_progress(contract)
         invoice_summary = self.progress_service.get_invoice_summary(contract)
 
-        related_cases = self.query_service.get_related_cases(cast(int, contract.pk))
+        related_cases = self.query_service.get_related_cases(contract.pk)
 
         return {
             "contract": contract,
