@@ -9,12 +9,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.client.models import Client, ClientIdentityDoc
-from apps.client.services.storage import delete_media_file, sanitize_upload_filename, save_uploaded_file
+from apps.client.services.storage import _get_media_root, delete_media_file, sanitize_upload_filename, save_uploaded_file
 
 
 logger = logging.getLogger("apps.client")
@@ -61,8 +60,8 @@ class ClientIdentityDocService:
         # 相对路径通过 MEDIA_ROOT 解析为绝对路径
         p = Path(raw_path)
         if not p.is_absolute():
-            media_root = Path(settings.MEDIA_ROOT)
-            abs_path = media_root / p
+            media_root_str = _get_media_root()
+            abs_path = Path(media_root_str) / p if media_root_str else p
         else:
             abs_path = p
 
@@ -95,10 +94,11 @@ class ClientIdentityDocService:
             try:
                 shutil.move(abs_path, new_abs_path)
                 # 保存相对路径（相对于 MEDIA_ROOT）
-                media_root = Path(settings.MEDIA_ROOT)
+                media_root_str = _get_media_root()
+                media_root = Path(media_root_str) if media_root_str else None
                 try:
-                    relative_path = new_abs_path.relative_to(media_root)
-                    doc_instance.file_path = str(relative_path)
+                    relative_path = new_abs_path.relative_to(media_root) if media_root else None
+                    doc_instance.file_path = str(relative_path) if relative_path else str(new_abs_path)
                 except ValueError:
                     # 不在 MEDIA_ROOT 下时保存绝对路径
                     doc_instance.file_path = str(new_abs_path)
