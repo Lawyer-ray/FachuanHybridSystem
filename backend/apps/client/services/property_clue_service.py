@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.client")
 
 
+_VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
+
+
 class PropertyClueService:
     """财产线索服务。"""
 
@@ -37,12 +40,11 @@ class PropertyClueService:
     def _validate_clue_type(self, clue_type: str) -> None:
         """验证线索类型是否有效。"""
 
-        valid_types = dict(PropertyClue.CLUE_TYPE_CHOICES)
-        if clue_type not in valid_types:
+        if clue_type not in _VALID_CLUE_TYPES:
             raise ValidationException(
                 message=_("无效的线索类型"),
                 code="INVALID_CLUE_TYPE",
-                errors={"clue_type": _("线索类型必须是: %(types)s") % {"types": ", ".join(valid_types.keys())}},
+                errors={"clue_type": _("线索类型必须是: %(types)s") % {"types": ", ".join(_VALID_CLUE_TYPES.keys())}},
             )
 
     def _get_client_or_404(self, client_id: int) -> Any:
@@ -262,7 +264,7 @@ class PropertyClueService:
             raise NotFoundError(
                 message=_("附件不存在"),
                 code="ATTACHMENT_NOT_FOUND",
-                errors={"attachment_id": str(_("ID 为 %(id)s 的附件不存在") % {"id": attachment_id})},
+                errors={"attachment_id": _("ID 为 %(id)s 的附件不存在") % {"id": attachment_id}},
             ) from e
 
         file_path = attachment.file_path
