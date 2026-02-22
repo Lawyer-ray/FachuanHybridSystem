@@ -31,13 +31,12 @@ def list_reminders(request: Any, contract_id: int | None = None, case_log_id: in
 @router.post("/create", response=ReminderOut)
 def create_reminder(request: Any, payload: ReminderIn) -> Any:
     service = _get_service()
-    due_at = payload.due_at
     return service.create_reminder(
         contract_id=payload.contract_id,
         case_log_id=payload.case_log_id,
-        reminder_type=payload.reminder_type,
+        reminder_type=payload.reminder_type.value,
         content=payload.content,
-        due_at=due_at,
+        due_at=payload.due_at,
         metadata=payload.metadata,
     )
 

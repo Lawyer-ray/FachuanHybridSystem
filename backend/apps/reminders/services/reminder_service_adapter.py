@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.services.reminder_service import ReminderService
+from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type
 
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
@@ -99,23 +100,16 @@ class ReminderServiceAdapter:
 
         objs: list[Reminder] = []
         for item in reminders:
-            reminder_type = (item.get("reminder_type") or "").strip()
-            content = (item.get("content") or "").strip()
-            due_at = item.get("due_at")
-            metadata = item.get("metadata")
-
-            if not reminder_type or reminder_type not in ReminderType.values:
+            try:
+                reminder_type = normalize_reminder_type(item.get("reminder_type") or "")
+                content = normalize_content(item.get("content") or "")
+                due_at = item.get("due_at")
+                if not due_at or not isinstance(due_at, datetime):
+                    continue
+                due_at = normalize_due_at(due_at)
+                metadata = normalize_metadata(item.get("metadata"))
+            except Exception:
                 continue
-            if not content:
-                continue
-            if not due_at or not isinstance(due_at, datetime):
-                continue
-            if metadata is not None and not isinstance(metadata, dict):
-                continue
-            if metadata is None:
-                metadata = {}
-            if timezone.is_naive(due_at):
-                due_at = timezone.make_aware(due_at)
 
             objs.append(
                 Reminder(
