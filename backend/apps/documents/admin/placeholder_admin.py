@@ -7,6 +7,7 @@ Requirements: 6.1, 3.6
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import QuerySet
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -23,6 +24,12 @@ def _get_code_placeholder_catalog_service() -> Any:
     from apps.documents.services.code_placeholder_catalog_service import CodePlaceholderCatalogService
 
     return CodePlaceholderCatalogService()
+
+
+def _get_placeholder_admin_service() -> Any:
+    from ..services import PlaceholderAdminService
+
+    return PlaceholderAdminService()
 
 
 class PlaceholderUsageFilter(admin.SimpleListFilter):
@@ -118,34 +125,21 @@ class PlaceholderAdmin(admin.ModelAdmin):
         self._usage_map_for_changelist = usage_map
         return usage_map
 
-    def _ensure_code_placeholders(self, request) -> None:
+    def _ensure_code_placeholders(self, request: Any) -> None:
         if getattr(request, "_code_placeholders_synced", False):
             return
         definitions = self._catalog_cache()
-        existing_keys = set(Placeholder.objects.values_list("key", flat=True))
-        to_create: list[Any] = []
-        for key, definition in definitions.items():
-            if key in existing_keys:
-                continue
-            to_create.append(
-                Placeholder(
-                    key=key,
-                    display_name=definition.display_name or key,
-                    example_value=definition.example_value or "",
-                    description=definition.description or "",
-                    is_active=True,
-                )
-            )
-        if to_create:
-            Placeholder.objects.bulk_create(to_create, ignore_conflicts=True)
+        service = _get_placeholder_admin_service()
+        service.ensure_code_placeholders(definitions)
         request._code_placeholders_synced = True
 
-    def get_queryset(self, request) -> None:
+    def get_queryset(self, request: Any) -> QuerySet[Any]:
         self._ensure_code_placeholders(request)
         self._usage_map_cache(request)
         qs = super().get_queryset(request)
         code_keys = list(self._catalog_cache().keys())
-        return qs.filter(key__in=code_keys)
+        service = _get_placeholder_admin_service()
+        return service.get_filtered_queryset(qs, code_keys)
 
     def usage_display(self, obj) -> None:
         usage_map = getattr(self, "_usage_map_for_changelist", None)
@@ -212,25 +206,12 @@ class PlaceholderAdmin(admin.ModelAdmin):
         self.message_user(request, _(f"已禁用 {updated} 个替换词"))
 
     @admin.action(description=_("复制选中的替换词"))
-    def duplicate_placeholders(self, request, queryset) -> None:
+    def duplicate_placeholders(self, request: Any, queryset: QuerySet[Any]) -> None:
         """复制替换词"""
-        count = 0
+        service = _get_placeholder_admin_service()
+        count: int = 0
         for placeholder in queryset:
-            # 生成新的 key
-            new_key = f"{placeholder.key}_copy"
-            suffix = 1
-            while Placeholder.objects.filter(key=new_key).exists():
-                new_key = f"{placeholder.key}_copy_{suffix}"
-                suffix += 1
-
-            # 创建副本
-            Placeholder.objects.create(
-                key=new_key,
-                display_name=f"{placeholder.display_name} (副本)",
-                example_value=placeholder.example_value,
-                description=placeholder.description,
-                is_active=False,  # 副本默认禁用
-            )
+            service.duplicate_placeholder(placeholder)
             count += 1
 
         self.message_user(request, _(f"已复制 {count} 个替换词"))
