@@ -12,6 +12,8 @@ from apps.core.exceptions import ValidationException
 from apps.client.models import ClientIdentityDoc
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
+_DOC_TYPE_DISPLAY: dict[str, str] = dict(ClientIdentityDoc.DOC_TYPE_CHOICES)
+
 if TYPE_CHECKING:
     from apps.client.models import Client
     from .client_identity_doc_service import ClientIdentityDocService
@@ -112,7 +114,7 @@ class ClientAdminService(ClientAdminFileMixin):
             )
             return None
 
-        doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
+        doc_type_display = _DOC_TYPE_DISPLAY.get(doc_type, doc_type)
 
         file_path = self._handle_file_storage(form_data, client.name, doc_type_display)
         if not file_path:
