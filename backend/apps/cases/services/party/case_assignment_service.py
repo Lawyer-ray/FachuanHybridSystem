@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-"""
-案件指派服务层
-处理案件指派相关的业务逻辑
-"""
-
 import logging
 from typing import Any, cast
 

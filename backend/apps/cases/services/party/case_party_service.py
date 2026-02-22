@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-"""
-案件当事人服务层
-处理案件当事人相关的业务逻辑
-"""
-
-
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
@@ -264,8 +259,10 @@ class CasePartyService:
                 )
 
                 raise ValidationException(
-                    message=f"我方当事人诉讼地位冲突:案件中已有我方当事人「{client_name}」"
-                    f"为{existing_status_label},不能再添加我方当事人为{new_status_label}",
+                    message=_(
+                        "我方当事人诉讼地位冲突:案件中已有我方当事人「%(name)s」"
+                        "为%(existing)s,不能再添加我方当事人为%(new)s"
+                    ) % {"name": client_name, "existing": existing_status_label, "new": new_status_label},
                     code="OUR_PARTY_LEGAL_STATUS_CONFLICT",
                     errors={
                         "legal_status": "我方当事人不能同时处于对立诉讼地位",

@@ -3,11 +3,6 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-"""
-案件案号服务层
-处理案件案号相关的业务逻辑
-"""
-
 import logging
 from typing import Any, cast
 

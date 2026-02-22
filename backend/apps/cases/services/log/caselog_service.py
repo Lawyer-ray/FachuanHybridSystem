@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-"\n案件日志服务层\n处理案件日志相关的业务逻辑\n符合三层架构规范:业务逻辑、权限检查、事务处理\n"
 from datetime import datetime
 from typing import Any
 

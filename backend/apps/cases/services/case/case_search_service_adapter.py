@@ -2,15 +2,6 @@
 
 from __future__ import annotations
 
-"""
-案件搜索服务适配器
-
-实现 ICaseSearchService 接口,供跨模块调用.
-封装案件搜索逻辑,避免 API 层直接导入 Model 和使用 Q() 查询.
-
-Requirements: 1.1, 1.3, 2.1
-"""
-
 from typing import Any
 
 from apps.core.interfaces import CaseSearchResultDTO, ICaseSearchService

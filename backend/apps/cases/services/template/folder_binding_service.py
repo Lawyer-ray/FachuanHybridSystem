@@ -3,12 +3,6 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-"""
-案件文件夹绑定服务
-处理案件与本地文件夹绑定的业务逻辑
-"""
-
-
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
