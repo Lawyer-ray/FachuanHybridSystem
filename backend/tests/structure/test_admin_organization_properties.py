@@ -9,7 +9,7 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 # 定义所有 Django app（排除 core 和 tests）
 DJANGO_APPS = ["automation", "cases", "client", "contracts", "organization"]

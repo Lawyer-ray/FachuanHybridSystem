@@ -44,7 +44,7 @@ def _get_type_checking_linenos(tree: ast.AST) -> Set[int]:
             continue
         for child in ast.walk(node):
             if hasattr(child, "lineno"):
-                linenos.add(child.lineno)  # type: ignore[attr-defined]
+                linenos.add(child.lineno)
     return linenos
 
 

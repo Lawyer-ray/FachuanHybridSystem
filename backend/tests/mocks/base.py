@@ -105,7 +105,7 @@ class MockService:
         """
         calls = [call for call in self._call_history if call["method"] == method_name]
         if call_index < len(calls):
-            return calls[call_index]["args"]
+            return calls[call_index]["args"]  # type: ignore[no-any-return]
         return None
 
     def reset(self) -> None:

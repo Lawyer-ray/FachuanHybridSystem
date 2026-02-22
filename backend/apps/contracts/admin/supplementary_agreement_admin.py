@@ -54,11 +54,10 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):
         ),
     )
 
+    @admin.display(description=_("当事人数量"))
     def party_count(self, obj: SupplementaryAgreement) -> int:
         """当事人数量"""
         return obj.parties.count()
-
-    party_count.short_description = _("当事人数量")  # type: ignore[attr-defined]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:
         """优化查询"""

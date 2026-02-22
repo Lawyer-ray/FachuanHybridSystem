@@ -5,6 +5,7 @@
 **Validates: Requirements 1.1-5.5**
 """
 
+from typing import Any
 import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
@@ -38,7 +39,7 @@ def create_test_credential(site_name: str, account_id: int = 1) -> AccountCreden
     )
 
 
-def setup_patches() -> tuple[patch, patch, patch, patch, patch]:  # type: ignore[type-arg]
+def setup_patches() -> tuple[Any, Any, Any, Any, Any]:
     return (
         patch(_PATCH_CACHE),
         patch(_PATCH_CACHE2),

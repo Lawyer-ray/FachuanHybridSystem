@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from apps.core.event_bus import EventBus, Events
 from apps.core.service_locator import ServiceLocator
 
-__all__ = ["ServiceLocator", "EventBus", "Events"]
+__all__ = ["ServiceLocator"]

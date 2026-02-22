@@ -9,7 +9,7 @@ from typing import List
 
 import pytest
 
-from apps.core.path import Path
+from pathlib import Path
 
 
 def get_all_markdown_files(root_path: Path) -> List[Path]:

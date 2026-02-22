@@ -604,7 +604,7 @@ def test_all_service_modules_no_cross_imports():
 
     if all_violations:
         # 按模块分组显示
-        by_module = {}
+        by_module: dict[str, list[str]] = {}
         for path, line, mod, stmt in all_violations:
             # 从路径中提取模块名
             parts = Path(path).parts
@@ -617,7 +617,7 @@ def test_all_service_modules_no_cross_imports():
                     by_module[source_module].append((path, line, mod, stmt))
 
         error_msg = "发现跨模块 Model 导入:\n"
-        for source_module, violations in by_module.items():
+        for source_module, violations in by_module.items(): # type: ignore[assignment]
             error_msg += f"\n{source_module}/services:\n"
             for path, line, mod, stmt in violations:
                 error_msg += f"  {Path(path).name}:{line} - 导入了 {mod}.models\n"

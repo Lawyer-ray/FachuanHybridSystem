@@ -9,7 +9,7 @@ from apps.automation.services.court_document_recognition import InfoExtractor
 
 @st.composite
 def safe_text_strategy(draw, *, min_size: int = 0, max_size: int = 2000) -> str:
-    return draw(
+    return draw(  # type: ignore[no-any-return]
         st.text(
             min_size=min_size,
             max_size=max_size,

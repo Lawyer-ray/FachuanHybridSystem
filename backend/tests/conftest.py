@@ -18,7 +18,7 @@ _CONNECTION_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _patched_connect(self: BaseDatabaseWrapper) -> None:  # type: ignore[override]
+def _patched_connect(self: BaseDatabaseWrapper) -> None:
     """Ensure all required keys exist in settings_dict before connect().
 
     Django 6 reads settings_dict keys directly in connect(), but async worker

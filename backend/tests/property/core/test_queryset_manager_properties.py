@@ -81,7 +81,7 @@ class TestQuerySetManagerConsistencyProperty:
         with patch("apps.core.querysets.CaseQuerySetManager.with_standard_prefetch") as mock_method:
             # 让 with_standard_prefetch 每次都通过 mock_objects 构建真实链
             def _real_standard() -> MagicMock:
-                return mock_objects.select_related(*CaseQuerySetManager.SELECT_RELATED).prefetch_related(
+                return mock_objects.select_related(*CaseQuerySetManager.SELECT_RELATED).prefetch_related(  # type: ignore[no-any-return]
                     *CaseQuerySetManager.PREFETCH_RELATED
                 )
 
@@ -117,7 +117,7 @@ class TestQuerySetManagerConsistencyProperty:
         with patch("apps.core.querysets.ContractQuerySetManager.with_standard_prefetch") as mock_method:
 
             def _real_standard() -> MagicMock:
-                return mock_objects.prefetch_related(*ContractQuerySetManager.PREFETCH_RELATED)
+                return mock_objects.prefetch_related(*ContractQuerySetManager.PREFETCH_RELATED)  # type: ignore[no-any-return]
 
             mock_method.side_effect = _real_standard
 
@@ -158,12 +158,12 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
         mock_objects = _make_mock_queryset()
 
         def _standard() -> MagicMock:
-            return mock_objects.select_related(*CaseQuerySetManager.SELECT_RELATED).prefetch_related(
+            return mock_objects.select_related(*CaseQuerySetManager.SELECT_RELATED).prefetch_related(  # type: ignore[no-any-return]
                 *CaseQuerySetManager.PREFETCH_RELATED
             )
 
         def _extra(*extra_fields: str) -> MagicMock:
-            return _standard().prefetch_related(*extra_fields)
+            return _standard().prefetch_related(*extra_fields)  # type: ignore[no-any-return]
 
         with (
             patch("apps.core.querysets.CaseQuerySetManager.with_standard_prefetch", side_effect=_standard),
@@ -199,10 +199,10 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
         mock_objects = _make_mock_queryset()
 
         def _standard() -> MagicMock:
-            return mock_objects.prefetch_related(*ContractQuerySetManager.PREFETCH_RELATED)
+            return mock_objects.prefetch_related(*ContractQuerySetManager.PREFETCH_RELATED)  # type: ignore[no-any-return]
 
         def _extra(*extra_fields: str) -> MagicMock:
-            return _standard().prefetch_related(*extra_fields)
+            return _standard().prefetch_related(*extra_fields)  # type: ignore[no-any-return]
 
         with (
             patch("apps.core.querysets.ContractQuerySetManager.with_standard_prefetch", side_effect=_standard),

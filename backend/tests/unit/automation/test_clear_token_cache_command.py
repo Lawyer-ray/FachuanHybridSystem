@@ -24,7 +24,7 @@ def test_clear_token_cache_command_executes_targeted(monkeypatch):
     called = {"site": None, "accounts": None, "blacklist": 0}
 
     def fake_invalidate_site_cache(self, site_name: str, *, accounts=None):
-        called["site"] = site_name
+        called["site"] = site_name # type: ignore[assignment]
         called["accounts"] = accounts
 
     def fake_invalidate_blacklist_cache(self):

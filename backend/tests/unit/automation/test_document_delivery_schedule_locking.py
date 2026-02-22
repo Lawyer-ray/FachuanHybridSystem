@@ -11,7 +11,7 @@ def test_document_delivery_schedule_execution_lock_key_is_stable():
 
 
 def test_document_delivery_schedule_acquire_release_lock_uses_cache(monkeypatch):
-    calls = {"add": [], "delete": []}
+    calls: dict[str, list[object]] = {"add": [], "delete": []}
 
     class FakeCache:
         def add(self, key, value, timeout=None):

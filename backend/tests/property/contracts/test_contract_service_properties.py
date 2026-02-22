@@ -58,7 +58,7 @@ class TestContractServiceProperties:
         contract_list = list(queryset)
 
         # 访问关联对象
-        for contract in contract_list:
+        for contract in contract_list: # type: ignore[assignment]
             # 访问律师指派关系（应该已经预加载）
             assignments = list(contract.assignments.all())
             if assignments:

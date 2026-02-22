@@ -6,7 +6,7 @@ from apps.core.filesystem import BaseFolderBindingService
 class _FakeFilesystemService:
     def __init__(self, ok: bool = True):
         self.ok = ok
-        self.calls = []
+        self.calls: list[tuple[str, ...]] = []
 
     def ensure_subdirectories(self, base_path, subdirs):
         self.calls.append((base_path, list(subdirs)))

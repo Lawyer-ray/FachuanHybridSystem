@@ -12,7 +12,7 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()

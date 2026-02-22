@@ -26,8 +26,8 @@ class MockContractService(MockService):
         self.get_contract_call_count += 1
         # 优先返回设置的数据
         if contract_id in self._contracts:
-            return self._contracts[contract_id]
-        return self._get_mock_return("get_contract", {"contract_id": contract_id})
+            return self._contracts[contract_id]  # type: ignore[no-any-return]
+        return self._get_mock_return("get_contract", {"contract_id": contract_id})  # type: ignore[no-any-return]
 
     def get_contract_stages(self, contract_id: int) -> List[str]:
         """获取合同的代理阶段"""
@@ -40,7 +40,7 @@ class MockContractService(MockService):
         """验证合同是否有效"""
         # 如果有设置的合同数据，检查其状态
         if contract_id in self._contracts:
-            return self._contracts[contract_id].status == "active"
+            return self._contracts[contract_id].status == "active"  # type: ignore[no-any-return]
         result = self._get_mock_return("validate_contract_active", {"contract_id": contract_id})
         return result if result is not None else True
 
@@ -50,7 +50,7 @@ class MockCaseService(MockService):
 
     def get_case(self, case_id: int) -> Optional[CaseDTO]:
         """获取案件"""
-        return self._get_mock_return("get_case", {"case_id": case_id})
+        return self._get_mock_return("get_case", {"case_id": case_id})  # type: ignore[no-any-return]
 
     def check_case_access(self, user, case_id: int) -> bool:
         """检查案件访问权限"""

@@ -2,6 +2,7 @@
 
 
 from __future__ import annotations
+
 from collections.abc import Iterable
 
 from apps.contracts.models import Contract, ContractAssignment

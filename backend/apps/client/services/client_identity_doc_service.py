@@ -14,7 +14,7 @@ from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.client.models import Client, ClientIdentityDoc
-from apps.client.services.storage import sanitize_upload_filename
+from apps.client.services.storage import delete_media_file, sanitize_upload_filename, save_uploaded_file
 
 
 logger = logging.getLogger("apps.client")
@@ -132,7 +132,6 @@ class ClientIdentityDocService:
     @transaction.atomic
     def delete_identity_doc(self, doc_id: int, user: Any) -> None:
         """删除证件文档及其磁盘文件。"""
-        from apps.client.services.storage import delete_media_file
 
         doc = self.get_identity_doc(doc_id)
         file_path = doc.file_path
@@ -145,7 +144,6 @@ class ClientIdentityDocService:
 
     def save_uploaded_file_to_dir(self, uploaded_file: Any, rel_dir: str) -> str:
         """保存上传文件到指定目录，返回相对路径（供 Admin Form 使用）"""
-        from apps.client.services.storage import save_uploaded_file
 
         rel_path, _ = save_uploaded_file(uploaded_file, rel_dir=rel_dir)
         return rel_path

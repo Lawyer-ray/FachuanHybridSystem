@@ -23,7 +23,7 @@ class TestFolderTemplateServiceValidation(TestCase):
     """测试文件夹结构验证功能"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service()
+        self.service = build_folder_template_service() # type: ignore[func-returns-value]
 
     def test_validate_valid_structure(self):
         """测试有效结构验证通过"""
@@ -39,7 +39,7 @@ class TestFolderTemplateServiceValidation(TestCase):
 
     def test_validate_empty_structure(self):
         """测试空结构验证通过"""
-        structure = {"children": []}
+        structure: dict[str, list[str]] = {"children": []}
         is_valid, msg = self.service.validate_structure(structure)
         self.assertTrue(is_valid)
 
@@ -108,7 +108,7 @@ class TestFolderTemplateServiceCRUD(TestCase):
     """测试文件夹模板 CRUD 操作"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service()
+        self.service = build_folder_template_service() # type: ignore[func-returns-value]
         self.valid_structure = {"children": [{"id": "1", "name": "诉讼材料", "children": []}]}
 
     def test_create_template_success(self):
@@ -194,8 +194,8 @@ class TestFolderTemplateServiceQuery(TestCase):
     """测试文件夹模板查询功能"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service()
-        self.valid_structure = {"children": []}
+        self.service = build_folder_template_service() # type: ignore[func-returns-value]
+        self.valid_structure: dict[str, list[str]] = {"children": []}
 
     def test_get_template_for_case_returns_latest(self):
         """测试获取最新更新的模板 - Requirements 1.4"""

@@ -10,7 +10,7 @@ from apps.documents.services.evidence import (
     EvidenceFileService,
     EvidenceMutationService,
     EvidencePageRangeCalculator,
-    EvidenceQueryService,
+    EvidenceBasicQueryService,
 )
 
 if TYPE_CHECKING:
@@ -26,13 +26,13 @@ class EvidenceService:
     def __init__(
         self,
         case_service: ICaseService | None = None,
-        query_service: EvidenceQueryService | None = None,
+        query_service: EvidenceBasicQueryService | None = None,
         mutation_service: EvidenceMutationService | None = None,
         file_service: EvidenceFileService | None = None,
         page_range_calculator: EvidencePageRangeCalculator | None = None,
     ) -> None:
         self._case_service = case_service
-        self._query_service = query_service or EvidenceQueryService()
+        self._query_service = query_service or EvidenceBasicQueryService()
         self._mutation_service = mutation_service or EvidenceMutationService()
         self._file_service = file_service or EvidenceFileService()
         self._page_range_calculator = page_range_calculator or EvidencePageRangeCalculator()
@@ -44,7 +44,7 @@ class EvidenceService:
         return self._case_service
 
     @property
-    def query_service(self) -> EvidenceQueryService:
+    def query_service(self) -> EvidenceBasicQueryService:
         return self._query_service
 
     @property

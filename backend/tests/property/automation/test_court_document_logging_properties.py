@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 
 from apps.automation.models import ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from apps.core.path import Path
+from pathlib import Path
 
 
 # 测试用的日志捕获器

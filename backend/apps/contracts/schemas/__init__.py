@@ -15,6 +15,8 @@ Contract Schemas Package
 - contract_schemas.py: 合同核心 CRUD Schema
 """
 
+from __future__ import annotations
+
 from apps.reminders.schemas import ReminderOut
 
 # Client Schemas

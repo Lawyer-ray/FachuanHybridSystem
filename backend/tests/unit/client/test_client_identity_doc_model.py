@@ -15,7 +15,7 @@ class TestClientIdentityDocModel(TestCase):
 
     def setUp(self):
         """测试设置"""
-        self.client = ClientFactory()
+        self.client = ClientFactory() # type: ignore[assignment]
 
     def test_doc_type_choices_excludes_legal_rep_certificate(self):
         """验证 DOC_TYPE_CHOICES 不包含 legal_rep_certificate"""

@@ -5,6 +5,7 @@
 **Validates: Requirements 1.1-5.5**
 """
 
+from typing import Any
 import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
@@ -39,7 +40,7 @@ def _cred(site_name: str, account_id: int = 1, success: int = 5, failure: int = 
     )
 
 
-def _patches() -> tuple[patch, patch, patch, patch, patch]:  # type: ignore[type-arg]
+def _patches() -> tuple[Any, Any, Any, Any, Any]:
     return (
         patch(_PATCH_CACHE), patch(_PATCH_CACHE2),
         patch(_PATCH_PERF), patch(_PATCH_CONC), patch(_PATCH_HIST),

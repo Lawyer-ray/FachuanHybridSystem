@@ -12,7 +12,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 
 class TestModuleReadmePreservationProperties:

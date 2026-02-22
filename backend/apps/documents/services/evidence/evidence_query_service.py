@@ -6,7 +6,7 @@ from apps.core.error_catalog import evidence_item_not_found, evidence_list_not_f
 from apps.documents.models import EvidenceItem, EvidenceList
 
 
-class EvidenceQueryService:
+class EvidenceBasicQueryService:
     def get_evidence_list(self, list_id: int) -> EvidenceList:
         try:
             return EvidenceList.objects.get(id=list_id)

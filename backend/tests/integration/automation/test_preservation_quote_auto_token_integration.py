@@ -181,9 +181,9 @@ class TestPreservationQuoteAutoTokenIntegration:
         """测试适配器方法代理"""
         # 配置Mock
         mock_quote = Mock()
-        self.adapter.service.create_quote = Mock(return_value=mock_quote)
-        self.adapter.service.get_quote = Mock(return_value=mock_quote)
-        self.adapter.service.list_quotes = Mock(return_value=([], 0))
+        self.adapter.service.create_quote = Mock(return_value=mock_quote) # type: ignore[method-assign]
+        self.adapter.service.get_quote = Mock(return_value=mock_quote) # type: ignore[method-assign]
+        self.adapter.service.list_quotes = Mock(return_value=([], 0)) # type: ignore[method-assign]
 
         # 测试create_quote代理
         result = self.adapter.create_quote(
@@ -205,8 +205,8 @@ class TestPreservationQuoteAutoTokenIntegration:
         """测试适配器异步方法代理"""
         # 配置Mock
         mock_result = {"success_count": 5, "failed_count": 0}
-        self.adapter.service.execute_quote = AsyncMock(return_value=mock_result)
-        self.adapter.service.retry_quote = AsyncMock(return_value=mock_result)
+        self.adapter.service.execute_quote = AsyncMock(return_value=mock_result) # type: ignore[method-assign]
+        self.adapter.service.retry_quote = AsyncMock(return_value=mock_result) # type: ignore[method-assign]
 
         # 测试execute_quote代理
         result = await self.adapter.execute_quote(1)

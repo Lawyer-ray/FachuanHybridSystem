@@ -2,7 +2,6 @@
 Contract Services - 合同核心服务
 """
 
-from .aggregate import ContractAggregate, ContractServiceRoot
 from .contract_access_policy import ContractAccessPolicy
 from .contract_admin_document_service import ContractAdminDocumentService
 from .contract_admin_mutation_service import ContractAdminMutationService
@@ -22,13 +21,11 @@ __all__ = [
     "ContractAdminMutationService",
     "ContractAdminQueryService",
     "ContractAdminService",
-    "ContractAggregate",
     "ContractDisplayService",
     "ContractMutationFacade",
     "ContractProgressService",
     "ContractQueryFacade",
     "ContractService",
     "ContractServiceAdapter",
-    "ContractServiceRoot",
     "ContractValidator",
 ]

@@ -44,7 +44,7 @@ class _FakeHttpClient:
         item = self._outcomes.pop(0)
         if isinstance(item, Exception):
             raise item
-        return (item.payload or {}).get("bytes", b"")
+        return (item.payload or {}).get("bytes", b"")  # type: ignore[no-any-return]
 
 
 @pytest.mark.property_test

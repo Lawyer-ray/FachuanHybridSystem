@@ -4,7 +4,7 @@
 
 import ast
 
-from apps.core.path import Path
+from pathlib import Path
 
 
 def _project_root() -> Path:

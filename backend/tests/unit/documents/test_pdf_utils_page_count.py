@@ -10,7 +10,7 @@ def _make_pdf_bytes(pages: int) -> bytes:
     try:
         for _ in range(pages):
             doc.new_page()
-        return doc.tobytes()
+        return doc.tobytes()  # type: ignore[no-any-return]
     finally:
         doc.close()
 

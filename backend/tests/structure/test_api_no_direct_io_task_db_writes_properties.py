@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from apps.core.path import Path
+from pathlib import Path
 
 
 @pytest.mark.property_test

@@ -21,7 +21,7 @@ class ClientAdminFileMixin:
         self, form_data: dict[str, Any], client_name: str = "", doc_type_display: str = ""
     ) -> str | None:
         if form_data.get("file_path"):
-            return str(form_data["file_path"])
+            return form_data["file_path"]
         uploaded_file = form_data.get("uploaded_file")
         if uploaded_file:
             return self._save_uploaded_file(uploaded_file, client_name, doc_type_display)
