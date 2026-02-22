@@ -233,7 +233,7 @@ class LitigationGenerationService:
             return filename_service.generate_defense_filename(case_id)
         else:
             raise ValidationException(
-                message=f"不支持的文档类型: {doc_type}", code="INVALID_DOC_TYPE", errors={"doc_type": doc_type}
+                message=_("不支持的文档类型: %(t)s") % {"t": doc_type}, code="INVALID_DOC_TYPE", errors={"doc_type": doc_type}
             )
 
     def _get_mock_complaint_output(self, case_data: dict[str, Any]) -> ComplaintOutput:
@@ -324,7 +324,7 @@ class LitigationGenerationService:
         """渲染 docx 模板"""
         if not template_path.exists():
             raise ValidationException(
-                message=f"模板文件不存在: {template_path}",
+                message=_("模板文件不存在: %(p)s") % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -342,5 +342,5 @@ class LitigationGenerationService:
         except Exception as e:
             logger.error("模板渲染失败: %s", e, exc_info=True)
             raise ValidationException(
-                message=f"模板渲染失败: {e!s}", code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message=_("模板渲染失败: %(e)s") % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e

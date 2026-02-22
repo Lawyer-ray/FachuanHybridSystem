@@ -124,7 +124,7 @@ class BaseGenerator(ABC):
             # 验证模板文件存在
             if not Path(template_path).exists():
                 raise ValidationException(
-                    message=f"模板文件不存在: {template_path}",
+                    message=_("模板文件不存在: %(p)s") % {"p": template_path},
                     code="TEMPLATE_NOT_FOUND",
                     errors={"template_path": f"文件不存在: {template_path}"},
                 )
@@ -148,7 +148,7 @@ class BaseGenerator(ABC):
             ) from e
         except Exception as e:
             raise ValidationException(
-                message=f"模板渲染失败: {e!s}",
+                message=_("模板渲染失败: %(e)s") % {"e": e},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"template_path": template_path, "error": str(e)},
             ) from e

@@ -290,7 +290,7 @@ class PreservationMaterialsGenerationService:
         """渲染模板"""
         if not template_path.exists():
             raise ValidationException(
-                message=f"模板文件不存在: {template_path}",
+                message=_("模板文件不存在: %(p)s") % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -307,7 +307,7 @@ class PreservationMaterialsGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=f"模板渲染失败: {e!s}", code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message=_("模板渲染失败: %(e)s") % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e
 
     def _build_filename(self, template_name: str, case: Any) -> str:

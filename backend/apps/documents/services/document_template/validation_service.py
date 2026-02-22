@@ -36,7 +36,7 @@ class DocumentTemplateValidationService:
         normalized_file_path = self.normalize_file_path(file_path)
         if normalized_file_path and not self.validate_file_path(normalized_file_path):
             raise ValidationException(
-                message=f"文件不存在: {normalized_file_path}",
+                message=_("文件不存在: %(p)s") % {"p": normalized_file_path},
                 code="INVALID_FILE_PATH",
                 errors={"file_path": f"文件不存在: {normalized_file_path}"},
             )
@@ -62,7 +62,7 @@ class DocumentTemplateValidationService:
                 )
             if not self.validate_file_path(normalized_file_path):
                 raise ValidationException(
-                    message=f"文件不存在: {normalized_file_path}",
+                    message=_("文件不存在: %(p)s") % {"p": normalized_file_path},
                     code="INVALID_FILE_PATH",
                     errors={"file_path": f"文件不存在: {normalized_file_path}"},
                 )
