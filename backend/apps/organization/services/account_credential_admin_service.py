@@ -262,13 +262,15 @@ class AccountCredentialAdminService:
         Returns:
             BatchLoginResult: 批量登录结果
         """
-        # 只处理法院一张网的账号
-        court_credentials = self.credential_service.filter_by_ids_and_site(
-            credential_ids=list(credential_ids),
-            site_name=self.SUPPORTED_SITE,
+        # 只处理法院一张网的账号，物化为列表避免多次 SQL 查询
+        court_credentials = list(
+            self.credential_service.filter_by_ids_and_site(
+                credential_ids=list(credential_ids),
+                site_name=self.SUPPORTED_SITE,
+            )
         )
 
-        if not court_credentials.exists():
+        if not court_credentials:
             return BatchLoginResult(
                 success_count=0,
                 error_count=0,
@@ -276,12 +278,13 @@ class AccountCredentialAdminService:
                 message=str(_("没有找到法院一张网账号")),
             )
 
+        total_count = len(court_credentials)
         logger.info(
             "管理员批量触发自动登录",
             extra={
                 "admin_user": admin_user,
-                "credential_count": court_credentials.count(),
-                "credential_ids": list(court_credentials.values_list("id", flat=True)),
+                "credential_count": total_count,
+                "credential_ids": [c.id for c in court_credentials],
             },
         )
 
@@ -304,7 +307,6 @@ class AccountCredentialAdminService:
                 error_count += 1
 
         # 汇总结果
-        total_count = court_credentials.count()
         avg_duration = total_duration / total_count if total_count > 0 else 0
 
         logger.info(

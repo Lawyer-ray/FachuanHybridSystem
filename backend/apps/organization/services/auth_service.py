@@ -50,7 +50,8 @@ class AuthService:
         if not user:
             raise AuthenticationError(message=_("用户名或密码错误"), code="INVALID_CREDENTIALS")
         login(request, user)
-        assert isinstance(user, Lawyer)
+        if not isinstance(user, Lawyer):
+            raise AuthenticationError(message=_("用户类型错误"), code="INVALID_USER_TYPE")
         return user
 
     def logout(self, request: Any) -> None:
