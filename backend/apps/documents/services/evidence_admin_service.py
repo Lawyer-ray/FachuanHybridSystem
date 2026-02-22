@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from django.utils import timezone
+
 from typing import Any
 
 from apps.documents.services.evidence_export_service import EvidenceExportService
@@ -188,13 +190,12 @@ class EvidenceAdminService:
             文件名,格式:证据明细{序号}({案件名称})V{版本号}_{日期}.pdf
             示例:证据明细一(XX与YY纠纷)V1_20260115.pdf
         """
-        from datetime import datetime
-
+        
         # 获取案件名称
         case_name = evidence_list.case.name
 
         # 获取日期
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = timezone.now().strftime("%Y%m%d")
 
         # 从证据清单标题中提取序号部分
         # 如"证据清单一"提取"一","补充证据清单二"提取"二"

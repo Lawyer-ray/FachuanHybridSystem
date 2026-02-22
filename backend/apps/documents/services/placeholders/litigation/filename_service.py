@@ -5,8 +5,8 @@ Requirements: 1.1, 1.2, 1.3, 1.4
 """
 
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class FilenameService:
 
         Requirements: 1.4
         """
-        return datetime.now().strftime("%Y%m%d")
+        return timezone.now().strftime("%Y%m%d")
 
     def generate_complaint_filename(self, case_id: int) -> str:
         """
