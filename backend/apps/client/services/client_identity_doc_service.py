@@ -7,16 +7,15 @@ import logging
 import shutil
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django.conf import settings
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.storage import sanitize_upload_filename
 
-if TYPE_CHECKING:
-    from apps.client.models import ClientIdentityDoc
 
 logger = logging.getLogger("apps.client")
 
@@ -27,7 +26,6 @@ class ClientIdentityDocService:
     @transaction.atomic
     def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:
         """添加当事人证件"""
-        from apps.client.models import Client, ClientIdentityDoc
 
         client = Client.objects.filter(id=client_id).first()
         if not client:
@@ -115,7 +113,6 @@ class ClientIdentityDocService:
 
     def get_identity_doc(self, doc_id: int) -> ClientIdentityDoc:
         """获取证件文档，不存在则抛出 NotFoundError"""
-        from apps.client.models import ClientIdentityDoc
 
         doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
         if not doc:
