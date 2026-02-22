@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.reminders.models import Reminder, ReminderType
+from apps.reminders.models import Reminder
+from apps.reminders.services.validators import (
+    normalize_content,
+    normalize_due_at,
+    normalize_metadata,
+    normalize_reminder_type,
+    normalize_target_id,
+    validate_binding_exclusive,
+    validate_fk_exists,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -24,6 +31,9 @@ class ReminderService:
         contract_id: int | None = None,
         case_log_id: int | None = None,
     ) -> QuerySet[Reminder, Reminder]:
+        if contract_id is not None and case_log_id is not None:
+            raise ValidationException(_("不能同时查询合同和案件日志的提醒"))
+
         qs = Reminder.objects.all().select_related("contract", "case_log").order_by("-due_at", "-id")
 
         if contract_id:
@@ -50,68 +60,55 @@ class ReminderService:
         due_at: datetime,
         metadata: dict[str, Any] | None = None,
     ) -> Reminder:
-        if bool(contract_id) == bool(case_log_id):
-            raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
+        validate_binding_exclusive(contract_id=contract_id, case_log_id=case_log_id)
+        validate_fk_exists(contract_id=contract_id, case_log_id=case_log_id)
+        reminder_type = normalize_reminder_type(reminder_type)
+        content = normalize_content(content)
+        due_at = normalize_due_at(due_at)
+        metadata = normalize_metadata(metadata)
 
-        if not reminder_type or not reminder_type.strip():
-            raise ValidationException(_("提醒类型不能为空"))
-        if reminder_type not in ReminderType.values:
-            raise ValidationException(_("无效的提醒类型"))
-        if not content or not content.strip():
-            raise ValidationException(_("提醒事项不能为空"))
-
-        if timezone.is_naive(due_at):
-            due_at = timezone.make_aware(due_at)
-
-        reminder = Reminder.objects.create(
+        return Reminder.objects.create(
             contract_id=contract_id,
             case_log_id=case_log_id,
             reminder_type=reminder_type,
             content=content,
             due_at=due_at,
-            metadata=metadata or {},
+            metadata=metadata,
         )
-        return reminder
 
     @transaction.atomic
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
         reminder = self.get_reminder(reminder_id)
-        self._validate_update_binding(reminder, data)
         self._apply_update_fields(reminder, data)
         reminder.full_clean()
         reminder.save()
         return reminder
 
-    def _validate_update_binding(self, reminder: Reminder, data: dict[str, Any]) -> None:
-        """更新时校验绑定互斥。"""
-        if "contract_id" not in data and "case_log_id" not in data:
-            return
+    def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> None:
+        """将 data 中的字段应用到 reminder 实例，复用 validators 校验。"""
+        if "contract_id" in data:
+            data["contract_id"] = normalize_target_id(data["contract_id"], field_name="contract_id")
+        if "case_log_id" in data:
+            data["case_log_id"] = normalize_target_id(data["case_log_id"], field_name="case_log_id")
+
+        # 绑定互斥校验
         contract_id: int | None = data.get("contract_id", reminder.contract_id)
         case_log_id: int | None = data.get("case_log_id", reminder.case_log_id)
-        if bool(contract_id) == bool(case_log_id):
-            raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
+        if "contract_id" in data or "case_log_id" in data:
+            validate_binding_exclusive(contract_id=contract_id, case_log_id=case_log_id)
 
-    def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> None:
-        """将 data 中的字段应用到 reminder 实例。"""
         if "contract_id" in data:
             reminder.contract_id = data["contract_id"]
         if "case_log_id" in data:
             reminder.case_log_id = data["case_log_id"]
         if "reminder_type" in data and data["reminder_type"] is not None:
-            if data["reminder_type"] not in ReminderType.values:
-                raise ValidationException(_("无效的提醒类型"))
-            reminder.reminder_type = data["reminder_type"]
+            reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
         if "content" in data and data["content"] is not None:
-            reminder.content = data["content"]
+            reminder.content = normalize_content(data["content"])
         if "metadata" in data and data["metadata"] is not None:
-            reminder.metadata = data["metadata"]
+            reminder.metadata = normalize_metadata(data["metadata"])
         if "due_at" in data and data["due_at"] is not None:
-            due_at = data["due_at"]
-            if not isinstance(due_at, datetime):
-                raise ValidationException(_("到期时间格式不正确"))
-            if timezone.is_naive(due_at):
-                due_at = timezone.make_aware(due_at)
-            reminder.due_at = due_at
+            reminder.due_at = normalize_due_at(data["due_at"])
 
     @transaction.atomic
     def delete_reminder(self, reminder_id: int) -> dict[str, bool]:
@@ -121,8 +118,9 @@ class ReminderService:
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""
-        due_at_values = Reminder.objects.filter(
-            case_log_id=case_log_id,
-            reminder_type=reminder_type,
-        ).values_list("due_at", flat=True)
-        return set(cast("Iterable[datetime]", due_at_values))
+        return set(
+            Reminder.objects.filter(
+                case_log_id=case_log_id,
+                reminder_type=reminder_type,
+            ).values_list("due_at", flat=True)
+        )
