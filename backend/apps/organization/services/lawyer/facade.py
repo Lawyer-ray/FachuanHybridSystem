@@ -94,5 +94,4 @@ class LawyerService:
     # ---- 内部方法 ----
 
     def _get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
-        """内部方法：获取律师（无权限检查），供 ServiceAdapter 调用。"""
         return self.get_lawyer_queryset().filter(id=lawyer_id).first()

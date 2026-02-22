@@ -25,7 +25,6 @@ _assembler = LawyerDtoAssembler()
 
 
 class OrganizationServiceAdapter(IOrganizationService):
-    """組織服務適配器，實現IOrganizationService接口，提供跨模塊調用的統一入口。"""
 
     def __init__(self, account_credential_service: AccountCredentialService | None = None):
         self._account_credential_service = account_credential_service
