@@ -37,51 +37,6 @@ class SystemConfigService:
         self._cache_timeout = cache_timeout
 
     @transaction.atomic
-    def create_config(
-        self,
-        key: str,
-        value: str,
-        category: str = "general",
-        description: str = "",
-        is_secret: bool = False,
-        is_active: bool = True,
-    ) -> SystemConfig:
-        """
-        创建系统配置
-
-        Args:
-            key: 配置键(唯一标识)
-            value: 配置值
-            category: 分类
-            description: 描述
-            is_secret: 是否为敏感信息
-            is_active: 是否启用
-
-        Returns:
-            创建的 SystemConfig 实例
-        """
-        if not key or not key.strip():
-            raise ValidationException(
-                message=_("配置键不能为空"),
-                code="INVALID_CONFIG_KEY",
-                errors={"key": "配置键不能为空"},
-            )
-
-        config = self._repository.create(
-            key=key.strip(),
-            value=value,
-            category=category,
-            description=description,
-            is_secret=is_secret,
-            is_active=is_active,
-        )
-
-        # 清除缓存
-        self._clear_cache(key)
-
-        return config
-
-    @transaction.atomic
     def update_config(
         self,
         config_id: int,
@@ -181,18 +136,6 @@ class SystemConfigService:
             )
         return config
 
-    def get_config_by_key(self, key: str) -> SystemConfig | None:
-        """
-        根据键获取系统配置
-
-        Args:
-            key: 配置键
-
-        Returns:
-            SystemConfig 实例,不存在时返回 None
-        """
-        return self._repository.get_by_key(key)
-
     def get_value(self, key: str, default: str = "") -> str:
         """
         获取配置值
@@ -224,31 +167,6 @@ class SystemConfigService:
                 value = codec.decrypt(value)
         cache.set(cache_key, value, timeout=self._cache_timeout)
         return value
-
-    def list_configs(
-        self,
-        category: str | None = None,
-        is_active: bool | None = None,
-    ) -> list[SystemConfig]:
-        """
-        列出系统配置
-
-        Args:
-            category: 按分类过滤
-            is_active: 按启用状态过滤
-
-        Returns:
-            SystemConfig 列表
-        """
-        queryset = self._repository.get_all()
-
-        if category is not None:
-            queryset = queryset.filter(category=category)
-
-        if is_active is not None:
-            queryset = queryset.filter(is_active=is_active)
-
-        return list(queryset.order_by("category", "key"))
 
     def warm_cache(self, keys: Iterable[str], timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS) -> dict[str, str]:
         requested = [str(k) for k in keys if str(k)]
