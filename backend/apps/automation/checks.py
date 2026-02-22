@@ -15,7 +15,7 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
 
     # 检查 Playwright
     try:
-        import playwright
+        import playwright  # 检查是否安装
     except ImportError:
         errors.append(
             Error(

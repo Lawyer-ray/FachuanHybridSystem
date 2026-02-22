@@ -127,15 +127,17 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
             self.token_service.delete_token("court_zxfw") # type: ignore
 
         # 调用异步方法
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # 如果已经在事件循环中，创建新的任务
-            import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
 
+        if loop and loop.is_running():
+            # 如果已经在事件循环中，创建新的任务
             return cast(dict[str, Any], asyncio.create_task(self.service.execute_quote(quote_id)))
         else:
             # 如果不在事件循环中，直接运行
-            return loop.run_until_complete(self.service.execute_quote(quote_id))
+            return asyncio.run(self.service.execute_quote(quote_id))
 
     def get_quote_by_id(self, quote_id: int) -> Any:
         """
