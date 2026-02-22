@@ -53,16 +53,17 @@ class CauseCourtQueryService:
         Returns:
             案由信息字典(包含 id, name, code, case_type),不存在返回 None
         """
-        try:
-            cause = CauseOfAction.objects.get(id=cause_id, is_active=True, is_deprecated=False)
-            return {
-                "id": cause.id,
-                "name": cause.name,
-                "code": cause.code,
-                "case_type": cause.case_type,
-            }
-        except CauseOfAction.DoesNotExist:
+        cause = CauseOfAction.objects.filter(
+            id=cause_id, is_active=True, is_deprecated=False
+        ).first()
+        if cause is None:
             return None
+        return {
+            "id": cause.id,
+            "name": cause.name,
+            "code": cause.code,
+            "case_type": cause.case_type,
+        }
 
     def get_cause_ancestor_names_internal(self, cause_id: int) -> list[str]:
         cause = CauseOfAction.objects.filter(id=cause_id).select_related("parent").first()
