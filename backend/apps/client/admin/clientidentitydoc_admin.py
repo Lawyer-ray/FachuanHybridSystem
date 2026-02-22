@@ -12,6 +12,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import ClientIdentityDoc
+from apps.client.services.storage import sanitize_upload_filename
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -63,9 +64,8 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
             doc_type_display = instance.get_doc_type_display()
 
             # 清理文件名
-            service = _get_identity_doc_service()
-            clean_client_name = service._sanitize_filename(client_name)
-            clean_doc_type = service._sanitize_filename(doc_type_display)
+            clean_client_name = sanitize_upload_filename(client_name)
+            clean_doc_type = sanitize_upload_filename(doc_type_display)
 
             new_filename = f"{clean_client_name}_{clean_doc_type}{ext}"
             file_path = upload_dir / new_filename

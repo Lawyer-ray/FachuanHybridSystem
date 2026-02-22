@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.client.services.storage import sanitize_upload_filename
 
 logger = logging.getLogger("apps.client")
 
@@ -60,7 +61,7 @@ class ClientIdentityDocService:
         ext = abs_path.suffix
 
         # 生成新文件名：{doc_type}（{client_name}）.ext
-        client_name = self._sanitize_filename(doc_instance.client.name)
+        client_name = sanitize_upload_filename(doc_instance.client.name)
         doc_type_display = doc_instance.get_doc_type_display()
         new_filename = f"{doc_type_display}（{client_name}）{ext}"
 
@@ -117,19 +118,3 @@ class ClientIdentityDocService:
             file_path=str(saved_path),
             user=user,
         )
-
-    def _sanitize_filename(self, filename: str) -> str:
-        """清理文件名中的非法字符"""
-        # 替换文件名中的非法字符
-        invalid_chars = '<>:"/\\|?*'
-        for char in invalid_chars:
-            filename = filename.replace(char, "_")
-
-        # 移除首尾空格和点
-        filename = filename.strip(" .")
-
-        # 限制长度
-        if len(filename) > 50:
-            filename = filename[:50]
-
-        return filename or "未命名"

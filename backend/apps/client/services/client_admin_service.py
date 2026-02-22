@@ -14,6 +14,7 @@ from django.db import transaction
 from apps.core.exceptions import ValidationException
 
 from apps.client.models import Client, ClientIdentityDoc
+from apps.client.services.storage import sanitize_upload_filename
 
 if TYPE_CHECKING:
     from .client_service import ClientService
@@ -406,8 +407,8 @@ class ClientAdminService:
 
         # 生成新文件名：当事人名称_证件类型.扩展名
         if client_name and doc_type:
-            clean_name = self._sanitize_filename(client_name)
-            clean_type = self._sanitize_filename(doc_type)
+            clean_name = sanitize_upload_filename(client_name)
+            clean_type = sanitize_upload_filename(doc_type)
             new_filename = f"{clean_name}_{clean_type}{ext}"
         else:
             new_filename = uploaded_file.name
@@ -428,16 +429,6 @@ class ClientAdminService:
 
         # 返回相对路径（相对于 MEDIA_ROOT）
         return f"client_docs/{new_filename}"
-
-    def _sanitize_filename(self, filename: str) -> str:
-        """清理文件名中的非法字符"""
-        invalid_chars = '<>:"/\\|?*'
-        for char in invalid_chars:
-            filename = filename.replace(char, "_")
-        filename = filename.strip(" .")
-        if len(filename) > 50:
-            filename = filename[:50]
-        return filename or "未命名"
 
     def _update_identity_doc(self, doc_id: int, file_path: str, admin_user: str) -> None:
         """
