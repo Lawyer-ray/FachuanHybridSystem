@@ -166,16 +166,18 @@ class TokenAcquisitionOrchestrator:
                 )
             finally:
                 await svc.concurrency_optimizer.release_resource(acquisition_id, site_name, account_marker)
+        except (
+            AutoTokenAcquisitionError,
+            ValidationException,
+            NoAvailableAccountError,
+            TokenAcquisitionTimeoutError,
+        ):
+            # 内层 try 已记录过 record_acquisition_end，直接透传
+            raise
         except Exception as e:
             total_duration = time.time() - start_time
             error_type = type(e).__name__
             svc.performance_monitor.record_acquisition_end(acquisition_id, False, total_duration, error_type=error_type)
-
-            if isinstance(
-                e,
-                (AutoTokenAcquisitionError, ValidationException, NoAvailableAccountError, TokenAcquisitionTimeoutError),
-            ):
-                raise
 
             svc._failure_count += 1
             logger.error(

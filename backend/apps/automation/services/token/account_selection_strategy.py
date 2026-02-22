@@ -152,35 +152,33 @@ class AccountSelectionStrategy:
             raise ValidationException("没有可用账号")
 
         # 按优先级排序
-        def sort_key(account: AccountCredentialDTO) -> tuple[int, int, int]:
+        def sort_key(account: AccountCredentialDTO) -> float:
             # 1. 优先使用preferred账号
-            preferred_score = 1000 if account.is_preferred else 0
+            preferred_score = 1000.0 if account.is_preferred else 0.0
 
             # 2. 最近成功登录时间（越近越好）
             if account.last_login_success_at:
                 from datetime import datetime
 
-                import pytz
-
                 last_login = datetime.fromisoformat(account.last_login_success_at.replace("Z", "+00:00"))
                 if last_login.tzinfo is None:
-                    last_login = pytz.UTC.localize(last_login)
+                    last_login = last_login.replace(tzinfo=timezone.utc)
                 hours_since_login = (timezone.now() - last_login).total_seconds() / 3600
-                recency_score = max(0, 100 - hours_since_login)  # 100小时内线性递减
+                recency_score = max(0.0, 100.0 - hours_since_login)  # 100小时内线性递减
             else:
-                recency_score = 0  # 从未成功登录
+                recency_score = 0.0  # 从未成功登录
 
             # 3. 成功次数
-            success_score = min(account.login_success_count, 50)  # 最多50分
+            success_score = min(float(account.login_success_count), 50.0)  # 最多50分
 
             # 4. 成功率（避免除零）
             total_attempts = account.login_success_count + account.login_failure_count
             if total_attempts > 0:
                 success_rate_score = (account.login_success_count / total_attempts) * 20
             else:
-                success_rate_score = 10  # 新账号给予中等分数
+                success_rate_score = 10.0  # 新账号给予中等分数
 
-            return cast(tuple[int, int, int], -(preferred_score + recency_score + success_score + success_rate_score))
+            return -(preferred_score + recency_score + success_score + success_rate_score)
 
         # 排序并选择最优账号
         sorted_accounts = sorted(accounts, key=sort_key)
@@ -236,7 +234,7 @@ class AccountSelectionStrategy:
             from asgiref.sync import sync_to_async
 
             @sync_to_async
-            def update_credential() -> None:
+            def update_credential() -> tuple[int | None, int | None]:
                 # 通过ServiceLocator获取organization服务
                 from apps.core.interfaces import ServiceLocator
 
@@ -248,16 +246,14 @@ class AccountSelectionStrategy:
                 # 更新登录统计
                 if success:
                     organization_service.update_login_success_internal(cred.id) # type: ignore
-                    # 重新获取更新后的值
-                    cred = organization_service.get_credential_internal(cred.id)
+                    cred = organization_service.get_credential_internal(cred.id) # type: ignore
                     return cred.login_success_count, None # type: ignore
                 else:
                     organization_service.update_login_failure_internal(cred.id) # type: ignore
-                    # 重新获取更新后的值
-                    cred = organization_service.get_credential_internal(cred.id)
+                    cred = organization_service.get_credential_internal(cred.id) # type: ignore
                     return None, cred.login_failure_count # type: ignore
 
-            success_count, failure_count = await update_credential() # type: ignore
+            success_count, failure_count = await update_credential()
 
             # 更新缓存的统计信息
             stats = {

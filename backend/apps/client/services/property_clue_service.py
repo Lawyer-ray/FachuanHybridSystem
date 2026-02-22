@@ -10,9 +10,9 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-if TYPE_CHECKING:
-    from apps.client.models import PropertyClue, PropertyClueAttachment
+from apps.client.models import PropertyClue, PropertyClueAttachment
 
+if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService
 
 logger = logging.getLogger("apps.client")
@@ -35,7 +35,6 @@ class PropertyClueService:
 
     def _validate_clue_type(self, clue_type: str) -> None:
         """验证线索类型是否有效。"""
-        from apps.client.models import PropertyClue
 
         valid_types = dict(PropertyClue.CLUE_TYPE_CHOICES)
         if clue_type not in valid_types:
@@ -68,7 +67,6 @@ class PropertyClueService:
 
         Requirements: 1.1
         """
-        from apps.client.models import PropertyClue
 
         client = self._get_client_or_404(client_id)
 
@@ -92,7 +90,6 @@ class PropertyClueService:
 
     def get_clue(self, clue_id: int, user: Any = None) -> PropertyClue:
         """获取单个财产线索，不存在则抛出 NotFoundError。"""
-        from apps.client.models import PropertyClue
 
         clue = PropertyClue.objects.prefetch_related("attachments").filter(id=clue_id).first()
 
@@ -115,7 +112,6 @@ class PropertyClueService:
 
         Requirements: 4.1
         """
-        from apps.client.models import PropertyClue
 
         self._get_client_or_404(client_id)
 
@@ -198,7 +194,6 @@ class PropertyClueService:
         user: Any = None,
     ) -> PropertyClueAttachment:
         """为财产线索添加附件。"""
-        from apps.client.models import PropertyClueAttachment
 
         if not file_path or not file_name:
             raise ValidationException(
@@ -260,7 +255,6 @@ class PropertyClueService:
     @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: Any = None) -> None:
         """删除财产线索附件（含磁盘文件）。"""
-        from apps.client.models import PropertyClueAttachment
         from apps.client.services.storage import delete_media_file
 
         try:
@@ -289,6 +283,5 @@ class PropertyClueService:
 
     def get_content_template(self, clue_type: str) -> str:
         """获取指定线索类型的内容模板。"""
-        from apps.client.models import PropertyClue
 
         return str(PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))
