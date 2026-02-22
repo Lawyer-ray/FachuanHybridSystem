@@ -208,8 +208,8 @@ class PropertyClueService:
                 message=_("文件路径和文件名不能为空"),
                 code="INVALID_FILE_INFO",
                 errors={
-                    "file_path": "文件路径不能为空" if not file_path else None,
-                    "file_name": "文件名不能为空" if not file_name else None,
+                    "file_path": _("文件路径不能为空") if not file_path else None,
+                    "file_name": _("文件名不能为空") if not file_name else None,
                 },
             )
 
