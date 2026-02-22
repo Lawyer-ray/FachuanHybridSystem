@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -20,6 +20,9 @@ from .access_policy import ensure_can_access_project
 from .frame_selection_service import FrameSelectionService
 from .project_service import ProjectService
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
+
 logger = logging.getLogger("apps.chat_records")
 
 
@@ -29,12 +32,12 @@ class ScreenshotService:
     def __init__(self, *, project_service: ProjectService) -> None:
         self._project_service = project_service
 
-    def list_screenshots(self, *, user: Any, project_id: int) -> QuerySet[ChatRecordScreenshot, ChatRecordScreenshot]:
+    def list_screenshots(self, *, user: User, project_id: int) -> QuerySet[ChatRecordScreenshot, ChatRecordScreenshot]:
         self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordScreenshot.objects.filter(project_id=project_id).order_by("ordering", "created_at")
 
 
-    def get_screenshot(self, *, user: Any, screenshot_id: str) -> ChatRecordScreenshot:
+    def get_screenshot(self, *, user: User, screenshot_id: str) -> ChatRecordScreenshot:
         try:
             screenshot: ChatRecordScreenshot = (
                 ChatRecordScreenshot.objects.select_related("project").get(id=screenshot_id)
@@ -48,7 +51,7 @@ class ScreenshotService:
     def upload_screenshots(
         self,
         *,
-        user: Any,
+        user: User,
         project_id: int,
         files: Iterable[UploadedFile],
         deduplicate: bool = True,
@@ -150,7 +153,7 @@ class ScreenshotService:
 
     @transaction.atomic
     def update_screenshot(
-        self, *, user: Any, screenshot_id: str, title: str | None = None, note: str | None = None
+        self, *, user: User, screenshot_id: str, title: str | None = None, note: str | None = None
     ) -> ChatRecordScreenshot:
         screenshot = self.get_screenshot(user=user, screenshot_id=screenshot_id)
         update_fields: list[str] = []
@@ -167,13 +170,13 @@ class ScreenshotService:
         return screenshot
 
     @transaction.atomic
-    def delete_screenshot(self, *, user: Any, screenshot_id: str) -> dict[str, bool]:
+    def delete_screenshot(self, *, user: User, screenshot_id: str) -> dict[str, bool]:
         screenshot = self.get_screenshot(user=user, screenshot_id=screenshot_id)
         screenshot.delete()
         return {"success": True}
 
     @transaction.atomic
-    def reorder_screenshots(self, *, user: Any, project_id: int, screenshot_ids: list[str]) -> dict[str, bool]:
+    def reorder_screenshots(self, *, user: User, project_id: int, screenshot_ids: list[str]) -> dict[str, bool]:
         self._project_service.get_project(user=user, project_id=project_id)
         existing_ids = set(ChatRecordScreenshot.objects.filter(project_id=project_id).values_list("id", flat=True))
         if existing_ids != set(screenshot_ids):
