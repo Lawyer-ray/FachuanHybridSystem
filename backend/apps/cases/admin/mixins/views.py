@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json as json_mod
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
@@ -13,6 +14,11 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from apps.cases.services.case.case_admin_service import CaseAdminService
 
 logger = logging.getLogger("apps.cases")
 
@@ -62,8 +68,8 @@ class CaseAdminViewsMixin:
     name_link.short_description = _("案件名称")  # type: ignore[attr-defined]
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]
 
-    def get_urls(self) -> list[Any]:
-        urls: list[Any] = super().get_urls()  # type: ignore[misc]
+    def get_urls(self) -> list[URLPattern]:
+        urls: list[URLPattern] = super().get_urls()  # type: ignore[misc]
         custom_urls: list[URLPattern] = [
             path(
                 "<int:object_id>/detail/",
@@ -118,20 +124,18 @@ class CaseAdminViewsMixin:
 
         matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
 
-        import json
-
-        our_legal_entities_json, our_legal_entities = self._build_our_legal_entities(case, json)
-        our_parties_json, our_parties = self._build_our_parties(case, json)
-        respondents_json, respondents = self._build_respondents(case, json)
+        our_legal_entities_json, our_legal_entities = self._build_our_legal_entities(case, json_mod)
+        our_parties_json, our_parties = self._build_our_parties(case, json_mod)
+        respondents_json, respondents = self._build_respondents(case, json_mod)
 
         case_materials_view = self._build_case_materials_view(request, case)
 
         template_binding_service = self._get_case_template_binding_service()  # type: ignore[attr-defined]
         bound_templates = template_binding_service.get_bindings_for_case(case.id)
-        bound_templates_json = json.dumps(bound_templates, ensure_ascii=False)
+        bound_templates_json = json_mod.dumps(bound_templates, ensure_ascii=False)
 
         unified_templates = template_binding_service.get_unified_templates(case.id)
-        unified_templates_json = json.dumps(unified_templates, ensure_ascii=False)
+        unified_templates_json = json_mod.dumps(unified_templates, ensure_ascii=False)
 
         has_preservation_template = any(
             t.get("function_code") == "preservation_application" or "财产保全申请书" in (t.get("name") or "")
@@ -173,7 +177,7 @@ class CaseAdminViewsMixin:
 
         return render(request, "admin/cases/case/detail.html", context)
 
-    def _get_case_file_templates(self, service: Any, case: Case) -> tuple[list[Any], str]:
+    def _get_case_file_templates(self, service: CaseAdminService, case: Case) -> tuple[list[dict[str, Any]], str]:
         if not case.case_type:
             return [], "未设置案件类型"
         if not case.current_stage:
@@ -181,7 +185,7 @@ class CaseAdminViewsMixin:
         return service.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
 
     @staticmethod
-    def _build_our_legal_entities(case: Case, json: Any) -> tuple[str, list[dict[str, Any]]]:
+    def _build_our_legal_entities(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
         entities: list[dict[str, Any]] = [
             {"id": p.client.id, "name": p.client.name}
             for p in case.parties.all()
@@ -190,7 +194,7 @@ class CaseAdminViewsMixin:
         return json.dumps(entities, ensure_ascii=False), entities
 
     @staticmethod
-    def _build_our_parties(case: Case, json: Any) -> tuple[str, list[dict[str, Any]]]:
+    def _build_our_parties(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
         parties: list[dict[str, Any]] = []
         for party in case.parties.all():
             client = party.client
@@ -212,7 +216,7 @@ class CaseAdminViewsMixin:
         return json.dumps(parties, ensure_ascii=False), parties
 
     @staticmethod
-    def _build_respondents(case: Case, json: Any) -> tuple[str, list[dict[str, Any]]]:
+    def _build_respondents(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
         respondents: list[dict[str, Any]] = [
             {"id": p.client.id, "name": p.client.name}
             for p in case.parties.all()
@@ -220,7 +224,7 @@ class CaseAdminViewsMixin:
         ]
         return json.dumps(respondents, ensure_ascii=False), respondents
 
-    def _build_case_materials_view(self, request: HttpRequest, case: Case) -> Any:
+    def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, Any]:
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]
         return material_service.get_case_materials_view(
             case_id=case.id,
@@ -236,8 +240,6 @@ class CaseAdminViewsMixin:
 
         if not self.has_change_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
-
-        import json
 
         user = getattr(request, "user", None)
         law_firm_id = getattr(user, "law_firm_id", None) if user else None
@@ -289,11 +291,11 @@ class CaseAdminViewsMixin:
                 "title": f"上传/绑定材料: {case.name}",
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "detail_url": reverse("admin:cases_case_detail", args=[case.pk]),
-                "party_types_json": json.dumps(party_types, ensure_ascii=False),
-                "non_party_types_json": json.dumps(non_party_types, ensure_ascii=False),
-                "our_case_parties_json": json.dumps(our_parties, ensure_ascii=False),
-                "opponent_case_parties_json": json.dumps(opponent_parties, ensure_ascii=False),
-                "supervising_authorities_json": json.dumps(authorities, ensure_ascii=False),
+                "party_types_json": json_mod.dumps(party_types, ensure_ascii=False),
+                "non_party_types_json": json_mod.dumps(non_party_types, ensure_ascii=False),
+                "our_case_parties_json": json_mod.dumps(our_parties, ensure_ascii=False),
+                "opponent_case_parties_json": json_mod.dumps(opponent_parties, ensure_ascii=False),
+                "supervising_authorities_json": json_mod.dumps(authorities, ensure_ascii=False),
             }
         )
 
@@ -333,7 +335,7 @@ class CaseAdminViewsMixin:
             return "无匹配的文件夹模板"
         return ""
 
-    def _get_folder_disabled_reason_v2(self, matched_folder_templates: Any) -> str:
+    def _get_folder_disabled_reason_v2(self, matched_folder_templates: str) -> str:
         if not matched_folder_templates or "无匹配" in matched_folder_templates:
             return "无匹配的文件夹模板"
         return ""

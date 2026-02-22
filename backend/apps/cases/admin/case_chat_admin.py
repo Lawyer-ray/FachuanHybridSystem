@@ -85,10 +85,10 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
                 if service.unbind_chat(chat.id):
                     success_count += 1
             except Exception as e:
-                messages.error(request, f"解除绑定群聊 {chat.name} 失败: {e!s}")
+                messages.error(request, _("解除绑定群聊 %(chat)s 失败: %(error)s") % {"chat": chat.name, "error": str(e)})
 
         if success_count > 0:
-            messages.success(request, f"成功解除绑定 {success_count} 个群聊")
+            messages.success(request, _("成功解除绑定 %d 个群聊") % success_count)
 
     unbind_selected_chats.short_description = _("解除绑定选中的群聊")  # type: ignore[attr-defined]
 
@@ -106,11 +106,11 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
             service = self._get_case_chat_service()
             try:
                 if service.unbind_chat(obj.id):
-                    messages.success(request, f"成功解除绑定群聊: {obj.name}")
+                    messages.success(request, _("成功解除绑定群聊: %s") % obj.name)
                 else:
-                    messages.error(request, f"解除绑定群聊失败: {obj.name}")
+                    messages.error(request, _("解除绑定群聊失败: %s") % obj.name)
             except Exception as e:
-                messages.error(request, f"解除绑定群聊时发生错误: {e!s}")
+                messages.error(request, _("解除绑定群聊时发生错误: %s") % str(e))
 
             return HttpResponseRedirect(reverse("admin:cases_casechat_changelist"))
 

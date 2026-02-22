@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.contrib import messages
 from django.db.models import QuerySet
@@ -12,6 +11,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.exceptions import ChatProviderException
+from apps.cases.models import Case
 from apps.core.enums import ChatPlatform
 
 from .service import CaseAdminServiceMixin
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class CaseAdminActionsMixin(CaseAdminServiceMixin):
-    def response_change(self, request: HttpRequest, obj: Any) -> HttpResponse:
+    def response_change(self, request: HttpRequest, obj: Case) -> HttpResponse:
         if "_save_and_duplicate" in request.POST:
             try:
                 service = self._get_case_admin_service()
@@ -41,7 +41,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
 
         return super().response_change(request, obj)  # type: ignore[misc, no-any-return]
 
-    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Any, Any]) -> None:
+    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         service = self._get_case_chat_service()
         success_count = 0
         error_count = 0

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from django.contrib import admin
 from django.forms import ModelForm
 from django.http import HttpRequest
