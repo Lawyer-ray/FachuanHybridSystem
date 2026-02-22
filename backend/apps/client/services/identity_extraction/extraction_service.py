@@ -269,7 +269,7 @@ class IdentityExtractionService:
 
         except ConnectionError as e:
             logger.exception("Ollama 服务连接失败: %s", e)
-            raise ServiceUnavailableError(message=f"Ollama 服务连接失败: {e!s}", service_name="Ollama") from e
+            raise ServiceUnavailableError(message=str(_("Ollama 服务连接失败: %(e)s") % {"e": e}), service_name="Ollama") from e
         except OllamaExtractionError:
             raise
         except Exception as e:
@@ -296,12 +296,12 @@ class IdentityExtractionService:
             result["extracted_data"] = extraction.extracted_data
             result["confidence"] = extraction.confidence
         except (OCRExtractionError, OllamaExtractionError) as e:
-            result["error"] = f"识别失败: {e}"
+            result["error"] = str(_("识别失败: %(e)s") % {"e": e})
         except ServiceUnavailableError as e:
-            result["error"] = f"服务不可用: {e}"
+            result["error"] = str(_("服务不可用: %(e)s") % {"e": e})
         except ValidationException as e:
             result["error"] = str(e)
         except Exception as e:
             logger.exception("证件识别未知错误: %s", e)
-            result["error"] = f"未知错误: {e}"
+            result["error"] = str(_("未知错误: %(e)s") % {"e": e})
         return result
