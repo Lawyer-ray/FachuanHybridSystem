@@ -347,7 +347,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
             error_detail = f"{e!s}\n\n{traceback.format_exc()}"
             logger.error("导出失败", extra={"pk": pk, "error": error_detail}, exc_info=True)
-            raise Http404(f"导出失败: {e!s}") from e
+            raise Http404(_("导出失败: %(e)s") % {"e": e}) from e
 
     def download_pdf_view(self, request: Any, pk: int) -> Any:
         try:
