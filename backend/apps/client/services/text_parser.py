@@ -169,8 +169,15 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
         matches = list(re.finditer(pattern, text, re.IGNORECASE))
         all_matches.extend(matches)
 
-    # 按位置排序
-    all_matches.sort(key=lambda x: x.start())
+    # 按位置排序，去除同一起始位置的重复匹配（保留最长匹配）
+    all_matches.sort(key=lambda x: (x.start(), -(x.end() - x.start())))
+    seen_starts: set[int] = set()
+    deduped: list[re.Match[str]] = []
+    for m in all_matches:
+        if m.start() not in seen_starts:
+            seen_starts.add(m.start())
+            deduped.append(m)
+    all_matches = deduped
 
     # 提取每个当事人的信息
     for i, match in enumerate(all_matches):

@@ -82,12 +82,9 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
 
     def content_preview(self, obj: PropertyClue) -> str:
         """显示内容摘要"""
-        if obj.content:
-            preview = obj.content[:50]
-            if len(obj.content) > 50:
-                preview += "..."
-            return preview
-        return ""
+        if not obj.content:
+            return ""
+        return obj.content[:50] + ("..." if len(obj.content) > 50 else "")
 
     content_preview.short_description = _("内容摘要")  # type: ignore[attr-defined]
 
