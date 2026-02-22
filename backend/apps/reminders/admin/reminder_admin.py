@@ -37,7 +37,7 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
             try:
                 return json.loads(value)
             except json.JSONDecodeError:
-                raise forms.ValidationError(_("请输入合法的 JSON 格式"))
+                raise forms.ValidationError(_("请输入合法的 JSON 格式")) from None
         return value
 
 
