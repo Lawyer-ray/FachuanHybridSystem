@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 from django.contrib import admin, messages
 from django.db.models import QuerySet
 from django.forms import ModelForm
-from django.forms.models import BaseInlineFormSet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -25,21 +24,8 @@ from apps.cases.models import (
     CaseStage,
     SupervisingAuthority,
 )
-from apps.cases.services.case_chat_service import CaseChatService
-from apps.cases.admin.mixins import CaseAdminViewsMixin
+from apps.cases.admin.mixins import CaseAdminServiceMixin, CaseAdminViewsMixin
 from apps.core.enums import ChatPlatform
-
-
-def _get_case_chat_service() -> CaseChatService:
-    """工厂函数获取案件群聊服务"""
-    return CaseChatService()
-
-
-def _get_case_admin_service() -> Any:
-    """工厂函数获取案件 Admin 服务"""
-    from apps.cases.services.case_admin_service import CaseAdminService
-
-    return CaseAdminService()
 
 
 class CasePartyInline(BaseTabularInline):
@@ -95,7 +81,7 @@ class CaseLogInline(BaseStackedInline):
 
 
 @admin.register(Case)
-class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
+class CaseAdmin(CaseAdminServiceMixin, CaseAdminViewsMixin, BaseModelAdmin):
     form = CaseAdminForm
     list_display = ("id", "name", "status", "start_date", "effective_date", "is_archived")
     list_filter = ("status", "is_archived")
@@ -121,7 +107,7 @@ class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
         """处理保存并复制按钮"""
         if "_save_and_duplicate" in request.POST:
             try:
-                service = _get_case_admin_service()
+                service = self._get_case_admin_service()
                 new_case = service.duplicate_case(obj.pk)
                 messages.success(request, f"已复制案件，正在编辑新案件: {new_case.name}")
                 return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
@@ -132,7 +118,7 @@ class CaseAdmin(CaseAdminViewsMixin, BaseModelAdmin):
 
     def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         """为选中的案件创建飞书群聊"""
-        service = _get_case_chat_service()
+        service = self._get_case_chat_service()
         success_count = 0
         error_count = 0
 
