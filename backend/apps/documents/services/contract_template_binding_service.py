@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
+from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate, DocumentTemplateType, FolderTemplateType
 
 
 class DocumentTemplateBindingService:
@@ -101,7 +101,7 @@ class DocumentTemplateBindingService:
         if not case_type or not subdir_key:
             return None
 
-        folder_templates = FolderTemplate.objects.filter(template_type="case", is_active=True)
+        folder_templates = FolderTemplate.objects.filter(template_type=FolderTemplateType.CASE, is_active=True)
         matching_folder_template = None
         for ft in folder_templates:
             case_types = ft.case_types or []
@@ -124,7 +124,7 @@ class DocumentTemplateBindingService:
         if not case_type or not contract_sub_type:
             return None
 
-        folder_templates = FolderTemplate.objects.filter(template_type="contract", is_active=True)
+        folder_templates = FolderTemplate.objects.filter(template_type=FolderTemplateType.CONTRACT, is_active=True)
         matching_folder_template = None
         for ft in folder_templates:
             contract_types = ft.contract_types or []
@@ -135,7 +135,7 @@ class DocumentTemplateBindingService:
             return None
 
         document_templates = DocumentTemplate.objects.filter(
-            template_type="contract",
+            template_type=DocumentTemplateType.CONTRACT,
             contract_sub_type=contract_sub_type,
             is_active=True,
         )
