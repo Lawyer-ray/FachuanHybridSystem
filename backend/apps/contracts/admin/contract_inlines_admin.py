@@ -37,7 +37,7 @@ class ContractPartyInline(BaseTabularInline[ContractParty, ContractParty]):
     show_change_link = True
 
 
-class ContractReminderInline(BaseTabularInline[Any, Any]):
+class ReminderInline(BaseTabularInline[Any, Any]):
     model = Reminder
     extra = 1
     fields = ("reminder_type", "content", "due_at")

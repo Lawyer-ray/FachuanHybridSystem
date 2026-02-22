@@ -7,7 +7,6 @@ from .contract_admin import ContractAdmin
 from .contractassignment_admin import ContractAssignmentAdmin
 from .contractpayment_admin import ContractPaymentAdmin, ContractPaymentInline
 from .contractfinancelog_admin import ContractFinanceLogAdmin
-# ContractReminderAdmin 已废弃，使用 apps.reminders.ReminderAdmin 替代
 from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
 # 所有Admin类通过装饰器自动注册
