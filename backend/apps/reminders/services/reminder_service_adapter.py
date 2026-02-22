@@ -51,13 +51,17 @@ class ReminderServiceAdapter:
         reminder_type_label = ReminderType(reminder_type).label
         metadata = {"created_by_user_id": user_id} if user_id else {}
 
-        reminder = self._service.create_reminder(
-            case_log_id=case_log_id,
-            reminder_type=reminder_type,
-            content=str(reminder_type_label),
-            due_at=reminder_time,
-            metadata=metadata,
-        )
+        try:
+            reminder = self._service.create_reminder(
+                case_log_id=case_log_id,
+                reminder_type=reminder_type,
+                content=str(reminder_type_label),
+                due_at=reminder_time,
+                metadata=metadata,
+            )
+        except Exception:
+            logger.exception("创建提醒失败", extra={"case_log_id": case_log_id, "reminder_type": reminder_type})
+            return None
 
         logger.info(
             "创建提醒成功",
@@ -73,7 +77,8 @@ class ReminderServiceAdapter:
             return None
 
         rt = ReminderType(code)
-        return ReminderTypeDTO(id=hash(code), code=code, name=str(rt.label), description=None)
+        stable_id = list(ReminderType.values).index(code) + 1
+        return ReminderTypeDTO(id=stable_id, code=code, name=str(rt.label), description=None)
 
     def get_reminder_type_for_document_internal(self, document_type: str) -> "ReminderTypeDTO | None":
         """内部方法：根据文书类型获取对应的提醒类型。"""
@@ -97,7 +102,7 @@ class ReminderServiceAdapter:
             reminder_type = (item.get("reminder_type") or "").strip()
             content = (item.get("content") or "").strip()
             due_at = item.get("due_at")
-            metadata = item.get("metadata") or {}
+            metadata = item.get("metadata")
 
             if not reminder_type or reminder_type not in ReminderType.values:
                 continue
@@ -105,6 +110,10 @@ class ReminderServiceAdapter:
                 continue
             if not due_at or not isinstance(due_at, datetime):
                 continue
+            if metadata is not None and not isinstance(metadata, dict):
+                continue
+            if metadata is None:
+                metadata = {}
             if timezone.is_naive(due_at):
                 due_at = timezone.make_aware(due_at)
 
@@ -133,7 +142,7 @@ class ReminderServiceAdapter:
             case_log_id=reminder.case_log_id if reminder.case_log_id else None,
             contract_id=reminder.contract_id if reminder.contract_id else None,
             reminder_type=str(reminder.reminder_type),
-            reminder_time=str(reminder.due_at) if reminder.due_at else "",
+            reminder_time=reminder.due_at.isoformat() if reminder.due_at else "",
             is_completed=False,
-            created_at=str(reminder.created_at) if reminder.created_at else None,
+            created_at=reminder.created_at.isoformat() if reminder.created_at else None,
         )
