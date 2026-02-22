@@ -5,7 +5,7 @@
 
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from django.db.models import Q, QuerySet
 
@@ -30,7 +30,7 @@ class ClientService:
     写操作请使用 ClientMutationService
     """
 
-    def __init__(self, identity_doc_service: Optional["ClientIdentityDocService"] = None):
+    def __init__(self, identity_doc_service: "ClientIdentityDocService | None" = None):
         """
         初始化服务
 

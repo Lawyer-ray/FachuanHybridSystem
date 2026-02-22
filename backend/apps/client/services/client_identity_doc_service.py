@@ -93,7 +93,7 @@ class ClientIdentityDocService:
                 doc_instance.save(update_fields=["file_path"])
                 logger.info("文件重命名成功: %s -> %s", raw_path, doc_instance.file_path)
             except Exception as e:
-                raise ValidationException(f"文件重命名失败: {e!s}", code="FILE_RENAME_ERROR") from e
+                raise ValidationException(message=_("文件重命名失败"), code="FILE_RENAME_ERROR", errors={"file": str(e)}) from e
 
     def get_identity_doc(self, doc_id: int) -> Any:
         """获取证件文档，不存在则抛出 NotFoundError"""

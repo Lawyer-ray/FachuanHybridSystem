@@ -121,5 +121,5 @@ class ClientAdmin(admin.ModelAdmin[Client]):
                             doc_type=info["doc_type"],
                             uploaded_file=info["uploaded_file"],
                         )
-                    except Exception as e:
-                        logger.error("文件处理失败: %s", e)
+                    except Exception:
+                        logger.exception("文件处理失败")

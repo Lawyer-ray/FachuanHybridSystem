@@ -5,7 +5,7 @@
 
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
@@ -30,7 +30,7 @@ class PropertyClueService:
     4. 提供内容模板功能
     """
 
-    def __init__(self, client_service: Optional["ClientService"] = None):
+    def __init__(self, client_service: "ClientService | None" = None):
         """
         初始化服务
 

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from .client import Client
@@ -19,10 +22,6 @@ logger = logging.getLogger(__name__)
 
 def client_identity_doc_upload_path(instance: Any, filename: str) -> str:
     """生成当事人证件文件上传路径"""
-    from pathlib import Path
-
-    from django.utils.text import slugify
-
     # 获取文件扩展名
     ext = Path(filename).suffix
 
@@ -71,10 +70,6 @@ class ClientIdentityDoc(models.Model):
         return f"{self.client.name}-{self.doc_type}"
 
     def media_url(self) -> str | None:
-        from pathlib import Path
-
-        from django.conf import settings
-
         if not self.file_path:
             return None
         try:
