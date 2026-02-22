@@ -6,10 +6,11 @@ import logging
 from pathlib import Path
 from typing import Any, ClassVar
 
-import cv2
-import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext_lazy as _
+
+import cv2
+import numpy as np
 from numpy.typing import NDArray
 
 from apps.core.exceptions import ValidationException

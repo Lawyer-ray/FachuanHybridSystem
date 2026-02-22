@@ -1,7 +1,8 @@
 """当事人单条查询服务。"""
 
-from django.utils.translation import gettext_lazy as _
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client
 from apps.client.services.client_internal_query_service import ClientInternalQueryService

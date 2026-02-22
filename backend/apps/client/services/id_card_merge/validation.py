@@ -3,10 +3,11 @@
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-from numpy.typing import NDArray
 from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext as _
+
+import numpy as np
+from numpy.typing import NDArray
 
 
 def validate_image_format(
