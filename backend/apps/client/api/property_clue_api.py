@@ -15,19 +15,14 @@ from apps.client.schemas import (
     PropertyClueOut,
     PropertyClueUpdateIn,
 )
-from apps.client.services.property_clue_service import PropertyClueService
 
 router = Router(tags=["PropertyClue"])
 
 
-def _get_property_clue_service() -> PropertyClueService:
-    """
-    工厂函数：创建 PropertyClueService 实例
+def _get_property_clue_service() -> Any:
+    """工厂函数：创建 PropertyClueService 实例（延迟导入）"""
+    from apps.client.services.property_clue_service import PropertyClueService
 
-    遵循三层架构规范：
-    - API 层通过工厂函数创建服务实例
-    - 未来可在此处注入依赖
-    """
     return PropertyClueService()
 
 

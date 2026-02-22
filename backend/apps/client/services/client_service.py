@@ -175,3 +175,17 @@ class ClientService:
         from .text_parser import parse_client_text
 
         return parse_client_text(text)
+
+    def parse_multiple_clients_text(self, text: str) -> list[dict[str, Any]]:
+        """
+        解析包含多个客户的文本信息
+
+        Args:
+            text: 待解析的文本
+
+        Returns:
+            解析后的客户数据列表
+        """
+        from .text_parser import parse_multiple_clients_text
+
+        return parse_multiple_clients_text(text)
