@@ -130,7 +130,7 @@ def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:
         doc_type=identity_doc.doc_type,
         file_path=identity_doc.file_path,
         uploaded_at=identity_doc.uploaded_at,
-        media_url=identity_doc.media_url(),
+        media_url=identity_doc.media_url,
     )
 
 

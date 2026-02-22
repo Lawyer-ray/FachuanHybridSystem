@@ -158,7 +158,7 @@ class ClientMutationService:
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):
             raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
             )
 
         valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
@@ -166,20 +166,20 @@ class ClientMutationService:
             raise ValidationException(
                 message=_("无效的客户类型"),
                 code="INVALID_CLIENT_TYPE",
-                errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
+                errors={"client_type": _("无效的客户类型")},
             )
 
         if data.get("client_type") == Client.LEGAL and not data.get("legal_representative"):
             raise ValidationException(
                 message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": "法人客户必须填写法定代表人"},
+                errors={"legal_representative": _("法人客户必须填写法定代表人")},
             )
 
     def _validate_update_data(self, client: Client, data: dict[str, Any]) -> None:
         if "name" in data and not data["name"]:
             raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
+                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
             )
 
         if "client_type" in data:
@@ -188,7 +188,7 @@ class ClientMutationService:
                 raise ValidationException(
                     message=_("无效的客户类型"),
                     code="INVALID_CLIENT_TYPE",
-                    errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
+                    errors={"client_type": _("无效的客户类型")},
                 )
 
         client_type = data.get("client_type", client.client_type)
@@ -197,5 +197,5 @@ class ClientMutationService:
             raise ValidationException(
                 message=_("法人客户必须填写法定代表人"),
                 code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": "法人客户必须填写法定代表人"},
+                errors={"legal_representative": _("法人客户必须填写法定代表人")},
             )

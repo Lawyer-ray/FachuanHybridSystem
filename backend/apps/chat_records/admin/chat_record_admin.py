@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
 from django.http import HttpRequest
@@ -31,11 +31,10 @@ class ChatRecordProjectAdmin(admin.ModelAdmin[ChatRecordProject]):
         ]
         return custom_urls + urls
 
+    @admin.display(description=_("工作台"))
     def workbench_link(self, obj: ChatRecordProject) -> str:
         url = reverse("admin:chat_records_project_workbench", args=[obj.id])
         return format_html('<a href="{}">进入工作台</a>', url)
-
-    workbench_link.short_description = _("工作台")  # type: ignore[attr-defined]
 
     def workbench_view(self, request: HttpRequest, project_id: int) -> TemplateResponse:
         project = ChatRecordProject.objects.get(id=project_id)
@@ -82,12 +81,11 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin[ChatRecordExportTask]):
         "layout",
     )
 
+    @admin.display(description=_("文件"))
     def download_link(self, obj: ChatRecordExportTask) -> str:
         if not obj.output_file:
             return "-"
         return format_html('<a href="/api/v1/chat-records/exports/{}/download">下载</a>', obj.id)
-
-    download_link.short_description = _("文件")  # type: ignore[attr-defined]
 
 
 @admin.register(ChatRecordRecording)
