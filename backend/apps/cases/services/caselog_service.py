@@ -4,6 +4,7 @@
 符合三层架构规范：业务逻辑、权限检查、事务处理
 """
 
+import contextlib
 from datetime import datetime
 from typing import Any, cast
 
@@ -275,6 +276,33 @@ class CaseLogService:
             created.append(CaseLogAttachment.objects.create(log=log, file=f))
 
         return {"count": len(created)}
+
+    # ============================================================
+    # 日期解析
+    # ============================================================
+
+    def parse_reminder_time(self, rt: str | None) -> datetime | None:
+        """
+        解析提醒时间字符串
+
+        依次尝试 ISO 格式和 ``%Y-%m-%d %H:%M:%S`` 格式，
+        全部失败则返回 ``None``。
+
+        Args:
+            rt: 提醒时间字符串
+
+        Returns:
+            解析后的 datetime 或 None
+        """
+        if not rt:
+            return None
+        # 尝试 ISO 格式
+        with contextlib.suppress(ValueError, TypeError):
+            return datetime.fromisoformat(rt)
+        # 尝试 %Y-%m-%d %H:%M:%S 格式
+        with contextlib.suppress(ValueError, TypeError):
+            return datetime.strptime(rt, "%Y-%m-%d %H:%M:%S")
+        return None
 
     # ============================================================
     # 内部方法（无权限检查）
