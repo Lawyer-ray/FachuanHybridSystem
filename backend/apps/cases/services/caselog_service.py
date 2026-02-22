@@ -4,10 +4,12 @@
 符合三层架构规范：业务逻辑、权限检查、事务处理
 """
 
+from __future__ import annotations
+
 import contextlib
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -19,6 +21,9 @@ from apps.core.interfaces import ICaseService, ServiceLocator
 
 from apps.cases.models import Case, CaseLog, CaseLogAttachment, CaseLogVersion
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
 
 
 class CaseLogService:
@@ -44,10 +49,10 @@ class CaseLogService:
     def list_logs(
         self,
         case_id: int | None = None,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> "QuerySet[CaseLog, CaseLog]":
+    ) -> QuerySet[CaseLog, CaseLog]:
         """
         获取日志列表
 
@@ -87,7 +92,7 @@ class CaseLogService:
     def get_log(
         self,
         log_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
@@ -123,7 +128,7 @@ class CaseLogService:
         self,
         case_id: int,
         content: str,
-        user: Any = None,
+        user: User | None = None,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
     ) -> CaseLog:
@@ -162,7 +167,7 @@ class CaseLogService:
         self,
         log_id: int,
         data: dict[str, Any],
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseLog:
@@ -210,7 +215,7 @@ class CaseLogService:
     def delete_log(
         self,
         log_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
@@ -243,7 +248,7 @@ class CaseLogService:
         self,
         log_id: int,
         files: list[UploadedFile],
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, int]:
@@ -329,7 +334,7 @@ class CaseLogService:
         except CaseLog.DoesNotExist as e:
             raise NotFoundError(_("日志 %(log_id)s 不存在") % {"log_id": log_id}) from e
 
-    def _check_case_access(self, case_obj: Any, user: Any, org_access: dict[str, Any] | None) -> bool:
+    def _check_case_access(self, case_obj: Case, user: User | None, org_access: dict[str, Any] | None) -> bool:
         """
         检查用户是否有权限访问案件
 
@@ -394,10 +399,10 @@ class CaseLogService:
     def get_logs_for_case(
         self,
         case_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> "QuerySet[CaseLog, CaseLog]":
+    ) -> QuerySet[CaseLog, CaseLog]:
         """
         获取案件的所有日志
 
@@ -420,7 +425,7 @@ class CaseLogService:
     def get_log_versions(
         self,
         log_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[CaseLogVersion]:
@@ -451,7 +456,7 @@ class CaseLogService:
     def delete_attachment(
         self,
         attachment_id: int,
-        user: Any = None,
+        user: User | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:

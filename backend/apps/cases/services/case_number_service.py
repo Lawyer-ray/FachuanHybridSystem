@@ -3,9 +3,11 @@
 处理案件案号相关的业务逻辑
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -14,6 +16,9 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
 
 from apps.cases.models import Case, CaseNumber
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
 
 logger = logging.getLogger("apps.cases")
 
@@ -49,8 +54,8 @@ class CaseNumberService:
     def list_numbers(
         self,
         case_id: int | None = None,
-        user: Any | None = None,
-    ) -> "QuerySet[CaseNumber, CaseNumber]":
+        user: User | None = None,
+    ) -> QuerySet[CaseNumber, CaseNumber]:
         """
         获取案号列表
 
@@ -82,7 +87,7 @@ class CaseNumberService:
     def get_number(
         self,
         number_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseNumber:
         """
         获取单个案号
@@ -133,7 +138,7 @@ class CaseNumberService:
         case_id: int,
         number: str,
         remarks: str | None = None,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseNumber:
         """
         创建案号（自动规范化）
@@ -199,7 +204,7 @@ class CaseNumberService:
         self,
         number_id: int,
         data: dict[str, Any],
-        user: Any | None = None,
+        user: User | None = None,
     ) -> CaseNumber:
         """
         更新案号
@@ -278,7 +283,7 @@ class CaseNumberService:
     def delete_number(
         self,
         number_id: int,
-        user: Any | None = None,
+        user: User | None = None,
     ) -> dict[str, bool]:
         """
         删除案号
