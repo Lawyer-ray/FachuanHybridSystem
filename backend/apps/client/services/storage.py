@@ -60,7 +60,8 @@ def _get_media_root() -> str | None:
     media_root = getattr(django_settings, "MEDIA_ROOT", None)
     if media_root:
         return str(media_root)
-    return get_config("django.media_root", None)  # type: ignore[return-value]
+    result: str | None = get_config("django.media_root", None)
+    return result
 
 
 def to_media_abs(file_path: str) -> Path:
@@ -143,7 +144,7 @@ def save_uploaded_file(
     from apps.core.validators import Validators
 
     _max_size_bytes = int(max_size_bytes) if max_size_bytes is not None else 20 * 1024 * 1024
-    Validators.validate_uploaded_file( # type: ignore
+    Validators.validate_uploaded_file(
         uploaded_file,
         field_name="file",
         max_size_bytes=_max_size_bytes,
