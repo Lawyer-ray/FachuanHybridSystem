@@ -10,6 +10,7 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
+from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
 from apps.organization.services import LawyerService
 
@@ -50,7 +51,19 @@ def create_lawyer(
     """创建律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawyer = service.create_lawyer(data=payload, user=user, license_pdf=license_pdf)
+    dto = LawyerCreateDTO(
+        username=payload.username,
+        password=payload.password,
+        real_name=payload.real_name,
+        phone=payload.phone,
+        license_no=payload.license_no,
+        id_card=payload.id_card,
+        law_firm_id=payload.law_firm_id,
+        is_admin=payload.is_admin,
+        lawyer_team_ids=payload.lawyer_team_ids,
+        biz_team_ids=payload.biz_team_ids,
+    )
+    lawyer = service.create_lawyer(data=dto, user=user, license_pdf=license_pdf)
     return lawyer
 
 
@@ -64,9 +77,20 @@ def update_lawyer(
     """更新律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
+    dto = LawyerUpdateDTO(
+        real_name=payload.real_name,
+        phone=payload.phone,
+        license_no=payload.license_no,
+        id_card=payload.id_card,
+        law_firm_id=payload.law_firm_id,
+        is_admin=payload.is_admin,
+        password=payload.password,
+        lawyer_team_ids=payload.lawyer_team_ids,
+        biz_team_ids=payload.biz_team_ids,
+    )
     lawyer = service.update_lawyer(
         lawyer_id=lawyer_id,
-        data=payload,
+        data=dto,
         user=user,
         license_pdf=license_pdf,
     )
