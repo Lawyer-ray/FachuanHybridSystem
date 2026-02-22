@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from ..models import Reminder, ReminderType
+from apps.reminders.models import Reminder, ReminderType
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -78,14 +78,23 @@ class ReminderService:
     @transaction.atomic
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
         reminder = self.get_reminder(reminder_id)
+        self._validate_update_binding(reminder, data)
+        self._apply_update_fields(reminder, data)
+        reminder.full_clean()
+        reminder.save()
+        return reminder
 
-        current_contract_id: int | None = reminder.contract_id
-        current_case_log_id: int | None = reminder.case_log_id
-        contract_id: int | None = data.get("contract_id", current_contract_id)
-        case_log_id: int | None = data.get("case_log_id", current_case_log_id)
-        if ("contract_id" in data or "case_log_id" in data) and bool(contract_id) == bool(case_log_id):
+    def _validate_update_binding(self, reminder: Reminder, data: dict[str, Any]) -> None:
+        """更新时校验绑定互斥。"""
+        if "contract_id" not in data and "case_log_id" not in data:
+            return
+        contract_id: int | None = data.get("contract_id", reminder.contract_id)
+        case_log_id: int | None = data.get("case_log_id", reminder.case_log_id)
+        if bool(contract_id) == bool(case_log_id):
             raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
 
+    def _apply_update_fields(self, reminder: Reminder, data: dict[str, Any]) -> None:
+        """将 data 中的字段应用到 reminder 实例。"""
         if "contract_id" in data:
             reminder.contract_id = data["contract_id"]
         if "case_log_id" in data:
@@ -105,10 +114,6 @@ class ReminderService:
             if timezone.is_naive(due_at):
                 due_at = timezone.make_aware(due_at)
             reminder.due_at = due_at
-
-        reminder.full_clean()
-        reminder.save()
-        return reminder
 
     @transaction.atomic
     def delete_reminder(self, reminder_id: int) -> dict[str, bool]:
