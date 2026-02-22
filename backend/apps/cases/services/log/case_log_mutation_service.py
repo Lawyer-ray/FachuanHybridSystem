@@ -32,11 +32,11 @@ class CaseLogMutationService:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(case_id)s 不存在") % {"case_id": case_id}) from None
 
         if not perm_open_access:
             if not user or not getattr(user, "is_authenticated", False):
-                raise ForbiddenError("用户未认证")
+                raise ForbiddenError(_("用户未认证"))
             self.query_service.access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -48,7 +48,7 @@ class CaseLogMutationService:
 
         actor_id = getattr(user, "id", None) if user else None
         if not actor_id:
-            raise ValidationException("操作人不能为空", errors={"actor": "缺少有效的操作人"})
+            raise ValidationException(_("操作人不能为空"), errors={"actor": _("缺少有效的操作人")})
 
         return CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
 
