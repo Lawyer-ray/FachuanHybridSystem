@@ -6,9 +6,11 @@ Contract Admin - Display Mixin
 
 
 from __future__ import annotations
+
 import logging
 from typing import Any
 
+from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import render
@@ -38,14 +40,13 @@ def _get_contract_display_service() -> Any:
 class ContractDisplayMixin:
     """合同 Admin 显示相关方法的 Mixin"""
 
+    @admin.display(description=_("合同名称"), ordering="name")
     def name_link(self, obj) -> Any:
         """生成指向详情页的合同名称链接"""
         url = reverse("admin:contracts_contract_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', url, obj.name)
 
-    name_link.short_description = _("合同名称")
-    name_link.admin_order_field = "name"
-
+    @admin.display(description=_("主办律师"))
     def get_primary_lawyer(self, obj) -> Any:
         """显示主办律师"""
         from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
@@ -57,8 +58,7 @@ class ContractDisplayMixin:
             return lawyer.real_name or lawyer.username
         return "-"
 
-    get_primary_lawyer.short_description = _("主办律师")
-
+    @admin.display(description=_("主办律师"))
     def get_primary_lawyer_display(self, obj) -> Any:
         """详情页显示主办律师(只读)"""
         from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
@@ -71,8 +71,7 @@ class ContractDisplayMixin:
             return f"{name} (ID: {lawyer.id})"
         return "无"
 
-    get_primary_lawyer_display.short_description = _("主办律师")
-
+    @admin.display(description=_("建档编号"))
     def filing_number_display(self, obj) -> Any:
         """显示建档编号(只读)
 
@@ -84,8 +83,7 @@ class ContractDisplayMixin:
             return obj.filing_number
         return "未生成"
 
-    filing_number_display.short_description = _("建档编号")
-
+    @admin.display(description=_("匹配的合同模板"))
     def get_matched_template_display(self, obj) -> Any:
         """显示匹配的合同模板
 
@@ -101,8 +99,7 @@ class ContractDisplayMixin:
             logger.error(f"获取合同 {obj.id} 匹配模板失败: {e!s}", exc_info=True)
             return "查询失败"
 
-    get_matched_template_display.short_description = _("匹配的合同模板")
-
+    @admin.display(description=_("匹配的文件夹模板"))
     def get_matched_folder_templates_display(self, obj) -> Any:
         """显示匹配的文件夹模板
 
@@ -117,8 +114,6 @@ class ContractDisplayMixin:
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"获取合同 {obj.id} 匹配文件夹模板失败: {e!s}", exc_info=True)
             return "查询失败"
-
-    get_matched_folder_templates_display.short_description = _("匹配的文件夹模板")
 
     def get_urls(self) -> Any:
         """添加自定义 URL 路由"""
