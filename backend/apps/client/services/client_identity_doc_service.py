@@ -115,6 +115,13 @@ class ClientIdentityDocService:
         doc.delete()
         logger.info("删除证件文档 %s", doc_id, extra={"user": user})
 
+    def save_uploaded_file_to_dir(self, uploaded_file: Any, rel_dir: str) -> str:
+        """保存上传文件到指定目录，返回相对路径（供 Admin Form 使用）"""
+        from apps.client.services.storage import save_uploaded_file
+
+        rel_path, _ = save_uploaded_file(uploaded_file, rel_dir=rel_dir)
+        return rel_path
+
     @transaction.atomic
     def add_identity_doc_from_upload(
         self,

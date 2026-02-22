@@ -312,6 +312,12 @@ class PropertyClueService:
 
         return attachment
 
+    def save_uploaded_file_to_dir(self, uploaded_file: Any, rel_dir: str) -> tuple[str, str]:
+        """保存上传文件到指定目录，返回 (rel_path, original_name)（供 Admin Form 使用）"""
+        from apps.client.services.storage import save_uploaded_file
+
+        return save_uploaded_file(uploaded_file, rel_dir=rel_dir)
+
     @transaction.atomic
     def add_attachment_from_upload(
         self,
