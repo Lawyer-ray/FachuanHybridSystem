@@ -6,7 +6,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from playwright.sync_api import BrowserContext, Page
 
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
 class CookieServiceProtocol(Protocol):
     """Cookie 服务协议，支持依赖注入"""
 
-    def load(self, context: Any, storage_path: Optional[str] = None) -> bool:
+    def load(self, context: Any, storage_path: str | None = None) -> bool:
         """加载 Cookie 到浏览器上下文，返回是否成功"""
         ...
 
-    def save(self, context: Any, storage_path: Optional[str] = None) -> str:
+    def save(self, context: Any, storage_path: str | None = None) -> str:
         """保存浏览器上下文中的 Cookie，返回存储路径"""
         ...
 
@@ -53,10 +53,10 @@ class CourtZxfwService:
         self,
         page: Page,
         context: BrowserContext,
-        captcha_recognizer: Optional["CaptchaRecognizer"] = None,
-        token_service: Optional["TokenService"] = None,
+        captcha_recognizer: "CaptchaRecognizer | None" = None,
+        token_service: "TokenService | None" = None,
         site_name: str = "court_zxfw",
-        cookie_service: Optional[CookieServiceProtocol] = None,
+        cookie_service: CookieServiceProtocol | None = None,
     ):
         """
         初始化服务
@@ -218,7 +218,13 @@ class CourtZxfwService:
                 if self._check_login_success():
                     logger.info("Cookie 有效，跳过登录")
                     self.is_logged_in = True
-                    return {"success": True, "message": "Cookie 登录成功", "url": self.page.url, "token": None, "used_cookie": True}
+                    return {
+                        "success": True,
+                        "message": "Cookie 登录成功",
+                        "url": self.page.url,
+                        "token": None,
+                        "used_cookie": True,
+                    }
                 logger.info("Cookie 无效，执行完整登录流程")
 
         captured_token: dict[str, Any] = {"value": None}
