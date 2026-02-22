@@ -98,7 +98,7 @@ class BaseGenerator(ABC):
             if key not in context or context[key] is None:
                 missing.append(key)
 
-        is_valid = len(missing) == 0
+        is_valid = not missing
         return is_valid, missing
 
     def render_template(self, template_path: str, context: dict[str, Any]) -> bytes:
