@@ -16,6 +16,12 @@ from django.utils.translation import gettext_lazy as _
 from apps.documents.models import DocumentTemplateFolderBinding, FolderTemplate
 
 
+def _get_folder_template_admin_service() -> Any:
+    from ..services import FolderTemplateAdminService
+
+    return FolderTemplateAdminService()
+
+
 class FolderNodeChoiceField(forms.ChoiceField):
     """动态加载文件夹节点的选择字段"""
 
