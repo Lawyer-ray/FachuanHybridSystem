@@ -168,13 +168,11 @@ class TestValidateFeeModePreservation:
     """验证 _validate_fee_mode 的验证逻辑在 i18n 包裹后行为不变。"""
 
     def _get_mixin_instance(self) -> Any:
-        """创建 ContractHelpersMixin 实例用于测试。"""
-        from apps.contracts.services.contract.contract_validator import ContractHelpersMixin
+        """创建 ContractValidator 实例用于测试。"""
+        from apps.contracts.services.contract.contract_validator import ContractValidator
         from apps.core.business_config import BusinessConfig
 
-        instance = ContractHelpersMixin()
-        instance.config = BusinessConfig()  # type: ignore[attr-defined]
-        return instance
+        return ContractValidator(config=BusinessConfig())
 
     @given(fixed_amount=positive_amount_st)
     @settings(max_examples=30)
@@ -187,7 +185,7 @@ class TestValidateFeeModePreservation:
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "FIXED", "fixed_amount": fixed_amount}
         # 不应抛异常
-        mixin._validate_fee_mode(data)
+        mixin.validate_fee_mode(data)
 
     @given(
         fixed_amount=positive_amount_st,
@@ -208,7 +206,7 @@ class TestValidateFeeModePreservation:
             "fixed_amount": fixed_amount,
             "risk_rate": risk_rate,
         }
-        mixin._validate_fee_mode(data)
+        mixin.validate_fee_mode(data)
 
     @given(risk_rate=positive_rate_st)
     @settings(max_examples=30)
@@ -220,7 +218,7 @@ class TestValidateFeeModePreservation:
         """
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "FULL_RISK", "risk_rate": risk_rate}
-        mixin._validate_fee_mode(data)
+        mixin.validate_fee_mode(data)
 
     @given(custom_terms=non_empty_text_st)
     @settings(max_examples=30)
@@ -232,7 +230,7 @@ class TestValidateFeeModePreservation:
         """
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "CUSTOM", "custom_terms": custom_terms}
-        mixin._validate_fee_mode(data)
+        mixin.validate_fee_mode(data)
 
     def test_fixed_mode_missing_amount_raises(self) -> None:
         """
@@ -243,7 +241,7 @@ class TestValidateFeeModePreservation:
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "FIXED"}
         with pytest.raises(ValidationException) as exc_info:
-            mixin._validate_fee_mode(data)
+            mixin.validate_fee_mode(data)
         assert exc_info.value.errors is not None
         assert "fixed_amount" in exc_info.value.errors
 
@@ -256,7 +254,7 @@ class TestValidateFeeModePreservation:
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "SEMI_RISK"}
         with pytest.raises(ValidationException) as exc_info:
-            mixin._validate_fee_mode(data)
+            mixin.validate_fee_mode(data)
         assert exc_info.value.errors is not None
         assert "fixed_amount" in exc_info.value.errors
         assert "risk_rate" in exc_info.value.errors
@@ -270,7 +268,7 @@ class TestValidateFeeModePreservation:
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "FULL_RISK"}
         with pytest.raises(ValidationException) as exc_info:
-            mixin._validate_fee_mode(data)
+            mixin.validate_fee_mode(data)
         assert exc_info.value.errors is not None
         assert "risk_rate" in exc_info.value.errors
 
@@ -283,7 +281,7 @@ class TestValidateFeeModePreservation:
         mixin = self._get_mixin_instance()
         data: dict[str, Any] = {"fee_mode": "CUSTOM", "custom_terms": ""}
         with pytest.raises(ValidationException) as exc_info:
-            mixin._validate_fee_mode(data)
+            mixin.validate_fee_mode(data)
         assert exc_info.value.errors is not None
         assert "custom_terms" in exc_info.value.errors
 
