@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.cases.services.case_admin_service import CaseAdminService
+    from apps.cases.services.case_assignment_service import CaseAssignmentService
     from apps.cases.services.case_chat_service import CaseChatService
 
 
@@ -34,3 +35,13 @@ class CaseAdminServiceMixin:
         from apps.core.interfaces import ServiceLocator
 
         return CaseTemplateBindingService(document_service=ServiceLocator.get_document_service())
+
+    def _get_case_assignment_service(self) -> CaseAssignmentService:
+        """工厂方法：获取 CaseAssignmentService 实例（延迟导入避免循环依赖）。"""
+        from apps.cases.services.case_assignment_service import CaseAssignmentService
+        from apps.core.interfaces import ServiceLocator
+
+        return CaseAssignmentService(
+            case_service=ServiceLocator.get_case_service(),
+            contract_assignment_query_service=ServiceLocator.get_contract_assignment_query_service(),
+        )

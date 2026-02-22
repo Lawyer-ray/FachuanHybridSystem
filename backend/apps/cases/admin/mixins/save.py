@@ -102,7 +102,9 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             if filing_number:
                 obj.filing_number = filing_number
                 logger.info(
-                    f"案件 {cast(int, obj.id)} 建档编号已处理: {filing_number}",
+                    "案件 %s 建档编号已处理: %s",
+                    cast(int, obj.id),
+                    filing_number,
                     extra={
                         "case_id": obj.id,
                         "filing_number": filing_number,
@@ -111,7 +113,9 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 )
         except Exception as e:
             logger.error(
-                f"处理案件 {cast(int, obj.id)} 建档编号失败: {e!s}",
+                "处理案件 %s 建档编号失败: %s",
+                cast(int, obj.id),
+                e,
                 extra={"case_id": obj.id},
                 exc_info=True,
             )
@@ -125,7 +129,8 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 binding_service = self._get_case_template_binding_service()
                 binding_service.sync_auto_recommendations(obj.id)
                 logger.info(
-                    f"案件 {cast(int, obj.id)} 模板绑定已同步",
+                    "案件 %s 模板绑定已同步",
+                    cast(int, obj.id),
                     extra={
                         "case_id": obj.id,
                         "case_type_changed": case_type_changed,
@@ -134,27 +139,26 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 )
             except Exception as e:
                 logger.error(
-                    f"同步案件 {cast(int, obj.id)} 模板绑定失败: {e!s}",
+                    "同步案件 %s 模板绑定失败: %s",
+                    cast(int, obj.id),
+                    e,
                     extra={"case_id": obj.id},
                     exc_info=True,
                 )
                 messages.warning(request, f"同步模板绑定失败: {e!s}")
 
         try:
-            from apps.cases.services import CaseAssignmentService
-            from apps.core.interfaces import ServiceLocator
-
-            CaseAssignmentService(
-                case_service=ServiceLocator.get_case_service(),
-                contract_assignment_query_service=ServiceLocator.get_contract_assignment_query_service(),
-            ).sync_assignments_from_contract(
+            assignment_service = self._get_case_assignment_service()
+            assignment_service.sync_assignments_from_contract(
                 case_id=obj.id,
                 user=getattr(request, "user", None),
                 perm_open_access=True,
             )
         except Exception as e:
             logger.error(
-                f"同步案件 {cast(int, obj.id)} 的律师指派失败: {e!s}",
+                "同步案件 %s 的律师指派失败: %s",
+                cast(int, obj.id),
+                e,
                 extra={"case_id": obj.id},
                 exc_info=True,
             )
