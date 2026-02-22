@@ -189,7 +189,7 @@ class TestStatisticsLogProperties:
 
             # 记录 API 拦截成功日志
             logger.info(
-                f"成功拦截 API 响应",
+                "成功拦截 API 响应",
                 extra={
                     "operation_type": "api_intercept",
                     "timestamp": time.time(),
@@ -245,7 +245,7 @@ class TestSummaryLogProperties:
 
             # 记录汇总日志
             logger.info(
-                f"文书下载完成",
+                "文书下载完成",
                 extra={
                     "operation_type": "download_summary",
                     "timestamp": time.time(),

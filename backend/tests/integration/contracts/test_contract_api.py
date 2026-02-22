@@ -240,7 +240,7 @@ class TestContractAPI:
         payload = ContractUpdate()
         payments = [ContractPaymentIn(**p) for p in payments_data]
 
-        updated_contract = update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)  # type: ignore[attr-defined]
+        updated_contract = update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)  # type: ignore[attr-defined] # noqa: F841
 
         # 验证收款记录
         payments = ContractPayment.objects.filter(contract=contract)  # type: ignore[misc]

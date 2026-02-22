@@ -98,7 +98,7 @@ class TestCourtSMSSubmitAPI:
 
     def test_submit_sms_empty_content_rejected(self) -> None:
         """空内容被 Schema 验证拒绝"""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception): # noqa: B017
             CourtSMSSubmitIn(content="")  # type: ignore[call-arg]
 
 

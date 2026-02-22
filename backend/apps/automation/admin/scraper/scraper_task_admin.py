@@ -129,7 +129,7 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
                     icon,
                     filename,
                 )
-            except (ValueError, Exception):
+            except Exception:
                 icon = self._file_icon(filename)
                 return format_html(
                     '<li style="margin: 5px 0;">{} {}</li>',

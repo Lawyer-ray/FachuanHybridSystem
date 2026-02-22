@@ -21,7 +21,7 @@ class MockContractService(MockService):
         """设置 Mock 合同数据"""
         self._contracts[contract_id] = contract_dto
 
-    def get_contract(self, contract_id: int) -> Optional[ContractDTO]:
+    def get_contract(self, contract_id: int) -> ContractDTO | None:
         """获取合同"""
         self.get_contract_call_count += 1
         # 优先返回设置的数据
@@ -29,7 +29,7 @@ class MockContractService(MockService):
             return self._contracts[contract_id]  # type: ignore[no-any-return]
         return self._get_mock_return("get_contract", {"contract_id": contract_id})  # type: ignore[no-any-return]
 
-    def get_contract_stages(self, contract_id: int) -> List[str]:
+    def get_contract_stages(self, contract_id: int) -> list[str]:
         """获取合同的代理阶段"""
         # 如果有设置的合同数据，返回其阶段
         if contract_id in self._contracts:
@@ -48,7 +48,7 @@ class MockContractService(MockService):
 class MockCaseService(MockService):
     """Mock 案件服务"""
 
-    def get_case(self, case_id: int) -> Optional[CaseDTO]:
+    def get_case(self, case_id: int) -> CaseDTO | None:
         """获取案件"""
         return self._get_mock_return("get_case", {"case_id": case_id})  # type: ignore[no-any-return]
 
@@ -90,7 +90,7 @@ class MockEmailService(MockService):
         result = self._get_mock_return("send_email", {"to": to, "subject": subject, "body": body})
         return result if result is not None else True
 
-    def send_bulk_email(self, recipients: List[str], subject: str, body: str) -> bool:
+    def send_bulk_email(self, recipients: list[str], subject: str, body: str) -> bool:
         """批量发送邮件"""
         result = self._get_mock_return("send_bulk_email", {"recipients": recipients, "subject": subject, "body": body})
         return result if result is not None else True

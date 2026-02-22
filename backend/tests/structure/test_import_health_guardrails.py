@@ -19,5 +19,5 @@ def test_core_interfaces_service_locator_is_importable(monkeypatch: pytest.Monke
     django.setup()
 
     core_interfaces = importlib.import_module("apps.core.interfaces")
-    service_locator = getattr(core_interfaces, "ServiceLocator")
+    service_locator = core_interfaces.ServiceLocator
     assert service_locator is not None

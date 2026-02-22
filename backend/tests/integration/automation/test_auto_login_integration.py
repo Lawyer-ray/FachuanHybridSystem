@@ -136,7 +136,7 @@ class TestAutoLoginServiceIntegration:
 
         # 检查是否实现了所有必需的方法
         assert hasattr(service, "login_and_get_token")
-        assert callable(getattr(service, "login_and_get_token"))
+        assert callable(service.login_and_get_token)
 
         # 检查方法签名（通过尝试调用来验证）
         import inspect

@@ -224,8 +224,8 @@ class TestContractService:
     def test_list_contracts_all(self):
         """测试获取所有合同"""
         # 创建测试合同
-        contract1 = ContractFactory(name="合同1")
-        contract2 = ContractFactory(name="合同2")
+        contract1 = ContractFactory(name="合同1") # noqa: F841
+        contract2 = ContractFactory(name="合同2") # noqa: F841
 
         # 执行查询
         result = self.service.list_contracts(perm_open_access=True)
@@ -283,7 +283,7 @@ class TestContractService:
 
         # 创建合同
         contract1 = ContractFactory(name="我的合同")
-        contract2 = ContractFactory(name="其他合同")
+        contract2 = ContractFactory(name="其他合同") # noqa: F841
 
         # 只给第一个合同分配律师
         ContractAssignmentFactory(contract=contract1, lawyer=lawyer)

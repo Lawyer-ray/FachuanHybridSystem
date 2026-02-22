@@ -58,7 +58,7 @@ class TestContractsAPICompliance:
                     if "raise HttpError" in line:
                         errors.append(f"{api_file}:{i} - 包含 'raise HttpError': {line.strip()}")
 
-        assert len(errors) == 0, f"API 层不应包含 raise HttpError（应由全局异常处理器处理）:\n" + "\n".join(
+        assert len(errors) == 0, "API 层不应包含 raise HttpError（应由全局异常处理器处理）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 
@@ -98,7 +98,7 @@ class TestContractsAPICompliance:
                         if pattern in line:
                             errors.append(f"{api_file}:{i} - 包含业务逻辑变量 '{pattern}': {line.strip()}")
 
-        assert len(errors) == 0, f"API 层不应包含业务逻辑变量（应在 Service 层处理）:\n" + "\n".join(
+        assert len(errors) == 0, "API 层不应包含业务逻辑变量（应在 Service 层处理）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 
@@ -144,7 +144,7 @@ class TestContractsAPICompliance:
                             continue
                         errors.append(f"{api_file}:{i} - 包含{desc} '{pattern}': {stripped}")
 
-        assert len(errors) == 0, f"API 层不应包含权限检查（应在 Service 层处理）:\n" + "\n".join(
+        assert len(errors) == 0, "API 层不应包含权限检查（应在 Service 层处理）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 
@@ -171,7 +171,7 @@ class TestContractsAPICompliance:
             if "def _get_" not in content:
                 errors.append(f"{api_file} - 缺少工厂函数 (def _get_xxx_service)")
 
-        assert len(errors) == 0, f"API 层应有工厂函数用于创建 Service 实例:\n" + "\n".join(f"  - {e}" for e in errors)
+        assert len(errors) == 0, "API 层应有工厂函数用于创建 Service 实例:\n" + "\n".join(f"  - {e}" for e in errors)
 
     def test_api_layer_no_direct_model_operations(self):
         """
@@ -214,7 +214,7 @@ class TestContractsAPICompliance:
                     if pattern in line:
                         errors.append(f"{api_file}:{i} - 包含直接 Model 操作 '{pattern}': {stripped}")
 
-        assert len(errors) == 0, f"API 层不应包含直接 Model 操作（应在 Service 层处理）:\n" + "\n".join(
+        assert len(errors) == 0, "API 层不应包含直接 Model 操作（应在 Service 层处理）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 
@@ -248,7 +248,7 @@ class TestContractsAPICompliance:
                 if stripped == "try:" or stripped.startswith("try:"):
                     errors.append(f"{api_file}:{i} - 包含 try/except 块: {stripped}")
 
-        assert len(errors) == 0, f"API 层不应包含 try/except 块（异常应由全局处理器处理）:\n" + "\n".join(
+        assert len(errors) == 0, "API 层不应包含 try/except 块（异常应由全局处理器处理）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 

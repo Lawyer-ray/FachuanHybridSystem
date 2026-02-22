@@ -82,7 +82,7 @@ class TestAutoSubmitSignal:
         """
         with patch("apps.automation.signals.async_task") as mock_async_task:
             # 创建状态为 RUNNING 的任务
-            quote = PreservationQuote.objects.create(
+            quote = PreservationQuote.objects.create( # noqa: F841
                 preserve_amount=Decimal("100000.00"),
                 corp_id="test_corp",
                 category_id="test_category",

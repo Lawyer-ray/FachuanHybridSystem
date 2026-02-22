@@ -12,7 +12,7 @@ import pytest
 from pathlib import Path
 
 
-def get_all_markdown_files(root_path: Path) -> List[Path]:
+def get_all_markdown_files(root_path: Path) -> list[Path]:
     """
     获取项目中的所有 Markdown 文件
 
@@ -134,7 +134,7 @@ def test_markdown_location_property():
             errors.append(error_msg)
 
     # 断言没有错误
-    assert not errors, f"Markdown 文件位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert not errors, "Markdown 文件位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -151,7 +151,7 @@ def test_no_markdown_in_root_except_readme():
     root_md_files = [f for f in root_path.glob("*.md") if f.name != "README.md"]
 
     # 断言根目录下没有其他 .md 文件
-    assert not root_md_files, f"根目录不应该包含 Markdown 文件（除了 README.md）:\n" + "\n".join(
+    assert not root_md_files, "根目录不应该包含 Markdown 文件（除了 README.md）:\n" + "\n".join(
         f"  - {f.name}" for f in root_md_files
     )
 
@@ -194,7 +194,7 @@ def test_all_docs_in_docs_directory():
             errors.append(f"文档文件 {doc_file} 应该在 docs/ 的子目录中，而不是 docs/ 根目录")
 
     # 断言没有错误
-    assert not errors, f"文档文件位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert not errors, "文档文件位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test

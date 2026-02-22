@@ -3,6 +3,8 @@
 提供在 Admin 后台测试登录、立案、查询等功能
 """
 
+import logging
+
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -11,6 +13,8 @@ from django.utils.html import format_html
 
 from apps.automation.models import TestCourt
 from apps.automation.services.scraper.test_service import TestService
+
+logger = logging.getLogger("apps.automation")
 
 
 def _get_test_service():
@@ -92,6 +96,7 @@ class TestCourtAdmin(admin.ModelAdmin):
             organization_service = ServiceLocator.get_organization_service()
             credential = organization_service.get_credential_internal(credential_id)
         except Exception:
+            logger.warning("凭证 ID %s 不存在或获取失败", credential_id, exc_info=True)
             messages.error(request, f"凭证 ID {credential_id} 不存在")
             return redirect("admin:organization_accountcredential_changelist")
 

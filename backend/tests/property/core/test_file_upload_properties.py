@@ -126,7 +126,7 @@ class TestFilenameSafetyProperty:
         mock_file.chunks.return_value = [b"content"]
 
         service = FileUploadService()
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with tempfile.TemporaryDirectory() as tmp_dir: # noqa: SIM117
             with patch("apps.core.services.file_upload_service.settings") as mock_settings:
                 mock_settings.MEDIA_ROOT = tmp_dir
                 try:
@@ -171,7 +171,7 @@ class TestFilenameSafetyProperty:
         mock_file.chunks.return_value = [b"content"]
 
         service = FileUploadService()
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with tempfile.TemporaryDirectory() as tmp_dir: # noqa: SIM117
             with patch("apps.core.services.file_upload_service.settings") as mock_settings:
                 mock_settings.MEDIA_ROOT = tmp_dir
                 try:

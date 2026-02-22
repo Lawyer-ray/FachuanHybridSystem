@@ -26,7 +26,8 @@ class TestFolderBindingProperties:
     def test_path_validation_consistency(self, path):
         """
         Property 2: 路径格式验证正确性
-        For any 输入的路径字符串，路径验证函数应正确识别有效的本地路径（macOS/Linux/Windows）和网络共享路径（UNC/SMB），并拒绝无效格式。
+        For any 输入的路径字符串，路径验证函数应正确识别有效的本地路径
+        （macOS/Linux/Windows）和网络共享路径（UNC/SMB），并拒绝无效格式。
         **Validates: Requirements 3.2, 3.4, 3.5**
         """
         is_valid, error = self.service.validate_folder_path(path)
@@ -60,7 +61,8 @@ class TestFolderBindingProperties:
     def test_binding_crud_round_trip(self, contract_name, folder_path):
         """
         Property 3: 绑定CRUD操作正确性（Round-trip）
-        For any 合同和有效的文件夹路径，创建绑定后查询应返回相同的路径；更新绑定后查询应返回新路径；删除绑定后查询应返回空。
+        For any 合同和有效的文件夹路径，创建绑定后查询应返回相同的路径；
+        更新绑定后查询应返回新路径；删除绑定后查询应返回空。
         **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
         """
         # 创建测试合同
@@ -150,7 +152,8 @@ class TestFolderBindingProperties:
     ):
         """
         Property 5: 文件保存位置正确性
-        For any 已绑定文件夹的合同，生成的合同文书应保存到"合同文书"子目录，补充协议应保存到"补充协议"子目录，ZIP包应解压到绑定文件夹根目录。
+        For any 已绑定文件夹的合同，生成的合同文书应保存到"合同文书"子目录，
+        补充协议应保存到"补充协议"子目录，ZIP包应解压到绑定文件夹根目录。
         **Validates: Requirements 6.1, 6.2, 6.3**
         """
         # 创建测试合同

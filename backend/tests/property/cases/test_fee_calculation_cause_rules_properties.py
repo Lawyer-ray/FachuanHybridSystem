@@ -362,7 +362,7 @@ class TestCauseRuleFeeRuleProperties:
 
         撤销仲裁裁决案件应返回固定费用 400 元。
         """
-        service = CauseRuleService()
+        service = CauseRuleService() # noqa: F841
 
         # 模拟一个撤销仲裁案件的规则
         # 由于需要数据库中的案由，这里直接测试配置

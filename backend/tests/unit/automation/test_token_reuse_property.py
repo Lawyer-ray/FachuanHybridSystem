@@ -155,18 +155,16 @@ class TestTokenReuseProperty:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token):
-            with patch.object(
-                service.insurance_client,
-                "fetch_insurance_companies",
-                new_callable=AsyncMock,
-                return_value=mock_companies,
-            ):
-                with patch.object(
-                    service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
-                ):
-                    for quote in quotes:
-                        await service.execute_quote(quote.id)
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
+            service.insurance_client,
+            "fetch_insurance_companies",
+            new_callable=AsyncMock,
+            return_value=mock_companies,
+        ), patch.object(
+            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        ):
+            for quote in quotes:
+                await service.execute_quote(quote.id)
 
         # 属性验证 1: get_token 被调用的次数应该等于任务数量
         assert (
@@ -260,18 +258,16 @@ class TestTokenReuseProperty:
         start_time = time.time()
 
         # 执行所有任务（使用缓存的 Token）
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token):
-            with patch.object(
-                service.insurance_client,
-                "fetch_insurance_companies",
-                new_callable=AsyncMock,
-                return_value=mock_companies,
-            ):
-                with patch.object(
-                    service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
-                ):
-                    for quote in quotes:
-                        await service.execute_quote(quote.id)
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
+            service.insurance_client,
+            "fetch_insurance_companies",
+            new_callable=AsyncMock,
+            return_value=mock_companies,
+        ), patch.object(
+            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        ):
+            for quote in quotes:
+                await service.execute_quote(quote.id)
 
         elapsed_time = time.time() - start_time
 
@@ -357,18 +353,16 @@ class TestTokenReuseProperty:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token):
-            with patch.object(
-                service.insurance_client,
-                "fetch_insurance_companies",
-                new_callable=AsyncMock,
-                return_value=mock_companies,
-            ):
-                with patch.object(
-                    service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
-                ):
-                    for quote in quotes:
-                        await service.execute_quote(quote.id)
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
+            service.insurance_client,
+            "fetch_insurance_companies",
+            new_callable=AsyncMock,
+            return_value=mock_companies,
+        ), patch.object(
+            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        ):
+            for quote in quotes:
+                await service.execute_quote(quote.id)
 
         # 属性验证 1: 应该获取了 3 次 Token
         assert len(tokens_retrieved) == 3, f"应该获取 3 次 Token，实际获取了 {len(tokens_retrieved)} 次"
@@ -448,7 +442,7 @@ class TestTokenReuseProperty:
             )
             quotes_with_cache.append(quote)
 
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_with_cache):
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_with_cache): # noqa: SIM117
             with patch.object(
                 service.insurance_client,
                 "fetch_insurance_companies",
@@ -479,7 +473,7 @@ class TestTokenReuseProperty:
             )
             quotes_without_cache.append(quote)
 
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_without_cache):
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_without_cache): # noqa: SIM117
             with patch.object(
                 service.insurance_client,
                 "fetch_insurance_companies",

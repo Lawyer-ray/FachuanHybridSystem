@@ -66,7 +66,7 @@ class TestAPIExceptionConversion:
             try:
                 create_preservation_quote(request, data)
                 # 如果没有抛出异常，测试失败
-                assert False, "Expected ValidationError to be raised"
+                raise AssertionError("Expected ValidationError to be raised")
             except ValidationError as exc:
                 # 验证异常包含正确的信息
                 assert exc.message == error_message
@@ -100,7 +100,7 @@ class TestAPIExceptionConversion:
             try:
                 get_preservation_quote(request, 999)
                 # 如果没有抛出异常，测试失败
-                assert False, "Expected NotFoundError to be raised"
+                raise AssertionError("Expected NotFoundError to be raised")
             except NotFoundError as exc:
                 # 验证异常包含正确的信息
                 assert exc.message == error_message
@@ -137,7 +137,7 @@ class TestAPIExceptionConversion:
             try:
                 list_preservation_quotes(request, page=page, page_size=20, status=None)
                 # 如果没有抛出异常，测试失败
-                assert False, "Expected ValidationError to be raised"
+                raise AssertionError("Expected ValidationError to be raised")
             except ValidationError as exc:
                 # 验证异常包含结构化错误信息
                 assert hasattr(exc, "message")

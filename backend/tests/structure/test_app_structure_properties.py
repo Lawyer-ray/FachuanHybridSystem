@@ -108,12 +108,12 @@ def test_all_apps_have_required_directories():
         if errors:
             failed_apps[app_name] = errors
 
-    assert len(failed_apps) == 0, f"The following apps have structure issues:\n" + "\n".join(
+    assert len(failed_apps) == 0, "The following apps have structure issues:\n" + "\n".join(
         f"{app}:\n" + "\n".join(f"  - {error}" for error in errors) for app, errors in failed_apps.items()
     )
 
 
-def test_all_apps_have_required_files():
+def test_all_apps_have_required_files(): # noqa: C901
     """
     测试所有 app 都有必需的文件
 
@@ -158,7 +158,7 @@ def test_all_apps_have_required_files():
         if app_missing:
             missing_files[app_name] = app_missing
 
-    assert len(missing_files) == 0, f"The following apps are missing required files:\n" + "\n".join(
+    assert len(missing_files) == 0, "The following apps are missing required files:\n" + "\n".join(
         f"{app}: {', '.join(files)}" for app, files in missing_files.items()
     )
 
@@ -185,7 +185,7 @@ def test_app_admin_directory_structure():
             if not init_file.exists():
                 issues[app_name] = "Missing admin/__init__.py"
 
-    assert len(issues) == 0, f"The following apps have admin directory issues:\n" + "\n".join(
+    assert len(issues) == 0, "The following apps have admin directory issues:\n" + "\n".join(
         f"{app}: {issue}" for app, issue in issues.items()
     )
 
@@ -212,7 +212,7 @@ def test_app_api_directory_structure():
             if not init_file.exists():
                 issues[app_name] = "Missing api/__init__.py"
 
-    assert len(issues) == 0, f"The following apps have api directory issues:\n" + "\n".join(
+    assert len(issues) == 0, "The following apps have api directory issues:\n" + "\n".join(
         f"{app}: {issue}" for app, issue in issues.items()
     )
 
@@ -239,6 +239,6 @@ def test_app_services_directory_structure():
             if not init_file.exists():
                 issues[app_name] = "Missing services/__init__.py"
 
-    assert len(issues) == 0, f"The following apps have services directory issues:\n" + "\n".join(
+    assert len(issues) == 0, "The following apps have services directory issues:\n" + "\n".join(
         f"{app}: {issue}" for app, issue in issues.items()
     )

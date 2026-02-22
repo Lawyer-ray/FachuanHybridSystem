@@ -67,8 +67,8 @@ class TestAncestorChainProperties:
             assert names[0] == cause.name, f"祖先链第一个名称应为当前案由名称 {cause.name}，但得到 {names[0]}"
 
             # 验证祖先链完整性
-            expected_codes: List[str] = []
-            expected_names: List[str] = []
+            expected_codes: list[str] = []
+            expected_names: list[str] = []
             current = cause
             while current:
                 expected_codes.append(current.code)

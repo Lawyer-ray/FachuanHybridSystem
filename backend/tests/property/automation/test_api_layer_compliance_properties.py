@@ -37,7 +37,7 @@ from apps.core.path import Path
 class TestAPILayerCompliance:
     """API层合规性属性测试"""
 
-    def get_automation_api_modules(self) -> List[Any]:
+    def get_automation_api_modules(self) -> list[Any]:
         """获取所有automation模块的API模块"""
         return [
             captcha_recognition_api,
@@ -48,7 +48,7 @@ class TestAPILayerCompliance:
             performance_monitor_api,
         ]
 
-    def get_api_module_paths(self) -> List[str]:
+    def get_api_module_paths(self) -> list[str]:
         """获取所有API模块的文件路径"""
         base_path = Path(__file__).parent.parent.parent.parent / "apps" / "automation" / "api"
         api_files = []
@@ -222,7 +222,7 @@ class TestAPILayerCompliance:
             source = inspect.getsource(api_module)
 
             # 获取所有视图函数
-            view_function_pattern = r"@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z)"
+            view_function_pattern = r"@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z)" # noqa: E501
             view_matches = re.findall(view_function_pattern, source, re.MULTILINE | re.DOTALL)
 
             for method, view_name, view_body in view_matches:
@@ -290,7 +290,7 @@ class TestAPILayerCompliance:
             ]
 
             # 获取所有视图函数
-            view_function_pattern = r"@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z)"
+            view_function_pattern = r"@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z)" # noqa: E501
             view_matches = re.findall(view_function_pattern, source, re.MULTILINE | re.DOTALL)
 
             for method, view_name, view_body in view_matches:
@@ -366,7 +366,7 @@ class TestAPILayerCompliance:
             ]
 
             # 获取所有视图函数
-            view_function_pattern = r"(@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z))"
+            view_function_pattern = r"(@router\.(get|post|put|delete|patch)\([^)]*\)\s*\n[^d]*def\s+(\w+)\([^)]*\):(.*?)(?=\n\n|\ndef|\n@|\Z))" # noqa: E501
             view_matches = re.findall(view_function_pattern, source, re.MULTILINE | re.DOTALL)
 
             for full_match, method, view_name, view_body in view_matches:
@@ -397,7 +397,7 @@ class TestAPILayerCompliance:
             # 如果无法获取模块源代码，跳过此测试
             pass
 
-    def test_api_layer_comprehensive_compliance_check(self):
+    def test_api_layer_comprehensive_compliance_check(self): # noqa: C901
         """
         API层综合合规性检查
 
@@ -485,13 +485,13 @@ class TestAPILayerCompliance:
         )
 
         # 输出合规性报告
-        print(f"\n=== API层合规性报告 ===")
+        print("\n=== API层合规性报告 ===")
         print(f"总API模块数: {compliance_report['total_modules']}")
         print(f"合规API模块数: {compliance_report['compliant_modules']}")
         print(f"合规率: {compliance_rate:.1f}%")
 
         if compliance_report["violations"]:
-            print(f"\n违规详情:")
+            print("\n违规详情:")
             for violation in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"  {violation['module']}:")
                 for v in violation["violations"]:
@@ -610,7 +610,7 @@ class TestAPILayerPropertyBasedCompliance:
 
     @given(compliant_api_view_source())
     @settings(max_examples=30)
-    def test_compliant_api_view_patterns(self, view_source):
+    def test_compliant_api_view_patterns(self, view_source): # noqa: C901
         """
         测试符合规范的API视图函数模式
 
@@ -680,7 +680,7 @@ class TestAPILayerPropertyBasedCompliance:
 
     @given(non_compliant_api_view_source())
     @settings(max_examples=20)
-    def test_non_compliant_api_view_detection(self, view_data):
+    def test_non_compliant_api_view_detection(self, view_data): # noqa: C901
         """
         测试违规API视图函数的检测能力
 
@@ -703,7 +703,7 @@ class TestAPILayerPropertyBasedCompliance:
         violation_detected = False
 
         for func_def in view_functions:
-            func_name = func_def.name
+            func_name = func_def.name # noqa: F841
 
             if violation_type == "transaction_decorator":
                 # 检查事务装饰器违规

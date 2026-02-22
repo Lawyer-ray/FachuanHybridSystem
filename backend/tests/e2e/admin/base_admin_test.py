@@ -234,7 +234,7 @@ class BaseAdminTest:
         await self.page.click('input[type="submit"]')
         await self.page.wait_for_load_state("networkidle")
 
-    async def add_inline_row(self, inline_prefix: str) -> None:
+    async def add_inline_row(self, inline_prefix: str) -> None: # noqa: C901
         """添加内联表单行（支持 django-nested-admin）"""
         logger.debug("添加内联行: %s", inline_prefix)
 

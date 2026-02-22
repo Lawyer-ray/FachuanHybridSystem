@@ -90,7 +90,7 @@ def save_page_state(page, download_dir: Path, name: str):
     return screenshot_path, html_path
 
 
-def analyze_page(page, download_dir: Path, name: str):
+def analyze_page(page, download_dir: Path, name: str): # noqa: C901
     """分析页面元素"""
     analysis = {
         "url": page.url,
@@ -114,9 +114,9 @@ def analyze_page(page, download_dir: Path, name: str):
                         "enabled": btn.is_enabled(),
                     }
                 )
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
 
     # 分析链接
@@ -132,9 +132,9 @@ def analyze_page(page, download_dir: Path, name: str):
                         "visible": link.is_visible(),
                     }
                 )
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
 
     # 分析 iframe
@@ -149,9 +149,9 @@ def analyze_page(page, download_dir: Path, name: str):
                         "name": iframe.get_attribute("name") or "",
                     }
                 )
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
 
     # 分析图片（可能是下载图标）
@@ -167,9 +167,9 @@ def analyze_page(page, download_dir: Path, name: str):
                         "visible": img.is_visible(),
                     }
                 )
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
 
     # 保存分析结果
@@ -181,7 +181,7 @@ def analyze_page(page, download_dir: Path, name: str):
     return analysis
 
 
-def test_gdems_download(download_dir: Path):
+def test_gdems_download(download_dir: Path): # noqa: C901
     """测试 sd.gdems.com 下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 sd.gdems.com 下载")
@@ -230,7 +230,7 @@ def test_gdems_download(download_dir: Path):
                     print("  ✓ 通过文本找到确认按钮")
                 else:
                     confirm_button = None
-            except:
+            except Exception:
                 pass
 
             # 方式2: 通过按钮文本
@@ -243,7 +243,7 @@ def test_gdems_download(download_dir: Path):
                         print("  ✓ 通过按钮选择器找到确认按钮")
                     else:
                         confirm_button = None
-                except:
+                except Exception:
                     pass
 
             # 方式3: 通过 ID
@@ -254,7 +254,7 @@ def test_gdems_download(download_dir: Path):
                         print("  ✓ 通过 ID/class 找到确认按钮")
                     else:
                         confirm_button = None
-                except:
+                except Exception:
                     pass
 
             if confirm_button and confirm_button.count() > 0:
@@ -295,7 +295,7 @@ def test_gdems_download(download_dir: Path):
                         print("  ✓ 通过 label a:has(img) 找到下载按钮")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             # 方式3: 查找任何包含"下载"的元素
@@ -306,7 +306,7 @@ def test_gdems_download(download_dir: Path):
                         print("  ✓ 通过文本找到下载按钮")
                     else:
                         download_button = None
-                except:
+                except Exception:
                     pass
 
             if download_button and download_button.count() > 0:
@@ -326,7 +326,7 @@ def test_gdems_download(download_dir: Path):
                 filepath = download_dir / filename
                 download.save_as(str(filepath))
 
-                print(f"\n✅ 下载成功！")
+                print("\n✅ 下载成功！")
                 print(f"  文件名: {filename}")
                 print(f"  保存路径: {filepath}")
                 print(f"  文件大小: {os.path.getsize(filepath)} bytes")
@@ -348,7 +348,7 @@ def test_gdems_download(download_dir: Path):
             browser.close()
 
 
-def test_zxfw_download(download_dir: Path):
+def test_zxfw_download(download_dir: Path): # noqa: C901
     """测试 zxfw.court.gov.cn 下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 zxfw.court.gov.cn 下载")
@@ -399,14 +399,14 @@ def test_zxfw_download(download_dir: Path):
                 if "pdfjs" in src or "viewer" in src:
                     # 使用 frame_locator 获取 frame
                     frame = page.frame_locator(f"iframe >> nth={i}")
-                    print(f"  ✓ 找到 PDF viewer iframe")
+                    print("  ✓ 找到 PDF viewer iframe")
                     break
 
             if not frame:
                 # 如果没找到特定的，尝试第一个 iframe
                 if iframes:
                     frame = page.frame_locator("iframe >> nth=0")
-                    print(f"  使用第一个 iframe")
+                    print("  使用第一个 iframe")
 
             if frame:
                 # 等待 iframe 加载
@@ -435,8 +435,8 @@ def test_zxfw_download(download_dir: Path):
                         download_button = frame.locator(
                             "#download, #downloadButton, button[title*='下载'], button[title*='Download']"
                         )
-                        print(f"  尝试 PDF.js 选择器")
-                    except:
+                        print("  尝试 PDF.js 选择器")
+                    except Exception:
                         pass
 
                 # 方式3: 查找工具栏中的按钮
@@ -444,8 +444,8 @@ def test_zxfw_download(download_dir: Path):
                     try:
                         # 查找工具栏区域的按钮
                         download_button = frame.locator(".toolbar button, #toolbarContainer button")
-                        print(f"  尝试工具栏选择器")
-                    except:
+                        print("  尝试工具栏选择器")
+                    except Exception:
                         pass
 
                 # 尝试点击下载按钮
@@ -468,7 +468,7 @@ def test_zxfw_download(download_dir: Path):
                     filepath = download_dir / filename
                     download.save_as(str(filepath))
 
-                    print(f"\n✅ 下载成功！")
+                    print("\n✅ 下载成功！")
                     print(f"  文件名: {filename}")
                     print(f"  保存路径: {filepath}")
                     print(f"  文件大小: {os.path.getsize(filepath)} bytes")
@@ -492,7 +492,7 @@ def test_zxfw_download(download_dir: Path):
                         filepath = download_dir / filename
                         download.save_as(str(filepath))
 
-                        print(f"\n✅ 下载成功！")
+                        print("\n✅ 下载成功！")
                         print(f"  文件名: {filename}")
                         print(f"  保存路径: {filepath}")
                         print(f"  文件大小: {os.path.getsize(filepath)} bytes")
@@ -511,7 +511,7 @@ def test_zxfw_download(download_dir: Path):
                                     title = btn.get_attribute("title") or ""
                                     text = btn.inner_text()[:30] if btn.inner_text() else ""
                                     print(f"    {i}: title='{title}', text='{text}'")
-                                except:
+                                except Exception:
                                     pass
                         except Exception as e3:
                             print(f"  无法列出按钮: {e3}")
@@ -532,7 +532,7 @@ def test_zxfw_download(download_dir: Path):
             browser.close()
 
 
-def test_zxfw_multi_download(download_dir: Path):
+def test_zxfw_multi_download(download_dir: Path): # noqa: C901
     """测试 zxfw.court.gov.cn 多文件下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 zxfw.court.gov.cn 多文件下载")
@@ -569,7 +569,7 @@ def test_zxfw_multi_download(download_dir: Path):
             # 2. 检测文书列表数量
             print("\n📍 步骤2: 检测文书列表...")
 
-            doc_list_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view"
+            doc_list_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view" # noqa: E501
 
             try:
                 doc_items = page.locator(f"xpath={doc_list_xpath}").all()
@@ -589,7 +589,7 @@ def test_zxfw_multi_download(download_dir: Path):
                 try:
                     # 点击文书项（如果有多个）
                     if doc_count > 1:
-                        doc_item_xpath = f"/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
+                        doc_item_xpath = f"/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view[{doc_index}]" # noqa: E501
 
                         try:
                             doc_item = page.locator(f"xpath={doc_item_xpath}")
@@ -605,7 +605,7 @@ def test_zxfw_multi_download(download_dir: Path):
                     try:
                         frame = page.frame_locator("#if")
                         print("  ✓ 通过 #if 找到 iframe")
-                    except:
+                    except Exception:
                         # 备用方式
                         iframes = page.locator("iframe").all()
                         for i, iframe in enumerate(iframes):

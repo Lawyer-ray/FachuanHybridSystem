@@ -281,7 +281,7 @@ class TestSMSParserServiceProperties:
                         and self._extract_param_value(expected_link, "sdsin")
                         == self._extract_param_value(extracted_link, "sdsin")
                     ):
-                        found = True
+                        found = True # noqa: F841
                         break
 
                 # 如果没找到，可能是因为正则表达式的限制，这是可以接受的
@@ -464,7 +464,7 @@ class TestSMSParserServiceProperties:
             ), f"应该提取到案号，但返回空列表。原始案号: {original_case_numbers}, 内容: {content[:100]}..."
 
             # 验证提取的案号数量不超过原始案号数量（可能因为去重而减少）
-            assert len(extracted_case_numbers) <= len(original_case_numbers), f"提取的案号数量不应超过原始数量"
+            assert len(extracted_case_numbers) <= len(original_case_numbers), "提取的案号数量不应超过原始数量"
 
             # 验证每个原始案号都有对应的规范化版本被提取
             for original_case_number in original_case_numbers:
@@ -631,7 +631,7 @@ class TestSMSParserServiceProperties:
 
     @settings(max_examples=100, deadline=None)
     @given(sms_data=sms_with_links_strategy())
-    def test_property_3_sms_type_determination_consistency(self, sms_data):
+    def test_property_3_sms_type_determination_consistency(self, sms_data): # noqa: C901
         """
         属性 3: 短信类型判定一致性
 
@@ -662,7 +662,7 @@ class TestSMSParserServiceProperties:
             ), f"有下载链接时类型应为 DOCUMENT_DELIVERY，实际为: {result.sms_type}"
 
             # 验证：download_links 不为空
-            assert len(result.download_links) > 0, f"has_valid_download_link=True 时 download_links 不应为空"
+            assert len(result.download_links) > 0, "has_valid_download_link=True 时 download_links 不应为空"
 
         else:
             # 如果没有有效下载链接，类型应该是信息通知或立案通知
@@ -672,28 +672,28 @@ class TestSMSParserServiceProperties:
             ], f"无下载链接时类型应为 INFO_NOTIFICATION 或 FILING_NOTIFICATION，实际为: {result.sms_type}"
 
             # 验证：download_links 为空
-            assert len(result.download_links) == 0, f"has_valid_download_link=False 时 download_links 应为空"
+            assert len(result.download_links) == 0, "has_valid_download_link=False 时 download_links 应为空"
 
         # 验证：has_valid_download_link 与 download_links 的一致性
         if len(result.download_links) > 0:
-            assert result.has_valid_download_link == True, f"有下载链接时 has_valid_download_link 应为 True"
+            assert result.has_valid_download_link is True, "有下载链接时 has_valid_download_link 应为 True"
         else:
-            assert result.has_valid_download_link == False, f"无下载链接时 has_valid_download_link 应为 False"
+            assert result.has_valid_download_link is False, "无下载链接时 has_valid_download_link 应为 False"
 
         # 验证：立案通知的特殊逻辑
         if result.sms_type == CourtSMSType.FILING_NOTIFICATION:
             # 立案通知类型应该在内容中包含"立案"关键词
-            assert "立案" in content, f"类型为 FILING_NOTIFICATION 时内容应包含'立案'关键词"
+            assert "立案" in content, "类型为 FILING_NOTIFICATION 时内容应包含'立案'关键词"
 
             # 立案通知不应该有下载链接
-            assert not result.has_valid_download_link, f"立案通知不应该有有效下载链接"
-            assert len(result.download_links) == 0, f"立案通知的下载链接列表应为空"
+            assert not result.has_valid_download_link, "立案通知不应该有有效下载链接"
+            assert len(result.download_links) == 0, "立案通知的下载链接列表应为空"
 
         # 验证：信息通知的逻辑
         if result.sms_type == CourtSMSType.INFO_NOTIFICATION:
             # 信息通知不应该有下载链接
-            assert not result.has_valid_download_link, f"信息通知不应该有有效下载链接"
-            assert len(result.download_links) == 0, f"信息通知的下载链接列表应为空"
+            assert not result.has_valid_download_link, "信息通知不应该有有效下载链接"
+            assert len(result.download_links) == 0, "信息通知的下载链接列表应为空"
 
             # 如果内容包含"立案"，应该是立案通知而不是信息通知
             if "立案" in content:
@@ -704,8 +704,8 @@ class TestSMSParserServiceProperties:
         # 验证：文书送达的逻辑
         if result.sms_type == CourtSMSType.DOCUMENT_DELIVERY:
             # 文书送达必须有下载链接
-            assert result.has_valid_download_link, f"文书送达必须有有效下载链接"
-            assert len(result.download_links) > 0, f"文书送达的下载链接列表不应为空"
+            assert result.has_valid_download_link, "文书送达必须有有效下载链接"
+            assert len(result.download_links) > 0, "文书送达的下载链接列表不应为空"
 
             # 验证每个下载链接都是有效的
             for link in result.download_links:
@@ -737,8 +737,8 @@ class TestSMSParserServiceProperties:
         # 空内容的处理
         if not content.strip():
             # 空内容应该被归类为信息通知（因为没有下载链接也没有"立案"）
-            assert result.sms_type == CourtSMSType.INFO_NOTIFICATION, f"空内容应该被归类为信息通知"
-            assert not result.has_valid_download_link, f"空内容不应该有下载链接"
+            assert result.sms_type == CourtSMSType.INFO_NOTIFICATION, "空内容应该被归类为信息通知"
+            assert not result.has_valid_download_link, "空内容不应该有下载链接"
 
         # 验证：类型与内容的合理性
         # 如果内容很短（可能是无效输入），类型判定应该仍然合理
@@ -757,4 +757,4 @@ class TestSMSParserServiceProperties:
             ), f"类型判定应该是确定性的: {result.sms_type} != {repeated_result.sms_type}"
             assert (
                 repeated_result.has_valid_download_link == result.has_valid_download_link
-            ), f"链接状态判定应该是确定性的"
+            ), "链接状态判定应该是确定性的"

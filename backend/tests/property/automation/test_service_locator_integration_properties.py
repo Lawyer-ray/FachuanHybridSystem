@@ -50,7 +50,7 @@ class TestServiceLocatorAutomationIntegrationProperties:
 
             # 验证服务具有必需的方法
             assert hasattr(service, "recognize"), "服务应有recognize方法"
-            assert callable(getattr(service, "recognize")), "recognize方法应可调用"
+            assert callable(service.recognize), "recognize方法应可调用"
 
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=100)
@@ -76,9 +76,9 @@ class TestServiceLocatorAutomationIntegrationProperties:
             assert hasattr(service, "delete_token"), "服务应有delete_token方法"
 
             # 验证方法可调用
-            assert callable(getattr(service, "get_token")), "get_token方法应可调用"
-            assert callable(getattr(service, "save_token")), "save_token方法应可调用"
-            assert callable(getattr(service, "delete_token")), "delete_token方法应可调用"
+            assert callable(service.get_token), "get_token方法应可调用"
+            assert callable(service.save_token), "save_token方法应可调用"
+            assert callable(service.delete_token), "delete_token方法应可调用"
 
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=100)
@@ -100,7 +100,7 @@ class TestServiceLocatorAutomationIntegrationProperties:
 
             # 验证服务具有必需的方法
             assert hasattr(service, "acquire_token_if_needed"), "服务应有acquire_token_if_needed方法"
-            assert callable(getattr(service, "acquire_token_if_needed")), "acquire_token_if_needed方法应可调用"
+            assert callable(service.acquire_token_if_needed), "acquire_token_if_needed方法应可调用"
 
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=100)
@@ -128,11 +128,11 @@ class TestServiceLocatorAutomationIntegrationProperties:
 
             # 验证方法可调用
             assert callable(
-                getattr(service, "create_document_from_api_data")
+                service.create_document_from_api_data
             ), "create_document_from_api_data方法应可调用"
-            assert callable(getattr(service, "update_download_status")), "update_download_status方法应可调用"
-            assert callable(getattr(service, "get_documents_by_task")), "get_documents_by_task方法应可调用"
-            assert callable(getattr(service, "get_document_by_id")), "get_document_by_id方法应可调用"
+            assert callable(service.update_download_status), "update_download_status方法应可调用"
+            assert callable(service.get_documents_by_task), "get_documents_by_task方法应可调用"
+            assert callable(service.get_document_by_id), "get_document_by_id方法应可调用"
 
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=100)
@@ -159,10 +159,10 @@ class TestServiceLocatorAutomationIntegrationProperties:
             assert hasattr(service, "send_alert"), "服务应有send_alert方法"
 
             # 验证方法可调用
-            assert callable(getattr(service, "get_task_statistics")), "get_task_statistics方法应可调用"
-            assert callable(getattr(service, "check_stuck_tasks")), "check_stuck_tasks方法应可调用"
-            assert callable(getattr(service, "check_high_failure_rate")), "check_high_failure_rate方法应可调用"
-            assert callable(getattr(service, "send_alert")), "send_alert方法应可调用"
+            assert callable(service.get_task_statistics), "get_task_statistics方法应可调用"
+            assert callable(service.check_stuck_tasks), "check_stuck_tasks方法应可调用"
+            assert callable(service.check_high_failure_rate), "check_high_failure_rate方法应可调用"
+            assert callable(service.send_alert), "send_alert方法应可调用"
 
     def test_automation_services_cache_consistency(self):
         """
@@ -252,10 +252,10 @@ class TestServiceLocatorAutomationIntegrationProperties:
         assert hasattr(ServiceLocator, "get_monitor_service"), "ServiceLocator应有get_monitor_service方法"
 
         # 验证方法可调用
-        assert callable(getattr(ServiceLocator, "get_captcha_service")), "get_captcha_service方法应可调用"
-        assert callable(getattr(ServiceLocator, "get_token_service")), "get_token_service方法应可调用"
+        assert callable(ServiceLocator.get_captcha_service), "get_captcha_service方法应可调用"
+        assert callable(ServiceLocator.get_token_service), "get_token_service方法应可调用"
         assert callable(
-            getattr(ServiceLocator, "get_auto_token_acquisition_service")
+            ServiceLocator.get_auto_token_acquisition_service
         ), "get_auto_token_acquisition_service方法应可调用"
-        assert callable(getattr(ServiceLocator, "get_court_document_service")), "get_court_document_service方法应可调用"
-        assert callable(getattr(ServiceLocator, "get_monitor_service")), "get_monitor_service方法应可调用"
+        assert callable(ServiceLocator.get_court_document_service), "get_court_document_service方法应可调用"
+        assert callable(ServiceLocator.get_monitor_service), "get_monitor_service方法应可调用"

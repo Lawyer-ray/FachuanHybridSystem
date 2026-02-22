@@ -203,7 +203,7 @@ class TestFolderGenerationService:
         }
         service = FolderGenerationService(contract_service=mock_contract_service)
 
-        with patch.object(service, "find_matching_folder_template", return_value=None):
+        with patch.object(service, "find_matching_folder_template", return_value=None): # noqa: SIM117
             with pytest.raises(ValidationException, match="请先配置文件夹模板"):
                 service.generate_folder_with_documents(1)
 
@@ -225,7 +225,7 @@ class TestFolderGenerationService:
         mock_placement.folder_path = ""
         mock_placement.file_name = "test.docx"
 
-        with patch.object(service, "find_matching_folder_template", return_value=mock_template):
+        with patch.object(service, "find_matching_folder_template", return_value=mock_template): # noqa: SIM117
             with patch.object(service, "format_root_folder_name", return_value="test_folder"):
                 with patch.object(service, "generate_folder_structure", return_value={"name": "test_folder"}):
                     with patch.object(service, "get_document_placements", return_value=[mock_placement]):

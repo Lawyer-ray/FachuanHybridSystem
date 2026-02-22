@@ -95,7 +95,7 @@ class TestCaptchaRecognitionProperties:
             result = service.recognize_from_base64(invalid_text)
 
             # 验证返回类型
-            assert isinstance(result, CaptchaRecognizeOut), f"返回值应该是 CaptchaRecognizeOut 类型"
+            assert isinstance(result, CaptchaRecognizeOut), "返回值应该是 CaptchaRecognizeOut 类型"
 
             # 对于无效输入，应该返回失败
             assert result.success is False, f"无效输入应该返回 success=False，但得到 {result.success}"

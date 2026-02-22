@@ -12,7 +12,7 @@ class TestCaseAdminSimple(BaseAdminTest):
 
     async def test_list_page_access(self):
         """测试列表页访问"""
-        print(f"\n  测试: 列表页访问")
+        print("\n  测试: 列表页访问")
 
         await self.navigate_to_model("cases", "case")
 
@@ -27,11 +27,11 @@ class TestCaseAdminSimple(BaseAdminTest):
         has_content = "#content" in content or "changelist" in content
         self.assert_true(has_content, "页面没有加载 Admin 内容")
 
-        print(f"    ✅ 列表页访问成功")
+        print("    ✅ 列表页访问成功")
 
     async def test_add_page_access(self):
         """测试添加页面访问"""
-        print(f"\n  测试: 添加页面访问")
+        print("\n  测试: 添加页面访问")
 
         await self.navigate_to_model("cases", "case")
         await self.click_add_button()
@@ -45,19 +45,19 @@ class TestCaseAdminSimple(BaseAdminTest):
         has_form = "form" in content.lower()
         self.assert_true(has_form, "页面没有表单")
 
-        print(f"    ✅ 添加页面访问成功")
-        print(f"    ℹ️  页面结构已保存到 debug/case_add_page.html")
+        print("    ✅ 添加页面访问成功")
+        print("    ℹ️  页面结构已保存到 debug/case_add_page.html")
 
     async def test_edit_page_access(self):
         """测试编辑页面访问"""
-        print(f"\n  测试: 编辑页面访问")
+        print("\n  测试: 编辑页面访问")
 
         await self.navigate_to_model("cases", "case")
 
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过编辑页面测试")
+            print("    ⚠️  没有案件记录，跳过编辑页面测试")
             return
 
         # 点击第一条记录
@@ -72,5 +72,5 @@ class TestCaseAdminSimple(BaseAdminTest):
         has_form = "form" in content.lower()
         self.assert_true(has_form, "页面没有表单")
 
-        print(f"    ✅ 编辑页面访问成功")
-        print(f"    ℹ️  页面结构已保存到 debug/case_edit_page.html")
+        print("    ✅ 编辑页面访问成功")
+        print("    ℹ️  页面结构已保存到 debug/case_edit_page.html")

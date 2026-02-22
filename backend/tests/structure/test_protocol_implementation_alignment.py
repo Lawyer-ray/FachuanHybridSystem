@@ -7,12 +7,12 @@ def _get_project_root() -> Path:
     return Path(__file__).parent.parent.parent
 
 
-def _get_class_method_names(file_path: Path, class_name: str) -> Set[str]:
+def _get_class_method_names(file_path: Path, class_name: str) -> set[str]:
     content = file_path.read_text(encoding="utf-8")
     tree = ast.parse(content)
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == class_name:
-            names: Set[str] = set()
+            names: set[str] = set()
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
                     names.add(item.name)

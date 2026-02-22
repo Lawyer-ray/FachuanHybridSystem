@@ -102,17 +102,15 @@ class TestPerformance:
         # 记录开始时间
         start_time = time.time()
 
-        with patch.object(service.token_service, "get_token", return_value=mock_token):
-            with patch.object(
-                service.insurance_client,
-                "fetch_insurance_companies",
-                new_callable=AsyncMock,
-                return_value=mock_companies,
-            ):
-                with patch.object(
-                    service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
-                ):
-                    result = await service.execute_quote(quote.id)
+        with patch.object(service.token_service, "get_token", return_value=mock_token), patch.object(
+            service.insurance_client,
+            "fetch_insurance_companies",
+            new_callable=AsyncMock,
+            return_value=mock_companies,
+        ), patch.object(
+            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        ):
+            result = await service.execute_quote(quote.id)
 
         # 记录结束时间
         elapsed_time = time.time() - start_time
@@ -162,7 +160,7 @@ class TestPerformance:
             start_time = time.time()
 
             # 并发执行
-            results = await client.fetch_all_premiums(
+            results = await client.fetch_all_premiums( # noqa: F841
                 bearer_token=mock_token,
                 preserve_amount=Decimal("100000.00"),
                 corp_id="test_corp",
@@ -181,7 +179,7 @@ class TestPerformance:
         # 计算性能提升
         speedup = serial_time_estimate / concurrent_time
 
-        print(f"\n✅ 并发性能测试通过:")
+        print("\n✅ 并发性能测试通过:")
         print(f"   - 并发执行时间: {concurrent_time:.2f} 秒")
         print(f"   - 串行执行估计: {serial_time_estimate:.2f} 秒")
         print(f"   - 性能提升: {speedup:.2f}x")
@@ -233,27 +231,25 @@ class TestPerformance:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token):
-            with patch.object(
-                service.insurance_client,
-                "fetch_insurance_companies",
-                new_callable=AsyncMock,
-                return_value=mock_companies,
-            ):
-                with patch.object(
-                    service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
-                ):
-                    for quote in quotes:
-                        await service.execute_quote(quote.id)
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
+            service.insurance_client,
+            "fetch_insurance_companies",
+            new_callable=AsyncMock,
+            return_value=mock_companies,
+        ), patch.object(
+            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        ):
+            for quote in quotes:
+                await service.execute_quote(quote.id)
 
         # 验证 get_token 被调用了 3 次（每个任务一次）
         # 但实际应该返回同一个 Token（通过 TokenService 的缓存机制）
         assert get_token_call_count[0] == 3
 
-        print(f"\n✅ Token 复用测试通过:")
-        print(f"   - 执行了 3 个询价任务")
+        print("\n✅ Token 复用测试通过:")
+        print("   - 执行了 3 个询价任务")
         print(f"   - get_token 被调用 {get_token_call_count[0]} 次")
-        print(f"   - 每次都应该从缓存获取同一个 Token（避免重复登录）")
+        print("   - 每次都应该从缓存获取同一个 Token（避免重复登录）")
 
     @pytest.mark.django_db
     def test_database_query_performance_list_quotes(self, service, mock_credential):
@@ -289,8 +285,8 @@ class TestPerformance:
         # 性能断言：应该在 1 秒内完成
         assert elapsed_time < 1.0, f"列表查询耗时 {elapsed_time:.2f} 秒，超过 1 秒目标"
 
-        print(f"\n✅ 数据库查询性能测试通过:")
-        print(f"   - 数据量: 100 条记录")
+        print("\n✅ 数据库查询性能测试通过:")
+        print("   - 数据量: 100 条记录")
         print(f"   - 查询时间: {elapsed_time:.3f} 秒")
         print(f"   - 返回记录: {len(page1_quotes)} 条")
 
@@ -335,9 +331,9 @@ class TestPerformance:
         # 性能断言：应该在 0.5 秒内完成（使用索引）
         assert elapsed_time < 0.5, f"筛选查询耗时 {elapsed_time:.2f} 秒，超过 0.5 秒目标"
 
-        print(f"\n✅ 数据库筛选查询性能测试通过:")
-        print(f"   - 数据量: 50 条记录")
-        print(f"   - 筛选条件: status=SUCCESS")
+        print("\n✅ 数据库筛选查询性能测试通过:")
+        print("   - 数据量: 50 条记录")
+        print("   - 筛选条件: status=SUCCESS")
         print(f"   - 查询时间: {elapsed_time:.3f} 秒")
         print(f"   - 返回记录: {total} 条")
 
@@ -388,7 +384,7 @@ class TestPerformance:
         # 性能断言：应该在 0.5 秒内完成
         assert elapsed_time < 0.5, f"关联查询耗时 {elapsed_time:.2f} 秒，超过 0.5 秒目标"
 
-        print(f"\n✅ 数据库关联查询性能测试通过:")
+        print("\n✅ 数据库关联查询性能测试通过:")
         print(f"   - 查询任务 ID: {quote_id}")
         print(f"   - 关联报价记录: {quotes_count} 条")
         print(f"   - 查询时间: {elapsed_time:.3f} 秒")
@@ -444,11 +440,11 @@ class TestPerformance:
         # 允许一些开销，所以设置上限为 0.5 秒
         assert elapsed_time < 0.5, f"连接池复用测试耗时 {elapsed_time:.2f} 秒，应该接近 0.1 秒"
 
-        print(f"\n✅ HTTP 连接池复用测试通过:")
-        print(f"   - 并发请求数: 10")
-        print(f"   - 单个请求延迟: 0.1 秒")
+        print("\n✅ HTTP 连接池复用测试通过:")
+        print("   - 并发请求数: 10")
+        print("   - 单个请求延迟: 0.1 秒")
         print(f"   - 实际执行时间: {elapsed_time:.2f} 秒")
-        print(f"   - 连接池复用生效（避免了串行执行）")
+        print("   - 连接池复用生效（避免了串行执行）")
 
         # 清理
         await client.close()
@@ -496,7 +492,7 @@ class TestPerformance:
         # 性能断言：应该在 1 秒内完成
         assert elapsed_time < 1.0, f"批量创建耗时 {elapsed_time:.2f} 秒，超过 1 秒目标"
 
-        print(f"\n✅ 批量创建性能测试通过:")
-        print(f"   - 创建记录数: 100 条")
+        print("\n✅ 批量创建性能测试通过:")
+        print("   - 创建记录数: 100 条")
         print(f"   - 创建时间: {elapsed_time:.3f} 秒")
         print(f"   - 平均每条: {elapsed_time / 100 * 1000:.2f} 毫秒")

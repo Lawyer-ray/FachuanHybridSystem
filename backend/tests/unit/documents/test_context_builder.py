@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ContextBuilder 单元测试
 """

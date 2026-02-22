@@ -4,7 +4,7 @@
 使用 Hypothesis 进行属性测试，验证文书送达相关数据类的正确性属性。
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from typing import Any, Dict
 
 import pytest
@@ -24,7 +24,7 @@ class TestDocumentDeliveryRecordProperties:
     @given(
         case_number=st.text(min_size=1, max_size=128),
         send_time=st.datetimes(min_value=datetime(2020, 1, 1), max_value=datetime(2030, 12, 31)).map(
-            lambda dt: dt.replace(tzinfo=timezone.utc)
+            lambda dt: dt.replace(tzinfo=UTC)
         ),
         element_index=st.integers(min_value=0, max_value=1000),
         document_name=st.text(min_size=0, max_size=512),
@@ -92,7 +92,7 @@ class TestDocumentDeliveryRecordProperties:
         """
         # 创建最小记录（只有必需字段）
         original = DocumentDeliveryRecord(
-            case_number=case_number, send_time=datetime.now(timezone.utc), element_index=element_index
+            case_number=case_number, send_time=datetime.now(UTC), element_index=element_index
         )
 
         # Round-trip 序列化
@@ -181,7 +181,7 @@ class TestDocumentDeliveryRecordProperties:
         """
         original = DocumentDeliveryRecord(
             case_number="(2024)粤01民初123号",
-            send_time=datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc),
+            send_time=datetime(2024, 1, 15, 10, 30, 45, tzinfo=UTC),
             element_index=5,
             document_name="判决书",
             court_name="广州市中级人民法院",
@@ -221,7 +221,7 @@ class TestDocumentDeliveryRecordProperties:
         for case in test_cases:
             original = DocumentDeliveryRecord(
                 case_number="测试案号",
-                send_time=datetime.now(timezone.utc),
+                send_time=datetime.now(UTC),
                 element_index=0,
                 document_name=case["document_name"],
                 court_name=case["court_name"],

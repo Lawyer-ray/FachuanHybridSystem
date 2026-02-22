@@ -23,7 +23,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查列表表格存在
         self.assert_true(await self.check_element_exists("#result_list"), "列表表格不存在")
 
-        print(f"    ✅ 列表页访问成功")
+        print("    ✅ 列表页访问成功")
 
     async def test_create_case_basic(self):
         """测试创建基本案件（不含内联）"""
@@ -43,7 +43,7 @@ class TestCaseAdmin(BaseAdminTest):
             # 检查成功消息
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 创建基本案件成功")
+            print("    ✅ 创建基本案件成功")
         except Exception as e:
             # 截图调试
             await self.take_screenshot("error_create_case_basic")
@@ -74,7 +74,7 @@ class TestCaseAdmin(BaseAdminTest):
                 # 检查成功消息
                 self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-                print(f"    ✅ 创建案件（含当事人）成功")
+                print("    ✅ 创建案件（含当事人）成功")
             except Exception as e:
                 await self.take_screenshot("error_create_case_with_parties")
                 print(f"    ⚠️  内联表单测试跳过: {e}")
@@ -111,7 +111,7 @@ class TestCaseAdmin(BaseAdminTest):
                 # 检查成功消息
                 self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-                print(f"    ✅ 创建案件（多内联）成功")
+                print("    ✅ 创建案件（多内联）成功")
             except Exception as e:
                 await self.take_screenshot("error_create_case_multiple_inlines")
                 print(f"    ⚠️  多内联测试跳过: {e}")
@@ -125,7 +125,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过编辑测试")
+            print("    ⚠️  没有案件记录，跳过编辑测试")
             return
 
         # 点击第一条记录
@@ -140,7 +140,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查成功消息
         self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-        print(f"    ✅ 编辑案件成功")
+        print("    ✅ 编辑案件成功")
 
     async def test_delete_case(self):
         """测试删除案件"""
@@ -149,7 +149,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过删除测试")
+            print("    ⚠️  没有案件记录，跳过删除测试")
             return
 
         # 点击第一条记录
@@ -164,7 +164,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查成功消息
         self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-        print(f"    ✅ 删除案件成功")
+        print("    ✅ 删除案件成功")
 
     async def test_search_case(self):
         """测试搜索案件"""
@@ -177,7 +177,7 @@ class TestCaseAdmin(BaseAdminTest):
         url = self.page.url
         self.assert_contains(url, "q=", "搜索参数不在 URL 中")
 
-        print(f"    ✅ 搜索案件成功")
+        print("    ✅ 搜索案件成功")
 
     async def test_filter_case(self):
         """测试过滤案件"""
@@ -186,7 +186,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查过滤器是否存在
         filter_exists = await self.check_element_exists("#changelist-filter")
         if not filter_exists:
-            print(f"    ⚠️  没有过滤器，跳过过滤测试")
+            print("    ⚠️  没有过滤器，跳过过滤测试")
             return
 
         # 应用过滤器（例如：按状态过滤）
@@ -197,7 +197,7 @@ class TestCaseAdmin(BaseAdminTest):
             url = self.page.url
             self.assert_contains(url, "status=", "过滤参数不在 URL 中")
 
-            print(f"    ✅ 过滤案件成功")
+            print("    ✅ 过滤案件成功")
         except Exception as e:
             print(f"    ⚠️  过滤测试跳过: {e}")
 
@@ -227,7 +227,7 @@ class TestCaseAdmin(BaseAdminTest):
                     error_text = await self.get_error_text()
                     print(f"    ✅ 阶段验证生效: {error_text}")
                 else:
-                    print(f"    ℹ️  阶段验证通过（阶段有效）")
+                    print("    ℹ️  阶段验证通过（阶段有效）")
             except Exception as e:
                 print(f"    ⚠️  阶段验证测试跳过: {e}")
         except Exception as e:
@@ -262,7 +262,7 @@ class TestCaseAdmin(BaseAdminTest):
                     error_text = await self.get_error_text()
                     print(f"    ✅ 当事人唯一性验证生效: {error_text}")
                 else:
-                    print(f"    ⚠️  没有显示重复当事人的错误消息（可能验证未启用）")
+                    print("    ⚠️  没有显示重复当事人的错误消息（可能验证未启用）")
             except Exception as e:
                 await self.take_screenshot("error_duplicate_party")
                 print(f"    ⚠️  当事人唯一性验证测试跳过: {e}")
@@ -276,7 +276,7 @@ class TestCaseAdmin(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过嵌套内联测试")
+            print("    ⚠️  没有案件记录，跳过嵌套内联测试")
             return
 
         # 点击第一条记录
@@ -296,6 +296,6 @@ class TestCaseAdmin(BaseAdminTest):
             # 检查成功消息
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 嵌套内联测试成功")
+            print("    ✅ 嵌套内联测试成功")
         except Exception as e:
             print(f"    ⚠️  嵌套内联测试跳过: {e}")

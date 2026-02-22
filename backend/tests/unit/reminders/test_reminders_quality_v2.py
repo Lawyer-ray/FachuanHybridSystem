@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -50,7 +50,7 @@ class TestUpdateReminderTypeValidation:
         mock_reminder.case_log_id = None
         mock_reminder.reminder_type = "hearing"
         mock_reminder.content = "test"
-        mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=UTC)
         mock_reminder.metadata = {}
         mock_reminder.full_clean = MagicMock()
         mock_reminder.save = MagicMock()
@@ -77,7 +77,7 @@ class TestUpdateReminderTypeValidation:
         mock_reminder.case_log_id = None
         mock_reminder.reminder_type = "hearing"
         mock_reminder.content = "test"
-        mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=UTC)
         mock_reminder.metadata = {}
         mock_reminder.full_clean = MagicMock()
         mock_reminder.save = MagicMock()
@@ -117,7 +117,7 @@ class TestReminderInBindingExclusivity:
                 case_log_id=case_log_id,
                 reminder_type="hearing",  # type: ignore[arg-type]
                 content="test",
-                due_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                due_at=datetime(2025, 1, 1, tzinfo=UTC),
             )
             assert schema.contract_id == contract_id
             assert schema.case_log_id == case_log_id
@@ -128,7 +128,7 @@ class TestReminderInBindingExclusivity:
                     case_log_id=case_log_id,
                     reminder_type="hearing",  # type: ignore[arg-type]
                     content="test",
-                    due_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    due_at=datetime(2025, 1, 1, tzinfo=UTC),
                 )
 
 
@@ -156,7 +156,7 @@ class TestReminderStrBindingFormat:
         reminder.contract_id = contract_id
         reminder.case_log_id = case_log_id
         reminder.reminder_type = "hearing"
-        reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        reminder.due_at = datetime(2025, 1, 1, tzinfo=UTC)
 
         # 直接调用 Reminder.__str__ 绕过 MagicMock 的 __str__
         result: str = Reminder.__str__(reminder)

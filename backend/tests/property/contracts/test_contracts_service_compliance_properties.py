@@ -153,7 +153,7 @@ class TestContractsServiceCompliance:
                             f"{service_file}:{actual_line} - 方法 {method_name} 中包含 {desc}: {service_name}"
                         )
 
-        assert len(errors) == 0, f"Service 方法内不应直接实例化其他 Service（应通过构造函数注入）:\n" + "\n".join(
+        assert len(errors) == 0, "Service 方法内不应直接实例化其他 Service（应通过构造函数注入）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 
@@ -191,7 +191,7 @@ class TestContractsServiceCompliance:
                     if init_signature.count(",") > 0:
                         errors.append(f"{service_file} - __init__ 方法应支持可选依赖注入参数")
 
-        assert len(errors) == 0, f"Service 应支持构造函数依赖注入:\n" + "\n".join(f"  - {e}" for e in errors)
+        assert len(errors) == 0, "Service 应支持构造函数依赖注入:\n" + "\n".join(f"  - {e}" for e in errors)
 
     def test_service_uses_property_accessors(self):
         """
@@ -245,7 +245,7 @@ class TestContractsServiceCompliance:
                     if "HttpError" in line:
                         errors.append(f"{service_file}:{i} - 包含 HttpError: {line.strip()}")
 
-        assert len(errors) == 0, f"Service 层不应使用 HttpError（应使用业务异常如 ValidationException）:\n" + "\n".join(
+        assert len(errors) == 0, "Service 层不应使用 HttpError（应使用业务异常如 ValidationException）:\n" + "\n".join(
             f"  - {e}" for e in errors
         )
 

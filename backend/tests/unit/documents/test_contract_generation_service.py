@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ContractGenerationService 单元测试
 

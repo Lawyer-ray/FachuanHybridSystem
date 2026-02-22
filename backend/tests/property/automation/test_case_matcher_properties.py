@@ -18,13 +18,13 @@ class FakeCase:
     id: int
     name: str
     status: str
-    case_type: Optional[str] = None
-    current_stage: Optional[str] = None
+    case_type: str | None = None
+    current_stage: str | None = None
 
 
 @settings(max_examples=100, deadline=None)
 @given(ids=st.lists(st.integers(min_value=1, max_value=10_000), min_size=1, max_size=20, unique=True))
-def test_select_latest_case_returns_max_id(ids: List[int]):
+def test_select_latest_case_returns_max_id(ids: list[int]):
     matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())  # type: ignore[arg-type]
     cases = [FakeCase(id=i, name=str(i), status=CaseStatus.ACTIVE) for i in ids]
     selected = matcher._select_latest_case(cases)
@@ -37,7 +37,7 @@ def test_select_latest_case_returns_max_id(ids: List[int]):
     statuses=st.lists(st.sampled_from([CaseStatus.ACTIVE, CaseStatus.CLOSED]), min_size=1, max_size=20),
     ids=st.lists(st.integers(min_value=1, max_value=10_000), min_size=1, max_size=20, unique=True),
 )
-def test_match_by_case_number_exact_status_matrix(statuses: List[str], ids: List[int]):
+def test_match_by_case_number_exact_status_matrix(statuses: list[str], ids: list[int]):
     size = min(len(statuses), len(ids))
     statuses = statuses[:size]
     ids = ids[:size]
@@ -69,7 +69,7 @@ def test_match_by_case_number_exact_status_matrix(statuses: List[str], ids: List
     bankruptcy=st.booleans(),
 )
 def test_narrow_down_by_case_number_features_unique_returns_that_case(
-    extra_cases: List[int], stage: str, case_type: str, bankruptcy: bool
+    extra_cases: list[int], stage: str, case_type: str, bankruptcy: bool
 ):
     matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())  # type: ignore[arg-type]
     special = FakeCase(
@@ -125,7 +125,7 @@ def test_narrow_down_by_case_number_features_unique_returns_that_case(
     sms_parties=st.lists(st.text(min_size=1, max_size=10), max_size=3),
     doc_parties=st.lists(st.text(min_size=1, max_size=10), max_size=3),
 )
-def test_extract_party_names_precedence(sms_parties: List[str], doc_parties: List[str]):
+def test_extract_party_names_precedence(sms_parties: list[str], doc_parties: list[str]):
     class FakeDocumentParserService:
         def get_all_document_paths(self, _sms):
             return ["/tmp/doc"]

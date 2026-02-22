@@ -171,7 +171,7 @@ def test_no_backend_directory_inside_tests():
     nested_backends = [p for p in nested_backends if p.is_dir()]
 
     assert len(nested_backends) == 0, (
-        f"Found nested 'backend' directories inside tests/:\n"
+        "Found nested 'backend' directories inside tests/:\n"
         + "\n".join(f"  - {p.relative_to(project_root)}" for p in nested_backends)
         + "\n\nThese nested directories should be removed."
     )
@@ -186,7 +186,7 @@ def test_no_nested_duplicate_structures():
     issues = check_for_nested_backend_directories(project_root)
 
     assert len(issues) == 0, (
-        f"Found nested duplicate directory structures:\n"
+        "Found nested duplicate directory structures:\n"
         + "\n".join(f"  - {issue}" for issue in issues)
         + "\n\nThese nested structures should be removed."
     )
@@ -247,7 +247,7 @@ def test_no_duplicate_directory_names_in_path():
             pass
 
     assert len(duplicates) == 0, (
-        f"Found directories with duplicate names in path:\n"
+        "Found directories with duplicate names in path:\n"
         + "\n".join(f"  - {p.relative_to(project_root)}" for p in duplicates)
         + "\n\nThese duplicate structures should be cleaned up."
     )

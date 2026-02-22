@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DocumentTemplateService 单元测试
 

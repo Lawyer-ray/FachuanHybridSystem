@@ -17,7 +17,7 @@ class TestFeeTermsFix:
 
         assert "元整整" not in result
         assert "人民币叁万元整" in result
-        assert "本合同签订之日起5日内，甲方向乙方一次性支付律师费30000.0元（大写：人民币叁万元整）。" == result
+        assert result == "本合同签订之日起5日内，甲方向乙方一次性支付律师费30000.0元（大写：人民币叁万元整）。"
 
     def test_semi_risk_fee_terms_no_duplicate_zheng(self):
         service = FeeTermsService()
@@ -43,7 +43,7 @@ class TestFeeTermsFix:
 
         assert "元整整" not in result
         assert "人民币伍万元整" in result
-        assert "甲方向乙方支付法律顾问费¥50000.0元（大写：人民币伍万元整）" == result
+        assert result == "甲方向乙方支付法律顾问费¥50000.0元（大写：人民币伍万元整）"
 
     def test_amount_with_decimal(self):
         service = FeeTermsService()

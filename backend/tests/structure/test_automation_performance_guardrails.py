@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-def test_automation_performance_endpoints_require_admin():
+def test_automation_performance_endpoints_require_admin(): # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     api_py = backend_root / "apps" / "automation" / "api" / "performance_monitor_api.py"
     tree = ast.parse(api_py.read_text(encoding="utf-8"))
@@ -42,7 +42,7 @@ def test_automation_performance_endpoints_require_admin():
         assert found, f"{fn.name} 必须调用 ensure_admin_request()"
 
 
-def test_document_recognition_upload_validates_uploaded_file():
+def test_document_recognition_upload_validates_uploaded_file(): # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     admin_py = backend_root / "apps" / "automation" / "admin" / "document_recognition" / "document_recognition_admin.py"
     tree = ast.parse(admin_py.read_text(encoding="utf-8"))

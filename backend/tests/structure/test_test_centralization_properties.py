@@ -168,7 +168,7 @@ class TestTestCentralization:
         # 断言：所有 property-based 测试应该在 property/ 或 structure/ 目录
         assert (
             len(misplaced_property_tests) == 0
-        ), f"发现 {len(misplaced_property_tests)} 个 property-based 测试文件不在 property/ 或 structure/ 目录:\n" + "\n".join(
+        ), f"发现 {len(misplaced_property_tests)} 个 property-based 测试文件不在 property/ 或 structure/ 目录:\n" + "\n".join( # noqa: E501
             str(f) for f in misplaced_property_tests
         )
 
@@ -357,6 +357,6 @@ class TestTestCentralization:
             remaining_items.append(item)
 
         # 断言：apps/tests/ 应该只有 __init__.py
-        assert len(remaining_items) == 0, f"apps/tests/ 目录应该只包含 __init__.py，但发现以下文件/目录:\n" + "\n".join(
+        assert len(remaining_items) == 0, "apps/tests/ 目录应该只包含 __init__.py，但发现以下文件/目录:\n" + "\n".join(
             str(item) for item in remaining_items
         )

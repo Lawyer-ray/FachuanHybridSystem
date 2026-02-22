@@ -32,7 +32,7 @@ from apps.core.path import Path
 class TestAdminLayerCompliance:
     """Admin层合规性属性测试"""
 
-    def get_automation_admin_classes(self) -> List[type]:
+    def get_automation_admin_classes(self) -> list[type]:
         """获取所有automation模块的Admin类"""
         return [
             TokenAcquisitionHistoryAdmin,
@@ -40,7 +40,7 @@ class TestAdminLayerCompliance:
             PreservationQuoteAdmin,
         ]
 
-    def get_admin_module_paths(self) -> List[str]:
+    def get_admin_module_paths(self) -> list[str]:
         """获取所有Admin模块的文件路径"""
         base_path = Path(__file__).parent.parent.parent.parent / "apps" / "automation" / "admin"
         admin_files = []
@@ -151,7 +151,7 @@ class TestAdminLayerCompliance:
         )
     )
     @settings(max_examples=100)
-    def test_property_12_admin_method_line_limit(self, admin_class):
+    def test_property_12_admin_method_line_limit(self, admin_class): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 12: Admin层方法行数限制**
 
@@ -364,7 +364,7 @@ class TestAdminLayerCompliance:
         )
     )
     @settings(max_examples=100)
-    def test_property_14_admin_exception_handling_delegation(self, admin_class):
+    def test_property_14_admin_exception_handling_delegation(self, admin_class): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 14: Admin层异常处理委托**
 
@@ -432,7 +432,7 @@ class TestAdminLayerCompliance:
                             break
 
                     if has_complex_handling:
-                        assert False, (
+                        assert False, ( # noqa: B011
                             f"{admin_class.__name__}.{method_name} 包含复杂的异常处理逻辑，"
                             f"应该委托给AdminService处理"
                         )
@@ -441,7 +441,7 @@ class TestAdminLayerCompliance:
                     if not has_simple_handling:
                         # 允许一些简单的异常处理，如记录日志
                         if "logger." not in except_body and "log." not in except_body:
-                            assert False, f"{admin_class.__name__}.{method_name} 异常处理应该包含用户消息显示"
+                            raise AssertionError(f"{admin_class.__name__}.{method_name} 异常处理应该包含用户消息显示")
 
             except (OSError, TypeError):
                 # 如果无法获取方法源代码，跳过
@@ -457,7 +457,7 @@ class TestAdminLayerCompliance:
         )
     )
     @settings(max_examples=100)
-    def test_property_15_admin_service_instantiation_prohibited(self, admin_class):
+    def test_property_15_admin_service_instantiation_prohibited(self, admin_class): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 15: Admin层Service实例化禁止**
 
@@ -549,7 +549,7 @@ class TestAdminLayerCompliance:
             # 如果无法获取类源代码，跳过此测试
             pass
 
-    def test_admin_layer_comprehensive_compliance_check(self):
+    def test_admin_layer_comprehensive_compliance_check(self): # noqa: C901
         """
         Admin层综合合规性检查
 
@@ -727,13 +727,13 @@ class TestAdminLayerCompliance:
         )
 
         # 输出合规性报告
-        print(f"\n=== Admin层合规性报告 ===")
+        print("\n=== Admin层合规性报告 ===")
         print(f"总Admin类数: {compliance_report['total_admins']}")
         print(f"合规Admin类数: {compliance_report['compliant_admins']}")
         print(f"合规率: {compliance_rate:.1f}%")
 
         if compliance_report["violations"]:
-            print(f"\n违规详情:")
+            print("\n违规详情:")
             for violation in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"  {violation['admin']}:")
                 for v in violation["violations"]:
@@ -857,7 +857,7 @@ class TestAdminLayerPropertyBasedCompliance:
 
     @given(compliant_admin_action_source())
     @settings(max_examples=30)
-    def test_compliant_admin_action_patterns(self, action_source):
+    def test_compliant_admin_action_patterns(self, action_source): # noqa: C901
         """
         测试符合规范的Admin Action方法模式
 
@@ -923,11 +923,11 @@ class TestAdminLayerPropertyBasedCompliance:
                 for handler in try_block.handlers:
                     # 检查except块的复杂度
                     handler_statements = len(handler.body)
-                    assert handler_statements <= 3, f"符合规范的Admin Action异常处理应该简单，不超过3个语句"
+                    assert handler_statements <= 3, "符合规范的Admin Action异常处理应该简单，不超过3个语句"
 
     @given(non_compliant_admin_action_source())
     @settings(max_examples=20)
-    def test_non_compliant_admin_action_detection(self, action_data):
+    def test_non_compliant_admin_action_detection(self, action_data): # noqa: C901
         """
         测试违规Admin Action方法的检测能力
 

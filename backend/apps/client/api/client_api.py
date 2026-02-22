@@ -121,7 +121,7 @@ def create_client_with_docs(
     return mutation_service.create_client_with_docs(
         data=payload.model_dump(),
         doc_types=doc_types,
-        files=list(files),
+        files=files,
         user=user,
     )
 

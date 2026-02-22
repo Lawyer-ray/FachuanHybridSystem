@@ -50,7 +50,7 @@ async def run_test_class(test_class, test_name: str):
                 print("✅ PASSED")
                 results["passed"] += 1  # type: ignore[operator]
             except AssertionError as e:
-                print(f"❌ FAILED")
+                print("❌ FAILED")
                 print(f"      原因: {e}")
                 results["failed"] += 1  # type: ignore[operator]
                 results["errors"].append(  # type: ignore[attr-defined]
@@ -59,11 +59,11 @@ async def run_test_class(test_class, test_name: str):
             except Exception as e:
                 error_msg = str(e)
                 if "跳过" in error_msg or "skip" in error_msg.lower():
-                    print(f"⏭️  SKIPPED")
+                    print("⏭️  SKIPPED")
                     print(f"      原因: {e}")
                     results["skipped"] += 1  # type: ignore[operator]
                 else:
-                    print(f"💥 ERROR")
+                    print("💥 ERROR")
                     print(f"      原因: {e}")
                     results["failed"] += 1  # type: ignore[operator]
                     results["errors"].append(  # type: ignore[attr-defined]
@@ -74,7 +74,7 @@ async def run_test_class(test_class, test_name: str):
         # 清理测试环境
         try:
             await test.teardown()
-        except:
+        except Exception:
             pass
 
     return results
@@ -83,7 +83,7 @@ async def run_test_class(test_class, test_name: str):
 async def run_all_tests():
     """运行所有测试"""
     print(f"\n{'='*70}")
-    print(f"🚀 Django Admin 稳定性测试")
+    print("🚀 Django Admin 稳定性测试")
     print(f"{'='*70}")
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*70}\n")
@@ -115,7 +115,7 @@ async def run_all_tests():
 
     # 打印总结
     print(f"\n{'='*70}")
-    print(f"📊 测试总结")
+    print("📊 测试总结")
     print(f"{'='*70}\n")
 
     total = all_results["passed"] + all_results["failed"] + all_results["skipped"]  # type: ignore[operator]
@@ -132,7 +132,7 @@ async def run_all_tests():
     # 打印每个测试套件的结果
     if len(all_results["suites"]) > 1:  # type: ignore[arg-type]
         print(f"\n{'='*70}")
-        print(f"各测试套件结果:")
+        print("各测试套件结果:")
         print(f"{'='*70}\n")
 
         for suite in all_results["suites"]:  # type: ignore[attr-defined]
@@ -154,7 +154,7 @@ async def run_all_tests():
     # 打印失败的测试
     if all_results["errors"]:
         print(f"\n{'='*70}")
-        print(f"❌ 失败的测试详情:")
+        print("❌ 失败的测试详情:")
         print(f"{'='*70}\n")
 
         for i, error in enumerate(all_results["errors"], 1):  # type: ignore

@@ -144,8 +144,8 @@ class CourtSMSAdminTest(TestCase):
         request.user = self.user
 
         # 设置消息存储
-        setattr(request, "session", {})
-        setattr(request, "_messages", FallbackStorage(request))
+        request.session = {}
+        request._messages = FallbackStorage(request)
 
         response = self.admin.submit_sms_view(request)
 

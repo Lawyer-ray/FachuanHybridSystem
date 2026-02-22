@@ -384,8 +384,8 @@ def test_adapter_create_reminder_internal_normalizes_content() -> None:
     )
 
     assert has_normalize, (
-        f"create_reminder_internal 应对 content 调用 normalize_content。\n"
-        f"当前实现中 content 参数未经 normalize_content 校验。"
+        "create_reminder_internal 应对 content 调用 normalize_content。\n"
+        "当前实现中 content 参数未经 normalize_content 校验。"
     )
 
 

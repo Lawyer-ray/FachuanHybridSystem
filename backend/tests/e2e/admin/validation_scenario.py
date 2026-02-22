@@ -16,7 +16,7 @@ class ValidationError:
     field: str  # 字段名
     message: str  # 错误消息
     location: str  # 错误位置（main_form/inline）
-    inline_index: Optional[int] = None  # 内联索引（如果是内联错误）
+    inline_index: int | None = None  # 内联索引（如果是内联错误）
 
 
 @dataclass
@@ -25,11 +25,11 @@ class ValidationTestResult:
 
     scenario_name: str  # 场景名称
     passed: bool  # 是否通过
-    errors_detected: List[ValidationError]  # 检测到的错误
-    errors_expected: List[str]  # 期望的错误
+    errors_detected: list[ValidationError]  # 检测到的错误
+    errors_expected: list[str]  # 期望的错误
     execution_time: float  # 执行时间（秒）
-    screenshots: List[str]  # 截图路径
-    error_message: Optional[str] = None  # 失败原因
+    screenshots: list[str]  # 截图路径
+    error_message: str | None = None  # 失败原因
 
 
 @dataclass
@@ -46,12 +46,12 @@ class ValidationScenario:
     name: str  # 场景名称
     model: str  # 模型名称
     app: str  # 应用名称
-    invalid_data: Dict[str, Any]  # 无效数据
-    expected_errors: List[str]  # 期望的错误消息
-    fix_data: Dict[str, Any]  # 修正数据
+    invalid_data: dict[str, Any]  # 无效数据
+    expected_errors: list[str]  # 期望的错误消息
+    fix_data: dict[str, Any]  # 修正数据
     description: str = ""  # 场景描述
 
-    async def execute(self, test_case) -> ValidationTestResult:
+    async def execute(self, test_case) -> ValidationTestResult: # noqa: C901
         """
         执行验证场景
 
@@ -78,7 +78,7 @@ class ValidationScenario:
             await test_case.click_add_button()
 
             # 2. 填写无效数据
-            print(f"\n步骤 1: 填写无效数据")
+            print("\n步骤 1: 填写无效数据")
             for field_name, value in self.invalid_data.items():
                 try:
                     await test_case.fill_field_smart(field_name, str(value))
@@ -86,7 +86,7 @@ class ValidationScenario:
                     print(f"  ⚠️  填写字段失败: {field_name} - {e}")
 
             # 3. 提交表单
-            print(f"\n步骤 2: 提交表单")
+            print("\n步骤 2: 提交表单")
             await test_case.submit_form()
 
             # 截图：提交后
@@ -95,14 +95,14 @@ class ValidationScenario:
             screenshots.append(screenshot_name)
 
             # 4. 等待验证错误出现
-            print(f"\n步骤 3: 等待验证错误")
+            print("\n步骤 3: 等待验证错误")
             error_appeared = await test_case.wait_for_validation_error(timeout=5000)
 
             if not error_appeared:
-                print(f"  ⚠️  未检测到验证错误（可能验证通过了）")
+                print("  ⚠️  未检测到验证错误（可能验证通过了）")
 
             # 5. 获取所有验证错误
-            print(f"\n步骤 4: 获取验证错误")
+            print("\n步骤 4: 获取验证错误")
             errors = await test_case.get_validation_errors()
 
             # 转换为 ValidationError 对象
@@ -112,7 +112,7 @@ class ValidationScenario:
                 )
 
             # 6. 验证错误消息是否符合预期
-            print(f"\n步骤 5: 验证错误消息")
+            print("\n步骤 5: 验证错误消息")
             all_error_messages = [e.message for e in errors_detected]
 
             # 检查是否所有期望的错误都出现了
@@ -128,14 +128,14 @@ class ValidationScenario:
                     missing_errors.append(expected_error)
 
             if missing_errors:
-                print(f"  ⚠️  缺少期望的错误消息:")
+                print("  ⚠️  缺少期望的错误消息:")
                 for missing in missing_errors:
                     print(f"    - {missing}")
             else:
-                print(f"  ✓ 所有期望的错误消息都出现了")
+                print("  ✓ 所有期望的错误消息都出现了")
 
             # 7. 修正错误
-            print(f"\n步骤 6: 修正错误")
+            print("\n步骤 6: 修正错误")
             for field_name, correct_value in self.fix_data.items():
                 try:
                     await test_case.fix_validation_error(field_name, str(correct_value))
@@ -143,7 +143,7 @@ class ValidationScenario:
                     print(f"  ⚠️  修正字段失败: {field_name} - {e}")
 
             # 8. 重新提交
-            print(f"\n步骤 7: 重新提交表单")
+            print("\n步骤 7: 重新提交表单")
             await test_case.submit_form()
 
             # 截图：修正后提交
@@ -152,7 +152,7 @@ class ValidationScenario:
             screenshots.append(screenshot_name)
 
             # 9. 验证是否成功
-            print(f"\n步骤 8: 验证是否成功")
+            print("\n步骤 8: 验证是否成功")
             success = await test_case.check_success_message()
             no_errors = await test_case.verify_no_validation_errors()
 
@@ -175,13 +175,13 @@ class ValidationScenario:
                 print(f"\n{'='*60}")
                 print(f"✗ 场景失败: {self.name}")
                 if len(errors_detected) == 0:
-                    print(f"  原因: 未检测到验证错误")
+                    print("  原因: 未检测到验证错误")
                 elif len(missing_errors) > 0:
-                    print(f"  原因: 缺少期望的错误消息")
+                    print("  原因: 缺少期望的错误消息")
                 elif not success:
-                    print(f"  原因: 修正后保存失败")
+                    print("  原因: 修正后保存失败")
                 elif not no_errors:
-                    print(f"  原因: 修正后仍有验证错误")
+                    print("  原因: 修正后仍有验证错误")
                 print(f"{'='*60}")
 
             return ValidationTestResult(
@@ -208,7 +208,7 @@ class ValidationScenario:
             try:
                 await test_case.take_screenshot(screenshot_name)
                 screenshots.append(screenshot_name)
-            except:
+            except Exception:
                 pass
 
             return ValidationTestResult(
@@ -231,9 +231,9 @@ class Stage4TestReport:
     failed_tests: int  # 失败测试数
     skipped_tests: int  # 跳过测试数
     success_rate: float  # 成功率
-    results: List[ValidationTestResult] = field(default_factory=list)  # 测试结果
-    start_time: Optional[datetime] = None  # 开始时间
-    end_time: Optional[datetime] = None  # 结束时间
+    results: list[ValidationTestResult] = field(default_factory=list)  # 测试结果
+    start_time: datetime | None = None  # 开始时间
+    end_time: datetime | None = None  # 结束时间
     duration: float = 0.0  # 总耗时（秒）
 
     def generate_summary(self) -> str:

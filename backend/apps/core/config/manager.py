@@ -274,9 +274,9 @@ class ConfigManager:
             self._cache.clear()
             self._loaded = False
 
-    def get_cache_stats(self) -> dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, int]:
         with self._lock:
-            return self._cache.get_stats()
+            return {"size": len(self._cache._cache), "max_size": self._cache.max_size}
 
     def cleanup_cache(self) -> int:
         with self._lock:

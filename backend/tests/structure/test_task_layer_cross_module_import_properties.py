@@ -11,9 +11,9 @@ def _backend_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _iter_task_files() -> List[Path]:
+def _iter_task_files() -> list[Path]:
     root = _backend_root() / "apps"
-    files: List[Path] = []
+    files: list[Path] = []
     for app_dir in root.iterdir():
         if not app_dir.is_dir():
             continue
@@ -41,8 +41,8 @@ def _current_app(file_path: Path) -> str:
     return parts[idx + 1]
 
 
-def _extract_cross_app_imports(file_path: Path) -> List[Tuple[int, str, str]]:
-    violations: List[Tuple[int, str, str]] = []
+def _extract_cross_app_imports(file_path: Path) -> list[tuple[int, str, str]]:
+    violations: list[tuple[int, str, str]] = []
     content = file_path.read_text(encoding="utf-8")
     tree = ast.parse(content)
     lines = content.splitlines()

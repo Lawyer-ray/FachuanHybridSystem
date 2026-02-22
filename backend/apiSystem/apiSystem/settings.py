@@ -420,7 +420,7 @@ if not DEBUG:
             raise RuntimeError("生产多进程环境必须配置 Redis cache（DJANGO_CACHE_REDIS_URL）以保证限流一致性")
 
         _channel_layers: dict[str, Any] = (
-            {k: v for k, v in CHANNEL_LAYERS.items()} if isinstance(CHANNEL_LAYERS, dict) else {}
+            dict(CHANNEL_LAYERS.items()) if isinstance(CHANNEL_LAYERS, dict) else {}
         )
         _channel_backend = (_channel_layers.get("default") or {}).get("BACKEND", "")
         if _channel_backend == "channels.layers.InMemoryChannelLayer":

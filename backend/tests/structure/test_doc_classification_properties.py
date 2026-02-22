@@ -127,7 +127,7 @@ def test_documentation_classification_property():
             )
 
     # 断言没有错误
-    assert not errors, f"文档分类验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert not errors, "文档分类验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -173,7 +173,7 @@ def test_specific_doc_files_in_correct_locations():
                 errors.append(f"文档文件 {filename} 不存在")
 
     # 断言没有错误
-    assert not errors, f"文档位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert not errors, "文档位置验证失败:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -190,7 +190,7 @@ def test_no_docs_in_root_directory():
     root_md_files = [f for f in root_path.glob("*.md") if f.name != "README.md"]
 
     # 断言根目录下没有其他 .md 文件
-    assert not root_md_files, f"根目录不应该包含文档文件（除了 README.md）:\n" + "\n".join(
+    assert not root_md_files, "根目录不应该包含文档文件（除了 README.md）:\n" + "\n".join(
         f"  - {f.name}" for f in root_md_files
     )
 
@@ -222,7 +222,7 @@ def test_docs_subdirectories_exist():
             missing_subdirs.append(f"{subdir} (不是目录)")
 
     # 断言所有子目录都存在
-    assert not missing_subdirs, f"缺少必需的 docs/ 子目录:\n" + "\n".join(f"  - {d}" for d in missing_subdirs)
+    assert not missing_subdirs, "缺少必需的 docs/ 子目录:\n" + "\n".join(f"  - {d}" for d in missing_subdirs)
 
 
 if __name__ == "__main__":

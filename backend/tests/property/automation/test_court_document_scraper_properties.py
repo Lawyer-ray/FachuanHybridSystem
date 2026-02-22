@@ -40,7 +40,7 @@ def api_response_strategy(draw):
                 "c_stbh": draw(
                     st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")))
                 ),
-                "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}",
+                "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}", # noqa: E501
                 "c_wsbh": draw(
                     st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")))
                 ),
@@ -161,7 +161,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         scraper.random_wait = MagicMock()  # type: ignore[method-assign]
         scraper._debug_log = MagicMock()  # type: ignore[method-assign]
 
-        with patch("apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger") as mock_logger:
+        with patch("apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger") as mock_logger: # noqa: E501
             def capture_log(*args, **kwargs):
                 log_calls.append({"args": args, "kwargs": kwargs})
 

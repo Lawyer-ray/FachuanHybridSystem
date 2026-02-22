@@ -173,7 +173,7 @@ def test_no_old_imports_in_conftest():
     issues = check_for_old_import_paths(conftest_path)
 
     assert len(issues) == 0, (
-        f"Found old import paths in conftest.py:\n"
+        "Found old import paths in conftest.py:\n"
         + "\n".join(f"  Line {line}: {module}" for _, line, module in issues)
         + "\n\nUpdate these imports to use the new paths."
     )
@@ -212,7 +212,7 @@ def test_new_import_paths_exist():
             missing_dirs.append(import_path)
 
     assert len(missing_dirs) == 0, (
-        f"Missing test utility directories:\n"
+        "Missing test utility directories:\n"
         + "\n".join(f"  - {path}" for path in missing_dirs)
         + "\n\nThese directories should exist for imports to work."
     )
@@ -231,7 +231,7 @@ def test_new_import_paths_have_init():
             missing_init.append(import_path)
 
     assert len(missing_init) == 0, (
-        f"Missing __init__.py in test utility directories:\n"
+        "Missing __init__.py in test utility directories:\n"
         + "\n".join(f"  - {path}" for path in missing_init)
         + "\n\nThese directories need __init__.py for imports to work."
     )
@@ -268,4 +268,4 @@ def test_test_utilities_not_in_apps_tests():
     # 在 Task 4 完成清理 apps/tests 目录后将通过
     # 目前跳过此检查，因为它属于 Task 4 的范围
     if issues:
-        pytest.skip(f"Files still in apps/tests/ (will be cleaned in Task 4): " + ", ".join(f"{d}/" for d, _ in issues))
+        pytest.skip("Files still in apps/tests/ (will be cleaned in Task 4): " + ", ".join(f"{d}/" for d, _ in issues))

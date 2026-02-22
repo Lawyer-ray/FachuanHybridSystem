@@ -26,12 +26,12 @@ class MockCaptchaRecognizer(CaptchaRecognizer):
         self.recognize_call_count = 0
         self.recognize_from_element_call_count = 0
 
-    def recognize(self, image_bytes: bytes) -> Optional[str]:
+    def recognize(self, image_bytes: bytes) -> str | None:
         self.recognize_called = True
         self.recognize_call_count += 1
         return self.return_value
 
-    def recognize_from_element(self, page, selector: str) -> Optional[str]:
+    def recognize_from_element(self, page, selector: str) -> str | None:
         self.recognize_from_element_called = True
         self.recognize_from_element_call_count += 1
         return self.return_value

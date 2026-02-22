@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-def test_automation_config_endpoint_is_admin_guarded():
+def test_automation_config_endpoint_is_admin_guarded(): # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     api_py = backend_root / "apps" / "automation" / "api" / "main_api.py"
     tree = ast.parse(api_py.read_text(encoding="utf-8"))

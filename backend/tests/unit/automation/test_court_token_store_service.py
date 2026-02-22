@@ -25,7 +25,7 @@ class TestCourtTokenStoreService:
         """测试获取最新有效 token 成功"""
         # 创建有效的 token
         expires_at = timezone.now() + timedelta(hours=1)
-        token = CourtToken.objects.create(
+        token = CourtToken.objects.create( # noqa: F841
             site_name="zxfw.court.gov.cn",
             account="test@example.com",
             token="valid_token_123",

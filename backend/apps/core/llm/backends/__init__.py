@@ -17,7 +17,7 @@ from .ollama import OllamaBackend
 _siliconflow_import_error: Exception | None = None
 try:
     from .siliconflow import SiliconFlowBackend
-except Exception as exc:
+except ImportError as exc:
     _siliconflow_import_error = exc
 
     class SiliconFlowBackend:  # type: ignore[no-redef]

@@ -47,7 +47,7 @@ def assert_response_success(response, expected_status=200):
         try:
             error_data = response.json()
             error_msg = error_data.get("error", "Unknown error")
-        except:
+        except Exception:
             error_msg = response.content.decode("utf-8")
 
         raise AssertionError(f"Expected status {expected_status}, got {response.status_code}. " f"Error: {error_msg}")
@@ -75,10 +75,10 @@ def assert_response_error(response, expected_status=400, expected_code=None):
             if actual_code != expected_code:
                 raise AssertionError(f"Expected error code '{expected_code}', got '{actual_code}'")
         except ValueError:
-            raise AssertionError("Response is not JSON")
+            raise AssertionError("Response is not JSON") from None
 
 
-def assert_dict_contains(actual: Dict, expected: Dict):
+def assert_dict_contains(actual: dict, expected: dict):
     """
     断言字典包含期望的键值对
 
@@ -120,7 +120,7 @@ def assert_queryset_equal(qs1, qs2, ordered=False):
             raise AssertionError(f"QuerySets are not equal (unordered): " f"{set(list1)} != {set(list2)}")
 
 
-def get_json_response(response) -> Dict[str, Any]:
+def get_json_response(response) -> dict[str, Any]:
     """
     获取 JSON 响应数据
 
@@ -136,7 +136,7 @@ def get_json_response(response) -> Dict[str, Any]:
     try:
         return response.json()  # type: ignore[no-any-return]
     except ValueError:
-        raise AssertionError(f"Response is not JSON. Content: {response.content.decode('utf-8')}")
+        raise AssertionError(f"Response is not JSON. Content: {response.content.decode('utf-8')}") from None
 
 
 def create_test_file(filename: str = "test.txt", content: str = "test content"):
@@ -178,4 +178,4 @@ def freeze_time(frozen_time):
 
         return _freeze_time(frozen_time)
     except ImportError:
-        raise ImportError("freezegun is not installed. " "Install it with: pip install freezegun")
+        raise ImportError("freezegun is not installed. " "Install it with: pip install freezegun") from None

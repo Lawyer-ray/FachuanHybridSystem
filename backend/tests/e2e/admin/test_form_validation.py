@@ -223,7 +223,7 @@ async def test_case_stage_validation():
 # ========== 当事人唯一性验证测试场景 ==========
 
 
-async def test_party_uniqueness_validation():
+async def test_party_uniqueness_validation(): # noqa: C901
     """
     测试当事人唯一性验证
 
@@ -239,7 +239,7 @@ async def test_party_uniqueness_validation():
         print("=" * 80)
 
         # 定义测试场景
-        scenarios = []
+        scenarios = [] # noqa: F841
 
         # 准备测试数据
         print("\n准备测试数据...")
@@ -291,8 +291,8 @@ async def test_party_uniqueness_validation():
         # 这个场景需要特殊处理，因为需要添加两个内联行
         # 我们将手动执行这个场景
         print(f"\n{'='*60}")
-        print(f"执行验证场景: party_duplicate")
-        print(f"描述: 测试在同一案件中添加重复的当事人时，系统是否显示验证错误")
+        print("执行验证场景: party_duplicate")
+        print("描述: 测试在同一案件中添加重复的当事人时，系统是否显示验证错误")
         print(f"{'='*60}")
 
         import time
@@ -307,13 +307,13 @@ async def test_party_uniqueness_validation():
             await test.click_add_button()
 
             # 2. 填写基本信息
-            print(f"\n步骤 1: 填写案件基本信息")
+            print("\n步骤 1: 填写案件基本信息")
             await test.fill_field("name", "测试案件-重复当事人")
             await test.select_option("contract", contract_id)
             await test.select_option("current_stage", "first_trial")
 
             # 3. 添加第一个当事人
-            print(f"\n步骤 2: 添加第一个当事人")
+            print("\n步骤 2: 添加第一个当事人")
             await test.add_inline_row("caseparty_set")
 
             # 等待内联行加载
@@ -324,7 +324,7 @@ async def test_party_uniqueness_validation():
             await test.select_option(field_name_1, client1_id)
 
             # 4. 添加第二个当事人（相同的客户）
-            print(f"\n步骤 3: 添加第二个当事人（相同客户）")
+            print("\n步骤 3: 添加第二个当事人（相同客户）")
             await test.add_inline_row("caseparty_set")
 
             # 等待内联行加载
@@ -335,7 +335,7 @@ async def test_party_uniqueness_validation():
             await test.select_option(field_name_2, client1_id)
 
             # 5. 提交表单
-            print(f"\n步骤 4: 提交表单")
+            print("\n步骤 4: 提交表单")
             await test.submit_form()
 
             # 截图：提交后
@@ -344,11 +344,11 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 6. 等待验证错误出现
-            print(f"\n步骤 5: 等待验证错误")
+            print("\n步骤 5: 等待验证错误")
             error_appeared = await test.wait_for_validation_error(timeout=5000)
 
             # 7. 获取所有验证错误
-            print(f"\n步骤 6: 获取验证错误")
+            print("\n步骤 6: 获取验证错误")
             errors = await test.get_validation_errors()
 
             # 转换为 ValidationError 对象
@@ -358,7 +358,7 @@ async def test_party_uniqueness_validation():
                 )
 
             # 8. 验证错误消息是否符合预期
-            print(f"\n步骤 7: 验证错误消息")
+            print("\n步骤 7: 验证错误消息")
             # 调整期望的错误关键词以匹配实际的错误消息
             expected_errors = ["client", "重复"]
             all_error_messages = [e.message for e in errors_detected]
@@ -374,16 +374,16 @@ async def test_party_uniqueness_validation():
             if len(found_keywords) < len(expected_errors):
                 print(f"  ⚠️  缺少期望的错误关键词: {set(expected_errors) - set(found_keywords)}")
             else:
-                print(f"  ✓ 所有期望的错误关键词都出现了")
+                print("  ✓ 所有期望的错误关键词都出现了")
 
             # 9. 修正错误 - 删除第二个当事人或更改为不同的客户
-            print(f"\n步骤 8: 修正错误 - 更改第二个当事人为不同客户")
+            print("\n步骤 8: 修正错误 - 更改第二个当事人为不同客户")
 
             # 更改第二个当事人为不同的客户
             await test.select_option(field_name_2, client2_id)
 
             # 10. 重新提交
-            print(f"\n步骤 9: 重新提交表单")
+            print("\n步骤 9: 重新提交表单")
             await test.submit_form()
 
             # 截图：修正后提交
@@ -392,7 +392,7 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 11. 验证是否成功
-            print(f"\n步骤 10: 验证是否成功")
+            print("\n步骤 10: 验证是否成功")
             success = await test.check_success_message()
             no_errors = await test.verify_no_validation_errors()
 
@@ -409,19 +409,19 @@ async def test_party_uniqueness_validation():
 
             if passed:
                 print(f"\n{'='*60}")
-                print(f"✓ 场景通过: party_duplicate")
+                print("✓ 场景通过: party_duplicate")
                 print(f"{'='*60}")
             else:
                 print(f"\n{'='*60}")
-                print(f"✗ 场景失败: party_duplicate")
+                print("✗ 场景失败: party_duplicate")
                 if len(errors_detected) == 0:
-                    print(f"  原因: 未检测到验证错误")
+                    print("  原因: 未检测到验证错误")
                 elif len(found_keywords) < 2:
-                    print(f"  原因: 缺少期望的错误关键词")
+                    print("  原因: 缺少期望的错误关键词")
                 elif not success:
-                    print(f"  原因: 修正后保存失败")
+                    print("  原因: 修正后保存失败")
                 elif not no_errors:
-                    print(f"  原因: 修正后仍有验证错误")
+                    print("  原因: 修正后仍有验证错误")
                 print(f"{'='*60}")
 
             result_3_1 = ValidationTestResult(
@@ -459,8 +459,8 @@ async def test_party_uniqueness_validation():
         print("\n准备场景 3.3: 测试不同当事人验证")
 
         print(f"\n{'='*60}")
-        print(f"执行验证场景: party_different")
-        print(f"描述: 测试在同一案件中添加不同的当事人时，系统是否允许保存")
+        print("执行验证场景: party_different")
+        print("描述: 测试在同一案件中添加不同的当事人时，系统是否允许保存")
         print(f"{'='*60}")
 
         start_time = time.time()
@@ -472,13 +472,13 @@ async def test_party_uniqueness_validation():
             await test.click_add_button()
 
             # 2. 填写基本信息
-            print(f"\n步骤 1: 填写案件基本信息")
+            print("\n步骤 1: 填写案件基本信息")
             await test.fill_field("name", "测试案件-不同当事人")
             await test.select_option("contract", contract_id)
             await test.select_option("current_stage", "first_trial")
 
             # 3. 添加第一个当事人
-            print(f"\n步骤 2: 添加第一个当事人")
+            print("\n步骤 2: 添加第一个当事人")
             await test.add_inline_row("caseparty_set")
             await test.page.wait_for_timeout(2000)
 
@@ -486,7 +486,7 @@ async def test_party_uniqueness_validation():
             await test.select_option(field_name_1, client1_id)
 
             # 4. 添加第二个当事人（不同的客户）
-            print(f"\n步骤 3: 添加第二个当事人（不同客户）")
+            print("\n步骤 3: 添加第二个当事人（不同客户）")
             await test.add_inline_row("caseparty_set")
             await test.page.wait_for_timeout(2000)
 
@@ -494,7 +494,7 @@ async def test_party_uniqueness_validation():
             await test.select_option(field_name_2, client2_id)
 
             # 5. 提交表单
-            print(f"\n步骤 4: 提交表单")
+            print("\n步骤 4: 提交表单")
             await test.submit_form()
 
             # 截图：提交后
@@ -503,7 +503,7 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 6. 验证是否成功
-            print(f"\n步骤 5: 验证是否成功")
+            print("\n步骤 5: 验证是否成功")
             success = await test.check_success_message()
             no_errors = await test.verify_no_validation_errors()
 
@@ -514,15 +514,15 @@ async def test_party_uniqueness_validation():
 
             if passed:
                 print(f"\n{'='*60}")
-                print(f"✓ 场景通过: party_different")
+                print("✓ 场景通过: party_different")
                 print(f"{'='*60}")
             else:
                 print(f"\n{'='*60}")
-                print(f"✗ 场景失败: party_different")
+                print("✗ 场景失败: party_different")
                 if not success:
-                    print(f"  原因: 保存失败")
+                    print("  原因: 保存失败")
                 elif not no_errors:
-                    print(f"  原因: 出现了验证错误")
+                    print("  原因: 出现了验证错误")
                 print(f"{'='*60}")
 
             result_3_3 = ValidationTestResult(
@@ -560,8 +560,8 @@ async def test_party_uniqueness_validation():
         print("\n准备场景 3.4: 测试跨案件相同当事人")
 
         print(f"\n{'='*60}")
-        print(f"执行验证场景: party_cross_case")
-        print(f"描述: 测试在不同案件中添加相同的当事人时，系统是否允许保存")
+        print("执行验证场景: party_cross_case")
+        print("描述: 测试在不同案件中添加相同的当事人时，系统是否允许保存")
         print(f"{'='*60}")
 
         start_time = time.time()
@@ -569,7 +569,7 @@ async def test_party_uniqueness_validation():
 
         try:
             # 1. 创建第一个案件
-            print(f"\n步骤 1: 创建第一个案件")
+            print("\n步骤 1: 创建第一个案件")
             await test.navigate_to_model("cases", "case")
             await test.click_add_button()
 
@@ -592,7 +592,7 @@ async def test_party_uniqueness_validation():
             print(f"  第一个案件保存: {'成功' if success1 else '失败'}")
 
             # 2. 创建第二个案件（使用相同的当事人）
-            print(f"\n步骤 2: 创建第二个案件（使用相同当事人）")
+            print("\n步骤 2: 创建第二个案件（使用相同当事人）")
             # 等待一下，确保第一个案件保存完成
             await test.page.wait_for_timeout(2000)
             await test.navigate_to_model("cases", "case")
@@ -618,7 +618,7 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 3. 验证第二个案件是否成功
-            print(f"\n步骤 3: 验证第二个案件是否成功")
+            print("\n步骤 3: 验证第二个案件是否成功")
             success2 = await test.check_success_message()
             no_errors = await test.verify_no_validation_errors()
 
@@ -629,17 +629,17 @@ async def test_party_uniqueness_validation():
 
             if passed:
                 print(f"\n{'='*60}")
-                print(f"✓ 场景通过: party_cross_case")
+                print("✓ 场景通过: party_cross_case")
                 print(f"{'='*60}")
             else:
                 print(f"\n{'='*60}")
-                print(f"✗ 场景失败: party_cross_case")
+                print("✗ 场景失败: party_cross_case")
                 if not success1:
-                    print(f"  原因: 第一个案件保存失败")
+                    print("  原因: 第一个案件保存失败")
                 elif not success2:
-                    print(f"  原因: 第二个案件保存失败")
+                    print("  原因: 第二个案件保存失败")
                 elif not no_errors:
-                    print(f"  原因: 出现了验证错误")
+                    print("  原因: 出现了验证错误")
                 print(f"{'='*60}")
 
             result_3_4 = ValidationTestResult(
@@ -677,8 +677,8 @@ async def test_party_uniqueness_validation():
         print("\n准备场景 3.5: 测试当事人验证错误恢复")
 
         print(f"\n{'='*60}")
-        print(f"执行验证场景: party_error_recovery")
-        print(f"描述: 测试触发重复当事人错误后，删除重复的当事人并重新提交，系统是否成功保存")
+        print("执行验证场景: party_error_recovery")
+        print("描述: 测试触发重复当事人错误后，删除重复的当事人并重新提交，系统是否成功保存")
         print(f"{'='*60}")
 
         start_time = time.time()
@@ -691,13 +691,13 @@ async def test_party_uniqueness_validation():
             await test.click_add_button()
 
             # 2. 填写基本信息
-            print(f"\n步骤 1: 填写案件基本信息")
+            print("\n步骤 1: 填写案件基本信息")
             await test.fill_field("name", "测试案件-错误恢复")
             await test.select_option("contract", contract_id)
             await test.select_option("current_stage", "first_trial")
 
             # 3. 添加两个相同的当事人（触发错误）
-            print(f"\n步骤 2: 添加两个相同的当事人")
+            print("\n步骤 2: 添加两个相同的当事人")
             await test.add_inline_row("caseparty_set")
             await test.page.wait_for_timeout(2000)
 
@@ -711,7 +711,7 @@ async def test_party_uniqueness_validation():
             await test.select_option(field_name_2, client1_id)
 
             # 4. 提交表单（触发错误）
-            print(f"\n步骤 3: 提交表单（触发错误）")
+            print("\n步骤 3: 提交表单（触发错误）")
             await test.submit_form()
 
             # 截图：错误状态
@@ -720,8 +720,8 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 5. 验证错误出现
-            print(f"\n步骤 4: 验证错误出现")
-            error_appeared = await test.wait_for_validation_error(timeout=5000)
+            print("\n步骤 4: 验证错误出现")
+            error_appeared = await test.wait_for_validation_error(timeout=5000) # noqa: F841
             errors = await test.get_validation_errors()
 
             for error in errors:
@@ -732,14 +732,14 @@ async def test_party_uniqueness_validation():
             print(f"  检测到 {len(errors_detected)} 个错误")
 
             # 6. 修正错误 - 更改第二个当事人为不同客户（而不是删除）
-            print(f"\n步骤 5: 修正错误 - 更改第二个当事人为不同客户")
+            print("\n步骤 5: 修正错误 - 更改第二个当事人为不同客户")
 
             # 更改第二个当事人为不同的客户
             await test.select_option(field_name_2, client2_id)
-            print(f"  ✓ 已更改第二个当事人")
+            print("  ✓ 已更改第二个当事人")
 
             # 7. 重新提交
-            print(f"\n步骤 6: 重新提交表单")
+            print("\n步骤 6: 重新提交表单")
             await test.submit_form()
 
             # 截图：修正后
@@ -748,7 +748,7 @@ async def test_party_uniqueness_validation():
             screenshots.append(screenshot_name)
 
             # 8. 验证是否成功
-            print(f"\n步骤 7: 验证是否成功")
+            print("\n步骤 7: 验证是否成功")
             success = await test.check_success_message()
             no_errors = await test.verify_no_validation_errors()
 
@@ -761,17 +761,17 @@ async def test_party_uniqueness_validation():
 
             if passed:
                 print(f"\n{'='*60}")
-                print(f"✓ 场景通过: party_error_recovery")
+                print("✓ 场景通过: party_error_recovery")
                 print(f"{'='*60}")
             else:
                 print(f"\n{'='*60}")
-                print(f"✗ 场景失败: party_error_recovery")
+                print("✗ 场景失败: party_error_recovery")
                 if len(errors_detected) == 0:
-                    print(f"  原因: 未检测到验证错误")
+                    print("  原因: 未检测到验证错误")
                 elif not success:
-                    print(f"  原因: 修正后保存失败")
+                    print("  原因: 修正后保存失败")
                 elif not no_errors:
-                    print(f"  原因: 修正后仍有验证错误")
+                    print("  原因: 修正后仍有验证错误")
                 print(f"{'='*60}")
 
             result_3_5 = ValidationTestResult(
@@ -852,7 +852,7 @@ if __name__ == "__main__":
     success_rate = asyncio.run(test_party_uniqueness_validation())
 
     print(f"\n{'='*80}")
-    print(f"测试完成")
+    print("测试完成")
     print(f"成功率: {success_rate:.1f}%")
     print(f"{'='*80}")
 

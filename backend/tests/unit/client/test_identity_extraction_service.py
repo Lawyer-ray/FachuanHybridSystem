@@ -94,9 +94,8 @@ class TestIdentityExtractionService:
         with patch(
             "apps.client.services.identity_extraction.extraction_service.get_llm_service",
             return_value=mock_llm,
-        ):
-            with pytest.raises(OllamaExtractionError, match="Ollama 提取失败"):
-                self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
+        ), pytest.raises(OllamaExtractionError, match="Ollama 提取失败"):
+            self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_empty_response(self) -> None:
         """测试 Ollama 返回空响应"""
@@ -108,9 +107,8 @@ class TestIdentityExtractionService:
         with patch(
             "apps.client.services.identity_extraction.extraction_service.get_llm_service",
             return_value=mock_llm,
-        ):
-            with pytest.raises(OllamaExtractionError, match="Ollama 返回内容为空"):
-                self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
+        ), pytest.raises(OllamaExtractionError, match="Ollama 返回内容为空"):
+            self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_invalid_json(self) -> None:
         """测试 Ollama 返回无效 JSON"""
@@ -122,9 +120,8 @@ class TestIdentityExtractionService:
         with patch(
             "apps.client.services.identity_extraction.extraction_service.get_llm_service",
             return_value=mock_llm,
-        ):
-            with pytest.raises(OllamaExtractionError, match="Ollama 返回的 JSON 格式错误"):
-                self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
+        ), pytest.raises(OllamaExtractionError, match="Ollama 返回的 JSON 格式错误"):
+            self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_connection_error(self) -> None:
         """测试 Ollama 连接错误"""
@@ -136,15 +133,14 @@ class TestIdentityExtractionService:
         with patch(
             "apps.client.services.identity_extraction.extraction_service.get_llm_service",
             return_value=mock_llm,
-        ):
-            with pytest.raises(ServiceUnavailableError):
-                self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
+        ), pytest.raises(ServiceUnavailableError):
+            self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_extract_with_code_block_json(self) -> None:
         """测试提取包含代码块的 JSON 响应"""
         self.mock_recognizer.classification.return_value = "test text"
 
-        llm_content = '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。'
+        llm_content = '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。' # noqa: E501
         mock_llm = Mock()
         mock_llm.chat.return_value = _make_llm_response(llm_content)
 

@@ -67,13 +67,11 @@ class LawyerQueryService:
         return list(self.get_lawyer_queryset().filter(lawyer_teams__id=team_id).distinct())
 
     def get_team_member_ids(self, user: Lawyer) -> set[int]:
-        member_ids: set[int] = set()
-        teams = user.lawyer_teams.prefetch_related("lawyers").all()
-        for team in teams:
-            for member in team.lawyers.all():
-                member_ids.add(member.pk)
-
+        member_ids = set(
+            Lawyer.objects.filter(lawyer_teams__in=user.lawyer_teams.all())
+            .values_list("id", flat=True)
+            .distinct()
+        )
         if not member_ids:
             member_ids.add(user.pk)
-
         return member_ids
