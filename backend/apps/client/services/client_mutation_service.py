@@ -110,11 +110,14 @@ class ClientMutationService:
 
         self._validate_update_data(client, data)
 
+        updated_fields = []
         for key, value in data.items():
             if key in self._UPDATABLE_FIELDS:
                 setattr(client, key, value)
+                updated_fields.append(key)
 
-        client.save()
+        if updated_fields:
+            client.save(update_fields=updated_fields)
         logger.info(
             "客户更新成功",
             extra={"client_id": cast(int, client.pk), "user_id": getattr(user, "id", None), "action": "update_client"},

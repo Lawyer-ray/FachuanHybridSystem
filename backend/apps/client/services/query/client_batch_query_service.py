@@ -1,7 +1,7 @@
 """当事人批量查询服务。"""
 
-from apps.client.models import Client
 from apps.client.services.client_internal_query_service import ClientInternalQueryService
+
 
 class ClientBatchQueryService:
     def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:

@@ -70,7 +70,6 @@ class AccountCredentialAdminService:
     SUPPORTED_SITE = "court_zxfw"
 
     def __init__(self) -> None:
-        self._auto_login_service: Any | None = None
         self._token_service: Any | None = None
         self._automation_service: Any | None = None
         self._credential_service: AccountCredentialService | None = None
@@ -85,15 +84,6 @@ class AccountCredentialAdminService:
 
             self._credential_service = AccountCredentialService()
         return self._credential_service
-
-    @property
-    def auto_login_service(self) -> "Any":
-        """延迟加载 AutoLoginService"""
-        if self._auto_login_service is None:
-            from apps.core.dependencies import build_auto_login_service
-
-            self._auto_login_service = build_auto_login_service()
-        return self._auto_login_service
 
     @property
     def token_service(self) -> "Any":
@@ -136,7 +126,7 @@ class AccountCredentialAdminService:
         # 获取凭证
         credential = self.credential_service.get_credential_by_id(credential_id)
         if not credential:
-            raise NotFoundError(f"账号凭证 #{credential_id} 不存在")
+            raise NotFoundError(message=_("账号凭证不存在"), code="CREDENTIAL_NOT_FOUND")
 
         # 检查是否支持自动登录
         if credential.site_name != self.SUPPORTED_SITE:
@@ -332,10 +322,10 @@ class AccountCredentialAdminService:
         # 构建消息
         messages = []
         if success_count > 0:
-            messages.append(f"✅ 成功触发 {success_count} 个账号的自动登录")
+            messages.append(str(_("✅ 成功触发 %(count)d 个账号的自动登录")) % {"count": success_count})
         if error_count > 0:
-            messages.append(f"❌ {error_count} 个账号登录失败")
-        messages.append(f"总耗时 {total_duration:.1f}秒")
+            messages.append(str(_("❌ %(count)d 个账号登录失败")) % {"count": error_count})
+        messages.append(str(_("总耗时 %(duration).1f秒")) % {"duration": total_duration})
 
         return BatchLoginResult(
             success_count=success_count,

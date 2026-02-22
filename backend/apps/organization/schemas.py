@@ -137,7 +137,6 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
             "site_name",
             "url",
             "account",
-            "password",
             "created_at",
             "updated_at",
         ]

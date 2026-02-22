@@ -140,15 +140,19 @@ class PropertyClueService:
         clue = self.get_clue(clue_id, user)
 
         # 2. 验证并更新线索类型
+        updated_fields: list[str] = []
         if "clue_type" in data:
             self._validate_clue_type(data["clue_type"])
             clue.clue_type = data["clue_type"]
+            updated_fields.append("clue_type")
 
         # 3. 更新内容
         if "content" in data:
             clue.content = data["content"]
+            updated_fields.append("content")
 
-        clue.save()
+        if updated_fields:
+            clue.save(update_fields=updated_fields)
 
         logger.info(
             "财产线索更新成功",
