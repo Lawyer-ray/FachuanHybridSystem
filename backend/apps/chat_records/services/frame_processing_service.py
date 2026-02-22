@@ -5,12 +5,10 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import Callable
 from difflib import SequenceMatcher
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, cast
-
-from django.utils import timezone
 
 from apps.chat_records.services.extract_helpers import (
     DedupState,
@@ -18,8 +16,19 @@ from apps.chat_records.services.extract_helpers import (
     jaccard_sets,
     shingles,
 )
+from apps.chat_records.services.frame_selection_service import FrameSelectionService
+from apps.chat_records.services.protocols import ProgressUpdater, ScreenshotCreator
+from apps.chat_records.services.video_frame_extract_service import (
+    FFProbeInfo,
+    VideoFrameExtractService,
+)
+from apps.core.protocols.automation_protocols import IOcrService
+from apps.core.tasking.runtime import CancellationToken, ProgressReporter
 
 logger = logging.getLogger("apps.chat_records")
+
+# Type alias for the reorder callback
+ReorderCallback = Callable[[int], None]
 
 
 class FrameProcessingService:
@@ -31,7 +40,7 @@ class FrameProcessingService:
 
     def is_dhash_duplicate(
         self,
-        selection_service: Any,
+        selection_service: FrameSelectionService,
         dhash_hex: str,
         kept_dhashes: list[str],
         window: int,
@@ -46,7 +55,7 @@ class FrameProcessingService:
 
     def is_pixel_duplicate(
         self,
-        selection_service: Any,
+        selection_service: FrameSelectionService,
         thumb: bytes,
         kept_thumbs: list[bytes],
         window: int,
@@ -121,25 +130,25 @@ class FrameProcessingService:
     def process_ocr_for_frame(
         self,
         content: bytes,
-        ocr_service: Any,
-        selection_service: Any,
+        ocr_service: IOcrService,
+        selection_service: FrameSelectionService,
         state: DedupState,
         params: ExtractParams,
         soft_deadline: float,
-        recording_id: Any,
+        progress_updater: ProgressUpdater,
     ) -> tuple[str, float | None, bool]:
         """处理单帧的 OCR 去重，返回 (ocr_text, frame_score, should_skip)。"""
-        from apps.chat_records.models import ChatRecordRecording
-
         if not ocr_service:
             return "", None, False
 
         # 检查超时降级
         if not state.ocr_disabled and time.monotonic() > soft_deadline:
             state.ocr_disabled = True
-            ChatRecordRecording.objects.filter(id=recording_id).update(
-                extract_message="接近超时,已降级为图片去重",
-                updated_at=timezone.now(),
+            progress_updater.update_progress(
+                progress=0,
+                current=0,
+                total=0,
+                message="接近超时,已降级为图片去重",
             )
             return "", None, False
 
@@ -184,15 +193,17 @@ class FrameProcessingService:
 
     def run_ffmpeg_phase(
         self,
-        service: Any,
-        recording: Any,
-        info: Any,
+        service: VideoFrameExtractService,
+        recording_video_path: str,
+        recording_id: str,
+        info: FFProbeInfo,
         params: ExtractParams,
-        cancel_token: Any,
-        ffmpeg_reporter: Any,
+        cancel_token: CancellationToken,
+        ffmpeg_reporter: ProgressReporter,
+        progress_updater: ProgressUpdater,
         soft_deadline: float,
         tmpdir: str,
-    ) -> tuple[int, Any]:
+    ) -> tuple[int, Callable[[], bool]]:
         """运行 ffmpeg 抽帧阶段。"""
         total_estimate: int = (
             service.estimate_total_frames(
@@ -201,13 +212,12 @@ class FrameProcessingService:
             if params.interval_based
             else 0
         )
-        from apps.chat_records.models import ChatRecordRecording
 
-        ChatRecordRecording.objects.filter(id=recording.id).update(
-            duration_seconds=info.duration_seconds,
-            extract_total=total_estimate,
-            extract_message="抽帧中",
-            updated_at=timezone.now(),
+        progress_updater.update_progress(
+            progress=0,
+            current=0,
+            total=total_estimate,
+            message="抽帧中",
         )
 
         last_progress = -1
@@ -218,10 +228,10 @@ class FrameProcessingService:
         )
 
         def should_cancel() -> bool:
-            return cast(bool, cancel_token.is_cancelled())
+            return cancel_token.is_cancelled()
 
         for kv in service.iter_ffmpeg_progress(
-            video_path=recording.video.path,
+            video_path=recording_video_path,
             output_pattern=output_pattern,
             interval_seconds=params.interval_seconds,
             strategy=params.strategy,
@@ -275,7 +285,7 @@ class FrameProcessingService:
         path: str,
         index: int,
         params: ExtractParams,
-        info: Any,
+        info: FFProbeInfo,
     ) -> float | None:
         """计算帧的捕获时间。"""
         if not params.interval_based and info.time_base_seconds:
@@ -298,9 +308,9 @@ class FrameProcessingService:
         dhash_hex: str,
         thumb: bytes,
         ocr_text: str,
-        ocr_service: Any,
+        ocr_service: IOcrService | None,
         pixel_diff_threshold: float,
-        selection_service: Any,
+        selection_service: FrameSelectionService,
         content: bytes,
     ) -> None:
         """更新去重状态。"""
@@ -324,7 +334,7 @@ class FrameProcessingService:
         dhash_hex: str,
         state: DedupState,
         params: ExtractParams,
-        selection_service: Any,
+        selection_service: FrameSelectionService,
         window: int,
         pixel_diff_threshold: float,
     ) -> tuple[bool, bytes]:
@@ -360,25 +370,20 @@ class FrameProcessingService:
         self,
         path: str,
         index: int,
-        recording: Any,
-        info: Any,
+        project_id: int,
+        info: FFProbeInfo,
         params: ExtractParams,
         state: DedupState,
-        selection_service: Any,
-        ocr_service: Any,
+        selection_service: FrameSelectionService,
+        ocr_service: IOcrService | None,
         soft_deadline: float,
         base_ordering: int,
         window: int,
         pixel_diff_threshold: float,
+        screenshot_creator: ScreenshotCreator,
+        progress_updater: ProgressUpdater,
     ) -> bool:
         """处理单帧，返回是否创建了截图。"""
-        from django.core.files.base import ContentFile
-
-        from apps.chat_records.models import (
-            ChatRecordScreenshot,
-            ScreenshotSource,
-        )
-
         try:
             with open(path, "rb") as fp:
                 content = fp.read()
@@ -417,27 +422,24 @@ class FrameProcessingService:
                 state,
                 params,
                 soft_deadline,
-                recording.id,
+                progress_updater,
             )
             if should_skip:
                 return False
 
-        # 创建截图
+        # 创建截图 — 通过回调
         capture_time_seconds = self.calc_capture_time(path, index, params, info)
-        screenshot = ChatRecordScreenshot(
-            project_id=recording.project_id,
+        screenshot_creator.create_screenshot(
+            project_id=project_id,
             ordering=base_ordering + state.created_count + 1,
             sha256=digest,
             dhash=dhash_hex,
             capture_time_seconds=capture_time_seconds,
-            source=ScreenshotSource.EXTRACT,
+            source="extract",
+            frame_score=frame_score,
+            image_name=Path(path).name,
+            image_content=content,
         )
-        if ocr_service is not None and frame_score is not None:
-            screenshot.frame_score = frame_score
-        screenshot.image.save(
-            Path(path).name, ContentFile(content), save=False
-        )
-        screenshot.save()
 
         self.update_dedup_state(
             state,
@@ -456,29 +458,10 @@ class FrameProcessingService:
     # 截图重排序
     # ------------------------------------------------------------------
 
-    def reorder_screenshots(self, project_id: Any) -> None:
-        """重新排序截图。"""
-        from django.db.models import Case, IntegerField, Value, When
-
-        from apps.chat_records.models import ChatRecordScreenshot
-
-        all_ids = list(
-            ChatRecordScreenshot.objects.filter(project_id=project_id)
-            .order_by(
-                Case(
-                    When(
-                        capture_time_seconds__isnull=True,
-                        then=Value(1),
-                    ),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                "capture_time_seconds",
-                "created_at",
-            )
-            .values_list("id", flat=True)
-        )
-        for order, sid in enumerate(all_ids, start=1):
-            ChatRecordScreenshot.objects.filter(
-                project_id=project_id, id=sid
-            ).update(ordering=order)
+    def reorder_screenshots(
+        self,
+        project_id: int,
+        reorder_callback: ReorderCallback,
+    ) -> None:
+        """重新排序截图（委托给回调完成）。"""
+        reorder_callback(project_id)
