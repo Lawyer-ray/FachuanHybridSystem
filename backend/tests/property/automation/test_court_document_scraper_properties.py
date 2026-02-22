@@ -40,7 +40,7 @@ def api_response_strategy(draw):
                 "c_stbh": draw(
                     st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")))
                 ),
-                "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}", # noqa: E501
+                "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}",  # noqa: E501
                 "c_wsbh": draw(
                     st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")))
                 ),
@@ -161,7 +161,10 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         scraper.random_wait = MagicMock()  # type: ignore[method-assign]
         scraper._debug_log = MagicMock()  # type: ignore[method-assign]
 
-        with patch("apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger") as mock_logger: # noqa: E501
+        with patch(
+            "apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger"
+        ) as mock_logger:  # noqa: E501
+
             def capture_log(*args, **kwargs):
                 log_calls.append({"args": args, "kwargs": kwargs})
 
@@ -284,9 +287,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
                 mock_client.__exit__ = lambda self, *args: None
                 mock_client_class.return_value = mock_client
 
-                success, filepath, error = scraper._download_document_directly(
-                    doc, download_dir, download_timeout=5000
-                )
+                success, filepath, error = scraper._download_document_directly(doc, download_dir, download_timeout=5000)
 
                 assert mock_client.get.called, f"应该调用 httpx.Client.get 方法下载 {url}"
                 call_args = mock_client.get.call_args
@@ -343,9 +344,9 @@ class TestCourtDocumentScraperAPIInterceptProperties:
     @settings(max_examples=30, deadline=None)
     @given(
         doc_count=st.integers(min_value=2, max_value=5),
-        delay_range=st.tuples(
-            st.floats(min_value=0.5, max_value=1.5), st.floats(min_value=1.5, max_value=3.0)
-        ).filter(lambda x: x[0] < x[1]),
+        delay_range=st.tuples(st.floats(min_value=0.5, max_value=1.5), st.floats(min_value=1.5, max_value=3.0)).filter(
+            lambda x: x[0] < x[1]
+        ),
     )
     def test_property_22_download_delay_existence(self, doc_count, delay_range):
         """
@@ -381,10 +382,15 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         for i in range(doc_count):
             documents.append(
                 {
-                    "c_sdbh": f"sdbh_{i}", "c_stbh": f"stbh_{i}",
-                    "wjlj": f"https://example.com/doc_{i}", "c_wsbh": f"wsbh_{i}",
-                    "c_wsmc": f"document_{i}", "c_fybh": f"fybh_{i}",
-                    "c_fymc": f"court_{i}", "c_wjgs": "pdf", "dt_cjsj": "2024-01-01T00:00:00",
+                    "c_sdbh": f"sdbh_{i}",
+                    "c_stbh": f"stbh_{i}",
+                    "wjlj": f"https://example.com/doc_{i}",
+                    "c_wsbh": f"wsbh_{i}",
+                    "c_wsmc": f"document_{i}",
+                    "c_fybh": f"fybh_{i}",
+                    "c_fymc": f"court_{i}",
+                    "c_wjgs": "pdf",
+                    "dt_cjsj": "2024-01-01T00:00:00",
                 }
             )
 
@@ -435,10 +441,15 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         for i in range(total_docs):
             documents.append(
                 {
-                    "c_sdbh": f"sdbh_{i}", "c_stbh": f"stbh_{i}",
-                    "wjlj": f"https://example.com/doc_{i}", "c_wsbh": f"wsbh_{i}",
-                    "c_wsmc": f"document_{i}", "c_fybh": f"fybh_{i}",
-                    "c_fymc": f"court_{i}", "c_wjgs": "pdf", "dt_cjsj": "2024-01-01T00:00:00",
+                    "c_sdbh": f"sdbh_{i}",
+                    "c_stbh": f"stbh_{i}",
+                    "wjlj": f"https://example.com/doc_{i}",
+                    "c_wsbh": f"wsbh_{i}",
+                    "c_wsmc": f"document_{i}",
+                    "c_fybh": f"fybh_{i}",
+                    "c_fymc": f"court_{i}",
+                    "c_wjgs": "pdf",
+                    "dt_cjsj": "2024-01-01T00:00:00",
                 }
             )
 
@@ -550,8 +561,10 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         def mock_fallback(download_dir):
             if fallback_success:
                 return {
-                    "source": "zxfw.court.gov.cn", "document_count": 1,
-                    "downloaded_count": 1, "failed_count": 0,
+                    "source": "zxfw.court.gov.cn",
+                    "document_count": 1,
+                    "downloaded_count": 1,
+                    "failed_count": 0,
                     "files": ["/tmp/test.pdf"],
                     "message": "回退方式：成功下载 1/1 份文书",
                 }
@@ -563,9 +576,11 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         log_calls: list[dict] = []
 
         with patch("apps.automation.services.scraper.scrapers.court_document.zxfw_scraper.logger") as mock_logger:
+
             def capture_log(level):
                 def log_func(*args, **kwargs):
                     log_calls.append({"level": level, "args": args, "kwargs": kwargs})
+
                 return log_func
 
             mock_logger.info.side_effect = capture_log("info")
@@ -584,10 +599,15 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
             # 验证有失败相关的日志
             failure_logs = [
-                lc for lc in log_calls
+                lc
+                for lc in log_calls
                 if "extra" in lc.get("kwargs", {})
-                and lc["kwargs"]["extra"].get("operation_type", "") in (
-                    "direct_api_failed", "api_intercept_failed", "fallback_attempt", "fallback_success",
+                and lc["kwargs"]["extra"].get("operation_type", "")
+                in (
+                    "direct_api_failed",
+                    "api_intercept_failed",
+                    "fallback_attempt",
+                    "fallback_success",
                     "all_methods_failed",
                 )
             ]
@@ -634,8 +654,10 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
             def mock_fallback(download_dir):
                 return {
-                    "source": "zxfw.court.gov.cn", "document_count": 1,
-                    "downloaded_count": 1, "failed_count": 0,
+                    "source": "zxfw.court.gov.cn",
+                    "document_count": 1,
+                    "downloaded_count": 1,
+                    "failed_count": 0,
                     "files": ["/tmp/test_fallback.pdf"],
                     "message": "回退方式：成功下载 1/1 份文书",
                 }
@@ -645,8 +667,11 @@ class TestCourtDocumentScraperAPIInterceptProperties:
             # 直接API成功
             def mock_direct_api_ok(url, download_dir):
                 return {
-                    "source": "zxfw.court.gov.cn", "method": "direct_api",
-                    "document_count": 1, "downloaded_count": 1, "failed_count": 0,
+                    "source": "zxfw.court.gov.cn",
+                    "method": "direct_api",
+                    "document_count": 1,
+                    "downloaded_count": 1,
+                    "failed_count": 0,
                     "files": ["/tmp/test_api.pdf"],
                     "db_save_result": {"total": 1, "success": 1, "failed": 0},
                     "message": "直接 API 方式：成功下载 1/1 份文书",

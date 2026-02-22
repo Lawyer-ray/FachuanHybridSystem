@@ -60,7 +60,7 @@ class TestCourtDocumentService:
         from apps.organization.models import LawFirm
 
         # 创建律所
-        lawfirm = LawFirm.objects.create(name="测试律所", social_credit_code="TEST123") # noqa: F841
+        lawfirm = LawFirm.objects.create(name="测试律所", social_credit_code="TEST123")  # noqa: F841
 
         # 创建合同（不再使用 assigned_lawyer 字段，已重构为 ContractAssignment）
         contract = Contract.objects.create(

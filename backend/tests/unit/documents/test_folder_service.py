@@ -22,7 +22,7 @@ class TestFolderTemplateServiceValidation(TestCase):
     """测试文件夹结构验证功能"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service() # type: ignore[func-returns-value]
+        self.service = build_folder_template_service()  # type: ignore[func-returns-value]
 
     def test_validate_valid_structure(self):
         """测试有效结构验证通过"""
@@ -107,7 +107,7 @@ class TestFolderTemplateServiceCRUD(TestCase):
     """测试文件夹模板 CRUD 操作"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service() # type: ignore[func-returns-value]
+        self.service = build_folder_template_service()  # type: ignore[func-returns-value]
         self.valid_structure = {"children": [{"id": "1", "name": "诉讼材料", "children": []}]}
 
     def test_create_template_success(self):
@@ -193,13 +193,13 @@ class TestFolderTemplateServiceQuery(TestCase):
     """测试文件夹模板查询功能"""
 
     def setUp(self) -> None:
-        self.service = build_folder_template_service() # type: ignore[func-returns-value]
+        self.service = build_folder_template_service()  # type: ignore[func-returns-value]
         self.valid_structure: dict[str, list[str]] = {"children": []}
 
     def test_get_template_for_case_returns_latest(self):
         """测试获取最新更新的模板 - Requirements 1.4"""
         # 创建两个相同类型的模板
-        template1 = self.service.create_template( # noqa: F841
+        template1 = self.service.create_template(  # noqa: F841
             name="模板1",
             case_type=DocumentCaseType.CIVIL,
             case_stage=DocumentCaseStage.FIRST_TRIAL,
@@ -220,7 +220,7 @@ class TestFolderTemplateServiceQuery(TestCase):
 
     def test_get_template_for_case_excludes_inactive(self):
         """测试查询排除非活跃模板"""
-        template = self.service.create_template( # noqa: F841
+        template = self.service.create_template(  # noqa: F841
             name="模板",
             case_type=DocumentCaseType.CIVIL,
             case_stage=DocumentCaseStage.FIRST_TRIAL,

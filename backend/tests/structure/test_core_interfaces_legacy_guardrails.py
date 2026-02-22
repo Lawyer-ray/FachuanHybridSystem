@@ -33,9 +33,9 @@ def test_legacy_service_locator_file_deleted():
     """
     root = Path(__file__).resolve().parents[2]
     legacy_file = root / "apps" / "core" / "legacy_service_locator.py"
-    assert (
-        not legacy_file.exists()
-    ), "legacy_service_locator.py 应该已被删除，ServiceLocator 已统一到 apps.core.service_locator"
+    assert not legacy_file.exists(), (
+        "legacy_service_locator.py 应该已被删除，ServiceLocator 已统一到 apps.core.service_locator"
+    )
 
 
 def test_service_locator_proxy_file_deleted():

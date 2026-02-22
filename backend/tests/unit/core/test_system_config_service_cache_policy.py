@@ -29,9 +29,10 @@ class SystemConfigServiceCachePolicyTest(SimpleTestCase):
         model.objects.get.side_effect = model.DoesNotExist()
         service = SystemConfigService(model=model)  # type: ignore[call-arg]
 
-        with patch("apps.core.services.system_config_service.cache.get", return_value=None), patch(
-            "apps.core.services.system_config_service.cache.set"
-        ) as set_mock:
+        with (
+            patch("apps.core.services.system_config_service.cache.get", return_value=None),
+            patch("apps.core.services.system_config_service.cache.set") as set_mock,
+        ):
             out = service.get_value("X", default="D")
 
         self.assertEqual(out, "D")

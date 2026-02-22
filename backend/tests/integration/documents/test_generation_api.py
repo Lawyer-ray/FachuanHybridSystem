@@ -49,9 +49,10 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_contract_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_contract_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_contract_document_result.return_value = (
                 b"fake-docx-content",
@@ -72,9 +73,10 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_contract_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_contract_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_contract_document_result.return_value = (
                 b"",
@@ -95,9 +97,10 @@ class TestDownloadContractDocumentAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_contract_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_contract_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_contract_document_result.return_value = (
                 b"",
@@ -122,9 +125,10 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_folder_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_folder_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_folder_with_documents_result.return_value = (
                 b"fake-zip-content",
@@ -144,9 +148,10 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_folder_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_folder_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_folder_with_documents_result.return_value = (
                 b"",
@@ -167,9 +172,10 @@ class TestDownloadContractFolderAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_folder_generation_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_folder_generation_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_folder_with_documents_result.return_value = (
                 b"",
@@ -194,9 +200,10 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_supplementary_agreement_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_supplementary_agreement_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_supplementary_agreement_result.return_value = (
                 b"fake-docx",
@@ -216,9 +223,10 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_supplementary_agreement_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_supplementary_agreement_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_supplementary_agreement_result.return_value = (
                 b"",
@@ -239,9 +247,10 @@ class TestDownloadSupplementaryAgreementAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        with patch("apps.documents.api.generation_api._require_contract_access"), patch(
-            "apps.documents.api.generation_api._get_supplementary_agreement_service"
-        ) as mock_factory:
+        with (
+            patch("apps.documents.api.generation_api._require_contract_access"),
+            patch("apps.documents.api.generation_api._get_supplementary_agreement_service") as mock_factory,
+        ):
             mock_service = Mock()
             mock_service.generate_supplementary_agreement_result.return_value = (
                 b"",

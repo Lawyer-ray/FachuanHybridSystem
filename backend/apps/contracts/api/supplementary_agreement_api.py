@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.client.services import ClientServiceAdapter
@@ -24,7 +25,7 @@ def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
 
 
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
-def create_supplementary_agreement(request: Any, payload: SupplementaryAgreementIn) -> SupplementaryAgreementOut:
+def create_supplementary_agreement(request: HttpRequest, payload: SupplementaryAgreementIn) -> SupplementaryAgreementOut:
     """
     创建补充协议
 
@@ -43,7 +44,7 @@ def create_supplementary_agreement(request: Any, payload: SupplementaryAgreement
 
 
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
-def get_supplementary_agreement(request: Any, agreement_id: int) -> SupplementaryAgreementOut:
+def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> SupplementaryAgreementOut:
     """
     获取补充协议
 
@@ -59,7 +60,7 @@ def get_supplementary_agreement(request: Any, agreement_id: int) -> Supplementar
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
-def list_supplementary_agreements(request: Any, contract_id: int) -> list[SupplementaryAgreementOut]:
+def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> list[SupplementaryAgreementOut]:
     """
     获取合同的所有补充协议
 
@@ -74,7 +75,7 @@ def list_supplementary_agreements(request: Any, contract_id: int) -> list[Supple
 
 @router.put("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 def update_supplementary_agreement(
-    request: Any, agreement_id: int, payload: SupplementaryAgreementUpdate
+    request: HttpRequest, agreement_id: int, payload: SupplementaryAgreementUpdate
 ) -> SupplementaryAgreementOut:
     """
     更新补充协议
@@ -97,7 +98,7 @@ def update_supplementary_agreement(
 
 
 @router.delete("/supplementary-agreements/{agreement_id}")
-def delete_supplementary_agreement(request: Any, agreement_id: int) -> dict[str, bool]:
+def delete_supplementary_agreement(request: HttpRequest, agreement_id: int) -> dict[str, bool]:
     """
     删除补充协议
 

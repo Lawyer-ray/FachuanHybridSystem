@@ -318,10 +318,9 @@ def test_no_schema_imports_in_services(module_name: str):
     for file_path in find_service_files(module_name):
         all_violations.extend(check_schema_imports_in_services(module_name, file_path))
 
-    assert (
-        len(all_violations) == 0
-    ), f"发现 {module_name}/services 中存在对 schemas 的导入（API 层概念渗透到 service 层）:\n" + "\n".join(
-        f"  {Path(path).name}:{line} - {stmt}" for path, line, stmt in all_violations
+    assert len(all_violations) == 0, (
+        f"发现 {module_name}/services 中存在对 schemas 的导入（API 层概念渗透到 service 层）:\n"
+        + "\n".join(f"  {Path(path).name}:{line} - {stmt}" for path, line, stmt in all_violations)
     )
 
 
@@ -333,11 +332,12 @@ def test_no_cross_module_schema_imports_in_schema_layer(module_name: str):
         for imported_module, line_no, stmt in extract_cross_module_schema_imports(file_path, module_name):
             all_violations.append((str(file_path), line_no, imported_module, stmt))
 
-    assert (
-        len(all_violations) == 0
-    ), f"发现 {module_name}/schemas.py 中存在跨模块 schemas 导入（会放大 API Schema 层耦合）:\n" + "\n".join(
-        f"  {Path(path).name}:{line} - 导入了 {imported}.schemas: {stmt}"
-        for path, line, imported, stmt in all_violations
+    assert len(all_violations) == 0, (
+        f"发现 {module_name}/schemas.py 中存在跨模块 schemas 导入（会放大 API Schema 层耦合）:\n"
+        + "\n".join(
+            f"  {Path(path).name}:{line} - 导入了 {imported}.schemas: {stmt}"
+            for path, line, imported, stmt in all_violations
+        )
     )
 
 
@@ -353,10 +353,9 @@ def test_cases_api_does_not_import_service_locator():
         for line, stmt in extract_service_locator_imports(file_path):
             violations.append((file_path.name, line, stmt))
 
-    assert (
-        len(violations) == 0
-    ), "apps/cases/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join(
-        f"  {name}:{line} - {stmt}" for name, line, stmt in violations
+    assert len(violations) == 0, (
+        "apps/cases/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
+        + "\n".join(f"  {name}:{line} - {stmt}" for name, line, stmt in violations)
     )
 
 
@@ -372,10 +371,11 @@ def test_contracts_api_does_not_import_service_locator():
         for line, stmt in extract_service_locator_imports(file_path):
             violations.append((file_path.name, line, stmt))
 
-    assert (
-        len(violations) == 0
-    ), "apps/contracts/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join( # noqa: E501
-        f"  {name}:{line} - {stmt}" for name, line, stmt in violations
+    assert len(violations) == 0, (
+        "apps/contracts/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
+        + "\n".join(  # noqa: E501
+            f"  {name}:{line} - {stmt}" for name, line, stmt in violations
+        )
     )
 
 
@@ -391,10 +391,11 @@ def test_documents_api_does_not_import_service_locator():
         for line, stmt in extract_service_locator_imports(file_path):
             violations.append((file_path.name, line, stmt))
 
-    assert (
-        len(violations) == 0
-    ), "apps/documents/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join( # noqa: E501
-        f"  {name}:{line} - {stmt}" for name, line, stmt in violations
+    assert len(violations) == 0, (
+        "apps/documents/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
+        + "\n".join(  # noqa: E501
+            f"  {name}:{line} - {stmt}" for name, line, stmt in violations
+        )
     )
 
 
@@ -410,10 +411,9 @@ def test_api_layer_does_not_use_internal_methods():
         for line_no, attr, stmt in extract_internal_method_usages(file_path):
             violations.append((str(file_path.relative_to(backend_path)), line_no, attr, stmt))
 
-    assert (
-        len(violations) == 0
-    ), "API 层不应调用 *_internal 方法，请改用 Facade/Service 的 *_ctx 或对外方法:\n" + "\n".join(
-        f"  {path}:{line} - {attr} - {stmt}" for path, line, attr, stmt in violations
+    assert len(violations) == 0, (
+        "API 层不应调用 *_internal 方法，请改用 Facade/Service 的 *_ctx 或对外方法:\n"
+        + "\n".join(f"  {path}:{line} - {attr} - {stmt}" for path, line, attr, stmt in violations)
     )
 
 
@@ -617,7 +617,7 @@ def test_all_service_modules_no_cross_imports():
                     by_module[source_module].append((path, line, mod, stmt))  # type: ignore[arg-type]
 
         error_msg = "发现跨模块 Model 导入:\n"
-        for source_module, violations in by_module.items(): # type: ignore[assignment]
+        for source_module, violations in by_module.items():  # type: ignore[assignment]
             error_msg += f"\n{source_module}/services:\n"
             for path, line, mod, stmt in violations:
                 error_msg += f"  {Path(path).name}:{line} - 导入了 {mod}.models\n"

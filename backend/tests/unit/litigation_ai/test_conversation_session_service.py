@@ -18,6 +18,7 @@ class TestLitigationConversationSessionService:
         """每个测试方法前执行"""
         from apps.cases.models import Case
         from apps.organization.models import Lawyer
+
         Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
         Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
         Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
@@ -212,6 +213,7 @@ class TestLitigationConversationSessionServiceProperties:
         """每个测试方法前执行"""
         from apps.cases.models import Case
         from apps.organization.models import Lawyer
+
         Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
         Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
         Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
@@ -250,6 +252,7 @@ class TestLitigationConversationSessionServiceBackwardCompatibility:
         """每个测试方法前执行"""
         from apps.cases.models import Case
         from apps.organization.models import Lawyer
+
         Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
         Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})
         Case.objects.get_or_create(id=2, defaults={"name": "测试案件2"})
@@ -294,6 +297,7 @@ class TestLitigationConversationSessionServiceIntegration:
         """每个测试方法前执行"""
         from apps.cases.models import Case
         from apps.organization.models import Lawyer
+
         Lawyer.objects.get_or_create(id=100, defaults={"username": "test_user_100", "password": "!"})
         Lawyer.objects.get_or_create(id=200, defaults={"username": "test_user_200", "password": "!"})
         Case.objects.get_or_create(id=1, defaults={"name": "测试案件"})

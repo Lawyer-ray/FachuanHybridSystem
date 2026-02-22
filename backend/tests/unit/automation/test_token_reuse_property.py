@@ -155,21 +155,25 @@ class TestTokenReuseProperty:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
-            service.insurance_client,
-            "fetch_insurance_companies",
-            new_callable=AsyncMock,
-            return_value=mock_companies,
-        ), patch.object(
-            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        with (
+            patch.object(service.token_service, "get_token", side_effect=mock_get_token),
+            patch.object(
+                service.insurance_client,
+                "fetch_insurance_companies",
+                new_callable=AsyncMock,
+                return_value=mock_companies,
+            ),
+            patch.object(
+                service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+            ),
         ):
             for quote in quotes:
                 await service.execute_quote(quote.id)
 
         # 属性验证 1: get_token 被调用的次数应该等于任务数量
-        assert (
-            len(get_token_calls) == task_count
-        ), f"get_token 应该被调用 {task_count} 次，实际调用了 {len(get_token_calls)} 次"
+        assert len(get_token_calls) == task_count, (
+            f"get_token 应该被调用 {task_count} 次，实际调用了 {len(get_token_calls)} 次"
+        )
 
         # 属性验证 2: 每次都应该返回同一个 Token（模拟缓存行为）
         assert all(token == mock_token for token in get_token_calls), f"所有调用都应该返回同一个 Token: {mock_token}"
@@ -258,13 +262,17 @@ class TestTokenReuseProperty:
         start_time = time.time()
 
         # 执行所有任务（使用缓存的 Token）
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
-            service.insurance_client,
-            "fetch_insurance_companies",
-            new_callable=AsyncMock,
-            return_value=mock_companies,
-        ), patch.object(
-            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        with (
+            patch.object(service.token_service, "get_token", side_effect=mock_get_token),
+            patch.object(
+                service.insurance_client,
+                "fetch_insurance_companies",
+                new_callable=AsyncMock,
+                return_value=mock_companies,
+            ),
+            patch.object(
+                service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+            ),
         ):
             for quote in quotes:
                 await service.execute_quote(quote.id)
@@ -353,13 +361,17 @@ class TestTokenReuseProperty:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
-            service.insurance_client,
-            "fetch_insurance_companies",
-            new_callable=AsyncMock,
-            return_value=mock_companies,
-        ), patch.object(
-            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        with (
+            patch.object(service.token_service, "get_token", side_effect=mock_get_token),
+            patch.object(
+                service.insurance_client,
+                "fetch_insurance_companies",
+                new_callable=AsyncMock,
+                return_value=mock_companies,
+            ),
+            patch.object(
+                service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+            ),
         ):
             for quote in quotes:
                 await service.execute_quote(quote.id)
@@ -368,9 +380,9 @@ class TestTokenReuseProperty:
         assert len(tokens_retrieved) == 3, f"应该获取 3 次 Token，实际获取了 {len(tokens_retrieved)} 次"
 
         # 属性验证 2: 所有 Token 都应该相同（同一个凭证）
-        assert all(
-            token == mock_token for token in tokens_retrieved
-        ), f"同一个凭证的所有操作应该返回相同的 Token: {mock_token}"
+        assert all(token == mock_token for token in tokens_retrieved), (
+            f"同一个凭证的所有操作应该返回相同的 Token: {mock_token}"
+        )
 
         # 属性验证 3: 验证 Token 的一致性（没有变化）
         unique_tokens = set(tokens_retrieved)
@@ -442,7 +454,7 @@ class TestTokenReuseProperty:
             )
             quotes_with_cache.append(quote)
 
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_with_cache): # noqa: SIM117
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_with_cache):  # noqa: SIM117
             with patch.object(
                 service.insurance_client,
                 "fetch_insurance_companies",
@@ -473,7 +485,7 @@ class TestTokenReuseProperty:
             )
             quotes_without_cache.append(quote)
 
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_without_cache): # noqa: SIM117
+        with patch.object(service.token_service, "get_token", side_effect=mock_get_token_without_cache):  # noqa: SIM117
             with patch.object(
                 service.insurance_client,
                 "fetch_insurance_companies",
@@ -490,12 +502,12 @@ class TestTokenReuseProperty:
         assert cache_login_calls[0] == 0, f"使用缓存时不应该调用登录 API，实际调用了 {cache_login_calls[0]} 次"
 
         # 属性验证 2: 不使用缓存时，登录 API 调用次数应该等于任务数量
-        assert (
-            no_cache_login_calls[0] == task_count
-        ), f"不使用缓存时应该调用 {task_count} 次登录 API，实际调用了 {no_cache_login_calls[0]} 次"
+        assert no_cache_login_calls[0] == task_count, (
+            f"不使用缓存时应该调用 {task_count} 次登录 API，实际调用了 {no_cache_login_calls[0]} 次"
+        )
 
         # 属性验证 3: Token 复用减少了 API 调用
         api_calls_saved = no_cache_login_calls[0] - cache_login_calls[0]
-        assert (
-            api_calls_saved == task_count
-        ), f"Token 复用应该减少 {task_count} 次 API 调用，实际减少了 {api_calls_saved} 次"
+        assert api_calls_saved == task_count, (
+            f"Token 复用应该减少 {task_count} 次 API 调用，实际减少了 {api_calls_saved} 次"
+        )

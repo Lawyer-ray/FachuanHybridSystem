@@ -123,7 +123,7 @@ def test_documentation_classification_property():
         # 检查子目录是否是有效的文档类型
         if actual_subdir not in VALID_DOC_SUBDIRS:
             errors.append(
-                f"文档文件在无效的子目录中: {doc_file} " f"(子目录: {actual_subdir}, 有效子目录: {VALID_DOC_SUBDIRS})"
+                f"文档文件在无效的子目录中: {doc_file} (子目录: {actual_subdir}, 有效子目录: {VALID_DOC_SUBDIRS})"
             )
 
     # 断言没有错误
@@ -166,7 +166,7 @@ def test_specific_doc_files_in_correct_locations():
                 actual_path = found_paths[0]
                 try:
                     rel_path = actual_path.relative_to(root_path)
-                    errors.append(f"文档文件 {filename} 在错误的位置: {rel_path} " f"(应该在: {expected_dir})")
+                    errors.append(f"文档文件 {filename} 在错误的位置: {rel_path} (应该在: {expected_dir})")
                 except ValueError:
                     errors.append(f"文档文件 {filename} 在项目外部: {actual_path}")
             else:

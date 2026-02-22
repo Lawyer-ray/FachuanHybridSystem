@@ -15,6 +15,7 @@ import logging
 
 from typing import Any
 
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 from ninja import Router
 

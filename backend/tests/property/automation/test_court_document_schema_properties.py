@@ -321,9 +321,9 @@ class TestExceptionResponseHandlingProperties:
         assert len(error_str) > 0, "错误信息不应该为空"
 
         # 错误信息应该提到缺少的字段或验证失败
-        assert any(
-            keyword in error_str for keyword in ["缺少必需字段", "missing", "required", "field", "字段"]
-        ), f"错误信息应该包含字段相关的描述: {error_str}"
+        assert any(keyword in error_str for keyword in ["缺少必需字段", "missing", "required", "field", "字段"]), (
+            f"错误信息应该包含字段相关的描述: {error_str}"
+        )
 
     def test_property_3_missing_code_field_raises_error(self):
         """
@@ -391,9 +391,9 @@ class TestExceptionResponseHandlingProperties:
 
         error_str = str(exc_info.value)
         # 错误信息应该提到类型问题
-        assert any(
-            keyword in error_str.lower() for keyword in ["list", "array", "type", "类型", "data"]
-        ), f"错误信息应该提到类型问题: {error_str}"
+        assert any(keyword in error_str.lower() for keyword in ["list", "array", "type", "类型", "data"]), (
+            f"错误信息应该提到类型问题: {error_str}"
+        )
 
     def test_property_3_error_contains_field_information(self):
         """

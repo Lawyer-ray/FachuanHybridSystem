@@ -80,7 +80,7 @@ class TestCourtDocumentIntegration:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"):  # noqa: SIM117
             with patch.object(scraper, "_save_page_state"):
                 with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                     with patch("time.sleep"):  # Mock sleep 避免延迟
@@ -156,7 +156,7 @@ class TestCourtDocumentIntegration:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"):  # noqa: SIM117
             with patch.object(scraper, "_save_page_state"):
                 with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                     with patch("time.sleep"):
@@ -227,7 +227,7 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"):  # noqa: SIM117
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
@@ -277,7 +277,7 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"):  # noqa: SIM117
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
@@ -321,7 +321,7 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载，应该抛出异常
-        with pytest.raises(ExternalServiceError) as exc_info, patch.object(scraper, "navigate_to_url"): # noqa: SIM117
+        with pytest.raises(ExternalServiceError) as exc_info, patch.object(scraper, "navigate_to_url"):  # noqa: SIM117
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
@@ -391,7 +391,7 @@ class TestCourtDocumentConcurrentDownload:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"):  # noqa: SIM117
             with patch.object(scraper, "_save_page_state"):
                 with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                     result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
@@ -469,7 +469,7 @@ class TestCourtDocumentPerformanceOptimization:
         start_time = time.time()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"):  # noqa: SIM117
             with patch.object(scraper, "_save_page_state"):
                 with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                     with patch("time.sleep"):  # Mock sleep 避免延迟影响性能测试
@@ -491,7 +491,7 @@ class TestCourtDocumentPerformanceOptimization:
 
         # 打印性能信息
         print(f"\n批量保存 {document_count} 条记录耗时: {elapsed_time:.3f}s")
-        print(f"平均每条记录: {elapsed_time/document_count:.3f}s")
+        print(f"平均每条记录: {elapsed_time / document_count:.3f}s")
 
     @patch("apps.automation.services.scraper.scrapers.court_document.CourtDocumentScraper._intercept_api_response")
     @patch("apps.automation.services.scraper.scrapers.court_document.CourtDocumentScraper._download_document_directly")
@@ -536,7 +536,7 @@ class TestCourtDocumentPerformanceOptimization:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"):  # noqa: SIM117
             with patch.object(scraper, "_save_page_state"):
                 with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                     with patch("time.sleep"):
@@ -571,9 +571,9 @@ class TestCourtDocumentPerformanceOptimization:
         query_count_without_select_related = len(context.captured_queries)
 
         # 验证：使用 select_related 的查询次数更少
-        assert (
-            query_count_with_select_related < query_count_without_select_related
-        ), f"select_related 应该减少查询次数: {query_count_with_select_related} vs {query_count_without_select_related}"
+        assert query_count_with_select_related < query_count_without_select_related, (
+            f"select_related 应该减少查询次数: {query_count_with_select_related} vs {query_count_without_select_related}"
+        )
 
         # 打印查询信息
         print(f"\n使用 select_related: {query_count_with_select_related} 次查询")

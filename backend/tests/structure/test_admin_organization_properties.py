@@ -99,7 +99,7 @@ def test_admin_files_follow_naming_convention():
             # 检查文件名是否以 _admin.py 结尾
             if not py_file.name.endswith("_admin.py"):
                 errors.append(
-                    f"App {app_name}: admin file {py_file.name} does not follow " f"naming convention (*_admin.py)"
+                    f"App {app_name}: admin file {py_file.name} does not follow naming convention (*_admin.py)"
                 )
 
     assert len(errors) == 0, "Admin file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -12,8 +12,11 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 from apps.reminders.models import ReminderType
 
+if TYPE_CHECKING:
+    from django.utils.functional import Promise
 
-def normalize_target_id(value: int | None, *, field_name: object) -> int | None:
+
+def normalize_target_id(value: int | None, *, field_name: "str | Promise") -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:

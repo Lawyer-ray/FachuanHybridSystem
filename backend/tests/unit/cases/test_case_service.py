@@ -329,7 +329,11 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=contract.id, name="测试合同", case_type="civil", status="active", representation_stages=[]  # type: ignore[attr-defined]
+            id=contract.id,
+            name="测试合同",
+            case_type="civil",
+            status="active",
+            representation_stages=[],
         )
         self.mock_contract_service.validate_contract_active.return_value = True
 
@@ -529,7 +533,7 @@ class TestCaseServiceSearch:
         """测试按案件名称搜索"""
         # 创建测试案件
         case1 = Case.objects.create(name="合同纠纷案件", is_archived=False)
-        case2 = Case.objects.create(name="侵权纠纷案件", is_archived=False) # noqa: F841
+        case2 = Case.objects.create(name="侵权纠纷案件", is_archived=False)  # noqa: F841
 
         # 执行搜索
         result = self.service.search_cases(query="合同", user=self.user, perm_open_access=True)
@@ -588,8 +592,8 @@ class TestCaseServiceList:
     def test_list_cases_all(self):
         """测试获取所有案件"""
         # 创建测试案件
-        case1 = Case.objects.create(name="案件1", is_archived=False) # noqa: F841
-        case2 = Case.objects.create(name="案件2", is_archived=False) # noqa: F841
+        case1 = Case.objects.create(name="案件1", is_archived=False)  # noqa: F841
+        case2 = Case.objects.create(name="案件2", is_archived=False)  # noqa: F841
 
         # 执行查询
         result = self.service.list_cases(perm_open_access=True)
@@ -624,7 +628,7 @@ class TestCaseServiceList:
 
         # 创建案件
         case1 = Case.objects.create(name="我的案件", is_archived=False)
-        case2 = Case.objects.create(name="其他案件", is_archived=False) # noqa: F841
+        case2 = Case.objects.create(name="其他案件", is_archived=False)  # noqa: F841
 
         # 只给第一个案件分配律师
         CaseAssignment.objects.create(case=case1, lawyer=lawyer)

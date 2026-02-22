@@ -36,6 +36,7 @@ class TestAutoTokenAcquisitionService:
     def setup_method(self):
         """测试前准备"""
         from django.core.cache import cache
+
         cache.clear()
 
         self.mock_account_strategy = Mock()

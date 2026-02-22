@@ -22,18 +22,10 @@ import pytest
 
 # ── 路径常量 ──────────────────────────────────────────────────────────
 BACKEND_ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent
-REMINDER_SERVICE_PATH: Path = (
-    BACKEND_ROOT / "apps" / "reminders" / "services" / "reminder_service.py"
-)
-REMINDER_API_PATH: Path = (
-    BACKEND_ROOT / "apps" / "reminders" / "api" / "reminder_api.py"
-)
-ADAPTER_PATH: Path = (
-    BACKEND_ROOT / "apps" / "reminders" / "services" / "reminder_service_adapter.py"
-)
-ADMIN_PATH: Path = (
-    BACKEND_ROOT / "apps" / "reminders" / "admin" / "reminder_admin.py"
-)
+REMINDER_SERVICE_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "services" / "reminder_service.py"
+REMINDER_API_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "api" / "reminder_api.py"
+ADAPTER_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "services" / "reminder_service_adapter.py"
+ADMIN_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "admin" / "reminder_admin.py"
 MODELS_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "models.py"
 SCHEMAS_PATH: Path = BACKEND_ROOT / "apps" / "reminders" / "schemas.py"
 
@@ -59,9 +51,7 @@ def _get_class_node(tree: ast.Module, class_name: str) -> ast.ClassDef | None:
     return None
 
 
-def _get_function_node(
-    parent: ast.AST, func_name: str
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+def _get_function_node(parent: ast.AST, func_name: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
     """从 AST 节点中获取指定函数/方法定义。"""
     for node in ast.walk(parent):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func_name:
@@ -87,15 +77,12 @@ def test_service_no_cross_module_model_imports() -> None:
     source: str = _read_source(REMINDER_SERVICE_PATH)
     violations: list[str] = []
 
-    pattern: re.Pattern[str] = re.compile(
-        r"^\s*from\s+apps\.(cases|contracts)\.models\s+import\b", re.MULTILINE
-    )
+    pattern: re.Pattern[str] = re.compile(r"^\s*from\s+apps\.(cases|contracts)\.models\s+import\b", re.MULTILINE)
     for match in pattern.finditer(source):
         violations.append(match.group(0).strip())
 
-    assert not violations, (
-        f"reminder_service.py 包含 {len(violations)} 处跨模块 Model 导入违规:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert not violations, f"reminder_service.py 包含 {len(violations)} 处跨模块 Model 导入违规:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )
 
 
@@ -119,20 +106,15 @@ def test_api_get_service_uses_factory() -> None:
     assert func_node is not None, "_get_service 函数未找到"
 
     source_lines: list[str] = _read_source(REMINDER_API_PATH).splitlines()
-    func_source: str = "\n".join(
-        source_lines[func_node.lineno - 1 : func_node.end_lineno]
-    )
+    func_source: str = "\n".join(source_lines[func_node.lineno - 1 : func_node.end_lineno])
 
     # 期望: 调用 build_reminder_api_service()
     # 不期望: 直接实例化 _ReminderService() 或 ReminderService()
     has_factory_call: bool = "build_reminder_api_service" in func_source
-    has_direct_instantiation: bool = bool(
-        re.search(r"_?ReminderService\s*\(", func_source)
-    )
+    has_direct_instantiation: bool = bool(re.search(r"_?ReminderService\s*\(", func_source))
 
     assert has_factory_call and not has_direct_instantiation, (
-        f"_get_service() 应通过工厂函数获取服务实例，而非直接实例化。\n"
-        f"当前实现:\n{func_source}"
+        f"_get_service() 应通过工厂函数获取服务实例，而非直接实例化。\n当前实现:\n{func_source}"
     )
 
 
@@ -158,13 +140,10 @@ def test_adapter_init_accepts_injection() -> None:
     assert init_node is not None, "__init__ 方法未找到"
 
     # 检查 __init__ 参数列表中是否有 service 参数（除 self 外）
-    param_names: list[str] = [
-        arg.arg for arg in init_node.args.args if arg.arg != "self"
-    ]
+    param_names: list[str] = [arg.arg for arg in init_node.args.args if arg.arg != "self"]
 
     assert "service" in param_names, (
-        f"ReminderServiceAdapter.__init__ 应接受 'service' 注入参数。\n"
-        f"当前参数: {param_names}"
+        f"ReminderServiceAdapter.__init__ 应接受 'service' 注入参数。\n当前参数: {param_names}"
     )
 
 
@@ -191,15 +170,11 @@ def test_adapter_contract_reminders_uses_normalize_target_id_with_i18n() -> None
     assert func_node is not None, "create_contract_reminders_internal 方法未找到"
 
     source_lines: list[str] = _read_source(ADAPTER_PATH).splitlines()
-    func_source: str = "\n".join(
-        source_lines[func_node.lineno - 1 : func_node.end_lineno]
-    )
+    func_source: str = "\n".join(source_lines[func_node.lineno - 1 : func_node.end_lineno])
 
     # 期望: 使用 normalize_target_id(..., field_name=_("合同ID"))
     has_normalize_call: bool = "normalize_target_id" in func_source
-    has_i18n_field_name: bool = bool(
-        re.search(r'field_name\s*=\s*_\(\s*"合同ID"\s*\)', func_source)
-    )
+    has_i18n_field_name: bool = bool(re.search(r'field_name\s*=\s*_\(\s*"合同ID"\s*\)', func_source))
 
     assert has_normalize_call and has_i18n_field_name, (
         f"create_contract_reminders_internal 应使用 normalize_target_id 校验 "
@@ -232,24 +207,17 @@ def test_service_get_existing_due_times_validates_none_input() -> None:
     assert func_node is not None, "get_existing_due_times 方法未找到"
 
     source_lines: list[str] = _read_source(REMINDER_SERVICE_PATH).splitlines()
-    func_source: str = "\n".join(
-        source_lines[func_node.lineno - 1 : func_node.end_lineno]
-    )
+    func_source: str = "\n".join(source_lines[func_node.lineno - 1 : func_node.end_lineno])
 
     # 不期望: assert 语句
-    has_assert: bool = any(
-        isinstance(node, ast.Assert) for node in ast.walk(func_node)
-    )
-    assert not has_assert, (
-        "get_existing_due_times 不应使用 assert 做运行时校验"
-    )
+    has_assert: bool = any(isinstance(node, ast.Assert) for node in ast.walk(func_node))
+    assert not has_assert, "get_existing_due_times 不应使用 assert 做运行时校验"
 
     # 期望: 对 None 输入 raise ValidationException
     has_validation_raise: bool = "ValidationException" in func_source and "raise" in func_source
 
     assert has_validation_raise, (
-        "get_existing_due_times 应在 case_log_id 为 None 时 "
-        "raise ValidationException，当前实现缺少此校验"
+        "get_existing_due_times 应在 case_log_id 为 None 时 raise ValidationException，当前实现缺少此校验"
     )
 
 
@@ -276,25 +244,15 @@ def test_model_clean_uses_is_not_none() -> None:
     assert func_node is not None, "clean 方法未找到"
 
     source_lines: list[str] = _read_source(MODELS_PATH).splitlines()
-    func_source: str = "\n".join(
-        source_lines[func_node.lineno - 1 : func_node.end_lineno]
-    )
+    func_source: str = "\n".join(source_lines[func_node.lineno - 1 : func_node.end_lineno])
 
     # 不期望: bool(self.contract_id) 或 bool(self.case_log_id)
-    has_bool_call: bool = bool(
-        re.search(r"bool\(self\.(contract_id|case_log_id)\)", func_source)
-    )
+    has_bool_call: bool = bool(re.search(r"bool\(self\.(contract_id|case_log_id)\)", func_source))
     # 期望: is not None
     has_is_not_none: bool = "is not None" in func_source
 
-    assert not has_bool_call, (
-        f"Reminder.clean() 不应使用 bool() 判断，应使用 is not None。\n"
-        f"当前实现:\n{func_source}"
-    )
-    assert has_is_not_none, (
-        f"Reminder.clean() 应使用 'is not None' 进行绑定互斥校验。\n"
-        f"当前实现:\n{func_source}"
-    )
+    assert not has_bool_call, f"Reminder.clean() 不应使用 bool() 判断，应使用 is not None。\n当前实现:\n{func_source}"
+    assert has_is_not_none, f"Reminder.clean() 应使用 'is not None' 进行绑定互斥校验。\n当前实现:\n{func_source}"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -336,18 +294,12 @@ def test_admin_has_readonly_fields() -> None:
                 source_lines: list[str] = _read_source(ADMIN_PATH).splitlines()
                 line_source: str = source_lines[node.lineno - 1]
                 if node.end_lineno:
-                    line_source = "\n".join(
-                        source_lines[node.lineno - 1 : node.end_lineno]
-                    )
+                    line_source = "\n".join(source_lines[node.lineno - 1 : node.end_lineno])
                 if "created_at" in line_source:
                     includes_created_at = True
 
-    assert has_readonly_fields, (
-        "ReminderAdmin 缺少 readonly_fields 配置"
-    )
-    assert includes_created_at, (
-        "ReminderAdmin.readonly_fields 应包含 'created_at'"
-    )
+    assert has_readonly_fields, "ReminderAdmin 缺少 readonly_fields 配置"
+    assert includes_created_at, "ReminderAdmin.readonly_fields 应包含 'created_at'"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -372,16 +324,12 @@ def test_adapter_create_reminder_internal_normalizes_content() -> None:
     assert func_node is not None, "create_reminder_internal 方法未找到"
 
     source_lines: list[str] = _read_source(ADAPTER_PATH).splitlines()
-    func_source: str = "\n".join(
-        source_lines[func_node.lineno - 1 : func_node.end_lineno]
-    )
+    func_source: str = "\n".join(source_lines[func_node.lineno - 1 : func_node.end_lineno])
 
     # 检查 content= 参数是否经过 normalize_content 调用
     # 期望: content=normalize_content(str(reminder_type_label))
     # 不期望: content=str(reminder_type_label) (未经校验)
-    has_normalize: bool = bool(
-        re.search(r"content\s*=\s*normalize_content\(", func_source)
-    )
+    has_normalize: bool = bool(re.search(r"content\s*=\s*normalize_content\(", func_source))
 
     assert has_normalize, (
         "create_reminder_internal 应对 content 调用 normalize_content。\n"
@@ -408,13 +356,10 @@ def test_schema_no_redundant_validator() -> None:
     assert cls_node is not None, "ReminderUpdate 类未找到"
 
     # 检查是否存在 validate_binding_exclusivity 方法
-    has_redundant_validator: bool = _get_function_node(
-        cls_node, "validate_binding_exclusivity"
-    ) is not None
+    has_redundant_validator: bool = _get_function_node(cls_node, "validate_binding_exclusivity") is not None
 
     assert not has_redundant_validator, (
-        "ReminderUpdate 包含冗余的 validate_binding_exclusivity 方法，"
-        "绑定互斥校验应由 Service 层统一负责"
+        "ReminderUpdate 包含冗余的 validate_binding_exclusivity 方法，绑定互斥校验应由 Service 层统一负责"
     )
 
 
@@ -437,13 +382,9 @@ def test_all_normalize_target_id_field_names_use_i18n() -> None:
     violations: list[str] = []
 
     # 匹配 field_name="xxx" (硬编码，未用 _() 包装)
-    hardcoded_pattern: re.Pattern[str] = re.compile(
-        r'normalize_target_id\([^)]*field_name\s*=\s*"[^"]*"'
-    )
+    hardcoded_pattern: re.Pattern[str] = re.compile(r'normalize_target_id\([^)]*field_name\s*=\s*"[^"]*"')
     # 匹配 field_name=_("xxx") (正确的 i18n 包装)
-    i18n_pattern: re.Pattern[str] = re.compile(
-        r'normalize_target_id\([^)]*field_name\s*=\s*_\(\s*"[^"]*"\s*\)'
-    )
+    i18n_pattern: re.Pattern[str] = re.compile(r'normalize_target_id\([^)]*field_name\s*=\s*_\(\s*"[^"]*"\s*\)')
 
     for file_path in files_to_check:
         source: str = _read_source(file_path)
@@ -458,6 +399,5 @@ def test_all_normalize_target_id_field_names_use_i18n() -> None:
                 violations.append(f"  - {rel_path}:{line_no} {line.strip()}")
 
     assert not violations, (
-        f"发现 {len(violations)} 处 normalize_target_id 的 field_name 未使用 i18n 包装:\n"
-        + "\n".join(violations)
+        f"发现 {len(violations)} 处 normalize_target_id 的 field_name 未使用 i18n 包装:\n" + "\n".join(violations)
     )

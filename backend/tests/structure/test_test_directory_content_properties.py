@@ -208,6 +208,6 @@ class TestTestDirectoryContentProperties:
         """
         mock_path = Path(filename)
 
-        assert not self._is_report_file(
-            mock_path
-        ), f"File {filename} should NOT be identified as a report file to archive"
+        assert not self._is_report_file(mock_path), (
+            f"File {filename} should NOT be identified as a report file to archive"
+        )

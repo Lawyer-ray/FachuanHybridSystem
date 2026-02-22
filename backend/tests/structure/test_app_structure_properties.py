@@ -113,7 +113,7 @@ def test_all_apps_have_required_directories():
     )
 
 
-def test_all_apps_have_required_files(): # noqa: C901
+def test_all_apps_have_required_files():  # noqa: C901
     """
     测试所有 app 都有必需的文件
 

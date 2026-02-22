@@ -20,15 +20,11 @@ BACKEND_ROOT: Path = Path(__file__).parent.parent.parent.parent
 CASES_ROOT: Path = BACKEND_ROOT / "apps" / "cases"
 
 # 匹配 f-string 日志调用的正则
-FSTRING_LOG_PATTERN: re.Pattern[str] = re.compile(
-    r"""logger\.(info|error|warning|debug|exception)\(f["']"""
-)
+FSTRING_LOG_PATTERN: re.Pattern[str] = re.compile(r"""logger\.(info|error|warning|debug|exception)\(f["']""")
 
 # 收集所有 Python 文件（排除 migrations 和 __pycache__）
 ALL_PY_FILES: list[Path] = sorted(
-    p
-    for p in CASES_ROOT.rglob("*.py")
-    if "migrations" not in p.parts and "__pycache__" not in p.parts
+    p for p in CASES_ROOT.rglob("*.py") if "migrations" not in p.parts and "__pycache__" not in p.parts
 )
 
 
@@ -63,9 +59,6 @@ def test_property_no_fstring_log(filepath: Path) -> None:
     """
     violations: list[tuple[int, str]] = _find_fstring_log_violations(filepath)
 
-    assert not violations, (
-        f"{filepath.relative_to(BACKEND_ROOT)} 包含 f-string 日志调用:\n"
-        + "\n".join(
-            f"  第 {lineno} 行: {line}" for lineno, line in violations
-        )
+    assert not violations, f"{filepath.relative_to(BACKEND_ROOT)} 包含 f-string 日志调用:\n" + "\n".join(
+        f"  第 {lineno} 行: {line}" for lineno, line in violations
     )

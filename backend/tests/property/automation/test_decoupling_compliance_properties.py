@@ -8,6 +8,7 @@ Automation Document/SMS 解耦架构合规性属性测试
 
 Requirements: 1.2, 2.2, 3.4, 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
 """
+
 import ast
 import inspect
 import re
@@ -206,11 +207,7 @@ class TestFileSizeLimitProperties:
         if violations:
             print("\n违规详情:")
             for v in violations:
-                print(
-                    f"  {v['file']} ({v['type']}): "
-                    f"{v['lines']} 行 > {v['limit']} 行限制 "
-                    f"(超出 {v['excess']} 行)"
-                )
+                print(f"  {v['file']} ({v['type']}): {v['lines']} 行 > {v['limit']} 行限制 (超出 {v['excess']} 行)")
 
         assert len(violations) == 0, f"发现 {len(violations)} 个文件超出行数限制:\n" + "\n".join(
             f"  {v['file']}: {v['lines']} 行 > {v['limit']} 行" for v in violations
@@ -238,7 +235,7 @@ class TestFileSizeLimitProperties:
         limit = FILE_LINE_LIMITS.get(file_type, FILE_LINE_LIMITS["default"])
         total_lines = count_total_lines(file_path)
 
-        assert total_lines <= limit, f"{file_path.name} ({file_type}) 超出行数限制: " f"{total_lines} 行 > {limit} 行"
+        assert total_lines <= limit, f"{file_path.name} ({file_type}) 超出行数限制: {total_lines} 行 > {limit} 行"
 
 
 # ============ 架构合规性检查 ============
@@ -361,10 +358,8 @@ def check_file_uses_service_locator_correctly(file_path: Path) -> tuple[bool, st
         content = file_path.read_text(encoding="utf-8")
 
         # 检查是否导入了 ServiceLocator
-        has_service_locator_import = (
-            "from apps.core.interfaces import ServiceLocator" in content
-            or ("from apps.core.interfaces import" in content
-            and "ServiceLocator" in content)
+        has_service_locator_import = "from apps.core.interfaces import ServiceLocator" in content or (
+            "from apps.core.interfaces import" in content and "ServiceLocator" in content
         )
 
         if has_service_locator_import:
@@ -616,7 +611,7 @@ class TestCrossModuleCallProperties:
 
         return files
 
-    def check_cross_module_call_compliance(self, file_path: Path) -> tuple[bool, list[str]]: # noqa: C901
+    def check_cross_module_call_compliance(self, file_path: Path) -> tuple[bool, list[str]]:  # noqa: C901
         """
         检查文件的跨模块调用是否符合规范
 
@@ -780,7 +775,7 @@ class TestDecouplingComprehensiveCompliance:
         return get_backend_path() / "apps" / "automation" / "services"
 
     @pytest.mark.property_test
-    def test_comprehensive_decoupling_compliance(self): # noqa: C901
+    def test_comprehensive_decoupling_compliance(self):  # noqa: C901
         """
         综合测试：所有拆分后的文件合规性
 

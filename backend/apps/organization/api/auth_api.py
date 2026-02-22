@@ -14,24 +14,19 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 router = Router()
 
-
-def _get_auth_service() -> AuthService:
-    """工厂函数：创建 AuthService 实例"""
-    return AuthService()
+_auth_service = AuthService()
 
 
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
 def login_view(request: HttpRequest, payload: LoginIn) -> dict[str, object]:
     """用户登录"""
-    service = _get_auth_service()
-    user = service.login(request, payload.username, payload.password)
+    user = _auth_service.login(request, payload.username, payload.password)
     return {"success": True, "user": user}
 
 
 @router.post("/logout", auth=None)
 def logout_view(request: HttpRequest) -> dict[str, bool]:
     """用户登出"""
-    service = _get_auth_service()
-    service.logout(request)
+    _auth_service.logout(request)
     return {"success": True}

@@ -18,12 +18,15 @@ async def test_ws_anonymous_rejected_and_user_accepted():
     connected, _ = await anon.connect()
     assert connected is False
 
-    with patch(
-        "apps.litigation_ai.services.conversation_flow_service.ConversationFlowService.handle_init",
-        new=AsyncMock(return_value=None),
-    ), patch(
-        "apps.litigation_ai.consumers.litigation_consumer.LitigationConsumer._get_session",
-        new=AsyncMock(return_value=SimpleNamespace(case_id=1)),
+    with (
+        patch(
+            "apps.litigation_ai.services.conversation_flow_service.ConversationFlowService.handle_init",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "apps.litigation_ai.consumers.litigation_consumer.LitigationConsumer._get_session",
+            new=AsyncMock(return_value=SimpleNamespace(case_id=1)),
+        ),
     ):
         authed = WebsocketCommunicator(application, "/ws/litigation/sessions/s1/")
         authed.scope["user"] = SimpleNamespace(id=1)

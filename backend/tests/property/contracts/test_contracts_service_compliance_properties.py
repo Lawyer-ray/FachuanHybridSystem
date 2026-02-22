@@ -216,7 +216,7 @@ class TestContractsServiceCompliance:
 
         # ContractService 应该有多个 property 访问器
         assert property_count >= 3, (
-            f"ContractService 应有多个 @property 访问器用于延迟获取依赖，" f"当前只有 {property_count} 个"
+            f"ContractService 应有多个 @property 访问器用于延迟获取依赖，当前只有 {property_count} 个"
         )
 
     def test_service_no_http_error(self):

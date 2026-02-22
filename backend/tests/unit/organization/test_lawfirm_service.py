@@ -110,7 +110,7 @@ class TestLawFirmService:
         """测试普通用户列表查询"""
         # 准备测试数据
         lawfirm1 = LawFirmFactory()
-        lawfirm2 = LawFirmFactory() # noqa: F841
+        lawfirm2 = LawFirmFactory()  # noqa: F841
         user = LawyerFactory(law_firm=lawfirm1, is_superuser=False)
 
         # 执行测试

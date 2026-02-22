@@ -24,9 +24,7 @@ _SPACE_CHARS: str = " \u3000"  # 半角空格 + 全角空格
 _DIGIT_CHARS: str = "0123456789"
 _COMMON_CHARS: str = "京沪粤苏浙鲁民初终号字第刑行执破赔仲"
 
-_CASE_NUMBER_ALPHABET: str = (
-    _BRACKET_CHARS + _SPACE_CHARS + _DIGIT_CHARS + _COMMON_CHARS
-)
+_CASE_NUMBER_ALPHABET: str = _BRACKET_CHARS + _SPACE_CHARS + _DIGIT_CHARS + _COMMON_CHARS
 
 case_number_strategy: st.SearchStrategy[str] = st.text(
     alphabet=_CASE_NUMBER_ALPHABET,
@@ -57,9 +55,5 @@ def test_property_normalize_case_number_idempotent(
     second: str = normalize_case_number(first, ensure_hao=ensure_hao)
 
     assert second == first, (
-        f"幂等性失败:\n"
-        f"  原始输入: {raw!r}\n"
-        f"  ensure_hao={ensure_hao}\n"
-        f"  第一次: {first!r}\n"
-        f"  第二次: {second!r}"
+        f"幂等性失败:\n  原始输入: {raw!r}\n  ensure_hao={ensure_hao}\n  第一次: {first!r}\n  第二次: {second!r}"
     )

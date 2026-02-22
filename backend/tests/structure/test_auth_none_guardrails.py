@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-def test_auth_none_is_only_used_for_register_endpoint(): # noqa: C901
+def test_auth_none_is_only_used_for_register_endpoint():  # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     apps_root = backend_root / "apps"
 

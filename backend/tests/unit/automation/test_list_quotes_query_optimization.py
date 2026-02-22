@@ -132,7 +132,7 @@ class TestListQuotesQueryOptimization:
             f"查询次数过多！预期 <= {max_allowed_queries}，实际 {query_count}。"
             f"这表明存在 N+1 查询问题。"
             f"\n记录数: {num_quotes}, 每个任务的报价数: {quotes_per_task}"
-            f"\n查询详情:\n" + "\n".join([f"{i+1}. {q['sql'][:100]}..." for i, q in enumerate(connection.queries)])
+            f"\n查询详情:\n" + "\n".join([f"{i + 1}. {q['sql'][:100]}..." for i, q in enumerate(connection.queries)])
         )
 
         # 验证返回的数据正确
@@ -148,7 +148,7 @@ class TestListQuotesQueryOptimization:
         # 访问预加载的关系不应该产生额外查询
         additional_queries = len(connection.queries)
         assert additional_queries == 0, (
-            f"访问预加载的关系产生了 {additional_queries} 次额外查询！" f"这表明 prefetch_related 没有正确工作。"
+            f"访问预加载的关系产生了 {additional_queries} 次额外查询！这表明 prefetch_related 没有正确工作。"
         )
 
     @override_settings(DEBUG=True)
@@ -197,7 +197,7 @@ class TestListQuotesQueryOptimization:
         # 打印查询详情（用于调试）
         print(f"\n查询次数: {query_count}")
         for i, query in enumerate(connection.queries):
-            print(f"{i+1}. {query['sql'][:200]}")
+            print(f"{i + 1}. {query['sql'][:200]}")
 
         # 验证查询次数
         assert query_count <= 5, f"查询次数 {query_count} 超过预期"

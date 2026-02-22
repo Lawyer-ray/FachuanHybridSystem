@@ -50,7 +50,7 @@ def assert_response_success(response, expected_status=200):
         except Exception:
             error_msg = response.content.decode("utf-8")
 
-        raise AssertionError(f"Expected status {expected_status}, got {response.status_code}. " f"Error: {error_msg}")
+        raise AssertionError(f"Expected status {expected_status}, got {response.status_code}. Error: {error_msg}")
 
 
 def assert_response_error(response, expected_status=400, expected_code=None):
@@ -94,7 +94,7 @@ def assert_dict_contains(actual: dict, expected: dict):
             raise AssertionError(f"Key '{key}' not found in actual dict")
 
         if actual[key] != value:
-            raise AssertionError(f"Value mismatch for key '{key}': " f"expected {value}, got {actual[key]}")
+            raise AssertionError(f"Value mismatch for key '{key}': expected {value}, got {actual[key]}")
 
 
 def assert_queryset_equal(qs1, qs2, ordered=False):
@@ -114,10 +114,10 @@ def assert_queryset_equal(qs1, qs2, ordered=False):
 
     if ordered:
         if list1 != list2:
-            raise AssertionError(f"QuerySets are not equal (ordered): " f"{list1} != {list2}")
+            raise AssertionError(f"QuerySets are not equal (ordered): {list1} != {list2}")
     else:
         if set(list1) != set(list2):
-            raise AssertionError(f"QuerySets are not equal (unordered): " f"{set(list1)} != {set(list2)}")
+            raise AssertionError(f"QuerySets are not equal (unordered): {set(list1)} != {set(list2)}")
 
 
 def get_json_response(response) -> dict[str, Any]:
@@ -178,4 +178,4 @@ def freeze_time(frozen_time):
 
         return _freeze_time(frozen_time)
     except ImportError:
-        raise ImportError("freezegun is not installed. " "Install it with: pip install freezegun") from None
+        raise ImportError("freezegun is not installed. Install it with: pip install freezegun") from None

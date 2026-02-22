@@ -91,10 +91,13 @@ class TestIdentityExtractionService:
         mock_llm = Mock()
         mock_llm.chat.side_effect = Exception("Ollama failed")
 
-        with patch(
-            "apps.client.services.identity_extraction.extraction_service.get_llm_service",
-            return_value=mock_llm,
-        ), pytest.raises(OllamaExtractionError, match="Ollama 提取失败"):
+        with (
+            patch(
+                "apps.client.services.identity_extraction.extraction_service.get_llm_service",
+                return_value=mock_llm,
+            ),
+            pytest.raises(OllamaExtractionError, match="Ollama 提取失败"),
+        ):
             self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_empty_response(self) -> None:
@@ -104,10 +107,13 @@ class TestIdentityExtractionService:
         mock_llm = Mock()
         mock_llm.chat.return_value = _make_llm_response("")
 
-        with patch(
-            "apps.client.services.identity_extraction.extraction_service.get_llm_service",
-            return_value=mock_llm,
-        ), pytest.raises(OllamaExtractionError, match="Ollama 返回内容为空"):
+        with (
+            patch(
+                "apps.client.services.identity_extraction.extraction_service.get_llm_service",
+                return_value=mock_llm,
+            ),
+            pytest.raises(OllamaExtractionError, match="Ollama 返回内容为空"),
+        ):
             self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_invalid_json(self) -> None:
@@ -117,10 +123,13 @@ class TestIdentityExtractionService:
         mock_llm = Mock()
         mock_llm.chat.return_value = _make_llm_response("invalid json content")
 
-        with patch(
-            "apps.client.services.identity_extraction.extraction_service.get_llm_service",
-            return_value=mock_llm,
-        ), pytest.raises(OllamaExtractionError, match="Ollama 返回的 JSON 格式错误"):
+        with (
+            patch(
+                "apps.client.services.identity_extraction.extraction_service.get_llm_service",
+                return_value=mock_llm,
+            ),
+            pytest.raises(OllamaExtractionError, match="Ollama 返回的 JSON 格式错误"),
+        ):
             self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_ollama_connection_error(self) -> None:
@@ -130,17 +139,22 @@ class TestIdentityExtractionService:
         mock_llm = Mock()
         mock_llm.chat.side_effect = ConnectionError("Connection failed")
 
-        with patch(
-            "apps.client.services.identity_extraction.extraction_service.get_llm_service",
-            return_value=mock_llm,
-        ), pytest.raises(ServiceUnavailableError):
+        with (
+            patch(
+                "apps.client.services.identity_extraction.extraction_service.get_llm_service",
+                return_value=mock_llm,
+            ),
+            pytest.raises(ServiceUnavailableError),
+        ):
             self.service.extract(b"fake_image", ClientIdentityDoc.ID_CARD)
 
     def test_extract_with_code_block_json(self) -> None:
         """测试提取包含代码块的 JSON 响应"""
         self.mock_recognizer.classification.return_value = "test text"
 
-        llm_content = '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。' # noqa: E501
+        llm_content = (
+            '这是提取的信息：\n```json\n{"name": "李四", "id_number": "987654321098765432"}\n```\n以上是结果。'  # noqa: E501
+        )
         mock_llm = Mock()
         mock_llm.chat.return_value = _make_llm_response(llm_content)
 

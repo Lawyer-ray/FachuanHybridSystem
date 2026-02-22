@@ -28,6 +28,7 @@ REMINDERS_APP_DIR: Path = Path(__file__).resolve().parents[3] / "apps" / "remind
 # Task 7.1 - Property 1: update_reminder 的 reminder_type 枚举校验
 # ===========================================================================
 
+
 class TestUpdateReminderTypeValidation:
     """
     Feature: reminders-quality-uplift-v2, Property 1: update_reminder 的 reminder_type 枚举校验
@@ -93,6 +94,7 @@ class TestUpdateReminderTypeValidation:
 # Task 7.2 - Property 2: ReminderIn 的互斥校验
 # ===========================================================================
 
+
 class TestReminderInBindingExclusivity:
     """
     Feature: reminders-quality-uplift-v2, Property 2: ReminderIn 的互斥校验
@@ -105,9 +107,7 @@ class TestReminderInBindingExclusivity:
         case_log_id=st.one_of(st.none(), st.integers(min_value=1)),
     )
     @settings(max_examples=100, deadline=None)
-    def test_reminder_in_binding_exclusivity(
-        self, contract_id: int | None, case_log_id: int | None
-    ) -> None:
+    def test_reminder_in_binding_exclusivity(self, contract_id: int | None, case_log_id: int | None) -> None:
         """恰好一个有值时通过，否则抛出校验错误。"""
         exactly_one = (contract_id is None) != (case_log_id is None)
 
@@ -136,6 +136,7 @@ class TestReminderInBindingExclusivity:
 # Task 7.3 - Property 3: __str__ 绑定关系格式化
 # ===========================================================================
 
+
 class TestReminderStrBindingFormat:
     """
     Feature: reminders-quality-uplift-v2, Property 3: __str__ 绑定关系格式化
@@ -148,9 +149,7 @@ class TestReminderStrBindingFormat:
         case_log_id=st.one_of(st.none(), st.integers(min_value=1)),
     )
     @settings(max_examples=100, deadline=None)
-    def test_reminder_str_binding_format(
-        self, contract_id: int | None, case_log_id: int | None
-    ) -> None:
+    def test_reminder_str_binding_format(self, contract_id: int | None, case_log_id: int | None) -> None:
         """验证输出字符串包含正确的绑定标识。"""
         reminder = MagicMock(spec=Reminder)
         reminder.contract_id = contract_id
@@ -172,6 +171,7 @@ class TestReminderStrBindingFormat:
 # ===========================================================================
 # Task 7.4 - 单元测试：导入规范和 i18n 合规验证
 # ===========================================================================
+
 
 class TestImportAndI18nCompliance:
     """
@@ -201,9 +201,8 @@ class TestImportAndI18nCompliance:
         for node in ast.walk(tree):
             if isinstance(node, ast.If):
                 test = node.test
-                is_type_checking = (
-                    (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING")
-                    or (isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING")
+                is_type_checking = (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+                    isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
                 )
                 if is_type_checking:
                     for child in ast.walk(node):
@@ -254,7 +253,4 @@ class TestImportAndI18nCompliance:
                         assert item.value is not None
                         assert isinstance(item.value, ast.Dict)
                         for val in item.value.values:
-                            assert isinstance(val, ast.Call), (
-                                "help_texts 的值应使用 _() 包裹，"
-                                f"发现: {ast.dump(val)}"
-                            )
+                            assert isinstance(val, ast.Call), f"help_texts 的值应使用 _() 包裹，发现: {ast.dump(val)}"

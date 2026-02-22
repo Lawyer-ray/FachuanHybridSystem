@@ -135,8 +135,7 @@ class TestEmptyDirectoryRemoval:
                     orphaned_pycache_dirs.append(tests_dir)
 
         # 断言：不应该有只包含 __pycache__ 的目录
-        assert (
-            len(orphaned_pycache_dirs) == 0
-        ), f"发现 {len(orphaned_pycache_dirs)} 个只包含 __pycache__ 的目录:\n" + "\n".join(
-            str(d) for d in orphaned_pycache_dirs
+        assert len(orphaned_pycache_dirs) == 0, (
+            f"发现 {len(orphaned_pycache_dirs)} 个只包含 __pycache__ 的目录:\n"
+            + "\n".join(str(d) for d in orphaned_pycache_dirs)
         )

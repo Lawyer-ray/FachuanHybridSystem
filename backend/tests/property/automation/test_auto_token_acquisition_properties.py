@@ -33,17 +33,26 @@ _PATCH_HIST = "apps.automation.services.token.auto_token_acquisition_service.his
 
 def _cred(site_name: str, account_id: int = 1, success: int = 5, failure: int = 0) -> AccountCredentialDTO:
     return AccountCredentialDTO(
-        id=account_id, lawyer_id=1, site_name=site_name, url=None,
-        account=f"test{account_id}@example.com", password="password",
+        id=account_id,
+        lawyer_id=1,
+        site_name=site_name,
+        url=None,
+        account=f"test{account_id}@example.com",
+        password="password",
         last_login_success_at=datetime.now().isoformat(),
-        login_success_count=success, login_failure_count=failure, is_preferred=True,
+        login_success_count=success,
+        login_failure_count=failure,
+        is_preferred=True,
     )
 
 
 def _patches() -> tuple[Any, Any, Any, Any, Any]:
     return (
-        patch(_PATCH_CACHE), patch(_PATCH_CACHE2),
-        patch(_PATCH_PERF), patch(_PATCH_CONC), patch(_PATCH_HIST),
+        patch(_PATCH_CACHE),
+        patch(_PATCH_CACHE2),
+        patch(_PATCH_PERF),
+        patch(_PATCH_CONC),
+        patch(_PATCH_HIST),
     )
 
 
@@ -239,10 +248,16 @@ class TestAccountPrioritySelectionProperties:
 
         async def _run() -> None:
             cred = AccountCredentialDTO(
-                id=1, lawyer_id=1, site_name=site_name, url=None,
-                account="test@example.com", password="password",
+                id=1,
+                lawyer_id=1,
+                site_name=site_name,
+                url=None,
+                account="test@example.com",
+                password="password",
                 last_login_success_at=(datetime.now() - timedelta(hours=1)).isoformat() if success_count > 0 else None,
-                login_success_count=success_count, login_failure_count=failure_count, is_preferred=True,
+                login_success_count=success_count,
+                login_failure_count=failure_count,
+                is_preferred=True,
             )
             mock_strategy = Mock()
             mock_strategy.select_account = AsyncMock(return_value=cred)
@@ -339,7 +354,9 @@ class TestFinalFailureHandlingProperties:
 
     @given(
         site_name=st.text(min_size=1, max_size=20).filter(lambda x: x.strip() and x.isalnum()),
-        failure_reason=st.sampled_from(["no_accounts", "all_accounts_failed", "network_timeout", "service_unavailable"]), # noqa: E501
+        failure_reason=st.sampled_from(
+            ["no_accounts", "all_accounts_failed", "network_timeout", "service_unavailable"]
+        ),  # noqa: E501
     )
     @settings(max_examples=8, deadline=10000)
     def test_final_failure_handling_consistency(self, site_name: str, failure_reason: str) -> None:

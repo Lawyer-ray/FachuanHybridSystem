@@ -83,7 +83,11 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         cases = service.list_cases(
-            case_type="civil", status=None, user=None, org_access=None, perm_open_access=True  # 开放访问用于测试
+            case_type="civil",
+            status=None,
+            user=None,
+            org_access=None,
+            perm_open_access=True,  # 开放访问用于测试
         )
 
         # 断言结果
@@ -100,7 +104,10 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         result = service.get_case(
-            case_id=case.id, user=None, org_access=None, perm_open_access=True  # 开放访问用于测试
+            case_id=case.id,
+            user=None,
+            org_access=None,
+            perm_open_access=True,  # 开放访问用于测试
         )
 
         # 断言结果
@@ -207,13 +214,16 @@ class TestCaseAPI:
 
         service = CaseService(contract_service=ContractServiceAdapter(contract_service=ContractService()))
         results = service.search_by_case_number(
-            case_number="（2024）京0101民初12345号", user=None, org_access=None, perm_open_access=True  # 使用完整格式
+            case_number="（2024）京0101民初12345号",
+            user=None,
+            org_access=None,
+            perm_open_access=True,  # 使用完整格式
         )
 
         # 断言结果
-        assert (
-            results.count() >= 1
-        ), f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
+        assert results.count() >= 1, (
+            f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
+        )
         assert case.id in [c.id for c in results]
 
     def test_permission_denied(self):

@@ -570,6 +570,6 @@ class TestExceptionMapping:
 
             if handler:
                 response = handler(request, exc)
-                assert (
-                    response.status_code == expected_status
-                ), f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"
+                assert response.status_code == expected_status, (
+                    f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"
+                )

@@ -97,6 +97,4 @@ def test_all_symbols_importable_from_package(symbol_name: str) -> None:
 
     验证 __all__ 中每个符号都能从 apps.cases.models 成功导入。
     """
-    assert hasattr(models_pkg, symbol_name), (
-        f"apps.cases.models 缺少 __all__ 中声明的符号: {symbol_name!r}"
-    )
+    assert hasattr(models_pkg, symbol_name), f"apps.cases.models 缺少 __all__ 中声明的符号: {symbol_name!r}"

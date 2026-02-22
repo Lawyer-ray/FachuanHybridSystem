@@ -36,7 +36,9 @@ class TestCourtInsuranceClient:
         mock_http.get.return_value = mock_resp
         client._client = mock_http
 
-    def _mock_post(self, client: CourtInsuranceClient, data: dict | None = None, status: int = 200, text: str = "") -> None: # noqa: E501
+    def _mock_post(
+        self, client: CourtInsuranceClient, data: dict | None = None, status: int = 200, text: str = ""
+    ) -> None:  # noqa: E501
         mock_resp = Mock()
         mock_resp.status_code = status
         mock_resp.text = text
@@ -50,11 +52,16 @@ class TestCourtInsuranceClient:
 
     @pytest.mark.anyio
     async def test_fetch_insurance_companies_success(self, client: CourtInsuranceClient, mock_token: str) -> None:
-        self._mock_get(client, {"data": [
-            {"cId": "1", "cCode": "ABC", "cName": "保险公司A"},
-            {"cId": "2", "cCode": "DEF", "cName": "保险公司B"},
-            {"cId": "3", "cCode": "GHI", "cName": "保险公司C"},
-        ]})
+        self._mock_get(
+            client,
+            {
+                "data": [
+                    {"cId": "1", "cCode": "ABC", "cName": "保险公司A"},
+                    {"cId": "2", "cCode": "DEF", "cName": "保险公司B"},
+                    {"cId": "3", "cCode": "GHI", "cName": "保险公司C"},
+                ]
+            },
+        )
 
         companies = await client.fetch_insurance_companies(bearer_token=mock_token, c_pid="pid", fy_id="fid")
 
@@ -72,13 +79,20 @@ class TestCourtInsuranceClient:
         assert len(companies) == 0
 
     @pytest.mark.anyio
-    async def test_fetch_insurance_companies_incomplete_data(self, client: CourtInsuranceClient, mock_token: str) -> None: # noqa: E501
-        self._mock_get(client, {"data": [
-            {"cId": "1", "cCode": "ABC", "cName": "保险公司A"},
-            {"cId": "2", "cCode": "DEF"},          # 缺 cName
-            {"cId": "3", "cName": "保险公司C"},    # 缺 cCode
-            {"cCode": "GHI", "cName": "保险公司D"}, # 缺 cId
-        ]})
+    async def test_fetch_insurance_companies_incomplete_data(
+        self, client: CourtInsuranceClient, mock_token: str
+    ) -> None:  # noqa: E501
+        self._mock_get(
+            client,
+            {
+                "data": [
+                    {"cId": "1", "cCode": "ABC", "cName": "保险公司A"},
+                    {"cId": "2", "cCode": "DEF"},  # 缺 cName
+                    {"cId": "3", "cName": "保险公司C"},  # 缺 cCode
+                    {"cCode": "GHI", "cName": "保险公司D"},  # 缺 cId
+                ]
+            },
+        )
         companies = await client.fetch_insurance_companies(bearer_token=mock_token, c_pid="pid", fy_id="fid")
         assert len(companies) == 1
         assert companies[0].c_id == "1"
@@ -91,8 +105,10 @@ class TestCourtInsuranceClient:
         self._mock_post(client, resp_data)
 
         result = await client.fetch_premium(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            institution="ABC", corp_id="corp",
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            institution="ABC",
+            corp_id="corp",
         )
 
         assert result.status == "success"
@@ -104,8 +120,10 @@ class TestCourtInsuranceClient:
         self._mock_post(client, {"data": {}})
 
         result = await client.fetch_premium(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            institution="ABC", corp_id="corp",
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            institution="ABC",
+            corp_id="corp",
         )
 
         assert result.status == "failed"
@@ -117,8 +135,10 @@ class TestCourtInsuranceClient:
         self._mock_post(client, status=500, text="Internal Server Error")
 
         result = await client.fetch_premium(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            institution="ABC", corp_id="corp",
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            institution="ABC",
+            corp_id="corp",
         )
 
         assert result.status == "failed"
@@ -132,8 +152,10 @@ class TestCourtInsuranceClient:
         client._client = mock_http
 
         result = await client.fetch_premium(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            institution="ABC", corp_id="corp",
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            institution="ABC",
+            corp_id="corp",
         )
 
         assert result.status == "failed"
@@ -164,8 +186,10 @@ class TestCourtInsuranceClient:
         client._client = mock_http
 
         results = await client.fetch_all_premiums(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            corp_id="corp", companies=companies,
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            corp_id="corp",
+            companies=companies,
         )
 
         assert len(results) == 3
@@ -202,8 +226,10 @@ class TestCourtInsuranceClient:
         client._client = mock_http
 
         results = await client.fetch_all_premiums(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            corp_id="corp", companies=companies,
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            corp_id="corp",
+            companies=companies,
         )
 
         assert len(results) == 3
@@ -214,7 +240,9 @@ class TestCourtInsuranceClient:
     @pytest.mark.anyio
     async def test_fetch_all_premiums_empty_list(self, client: CourtInsuranceClient, mock_token: str) -> None:
         results = await client.fetch_all_premiums(
-            bearer_token=mock_token, preserve_amount=Decimal("100000.00"),
-            corp_id="corp", companies=[],
+            bearer_token=mock_token,
+            preserve_amount=Decimal("100000.00"),
+            corp_id="corp",
+            companies=[],
         )
         assert len(results) == 0

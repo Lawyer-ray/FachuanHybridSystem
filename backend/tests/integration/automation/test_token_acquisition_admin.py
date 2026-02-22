@@ -293,7 +293,7 @@ class TestTokenAcquisitionAdmin(TestCase):
     def test_admin_permissions(self):
         """测试管理界面权限"""
         # 创建普通用户
-        normal_user = User.objects.create_user(username="normal", email="normal@test.com", password="testpass123") # noqa: F841
+        normal_user = User.objects.create_user(username="normal", email="normal@test.com", password="testpass123")  # noqa: F841
 
         # 使用普通用户登录
         client = Client()

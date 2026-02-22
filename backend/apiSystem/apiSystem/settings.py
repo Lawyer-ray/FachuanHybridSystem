@@ -283,9 +283,8 @@ ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "False") or "").l
 _smoke_pw = os.environ.get("SMOKE_ADMIN_PASSWORD", "").strip()
 if not _smoke_pw and not DEBUG:
     from django.core.exceptions import ImproperlyConfigured
-    raise ImproperlyConfigured(
-        "SMOKE_ADMIN_PASSWORD 环境变量未设置，生产环境必须配置此变量"
-    )
+
+    raise ImproperlyConfigured("SMOKE_ADMIN_PASSWORD 环境变量未设置，生产环境必须配置此变量")
 SMOKE_ADMIN_PASSWORD = _smoke_pw or "smoke_admin_password"  # DEBUG 模式下使用默认值
 
 if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
@@ -419,9 +418,7 @@ if not DEBUG:
         if _cache_backend == "django.core.cache.backends.locmem.LocMemCache":
             raise RuntimeError("生产多进程环境必须配置 Redis cache（DJANGO_CACHE_REDIS_URL）以保证限流一致性")
 
-        _channel_layers: dict[str, Any] = (
-            dict(CHANNEL_LAYERS.items()) if isinstance(CHANNEL_LAYERS, dict) else {}
-        )
+        _channel_layers: dict[str, Any] = dict(CHANNEL_LAYERS.items()) if isinstance(CHANNEL_LAYERS, dict) else {}
         _channel_backend = (_channel_layers.get("default") or {}).get("BACKEND", "")
         if _channel_backend == "channels.layers.InMemoryChannelLayer":
             raise RuntimeError("生产多进程环境必须配置 Redis channel layer（DJANGO_CHANNEL_REDIS_URL）")

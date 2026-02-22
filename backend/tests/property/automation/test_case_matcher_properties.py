@@ -48,7 +48,7 @@ def test_match_by_case_number_exact_status_matrix(statuses: list[str], ids: list
     def _fake_get_all_cases_by_numbers(_case_numbers):
         return cases
 
-    matcher._get_all_cases_by_numbers = _fake_get_all_cases_by_numbers # type: ignore[method-assign]
+    matcher._get_all_cases_by_numbers = _fake_get_all_cases_by_numbers  # type: ignore[method-assign]
 
     result = matcher._match_by_case_number_exact(["(2025)粤0605民初123号"])
     active = [c for c in cases if c.status == CaseStatus.ACTIVE]

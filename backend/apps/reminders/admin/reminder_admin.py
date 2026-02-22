@@ -58,10 +58,11 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         "updated_at",
     )
     list_display_links = ("id", "content")
-    list_filter = ("reminder_type", "due_at", "created_at")
+    list_filter = ("reminder_type", "created_at")
     search_fields = ("content",)
     list_select_related = ("contract", "case_log")
     autocomplete_fields: ClassVar[list[str]] = ["contract", "case_log"]
     readonly_fields: ClassVar[tuple[str, ...]] = ("created_at", "updated_at")
     ordering = ("-due_at", "-id")
+    date_hierarchy = "due_at"
     list_per_page = 30

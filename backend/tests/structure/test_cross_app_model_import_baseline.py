@@ -48,7 +48,7 @@ def _get_type_checking_linenos(tree: ast.AST) -> set[int]:
     return linenos
 
 
-def find_cross_app_model_imports(backend_path: Path) -> set[str]: # noqa: C901
+def find_cross_app_model_imports(backend_path: Path) -> set[str]:  # noqa: C901
     apps_root = backend_path / "apps"
     pattern = re.compile(r"apps\.(\w+)\.models")
     findings: set[str] = set()
@@ -101,6 +101,7 @@ def test_cross_app_model_imports_do_not_increase():
     current = find_cross_app_model_imports(backend_path)
 
     extra = sorted(current - baseline)
-    assert (
-        not extra
-    ), "发现新增跨 app 的 models 导入（请通过 Protocol/ServiceLocator 解耦，或显式更新 baseline）:\n" + "\n".join(extra)
+    assert not extra, (
+        "发现新增跨 app 的 models 导入（请通过 Protocol/ServiceLocator 解耦，或显式更新 baseline）:\n"
+        + "\n".join(extra)
+    )

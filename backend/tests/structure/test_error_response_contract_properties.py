@@ -56,7 +56,7 @@ def test_business_exception_to_dict_has_unified_contract():
     assert isinstance(returned.values[success_index], ast.Constant) and returned.values[success_index].value is False  # type: ignore[attr-defined]
 
 
-def test_llm_handler_registration_does_not_swallow_unexpected_exceptions(): # noqa: C901
+def test_llm_handler_registration_does_not_swallow_unexpected_exceptions():  # noqa: C901
     root = _project_root()
     path = root / "apps" / "core" / "exceptions" / "handlers.py"
     tree = _parse(path)

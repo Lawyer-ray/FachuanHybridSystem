@@ -33,6 +33,8 @@ class ReminderService:
     ) -> QuerySet[Reminder]:
         if contract_id is not None and case_log_id is not None:
             raise ValidationException(_("不能同时查询合同和案件日志的提醒"))
+        if contract_id is None and case_log_id is None:
+            raise ValidationException(_("必须指定合同或案件日志"))
 
         qs = Reminder.objects.order_by("-due_at", "-id")
 
@@ -45,9 +47,7 @@ class ReminderService:
 
     def get_reminder(self, reminder_id: int, *, select_related: bool = False) -> Reminder:
         try:
-            qs = Reminder.objects.all()
-            if select_related:
-                qs = qs.select_related("contract", "case_log")
+            qs = Reminder.objects.select_related("contract", "case_log") if select_related else Reminder.objects
             return qs.get(id=reminder_id)
         except Reminder.DoesNotExist:
             raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id}) from None

@@ -1,6 +1,7 @@
 """
 Root conftest.py — Django 6 compatibility fixes for async test connections.
 """
+
 import os
 from typing import Any
 

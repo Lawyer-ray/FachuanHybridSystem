@@ -86,9 +86,7 @@ def test_api_files_follow_naming_convention():
 
             # 检查文件名是否以 _api.py 结尾
             if not py_file.name.endswith("_api.py"):
-                errors.append(
-                    f"App {app_name}: API file {py_file.name} does not follow " f"naming convention (*_api.py)"
-                )
+                errors.append(f"App {app_name}: API file {py_file.name} does not follow naming convention (*_api.py)")
 
     assert len(errors) == 0, "API file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
@@ -121,7 +119,7 @@ def test_root_api_py_is_import_only():
         # 检查是否包含 @router 装饰器（不应该有）
         if "@router." in content and "import" not in content.split("@router.")[0].split("\n")[-1]:
             errors.append(
-                f"App {app_name}: root api.py contains @router decorator. " f"API routes should be in api/ subdirectory"
+                f"App {app_name}: root api.py contains @router decorator. API routes should be in api/ subdirectory"
             )
 
         # 检查是否包含 Router() 实例化（不应该有，除非是导入）

@@ -93,9 +93,9 @@ class TestQuerySetManagerConsistencyProperty:
 
             for _ in range(call_count - 1):
                 qs = CaseQuerySetManager.with_standard_prefetch()
-                assert (
-                    qs.query.select_related == first_select
-                ), "CaseQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
+                assert qs.query.select_related == first_select, (
+                    "CaseQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
+                )
                 assert (
                     tuple(qs._prefetch_related_lookups) == first_prefetch  # type: ignore[attr-defined]
                 ), "CaseQuerySetManager.with_standard_prefetch() 的 prefetch_related 配置应保持一致"
@@ -127,9 +127,9 @@ class TestQuerySetManagerConsistencyProperty:
 
             for _ in range(call_count - 1):
                 qs = ContractQuerySetManager.with_standard_prefetch()
-                assert (
-                    qs.query.select_related == first_select
-                ), "ContractQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
+                assert qs.query.select_related == first_select, (
+                    "ContractQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
+                )
                 assert (
                     tuple(qs._prefetch_related_lookups) == first_prefetch  # type: ignore[attr-defined]
                 ), "ContractQuerySetManager.with_standard_prefetch() 的 prefetch_related 配置应保持一致"
@@ -178,9 +178,9 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
             extra_select: Any = extra_qs.query.select_related
 
             assert extra_select == standard_select, "with_extra_prefetch() 不应改变 select_related 配置"
-            assert standard_prefetch.issubset(
-                extra_prefetch
-            ), "with_extra_prefetch() 应包含所有标准 prefetch_related 字段"
+            assert standard_prefetch.issubset(extra_prefetch), (
+                "with_extra_prefetch() 应包含所有标准 prefetch_related 字段"
+            )
             for field in extras:
                 assert field in extra_prefetch, f"with_extra_prefetch() 应包含额外字段 {field!r}"
 
@@ -217,8 +217,8 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
             extra_select: Any = extra_qs.query.select_related
 
             assert extra_select == standard_select, "with_extra_prefetch() 不应改变 select_related 配置"
-            assert standard_prefetch.issubset(
-                extra_prefetch
-            ), "with_extra_prefetch() 应包含所有标准 prefetch_related 字段"
+            assert standard_prefetch.issubset(extra_prefetch), (
+                "with_extra_prefetch() 应包含所有标准 prefetch_related 字段"
+            )
             for field in extras:
                 assert field in extra_prefetch, f"with_extra_prefetch() 应包含额外字段 {field!r}"

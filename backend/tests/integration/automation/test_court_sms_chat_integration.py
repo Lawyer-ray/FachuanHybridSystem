@@ -109,7 +109,7 @@ class CourtSMSChatIntegrationTest(TestCase):
             "/path/to/document1.pdf",
             "/path/to/document2.pdf",
         ]
-        self.notification_service.send_case_chat_notification = Mock(return_value=True) # type: ignore[method-assign]
+        self.notification_service.send_case_chat_notification = Mock(return_value=True)  # type: ignore[method-assign]
 
         with self.captureOnCommitCallbacks(execute=True):
             result_sms = self.stage.process(self.sms)

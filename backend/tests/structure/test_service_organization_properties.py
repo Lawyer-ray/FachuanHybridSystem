@@ -264,9 +264,7 @@ def test_no_root_services_py():
         root_services = app_path / "services.py"
 
         if root_services.exists():
-            errors.append(
-                f"App {app_name}: has root services.py file. " f"Services should be in services/ subdirectory"
-            )
+            errors.append(f"App {app_name}: has root services.py file. Services should be in services/ subdirectory")
 
     assert len(errors) == 0, "Root services.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
@@ -303,9 +301,9 @@ def test_services_directory_structure_property(app_name):
     service_files = list(services_dir.glob("*_service.py"))
     subdirs = [d for d in services_dir.iterdir() if d.is_dir() and not d.name.startswith("__")]
 
-    assert (
-        len(service_files) > 0 or len(subdirs) > 0
-    ), f"App {app_name} services/ directory has no *_service.py files or subdirectories"
+    assert len(service_files) > 0 or len(subdirs) > 0, (
+        f"App {app_name} services/ directory has no *_service.py files or subdirectories"
+    )
 
     # 验证没有根目录 services.py
     root_services = app_path / "services.py"

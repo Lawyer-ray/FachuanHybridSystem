@@ -31,14 +31,16 @@ class TestCacheInvalidationAfterModifyProperty:
     """
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
+        key=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:"),
+        ),  # noqa: E501
         value1=st.integers(),
         value2=st.integers(),
     )
     @settings(max_examples=100)
-    def test_invalidate_then_refetch_returns_new_value(
-        self, key: str, value1: int, value2: int
-    ) -> None:
+    def test_invalidate_then_refetch_returns_new_value(self, key: str, value1: int, value2: int) -> None:
         """
         Property 8: 写入缓存 → 失效 → 再次查询应返回新值而非旧值。
 
@@ -97,7 +99,11 @@ class TestCacheFallbackNoExceptionProperty:
     """
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
+        key=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:"),
+        ),  # noqa: E501
         expected=st.integers(),
     )
     @settings(max_examples=100)
@@ -121,7 +127,11 @@ class TestCacheFallbackNoExceptionProperty:
             assert result == expected
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
+        key=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:"),
+        ),  # noqa: E501
     )
     @settings(max_examples=100)
     def test_invalidate_cache_failure_does_not_raise(self, key: str) -> None:

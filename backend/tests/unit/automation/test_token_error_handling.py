@@ -30,7 +30,7 @@ class TestTokenErrorHandling:
         service = PreservationQuoteService()
 
         # Mock TokenService.get_token 返回 None
-        with patch.object(service.token_service, "get_token", return_value=None): # noqa: SIM117
+        with patch.object(service.token_service, "get_token", return_value=None):  # noqa: SIM117
             # Mock get_or_create_token 也返回 None
             with patch(
                 "apps.automation.services.insurance.preservation_quote_service.get_or_create_token", return_value=None
@@ -68,7 +68,7 @@ class TestTokenErrorHandling:
         service = PreservationQuoteService()
 
         # Mock TokenService.get_token 返回 None
-        with patch.object(service.token_service, "get_token", return_value=None): # noqa: SIM117
+        with patch.object(service.token_service, "get_token", return_value=None):  # noqa: SIM117
             # Mock get_or_create_token 也返回 None
             with patch(
                 "apps.automation.services.insurance.preservation_quote_service.get_or_create_token", return_value=None
@@ -112,7 +112,7 @@ class TestTokenErrorHandling:
         service = PreservationQuoteService()
 
         # Mock: 指定账号的 Token 不存在，但有其他有效 Token
-        with patch.object(service.token_service, "get_token", return_value=None): # noqa: SIM117
+        with patch.object(service.token_service, "get_token", return_value=None):  # noqa: SIM117
             # Mock get_or_create_token 返回一个有效 Token
             with patch(
                 "apps.automation.services.insurance.preservation_quote_service.get_or_create_token",
@@ -172,7 +172,7 @@ class TestTokenErrorHandling:
         )
 
         # Mock TokenService.get_token 返回 None
-        with patch("apps.automation.services.scraper.core.token_service.TokenService.get_token", return_value=None): # noqa: SIM117
+        with patch("apps.automation.services.scraper.core.token_service.TokenService.get_token", return_value=None):  # noqa: SIM117
             # Mock get_or_create_token 也返回 None
             with patch(
                 "apps.automation.services.insurance.preservation_quote_service.get_or_create_token", return_value=None

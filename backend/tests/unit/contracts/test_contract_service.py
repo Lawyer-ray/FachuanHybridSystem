@@ -127,7 +127,7 @@ class TestContractService:
         contract = ContractFactory()
 
         # 执行测试
-        result = self.service.delete_contract(contract.id) # type: ignore
+        result = self.service.delete_contract(contract.id)  # type: ignore
 
         # 断言返回 None
         assert result is None
@@ -215,7 +215,10 @@ class TestContractService:
 
         # 执行查询
         result = self.service.get_contract(
-            contract_id=contract.id, user=user, org_access=org_access, perm_open_access=False  # type: ignore[attr-defined]
+            contract_id=contract.id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=False,
         )
 
         # 断言结果
@@ -224,8 +227,8 @@ class TestContractService:
     def test_list_contracts_all(self):
         """测试获取所有合同"""
         # 创建测试合同
-        contract1 = ContractFactory(name="合同1") # noqa: F841
-        contract2 = ContractFactory(name="合同2") # noqa: F841
+        contract1 = ContractFactory(name="合同1")  # noqa: F841
+        contract2 = ContractFactory(name="合同2")  # noqa: F841
 
         # 执行查询
         result = self.service.list_contracts(perm_open_access=True)
@@ -283,7 +286,7 @@ class TestContractService:
 
         # 创建合同
         contract1 = ContractFactory(name="我的合同")
-        contract2 = ContractFactory(name="其他合同") # noqa: F841
+        contract2 = ContractFactory(name="其他合同")  # noqa: F841
 
         # 只给第一个合同分配律师
         ContractAssignmentFactory(contract=contract1, lawyer=lawyer)
@@ -360,7 +363,7 @@ class TestContractService:
         ContractParty.objects.create(contract=contract, client=client)  # type: ignore[misc]
 
         # 执行测试（返回 None）
-        result = self.service.remove_party(contract.id, client.id) # type: ignore
+        result = self.service.remove_party(contract.id, client.id)  # type: ignore
 
         # 断言返回 None
         assert result is None

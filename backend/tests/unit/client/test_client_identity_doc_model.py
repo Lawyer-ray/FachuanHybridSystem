@@ -15,7 +15,7 @@ class TestClientIdentityDocModel(TestCase):
 
     def setUp(self):
         """测试设置"""
-        self.client = ClientFactory() # type: ignore[assignment]
+        self.client = ClientFactory()  # type: ignore[assignment]
 
     def test_doc_type_choices_excludes_legal_rep_certificate(self):
         """验证 DOC_TYPE_CHOICES 不包含 legal_rep_certificate"""
@@ -75,7 +75,9 @@ class TestClientIdentityDocModel(TestCase):
 
         for doc_type in natural_doc_types:
             doc = ClientIdentityDocFactory(
-                client=natural_client, doc_type=doc_type, expiry_date=None  # 模拟旧数据没有到期日期
+                client=natural_client,
+                doc_type=doc_type,
+                expiry_date=None,  # 模拟旧数据没有到期日期
             )
 
             # 验证旧数据可以正常验证和保存
@@ -93,7 +95,9 @@ class TestClientIdentityDocModel(TestCase):
 
         for doc_type in legal_doc_types:
             doc = ClientIdentityDocFactory(
-                client=legal_client, doc_type=doc_type, expiry_date=None  # 模拟旧数据没有到期日期
+                client=legal_client,
+                doc_type=doc_type,
+                expiry_date=None,  # 模拟旧数据没有到期日期
             )
 
             # 验证旧数据可以正常验证和保存

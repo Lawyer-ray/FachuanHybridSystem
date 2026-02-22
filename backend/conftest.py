@@ -295,7 +295,7 @@ def assert_num_queries(db: Any) -> Any:
             actual_count = len(self.context.captured_queries)
 
             if actual_count != self.expected_count:
-                queries = "\n".join(f"{i+1}. {q['sql']}" for i, q in enumerate(self.context.captured_queries))
+                queries = "\n".join(f"{i + 1}. {q['sql']}" for i, q in enumerate(self.context.captured_queries))
                 raise AssertionError(f"Expected {self.expected_count} queries, but got {actual_count}:\n{queries}")
 
     return AssertNumQueries
