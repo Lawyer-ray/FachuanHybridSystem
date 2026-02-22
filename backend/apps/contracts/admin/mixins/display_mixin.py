@@ -143,7 +143,7 @@ class ContractDisplayMixin:
         try:
             contract = admin_service.query_service.get_contract_detail(object_id)
         except NotFoundError:
-            raise Http404("合同不存在") from None
+            raise Http404(_("合同不存在")) from None
 
         # 判断是否显示代理阶段(仅民商事/刑事/行政/劳动仲裁类型显示)
         ctx_data = admin_service.get_contract_detail_context(contract.id)
