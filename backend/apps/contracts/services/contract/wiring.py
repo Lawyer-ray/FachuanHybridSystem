@@ -8,19 +8,7 @@ from apps.core.interfaces import ServiceLocator
 
 
 def get_contract_domain_service() -> Any:
-    return ServiceLocator.get_contract_service().contract_service # type: ignore
-
-
-def get_contract_service_root() -> Any:
-    return get_contract_domain_service()
-
-
-def get_contract_service_aggregate() -> Any:
-    return get_contract_domain_service()
-
-
-def get_contract_aggregate() -> Any:
-    return get_contract_domain_service()
+    return ServiceLocator.get_contract_service().contract_service  # type: ignore
 
 
 def get_contract_mutation_facade() -> Any:

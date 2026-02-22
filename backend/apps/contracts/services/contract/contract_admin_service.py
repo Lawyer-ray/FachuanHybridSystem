@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from django.db.models import Sum
 from django.utils import timezone
 
+from apps.contracts.models import Contract
 from apps.core.enums import CaseStage
 from apps.core.interfaces import CaseDTO
 
@@ -19,8 +20,6 @@ if TYPE_CHECKING:
     from .contract_display_service import ContractDisplayService
     from .contract_progress_service import ContractProgressService
     from apps.contracts.services.assignment.filing_number_service import FilingNumberService
-
-from apps.contracts.models import Contract
 
 logger = logging.getLogger("apps.contracts")
 
