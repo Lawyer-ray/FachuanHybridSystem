@@ -10,6 +10,7 @@ from pydantic import Field, field_validator, model_validator
 from apps.core.schemas import SchemaMixin
 
 from .models import Reminder, ReminderType
+from .services.validators import _CONTENT_MAX_LENGTH
 
 
 def _validate_positive_id(value: int | None) -> int | None:
@@ -31,7 +32,7 @@ class ReminderIn(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType
-    content: str = Field(max_length=255)
+    content: str = Field(max_length=_CONTENT_MAX_LENGTH)
     due_at: datetime
     metadata: dict[str, Any] | None = None
 
@@ -52,7 +53,7 @@ class ReminderUpdate(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType | None = None
-    content: str | None = Field(None, max_length=255)
+    content: str | None = Field(None, max_length=_CONTENT_MAX_LENGTH)
     due_at: datetime | None = None
     metadata: dict[str, Any] | None = None
 
