@@ -5,7 +5,7 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 from ninja import Schema
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from apps.core.schemas import SchemaMixin
 
@@ -31,7 +31,7 @@ class ReminderIn(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType
-    content: str
+    content: str = Field(max_length=255)
     due_at: datetime
     metadata: dict[str, Any] | None = None
 
@@ -52,7 +52,7 @@ class ReminderUpdate(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType | None = None
-    content: str | None = None
+    content: str | None = Field(None, max_length=255)
     due_at: datetime | None = None
     metadata: dict[str, Any] | None = None
 
