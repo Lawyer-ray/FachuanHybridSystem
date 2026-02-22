@@ -11,6 +11,7 @@ __all__ = [
     "FolderTemplateService",
     "DocumentTemplateService",
     "PlaceholderService",
+    "PlaceholderAdminService",
     "GenerationService",
     "ContractGenerationService",
     # 证据清单服务
@@ -37,6 +38,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "GenerationService": ("apps.documents.services.generation_service", "GenerationService"),
     "PDFMergeService": ("apps.documents.services.pdf_merge_service", "PDFMergeService"),
+    "PlaceholderAdminService": ("apps.documents.services.placeholder_admin_service", "PlaceholderAdminService"),
     "PlaceholderService": ("apps.documents.services.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template_service", "DocumentTemplateService"),
 }
