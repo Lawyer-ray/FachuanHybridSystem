@@ -80,7 +80,7 @@ def build_case_chat_service() -> "ICaseChatService":
 
 
 def build_case_number_service() -> ICaseNumberService:
-    from apps.cases.services.case_number_service_adapter import CaseNumberServiceAdapter
+    from apps.cases.services.number.case_number_service_adapter import CaseNumberServiceAdapter
 
     return CaseNumberServiceAdapter()
 

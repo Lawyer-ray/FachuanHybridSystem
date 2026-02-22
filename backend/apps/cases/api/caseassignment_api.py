@@ -19,7 +19,7 @@ router = Router()
 
 def _get_case_assignment_service() -> Any:
     """工厂函数：创建 CaseAssignmentService 实例"""
-    from apps.cases.services.case_assignment_service import CaseAssignmentService
+    from apps.cases.services.party.case_assignment_service import CaseAssignmentService
 
     return CaseAssignmentService()
 
