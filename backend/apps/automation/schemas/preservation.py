@@ -87,6 +87,10 @@ class PreservationQuoteSchema(BaseModel):
     @classmethod
     def from_model(cls, obj: Any) -> PreservationQuoteSchema:
         """从 Django Model 创建 Schema,处理关联查询"""
+        quotes_list: list[InsuranceQuoteSchema] = [
+            InsuranceQuoteSchema.model_validate(q, from_attributes=True)
+            for q in obj.quotes.all()
+        ]
         return cls(
             id=cast(int, obj.id),
             preserve_amount=obj.preserve_amount,
@@ -101,7 +105,7 @@ class PreservationQuoteSchema(BaseModel):
             created_at=cast(Any, obj.created_at),
             started_at=obj.started_at,
             finished_at=obj.finished_at,
-            quotes=[],
+            quotes=quotes_list,
         )
 
     class Config:

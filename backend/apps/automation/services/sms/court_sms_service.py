@@ -448,23 +448,23 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
 
 def process_sms_async(sms_id: int) -> Any:
     """异步处理短信的入口函数"""
-    service = CourtSMSService()
-    return service.process_sms(sms_id)
+    from apps.automation.workers import court_sms_tasks
+    return court_sms_tasks.process_sms(sms_id)
 
 
 def process_sms_from_matching(sms_id: int) -> Any:
     """从匹配阶段开始处理短信"""
-    service = CourtSMSService()
-    return service._process_from_matching(sms_id)
+    from apps.automation.workers import court_sms_tasks
+    return court_sms_tasks.process_sms_from_matching(sms_id)
 
 
 def process_sms_from_renaming(sms_id: int) -> Any:
     """从重命名阶段开始处理短信"""
-    service = CourtSMSService()
-    return service._process_from_renaming(sms_id)
+    from apps.automation.workers import court_sms_tasks
+    return court_sms_tasks.process_sms_from_renaming(sms_id)
 
 
 def retry_download_task(sms_id: Any, **kwargs: Any) -> Any:
     """重试下载任务"""
-    service = CourtSMSService()
-    return service.retry_processing(int(sms_id))
+    from apps.automation.workers import court_sms_tasks
+    return court_sms_tasks.retry_download_task(sms_id, **kwargs)

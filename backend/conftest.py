@@ -18,6 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent / "apiSystem"))
 # 设置 Django 配置
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
+# 排除脚本文件（非标准 pytest 测试）
+collect_ignore = [
+    "tests/unit/automation/test_court_document.py",
+]
+
 
 @pytest.fixture(scope="session")
 def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:

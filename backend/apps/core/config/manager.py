@@ -124,6 +124,15 @@ class ConfigManager:
                     raise ConfigValidationError(result.errors)
 
     def get(self, key: str, default: T | None = None) -> T:
+        with self._lock:
+            # 如果 key 已通过 set() 写入，直接返回，无需触发 load
+            if key in self._raw_config:
+                cached_value = self._cache.get(key)
+                if cached_value is not None:
+                    return cast(T, cached_value)
+                value = self._raw_config[key]
+                self._cache.set(key, value)
+                return cast(T, value)
         if not self._loaded:
             self.load()
         with self._lock:

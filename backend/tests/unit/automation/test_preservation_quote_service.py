@@ -274,9 +274,9 @@ class TestPreservationQuoteService:
             credential_id=mock_credential.id,
         )
 
-        # Mock Token Service
+        # Mock _get_valid_token 直接返回假 token
         mock_token = "test_token_12345"
-        mock_token_service.get_token.return_value = mock_token
+        service._get_valid_token = AsyncMock(return_value=mock_token)  # type: ignore[method-assign]
 
         # Mock 保险公司列表
         mock_companies = [
@@ -366,7 +366,7 @@ class TestPreservationQuoteService:
         )
 
         mock_token = "test_token_12345"
-        mock_token_service.get_token.return_value = mock_token
+        service._get_valid_token = AsyncMock(return_value=mock_token)  # type: ignore[method-assign]
 
         mock_companies = [
             InsuranceCompany(c_id="1", c_code="ABC", c_name="保险公司A"),

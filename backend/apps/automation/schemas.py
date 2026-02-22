@@ -186,8 +186,12 @@ class PreservationQuoteSchema(BaseModel):
     quotes: list[InsuranceQuoteSchema] = Field(default_factory=list, description="保险公司报价列表")
 
     @classmethod
-    def from_model(cls, obj):
+    def from_model(cls, obj: Any) -> "PreservationQuoteSchema":
         """从 Django Model 创建 Schema，处理关联查询"""
+        quotes_list: list[InsuranceQuoteSchema] = [
+            InsuranceQuoteSchema.model_validate(q, from_attributes=True)
+            for q in obj.quotes.all()
+        ]
         return cls(
             id=obj.id,
             preserve_amount=obj.preserve_amount,
@@ -202,7 +206,7 @@ class PreservationQuoteSchema(BaseModel):
             created_at=obj.created_at,
             started_at=obj.started_at,
             finished_at=obj.finished_at,
-            quotes=[InsuranceQuoteSchema.model_validate(q) for q in obj.quotes.all()],
+            quotes=quotes_list,
         )
 
     class Config:

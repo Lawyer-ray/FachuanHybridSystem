@@ -205,12 +205,14 @@ class SMSParserService:
         Returns:
             bool: 是否有效
         """
+        link_lower = link.lower()
+
         # zxfw.court.gov.cn 链接需要包含必要参数
-        if "zxfw.court.gov.cn" in link:
-            return all(param in link for param in ["qdbh=", "sdbh=", "sdsin="])
+        if "zxfw.court.gov.cn" in link_lower:
+            return all(param in link_lower for param in ["qdbh=", "sdbh=", "sdsin="])
 
         # sd.gdems.com 链接只需要格式正确
-        if "sd.gdems.com" in link:
+        if "sd.gdems.com" in link_lower:
             return True
 
         return False

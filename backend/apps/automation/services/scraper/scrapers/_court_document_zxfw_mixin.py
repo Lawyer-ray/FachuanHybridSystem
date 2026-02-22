@@ -449,36 +449,69 @@ class CourtDocumentZxfwMixin:
 
     def _download_zxfw_court(self, url: str) -> dict[str, Any]:
         """下载 zxfw.court.gov.cn 的文书（三级降级策略）"""
+        import time
+
         logger.info("=" * 60)
         logger.info("处理 zxfw.court.gov.cn 链接...")
         logger.info("=" * 60)
         download_dir = self._prepare_download_dir()
+        attempts: list[dict[str, Any]] = []
+
+        def _record(method: str, success: bool, elapsed_ms: float, data: dict[str, Any] | None = None) -> None:
+            entry: dict[str, Any] = {"method": method, "success": success, "elapsed_ms": elapsed_ms}
+            if data:
+                entry.update(data)
+            attempts.append(entry)
 
         # 第一优先级：直接调用 API
         direct_api_error: Exception | None = None
+        t0 = time.monotonic()
         try:
             result = self._download_via_direct_api(url, download_dir)
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("direct_api", True, elapsed, {
+                "document_count": result.get("document_count"),
+                "downloaded_count": result.get("downloaded_count"),
+            })
             logger.info("直接 API 调用成功", extra={"operation_type": "direct_api_success"})
+            result["attempts"] = attempts
             return result
         except Exception as e:
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("direct_api", False, elapsed)
             direct_api_error = e
             logger.warning(f"直接 API 调用失败，尝试 Playwright 拦截方式: {e}")
 
         # 第二优先级：Playwright 拦截 API
         api_intercept_error: Exception | None = None
+        t0 = time.monotonic()
         try:
             result = self._download_via_api_intercept_with_navigation(download_dir)
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("api_intercept", True, elapsed, {
+                "document_count": result.get("document_count"),
+                "downloaded_count": result.get("downloaded_count"),
+            })
             result["method"] = "api_intercept"
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
             logger.info("Playwright API 拦截成功", extra={"operation_type": "api_intercept_success"})
+            result["attempts"] = attempts
             return result
         except Exception as e:
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("api_intercept", False, elapsed)
             api_intercept_error = e
             logger.warning(f"Playwright API 拦截失败，回退到传统方式: {e}")
 
         # 第三优先级：传统页面点击
+        t0 = time.monotonic()
         try:
             result = self._download_via_fallback(download_dir)
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("fallback", True, elapsed, {
+                "document_count": result.get("document_count"),
+                "downloaded_count": result.get("downloaded_count"),
+            })
             result["method"] = "fallback"
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
             result["api_intercept_error"] = {
@@ -486,8 +519,11 @@ class CourtDocumentZxfwMixin:
                 "message": str(api_intercept_error),
             }
             logger.info("回退机制执行成功", extra={"operation_type": "fallback_success"})
+            result["attempts"] = attempts
             return result
         except Exception as fallback_error:
+            elapsed = (time.monotonic() - t0) * 1000
+            _record("fallback", False, elapsed)
             logger.error(
                 "所有下载方式均失败",
                 extra={
