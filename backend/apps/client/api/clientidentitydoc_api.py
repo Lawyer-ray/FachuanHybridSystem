@@ -80,6 +80,43 @@ def add_identity_doc(
     return {"success": True, "doc_id": identity_doc.id, "message": _("证件文档添加成功")}
 
 
+class MergeIdCardManualIn(Schema):
+    """手动合并身份证请求体"""
+
+    front_image_path: str
+    back_image_path: str
+    front_corners: list[list[int]]
+    back_corners: list[list[int]]
+
+
+@router.post("/identity-docs/merge-id-card")
+def merge_id_card(
+    request: Any,
+    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+) -> dict[str, Any]:
+    """自动检测并合并身份证正反面为 PDF"""
+    service = _get_id_card_merge_service()
+    result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
+    return result
+
+
+@router.post("/identity-docs/merge-id-card-manual")
+def merge_id_card_manual(
+    request: Any,
+    data: MergeIdCardManualIn,
+) -> dict[str, Any]:
+    """手动指定四角坐标合并身份证"""
+    service = _get_id_card_merge_service()
+    result: dict[str, Any] = service.merge_id_card_manual(
+        front_image_path=data.front_image_path,
+        back_image_path=data.back_image_path,
+        front_corners=data.front_corners,
+        back_corners=data.back_corners,
+    )
+    return result
+
+
 @router.get("/identity-docs/{doc_id}", response=IdentityDocDetailOut)
 def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:
     """
@@ -139,43 +176,6 @@ def parse_text(request: Any, text: str = "") -> dict[str, Any]:
     parsed_data = service.parse_client_text(text)
 
     return cast(dict[str, Any], parsed_data)
-
-
-class MergeIdCardManualIn(Schema):
-    """手动合并身份证请求体"""
-
-    front_image_path: str
-    back_image_path: str
-    front_corners: list[list[int]]
-    back_corners: list[list[int]]
-
-
-@router.post("/identity-docs/merge-id-card")
-def merge_id_card(
-    request: Any,
-    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
-    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
-) -> dict[str, Any]:
-    """自动检测并合并身份证正反面为 PDF"""
-    service = _get_id_card_merge_service()
-    result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
-    return result
-
-
-@router.post("/identity-docs/merge-id-card-manual")
-def merge_id_card_manual(
-    request: Any,
-    data: MergeIdCardManualIn,
-) -> dict[str, Any]:
-    """手动指定四角坐标合并身份证"""
-    service = _get_id_card_merge_service()
-    result: dict[str, Any] = service.merge_id_card_manual(
-        front_image_path=data.front_image_path,
-        back_image_path=data.back_image_path,
-        front_corners=data.front_corners,
-        back_corners=data.back_corners,
-    )
-    return result
 
 
 @router.post("/identity-doc/recognize/submit")

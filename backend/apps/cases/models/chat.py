@@ -170,10 +170,11 @@ class ChatAuditLog(models.Model):
         action_display = self.get_action_display()
         return f"[{action_display}] {chat_info} | {case_info} | {status}"
 
-    def get_formatted_details(self) -> str:
+    @property
+    def formatted_details(self) -> str:
         """获取格式化的详情信息"""
         try:
-            return json.dumps(self.details, ensure_ascii=False, indent=2)
+            return str(json.dumps(self.details, ensure_ascii=False, indent=2))
         except (TypeError, ValueError):
             return str(self.details)
 
