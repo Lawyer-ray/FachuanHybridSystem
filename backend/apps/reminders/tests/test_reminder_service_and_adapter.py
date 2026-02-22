@@ -478,3 +478,36 @@ def test_adapter_bulk_create_all_invalid_rows_returns_zero(contract: Contract) -
         ],
     )
     assert created == 0
+
+
+# ── coverage gaps ─────────────────────────────────────────────────────────────
+
+def test_normalize_target_id_rejects_bool() -> None:
+    from apps.reminders.services.validators import normalize_target_id
+
+    with pytest.raises(ValidationException, match="正整数"):
+        normalize_target_id(True, field_name="id")  # type: ignore[arg-type]
+
+
+def test_validate_positive_id_rejects_bool() -> None:
+    from apps.reminders.services.validators import validate_positive_id
+
+    with pytest.raises(ValidationException, match="正整数"):
+        validate_positive_id(True, field_name="合同ID")  # type: ignore[arg-type]
+
+
+def test_validate_positive_id_rejects_zero() -> None:
+    from apps.reminders.services.validators import validate_positive_id
+
+    with pytest.raises(ValidationException, match="正整数"):
+        validate_positive_id(0, field_name="合同ID")
+
+
+@pytest.mark.django_db
+def test_adapter_bulk_create_all_invalid_skips_to_zero(contract: Contract) -> None:
+    """所有行 reminder_type 无效 → objs 为空 → 返回 0。"""
+    created = ReminderServiceAdapter().create_contract_reminders_internal(
+        contract_id=contract.id,
+        reminders=[{"reminder_type": "bad", "content": "x", "due_at": timezone.now(), "metadata": {}}],
+    )
+    assert created == 0
