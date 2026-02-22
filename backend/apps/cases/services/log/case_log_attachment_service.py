@@ -57,7 +57,7 @@ class CaseLogAttachmentService:
         try:
             attachment = CaseLogAttachment.objects.select_related("log__case").get(id=attachment_id)
         except CaseLogAttachment.DoesNotExist:
-            raise NotFoundError(f"附件 {attachment_id} 不存在") from None
+            raise NotFoundError(_("附件 %(attachment_id)s 不存在") % {"attachment_id": attachment_id}) from None
 
         if not perm_open_access:
             self.query_service.access_policy.ensure_access(
@@ -80,4 +80,4 @@ class CaseLogAttachmentService:
         size = getattr(file, "size", 0)
         ok, error = validate_case_log_attachment(name, size)
         if not ok:
-            raise ValidationException(error or "附件校验失败", errors={"file": error or "附件校验失败"})
+            raise ValidationException(_("附件校验失败"), errors={"file": error or _("附件校验失败")})

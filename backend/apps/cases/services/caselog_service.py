@@ -10,6 +10,7 @@ from typing import Any, ClassVar, cast
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Q, QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ICaseService, ServiceLocator
@@ -128,7 +129,7 @@ class CaseLogService:
 
         # 权限检查
         if not self._check_case_access(log.case, user, org_access):
-            raise PermissionDenied("无权限访问此日志")
+            raise PermissionDenied(_("无权限访问此日志"))
 
         return log
 
@@ -158,7 +159,7 @@ class CaseLogService:
         """
         # 验证案件存在
         if not Case.objects.filter(id=case_id).exists():
-            raise NotFoundError(f"案件 {case_id} 不存在")
+            raise NotFoundError(_("案件 %(case_id)s 不存在") % {"case_id": case_id})
 
         actor_id = getattr(user, "id", None) if user else None
 
@@ -200,7 +201,7 @@ class CaseLogService:
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
-            raise PermissionDenied("无权限修改此日志")
+            raise PermissionDenied(_("无权限修改此日志"))
 
         old_content = log.content
         actor_id = getattr(user, "id", None) if user else None
@@ -247,7 +248,7 @@ class CaseLogService:
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
-            raise PermissionDenied("无权限删除此日志")
+            raise PermissionDenied(_("无权限删除此日志"))
 
         log.delete()
         return {"success": True}
@@ -282,7 +283,7 @@ class CaseLogService:
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
-            raise PermissionDenied("无权限上传附件")
+            raise PermissionDenied(_("无权限上传附件"))
 
         created = []
         for f in files:
@@ -313,7 +314,7 @@ class CaseLogService:
                 CaseLog, CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
             )
         except CaseLog.DoesNotExist as e:
-            raise NotFoundError(f"日志 {log_id} 不存在") from e
+            raise NotFoundError(_("日志 %(log_id)s 不存在") % {"log_id": log_id}) from e
 
     def _check_case_access(self, case_obj: Any, user: Any, org_access: dict[str, Any] | None) -> bool:
         """
@@ -366,13 +367,13 @@ class CaseLogService:
 
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValidationException(
-                "不支持的文件类型", errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
+                _("不支持的文件类型"), errors={"file": f"允许的类型: {', '.join(self.ALLOWED_EXTENSIONS)}"}
             )
 
         size = getattr(file, "size", 0)
         if size and size > self.MAX_FILE_SIZE:
             raise ValidationException(
-                "文件大小超过限制", errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024 * 1024)}MB"}
+                _("文件大小超过限制"), errors={"file": f"最大允许 {self.MAX_FILE_SIZE // (1024 * 1024)}MB"}
             )
 
     # ============================================================
@@ -432,7 +433,7 @@ class CaseLogService:
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(log.case, user, org_access):
-            raise PermissionDenied("无权限访问此日志版本")
+            raise PermissionDenied(_("无权限访问此日志版本"))
 
         return list(CaseLogVersion.objects.filter(log_id=log_id).select_related("actor").order_by("-version_at"))
 
@@ -462,11 +463,11 @@ class CaseLogService:
         try:
             attachment = CaseLogAttachment.objects.select_related("log__case").get(id=attachment_id)
         except CaseLogAttachment.DoesNotExist as e:
-            raise NotFoundError(f"附件 {attachment_id} 不存在") from e
+            raise NotFoundError(_("附件 %(attachment_id)s 不存在") % {"attachment_id": attachment_id}) from e
 
         # 权限检查
         if not perm_open_access and not self._check_case_access(attachment.log.case, user, org_access):
-            raise PermissionDenied("无权限删除此附件")
+            raise PermissionDenied(_("无权限删除此附件"))
 
         if attachment.file:
             attachment.file.delete(save=False)

@@ -74,4 +74,4 @@ class CaseLogQueryService:
         try:
             return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
         except CaseLog.DoesNotExist:
-            raise NotFoundError(f"日志 {log_id} 不存在") from None
+            raise NotFoundError(_("日志 %(log_id)s 不存在") % {"log_id": log_id}) from None
