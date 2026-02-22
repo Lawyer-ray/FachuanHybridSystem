@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
-from django.db.models import Count, QuerySet
+from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
@@ -90,7 +90,7 @@ class LawFirmService:
         """
         filters = filters or {}
 
-        queryset = self.get_lawfirm_queryset().annotate(lawyer_count=Count("lawyers"))
+        queryset = self.get_lawfirm_queryset()
 
         # 应用权限过滤
         if user and not user.is_superuser:
