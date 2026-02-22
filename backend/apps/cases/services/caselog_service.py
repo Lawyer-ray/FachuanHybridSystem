@@ -160,16 +160,17 @@ class CaseLogService:
             actor_id=actor_id,
         )
 
-        # 如果有提醒数据，创建关联的 Reminder 记录
+        # 如果有提醒数据，通过 ReminderService 创建关联的 Reminder 记录
         if reminder_type and reminder_time:
-            from apps.reminders.models import Reminder
+            from apps.reminders.services.reminder_service import ReminderService
 
-            Reminder.objects.create(
-                case_log=log,
-                reminder_type=reminder_type,
-                content=content[:255],
-                due_at=reminder_time,
-            )
+            with contextlib.suppress(Exception):
+                ReminderService().create_reminder(
+                    case_log_id=log.id,
+                    reminder_type=str(reminder_type),
+                    content=content,
+                    due_at=reminder_time,
+                )
 
         return log
 
