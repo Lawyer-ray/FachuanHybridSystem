@@ -13,7 +13,7 @@ def safe_text_strategy(draw, *, min_size: int = 0, max_size: int = 2000) -> str:
         st.text(
             min_size=min_size,
             max_size=max_size,
-            alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00"),
+            alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00"),  # type: ignore[arg-type]
         )
     )
 

@@ -143,7 +143,7 @@ class TestContractAPI:
         from apps.contracts.api.contract_api import update_contract
         from apps.contracts.schemas import ContractUpdate
 
-        payload = ContractUpdate(**update_data)
+        payload = ContractUpdate(**update_data)  # type: ignore[arg-type]
         updated_contract = update_contract(request, contract.id, payload, confirm_finance=False)  # type: ignore[attr-defined]
 
         # 验证结果
@@ -174,7 +174,7 @@ class TestContractAPI:
         from apps.contracts.schemas import ContractUpdate
         from apps.core.exceptions import PermissionDenied
 
-        payload = ContractUpdate(**update_data)
+        payload = ContractUpdate(**update_data)  # type: ignore[arg-type]
 
         # 验证抛出权限异常（Service 层抛出 PermissionDenied，全局处理器转为 403）
         with pytest.raises(PermissionDenied) as exc_info:
@@ -202,7 +202,7 @@ class TestContractAPI:
         from apps.contracts.api.contract_api import update_contract
         from apps.contracts.schemas import ContractUpdate
 
-        payload = ContractUpdate(**update_data)
+        payload = ContractUpdate(**update_data)  # type: ignore[arg-type]
 
         # 验证抛出异常
         with pytest.raises(HttpError) as exc_info:

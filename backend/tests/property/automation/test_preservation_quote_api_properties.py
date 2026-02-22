@@ -51,7 +51,7 @@ class TestAPIExceptionConversion:
 
         # 创建测试数据
         data = PreservationQuoteCreateSchema(
-            preserve_amount=100000.00,
+            preserve_amount=100000.00,  # type: ignore[arg-type]
             corp_id="440100",
             category_id="1",
             credential_id=1,

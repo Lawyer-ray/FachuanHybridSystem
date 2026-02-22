@@ -30,7 +30,7 @@ class TestDocumentAttachmentService:
             service = DocumentAttachmentService(case_service=case_service)
 
             with patch("shutil.copy2") as copy2_mock:
-                ok = service.add_to_case_log(sms, [str(src_file)])
+                ok = service.add_to_case_log(sms, [str(src_file)])  # type: ignore[arg-type]
 
             assert ok is True
             copy2_mock.assert_called_once()

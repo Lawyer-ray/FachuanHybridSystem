@@ -136,7 +136,7 @@ class TestCourtDocumentPersistence:
             documents_with_results.append((document_data, download_result))
 
         # 调用批量保存方法
-        result = scraper._save_documents_batch(documents_with_results)
+        result = scraper._save_documents_batch(documents_with_results)  # type: ignore[arg-type]
 
         # 验证：统计信息正确
         assert result["total"] == 5, "总数应该为 5"
@@ -182,7 +182,7 @@ class TestCourtDocumentPersistence:
             documents_with_results.append((invalid_document_data, download_result))
 
         # 调用批量保存方法
-        result = scraper._save_documents_batch(documents_with_results)
+        result = scraper._save_documents_batch(documents_with_results)  # type: ignore[arg-type]
 
         # 验证：统计信息正确
         assert result["total"] == 5, "总数应该为 5"
@@ -210,7 +210,7 @@ class TestCourtDocumentPersistence:
             documents_with_results.append((invalid_document_data, download_result))
 
         # 调用批量保存方法（不应该抛出异常）
-        result = scraper._save_documents_batch(documents_with_results)
+        result = scraper._save_documents_batch(documents_with_results)  # type: ignore[arg-type]
 
         # 验证：统计信息正确
         assert result["total"] == 3, "总数应该为 3"

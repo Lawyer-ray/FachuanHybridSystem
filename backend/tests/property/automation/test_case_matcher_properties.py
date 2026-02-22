@@ -25,7 +25,7 @@ class FakeCase:
 @settings(max_examples=100, deadline=None)
 @given(ids=st.lists(st.integers(min_value=1, max_value=10_000), min_size=1, max_size=20, unique=True))
 def test_select_latest_case_returns_max_id(ids: List[int]):
-    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())
+    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())  # type: ignore[arg-type]
     cases = [FakeCase(id=i, name=str(i), status=CaseStatus.ACTIVE) for i in ids]
     selected = matcher._select_latest_case(cases)
     assert selected is not None
@@ -42,7 +42,7 @@ def test_match_by_case_number_exact_status_matrix(statuses: List[str], ids: List
     statuses = statuses[:size]
     ids = ids[:size]
 
-    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())
+    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())  # type: ignore[arg-type]
     cases = [FakeCase(id=ids[i], name=f"c{ids[i]}", status=statuses[i]) for i in range(size)]
 
     def _fake_get_all_cases_by_numbers(_case_numbers):
@@ -71,7 +71,7 @@ def test_match_by_case_number_exact_status_matrix(statuses: List[str], ids: List
 def test_narrow_down_by_case_number_features_unique_returns_that_case(
     extra_cases: List[int], stage: str, case_type: str, bankruptcy: bool
 ):
-    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())
+    matcher = CaseMatcher(case_service=object(), document_parser_service=object(), party_matching_service=object())  # type: ignore[arg-type]
     special = FakeCase(
         id=99999,
         name="破产-特殊" if bankruptcy else "普通-特殊",
@@ -134,9 +134,9 @@ def test_extract_party_names_precedence(sms_parties: List[str], doc_parties: Lis
             return doc_parties
 
     matcher = CaseMatcher(
-        case_service=object(),
-        document_parser_service=FakeDocumentParserService(),
-        party_matching_service=object(),
+        case_service=object(),  # type: ignore[arg-type]
+        document_parser_service=FakeDocumentParserService(),  # type: ignore[arg-type]
+        party_matching_service=object(),  # type: ignore[arg-type]
     )
     sms = SimpleNamespace(party_names=sms_parties)
 

@@ -115,7 +115,7 @@ class TestReminderInBindingExclusivity:
             schema = ReminderIn(
                 contract_id=contract_id,
                 case_log_id=case_log_id,
-                reminder_type="hearing",
+                reminder_type="hearing",  # type: ignore[arg-type]
                 content="test",
                 due_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
             )
@@ -126,7 +126,7 @@ class TestReminderInBindingExclusivity:
                 ReminderIn(
                     contract_id=contract_id,
                     case_log_id=case_log_id,
-                    reminder_type="hearing",
+                    reminder_type="hearing",  # type: ignore[arg-type]
                     content="test",
                     due_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
                 )

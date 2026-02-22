@@ -58,7 +58,7 @@ def test_contract_clone_workflow_clones_related_data():
                 )
 
     workflow = ContractCloneWorkflow(reminder_service=FakeReminderService())
-    workflow.clone_related_data(source_contract=original_contract, target_contract=target_contract)
+    workflow.clone_related_data(source_contract=original_contract, target_contract=target_contract)  # type: ignore[arg-type]
 
     assert target_contract.contract_parties.count() == 1  # type: ignore[attr-defined]
     assert target_contract.assignments.count() == 1  # type: ignore[attr-defined]
@@ -93,8 +93,8 @@ def test_contract_clone_workflow_due_at_transform():
 
     workflow = ContractCloneWorkflow(reminder_service=FakeReminderService())
     workflow.clone_related_data(
-        source_contract=original_contract,
-        target_contract=target_contract,
+        source_contract=original_contract,  # type: ignore[arg-type]
+        target_contract=target_contract,  # type: ignore[arg-type]
         due_at_transform=ContractCloneWorkflow.plus_one_year_due_at,
     )
 
@@ -109,7 +109,7 @@ def test_contract_filing_number_workflow_generates_and_saves():
     filing_number_service.generate_contract_filing_number.return_value = "X-TEST"
 
     workflow = ContractFilingNumberWorkflow(filing_number_service=filing_number_service)
-    filing_number = workflow.ensure_filing_number(contract=contract)
+    filing_number = workflow.ensure_filing_number(contract=contract)  # type: ignore[arg-type]
 
     assert filing_number == "X-TEST"
     contract.refresh_from_db()  # type: ignore[attr-defined]
@@ -134,7 +134,7 @@ def test_contract_case_creation_workflow_calls_case_service():
 
     workflow = ContractCaseCreationWorkflow(case_service=case_service)
     case_dto = workflow.create_case_from_contract(
-        contract=contract,
+        contract=contract,  # type: ignore[arg-type]
         case_data={"name": "案件", "contract_id": contract.id, "case_type": "civil", "is_archived": False},  # type: ignore[attr-defined]
         user="u",
         org_access={"x": 1},

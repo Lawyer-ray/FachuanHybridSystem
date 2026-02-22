@@ -614,7 +614,7 @@ def test_all_service_modules_no_cross_imports():
                     source_module = parts[idx + 1]
                     if source_module not in by_module:
                         by_module[source_module] = []
-                    by_module[source_module].append((path, line, mod, stmt))
+                    by_module[source_module].append((path, line, mod, stmt))  # type: ignore[arg-type]
 
         error_msg = "发现跨模块 Model 导入:\n"
         for source_module, violations in by_module.items(): # type: ignore[assignment]

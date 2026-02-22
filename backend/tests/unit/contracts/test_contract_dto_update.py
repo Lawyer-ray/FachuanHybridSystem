@@ -25,7 +25,7 @@ class TestContractDTOUpdate:
         # 使用 ContractAssignment 创建主办律师
         ContractAssignmentFactory(contract=contract, lawyer=lawyer, is_primary=True)
 
-        dto = ContractDTO.from_model(contract)
+        dto = ContractDTO.from_model(contract)  # type: ignore[arg-type]
 
         # 验证新字段存在
         assert hasattr(dto, "primary_lawyer_id")
@@ -49,7 +49,7 @@ class TestContractDTOUpdate:
         # 创建协办律师指派
         ContractAssignment.objects.create(contract=contract, lawyer=secondary_lawyer, is_primary=False, order=1)  # type: ignore[misc]
 
-        dto = ContractDTO.from_model(contract)
+        dto = ContractDTO.from_model(contract)  # type: ignore[arg-type]
 
         # 应该使用 ContractAssignment 的主办律师
         assert dto.primary_lawyer_id == primary_lawyer.id  # type: ignore[attr-defined]
@@ -59,7 +59,7 @@ class TestContractDTOUpdate:
         """测试 ContractDTO 无主办律师时的情况"""
         contract = ContractFactory()
 
-        dto = ContractDTO.from_model(contract)
+        dto = ContractDTO.from_model(contract)  # type: ignore[arg-type]
 
         # 无主办律师时应为 None
         assert dto.primary_lawyer_id is None

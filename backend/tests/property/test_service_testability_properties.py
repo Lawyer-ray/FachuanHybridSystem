@@ -178,7 +178,7 @@ def test_case_service_create_without_http_request(data):
     """
     # 创建 Service 实例（注入 Mock 依赖）
     mock_contract_service = MockContractService()
-    service = CaseService(contract_service=mock_contract_service)
+    service = CaseService(contract_service=mock_contract_service)  # type: ignore[arg-type]
 
     # 创建 Mock 用户（不是 HTTP 请求对象）
     user = MockUser(id=1, is_authenticated=True)
@@ -470,7 +470,7 @@ def test_service_methods_only_depend_on_injected_parameters():
     """
     # 测试 CaseService 依赖注入
     mock_contract_service = MockContractService()
-    case_service = CaseService(contract_service=mock_contract_service)
+    case_service = CaseService(contract_service=mock_contract_service)  # type: ignore[arg-type]
 
     # 验证：依赖已注入
     assert case_service._contract_service is mock_contract_service
@@ -510,7 +510,7 @@ def test_service_methods_do_not_access_request_attributes(data):
     """
     # 创建 Service 实例
     mock_contract_service = MockContractService()
-    service = CaseService(contract_service=mock_contract_service)
+    service = CaseService(contract_service=mock_contract_service)  # type: ignore[arg-type]
 
     # 创建一个没有 HTTP 属性的 Mock 用户
     class MinimalUser:
@@ -599,7 +599,7 @@ def test_service_can_be_tested_in_isolation():
     )
 
     # 创建 Service 实例（注入 Mock）
-    service = CaseService(contract_service=mock_contract_service)
+    service = CaseService(contract_service=mock_contract_service)  # type: ignore[arg-type]
 
     # 创建 Mock 用户
     user = MockUser(id=1, is_authenticated=True)

@@ -65,7 +65,7 @@ def test_recognize_identity_doc_success(
         confidence=0.95,
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")  # type: ignore[arg-type]
 
     assert isinstance(result, IdentityRecognizeOut)
     assert result.success is True
@@ -94,7 +94,7 @@ def test_recognize_identity_doc_passport_success(
         confidence=0.88,
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="护照")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="护照")  # type: ignore[arg-type]
 
     assert result.success is True
     assert result.doc_type == "护照"
@@ -121,7 +121,7 @@ def test_recognize_identity_doc_business_license_success(
         confidence=0.92,
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="营业执照")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="营业执照")  # type: ignore[arg-type]
 
     assert result.success is True
     assert result.doc_type == "营业执照"
@@ -141,7 +141,7 @@ def test_recognize_identity_doc_validation_error(
         error="VALIDATION_ERROR: 无效的证件类型",
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="invalid_type")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="invalid_type")  # type: ignore[arg-type]
 
     assert result.success is False
     assert result.extracted_data == {}
@@ -159,7 +159,7 @@ def test_recognize_identity_doc_ocr_error(
         success=False, confidence=0.0, error="识别失败: 图片文字识别失败"
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")  # type: ignore[arg-type]
 
     assert result.success is False
     assert result.error == "识别失败: 图片文字识别失败"
@@ -175,7 +175,7 @@ def test_recognize_identity_doc_ollama_error(
         success=False, confidence=0.0, error="识别失败: AI 信息提取失败"
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")  # type: ignore[arg-type]
 
     assert result.success is False
     assert result.error == "识别失败: AI 信息提取失败"
@@ -191,7 +191,7 @@ def test_recognize_identity_doc_service_unavailable(
         success=False, confidence=0.0, error="服务不可用: Ollama 服务不可用"
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")  # type: ignore[arg-type]
 
     assert result.success is False
     assert "服务不可用" in (result.error or "")
@@ -207,7 +207,7 @@ def test_recognize_identity_doc_unknown_error(
         success=False, confidence=0.0, error="未知错误: 未知错误"
     )
 
-    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")
+    result = recognize_identity_doc(mock_request, file=test_file, doc_type="身份证")  # type: ignore[arg-type]
 
     assert result.success is False
     assert result.error == "未知错误: 未知错误"

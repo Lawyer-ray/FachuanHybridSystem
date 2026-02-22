@@ -61,7 +61,7 @@ def test_merge_progress_is_visible_while_running(monkeypatch):
     monkeypatch.setattr("apps.documents.services.evidence_service.EvidenceService", FakeEvidenceService)
 
     reporter = RecordingReporter(list_id=evidence_list.id)
-    EvidenceMergeUseCase().merge(list_id=evidence_list.id, reporter=reporter)
+    EvidenceMergeUseCase().merge(list_id=evidence_list.id, reporter=reporter)  # type: ignore[arg-type]
 
     assert reporter.in_atomic_block is False
     evidence_list.refresh_from_db()

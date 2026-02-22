@@ -134,7 +134,7 @@ class TestAPIInterceptResponseSchemaProperties:
         api_response = {"code": 200, "msg": "成功", "data": [], "success": True, "totalRows": 0}
 
         # 空数组应该被接受
-        schema = APIInterceptResponseSchema(**api_response)
+        schema = APIInterceptResponseSchema(**api_response)  # type: ignore[arg-type]
         assert schema.data == []
         assert schema.totalRows == 0
 
@@ -168,7 +168,7 @@ class TestAPIInterceptResponseSchemaProperties:
 
         # 应该抛出验证错误
         with pytest.raises(ValidationError) as exc_info:
-            APIInterceptResponseSchema(**api_response)
+            APIInterceptResponseSchema(**api_response)  # type: ignore[arg-type]
 
         # 验证错误消息提到缺少的字段
         error_msg = str(exc_info.value)
@@ -267,7 +267,7 @@ class TestCourtDocumentSchemaProperties:
         }
 
         with pytest.raises(ValidationError):
-            CourtDocumentSchema(**incomplete_data)
+            CourtDocumentSchema(**incomplete_data)  # type: ignore[arg-type]
 
 
 class TestExceptionResponseHandlingProperties:
@@ -337,7 +337,7 @@ class TestExceptionResponseHandlingProperties:
         api_response = {"msg": "成功", "data": [], "success": True, "totalRows": 0}
 
         with pytest.raises(ValidationError) as exc_info:
-            APIInterceptResponseSchema(**api_response)
+            APIInterceptResponseSchema(**api_response)  # type: ignore[arg-type]
 
         error_str = str(exc_info.value)
         assert "code" in error_str.lower() or "字段" in error_str
@@ -354,7 +354,7 @@ class TestExceptionResponseHandlingProperties:
         api_response = {"code": 200, "msg": "成功", "success": True, "totalRows": 0}
 
         with pytest.raises(ValidationError) as exc_info:
-            APIInterceptResponseSchema(**api_response)
+            APIInterceptResponseSchema(**api_response)  # type: ignore[arg-type]
 
         error_str = str(exc_info.value)
         assert "data" in error_str.lower() or "字段" in error_str
@@ -413,7 +413,7 @@ class TestExceptionResponseHandlingProperties:
         }
 
         with pytest.raises(ValidationError) as exc_info:
-            APIInterceptResponseSchema(**api_response)
+            APIInterceptResponseSchema(**api_response)  # type: ignore[arg-type]
 
         error = exc_info.value
         error_str = str(error)

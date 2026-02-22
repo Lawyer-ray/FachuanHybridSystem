@@ -185,7 +185,7 @@ class TestCourtApiClientValidation:
         assert self.client._is_valid_response({"code": 400}) is False
         assert self.client._is_valid_response({"code": 500}) is False
         assert self.client._is_valid_response({}) is False
-        assert self.client._is_valid_response("not a dict") is False
+        assert self.client._is_valid_response("not a dict") is False  # type: ignore[arg-type]
 
     def test_lbs_type_map(self):
         """测试 lbs 参数到案件类型的映射"""

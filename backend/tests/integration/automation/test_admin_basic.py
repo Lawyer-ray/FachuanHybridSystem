@@ -54,7 +54,7 @@ class TestBasicAdminFunctionality(TestCase):
         """测试Token获取历史Admin基本功能"""
         from apps.automation.admin.token.token_acquisition_history_admin import TokenAcquisitionHistoryAdmin
 
-        admin_instance = TokenAcquisitionHistoryAdmin(TokenAcquisitionHistory, None)
+        admin_instance = TokenAcquisitionHistoryAdmin(TokenAcquisitionHistory, None)  # type: ignore[arg-type]
 
         # 测试基本属性
         self.assertTrue(hasattr(admin_instance, "list_display"))
@@ -62,14 +62,14 @@ class TestBasicAdminFunctionality(TestCase):
         self.assertTrue(hasattr(admin_instance, "search_fields"))
 
         # 测试只读权限
-        self.assertFalse(admin_instance.has_add_permission(None))
-        self.assertFalse(admin_instance.has_change_permission(None))
+        self.assertFalse(admin_instance.has_add_permission(None))  # type: ignore[arg-type]
+        self.assertFalse(admin_instance.has_change_permission(None))  # type: ignore[arg-type]
 
     def test_account_credential_admin_basic(self):
         """测试账号凭证Admin基本功能"""
         from apps.organization.admin.accountcredential_admin import AccountCredentialAdmin
 
-        admin_instance = AccountCredentialAdmin(AccountCredential, None)
+        admin_instance = AccountCredentialAdmin(AccountCredential, None)  # type: ignore[arg-type]
 
         # 测试基本属性
         self.assertTrue(hasattr(admin_instance, "list_display"))

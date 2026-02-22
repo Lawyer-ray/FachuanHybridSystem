@@ -139,7 +139,7 @@ class TestCookieLoadingBeforeLogin:
         mock_cookie_service = MockCookieService()
 
         service = CourtZxfwService(
-            mock_page, mock_context, captcha_recognizer=MockCaptchaRecognizer(), cookie_service=mock_cookie_service
+            mock_page, mock_context, captcha_recognizer=MockCaptchaRecognizer(), cookie_service=mock_cookie_service  # type: ignore[arg-type]
         )
 
         # 预先保存一些 Cookie
@@ -170,7 +170,7 @@ class TestCookieLoadingBeforeLogin:
         mock_context = MockContext()
         mock_cookie_service = MockCookieService()
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         # 有 Cookie 的情况
         cookie_path = service._get_cookie_path("account1")
@@ -203,7 +203,7 @@ class TestCookieBasedLoginSkip:
         mock_context = MockContext()
         mock_cookie_service = MockCookieService()
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         # 保存有效的 Cookie
         valid_cookies = [
@@ -253,7 +253,7 @@ class TestCookieSavingAfterLogin:
         # 设置一些 Cookie
         mock_context.cookies_list = [{"name": "session", "value": "new_session", "domain": ".court.gov.cn"}]
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         # 调用 _save_cookies
         service._save_cookies("test_user")
@@ -294,7 +294,7 @@ class TestFreshLoginOnExpiredCookies:
         mock_context = MockContext()
         mock_cookie_service = MockCookieService()
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         # 保存"过期"的 Cookie
         expired_cookies = [{"name": "session", "value": "expired_token", "domain": ".court.gov.cn"}]
@@ -327,7 +327,7 @@ class TestFreshLoginOnExpiredCookies:
         mock_cookie_service = MockCookieService()
         # 不保存任何 Cookie
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         # 尝试登录
         try:

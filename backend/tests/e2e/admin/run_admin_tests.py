@@ -130,7 +130,7 @@ async def run_all_tests():
         print(f"\n成功率: {success_rate:.1f}%")
 
     # 打印每个测试套件的结果
-    if len(all_results["suites"]) > 1:
+    if len(all_results["suites"]) > 1:  # type: ignore[arg-type]
         print(f"\n{'='*70}")
         print(f"各测试套件结果:")
         print(f"{'='*70}\n")

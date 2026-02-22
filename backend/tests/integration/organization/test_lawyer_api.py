@@ -24,7 +24,7 @@ class TestLawyerAPI:
         superuser = LawyerFactory(is_superuser=True)
 
         # 模拟认证
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.get("/api/v1/organization/lawyers")
@@ -42,7 +42,7 @@ class TestLawyerAPI:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 模拟认证
-        self.client.force_login(user)
+        self.client.force_login(user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.get(f"/api/v1/organization/lawyers/{lawyer.id}")  # type: ignore[attr-defined]
@@ -60,7 +60,7 @@ class TestLawyerAPI:
         lawfirm = LawFirmFactory()
 
         # 模拟认证
-        self.client.force_login(admin_user)
+        self.client.force_login(admin_user)  # type: ignore[arg-type]
 
         # 执行测试 - 使用 multipart form data
         response = self.client.post(
@@ -83,7 +83,7 @@ class TestLawyerAPI:
         normal_user = LawyerFactory(is_admin=False, is_superuser=False)
 
         # 模拟认证
-        self.client.force_login(normal_user)
+        self.client.force_login(normal_user)  # type: ignore[arg-type]
 
         # 执行测试 - 使用 multipart form data
         response = self.client.post(
@@ -102,7 +102,7 @@ class TestLawyerAPI:
         admin_user = LawyerFactory(law_firm=lawfirm, is_admin=True)
 
         # 模拟认证
-        self.client.force_login(admin_user)
+        self.client.force_login(admin_user)  # type: ignore[arg-type]
 
         # 执行测试 - 使用 generic 方法发送 multipart form data
         response = self.client.generic(
@@ -125,7 +125,7 @@ class TestLawyerAPI:
         admin_user = LawyerFactory(law_firm=lawfirm, is_admin=True)
 
         # 模拟认证
-        self.client.force_login(admin_user)
+        self.client.force_login(admin_user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.delete(f"/api/v1/organization/lawyers/{lawyer.id}")  # type: ignore[attr-defined]

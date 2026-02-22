@@ -40,7 +40,7 @@ def test_fee_notice_rejects_unsafe_filename(monkeypatch):
     )
     request = Mock()
     files = [_Uploaded("../evil.pdf")]
-    res = extract_fee_notices(request, files=files, debug=False)
+    res = extract_fee_notices(request, files=files, debug=False)  # type: ignore[arg-type]
     assert res.success is False
     assert res.errors
     assert res.errors[0]["code"] == "INVALID_FILE_NAME"

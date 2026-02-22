@@ -93,7 +93,7 @@ class TestContractOutSchema:
         ContractAssignment.objects.create(contract=contract, lawyer=lawyer2, is_primary=False, order=1)  # type: ignore[misc]
 
         # 解析 assignments
-        assignments = ContractOut.resolve_assignments(contract)
+        assignments = ContractOut.resolve_assignments(contract)  # type: ignore[arg-type]
 
         assert len(assignments) == 2
         assert assignments[0].is_primary is True
@@ -110,7 +110,7 @@ class TestContractOutSchema:
         ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
 
         # 解析 primary_lawyer
-        primary_lawyer = ContractOut.resolve_primary_lawyer(contract)
+        primary_lawyer = ContractOut.resolve_primary_lawyer(contract)  # type: ignore[arg-type]
 
         assert primary_lawyer is not None
         assert primary_lawyer.id == lawyer.id  # type: ignore[attr-defined]
@@ -120,6 +120,6 @@ class TestContractOutSchema:
         contract = ContractFactory()
 
         # 没有 ContractAssignment，应该返回 None
-        primary_lawyer = ContractOut.resolve_primary_lawyer(contract)
+        primary_lawyer = ContractOut.resolve_primary_lawyer(contract)  # type: ignore[arg-type]
 
         assert primary_lawyer is None

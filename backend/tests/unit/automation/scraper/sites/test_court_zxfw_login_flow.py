@@ -36,7 +36,7 @@ class _StubPage:
 @pytest.mark.unit
 def test_check_login_success_url_changed():
     page = _StubPage(url="https://zxfw.court.gov.cn/zxfw/#/home", locators={})
-    assert check_login_success(page) is True
+    assert check_login_success(page) is True  # type: ignore[arg-type]
 
 
 @pytest.mark.unit
@@ -45,4 +45,4 @@ def test_check_login_success_error_visible():
         url="https://zxfw.court.gov.cn/zxfw/#/pagesGrxx/pc/login/index",
         locators={"text=验证码错误": _StubLocator(count=1, visible=True, text="验证码错误")},
     )
-    assert check_login_success(page) is False
+    assert check_login_success(page) is False  # type: ignore[arg-type]

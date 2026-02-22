@@ -76,7 +76,7 @@ class TestDependencyInjection:
         mock_page = MockPage()
         mock_context = MockContext()
 
-        service = CourtZxfwService(mock_page, mock_context)
+        service = CourtZxfwService(mock_page, mock_context)  # type: ignore[arg-type]
 
         assert hasattr(service, "captcha_recognizer")
         assert hasattr(service, "cookie_service")
@@ -89,7 +89,7 @@ class TestDependencyInjection:
         mock_context = MockContext()
         mock_recognizer = MockCaptchaRecognizer("TEST5678")
 
-        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)
+        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)  # type: ignore[arg-type]
 
         assert service.captcha_recognizer is mock_recognizer
         assert service.captcha_recognizer.return_value == "TEST5678"  # type: ignore[attr-defined]
@@ -100,7 +100,7 @@ class TestDependencyInjection:
         mock_context = MockContext()
         mock_cookie_service = MockCookieService()
 
-        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)
+        service = CourtZxfwService(mock_page, mock_context, cookie_service=mock_cookie_service)  # type: ignore[arg-type]
 
         assert service.cookie_service is mock_cookie_service
 
@@ -112,7 +112,7 @@ class TestDependencyInjection:
         mock_cookie_service = MockCookieService()
 
         service = CourtZxfwService(
-            mock_page, mock_context, captcha_recognizer=mock_recognizer, cookie_service=mock_cookie_service
+            mock_page, mock_context, captcha_recognizer=mock_recognizer, cookie_service=mock_cookie_service  # type: ignore[arg-type]
         )
 
         assert service.captcha_recognizer is mock_recognizer
@@ -123,7 +123,7 @@ class TestDependencyInjection:
         mock_page = MockPage()
         mock_context = MockContext()
 
-        service = CourtZxfwService(mock_page, mock_context, site_name="custom_site")
+        service = CourtZxfwService(mock_page, mock_context, site_name="custom_site")  # type: ignore[arg-type]
 
         assert service.site_name == "custom_site"
 
@@ -132,7 +132,7 @@ class TestDependencyInjection:
         mock_page = MockPage()
         mock_context = MockContext()
 
-        service = CourtZxfwService(mock_page, mock_context)
+        service = CourtZxfwService(mock_page, mock_context)  # type: ignore[arg-type]
 
         assert service.site_name == "court_zxfw"
 
@@ -148,7 +148,7 @@ class TestDependencyInjection:
         mock_context = MockContext()
         mock_recognizer = MockCaptchaRecognizer("INJECTED")
 
-        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)
+        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)  # type: ignore[arg-type]
 
         # 调用内部方法来触发验证码识别
         result = service._recognize_captcha(save_debug=False)
@@ -169,7 +169,7 @@ class TestDependencyInjection:
         mock_context = MockContext()
         mock_recognizer = MockCaptchaRecognizer()
 
-        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)
+        service = CourtZxfwService(mock_page, mock_context, captcha_recognizer=mock_recognizer)  # type: ignore[arg-type]
 
         # 多次调用
         service._recognize_captcha(save_debug=False)

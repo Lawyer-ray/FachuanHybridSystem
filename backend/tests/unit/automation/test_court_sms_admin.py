@@ -160,9 +160,9 @@ class CourtSMSAdminTest(TestCase):
         queryset = self.admin.get_queryset(request)
 
         # 验证使用了 select_related
-        self.assertIn("case", queryset.query.select_related)
-        self.assertIn("scraper_task", queryset.query.select_related)
-        self.assertIn("case_log", queryset.query.select_related)
+        self.assertIn("case", queryset.query.select_related)  # type: ignore[arg-type]
+        self.assertIn("scraper_task", queryset.query.select_related)  # type: ignore[arg-type]
+        self.assertIn("case_log", queryset.query.select_related)  # type: ignore[arg-type]
 
     def test_custom_urls(self):
         """测试自定义 URL"""
