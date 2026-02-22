@@ -446,8 +446,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
             absolute_path = obj.file.path if hasattr(obj.file, "path") else str(obj.file)
             return format_html('<span style="color: #2e7d32;" title="{}">📄 {}</span>', absolute_path, obj.file.name)
         elif obj.file_path:
-            absolute_path = Path(obj.file_path).resolve() if not Path(obj.file_path).is_absolute() else obj.file_path
-            return format_html('<span style="color: #1565c0;" title="{}">📁 {}</span>', absolute_path, obj.file_path)
+            return format_html('<span style="color: #1565c0;" title="{}">📁 {}</span>', obj.absolute_file_path, obj.file_path)
         return format_html('<span style="color: #c62828;">{}</span>', "⚠️ 未设置文件")
 
     @admin.display(description=_("文件位置"))
@@ -466,11 +465,10 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
             )
         elif obj.file_path:
             download_url = reverse("admin:documents_documenttemplate_download", args=[obj.pk])
-            absolute_path = Path(obj.file_path).resolve() if not Path(obj.file_path).is_absolute() else obj.file_path
             return format_html(
                 '<a href="{}" title="点击下载 | 绝对路径: {}" target="_blank">📁 {}</a>',
                 download_url,
-                absolute_path,
+                obj.absolute_file_path,
                 obj.file_path,
             )
         return format_html('<span style="color: #999;">{}</span>', "未设置")
