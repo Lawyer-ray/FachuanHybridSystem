@@ -6,12 +6,11 @@
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass
 from typing import Any, cast
-
-import contextlib
 
 from apps.core.exceptions import AutoTokenAcquisitionError, LoginFailedError, NetworkError, TokenAcquisitionTimeoutError
 from apps.core.interfaces import AccountCredentialDTO, IBrowserService, LoginAttemptResult
