@@ -48,43 +48,11 @@ def mask_secret(secret: str) -> str:
     return s[:2] + "***" + s[-2:]
 
 
-def is_sensitive_key_name(name: str) -> bool:
-    if not name:
-        return False
-    for part in ("token", "secret", "password", "authorization", "api_key", "apikey", "cookie", "session"):
-        if part in name:
-            return True
-    return False
-
-
-def looks_like_token(value: str) -> bool:
-    if not value:
-        return False
-    return any(pattern.match(value) for pattern in _LIKELY_TOKEN_PATTERNS)
-
-
-def _mask_match(match: re.Match[str]) -> str:
-    if match.lastindex and match.lastindex >= 2:
-        prefix = match.group(1) or ""
-        secret = match.group(2) or ""
-        return prefix + mask_secret(secret)
-    secret = match.group(1) or ""
-    return mask_secret(secret)
-
-
 def scrub_text(text: str) -> str:
     value = text
     for pattern in _PATTERNS:
         value = pattern.sub(_mask_match, value)
     return value
-
-
-def mask_value_for_key(key: str, value: Any) -> Any:
-    if value is None:
-        return "***"
-    if key == "account":
-        return mask_secret(str(value))
-    return "***"
 
 
 def scrub_obj(obj: Any, *, key_hint: str = "", depth: int = 0) -> Any:
