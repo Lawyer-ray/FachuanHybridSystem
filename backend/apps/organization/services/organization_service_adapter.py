@@ -97,7 +97,7 @@ class OrganizationServiceAdapter(IOrganizationService):
 
     def get_lawyer_by_id_internal(self, lawyer_id: int) -> LawyerDTO | None:
         lawyer = self.lawyer_service._get_lawyer_internal(lawyer_id)
-        if not lawyer:
+        if lawyer is None:
             return None
         return _assembler.to_dto(lawyer)
 
