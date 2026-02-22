@@ -41,7 +41,7 @@ class LawyerAssignmentService:
         self._lawyer_service = lawyer_service
 
     @property
-    def lawyer_service(self) -> "ILawyerService":
+    def lawyer_service(self) -> ILawyerService:
         """
         延迟获取律师服务
 

@@ -3,6 +3,8 @@
 处理补充协议相关的业务逻辑
 """
 
+from __future__ import annotations
+
 import logging
 
 from django.db import IntegrityError, transaction
@@ -161,7 +163,7 @@ class SupplementaryAgreementService:
         try:
             qs = SupplementaryAgreement.objects
             if prefetch:
-                qs = qs.select_related("contract").prefetch_related("parties__client") # type: ignore
+                qs = qs.select_related("contract").prefetch_related("parties__client")
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist:
             raise NotFoundError(_("补充协议不存在")) from None
