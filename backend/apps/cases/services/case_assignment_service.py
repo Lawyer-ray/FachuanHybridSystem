@@ -11,7 +11,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.interfaces import ICaseService, ServiceLocator
+from apps.core.interfaces import ICaseService, IContractAssignmentQueryService, ServiceLocator
 
 from apps.cases.models import Case, CaseAssignment
 
@@ -29,14 +29,20 @@ class CaseAssignmentService:
     4. 支持依赖注入
     """
 
-    def __init__(self, case_service: ICaseService | None = None):
+    def __init__(
+        self,
+        case_service: ICaseService | None = None,
+        contract_assignment_query_service: IContractAssignmentQueryService | None = None,
+    ):
         """
         初始化服务（依赖注入）
 
         Args:
             case_service: 案件服务接口（注入）
+            contract_assignment_query_service: 合同指派查询服务接口（注入）
         """
         self._case_service = case_service
+        self._contract_assignment_query_service = contract_assignment_query_service
 
     @property
     def case_service(self) -> ICaseService:

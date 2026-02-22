@@ -1,14 +1,18 @@
 """Business logic services."""
 
+from django.conf import settings
+
 from apps.core.config import get_config
 from apps.core.path import Path
 
 
 def get_media_root() -> Path:
-    value = get_config("django.media_root", None)
-    if not value:
+    media_root = getattr(settings, "MEDIA_ROOT", None)
+    if not media_root:
+        media_root = get_config("django.media_root", None)
+    if not media_root:
         raise RuntimeError("MEDIA_ROOT 未配置")
-    return Path(str(value))
+    return Path(str(media_root))
 
 
 def ensure_output_dir(media_root: Path) -> Path:

@@ -46,6 +46,10 @@ class SMSParserService:
     # 格式: https://sd.gdems.com/v3/dzsd/xxxxx
     GDEMS_LINK_PATTERN = re.compile(r"https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
 
+    # 集约送达链接正则 - jysd.10102368.com
+    # 格式: https://jysd.10102368.com/sd?key=xxxxx
+    JYSD_LINK_PATTERN = re.compile(r"https://jysd\.10102368\.com/sd\?key=[a-zA-Z0-9_\-]+", re.IGNORECASE)
+
     # 当事人提取提示词
     PARTY_EXTRACTION_PROMPT = """
 请从以下法院短信中提取所有当事人名称。
@@ -71,6 +75,8 @@ class SMSParserService:
         ollama_model: str | None = None,
         ollama_base_url: str | None = None,
         client_service: Optional["IClientService"] = None,
+        party_matching_service: object | None = None,
+        party_candidate_extractor: object | None = None,
     ):
         """
         初始化SMS解析服务
@@ -79,10 +85,14 @@ class SMSParserService:
             ollama_model: Ollama模型名称，默认从配置文件读取
             ollama_base_url: Ollama服务地址，默认从配置文件读取
             client_service: 客户服务实例，用于依赖注入
+            party_matching_service: 当事人匹配服务，用于依赖注入
+            party_candidate_extractor: 当事人候选提取器，用于依赖注入
         """
         self.ollama_model = ollama_model or get_ollama_model()
         self.ollama_base_url = ollama_base_url or get_ollama_base_url()
         self._client_service = client_service
+        self._party_matching_service = party_matching_service
+        self._party_candidate_extractor = party_candidate_extractor
 
     @property
     def client_service(self) -> "IClientService":
@@ -164,9 +174,16 @@ class SMSParserService:
         # 2. 提取 sd.gdems.com 链接
         gdems_matches = self.GDEMS_LINK_PATTERN.findall(content)
         for link in set(gdems_matches):
-            if link not in valid_links:  # 避免重复
+            if link not in valid_links:
                 valid_links.append(link)
                 logger.info(f"提取到广东电子送达链接: {link}")
+
+        # 3. 提取 jysd.10102368.com 链接（集约送达）
+        jysd_matches = self.JYSD_LINK_PATTERN.findall(content)
+        for link in set(jysd_matches):
+            if link not in valid_links:
+                valid_links.append(link)
+                logger.info(f"提取到集约送达链接: {link}")
 
         if valid_links:
             logger.info(f"提取到 {len(valid_links)} 个有效下载链接")
@@ -220,10 +237,8 @@ class SMSParserService:
         """
         提取当事人名称
 
-        新逻辑：
-        1. 只在现有客户数据中查找匹配
-        2. 如果找不到任何匹配，返回空列表（不使用正则或AI）
-        3. 等待文书下载后，再从文书中提取当事人
+        优先使用注入的 party_matching_service；
+        否则在现有客户数据中查找匹配。
 
         Args:
             content: 短信内容
@@ -231,6 +246,16 @@ class SMSParserService:
         Returns:
             List[str]: 当事人名称列表
         """
+        # 优先使用注入的 party_matching_service
+        if self._party_matching_service is not None:
+            extractor = self._party_candidate_extractor
+            if extractor is None:
+                from apps.automation.services.sms.parsing import PartyCandidateExtractor
+                extractor = PartyCandidateExtractor()
+            candidates = extractor.extract(content)  # type: ignore[union-attr]
+            matched = self._party_matching_service.extract_and_match_parties_from_sms(candidates)  # type: ignore[union-attr]
+            return [c.name for c in matched]
+
         # 只在现有客户数据中查找匹配
         existing_parties = self._find_existing_clients_in_sms(content)
 
@@ -238,9 +263,6 @@ class SMSParserService:
             logger.info(f"在短信中找到现有客户: {existing_parties}")
             return existing_parties
 
-        # 如果在现有客户中找不到匹配，返回空列表
-        # 不使用正则或AI提取，因为可能会提取出错误的内容
-        # 等待文书下载后，再从文书中提取当事人
         logger.info("在短信中未找到现有客户，返回空列表，等待文书下载后提取当事人")
         return []
 

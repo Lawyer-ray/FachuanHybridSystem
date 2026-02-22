@@ -266,6 +266,7 @@ class TestContractGenerationService:
         assert filename.startswith("合同模板（测试合同）V1_")
         assert filename.endswith(".docx")
 
+    @pytest.mark.django_db
     def test_generate_contract_document_contract_not_found(self, contract_generation_service):
         """测试合同不存在的情况"""
         content, filename, error = contract_generation_service.generate_contract_document(99999)

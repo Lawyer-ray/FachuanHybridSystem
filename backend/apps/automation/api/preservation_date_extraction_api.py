@@ -119,8 +119,21 @@ def extract_preservation_dates(
     """
     service = _get_extraction_service()
 
+    # 验证文件名安全性（防止路径穿越）
+    from pathlib import Path
+    file_name = file.name or ""
+    if Path(file_name).name != file_name or ".." in file_name or "/" in file_name or "\\" in file_name:
+        return PreservationDateExtractionResponse(
+            success=False,
+            measures=[],
+            reminders=[],
+            model_used="",
+            extraction_method="",
+            error="文件名不合法，请使用安全的文件名",
+        )
+
     # 验证文件格式
-    if not file.name.lower().endswith(".pdf"):  # type: ignore[union-attr]
+    if not file_name.lower().endswith(".pdf"):
         logger.warning(
             "不支持的文件格式",
             extra={
@@ -140,7 +153,7 @@ def extract_preservation_dates(
     # 委托服务层处理文件保存、提取和清理
     result = service.extract_from_uploaded_file(
         file_content_chunks=file.chunks(),
-        file_name=file.name,
+        file_name=file_name,
     )
 
     # 转换结果为响应格式

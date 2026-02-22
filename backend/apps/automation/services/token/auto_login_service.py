@@ -41,16 +41,23 @@ class AutoLoginService:
     4. 添加登录超时处理和详细错误记录
     """
 
-    def __init__(self, retry_config: RetryConfig | None = None, browser_service: IBrowserService | None = None):
+    def __init__(
+        self,
+        retry_config: RetryConfig | None = None,
+        browser_service: IBrowserService | None = None,
+        usecase: Any | None = None,
+    ):
         """
         初始化自动登录服务
 
         Args:
             retry_config: 重试配置，None则使用默认配置
             browser_service: 浏览器服务，None则使用ServiceLocator获取
+            usecase: 登录用例，注入后 login_and_get_token 直接委托给它
         """
         self.retry_config = retry_config or RetryConfig()
         self._browser_service = browser_service
+        self._usecase = usecase
         self._login_attempts: list[LoginAttemptResult] = []
 
     @property
@@ -77,6 +84,10 @@ class AutoLoginService:
             NetworkError: 网络错误
             TokenAcquisitionTimeoutError: 登录超时
         """
+        # 优先委托给注入的 usecase
+        if self._usecase is not None:
+            return await self._usecase.execute(credential)  # type: ignore[no-any-return]
+
         start_time = time.time()
         self._login_attempts.clear()
 

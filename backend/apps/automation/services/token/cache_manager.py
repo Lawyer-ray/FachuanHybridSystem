@@ -4,7 +4,10 @@ Token获取缓存管理服务
 提供智能缓存管理，减少数据库查询，提升性能。
 """
 
+import hashlib
 import logging
+import os
+import re
 from datetime import datetime
 from typing import Any, cast
 
@@ -13,6 +16,8 @@ from django.utils import timezone
 
 from apps.core.cache import CacheTimeout
 from apps.core.interfaces import AccountCredentialDTO
+from apps.core.telemetry import metrics as telemetry_metrics
+from apps.core.telemetry.metrics import record_cache_access, record_cache_result
 
 from .performance_monitor import performance_monitor
 
@@ -49,7 +54,9 @@ class TokenCacheManager:
 
         try:
             cached_data = cache.get(cache_key)
-            performance_monitor.record_cache_access(cache_key, cached_data is not None)
+            hit = cached_data is not None
+            performance_monitor.record_cache_access(cache_key, hit)
+            record_cache_access(cache_kind="automation_token", name="token", hit=hit)
 
             if cached_data:
                 logger.debug(
@@ -62,6 +69,7 @@ class TokenCacheManager:
 
         except Exception as e:
             logger.warning(f"获取Token缓存失败: {e}", extra={"site_name": site_name, "account": account})
+            record_cache_result(cache_kind="automation_token", name="token", result="error")
             return None
 
     def cache_token(self, site_name: str, account: str, token: str, expires_at: datetime | None = None) -> None:
@@ -81,6 +89,10 @@ class TokenCacheManager:
             timeout = int((expires_at - timezone.now()).total_seconds())
             # 提前5分钟过期，避免使用即将过期的Token
             timeout = max(0, timeout - 300)
+            # 如果剩余时间不足5分钟，不缓存
+            if timeout == 0:
+                logger.debug("Token即将过期，跳过缓存", extra={"site_name": site_name, "account": account})
+                return
         else:
             # 默认缓存1小时
             timeout = CacheTimeout.LONG
@@ -154,7 +166,7 @@ class TokenCacheManager:
 
     def cache_credentials(self, site_name: str, credentials: list[AccountCredentialDTO]) -> None:
         """
-        缓存账号凭证列表
+        缓存账号凭证列表（密码字段置空，不存储明文密码）
 
         Args:
             site_name: 网站名称
@@ -163,10 +175,12 @@ class TokenCacheManager:
         cache_key = self._get_credentials_cache_key(site_name)
 
         try:
-            # 序列化DTO对象
+            # 序列化DTO对象，密码字段置空
             cache_data = []
             for cred in credentials:
-                cache_data.append(cred.__dict__)
+                cred_dict = cred.__dict__.copy()
+                cred_dict["password"] = ""
+                cache_data.append(cred_dict)
 
             cache.set(cache_key, cache_data, timeout=CacheTimeout.MEDIUM)
             logger.info(
@@ -361,16 +375,53 @@ class TokenCacheManager:
             logger.warning(f"缓存预热失败: {e}", extra={"site_name": site_name})
 
     def clear_all_cache(self) -> None:
-        """清除所有相关缓存"""
+        """清除所有相关缓存（仅 DEBUG 模式或设置 ALLOW_CACHE_CLEAR 时生效）"""
+        if not self._is_cache_clear_allowed():
+            logger.warning("生产环境禁止全量清除缓存，如需清除请设置 ALLOW_CACHE_CLEAR=true")
+            return
+
         try:
-            # 获取所有相关的缓存键
-            # 注意：这里简化处理，实际应该使用Redis的SCAN命令
-            # 或者维护一个缓存键的注册表
+            from django.conf import settings
+
+            caches_conf = getattr(settings, "CACHES", {})
+            default_conf = caches_conf.get("default", {})
+            backend = default_conf.get("BACKEND", "")
+
+            if "redis" in backend.lower():
+                self._clear_redis_namespace_cache(default_conf, backend=backend)
+            else:
+                cache.clear()
 
             logger.info("所有Token相关缓存已清除")
-
         except Exception as e:
             logger.warning(f"清除缓存失败: {e}")
+
+    def _clear_redis_namespace_cache(self, cache_conf: dict[str, Any], *, backend: str = "") -> None:
+        """
+        清除 Redis 命名空间下的 Token 缓存键
+
+        Args:
+            cache_conf: CACHES['default'] 配置字典
+            backend: 缓存后端类名
+        """
+        location = cache_conf.get("LOCATION")
+        if not location:
+            logger.warning("token_cache_clear_redis_location_missing")
+            return
+
+        try:
+            import redis  # type: ignore[import-untyped]
+
+            client = redis.from_url(str(location))
+            pattern = f"{self.cache_prefix}:*"
+            keys = client.keys(pattern)
+            if keys:
+                client.delete(*keys)
+            logger.info(f"Redis 命名空间缓存已清除: {len(keys)} 个键")
+        except ModuleNotFoundError:
+            logger.warning("token_cache_clear_redis_client_init_failed")
+        except Exception as e:
+            logger.warning(f"Redis 缓存清除失败: {e}")
 
     def get_cache_statistics(self) -> dict[str, Any]:
         """
@@ -392,8 +443,10 @@ class TokenCacheManager:
             return {}
 
     def _get_token_cache_key(self, site_name: str, account: str) -> str:
-        """生成Token缓存键"""
-        return f"{self.cache_prefix}:token:{site_name}:{account}"
+        """生成Token缓存键（账号哈希化，site_name 清理特殊字符）"""
+        safe_site = re.sub(r"[^a-zA-Z0-9_\-]", "_", site_name)
+        account_hash = hashlib.sha256(account.encode()).hexdigest()[:16]
+        return f"{self.cache_prefix}:token:{safe_site}:{account_hash}"
 
     def _get_credentials_cache_key(self, site_name: str) -> str:
         """生成账号凭证缓存键"""

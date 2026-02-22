@@ -15,8 +15,10 @@ Requirements: 2.1, 2.2, 4.4, 6.1, 6.2, 7.1
 
 from typing import TYPE_CHECKING, Any, cast
 
+from apps.core.dtos import DocumentTemplateDTO
+
 if TYPE_CHECKING:
-    from apps.core.dtos import DocumentTemplateDTO
+    pass
 
 logger = logging.getLogger(__name__)
 

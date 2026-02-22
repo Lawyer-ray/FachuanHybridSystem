@@ -73,7 +73,14 @@ class CourtZxfwService:
         self.context = context
         self.site_name = site_name
         self.is_logged_in = False
-        self._cookie_service = cookie_service
+
+        # 依赖注入：Cookie 服务
+        if cookie_service is None:
+            from apps.automation.services.scraper.core.cookie_service import CookieService
+
+            self._cookie_service: CookieServiceProtocol = CookieService()
+        else:
+            self._cookie_service = cookie_service
 
         # 依赖注入：验证码识别器
         if captcha_recognizer is None:
@@ -89,6 +96,11 @@ class CourtZxfwService:
         self._token_service = token_service
         if token_service is not None:
             logger.info(f"使用注入的 Token 服务: {type(token_service).__name__}")
+
+    @property
+    def cookie_service(self) -> Any:
+        """获取 Cookie 服务"""
+        return self._cookie_service
 
     @property
     def token_service(self) -> Any:

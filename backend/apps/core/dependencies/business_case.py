@@ -73,10 +73,10 @@ def build_case_filing_number_service() -> ICaseFilingNumberService:
     return CaseFilingNumberServiceAdapter()
 
 
-def build_case_chat_service() -> ICaseChatService:
+def build_case_chat_service() -> "ICaseChatService":
     from apps.cases.services.case_chat_service import CaseChatService
 
-    return cast(ICaseChatService, CaseChatService())
+    return CaseChatService()  # type: ignore[return-value]
 
 
 def build_case_number_service() -> ICaseNumberService:
@@ -91,7 +91,7 @@ def build_case_search_service() -> ICaseSearchService:
     return CaseSearchServiceAdapter()
 
 
-def build_case_log_service() -> ICaseLogService:
-    from apps.cases.services.caselog_service_adapter import CaseLogServiceAdapter
+def build_case_log_service() -> "ICaseLogService":
+    from apps.cases.services.log.caselog_service_adapter import CaseLogServiceAdapter
 
-    return cast(ICaseLogService, CaseLogServiceAdapter())
+    return CaseLogServiceAdapter()  # type: ignore[return-value]

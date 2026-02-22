@@ -198,6 +198,35 @@ class DocumentDeliveryScheduleService:
 
         logger.info(f"找到 {due_schedules.count()} 个到期的定时任务")
         return list(due_schedules)
+    def _get_execution_lock_key(self, schedule_id: int) -> str:
+        """生成执行锁的缓存键"""
+        return f"automation:document_delivery_schedule:{schedule_id}:lock"
+
+    def _acquire_execution_lock(self, schedule_id: int, ttl_seconds: int = 300) -> bool:
+        """
+        尝试获取执行锁（幂等防重入）
+
+        Args:
+            schedule_id: 定时任务ID
+            ttl_seconds: 锁超时秒数
+
+        Returns:
+            True 表示获取成功，False 表示已被锁定
+        """
+        import django.core.cache
+
+        key = self._get_execution_lock_key(schedule_id)
+        acquired: bool = django.core.cache.cache.add(key, "1", ttl_seconds)
+        return acquired
+
+    def _release_execution_lock(self, schedule_id: int) -> None:
+        """释放执行锁"""
+        import django.core.cache
+
+        key = self._get_execution_lock_key(schedule_id)
+        django.core.cache.cache.delete(key)
+
+
 
     def execute_scheduled_task(self, schedule_id: int) -> DocumentQueryResult:
         """

@@ -13,16 +13,27 @@ from apps.core.interfaces import ISecurityService
 logger = logging.getLogger("apps.automation")
 
 
+def get_config(key: str, default: str | None = None) -> str | None:
+    """获取系统配置值（可被测试 monkeypatch）"""
+    from apps.core.services.system_config_service import SystemConfigService
+
+    return SystemConfigService().get_value(key, default or "")  # type: ignore[return-value]
+
+
 class SecurityService:
     """安全服务"""
 
     def __init__(self) -> None:
         """初始化加密密钥"""
-        from apps.core.services.system_config_service import SystemConfigService
+        from django.conf import settings
 
-        raw_key = SystemConfigService().get_value("SCRAPER_ENCRYPTION_KEY", "")
+        raw_key = get_config("SCRAPER_ENCRYPTION_KEY")
         key: bytes
         if not raw_key:
+            if not getattr(settings, "DEBUG", False):
+                raise RuntimeError(
+                    "生产环境必须配置 SCRAPER_ENCRYPTION_KEY，请在系统配置中设置固定密钥！"
+                )
             key = Fernet.generate_key()
             logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请在系统配置中设置固定密钥！")
         else:

@@ -45,9 +45,11 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
         client_service: "IClientService | None" = None,
         lawyer_service: "ILawyerService | None" = None,
         case_chat_service: "ICaseChatService | None" = None,
+        document_processing_service: Any | None = None,
+        case_number_service: Any | None = None,
     ):
         self.parser = parser or SMSParserService()
-        self.matcher = matcher or CaseMatcher() # type: ignore
+        self._matcher = matcher or CaseMatcher()  # type: ignore
         self._case_number_extractor = case_number_extractor
         self._document_attachment = document_attachment
         self._notification = notification
@@ -55,6 +57,12 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
         self._client_service = client_service
         self._lawyer_service = lawyer_service
         self._case_chat_service = case_chat_service
+        self._document_processing_service = document_processing_service
+        self._case_number_service = case_number_service
+
+    @property
+    def matcher(self) -> "CaseMatcher":
+        return self._matcher
 
     @property
     def case_service(self) -> "ICaseService":
