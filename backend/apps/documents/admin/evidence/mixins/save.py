@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
 
@@ -82,7 +83,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
 
         except Exception as e:
             logger.error("保存过程出错", extra={"error": str(e), "traceback": traceback.format_exc()}, exc_info=True)
-            messages.error(request, f"保存过程出错: {e}")
+            messages.error(request, _("保存过程出错: %(e)s") % {"e": e})
             raise
 
     @staticmethod
@@ -90,7 +91,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if formset.errors:
             for i, err in enumerate(formset.errors):
                 if err:
-                    messages.error(request, f"表单 {i} 错误: {err}")
+                    messages.error(request, _("表单 %(i)s 错误: %(err)s") % {"i": i, "err": err})
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
@@ -103,7 +104,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 obj.save()
             except Exception as e:
                 logger.error("保存失败", extra={"error": str(e), "traceback": traceback.format_exc()}, exc_info=True)
-                messages.error(request, f"保存失败: {e}")
+                messages.error(request, _("保存失败: %(e)s") % {"e": e})
                 raise
         return max_order
 
@@ -114,7 +115,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 obj.delete()
             except Exception as e:
                 logger.warning("删除失败", extra={"error": str(e)}, exc_info=True)
-                messages.error(request, f"删除失败: {e}")
+                messages.error(request, _("删除失败: %(e)s") % {"e": e})
 
     @staticmethod
     def _prepare_evidence_item(obj: Any, max_order: int, items_need_page_count: list[Any]) -> None:
@@ -154,7 +155,11 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 if error:
                     messages.warning(
                         request,
-                        f"文件 {obj.file_name or obj.file} 页数识别失败,将按 {page_count} 页处理:{error}",
+                        _("文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s") % {
+                            "n": obj.file_name or obj.file,
+                            "p": page_count,
+                            "e": error,
+                        },
                     )
             except Exception as e:
                 logger.warning(
@@ -162,7 +167,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                     extra={"file_name": getattr(obj.file, "name", None), "error": str(e)},
                     exc_info=True,
                 )
-                messages.warning(request, f"文件 {obj.file_name} 页数识别失败: {e}")
+                messages.warning(request, _("文件 %(n)s 页数识别失败: %(e)s") % {"n": obj.file_name, "e": e})
 
     def _handle_file_cleared(self, formset: Any) -> None:
         for form in formset.forms:

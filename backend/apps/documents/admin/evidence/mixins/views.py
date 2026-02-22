@@ -287,7 +287,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.exception("操作失败")
             if is_ajax:
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
-            messages.error(request, f"提交合并任务失败: {e!s}")
+            messages.error(request, _("提交合并任务失败: %(e)s") % {"e": e})
 
         return redirect("admin:documents_evidencelist_change", pk)
 
@@ -395,7 +395,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             result = admin_service.recount_pages(pk)
 
             if result["updated"] > 0:
-                messages.success(request, f"已重新识别 {result['updated']} 个文件的页数,总页数:{result['total_pages']}")
+                messages.success(request, _("已重新识别 %(n)s 个文件的页数,总页数:%(p)s") % {"n": result['updated'], "p": result['total_pages']})
             else:
                 messages.info(request, "没有需要更新的文件")
 
@@ -407,7 +407,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             messages.error(request, "证据清单不存在")
         except Exception as e:
             logger.exception("EvidenceList recount_pages 失败", extra={"evidence_list_id": pk, "error": str(e)})
-            messages.error(request, f"识别页数失败: {e!s}")
+            messages.error(request, _("识别页数失败: %(e)s") % {"e": e})
 
         return redirect("admin:documents_evidencelist_changelist")
 
