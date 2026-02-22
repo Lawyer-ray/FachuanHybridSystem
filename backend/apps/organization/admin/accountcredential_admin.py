@@ -25,7 +25,6 @@ _credential_service = AccountCredentialService()
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
-    """账号凭证管理 - 支持自动Token获取功能"""
 
     list_display: ClassVar[list[str]] = [
         "id",

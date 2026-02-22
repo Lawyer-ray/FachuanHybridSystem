@@ -15,7 +15,6 @@ from .models import AccountCredential, LawFirm, Lawyer, Team
 
 
 class LawFirmOut(ModelSchema):
-    """律所输出 Schema"""
 
     class Meta:
         model = LawFirm
@@ -23,7 +22,6 @@ class LawFirmOut(ModelSchema):
 
 
 class LawFirmIn(Schema):
-    """律所创建输入 Schema"""
 
     name: str
     address: str | None = None
@@ -32,7 +30,6 @@ class LawFirmIn(Schema):
 
 
 class LawFirmUpdateIn(Schema):
-    """律所更新输入 Schema"""
 
     name: str | None = None
     address: str | None = None
@@ -41,7 +38,6 @@ class LawFirmUpdateIn(Schema):
 
 
 class LawyerOut(ModelSchema, SchemaMixin):
-    """律师输出 Schema"""
 
     license_pdf_url: str | None = None
     law_firm_detail: LawFirmOut | None = None
@@ -68,7 +64,6 @@ class LawyerOut(ModelSchema, SchemaMixin):
 
 
 class LawyerCreateIn(Schema):
-    """律师创建输入 Schema"""
 
     username: str
     password: str
@@ -83,7 +78,6 @@ class LawyerCreateIn(Schema):
 
 
 class LawyerUpdateIn(Schema):
-    """律师更新输入 Schema"""
 
     real_name: str | None = None
     phone: str | None = None
@@ -97,21 +91,18 @@ class LawyerUpdateIn(Schema):
 
 
 class LoginIn(Schema):
-    """登录输入 Schema"""
 
     username: str
     password: str
 
 
 class LoginOut(Schema):
-    """登录输出 Schema"""
 
     success: bool
     user: LawyerOut | None = None
 
 
 class TeamOut(ModelSchema):
-    """团队输出 Schema"""
 
     class Meta:
         model = Team
@@ -119,7 +110,6 @@ class TeamOut(ModelSchema):
 
 
 class TeamIn(Schema):
-    """团队创建输入 Schema"""
 
     name: str
     team_type: str
@@ -127,7 +117,6 @@ class TeamIn(Schema):
 
 
 class AccountCredentialOut(ModelSchema, SchemaMixin):
-    """账号凭证输出 Schema"""
 
     class Meta:
         model = AccountCredential
@@ -149,7 +138,6 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
 
 
 class AccountCredentialIn(Schema):
-    """账号凭证创建输入 Schema"""
 
     lawyer_id: int
     site_name: str
@@ -159,7 +147,6 @@ class AccountCredentialIn(Schema):
 
 
 class AccountCredentialUpdateIn(Schema):
-    """账号凭证更新输入 Schema"""
 
     site_name: str | None = None
     url: str | None = None
