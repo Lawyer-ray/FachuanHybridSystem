@@ -1,13 +1,4 @@
-"""
-合同文件夹绑定 API
-
-提供合同与本地文件夹绑定的 REST API 端点:
-- POST /contracts/{contract_id}/folder-binding - 创建/更新绑定
-- GET /contracts/{contract_id}/folder-binding - 获取绑定信息
-- DELETE /contracts/{contract_id}/folder-binding - 删除绑定
-
-Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
-"""
+"""合同文件夹绑定 API。"""
 
 from __future__ import annotations
 
