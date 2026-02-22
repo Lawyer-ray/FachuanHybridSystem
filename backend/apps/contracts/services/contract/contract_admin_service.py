@@ -156,9 +156,8 @@ class ContractAdminService:
         return self.mutation_service.renew_advisor_contract(contract_id)
 
     def generate_advisor_contract_name(self, principal_names: list[str], start_date: date, end_date: date) -> str:
-        from .contract_admin_mutation_service import ContractAdminMutationService
-
-        return ContractAdminMutationService.generate_advisor_contract_name(principal_names, start_date, end_date)
+        """生成常法顾问合同名称（委托给 ContractAdminMutationService）"""
+        return self.mutation_service.generate_advisor_contract_name(principal_names, start_date, end_date)
 
     def get_related_cases(self, contract_id: int) -> list[dict[str, Any]]:
         return self.query_service.get_related_cases(contract_id)

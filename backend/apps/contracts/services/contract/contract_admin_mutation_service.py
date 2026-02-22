@@ -203,7 +203,8 @@ class ContractAdminMutationService:
 
         return new_contract
 
-    def generate_advisor_contract_name(principal_names: list[str], start_date: date, end_date: date) -> str: # type: ignore
+    def generate_advisor_contract_name(self, principal_names: list[str], start_date: date, end_date: date) -> str:
+        """生成常法顾问合同名称"""
         principals_str = "、".join(principal_names)
         start_str = start_date.strftime("%Y年%m月%d日")
         end_str = end_date.strftime("%Y年%m月%d日")
