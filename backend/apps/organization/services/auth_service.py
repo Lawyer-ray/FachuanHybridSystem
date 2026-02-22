@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from django.contrib.auth import authenticate, login, logout
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
@@ -17,7 +17,7 @@ from apps.organization.models import Lawyer
 
 @dataclass
 class RegisterResult:
-    user: Any
+    user: Lawyer
 
 
 class AuthService:
@@ -31,7 +31,7 @@ class AuthService:
     - 认证失败时抛出 AuthenticationError
     """
 
-    def login(self, request: Any, username: str, password: str) -> Lawyer:
+    def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """
         用户登录
 
@@ -54,7 +54,7 @@ class AuthService:
             raise AuthenticationError(message=_("用户类型错误"), code="INVALID_USER_TYPE")
         return user
 
-    def logout(self, request: Any) -> None:
+    def logout(self, request: HttpRequest) -> None:
         """
         用户登出
 

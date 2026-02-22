@@ -396,3 +396,49 @@ def test_update_reminder_switch_from_case_log_to_contract(case_log: CaseLog, con
     # 同时传两个 FK → 应报错
     with pytest.raises(ValidationException, match="只能绑定"):
         service.update_reminder(reminder.id, {"contract_id": contract.id, "case_log_id": case_log.id})
+
+
+@pytest.mark.django_db
+def test_update_reminder_type_and_due_at(contract: Contract) -> None:
+    """更新 reminder_type 和 due_at 字段。"""
+    service = ReminderService()
+    reminder = service.create_reminder(
+        contract_id=contract.id,
+        reminder_type=ReminderType.HEARING,
+        content="提醒",
+        due_at=timezone.now() + timedelta(days=1),
+    )
+    new_due = timezone.now() + timedelta(days=7)
+    updated = service.update_reminder(
+        reminder.id,
+        {"reminder_type": ReminderType.EVIDENCE_DEADLINE, "due_at": new_due},
+    )
+    assert updated.reminder_type == ReminderType.EVIDENCE_DEADLINE
+    assert updated.due_at == new_due
+
+
+@pytest.mark.django_db
+def test_update_reminder_fk_switch_to_new_contract(contract: Contract) -> None:
+    """_apply_update_fields: 只传 contract_id 且目标存在，成功切换。"""
+    service = ReminderService()
+    contract2 = Contract.objects.create(name="第二合同", case_type=CaseType.CIVIL)
+    reminder = service.create_reminder(
+        contract_id=contract.id,
+        reminder_type=ReminderType.HEARING,
+        content="提醒",
+        due_at=timezone.now() + timedelta(days=1),
+    )
+    updated = service.update_reminder(reminder.id, {"contract_id": contract2.id})
+    assert updated.contract_id == contract2.id
+
+
+@pytest.mark.django_db
+def test_adapter_bulk_create_all_invalid_rows_returns_zero(contract: Contract) -> None:
+    """所有行都无效时 create_contract_reminders_internal 返回 0。"""
+    created = ReminderServiceAdapter().create_contract_reminders_internal(
+        contract_id=contract.id,
+        reminders=[
+            {"reminder_type": "bad", "content": "x", "due_at": timezone.now(), "metadata": {}},
+        ],
+    )
+    assert created == 0

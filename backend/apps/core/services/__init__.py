@@ -21,7 +21,6 @@ __all__ = [
     "BusinessConfigService",
     "CauseCourtInitializationService",
     "ConversationService",
-    "CoreConversationService",
     "CourtApiClient",
     "InitializationResult",
     "PromptTemplateService",
@@ -31,10 +30,6 @@ __all__ = [
 
 def __getattr__(name: str) -> type:
     if name == "ConversationService":
-        from .conversation_service import ConversationService
-
-        return ConversationService
-    if name == "CoreConversationService":
         from .conversation_service import ConversationService
 
         return ConversationService

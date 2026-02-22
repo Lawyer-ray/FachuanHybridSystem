@@ -4,6 +4,7 @@
 提供集中化、类型安全、环境感知的配置管理能力
 """
 
+import threading
 from typing import Any
 
 from .exceptions import (
@@ -34,29 +35,26 @@ from .utils import (
     register_config_change_listener,
 )
 
-# 全局配置管理器实例
-_global_config_manager = None
+# 全局配置管理器实例（线程安全）
+_global_config_manager: ConfigManager | None = None
+_global_config_lock = threading.Lock()
 
 
 def get_config_manager() -> ConfigManager:
-    """
-    获取全局配置管理器实例
-
-    Returns:
-        ConfigManager: 全局配置管理器实例
-    """
+    """获取全局配置管理器实例（线程安全单例）"""
     global _global_config_manager
-    if _global_config_manager is None:
+    if _global_config_manager is not None:
+        return _global_config_manager
+    with _global_config_lock:
+        if _global_config_manager is not None:
+            return _global_config_manager
         _global_config_manager = ConfigManager()
-        # 注册配置模式
         schema = ConfigSchema()
         for _key, field in CONFIG_REGISTRY.items():
             schema.register(field)
         _global_config_manager.set_schema(schema)
-        # 添加提供者
         _global_config_manager.add_provider(EnvProvider())
 
-        # 构建配置文件的绝对路径
         from pathlib import Path
 
         current_dir = Path(__file__).parent
@@ -73,7 +71,7 @@ def get_config_manager() -> ConfigManager:
                 pass
 
         _global_config_manager.add_provider(YamlProvider(str(config_file)))
-    return _global_config_manager
+        return _global_config_manager
 
 
 def get_config(key: str, default: Any = None) -> Any:

@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.db import transaction
 from django.db.models import Count, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
+from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 from apps.organization.models import LawFirm, Lawyer
 from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
@@ -113,7 +113,7 @@ class LawFirmService:
         return queryset[start:end]
 
     @transaction.atomic
-    def create_lawfirm(self, data: Any, user: Lawyer | None) -> LawFirm:
+    def create_lawfirm(self, data: LawFirmCreateDTO, user: Lawyer | None) -> LawFirm:
         """
         创建律所
 
@@ -159,7 +159,7 @@ class LawFirmService:
         return lawfirm
 
     @transaction.atomic
-    def update_lawfirm(self, lawfirm_id: int, data: Any, user: Lawyer | None) -> LawFirm:
+    def update_lawfirm(self, lawfirm_id: int, data: LawFirmUpdateDTO, user: Lawyer | None) -> LawFirm:
         """
         更新律所
 
@@ -267,7 +267,7 @@ class LawFirmService:
 
     # ========== 私有方法（业务逻辑封装） ==========
 
-    def _validate_create_data(self, data: Any) -> None:
+    def _validate_create_data(self, data: LawFirmCreateDTO) -> None:
         """验证创建数据（私有方法）"""
         # 检查名称是否重复
         if LawFirm.objects.filter(name=data.name).exists():
@@ -275,7 +275,7 @@ class LawFirmService:
                 message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": str(_("该名称已被使用"))}
             )
 
-    def _validate_update_data(self, lawfirm: LawFirm, data: Any) -> None:
+    def _validate_update_data(self, lawfirm: LawFirm, data: LawFirmUpdateDTO) -> None:
         """验证更新数据（私有方法）"""
         # 检查名称是否与其他律所重复
         if data.name and data.name != lawfirm.name and LawFirm.objects.filter(name=data.name).exists():
