@@ -14,8 +14,6 @@ from apps.core.enums import CaseStatus, CaseType
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
-    from apps.organization.models import Lawyer
-
     from .finance import ContractFinanceLog
     from .folder_binding import ContractFolderBinding
     from .party import ContractAssignment, ContractParty
@@ -104,26 +102,5 @@ class Contract(models.Model):
         with contextlib.suppress(Exception):
             self.representation_stages = normalize_representation_stages(ctype, rep, strict=False)
 
-    @property
-    def primary_lawyer(self) -> Lawyer | None:
-        """
-        获取主办律师
 
-        通过关联的 ContractAssignment 查询标记为主办律师的记录.
-        这是一个简单的关联查询,保留在 Model 层.
 
-        Returns:
-            Optional[Lawyer]: 主办律师对象,如果没有则返回 None
-        """
-        assignment = self.assignments.filter(is_primary=True).first()
-        return assignment.lawyer if assignment else None
-
-    @property
-    def all_lawyers(self) -> list[Lawyer]:
-        """
-        获取所有律师列表
-
-        Returns:
-            List[Lawyer]: 律师对象列表,如果没有则返回空列表
-        """
-        return [assignment.lawyer for assignment in self.assignments.all()]
