@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, ClassVar
 
 import cv2
@@ -10,8 +11,6 @@ import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext_lazy as _
 from numpy.typing import NDArray
-
-from pathlib import Path
 
 from apps.core.exceptions import ValidationException
 
@@ -134,7 +133,7 @@ class IdCardMergeService:
             raise ValidationException(
                 message=_("非法的文件路径"),
                 code="INVALID_FILE_PATH",
-                errors={"path": "文件路径不在允许的范围内"},
+                errors={"path": _("文件路径不在允许的范围内")},
             ) from None
         return (full_path, rel_path)
 
@@ -142,7 +141,7 @@ class IdCardMergeService:
         if "temp/" not in rel_path:
             return
         try:
-            full_path.unlink()
+            full_path.unlink(missing_ok=True)
             logger.info("清理临时图片", extra={"path": str(full_path)})
         except OSError as e:
             logger.warning("清理临时图片失败", extra={"path": str(full_path), "error": str(e)})
