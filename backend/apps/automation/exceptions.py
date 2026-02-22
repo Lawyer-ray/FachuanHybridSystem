@@ -3,53 +3,28 @@
 from typing import Any
 
 from apps.core.exceptions import (
+    AutoTokenAcquisitionError,
     BusinessException,
+    CaptchaRecognitionError,
     ExternalServiceError,
+    LoginFailedError,
+    NoAvailableAccountError,
     NotFoundError,
     RecognitionTimeoutError,
     ServiceUnavailableError,
+    TokenAcquisitionTimeoutError,
     ValidationException,
 )
 
-
-class AutoTokenAcquisitionError(ExternalServiceError):
-    def __init__(
-        self, message: str = "自动Token获取失败", code: str | None = None, errors: dict[str, Any] | None = None
-    ) -> None:
-        super().__init__(message=message, code=code or "AUTO_TOKEN_ACQUISITION_ERROR", errors=errors)
-
-
-class LoginFailedError(AutoTokenAcquisitionError):
-    def __init__(
-        self,
-        message: str = "登录失败",
-        code: str | None = None,
-        errors: dict[str, Any] | None = None,
-        attempts: list[Any] | None = None,
-    ) -> None:
-        super().__init__(message=message, code=code or "LOGIN_FAILED", errors=errors)
-        self.attempts = attempts or []
-
-
-class NoAvailableAccountError(AutoTokenAcquisitionError):
-    def __init__(
-        self, message: str = "无可用账号", code: str | None = None, errors: dict[str, Any] | None = None
-    ) -> None:
-        super().__init__(message=message, code=code or "NO_AVAILABLE_ACCOUNT", errors=errors)
-
-
-class TokenAcquisitionTimeoutError(AutoTokenAcquisitionError):
-    def __init__(
-        self, message: str = "Token获取超时", code: str | None = None, errors: dict[str, Any] | None = None
-    ) -> None:
-        super().__init__(message=message, code=code or "TOKEN_ACQUISITION_TIMEOUT", errors=errors)
-
-
-class CaptchaRecognitionError(ExternalServiceError):
-    def __init__(
-        self, message: str = "验证码识别失败", code: str | None = None, errors: dict[str, Any] | None = None
-    ) -> None:
-        super().__init__(message=message, code=code or "CAPTCHA_RECOGNITION_ERROR", errors=errors)
+# 从 core 重新导出，保持向后兼容
+__all__ = [
+    "AutoTokenAcquisitionError",
+    "CaptchaRecognitionError",
+    "LoginFailedError",
+    "NoAvailableAccountError",
+    "TokenAcquisitionTimeoutError",
+    "AutomationExceptions",
+]
 
 
 class AutomationExceptions:
