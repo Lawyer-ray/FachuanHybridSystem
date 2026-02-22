@@ -6,10 +6,12 @@ Contract Admin - Save Mixin
 
 
 from __future__ import annotations
+
 import logging
 from typing import Any
 
 from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
 
@@ -66,7 +68,7 @@ class ContractSaveMixin:
                 extra={"contract_id": obj.id},
                 exc_info=True,
             )
-            messages.error(request, f"处理建档编号失败: {e!s}")
+            messages.error(request, _("处理建档编号失败: %(err)s") % {"err": e})
 
     def save_related(self, request, form, formsets, change) -> None:
         super().save_related(request, form, formsets, change)
@@ -84,7 +86,7 @@ class ContractSaveMixin:
                 extra={"contract_id": contract.id},
                 exc_info=True,
             )
-            messages.error(request, f"同步关联案件律师指派失败: {e!s}")
+            messages.error(request, _("同步关联案件律师指派失败: %(err)s") % {"err": e})
 
     def delete_model(self, request, obj) -> None:
         """
@@ -113,7 +115,7 @@ class ContractSaveMixin:
                 extra={"contract_id": obj.id},
                 exc_info=True,
             )
-            messages.error(request, f"删除合同失败: {e!s}")
+            messages.error(request, _("删除合同失败: %(err)s") % {"err": e})
             raise
 
     def delete_queryset(self, request, queryset) -> None:
@@ -139,5 +141,5 @@ class ContractSaveMixin:
 
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"批量删除合同失败: {e!s}", exc_info=True)
-            messages.error(request, f"批量删除合同失败: {e!s}")
+            messages.error(request, _("批量删除合同失败: %(err)s") % {"err": e})
             raise
