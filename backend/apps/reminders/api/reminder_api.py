@@ -2,37 +2,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django.http import HttpResponse
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.reminders.schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
-
-if TYPE_CHECKING:
-    from apps.reminders.services import ReminderService
+from apps.reminders.services.reminder_service import ReminderService
 
 router = Router()
 
-
-def _get_service() -> ReminderService:
-    """获取 ReminderService 实例（延迟导入）。"""
-    from apps.core.dependencies.business_organization import build_reminder_api_service
-
-    return build_reminder_api_service()
+_service = ReminderService()
 
 
 @router.get("/list", response=list[ReminderOut])
 def list_reminders(request: Any, contract_id: int | None = None, case_log_id: int | None = None) -> Any:
-    service = _get_service()
-    return service.list_reminders(contract_id=contract_id, case_log_id=case_log_id)
+    return _service.list_reminders(contract_id=contract_id, case_log_id=case_log_id)
 
 
 @router.post("/create", response=ReminderOut)
 def create_reminder(request: Any, payload: ReminderIn) -> Any:
-    service = _get_service()
-    return service.create_reminder(
+    return _service.create_reminder(
         contract_id=payload.contract_id,
         case_log_id=payload.case_log_id,
         reminder_type=payload.reminder_type.value,
@@ -50,21 +41,18 @@ def get_types(request: Any) -> Any:
 
 @router.get("/{reminder_id}", response=ReminderOut)
 def get_reminder(request: Any, reminder_id: int) -> Any:
-    service = _get_service()
-    return service.get_reminder(reminder_id)
+    return _service.get_reminder(reminder_id)
 
 
 @router.put("/{reminder_id}", response=ReminderOut)
 def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> Any:
-    service = _get_service()
     data = schema_to_update_dict(payload)
     if "reminder_type" in data and data["reminder_type"] is not None:
         data["reminder_type"] = data["reminder_type"].value
-    return service.update_reminder(reminder_id, data)
+    return _service.update_reminder(reminder_id, data)
 
 
 @router.delete("/{reminder_id}")
 def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:
-    service = _get_service()
-    service.delete_reminder(reminder_id)
+    _service.delete_reminder(reminder_id)
     return HttpResponse(status=204)

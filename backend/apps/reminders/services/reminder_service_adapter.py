@@ -35,6 +35,10 @@ class ReminderServiceAdapter:
         "verdict": "appeal_deadline",
         "asset_preservation": "asset_preservation_expires",
     }
+    # 类级别缓存，避免每次调用都重建列表
+    _REMINDER_TYPE_CODE_TO_ID: ClassVar[dict[str, int]] = {
+        code: idx + 1 for idx, code in enumerate(ReminderType.values)
+    }
 
     def __init__(self) -> None:
         self._service = ReminderService()
@@ -79,8 +83,7 @@ class ReminderServiceAdapter:
             return None
 
         rt = ReminderType(code)
-        stable_id = list(ReminderType.values).index(code) + 1
-        return ReminderTypeDTO(id=stable_id, code=code, name=str(rt.label), description=None)
+        return ReminderTypeDTO(id=self._REMINDER_TYPE_CODE_TO_ID[code], code=code, name=str(rt.label), description=None)
 
     def get_reminder_type_for_document_internal(self, document_type: str) -> "ReminderTypeDTO | None":
         """内部方法：根据文书类型获取对应的提醒类型。"""
@@ -96,11 +99,11 @@ class ReminderServiceAdapter:
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建合同提醒。"""
-        normalized_contract_id: int | None = normalize_target_id(contract_id, field_name=_("合同ID"))
-        if normalized_contract_id is None or not reminders:
+        normalize_target_id(contract_id, field_name=_("合同ID"))
+        if not reminders:
             return 0
 
-        validate_fk_exists(contract_id=normalized_contract_id, case_log_id=None)
+        validate_fk_exists(contract_id=contract_id, case_log_id=None)
 
         objs: list[Reminder] = []
         for item in reminders:
@@ -117,7 +120,7 @@ class ReminderServiceAdapter:
 
             objs.append(
                 Reminder(
-                    contract_id=normalized_contract_id,
+                    contract_id=contract_id,
                     reminder_type=reminder_type,
                     content=content,
                     due_at=due_at,
