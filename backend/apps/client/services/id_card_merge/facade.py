@@ -110,12 +110,10 @@ class IdCardMergeService:
                     "error": "INVALID_CORNERS",
                     "message": _("无法读取%(label)s图片，请确保图片格式正确") % {"label": label},
                 }
-        assert front_cv_image is not None
-        assert back_cv_image is not None
         front_corners_ordered = self._order_corners(np.array(front_corners, dtype=np.float32))
         back_corners_ordered = self._order_corners(np.array(back_corners, dtype=np.float32))
-        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered) # type: ignore
-        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered) # type: ignore
+        front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered)  # type: ignore[arg-type]
+        back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered)  # type: ignore[arg-type]
         pdf_path = self._generate_pdf(front_transformed, back_transformed)
         self._cleanup_temp_file(front_rel_path, front_full_path)
         self._cleanup_temp_file(back_rel_path, back_full_path)

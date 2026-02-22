@@ -19,7 +19,7 @@ logger = logging.getLogger("apps.client")
 
 def _get_id_card_merge_service() -> Any:
     """工厂函数:获取身份证合并服务"""
-    from apps.client.services.id_card_merge_service import IdCardMergeService
+    from apps.client.services.id_card_merge import IdCardMergeService
 
     return IdCardMergeService()
 

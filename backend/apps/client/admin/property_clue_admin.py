@@ -93,7 +93,7 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
 
     def attachment_count(self, obj: PropertyClue) -> str:
         """显示附件数量"""
-        count = obj.attachments.count()
+        count = len(obj.attachments.all())
         if count > 0:
             return format_html('<span style="color: green;">{}</span>', _("%(count)d 个附件") % {"count": count})
         return str(_("无附件"))

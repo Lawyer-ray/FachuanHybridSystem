@@ -103,7 +103,6 @@ class PropertyClueService:
                 errors={"clue_id": f"ID 为 {clue_id} 的财产线索不存在"},
             )
 
-        assert isinstance(clue, PropertyClue)
         return clue
 
     def list_clues_by_client(
