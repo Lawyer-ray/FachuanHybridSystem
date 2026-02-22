@@ -13,7 +13,6 @@ from .forms import LawyerRegistrationForm
 
 
 def register(request: HttpRequest) -> HttpResponse:
-    """用户注册视图"""
     auth_service = AuthService()
     is_first_user = auth_service.is_first_user()
 
