@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.http import HttpRequest
 from django.utils.dateparse import parse_date
 from ninja import Router
 
@@ -23,7 +24,7 @@ def _get_finance_service() -> ContractFinanceService:
 
 @router.get("/finance/stats", response=FinanceStatsOut)
 def finance_stats(
-    request: Any,
+    request: HttpRequest,
     contract_id: int | None = None,
     start_date: str | None = None,
     end_date: str | None = None,

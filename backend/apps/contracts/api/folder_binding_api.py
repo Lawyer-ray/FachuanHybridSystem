@@ -1,9 +1,3 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
-import logging
-
 """
 合同文件夹绑定 API
 
@@ -14,6 +8,10 @@ import logging
 
 Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
 """
+
+from __future__ import annotations
+
+import logging
 
 from typing import Any
 
@@ -164,7 +162,7 @@ def delete_folder_binding(request: Any, contract_id: int) -> Any:
         },
     )
 
-    return {"success": success, "message": "绑定已删除" if success else "绑定不存在"}
+    return {"success": success, "message": _("绑定已删除") if success else _("绑定不存在")}
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)

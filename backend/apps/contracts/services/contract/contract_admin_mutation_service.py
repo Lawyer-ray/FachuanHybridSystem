@@ -91,7 +91,7 @@ class ContractAdminMutationService:
             raise NotFoundError(
                 message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
+                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
             ) from None
 
         new_contract = Contract.objects.create(
@@ -128,14 +128,14 @@ class ContractAdminMutationService:
             raise NotFoundError(
                 message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
+                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
             ) from None
 
         if contract.case_type not in self.CASE_ALLOWED_TYPES:
             raise ValidationException(
                 message=_("该合同类型不支持创建案件"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型 {contract.get_case_type_display()} 不支持创建案件"},
+                errors={"case_type": _("合同类型 %(type)s 不支持创建案件") % {"type": contract.get_case_type_display()}},
             )
 
         from apps.core.enums import SimpleCaseType
@@ -170,14 +170,14 @@ class ContractAdminMutationService:
             raise NotFoundError(
                 message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
+                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
             ) from None
 
         if original.case_type != CaseType.ADVISOR:
             raise ValidationException(
                 message=_("只有常法顾问合同才能续签"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型为 {original.get_case_type_display()},不是常法顾问合同"},
+                errors={"case_type": _("合同类型为 %(type)s，不是常法顾问合同") % {"type": original.get_case_type_display()}},
             )
 
         new_start_date = original.start_date + relativedelta(years=1) if original.start_date else None
@@ -220,7 +220,7 @@ class ContractAdminMutationService:
             raise NotFoundError(
                 message=_("合同不存在"),
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": f"ID为 {contract_id} 的合同不存在"},
+                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
             ) from None
 
         if not is_archived:
