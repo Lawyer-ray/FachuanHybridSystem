@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import ValidationException
 
@@ -91,7 +91,7 @@ class LitigationFeeCalculatorService:
     支持财产案件、保全、执行、支付令、知识产权、离婚、人格权侵权、破产等案件类型.
     """
 
-    def __init__(self, cause_rule_service: Optional["CauseRuleService"] = None) -> None:
+    def __init__(self, cause_rule_service: "CauseRuleService | None" = None) -> None:
         """
         初始化诉讼费用计算服务
 
