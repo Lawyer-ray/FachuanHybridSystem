@@ -38,7 +38,7 @@ class LawyerMutationService:
         law_firm = None
         if data.law_firm_id:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
-            if not law_firm:
+            if law_firm is None:
                 raise ValidationException(
                     message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": str(_("无效的律所 ID"))}
                 )
@@ -126,7 +126,7 @@ class LawyerMutationService:
 
         if data.law_firm_id is not None:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
-            if not law_firm:
+            if law_firm is None:
                 raise ValidationException(
                     message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": str(_("无效的律所 ID"))}
                 )
