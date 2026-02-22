@@ -40,11 +40,19 @@ class ClientIdentityDocService:
         # 创建证件记录
         doc = ClientIdentityDoc.objects.create(client=client, doc_type=doc_type, file_path=file_path)
 
-        # 重命名文件（对所有非空路径执行）
+        # 重命名文件（对所有非空路径执行），在事务提交后执行文件系统操作
         if file_path:
-            self.rename_uploaded_file(doc)
+            transaction.on_commit(lambda doc_id=doc.pk: self._rename_uploaded_file_by_id(doc_id))
 
         return doc
+
+    def _rename_uploaded_file_by_id(self, doc_id: int) -> None:
+        """事务提交后重命名文件（避免文件系统操作在事务内执行）。"""
+        try:
+            doc = self.get_identity_doc(doc_id)
+            self.rename_uploaded_file(doc)
+        except Exception:
+            logger.exception("文件重命名失败", extra={"doc_id": doc_id})
 
     def rename_uploaded_file(self, doc_instance: ClientIdentityDoc) -> None:
         """重命名上传的文件"""
