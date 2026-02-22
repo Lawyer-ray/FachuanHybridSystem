@@ -178,7 +178,7 @@ class PreservationMaterialsGenerationService:
             case_id: 案件ID
 
         Returns:
-            Optional[str]: 报告内容,如果所有被申请人都有财产线索则返回 None
+            str | None: 报告内容,如果所有被申请人都有财产线索则返回 None
         """
         missing_clue_respondents = self.property_clue_service.get_respondents_without_clues(case_id)
         if not missing_clue_respondents:

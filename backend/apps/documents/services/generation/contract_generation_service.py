@@ -89,8 +89,8 @@ class ContractGenerationService:
 
     def __init__(
         self,
-        contract_service: Optional["IContractService"] = None,
-        folder_binding_service: Optional["IContractFolderBindingService"] = None,
+        contract_service: "IContractService" | None = None,
+        folder_binding_service: "IContractFolderBindingService" | None = None,
     ) -> None:
         """
         初始化服务(依赖注入)
@@ -117,7 +117,7 @@ class ContractGenerationService:
         return self._contract_service
 
     @property
-    def folder_binding_service(self) -> Optional["IContractFolderBindingService"]:
+    def folder_binding_service(self) -> "IContractFolderBindingService" | None:
         return self._folder_binding_service
 
     def generate_contract_document(self, contract_id: int) -> tuple[bytes | None, str | None, str | None]:
@@ -190,7 +190,7 @@ class ContractGenerationService:
 
         return ContractTemplateQueryService().find_matching_templates(case_type)
 
-    def find_matching_template(self, case_type: str) -> Optional["DocumentTemplate"]:
+    def find_matching_template(self, case_type: str) -> "DocumentTemplate" | None:
         """
         查找匹配的文书模板(返回第一个匹配的)
 
