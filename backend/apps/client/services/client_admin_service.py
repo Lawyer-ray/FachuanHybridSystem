@@ -7,8 +7,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from django.db import transaction
-
 from apps.core.exceptions import ValidationException
 
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
@@ -59,7 +57,6 @@ class ClientAdminService(ClientAdminFileMixin):
             self._internal_query_service = ClientInternalQueryService()
         return self._internal_query_service
 
-    @transaction.atomic
     def import_from_json(self, json_data: dict[str, Any], admin_user: str) -> ImportResult:
         """从 JSON 导入客户，委托给 ClientJsonImporter。"""
         from .importer import ClientJsonImporter
