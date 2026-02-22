@@ -1,6 +1,3 @@
-from .reminder_admin import ReminderAdmin, ReminderAdminForm
+from .reminder_admin import ReminderAdmin
 
-__all__ = [
-    "ReminderAdmin",
-    "ReminderAdminForm",
-]
+__all__ = ["ReminderAdmin"]

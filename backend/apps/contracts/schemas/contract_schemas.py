@@ -200,7 +200,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_reminders(obj: Contract) -> list[Any]:
         reminders = obj.reminders  # type: ignore[attr-defined]
-        return [ReminderOut.from_model(item) for item in reminders.all()]  # type: ignore[attr-defined]
+        return list(reminders.all())
 
     @staticmethod
     def resolve_payments(obj: Contract) -> list[Any]:

@@ -15,7 +15,7 @@ from .models import Reminder, ReminderType
 class ReminderIn(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
-    reminder_type: str
+    reminder_type: ReminderType
     content: str
     due_at: datetime
     metadata: dict[str, Any] | None = None
@@ -33,7 +33,7 @@ class ReminderIn(Schema):
 class ReminderUpdate(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
-    reminder_type: str | None = None
+    reminder_type: ReminderType | None = None
     content: str | None = None
     due_at: datetime | None = None
     metadata: dict[str, Any] | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any, cast
 
@@ -34,8 +35,7 @@ class ReminderService:
 
     def get_reminder(self, reminder_id: int) -> Reminder:
         try:
-            reminder = Reminder.objects.select_related("contract", "case_log").get(id=reminder_id)
-            return cast(Reminder, reminder)
+            return Reminder.objects.select_related("contract", "case_log").get(id=reminder_id)
         except Reminder.DoesNotExist:
             raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id}) from None
 
@@ -59,8 +59,6 @@ class ReminderService:
             raise ValidationException(_("无效的提醒类型"))
         if not content or not content.strip():
             raise ValidationException(_("提醒事项不能为空"))
-        if not due_at:
-            raise ValidationException(_("到期时间不能为空"))
 
         if timezone.is_naive(due_at):
             due_at = timezone.make_aware(due_at)
@@ -120,3 +118,11 @@ class ReminderService:
         reminder = self.get_reminder(reminder_id)
         reminder.delete()
         return {"success": True}
+
+    def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
+        """获取案件日志已存在的提醒到期时间集合。"""
+        due_at_values = Reminder.objects.filter(
+            case_log_id=case_log_id,
+            reminder_type=reminder_type,
+        ).values_list("due_at", flat=True)
+        return set(cast("Iterable[datetime]", due_at_values))
