@@ -31,7 +31,7 @@ class ClientIdentityDocService:
             raise NotFoundError(
                 message=_("当事人不存在"),
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": str(_("ID 为 %(id)s 的当事人不存在") % {"id": client_id})},
+                errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
             )
 
         # 创建证件记录
@@ -57,10 +57,10 @@ class ClientIdentityDocService:
             return
 
         raw_path = doc_instance.file_path
+        media_root_str = _get_media_root()
         # 相对路径通过 MEDIA_ROOT 解析为绝对路径
         p = Path(raw_path)
         if not p.is_absolute():
-            media_root_str = _get_media_root()
             abs_path = Path(media_root_str) / p if media_root_str else p
         else:
             abs_path = p
@@ -68,19 +68,14 @@ class ClientIdentityDocService:
         if not abs_path.exists():
             return
 
-        # 获取文件扩展名
         ext = abs_path.suffix
-
-        # 生成新文件名：{doc_type}（{client_name}）.ext
         client_name = sanitize_upload_filename(doc_instance.client.name)
         doc_type_display = doc_instance.get_doc_type_display()
         new_filename = f"{doc_type_display}（{client_name}）{ext}"
 
-        # 生成新路径
         old_dir = abs_path.parent
         new_abs_path = old_dir / new_filename
 
-        # 如果新路径已存在且不是同一文件，添加序号
         if new_abs_path.exists() and abs_path.resolve() != new_abs_path.resolve():
             counter = 1
             name_without_ext = f"{doc_type_display}（{client_name}）"
@@ -89,18 +84,14 @@ class ClientIdentityDocService:
                 new_abs_path = old_dir / new_filename
                 counter += 1
 
-        # 重命名文件
         if abs_path.resolve() != new_abs_path.resolve():
             try:
                 shutil.move(abs_path, new_abs_path)
-                # 保存相对路径（相对于 MEDIA_ROOT）
-                media_root_str = _get_media_root()
                 media_root = Path(media_root_str) if media_root_str else None
                 try:
                     relative_path = new_abs_path.relative_to(media_root) if media_root else None
                     doc_instance.file_path = str(relative_path) if relative_path else str(new_abs_path)
                 except ValueError:
-                    # 不在 MEDIA_ROOT 下时保存绝对路径
                     doc_instance.file_path = str(new_abs_path)
                 doc_instance.save(update_fields=["file_path"])
                 logger.info("文件重命名成功: %s -> %s", raw_path, doc_instance.file_path)
@@ -119,7 +110,7 @@ class ClientIdentityDocService:
             raise NotFoundError(
                 message=_("证件文档不存在"),
                 code="IDENTITY_DOC_NOT_FOUND",
-                errors={"doc_id": str(_("ID 为 %(id)s 的证件文档不存在") % {"id": doc_id})},
+                errors={"doc_id": _("ID 为 %(id)s 的证件文档不存在") % {"id": doc_id}},
             )
         return doc
 
