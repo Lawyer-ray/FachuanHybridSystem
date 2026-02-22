@@ -13,7 +13,7 @@ def _today_compact() -> str:
 def contract_docx_filename(*, template_name: str, contract_name: str, version: str = "V1") -> str:
     template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
     contract_display = contract_name or "未命名合同"
-    return f"{template_prefix}({contract_display}){version}_{_today_compact()}.docx"
+    return f"{template_prefix}（{contract_display}）{version}_{_today_compact()}.docx"
 
 
 def supplementary_agreement_docx_filename(*, agreement_name: str, contract_name: str, version: str = "V1") -> str:

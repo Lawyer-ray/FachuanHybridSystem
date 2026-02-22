@@ -128,7 +128,7 @@ class PrincipalInfoService(BasePlaceholderService):
         """
         根据客户类型格式化详细信息
 
-        通过 wiring 获取 client_service,避免跨模块直接导入 Model
+        通过 client_type 属性判断类型,避免额外数据库查询
 
         Args:
             client: Client 实例
@@ -141,12 +141,12 @@ class PrincipalInfoService(BasePlaceholderService):
         lines: list[Any] = []
 
         try:
-            from apps.documents.services.wiring import get_client_service
+            from apps.client.models import Client
 
-            client_service = get_client_service()
+            client_type = getattr(client, "client_type", None)
+            is_natural = client_type == Client.NATURAL
 
-            if hasattr(client, "id"):
-                is_natural = client_service.is_natural_person_internal(client.id)
+            if client_type is not None:
                 if is_natural:
                     # 自然人格式
                     lines.append(f"身份证号码：{getattr(client, 'id_number', '') or ''}")
