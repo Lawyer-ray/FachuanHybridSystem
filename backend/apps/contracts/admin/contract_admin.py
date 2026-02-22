@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+logger = logging.getLogger(__name__)
 
 from apps.contracts.models import (
     Contract,
@@ -105,7 +108,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                 rep = cleaned.get("representation_stages") or []
                 cleaned["representation_stages"] = normalize_representation_stages(ctype, rep, strict=False)
             except Exception:
-                pass
+                logger.exception("操作失败")
             return cleaned
 
     form = ContractAdminForm
