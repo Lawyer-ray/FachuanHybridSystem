@@ -14,6 +14,8 @@ from typing import Any, cast
 
 from django.utils import timezone
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.chat_records")
@@ -41,7 +43,7 @@ def export_chat_record_task(task_id: str) -> Any:
             started_at=timezone.now(),
             finished_at=None,
             error="",
-            message="开始生成文件",
+            message=_("开始生成文件"),
             progress=0,
             current=0,
             total=len(screenshots),
@@ -90,7 +92,7 @@ def export_chat_record_task(task_id: str) -> Any:
         task.status = ExportStatus.SUCCESS
         task.progress = 100
         task.current = task.total
-        task.message = "生成完成"
+        task.message = _("生成完成")
         task.finished_at = timezone.now()
         task.save(
             update_fields=[
@@ -110,7 +112,7 @@ def export_chat_record_task(task_id: str) -> Any:
         ChatRecordExportTask.objects.filter(id=task_id).update(
             status=ExportStatus.FAILED,
             error=str(e),
-            message="生成失败",
+            message=_("生成失败"),
             finished_at=timezone.now(),
             updated_at=timezone.now(),
         )
@@ -293,7 +295,7 @@ def _process_ocr_for_frame(
     if not state.ocr_disabled and time.monotonic() > soft_deadline:
         state.ocr_disabled = True
         ChatRecordRecording.objects.filter(id=recording_id).update(
-            extract_message="接近超时,已降级为图片去重",
+            extract_message=_("接近超时,已降级为图片去重"),
             updated_at=timezone.now(),
         )
         return "", None, False
@@ -342,7 +344,7 @@ def _run_ffmpeg_phase(
     ChatRecordRecording.objects.filter(id=recording.id).update(
         duration_seconds=info.duration_seconds,
         extract_total=total_estimate,
-        extract_message="抽帧中",
+        extract_message=_("抽帧中"),
         updated_at=timezone.now(),
     )
 
@@ -372,7 +374,7 @@ def _run_ffmpeg_phase(
         progress = int(out_seconds * 100 / info.duration_seconds) if info.duration_seconds else 0
         progress = min(max(progress, 0), 99)
         if progress != last_progress:
-            ffmpeg_reporter.report_extra(progress=progress, current=0, total=total_estimate, message="抽帧中")
+            ffmpeg_reporter.report_extra(progress=progress, current=0, total=total_estimate, message=_("抽帧中"))
             last_progress = progress
 
     return total_estimate, should_cancel
@@ -577,7 +579,7 @@ def extract_recording_frames_task(
         extract_progress=0,
         extract_current=0,
         extract_total=0,
-        extract_message="准备抽帧",
+        extract_message=_("准备抽帧"),
         updated_at=timezone.now(),
     )
 
@@ -666,7 +668,7 @@ def extract_recording_frames_task(
                     progress=min(progress, 99),
                     current=state.created_count,
                     total=total_files,
-                    message="写入截图",
+                    message=_("写入截图"),
                     force=(state.processed_count == total_files),
                 )
 
@@ -687,7 +689,7 @@ def extract_recording_frames_task(
             extract_progress=100,
             extract_current=state.created_count,
             extract_total=state.created_count,
-            extract_message="抽帧完成",
+            extract_message=_("抽帧完成"),
             extract_finished_at=timezone.now(),
             updated_at=timezone.now(),
         )
@@ -697,7 +699,7 @@ def extract_recording_frames_task(
         ChatRecordRecording.objects.filter(id=recording.id).update(
             extract_status=ExtractStatus.FAILED,
             extract_error=str(e),
-            extract_message="抽帧失败",
+            extract_message=_("抽帧失败"),
             extract_finished_at=timezone.now(),
             updated_at=timezone.now(),
         )
