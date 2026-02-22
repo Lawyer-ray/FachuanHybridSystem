@@ -12,7 +12,6 @@ from .models import Lawyer
 
 
 class LawyerRegistrationForm(UserCreationForm[Lawyer]):
-    """律师注册表单"""
 
     bootstrap_token = forms.CharField(
         required=False,
