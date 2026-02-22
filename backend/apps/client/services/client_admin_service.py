@@ -1,7 +1,4 @@
-"""
-客户 Admin 服务层
-封装 Admin 层的复杂业务逻辑
-"""
+"""当事人 Admin 服务层。"""
 
 from django.utils.translation import gettext_lazy as _
 import logging
@@ -20,6 +17,7 @@ if TYPE_CHECKING:
     from .client_service import ClientService
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
+    from .client_mutation_service import ClientMutationService
 
 User = get_user_model()
 logger = logging.getLogger("apps.client")
@@ -52,7 +50,8 @@ class ClientAdminService(ClientAdminFileMixin):
         client_service: "ClientService | None" = None,
         identity_doc_service: "ClientIdentityDocService | None" = None,
         internal_query_service: "ClientInternalQueryService | None" = None,
-    ):
+        mutation_service: "ClientMutationService | None" = None,
+    ) -> None:
         """
         初始化服务
 
@@ -60,10 +59,12 @@ class ClientAdminService(ClientAdminFileMixin):
             client_service: ClientService 实例，支持依赖注入
             identity_doc_service: ClientIdentityDocService 实例，支持依赖注入
             internal_query_service: ClientInternalQueryService 实例，支持依赖注入
+            mutation_service: ClientMutationService 实例，支持依赖注入
         """
         self._client_service = client_service
         self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
+        self._mutation_service = mutation_service
 
     @property
     def client_service(self) -> "ClientService":
@@ -82,6 +83,15 @@ class ClientAdminService(ClientAdminFileMixin):
 
             self._identity_doc_service = ClientIdentityDocService()
         return self._identity_doc_service
+
+    @property
+    def mutation_service(self) -> "ClientMutationService":
+        """延迟获取 ClientMutationService"""
+        if self._mutation_service is None:
+            from .client_mutation_service import ClientMutationService
+
+            self._mutation_service = ClientMutationService()
+        return self._mutation_service
 
     @property
     def internal_query_service(self) -> "ClientInternalQueryService":
@@ -114,7 +124,7 @@ class ClientAdminService(ClientAdminFileMixin):
         client_data = self._extract_client_data(json_data)
 
         # 3. 创建客户
-        client = Client.objects.create(**client_data)
+        client = self.mutation_service.create_client(data=client_data, user=None)
 
         # 4. 创建关联的证件文档
         if "identity_docs" in json_data:
@@ -255,7 +265,7 @@ class ClientAdminService(ClientAdminFileMixin):
             ValidationException: 数据验证失败
         """
         # 1. 验证客户存在
-        client = Client.objects.filter(id=client_id).first()
+        client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise ValidationException(
                 message=_("客户不存在"),
