@@ -11,10 +11,11 @@ from apps.organization.services.auth_service import AuthService
 
 from .forms import LawyerRegistrationForm
 
+_auth_service = AuthService()
+
 
 def register(request: HttpRequest) -> HttpResponse:
-    auth_service = AuthService()
-    is_first_user = auth_service.is_first_user()
+    is_first_user = _auth_service.is_first_user()
 
     if request.method == "POST":
         form = LawyerRegistrationForm(request.POST)
@@ -23,7 +24,7 @@ def register(request: HttpRequest) -> HttpResponse:
             password: str = form.cleaned_data["password1"]
             bootstrap_token: str | None = form.cleaned_data.get("bootstrap_token") or None
             try:
-                result = auth_service.register(
+                result = _auth_service.register(
                     username=username,
                     password=password,
                     real_name=username,
