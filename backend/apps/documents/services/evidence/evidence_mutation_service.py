@@ -76,7 +76,7 @@ class EvidenceMutationService:
 
         return True, None, previous_list
 
-    def auto_link_previous_list(self, *, evidence_list: EvidenceList) -> EvidenceList | None | None:
+    def auto_link_previous_list(self, *, evidence_list: EvidenceList) -> EvidenceList | None:
         required_previous_type = LIST_TYPE_PREVIOUS.get(ListType(evidence_list.list_type))
         if not required_previous_type:
             return None

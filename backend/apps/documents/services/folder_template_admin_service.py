@@ -352,7 +352,7 @@ class FolderTemplateAdminService:
             template = FolderTemplate.objects.get(pk=pk)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message="模板不存在",
+                message=_("模板不存在"),
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"pk": pk},
             )
@@ -405,7 +405,7 @@ class FolderTemplateAdminService:
             return FolderTemplate.objects.get(pk=pk)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message="模板不存在",
+                message=_("模板不存在"),
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"pk": pk},
             )

@@ -19,7 +19,7 @@ class FolderTemplateRepo:
     def all(self) -> Iterable[FolderTemplate]:
         return FolderTemplate.objects.all()
 
-    def get_optional(self, template_id: int) -> FolderTemplate | None | None:
+    def get_optional(self, template_id: int) -> FolderTemplate | None:
         try:
             return FolderTemplate.objects.get(id=template_id)
         except FolderTemplate.DoesNotExist:

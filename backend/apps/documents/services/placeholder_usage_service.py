@@ -93,7 +93,7 @@ class PlaceholderUsageService:
 
         return self._extract_by_python_docx(file_path)
 
-    def _extract_by_docxtpl(self, file_path: str) -> set[str] | None | None:
+    def _extract_by_docxtpl(self, file_path: str) -> set[str] | None:
         if _DocxTemplate is None:
             return None
 

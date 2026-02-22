@@ -42,7 +42,7 @@ class LitigationCaseDetailsAccessor:
         case_details = self.require_case_details(case_id=case_id)
         return case_details.get("case_parties", []) or []
 
-    def _coerce_date(self, value: Any) -> date | None | None:
+    def _coerce_date(self, value: Any) -> date | None:
         if value is None:
             return None
         if isinstance(value, datetime):

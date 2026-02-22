@@ -120,7 +120,7 @@ class DocumentTemplateBindingService:
             return binding.folder_node_path
         return None
 
-    def get_contract_subdir_path_internal(self, case_type: str, contract_sub_type: str) -> str | None | None:
+    def get_contract_subdir_path_internal(self, case_type: str, contract_sub_type: str) -> str | None:
         if not case_type or not contract_sub_type:
             return None
 

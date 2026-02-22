@@ -14,7 +14,7 @@ class DocumentTemplateRepo:
     def get_by_id(self, template_id: int) -> DocumentTemplate:
         return DocumentTemplate.objects.get(id=template_id)
 
-    def get_optional(self, template_id: int) -> DocumentTemplate | None | None:
+    def get_optional(self, template_id: int) -> DocumentTemplate | None:
         try:
             return DocumentTemplate.objects.get(id=template_id)
         except DocumentTemplate.DoesNotExist:

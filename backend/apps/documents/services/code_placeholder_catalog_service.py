@@ -35,7 +35,7 @@ class CodePlaceholderCatalogService:
 
         return sorted(definitions.values(), key=lambda d: d.key)
 
-    def get_definition(self, key: str) -> CodePlaceholderDefinition | None | None:
+    def get_definition(self, key: str) -> CodePlaceholderDefinition | None:
         for definition in self.list_definitions():
             if definition.key == key:
                 return definition
@@ -223,7 +223,7 @@ def _spec_metadata(spec_path: Path) -> tuple[str, str, str]:
     return f"{app_name} 占位符", app_name, "从 placeholders/spec.py 自动发现的占位符键"
 
 
-def _extract_string_assignment(stmt: ast.stmt) -> str | None | None:
+def _extract_string_assignment(stmt: ast.stmt) -> str | None:
     if not isinstance(stmt, ast.Assign) or not stmt.targets:
         return None
     if isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str) and stmt.value.value:

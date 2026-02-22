@@ -120,7 +120,7 @@ class PlaceholderRegistry:
         """
         return [service_class() for service_class in self._services.values()]
 
-    def get_service_for_placeholder(self, placeholder_key: str) -> BasePlaceholderService | None | None:
+    def get_service_for_placeholder(self, placeholder_key: str) -> BasePlaceholderService | None:
         """
         根据占位符键查找对应的服务
 
