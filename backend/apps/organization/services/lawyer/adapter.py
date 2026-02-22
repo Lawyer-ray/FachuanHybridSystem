@@ -15,7 +15,6 @@ from .facade import LawyerService
 
 
 class LawyerServiceAdapter(ILawyerService):
-    """律师服务适配器，实现跨模块接口，将 Model 转换为 DTO。"""
 
     _assembler: ClassVar[LawyerDtoAssembler] = LawyerDtoAssembler()
 
@@ -57,5 +56,4 @@ class LawyerServiceAdapter(ILawyerService):
         return list(names)
 
     def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
-        """内部方法：获取律师 Model 对象（无权限检查），供跨模块 ForeignKey 赋值使用。"""
         return self.service._get_lawyer_internal(lawyer_id)
