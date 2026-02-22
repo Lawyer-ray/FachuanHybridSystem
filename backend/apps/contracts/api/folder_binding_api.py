@@ -40,7 +40,7 @@ def _get_folder_binding_service() -> Any:
     Returns:
         FolderBindingService 实例
     """
-    from apps.contracts.services import FolderBindingService  # type: ignore[import-untyped]
+    from apps.contracts.services import FolderBindingService
     from apps.core.dependencies.documents import build_document_template_binding_service
 
     return FolderBindingService(document_template_binding_service=build_document_template_binding_service())

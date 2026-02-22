@@ -15,6 +15,8 @@ from apps.contracts.models import (
     SupplementaryAgreementParty,
 )
 from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
+from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
+from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
 from apps.core.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
@@ -72,7 +74,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 
 @admin.register(Contract)
-class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
+class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -123,33 +125,6 @@ class ContractAdmin(ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
     list_filter = ("case_type", "status", "fee_mode", "is_archived")
     search_fields = ("name",)
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
-
-    def get_primary_lawyer(self, obj: Contract) -> str:
-        """显示主办律师"""
-        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
-
-        service = get_contract_assignment_query_service()
-        assignment = service.get_primary_lawyer(obj.pk)
-        if assignment:
-            lawyer = assignment.lawyer
-            return lawyer.real_name or lawyer.username
-        return "-"
-
-    get_primary_lawyer.short_description = _("主办律师")  # type: ignore[attr-defined]
-
-    def get_primary_lawyer_display(self, obj: Contract) -> str:
-        """详情页显示主办律师（只读）"""
-        from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
-
-        service = get_contract_assignment_query_service()
-        assignment = service.get_primary_lawyer(obj.pk)
-        if assignment:
-            lawyer = assignment.lawyer
-            name = lawyer.real_name or lawyer.username
-            return f"{name} (ID: {lawyer.id})"
-        return "无"
-
-    get_primary_lawyer_display.short_description = _("主办律师")  # type: ignore[attr-defined]
 
     inlines: ClassVar = [
         ContractPartyInline,

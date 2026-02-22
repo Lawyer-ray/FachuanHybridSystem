@@ -14,8 +14,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
-from apps.core.exceptions import PermissionDenied as AppPermissionDenied
+from apps.core.exceptions import BusinessException, NotFoundError
 
 logger = logging.getLogger("apps.contracts")
 

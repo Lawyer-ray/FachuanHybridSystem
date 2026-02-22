@@ -97,7 +97,7 @@ class ContractPaymentService(DjangoPermsMixin):
             payment: ContractPayment = ContractPayment.objects.select_related("contract").get(id=payment_id)
             return payment
         except ContractPayment.DoesNotExist:
-            raise NotFoundError(_(f"收款记录 {payment_id} 不存在")) from None
+            raise NotFoundError(f"收款记录 {payment_id} 不存在") from None
 
     @transaction.atomic
     def create_payment(
@@ -366,7 +366,7 @@ class ContractPaymentService(DjangoPermsMixin):
         try:
             return Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_(f"合同 {contract_id} 不存在")) from None
+            raise NotFoundError(f"合同 {contract_id} 不存在") from None
 
     def _get_total_received(self, contract_id: int, exclude_id: int | None = None) -> Decimal:
         """

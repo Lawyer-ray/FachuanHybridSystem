@@ -3,8 +3,10 @@
 处理合同律师指派相关的业务逻辑
 """
 
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 
@@ -29,7 +31,7 @@ class LawyerAssignmentService:
     4. 验证律师有效性
     """
 
-    def __init__(self, lawyer_service: Optional["ILawyerService"] = None) -> None:
+    def __init__(self, lawyer_service: ILawyerService | None = None) -> None:
         """
         初始化服务(依赖注入)
 

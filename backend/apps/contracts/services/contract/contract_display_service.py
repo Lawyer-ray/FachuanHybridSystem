@@ -11,8 +11,10 @@
 Requirements: 1.1, 4.1, 4.2, 7.1, 8.1, 3.3, 10.3
 """
 
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .contract_template_cache import ContractTemplateCache
 from .wiring import get_document_service
@@ -46,8 +48,8 @@ class ContractDisplayService:
 
     def __init__(
         self,
-        document_service: Optional["IDocumentService"] = None,
-        template_cache: Optional["ContractTemplateCache"] = None,
+        document_service: IDocumentService | None = None,
+        template_cache: ContractTemplateCache | None = None,
     ) -> None:
         """
         初始化合同显示服务
