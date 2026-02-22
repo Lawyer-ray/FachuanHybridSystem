@@ -74,7 +74,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         return [_assembler.to_dto(lawyer) for lawyer in lawyers]
 
     def get_all_credentials_internal(self) -> list[AccountCredentialDTO]:
-        credentials = self.account_credential_service.list_credentials()
+        credentials = self.account_credential_service._get_base_queryset()
         return [AccountCredentialDTO.from_model(credential) for credential in credentials]
 
     def get_credential_internal(self, credential_id: int) -> AccountCredentialDTO:
