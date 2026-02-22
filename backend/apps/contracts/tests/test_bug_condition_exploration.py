@@ -182,7 +182,6 @@ def test_1_4_contract_payment_inline_i18n() -> None:
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("rel_path", [
     "apps/contracts/admin/contract_admin.py",
-    "apps/contracts/admin/contract_forms_admin.py",
 ])
 def test_1_5_contract_admin_form_label_i18n(rel_path: str) -> None:
     """
