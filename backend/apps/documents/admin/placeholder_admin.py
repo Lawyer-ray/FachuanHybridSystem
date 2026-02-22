@@ -128,6 +128,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         service = _get_placeholder_admin_service()
         return service.get_filtered_queryset(qs, code_keys)
 
+    @admin.display(description=_("用途"))
     def usage_display(self, obj: Any) -> Any:
         usage_map = getattr(self, "_usage_map_for_changelist", None)
         if usage_map is None:
@@ -142,20 +143,20 @@ class PlaceholderAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #999;">{}</span>', "-")
         return " / ".join(parts)
 
-    usage_display.short_description = _("用途")
 
+    @admin.display(description=_("来源服务"))
     def code_service_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.source if definition else ""
 
-    code_service_display.short_description = _("来源服务")
 
+    @admin.display(description=_("分类"))
     def code_category_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.category if definition else ""
 
-    code_category_display.short_description = _("分类")
 
+    @admin.display(description=_("示例值"))
     def example_value_display(self, obj: Any) -> Any:
         """显示示例值"""
         if obj.example_value:
@@ -168,7 +169,6 @@ class PlaceholderAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    example_value_display.short_description = _("示例值")
 
     @admin.action(description=_("启用选中的替换词"))
     def activate_placeholders(self, request: Any, queryset: Any) -> None:

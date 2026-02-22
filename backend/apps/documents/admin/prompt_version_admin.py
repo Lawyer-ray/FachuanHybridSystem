@@ -72,14 +72,14 @@ class PromptVersionAdmin(admin.ModelAdmin):
 
     actions: ClassVar = ["activate_version"]
 
+    @admin.display(description=_("状态"))
     def is_active_badge(self, obj: PromptVersion) -> Any:
         """显示激活状态徽章"""
         if obj.is_active:
             return format_html('<span style="color: green; font-weight: bold;">{}</span>', "✓ 激活")
         return format_html('<span style="color: gray;">{}</span>', "○ 未激活")
 
-    is_active_badge.short_description = _("状态")
-
+    @admin.display(description=_("版本说明"))
     def description_short(self, obj: Any) -> Any:
         """显示简短描述"""
         if not obj.description:
@@ -87,8 +87,6 @@ class PromptVersionAdmin(admin.ModelAdmin):
         if len(obj.description) > 50:
             return obj.description[:50] + "..."
         return obj.description
-
-    description_short.short_description = _("版本说明")
 
     @admin.action(description=_("激活选中的版本"))
     def activate_version(self, request: Any, queryset: Any) -> None:
