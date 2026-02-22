@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from apps.organization.models import AccountCredential, LawFirm, Lawyer
+    from apps.organization.models import AccountCredential, LawFirm, Lawyer, Team
 
 
 @dataclass
@@ -92,3 +92,14 @@ class LawFirmDTO:
             phone=lawfirm.phone,
             social_credit_code=lawfirm.social_credit_code,
         )
+
+
+@dataclass
+class TeamDTO:
+    id: int
+    name: str
+    law_firm_id: int
+
+    @classmethod
+    def from_model(cls, team: Team) -> TeamDTO:
+        return cls(id=team.id, name=team.name, law_firm_id=team.law_firm_id)

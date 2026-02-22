@@ -128,12 +128,7 @@ class ContractService(ContractServiceQueryMixin):
 
     @property
     def payment_service(self) -> ContractPaymentService:
-        """
-        延迟获取收款服务
-
-        Returns:
-            ContractPaymentService 实例
-        """
+        """延迟获取收款服务。"""
         if self._payment_service is None:
             from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
@@ -142,12 +137,7 @@ class ContractService(ContractServiceQueryMixin):
 
     @property
     def supplementary_agreement_service(self) -> SupplementaryAgreementService:
-        """
-        延迟获取补充协议服务
-
-        Returns:
-            SupplementaryAgreementService 实例
-        """
+        """延迟获取补充协议服务。"""
         if self._supplementary_agreement_service is None:
             from apps.contracts.services.supplementary.supplementary_agreement_service import (
                 SupplementaryAgreementService,
@@ -210,87 +200,23 @@ class ContractService(ContractServiceQueryMixin):
         return self.mutation_service.update_contract(contract_id, data)
 
     def delete_contract(self, contract_id: int) -> None:
-        """
-        删除合同
-
-        执行软删除或硬删除(取决于 Model 配置).
-        关联的数据(律师指派、当事人等)会根据外键配置自动处理.
-
-        Args:
-            contract_id: 合同 ID
-
-        Raises:
-            NotFoundError: 合同不存在
-        """
+        """删除合同。"""
         self.mutation_service.delete_contract(contract_id)
 
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
-        """
-        获取合同财务汇总
-
-        计算合同的收款和开票总额,以及未收金额.
-        对于固定收费模式,会计算未收金额(固定金额 - 已收金额).
-
-        Args:
-            contract_id: 合同 ID
-
-        Returns:
-            Dict[str, Any]: 财务汇总数据,包含:
-                - contract_id: 合同 ID
-                - total_received: 已收款总额(float)
-                - total_invoiced: 已开票总额(float)
-                - unpaid_amount: 未收金额(float,仅固定收费模式)
-                - payment_count: 收款记录数量
-
-        Raises:
-            NotFoundError: 合同不存在
-        """
+        """获取合同财务汇总。"""
         return self.finance_mutation_service.get_finance_summary(contract_id)
 
     def add_party(self, contract_id: int, client_id: int) -> ContractParty:
-        """
-        添加合同当事人
-
-        Args:
-            contract_id: 合同 ID
-            client_id: 客户 ID
-
-        Returns:
-            ContractParty: 创建的当事人关联
-
-        Raises:
-            NotFoundError: 合同不存在
-        """
+        """添加合同当事人。"""
         return self.party_service.add_party(contract_id=contract_id, client_id=client_id)
 
     def remove_party(self, contract_id: int, client_id: int) -> None:
-        """
-        移除合同当事人
-
-        Args:
-            contract_id: 合同 ID
-            client_id: 客户 ID
-
-        Raises:
-            NotFoundError: 当事人不存在
-        """
+        """移除合同当事人。"""
         self.party_service.remove_party(contract_id=contract_id, client_id=client_id)
 
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
-        """
-        更新合同律师指派
-
-        Args:
-            contract_id: 合同 ID
-            lawyer_ids: 律师 ID 列表(第一个为主办)
-
-        Returns:
-            更新后的 ContractAssignment 列表
-
-        Raises:
-            NotFoundError: 合同不存在
-            ValidationException: lawyer_ids 为空或律师不存在/已停用
-        """
+        """更新合同律师指派。"""
         return self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids)
 
     def create_contract_with_cases(
@@ -302,36 +228,7 @@ class ContractService(ContractServiceQueryMixin):
         confirm_finance: bool = False,
         user: Any | None = None,
     ) -> Contract:
-        """
-        创建合同并关联案件
-
-        这是一个复合操作,在一个事务中完成:
-        1. 创建合同(包含律师指派和补充协议)
-        2. 添加收款记录(如果提供)
-        3. 创建关联案件(如果提供)
-        4. 同步律师指派到案件
-        5. 创建案件当事人
-
-        通过 ICaseService 接口创建案件,实现模块解耦.
-
-        Args:
-            contract_data: 合同数据(可包含 lawyer_ids、supplementary_agreements)
-            cases_data: 案件数据列表(可选),每个案件包含:
-                - name: 案件名称
-                - case_type: 案件类型
-                - target_amount: 标的金额
-                - parties: 当事人列表
-            assigned_lawyer_ids: 指派律师 ID 列表(已废弃,使用 contract_data 中的 lawyer_ids)
-            payments_data: 收款记录数据列表(可选)
-            confirm_finance: 是否已确认财务操作(添加收款记录需要)
-            user: 当前用户对象
-
-        Returns:
-            Contract: 创建的合同对象
-
-        Raises:
-            ValidationException: 数据验证失败或未确认财务操作
-        """
+        """创建合同并关联案件(复合事务操作)。"""
         return self.workflow_service.create_contract_with_cases(
             contract_data=contract_data,
             cases_data=cases_data,
@@ -349,32 +246,7 @@ class ContractService(ContractServiceQueryMixin):
         confirm_finance: bool = False,
         new_payments: list[dict[str, Any]] | None = None,
     ) -> Contract:
-        """
-        更新合同(包含财务数据验证)
-
-        这是一个安全的更新方法,包含以下验证逻辑:
-        1. 检查是否涉及财务字段(fee_mode、fixed_amount、risk_rate、custom_terms)
-        2. 财务操作需要 confirm_finance=True 二次确认
-        3. 财务操作需要管理员权限
-        4. 记录财务变更日志
-
-        验证逻辑在 Service 层实现,确保业务规则的一致性.
-
-        Args:
-            contract_id: 合同 ID
-            update_data: 更新数据(可包含 supplementary_agreements)
-            user: 当前用户对象
-            confirm_finance: 是否已确认财务操作(默认 False)
-            new_payments: 新增收款记录数据列表(可选)
-
-        Returns:
-            Contract: 更新后的合同对象
-
-        Raises:
-            NotFoundError: 合同不存在
-            PermissionDenied: 权限不足(修改财务数据需要管理员权限)
-            ValidationException: 数据验证失败或未确认财务操作
-        """
+        """更新合同(包含财务数据验证和二次确认)。"""
         return self.finance_mutation_service.update_contract_with_finance(
             contract_id=contract_id,
             update_data=update_data,
