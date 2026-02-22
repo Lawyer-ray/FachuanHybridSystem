@@ -71,7 +71,7 @@ class ContractCloneWorkflow:
             )
 
         agreements_data = [
-            {"agreement": agreement, "parties": list[Any](agreement.parties.all())}
+            {"agreement": agreement, "parties": list(agreement.parties.all())}
             for agreement in cast(Any, source_contract.supplementary_agreements).all()
         ]
         if not agreements_data:
@@ -99,6 +99,7 @@ class ContractCloneWorkflow:
             ]
         )
 
+    @staticmethod
     def plus_one_year_due_at(due_at: Any) -> Any:
         if not due_at:
             return None

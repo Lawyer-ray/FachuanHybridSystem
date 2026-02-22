@@ -1,12 +1,14 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
 import logging
 from datetime import date
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.enums import CaseType
@@ -133,7 +135,7 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message=_("该合同类型不支持创建案件"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型 {cast(str, contract.get_case_type_display())} 不支持创建案件"}, # type: ignore
+                errors={"case_type": f"合同类型 {contract.get_case_type_display()} 不支持创建案件"},
             )
 
         from apps.core.enums import SimpleCaseType
@@ -148,8 +150,8 @@ class ContractAdminMutationService:
 
         case_data = {
             "name": f"{contract.name} - 案件",
-            "contract_id": cast(int, contract.pk), # type: ignore
-            "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL), # type: ignore
+            "contract_id": contract.pk,
+            "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
             "is_archived": False,
         }
         return self.case_creation_workflow.create_case_from_contract(
@@ -175,7 +177,7 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message=_("只有常法顾问合同才能续签"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": f"合同类型为 {cast(str, original.get_case_type_display())},不是常法顾问合同"}, # type: ignore
+                errors={"case_type": f"合同类型为 {original.get_case_type_display()},不是常法顾问合同"},
             )
 
         new_start_date = original.start_date + relativedelta(years=1) if original.start_date else None
@@ -254,4 +256,4 @@ class ContractAdminMutationService:
             },
         )
 
-        return filing_number # type: ignore
+        return filing_number

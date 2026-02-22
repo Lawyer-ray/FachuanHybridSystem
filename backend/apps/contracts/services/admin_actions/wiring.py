@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from apps.core.interfaces import ServiceLocator
 from apps.core.protocols import ICaseAssignmentService, ICaseService
 
