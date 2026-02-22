@@ -1,47 +1,7 @@
-"""
-案号服务适配器
-
-实现 ICaseNumberService 接口，供跨模块调用
-"""
+"""案号服务适配器 - 纯重导出文件。"""
 
 from __future__ import annotations
 
-from typing import Any, cast
+from apps.cases.services.number.case_number_service_adapter import CaseNumberServiceAdapter
 
-from apps.core.interfaces import ICaseNumberService
-
-from .case_number_service import CaseNumberService
-
-
-class CaseNumberServiceAdapter(ICaseNumberService):
-    """
-    案号服务适配器
-
-    实现跨模块接口，委托给 CaseNumberService 执行
-    """
-
-    def __init__(self, case_number_service: CaseNumberService | None = None):
-        self._case_number_service = case_number_service
-
-    @property
-    def case_number_service(self) -> CaseNumberService:
-        """延迟加载 CaseNumberService"""
-        if self._case_number_service is None:
-            self._case_number_service = CaseNumberService()
-        return self._case_number_service
-
-    def list_numbers_internal(self, case_id: int) -> list[Any]:
-        """内部方法：获取案件的所有案号"""
-        return list(self.case_number_service.list_numbers(case_id=case_id))
-
-    def create_number_internal(self, case_id: int, number: str, remarks: str | None = None) -> Any:
-        """内部方法：创建案号"""
-        return self.case_number_service.create_number(case_id=case_id, number=number, remarks=remarks)
-
-    def format_case_number(self, number: str) -> str:
-        """格式化案号"""
-        return cast(str, self.case_number_service.format_case_number(number))
-
-    def normalize_case_number(self, number: str) -> str:
-        """规范化案号"""
-        return self.format_case_number(number)
+__all__ = ["CaseNumberServiceAdapter"]

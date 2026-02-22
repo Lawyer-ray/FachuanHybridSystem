@@ -13,28 +13,25 @@ if TYPE_CHECKING:
     from .case.case_access_policy import CaseAccessPolicy
     from .case.case_search_service import CaseSearchService
 
+from .case.case_access_service import CaseAccessService
+from .case.case_admin_service import CaseAdminService
 from .case.case_command_service import CaseCommandService
 from .case.case_query_service import CaseQueryService
 from .case.case_service_adapter import CaseServiceAdapter
-from .case_access_service import CaseAccessService
-from .case_assignment_service import CaseAssignmentService
-from .case_number_service import CaseNumberService
-from .case_party_service import CasePartyService
-from .caselog_service import CaseLogService
-from .chat_name_config_service import ChatNameConfigService
-from .data import CauseCourtDataService, LitigationFeeCalculatorService
-from .folder_binding_service import CaseFolderBindingService
-from .case.case_admin_service import CaseAdminService
 from .chat.case_chat_service import CaseChatService
-from .template.case_template_binding_service import CaseTemplateBindingService
+from .chat.chat_name_config_service import ChatNameConfigService
+from .data import CauseCourtDataService, LitigationFeeCalculatorService
+from .log.caselog_service import CaseLogService
 from .material.case_material_service import CaseMaterialService
+from .number.case_number_service import CaseNumberService
+from .party.case_assignment_service import CaseAssignmentService
+from .party.case_party_service import CasePartyService
+from .template.case_template_binding_service import CaseTemplateBindingService
+from .template.folder_binding_service import CaseFolderBindingService
 
 
 class CaseService(CaseQueryService, CaseCommandService):
-    """案件服务兼容层（继承 CaseQueryService + CaseCommandService）。
-
-    保持向后兼容：`from apps.cases.services import CaseService` 仍可用。
-    """
+    """案件服务兼容层（继承 CaseQueryService + CaseCommandService）。"""
 
     def __init__(
         self,
