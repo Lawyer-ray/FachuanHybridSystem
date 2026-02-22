@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Assignment Services - 律师指派与建档编号服务
 """

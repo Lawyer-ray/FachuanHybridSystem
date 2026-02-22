@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Contracts App API 模块
 """

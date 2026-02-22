@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Supplementary Services - 补充协议服务
 """
