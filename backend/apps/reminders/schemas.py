@@ -14,7 +14,7 @@ from .services.validators import _CONTENT_MAX_LENGTH
 
 
 def _validate_positive_id(value: int | None) -> int | None:
-    if value is not None and value <= 0:
+    if value is not None and (isinstance(value, bool) or value <= 0):
         raise ValueError(_("ID 必须为正整数"))
     return value
 
@@ -95,10 +95,5 @@ class ReminderTypeItem(Schema):
     label: str
 
 
-_REMINDER_TYPE_LIST: list[ReminderTypeItem] = [
-    ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices
-]
-
-
 def list_reminder_types() -> list[ReminderTypeItem]:
-    return _REMINDER_TYPE_LIST
+    return [ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices]
