@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 from apps.client.models import ClientIdentityDoc
 from apps.client.services.storage import sanitize_upload_filename, save_uploaded_file
 
+_DOC_TYPE_DISPLAY: dict[str, str] = dict(ClientIdentityDoc.DOC_TYPE_CHOICES)
+
 if TYPE_CHECKING:
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
@@ -55,7 +57,7 @@ class ClientAdminFileMixin:
     def save_and_rename_file(
         self, client_id: int, client_name: str, doc_id: int, doc_type: str, uploaded_file: Any
     ) -> str:
-        doc_type_display: str = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
+        doc_type_display: str = _DOC_TYPE_DISPLAY.get(doc_type, doc_type)
         file_path = self._save_uploaded_file(uploaded_file, client_name, doc_type_display)
         if file_path:
             doc = self.identity_doc_service.get_identity_doc(doc_id)

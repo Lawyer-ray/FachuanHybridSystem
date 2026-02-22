@@ -9,10 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import ValidationException
 
-from apps.client.models import ClientIdentityDoc
-from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
-
-_DOC_TYPE_DISPLAY: dict[str, str] = dict(ClientIdentityDoc.DOC_TYPE_CHOICES)
+from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin, _DOC_TYPE_DISPLAY
 
 if TYPE_CHECKING:
     from apps.client.models import Client
@@ -78,7 +75,7 @@ class ClientAdminService(ClientAdminFileMixin):
             raise ValidationException(
                 message=_("客户不存在"),
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": str(_("ID 为 %(id)s 的客户不存在") % {"id": client_id})},
+                errors={"client_id": _("ID 为 %(id)s 的客户不存在") % {"id": client_id}},
             )
 
         processed_files = []
