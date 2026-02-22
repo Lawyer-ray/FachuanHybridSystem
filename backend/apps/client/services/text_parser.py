@@ -55,6 +55,22 @@ _ROLE_SPLIT_PATTERNS: list[str] = [
 _ROLE_NAME_PATTERNS: list[str] = [p.replace(r"[:：]", r"[:：]\s*([^\n法统地住电]+)") for p in _ROLE_SPLIT_PATTERNS]
 
 
+_ETHNICITY_PATTERN = re.compile(
+    r"[，,]\s*(?:男|女|汉族|回族|满族|蒙古族|维吾尔族|藏族|壮族|朝鲜族|苗族|瑶族|"
+    r"土家族|布依族|侗族|白族|哈尼族|哈萨克族|黎族|傣族|畲族|傈僳族|仡佬族|东乡族|"
+    r"高山族|拉祜族|水族|佤族|纳西族|羌族|土族|仫佬族|锡伯族|柯尔克孜族|达斡尔族|"
+    r"景颇族|毛南族|撒拉族|布朗族|塔吉克族|阿昌族|普米族|鄂温克族|怒族|京族|基诺族|"
+    r"德昂族|保安族|俄罗斯族|裕固族|乌孜别克族|门巴族|鄂伦春族|独龙族|塔塔尔族|"
+    r"赫哲族|珞巴族).*"
+)
+_BIRTH_DATE_PATTERN = re.compile(r"[，,]\s*\d{4}年\d{1,2}月\d{1,2}日.*")
+
+_LEGAL_KEYWORDS: tuple[str, ...] = (
+    "有限公司", "股份公司", "集团", "企业", "厂", "店", "中心",
+    "协会", "基金会", "研究院", "学校", "医院", "银行",
+)
+
+
 def parse_client_text(text: str) -> dict[str, Any]:
     """
     解析当事人文本信息，支持有换行和无换行格式
@@ -264,12 +280,8 @@ def _extract_name(text: str) -> str | None:
             name_part = match.group(1).strip()
 
             # 去除性别、民族、出生日期等个人信息
-            name = re.sub(
-                r"[，,]\s*(男|女|汉族|回族|满族|蒙古族|维吾尔族|藏族|壮族|朝鲜族|苗族|瑶族|土家族|布依族|侗族|白族|哈尼族|哈萨克族|黎族|傣族|畲族|傈僳族|仡佬族|东乡族|高山族|拉祜族|水族|佤族|纳西族|羌族|土族|仫佬族|锡伯族|柯尔克孜族|达斡尔族|景颇族|毛南族|撒拉族|布朗族|塔吉克族|阿昌族|普米族|鄂温克族|怒族|京族|基诺族|德昂族|保安族|俄罗斯族|裕固族|乌孜别克族|门巴族|鄂伦春族|独龙族|塔塔尔族|赫哲族|珞巴族).*",
-                "",
-                name_part,
-            )
-            name = re.sub(r"[，,]\s*\d{4}年\d{1,2}月\d{1,2}日.*", "", name)
+            name = _ETHNICITY_PATTERN.sub("", name_part)
+            name = _BIRTH_DATE_PATTERN.sub("", name)
 
             if name.strip():
                 return name.strip()
@@ -370,40 +382,14 @@ def _extract_legal_representative(text: str) -> str | None:
 
 def _determine_client_type(name: str, text: str) -> str:
     """根据名称和文本内容判断客户类型"""
-    # 检查是否有统一社会信用代码
     if _extract_credit_code(text):
         return "legal"
-
-    # 检查是否有法定代表人
     if _extract_legal_representative(text):
         return "legal"
-
-    # 检查名称特征
-    legal_keywords = [
-        "有限公司",
-        "股份公司",
-        "集团",
-        "企业",
-        "厂",
-        "店",
-        "中心",
-        "协会",
-        "基金会",
-        "研究院",
-        "学校",
-        "医院",
-        "银行",
-    ]
-
-    for keyword in legal_keywords:
-        if keyword in name:
-            return "legal"
-
-    # 检查是否有身份证号
+    if any(kw in name for kw in _LEGAL_KEYWORDS):
+        return "legal"
     if _extract_id_number(text):
         return "natural"
-
-    # 默认为自然人
     return "natural"
 
 
