@@ -3,18 +3,23 @@
 处理合同收款相关的业务逻辑,符合三层架构规范
 """
 
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
+import logging
 from datetime import date
 from decimal import Decimal
 from typing import Any, cast
 
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Q, QuerySet, Sum
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractFinanceLog, ContractPayment, InvoiceStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security import DjangoPermsMixin
+
+logger = logging.getLogger("apps.contracts")
 
 
 class ContractPaymentService(DjangoPermsMixin):
@@ -449,9 +454,5 @@ class ContractPaymentService(DjangoPermsMixin):
                 actor_id=actor_id,
                 payload=payload or {},
             )
-        except (IntegrityError, Exception) as e:
-            # 日志记录失败不影响主流程,但记录到应用日志便于排查
-            import logging
-
-            logger = logging.getLogger("apps.contracts")
+        except Exception as e:
             logger.warning(f"财务日志记录失败 (contract_id={contract_id}, action={action}): {e}")

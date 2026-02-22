@@ -1,5 +1,7 @@
 """Business logic services."""
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -21,9 +23,9 @@ class ContractMutationService:
     def __init__(
         self,
         *,
-        validator: "ContractValidator",
-        lawyer_assignment_service: "LawyerAssignmentService",
-        case_service: "ICaseService",
+        validator: ContractValidator,
+        lawyer_assignment_service: LawyerAssignmentService,
+        case_service: ICaseService,
     ) -> None:
         self.validator = validator
         self.lawyer_assignment_service = lawyer_assignment_service
