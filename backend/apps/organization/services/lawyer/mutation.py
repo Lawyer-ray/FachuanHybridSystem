@@ -27,7 +27,8 @@ class LawyerMutationService:
     def create_lawyer(self, data: LawyerCreateDTO, user: Lawyer, license_pdf: UploadedFile | None = None) -> Lawyer:
         if not self.access_policy.can_create(user):
             logger.warning(
-                f"用户 {user.pk} 尝试创建律师但权限不足",
+                "用户 %s 尝试创建律师但权限不足",
+                user.pk,
                 extra={"user_id": user.pk, "action": "create_lawyer"},
             )
             raise PermissionDenied(message=_("无权限创建律师"), code="PERMISSION_DENIED")
@@ -77,7 +78,9 @@ class LawyerMutationService:
     ) -> Lawyer:
         if not self.access_policy.can_update_lawyer(user=user, lawyer=lawyer):
             logger.warning(
-                f"用户 {user.pk} 尝试更新律师 {lawyer.pk} 但权限不足",
+                "用户 %s 尝试更新律师 %s 但权限不足",
+                user.pk,
+                lawyer.pk,
                 extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "update_lawyer"},
             )
             raise PermissionDenied(message=_("无权限更新该律师信息"), code="PERMISSION_DENIED")
@@ -127,7 +130,9 @@ class LawyerMutationService:
     def delete_lawyer(self, lawyer: Lawyer, user: Lawyer) -> None:
         if not self.access_policy.can_delete_lawyer(user=user, lawyer=lawyer):
             logger.warning(
-                f"用户 {user.pk} 尝试删除律师 {lawyer.pk} 但权限不足",
+                "用户 %s 尝试删除律师 %s 但权限不足",
+                user.pk,
+                lawyer.pk,
                 extra={"user_id": user.pk, "lawyer_id": lawyer.pk, "action": "delete_lawyer"},
             )
             raise PermissionDenied(message=_("无权限删除该律师"), code="PERMISSION_DENIED")
