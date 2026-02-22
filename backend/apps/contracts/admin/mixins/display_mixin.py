@@ -69,7 +69,7 @@ class ContractDisplayMixin:
             lawyer = assignment.lawyer
             name = lawyer.real_name or lawyer.username
             return f"{name} (ID: {lawyer.id})"
-        return "无"
+        return _("无")
 
     @admin.display(description=_("建档编号"))
     def filing_number_display(self, obj) -> Any:
@@ -81,7 +81,7 @@ class ContractDisplayMixin:
         """
         if obj and obj.filing_number:
             return obj.filing_number
-        return "未生成"
+        return _("未生成")
 
     @admin.display(description=_("匹配的合同模板"))
     def get_matched_template_display(self, obj) -> Any:
@@ -90,14 +90,14 @@ class ContractDisplayMixin:
         Requirements: 1.4
         """
         if not obj or not obj.pk:
-            return "请先保存合同"
+            return _("请先保存合同")
 
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"获取合同 {obj.id} 匹配模板失败: {e!s}", exc_info=True)
-            return "查询失败"
+            return _("查询失败")
 
     @admin.display(description=_("匹配的文件夹模板"))
     def get_matched_folder_templates_display(self, obj) -> Any:
@@ -106,14 +106,14 @@ class ContractDisplayMixin:
         Requirements: 7.1
         """
         if not obj or not obj.pk:
-            return "请先保存合同"
+            return _("请先保存合同")
 
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error(f"获取合同 {obj.id} 匹配文件夹模板失败: {e!s}", exc_info=True)
-            return "查询失败"
+            return _("查询失败")
 
     def get_urls(self) -> Any:
         """添加自定义 URL 路由"""
@@ -148,7 +148,7 @@ class ContractDisplayMixin:
         context.update(
             {
                 "contract": contract,
-                "title": f"合同详情: {contract.name}",
+                "title": _("合同详情: %(name)s") % {"name": contract.name},
                 "opts": self.model._meta,
                 "has_change_permission": self.has_change_permission(request, contract),
                 "has_view_permission": self.has_view_permission(request, contract),

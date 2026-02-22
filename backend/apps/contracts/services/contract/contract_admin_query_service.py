@@ -62,8 +62,8 @@ class ContractAdminQueryService:
                 "name": case.name,
                 "status": case.status,
                 "status_display": status_map.get(case.status, case.status),
-                "cause_of_action": case.cause_of_action or "未设置",
-                "primary_lawyer": case_primary_lawyer_map.get(case.id) or "未指派",
+                "cause_of_action": case.cause_of_action or _("未设置"),
+                "primary_lawyer": case_primary_lawyer_map.get(case.id) or _("未指派"),
                 "detail_url": f"/admin/cases/case/{case.id}/detail/",
             }
             for case in cases_dto
