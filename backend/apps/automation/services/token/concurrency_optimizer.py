@@ -7,6 +7,7 @@
 import asyncio
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -38,46 +39,43 @@ class ResourceUsage:
     active_locks: set[str] = field(default_factory=set)
 
 
+@dataclass
+class _WaitEntry:
+    """队列中的等待条目"""
+
+    acquisition_id: str
+    site_name: str
+    account: str
+    enqueued_at: float
+    event: asyncio.Event
+
+
 class ConcurrencyOptimizer:
     """
     并发优化器
 
     功能：
-    1. 智能并发控制
-    2. 资源使用监控
-    3. 队列管理
-    4. 死锁检测和恢复
+    1. 智能并发控制（总数 / 站点 / 账号三级限制）
+    2. 队列管理：超限时阻塞等待，释放资源时唤醒
+    3. 资源使用监控
     """
 
     def __init__(self, config: ConcurrencyConfig | None = None):
-        """
-        初始化并发优化器
-
-        Args:
-            config: 并发控制配置
-        """
         self.config = config or ConcurrencyConfig()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_creation_lock = asyncio.Lock()
         self._resource_usage = ResourceUsage()
-        self._acquisition_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-        self._queue_processors: dict[str, asyncio.Task[Any]] = {}
+        # 用 deque 替代 asyncio.Queue，方便遍历和按条件唤醒
+        self._wait_queue: deque[_WaitEntry] = deque()
 
     async def acquire_resource(self, acquisition_id: str, site_name: str, account: str) -> bool:
         """
         获取资源（并发控制）
 
-        Args:
-            acquisition_id: 获取流程ID
-            site_name: 网站名称
-            account: 账号
-
-        Returns:
-            是否成功获取资源
+        超过并发限制时阻塞等待，直到有资源释放或超时。
 
         Raises:
             TokenAcquisitionTimeoutError: 获取资源超时
-            AutoTokenAcquisitionError: 资源获取失败
         """
         start_time = time.time()
 
@@ -86,16 +84,14 @@ class ConcurrencyOptimizer:
         )
 
         try:
-            # 检查并发限制
-            if not await self._check_concurrency_limits(site_name, account):
-                # 加入队列等待
-                await self._enqueue_acquisition(acquisition_id, site_name, account)
+            # 并发限制检查 + 排队等待
+            if not self._check_concurrency_limits(site_name, account):
+                await self._wait_for_slot(acquisition_id, site_name, account)
 
-            # 获取锁
+            # 获取账号级锁
             lock_key = f"{site_name}:{account}"
             lock = await self._get_lock(lock_key)
 
-            # 尝试获取锁（带超时）
             try:
                 await asyncio.wait_for(lock.acquire(), timeout=self.config.lock_timeout)
             except TimeoutError as e:
@@ -109,12 +105,13 @@ class ConcurrencyOptimizer:
                         "elapsed": elapsed,
                     },
                 )
-                raise TokenAcquisitionTimeoutError(f"获取资源锁超时: {self.config.lock_timeout}秒") from e
+                raise TokenAcquisitionTimeoutError(
+                    f"获取资源锁超时: {self.config.lock_timeout}秒"
+                ) from e
 
             # 更新资源使用情况
             self._update_resource_usage(site_name, account, increment=True)
 
-            # 记录资源获取成功
             elapsed = time.time() - start_time
             logger.info(
                 "资源获取成功",
@@ -126,7 +123,6 @@ class ConcurrencyOptimizer:
                     "total_acquisitions": self._resource_usage.total_acquisitions,
                 },
             )
-
             return True
 
         except Exception as e:
@@ -144,23 +140,14 @@ class ConcurrencyOptimizer:
             raise
 
     async def release_resource(self, acquisition_id: str, site_name: str, account: str) -> None:
-        """
-        释放资源
-
-        Args:
-            acquisition_id: 获取流程ID
-            site_name: 网站名称
-            account: 账号
-        """
+        """释放资源并唤醒队列中符合条件的等待者"""
         try:
-            # 释放锁
             lock_key = f"{site_name}:{account}"
             lock = await self._get_lock(lock_key)
 
             if lock.locked():
                 lock.release()
 
-            # 更新资源使用情况
             self._update_resource_usage(site_name, account, increment=False)
 
             logger.info(
@@ -173,8 +160,8 @@ class ConcurrencyOptimizer:
                 },
             )
 
-            # 处理队列中的等待请求
-            await self._process_queue()
+            # 唤醒队列中第一个符合并发限制的等待者
+            self._wake_next_eligible()
 
         except Exception as e:
             logger.error(
@@ -183,18 +170,13 @@ class ConcurrencyOptimizer:
             )
 
     async def get_resource_usage(self) -> dict[str, Any]:
-        """
-        获取资源使用情况
-
-        Returns:
-            资源使用情况字典
-        """
+        """获取资源使用情况"""
         return {
             "total_acquisitions": self._resource_usage.total_acquisitions,
             "site_acquisitions": dict(self._resource_usage.site_acquisitions),
             "account_acquisitions": dict(self._resource_usage.account_acquisitions),
             "active_locks": len(self._resource_usage.active_locks),
-            "queue_size": self._acquisition_queue.qsize(),
+            "queue_size": len(self._wait_queue),
             "config": {
                 "max_concurrent_acquisitions": self.config.max_concurrent_acquisitions,
                 "max_concurrent_per_site": self.config.max_concurrent_per_site,
@@ -203,16 +185,10 @@ class ConcurrencyOptimizer:
         }
 
     async def optimize_concurrency(self) -> dict[str, Any]:
-        """
-        优化并发配置
-
-        Returns:
-            优化结果
-        """
+        """优化并发配置"""
         usage = await self.get_resource_usage()
-        recommendations = []
+        recommendations: list[dict[str, Any]] = []
 
-        # 分析当前使用情况
         if usage["total_acquisitions"] >= self.config.max_concurrent_acquisitions * 0.8:
             recommendations.append(
                 {
@@ -223,7 +199,6 @@ class ConcurrencyOptimizer:
                 }
             )
 
-        # 检查站点级别的并发
         for site, count in usage["site_acquisitions"].items():
             if count >= self.config.max_concurrent_per_site:
                 recommendations.append(
@@ -235,7 +210,6 @@ class ConcurrencyOptimizer:
                     }
                 )
 
-        # 检查队列积压
         if usage["queue_size"] > 5:
             recommendations.append(
                 {
@@ -248,192 +222,102 @@ class ConcurrencyOptimizer:
         return {
             "current_usage": usage,
             "recommendations": recommendations,
-            "optimization_applied": False,  # 这里可以实现自动优化
+            "optimization_applied": False,
         }
-
-    async def detect_deadlocks(self) -> list[dict[str, Any]]:
-        """
-        检测死锁
-
-        Returns:
-            检测到的死锁列表
-        """
-        deadlocks: list[dict[str, Any]] = []
-
-        # 检查长时间持有的锁
-        for _lock_key, lock in self._locks.items():
-            if lock.locked():
-                # 这里简化处理，实际应该记录锁的获取时间
-                # 如果锁持有时间超过阈值，可能存在死锁
-                pass
-
-        # 检查队列中长时间等待的请求
-        if self._acquisition_queue.qsize() > 0:
-            # 这里可以检查队列中请求的等待时间
-            pass
-
-        return deadlocks
-
-    async def recover_from_deadlock(self, deadlock_info: dict[str, Any]) -> bool:
-        """
-        从死锁中恢复
-
-        Args:
-            deadlock_info: 死锁信息
-
-        Returns:
-            是否成功恢复
-        """
-        try:
-            # 强制释放相关锁
-            lock_key = deadlock_info.get("lock_key")
-            if lock_key and lock_key in self._locks:
-                lock = self._locks[lock_key]
-                if lock.locked():
-                    # 注意：这是危险操作，可能导致数据不一致
-                    # 实际实现中需要更谨慎的处理
-                    logger.warning(f"强制释放死锁: {lock_key}")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"死锁恢复失败: {e}")
-            return False
 
     async def cleanup_resources(self) -> None:
         """清理资源"""
         try:
-            # 清理过期的锁
             await self._cleanup_expired_locks()
 
-            # 清理队列
-            while not self._acquisition_queue.empty():
-                try:
-                    self._acquisition_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
+            # 清理队列中所有等待者（不唤醒，让它们超时）
+            self._wait_queue.clear()
 
-            # 重置资源使用情况
             self._resource_usage = ResourceUsage()
-
             logger.info("并发资源清理完成")
 
         except Exception as e:
-            logger.error(f"资源清理失败: {e}")
+            logger.error("资源清理失败: %s", e)
 
-    async def _check_concurrency_limits(self, site_name: str, account: str) -> bool:
-        """
-        检查并发限制
+    # ── 内部方法 ──
 
-        Args:
-            site_name: 网站名称
-            account: 账号
-
-        Returns:
-            是否可以立即执行
-        """
-        # 检查总并发数
+    def _check_concurrency_limits(self, site_name: str, account: str) -> bool:
+        """检查是否可以立即执行（不超过三级并发限制）"""
         if self._resource_usage.total_acquisitions >= self.config.max_concurrent_acquisitions:
             return False
 
-        # 检查站点级别并发数
         site_count = self._resource_usage.site_acquisitions.get(site_name, 0)
         if site_count >= self.config.max_concurrent_per_site:
             return False
 
-        # 检查账号级别并发数
         account_count = self._resource_usage.account_acquisitions.get(account, 0)
         if account_count >= self.config.max_concurrent_per_account:
             return False
 
         return True
 
-    async def _enqueue_acquisition(self, acquisition_id: str, site_name: str, account: str) -> None:
-        """
-        将获取请求加入队列
+    async def _wait_for_slot(self, acquisition_id: str, site_name: str, account: str) -> None:
+        """入队并阻塞，直到被 _wake_next_eligible 唤醒或超时"""
+        entry = _WaitEntry(
+            acquisition_id=acquisition_id,
+            site_name=site_name,
+            account=account,
+            enqueued_at=time.time(),
+            event=asyncio.Event(),
+        )
+        self._wait_queue.append(entry)
 
-        Args:
-            acquisition_id: 获取流程ID
-            site_name: 网站名称
-            account: 账号
-        """
-        request = {
-            "acquisition_id": acquisition_id,
-            "site_name": site_name,
-            "account": account,
-            "enqueued_at": time.time(),
-        }
+        logger.info(
+            "请求已加入队列等待",
+            extra={"acquisition_id": acquisition_id, "queue_size": len(self._wait_queue)},
+        )
 
         try:
-            await asyncio.wait_for(self._acquisition_queue.put(request), timeout=self.config.queue_timeout)
-
-            logger.info(
-                "请求已加入队列",
-                extra={"acquisition_id": acquisition_id, "queue_size": self._acquisition_queue.qsize()},
-            )
-
+            await asyncio.wait_for(entry.event.wait(), timeout=self.config.queue_timeout)
         except TimeoutError as e:
-            logger.error("加入队列超时", extra={"acquisition_id": acquisition_id})
-            raise TokenAcquisitionTimeoutError("请求队列已满，加入队列超时") from e
+            # 超时后从队列移除
+            try:
+                self._wait_queue.remove(entry)
+            except ValueError:
+                pass
+            logger.error("队列等待超时", extra={"acquisition_id": acquisition_id})
+            raise TokenAcquisitionTimeoutError("排队等待资源超时") from e
 
-    async def _process_queue(self) -> None:
-        """处理队列中的等待请求"""
-        try:
-            while not self._acquisition_queue.empty():
-                try:
-                    request = self._acquisition_queue.get_nowait()
+    def _wake_next_eligible(self) -> None:
+        """遍历等待队列，唤醒第一个符合并发限制的条目；清理过期条目"""
+        now = time.time()
+        to_remove: list[_WaitEntry] = []
 
-                    # 检查请求是否过期
-                    if time.time() - request["enqueued_at"] > self.config.queue_timeout:
-                        logger.warning("队列请求已过期", extra=request)
-                        continue
+        for entry in self._wait_queue:
+            # 清理过期
+            if now - entry.enqueued_at > self.config.queue_timeout:
+                to_remove.append(entry)
+                continue
 
-                    # 检查是否可以处理
-                    if await self._check_concurrency_limits(request["site_name"], request["account"]):
-                        logger.info("队列请求可以处理", extra=request)
-                        # 这里应该通知等待的协程，但简化处理
-                        break
-                    else:
-                        # 重新放回队列
-                        await self._acquisition_queue.put(request)
-                        break
+            if self._check_concurrency_limits(entry.site_name, entry.account):
+                entry.event.set()
+                to_remove.append(entry)
+                break
 
-                except asyncio.QueueEmpty:
-                    break
-
-        except Exception as e:
-            logger.error(f"处理队列失败: {e}")
+        for entry in to_remove:
+            try:
+                self._wait_queue.remove(entry)
+            except ValueError:
+                pass
 
     async def _get_lock(self, lock_key: str) -> asyncio.Lock:
-        """
-        获取锁对象
-
-        Args:
-            lock_key: 锁键
-
-        Returns:
-            异步锁对象
-        """
+        """获取或创建锁对象"""
         async with self._lock_creation_lock:
             if lock_key not in self._locks:
                 self._locks[lock_key] = asyncio.Lock()
             return self._locks[lock_key]
 
     def _update_resource_usage(self, site_name: str, account: str, increment: bool) -> None:
-        """
-        更新资源使用情况
-
-        Args:
-            site_name: 网站名称
-            account: 账号
-            increment: 是否增加（False为减少）
-        """
+        """更新资源使用计数"""
         delta = 1 if increment else -1
 
-        # 更新总数
         self._resource_usage.total_acquisitions = max(0, self._resource_usage.total_acquisitions + delta)
 
-        # 更新站点计数
         current_site = self._resource_usage.site_acquisitions.get(site_name, 0)
         new_site_count = max(0, current_site + delta)
         if new_site_count > 0:
@@ -441,7 +325,6 @@ class ConcurrencyOptimizer:
         else:
             self._resource_usage.site_acquisitions.pop(site_name, None)
 
-        # 更新账号计数
         current_account = self._resource_usage.account_acquisitions.get(account, 0)
         new_account_count = max(0, current_account + delta)
         if new_account_count > 0:
@@ -450,19 +333,12 @@ class ConcurrencyOptimizer:
             self._resource_usage.account_acquisitions.pop(account, None)
 
     async def _cleanup_expired_locks(self) -> None:
-        """清理过期的锁"""
-        # 这里简化处理，实际应该记录锁的创建时间并清理过期锁
-        expired_locks = []
-
-        for lock_key, lock in self._locks.items():
-            if not lock.locked():
-                expired_locks.append(lock_key)
-
+        """清理未被持有的锁对象"""
+        expired_locks = [k for k, v in self._locks.items() if not v.locked()]
         for lock_key in expired_locks:
             self._locks.pop(lock_key, None)
-
         if expired_locks:
-            logger.debug(f"清理了 {len(expired_locks)} 个过期锁")
+            logger.debug("清理了 %d 个过期锁", len(expired_locks))
 
 
 # 全局并发优化器实例
