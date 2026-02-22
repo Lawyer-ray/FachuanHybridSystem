@@ -40,6 +40,15 @@ from .material_schemas import (
 from .number_schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
 from .party_schemas import CasePartyCreate, CasePartyIn, CasePartyOut, CasePartyUpdate
 from .supervising_authority_schemas import SupervisingAuthorityIn, SupervisingAuthorityOut, SupervisingAuthorityUpdate
+from .template_binding_schemas import (
+    AvailableTemplateSchema,
+    BindingsResponseSchema,
+    BindTemplateRequestSchema,
+    GenerateTemplateRequestSchema,
+    SuccessResponseSchema,
+    TemplateCategorySchema,
+    TemplateBindingSchema,
+)
 
 __all__ = [
     "CaseAccessGrantIn",
@@ -90,4 +99,11 @@ __all__ = [
     "SupervisingAuthorityOut",
     "SupervisingAuthorityUpdate",
     "UnifiedGenerateRequest",
+    "AvailableTemplateSchema",
+    "BindingsResponseSchema",
+    "BindTemplateRequestSchema",
+    "GenerateTemplateRequestSchema",
+    "SuccessResponseSchema",
+    "TemplateCategorySchema",
+    "TemplateBindingSchema",
 ]
