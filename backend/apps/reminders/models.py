@@ -64,7 +64,7 @@ class Reminder(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        if bool(self.contract_id) == bool(self.case_log_id):
+        if (self.contract_id is not None) == (self.case_log_id is not None):
             raise ValidationError(_("必须且只能绑定合同或案件日志之一"))
 
     def __str__(self) -> str:
