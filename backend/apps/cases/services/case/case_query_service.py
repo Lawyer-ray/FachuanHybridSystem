@@ -68,7 +68,6 @@ class CaseQueryService(PermissionMixin):
     ) -> Case:
         """获取单个案件（带权限检查）。
 
-        Raises:
             NotFoundError: 案件不存在
             ForbiddenError: 无权限访问
         """

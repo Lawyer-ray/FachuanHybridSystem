@@ -79,16 +79,15 @@ class ReminderOut(SchemaMixin, Schema):
 
     @staticmethod
     def resolve_due_at(obj: Reminder) -> str:
-        return SchemaMixin._resolve_datetime_iso(obj.due_at) or obj.due_at.isoformat()
+        return SchemaMixin._resolve_datetime_iso(obj.due_at) or ""
 
     @staticmethod
     def resolve_created_at(obj: Reminder) -> str:
-        return SchemaMixin._resolve_datetime_iso(obj.created_at) or obj.created_at.isoformat()
+        return SchemaMixin._resolve_datetime_iso(obj.created_at) or ""
 
     @staticmethod
     def resolve_updated_at(obj: Reminder) -> str:
-        return SchemaMixin._resolve_datetime_iso(obj.updated_at) or obj.updated_at.isoformat()
-
+        return SchemaMixin._resolve_datetime_iso(obj.updated_at) or ""
 
 class ReminderTypeItem(Schema):
     value: str

@@ -63,7 +63,6 @@ class ChatNameConfigService:
         从 SystemConfig 读取群名模板配置.
         如果配置不存在或为空,返回默认模板.
 
-        Returns:
             str: 群名模板字符串
 
         Requirements: 1.1, 1.2
@@ -83,7 +82,6 @@ class ChatNameConfigService:
         从 SystemConfig 读取默认阶段显示配置.
         如果配置不存在或为空,返回默认值 "待定".
 
-        Returns:
             str: 默认阶段显示文本
 
         Requirements: 2.1, 2.3
@@ -103,7 +101,6 @@ class ChatNameConfigService:
         从 SystemConfig 读取群名最大长度配置.
         如果配置不存在、为空或无效,返回默认值 60.
 
-        Returns:
             int: 群名最大长度
 
         Requirements: 3.1, 3.3
@@ -137,12 +134,10 @@ class ChatNameConfigService:
         - 截断时保留完整的阶段标识部分(如 "【一审】")
         - 截断案件名称部分,添加省略号
 
-        Args:
             case_name: 案件名称
             stage: 案件阶段显示名称(可选,为空时使用默认阶段)
             case_type: 案件类型显示名称(可选)
 
-        Returns:
             str: 格式化后的群聊名称
 
         Requirements: 1.2, 1.3, 1.4, 2.2, 3.2
@@ -186,13 +181,11 @@ class ChatNameConfigService:
 
         替换模板中的有效占位符,忽略无效占位符并记录警告.
 
-        Args:
             template: 模板字符串
             stage: 阶段显示名称
             case_name: 案件名称
             case_type: 案件类型显示名称
 
-        Returns:
             str: 渲染后的字符串
 
         Requirements: 1.3, 1.4
@@ -232,7 +225,6 @@ class ChatNameConfigService:
         2. 计算可用于案件名称的长度
         3. 截断案件名称并添加省略号
 
-        Args:
             chat_name: 原始群聊名称
             max_length: 最大长度
             template: 模板字符串
@@ -240,7 +232,6 @@ class ChatNameConfigService:
             case_name: 案件名称
             case_type: 案件类型显示名称
 
-        Returns:
             str: 截断后的群聊名称
 
         Requirements: 3.2

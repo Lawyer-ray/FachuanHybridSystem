@@ -103,7 +103,6 @@ class CaseCommandService(PermissionMixin):
     ) -> Case:
         """创建案件。
 
-        Raises:
             ForbiddenError: 用户未认证
             ValidationException: 合同无效或阶段不合法
         """
@@ -151,7 +150,6 @@ class CaseCommandService(PermissionMixin):
     ) -> Case:
         """更新案件。
 
-        Raises:
             NotFoundError: 案件不存在
             ForbiddenError: 无权限
             ValidationException: 合同无效或阶段不合法
@@ -224,7 +222,6 @@ class CaseCommandService(PermissionMixin):
     ) -> None:
         """删除案件。
 
-        Raises:
             NotFoundError: 案件不存在
             ForbiddenError: 无权限
         """
@@ -275,7 +272,6 @@ class CaseCommandService(PermissionMixin):
     ) -> dict[str, Any]:
         """创建完整案件（包含当事人、指派、日志）。
 
-        Raises:
             ValidationException: 数据验证失败
             ForbiddenError: 权限不足
         """

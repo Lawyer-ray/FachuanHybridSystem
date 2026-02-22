@@ -29,7 +29,6 @@ class CaseAdminService:
         """
         构造函数支持依赖注入
 
-        Args:
             document_service: 文档服务实例(可选,用于依赖注入)
             filing_number_service: 建档编号服务实例(可选,用于依赖注入)
         """
@@ -44,7 +43,6 @@ class CaseAdminService:
         通过 ServiceLocator 获取 IDocumentService 实例,
         支持依赖注入以便于测试.
 
-        Returns:
             IDocumentService 实例
         """
         if self._document_service is None:
@@ -58,7 +56,6 @@ class CaseAdminService:
 
         支持依赖注入以便于测试.
 
-        Returns:
             FilingNumberService 实例
         """
         if self._filing_number_service is None:
@@ -69,11 +66,9 @@ class CaseAdminService:
         """
         获取匹配的文件夹模板
 
-        Args:
             case_type: 案件类型
             legal_statuses: 案件的诉讼地位列表(我方当事人的诉讼地位)
 
-        Returns:
             模板名称字符串,多个模板用"、"分隔
             如果查询失败返回 "查询失败"
         """
@@ -104,10 +99,8 @@ class CaseAdminService:
         """
         复制案件及其所有关联数据(不复制日志和群聊)
 
-        Args:
             case_id: 原案件ID
 
-        Returns:
             新创建的案件对象
         """
         # 获取原案件
@@ -183,14 +176,11 @@ class CaseAdminService:
         - 如果 is_archived=True 且 filing_number 已存在,返回现有编号
         - 如果 is_archived=False,不修改 filing_number(保留在数据库中)
 
-        Args:
             case_id: 案件ID
             is_archived: 是否已建档
 
-        Returns:
             str | None: 建档编号(如果已建档)
 
-        Raises:
             NotFoundError: 案件不存在
             ValidationException: 数据验证失败
 

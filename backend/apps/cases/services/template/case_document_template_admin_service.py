@@ -78,13 +78,11 @@ class CaseDocumentTemplateAdminService:
         - 模板的 legal_statuses 为空时匹配任意诉讼地位(Requirements 1.6)
         - 模板的 legal_statuses 非空时,根据 legal_status_match_mode 进行匹配
 
-        Args:
             case_id: 案件ID
             case_type: 案件类型
             case_stage: 案件阶段
             legal_statuses: 我方当事人的诉讼地位列表
 
-        Returns:
             匹配的模板列表,每个元素包含:
             - id: 模板ID
             - name: 模板名称
@@ -156,11 +154,9 @@ class CaseDocumentTemplateAdminService:
 
         排除已自动匹配和已手动绑定的模板.
 
-        Args:
             case_id: 案件ID
             exclude_template_ids: 需要排除的模板ID集合(已自动匹配 + 已手动绑定)
 
-        Returns:
             可绑定的模板列表,每个元素包含:
             - template_id: 模板ID
             - name: 模板名称
@@ -205,10 +201,8 @@ class CaseDocumentTemplateAdminService:
 
         返回自动匹配和手动绑定的模板,分组显示.
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             包含以下字段的字典:
             - auto_matched: 自动匹配的模板列表
             - manual_bound: 手动绑定的模板列表
@@ -300,12 +294,10 @@ class CaseDocumentTemplateAdminService:
         - all 模式:案件诉讼地位包含模板的所有诉讼地位
         - exact 模式:案件诉讼地位与模板诉讼地位完全一致
 
-        Args:
             template_legal_statuses: 模板配置的诉讼地位列表
             case_legal_statuses_set: 案件的诉讼地位集合
             match_mode: 匹配模式(any/all/exact)
 
-        Returns:
             是否匹配
 
         Requirements: 1.5, 1.6
@@ -341,10 +333,8 @@ class CaseDocumentTemplateAdminService:
 
         将再审相关的多个阶段统一映射到 'retrial'.
 
-        Args:
             case_stage: 原始案件阶段
 
-        Returns:
             规范化后的阶段列表
         """
         if not case_stage:

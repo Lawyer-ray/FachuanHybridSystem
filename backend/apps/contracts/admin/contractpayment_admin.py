@@ -18,7 +18,7 @@ else:
 
         BaseModelAdmin = nested_admin.NestedModelAdmin
         BaseTabularInline = nested_admin.NestedTabularInline
-    except Exception:
+    except ImportError:
         BaseModelAdmin = admin.ModelAdmin
         BaseTabularInline = admin.TabularInline
 

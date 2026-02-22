@@ -23,7 +23,7 @@ def api_data_strategy(draw):
         min_size=1,
         max_size=100,
         alphabet=st.characters(
-            blacklist_categories=("Cs",), # type: ignore
+            blacklist_categories=("Cs",),  # type: ignore
             blacklist_characters="\x00",
         ),
     )
@@ -151,7 +151,7 @@ class TestCourtDocumentServiceProperties:
             min_size=1,
             max_size=500,
             alphabet=st.characters(
-                blacklist_categories=("Cs",), # type: ignore
+                blacklist_categories=("Cs",),  # type: ignore
                 blacklist_characters="\x00",
             ),
         ),

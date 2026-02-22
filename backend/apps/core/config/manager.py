@@ -6,11 +6,10 @@ import time
 from typing import Any, TypeVar, cast
 
 from .cache import ConfigCache
-from .exceptions import ConfigException, ConfigNotFoundError, ConfigTypeError, ConfigValidationError
+from .exceptions import ConfigException, ConfigNotFoundError, ConfigTypeError
 from .notifications import ConfigChangeEvent, ConfigChangeListener, ConfigNotificationManager
 from .providers.base import ConfigProvider
 from .schema.schema import ConfigSchema
-from .validators.base import CompositeValidator, ConfigValidator
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,6 @@ class ConfigManager:
         self._cache = ConfigCache(cache_max_size, cache_ttl)
         self._raw_config: dict[str, Any] = {}
         self._schema: ConfigSchema = ConfigSchema()
-        self._validator: ConfigValidator = CompositeValidator([])
         self._notification_manager = ConfigNotificationManager()
         self._lock = threading.RLock()
         self._loaded = False
@@ -49,10 +47,6 @@ class ConfigManager:
     def set_schema(self, schema: ConfigSchema) -> None:
         with self._lock:
             self._schema = schema
-
-    def set_validator(self, validator: ConfigValidator) -> None:
-        with self._lock:
-            self._validator = validator
 
     def load(self, force_reload: bool = False) -> None:
         with self._lock:
@@ -90,12 +84,6 @@ class ConfigManager:
     def _validate_config(self) -> None:
         if self._schema:
             self._schema.validate_and_raise(self._raw_config)
-        if self._validator:
-            for key, value in self._raw_config.items():
-                field_def = self._schema.get_field(key) if self._schema else None
-                result = self._validator.validate(key, value, field_def, self._raw_config)
-                if not result.is_valid:
-                    raise ConfigValidationError(result.errors)
 
     def get(self, key: str, default: T | None = None) -> T:
         with self._lock:

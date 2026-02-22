@@ -37,7 +37,6 @@ class CaseNumberService(DjangoPermsMixin):
         """
         初始化服务(依赖注入)
 
-        Args:
             case_service: 案件服务接口(注入)
         """
         self._case_service = case_service
@@ -77,11 +76,9 @@ class CaseNumberService(DjangoPermsMixin):
         """
         获取案号列表
 
-        Args:
             case_id: 案件 ID(可选,用于过滤)
             user: 当前用户
 
-        Returns:
             案号查询集
         """
         qs = CaseNumber.objects.select_related("case").order_by("created_at")
@@ -124,14 +121,11 @@ class CaseNumberService(DjangoPermsMixin):
         """
         获取单个案号
 
-        Args:
             number_id: 案号 ID
             user: 当前用户
 
-        Returns:
             案号对象
 
-        Raises:
             NotFoundError: 案号不存在
         """
         try:
@@ -180,16 +174,13 @@ class CaseNumberService(DjangoPermsMixin):
         """
         创建案号(自动规范化)
 
-        Args:
             case_id: 案件 ID
             number: 案号
             remarks: 备注(可选)
             user: 当前用户
 
-        Returns:
             创建的案号对象
 
-        Raises:
             NotFoundError: 案件不存在
             ValidationException: 数据验证失败
         """
@@ -250,15 +241,12 @@ class CaseNumberService(DjangoPermsMixin):
         """
         更新案号
 
-        Args:
             number_id: 案号 ID
             data: 更新数据
             user: 当前用户
 
-        Returns:
             更新后的案号对象
 
-        Raises:
             NotFoundError: 案号不存在
             ValidationException: 数据验证失败
         """
@@ -336,14 +324,11 @@ class CaseNumberService(DjangoPermsMixin):
         """
         删除案号
 
-        Args:
             number_id: 案号 ID
             user: 当前用户
 
-        Returns:
             {"success": True}
 
-        Raises:
             NotFoundError: 案号不存在
         """
         try:
@@ -391,10 +376,8 @@ class CaseNumberService(DjangoPermsMixin):
 
         在保存前调用此方法，确保案号格式统一。
 
-        Args:
             number: 原始案号
 
-        Returns:
             格式化后的案号
         """
         return normalize_case_number_util(number, ensure_hao=False)
@@ -406,10 +389,8 @@ class CaseNumberService(DjangoPermsMixin):
         .. deprecated::
             使用 :meth:`format_case_number` 代替
 
-        Args:
             number: 原始案号
 
-        Returns:
             规范化后的案号
         """
         return self.format_case_number(number)

@@ -50,7 +50,6 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         构造函数支持依赖注入
 
-        Args:
             document_service: 文档服务实例(可选,用于测试时注入)
         """
         super().__init__(
@@ -72,7 +71,6 @@ class CaseFolderBindingService(FolderBindingCrudService):
         通过 ServiceLocator 获取 IDocumentService 实例,
         避免直接导入 apps.documents 模块.
 
-        Returns:
             IDocumentService 实例
         """
         if self._document_service is None:
@@ -202,14 +200,11 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         创建文件夹绑定
 
-        Args:
             case_id: 案件ID
             folder_path: 文件夹路径
 
-        Returns:
             创建的绑定记录
 
-        Raises:
             ValidationException: 路径无效
             NotFoundError: 案件不存在
         """
@@ -246,11 +241,9 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         更新文件夹绑定
 
-        Args:
             case_id: 案件ID
             folder_path: 新的文件夹路径
 
-        Returns:
             更新后的绑定记录
         """
         return self.create_binding(
@@ -278,10 +271,8 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         删除文件夹绑定
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             是否删除成功
         """
         return super().delete_binding(
@@ -310,10 +301,8 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         获取文件夹绑定
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             绑定记录或 None
         """
         return super().get_binding(
@@ -346,13 +335,11 @@ class CaseFolderBindingService(FolderBindingCrudService):
 
         优先使用文书模板绑定配置中的路径,如果没有配置则使用默认子目录.
 
-        Args:
             case_id: 案件ID
             file_content: 文件内容
             file_name: 文件名
             subdir_key: 子目录键名 (case_documents, trial_materials, judgments, execution_documents, other_files)
 
-        Returns:
             保存的完整路径,如果未绑定则返回 None
         """
         return super().save_file_to_bound_folder(
@@ -376,11 +363,9 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         将ZIP包解压到绑定的文件夹
 
-        Args:
             case_id: 案件ID
             zip_content: ZIP文件内容
 
-        Returns:
             解压的目标路径,如果未绑定则返回 None
         """
         return super().extract_zip_to_bound_folder(
@@ -395,10 +380,8 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """
         内部方法:获取案件信息(无权限检查)
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             案件对象或 None
         """
         try:

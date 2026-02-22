@@ -55,7 +55,6 @@ def _get_cause_court_data_service() -> Any:
     """
     创建 CauseCourtDataService 实例
 
-    Returns:
         CauseCourtDataService 实例
     """
     from apps.cases.services import CauseCourtDataService
@@ -70,7 +69,6 @@ def get_causes(
     """
     获取案由列表
 
-    Args:
         search: 搜索关键词(可选)
         case_type: 案件类型 (civil, criminal, administrative, execution, bankruptcy)(可选)
         limit: 返回结果数量限制(默认50)
@@ -88,7 +86,6 @@ def get_causes_tree(request: HttpRequest, parent_id: int | None = None) -> Any:
     """
     获取案由树形数据(按层级展开)
 
-    Args:
         parent_id: 父级案由ID,为空时返回顶级案由
     """
     service = _get_cause_court_data_service()
@@ -100,7 +97,6 @@ def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:
     """
     根据ID获取案由信息(用于生成昵称)
 
-    Args:
         cause_id: 案由ID
     """
     service = _get_cause_court_data_service()
@@ -115,7 +111,6 @@ def get_courts(request: HttpRequest, search: str | None = None, limit: int | Non
     """
     获取法院列表
 
-    Args:
         search: 搜索关键词(可选)
         limit: 返回结果数量限制(默认50)
     """

@@ -27,7 +27,6 @@ def _get_case_access_service() -> Any:
     """
     工厂函数：创建 CaseAccessService 实例
 
-    Returns:
         CaseAccessService 实例
     """
     from apps.cases.services.case.case_access_service import CaseAccessService

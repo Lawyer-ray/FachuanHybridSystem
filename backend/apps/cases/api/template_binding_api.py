@@ -103,14 +103,12 @@ def generate_template_document(
     """
     生成模板文档并返回文件流
 
-    Args:
         case_id: 案件ID
         payload.template_id: 模板ID
         payload.client_id: 当事人ID(可选,用于法定代表人身份证明书、单独授权)
         payload.client_ids: 当事人ID列表(可选,用于合并授权)
         payload.mode: 授权模式(可选): 'individual' | 'combined'
 
-    Returns:
         HttpResponse: docx 文件流
 
     Requirements: 2.1, 2.2, 2.3, 2.4, 6.2, 6.3, 7.2, 7.3, 7.4
@@ -139,11 +137,9 @@ def _build_file_response(content: bytes, filename: str) -> HttpResponse:
     """
     构建文件下载响应
 
-    Args:
         content: 文件字节流
         filename: 文件名
 
-    Returns:
         HttpResponse: 文件下载响应
     """
     response = HttpResponse(
@@ -165,7 +161,6 @@ def unified_generate_template(request: HttpRequest, case_id: int, payload: Unifi
 
     支持通过 template_id 或 function_code 生成文档.
 
-    Args:
         case_id: 案件ID
         payload.template_id: 模板ID(可选,优先使用)
         payload.function_code: 功能标识(可选,当 template_id 为空时使用)
@@ -173,7 +168,6 @@ def unified_generate_template(request: HttpRequest, case_id: int, payload: Unifi
         payload.client_ids: 当事人ID列表(可选,用于合并授权)
         payload.mode: 授权模式(可选): 'individual' | 'combined'
 
-    Returns:
         HttpResponse: docx 文件流
 
     Requirements: 1.5

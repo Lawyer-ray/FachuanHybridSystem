@@ -79,7 +79,7 @@ def update_payment(request: HttpRequest, payment_id: int, payload: ContractPayme
     service = _get_payment_service()
     ctx = extract_request_context(request)
 
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     if data.get("received_at"):
         data["received_at"] = parse_date(data["received_at"])

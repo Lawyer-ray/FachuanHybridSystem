@@ -75,7 +75,6 @@ class UnifiedTemplateGenerationService:
         """
         统一生成模板文档
 
-        Args:
             case_id: 案件ID
             template_id: 模板ID(可选,优先使用)
             function_code: 功能标识(可选,当 template_id 为空时使用)
@@ -83,10 +82,8 @@ class UnifiedTemplateGenerationService:
             client_ids: 当事人ID列表(可选,用于合并授权)
             mode: 授权模式(可选): 'individual' | 'combined'
 
-        Returns:
             Tuple[bytes, str]: (文档字节流, 文件名)
 
-        Raises:
             NotFoundError: 案件或模板不存在
             ValidationException: 参数无效或模板渲染失败
 
@@ -149,14 +146,11 @@ class UnifiedTemplateGenerationService:
         """
         获取模板信息(包含 function_code)
 
-        Args:
             template_id: 模板ID
             function_code: 功能标识
 
-        Returns:
             模板信息字典,包含 id, name, function_code 等
 
-        Raises:
             NotFoundError: 模板不存在
             ValidationException: 参数无效
         """
@@ -173,13 +167,10 @@ class UnifiedTemplateGenerationService:
         """
         获取案件模型
 
-        Args:
             case_id: 案件ID
 
-        Returns:
             Case 模型实例
 
-        Raises:
             NotFoundError: 案件不存在
         """
         case_service = get_case_service()

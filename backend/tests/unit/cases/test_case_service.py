@@ -329,7 +329,7 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=contract.id, # type: ignore
+            id=contract.id,  # type: ignore
             name="测试合同",
             case_type="civil",
             status="active",

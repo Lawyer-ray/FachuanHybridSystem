@@ -165,9 +165,7 @@ class TestTestCentralization:
         # 断言：所有 property-based 测试应该在 property/ 或 structure/ 目录
         assert len(misplaced_property_tests) == 0, (
             f"发现 {len(misplaced_property_tests)} 个 property-based 测试文件不在 property/ 或 structure/ 目录:\n"
-            + "\n".join(
-                str(f) for f in misplaced_property_tests
-            )
+            + "\n".join(str(f) for f in misplaced_property_tests)
         )
 
     def test_factories_in_centralized_factories_directory(self, backend_root: Path):

@@ -29,7 +29,11 @@ class LawFirmUpdateDTO:
 
 
 @dataclass(frozen=True)
-class LawyerCreateDTO:
+class AccountCredentialUpdateDTO:
+    site_name: str | None = None
+    url: str | None = None
+    account: str | None = None
+    password: str | None = None
     username: str
     password: str
     real_name: str | None = None

@@ -24,7 +24,7 @@ def sms_content_strategy(draw):
         min_size=10,
         max_size=1000,
         alphabet=st.characters(
-            blacklist_categories=("Cs",), # type: ignore
+            blacklist_categories=("Cs",),  # type: ignore
             blacklist_characters="\x00",
         ),
     )

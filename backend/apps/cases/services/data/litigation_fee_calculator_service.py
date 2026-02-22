@@ -99,7 +99,6 @@ class LitigationFeeCalculatorService:
         """
         初始化诉讼费用计算服务
 
-        Args:
             cause_rule_service: 案由规则服务(可选,支持依赖注入)
         """
         self._cause_rule_service = cause_rule_service
@@ -122,11 +121,9 @@ class LitigationFeeCalculatorService:
         - 费率(该分段的计算费率)
         - 基础费用(到达该分段起点时的累计费用)
 
-        Args:
             amount: 计算金额(必须为非负数)
             tiers: 分段规则列表,格式为 [(上限, 费率, 基础费用), ...]
 
-        Returns:
             Decimal: 计算得到的费用
 
         Example:
@@ -160,10 +157,8 @@ class LitigationFeeCalculatorService:
 
         根据《诉讼费用交纳办法》第十三条第一款的10个分段规则计算.
 
-        Args:
             amount: 涉案金额(必须为非负数)
 
-        Returns:
             Decimal: 案件受理费
         """
         if amount < 0:
@@ -176,10 +171,8 @@ class LitigationFeeCalculatorService:
 
         按照3个分段规则计算,确保不超过5000元上限.
 
-        Args:
             amount: 财产保全金额(必须为非负数)
 
-        Returns:
             Decimal: 财产保全申请费(最高5000元)
         """
         if amount < 0:
@@ -193,10 +186,8 @@ class LitigationFeeCalculatorService:
 
         按照5个分段规则计算.
 
-        Args:
             amount: 执行金额(必须为非负数)
 
-        Returns:
             Decimal: 执行案件费用
         """
         if amount < 0:
@@ -209,10 +200,8 @@ class LitigationFeeCalculatorService:
 
         按财产案件受理费的1/3计算.
 
-        Args:
             amount: 申请金额(必须为非负数)
 
-        Returns:
             Decimal: 支付令申请费
         """
         property_fee = self.calculate_property_case_fee(amount)
@@ -224,10 +213,8 @@ class LitigationFeeCalculatorService:
 
         无争议金额返回固定费用,有争议金额按财产案件规则计算.
 
-        Args:
             amount: 争议金额(可选,None 表示无争议金额)
 
-        Returns:
             Decimal: 知识产权案件费用
         """
         if amount is None or amount <= 0:
@@ -240,11 +227,9 @@ class LitigationFeeCalculatorService:
 
         基础费用50-300元,财产超过20万按0.5%计算.
 
-        Args:
             base_fee: 基础费用(50-300元)
             property_amount: 财产分割金额(可选)
 
-        Returns:
             Decimal: 离婚案件费用
         """
         # 确保基础费用在有效范围内
@@ -263,11 +248,9 @@ class LitigationFeeCalculatorService:
 
         基础费用100-500元,按分段规则计算额外费用.
 
-        Args:
             base_fee: 基础费用(100-500元)
             damage_amount: 损害赔偿金额(可选)
 
-        Returns:
             Decimal: 人格权侵权案件费用
         """
         # 确保基础费用在有效范围内
@@ -286,10 +269,8 @@ class LitigationFeeCalculatorService:
 
         按财产案件受理费减半计算,最高不超过30万元.
 
-        Args:
             property_amount: 财产金额
 
-        Returns:
             Decimal: 破产案件费用(最高30万元)
         """
         if property_amount < 0:
@@ -308,10 +289,8 @@ class LitigationFeeCalculatorService:
         - 5万 < 金额 ≤ 10万:基础费用 + (金额 - 50000) × 1%
         - 金额 > 10万:基础费用 + 500 + (金额 - 100000) × 0.5%
 
-        Args:
             amount: 涉案金额(可选,None 表示无涉案金额)
 
-        Returns:
             dict[str, Any]: 费用计算结果
             {
                 "fee": Decimal | None,      # 精确费用(有金额时)
@@ -380,10 +359,8 @@ class LitigationFeeCalculatorService:
         - 无金额:500-1000元范围
         - 有金额:按财产案件标准计算
 
-        Args:
             amount: 涉案金额(可选,None 表示无涉案金额)
 
-        Returns:
             dict[str, Any]: 费用计算结果
             {
                 "fee": Decimal | None,      # 精确费用(有金额时)
@@ -421,11 +398,9 @@ class LitigationFeeCalculatorService:
 
         支持调解、撤诉、简易程序、反诉合并等减免类型,均为减半.
 
-        Args:
             fee: 原始费用
             discount_type: 减免类型(mediation/withdrawal/simple/counterclaim)
 
-        Returns:
             Decimal: 减免后费用
         """
         valid_types = [
@@ -617,14 +592,11 @@ class LitigationFeeCalculatorService:
         """
         验证并转换费用计算输入参数
 
-        Args:
             target_amount: 涉案金额（浮点数）
             preservation_amount: 财产保全金额（浮点数）
 
-        Returns:
             转换后的 (target_amount, preservation_amount) Decimal 元组
 
-        Raises:
             ValidationException: 金额为负数时抛出
         """
         if target_amount is not None and target_amount < 0:
