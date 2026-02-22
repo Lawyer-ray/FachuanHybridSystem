@@ -114,7 +114,7 @@ class TestDocumentDeliveryRecordProperties:
         **Validates: Requirements 9.1, 9.2, 9.3**
         """
         # 创建 send_time 为 None 的记录
-        original = DocumentDeliveryRecord(case_number="(2024)粤01民初123号", send_time=None, element_index=0)
+        original = DocumentDeliveryRecord(case_number="(2024)粤01民初123号", send_time=None, element_index=0)  # type: ignore[arg-type]
 
         # Round-trip 序列化
         serialized = original.to_dict()

@@ -32,7 +32,7 @@ class TestTeamListAPI:
         law_firm = LawFirmFactory()
         TeamFactory.create_batch(3, law_firm=law_firm)
         superuser = LawyerFactory(is_superuser=True)
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         response = self.client.get("/api/v1/organization/teams")
 
@@ -47,7 +47,7 @@ class TestTeamListAPI:
         TeamFactory.create_batch(2, law_firm=firm_a)
         TeamFactory(law_firm=firm_b)
         superuser = LawyerFactory(is_superuser=True)
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         response = self.client.get(f"/api/v1/organization/teams?law_firm_id={firm_a.id}")  # type: ignore[attr-defined]
 
@@ -61,7 +61,7 @@ class TestTeamListAPI:
         TeamFactory.create_batch(2, law_firm=firm, team_type=TeamType.LAWYER)
         TeamFactory(law_firm=firm, team_type=TeamType.BIZ)
         superuser = LawyerFactory(is_superuser=True)
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         response = self.client.get("/api/v1/organization/teams?team_type=lawyer")
 
@@ -76,7 +76,7 @@ class TestTeamListAPI:
         TeamFactory.create_batch(2, law_firm=firm_a)
         TeamFactory(law_firm=firm_b)
         user = LawyerFactory(law_firm=firm_a, is_admin=False)
-        self.client.force_login(user)
+        self.client.force_login(user)  # type: ignore[arg-type]
 
         response = self.client.get("/api/v1/organization/teams")
 
@@ -98,7 +98,7 @@ class TestTeamGetAPI:
         firm = LawFirmFactory()
         team = TeamFactory(law_firm=firm, name="测试团队A")
         user = LawyerFactory(law_firm=firm)
-        self.client.force_login(user)
+        self.client.force_login(user)  # type: ignore[arg-type]
 
         response = self.client.get(f"/api/v1/organization/teams/{team.id}")  # type: ignore[attr-defined]
 
@@ -110,7 +110,7 @@ class TestTeamGetAPI:
     def test_get_team_not_found(self) -> None:
         """获取不存在的团队返回错误"""
         superuser = LawyerFactory(is_superuser=True)
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         response = self.client.get("/api/v1/organization/teams/999999")
 
@@ -130,7 +130,7 @@ class TestTeamCreateAPI:
         """管理员创建团队"""
         firm = LawFirmFactory()
         admin = LawyerFactory(law_firm=firm, is_admin=True)
-        self.client.force_login(admin)
+        self.client.force_login(admin)  # type: ignore[arg-type]
 
         payload = {
             "name": "新律师团队",
@@ -152,7 +152,7 @@ class TestTeamCreateAPI:
         """普通用户无权创建团队"""
         firm = LawFirmFactory()
         normal_user = LawyerFactory(law_firm=firm, is_admin=False, is_superuser=False)
-        self.client.force_login(normal_user)
+        self.client.force_login(normal_user)  # type: ignore[arg-type]
 
         payload = {
             "name": "新团队",
@@ -172,7 +172,7 @@ class TestTeamCreateAPI:
         """无效团队类型被拒绝"""
         firm = LawFirmFactory()
         admin = LawyerFactory(law_firm=firm, is_admin=True)
-        self.client.force_login(admin)
+        self.client.force_login(admin)  # type: ignore[arg-type]
 
         payload = {
             "name": "无效团队",
@@ -202,7 +202,7 @@ class TestTeamUpdateAPI:
         firm = LawFirmFactory()
         team = TeamFactory(law_firm=firm, name="旧名称", team_type=TeamType.LAWYER)
         admin = LawyerFactory(law_firm=firm, is_admin=True)
-        self.client.force_login(admin)
+        self.client.force_login(admin)  # type: ignore[arg-type]
 
         payload = {
             "name": "新名称",
@@ -223,7 +223,7 @@ class TestTeamUpdateAPI:
         """更新不存在的团队返回错误"""
         firm = LawFirmFactory()
         admin = LawyerFactory(law_firm=firm, is_admin=True)
-        self.client.force_login(admin)
+        self.client.force_login(admin)  # type: ignore[arg-type]
 
         payload = {
             "name": "新名称",
@@ -254,7 +254,7 @@ class TestTeamDeleteAPI:
         team = TeamFactory(law_firm=firm)
         team_id = team.id  # type: ignore[attr-defined]
         admin = LawyerFactory(law_firm=firm, is_admin=True)
-        self.client.force_login(admin)
+        self.client.force_login(admin)  # type: ignore[arg-type]
 
         response = self.client.delete(f"/api/v1/organization/teams/{team_id}")
 
@@ -264,7 +264,7 @@ class TestTeamDeleteAPI:
     def test_delete_team_not_found(self) -> None:
         """删除不存在的团队返回错误"""
         superuser = LawyerFactory(is_superuser=True)
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         response = self.client.delete("/api/v1/organization/teams/999999")
 
@@ -276,7 +276,7 @@ class TestTeamDeleteAPI:
         firm = LawFirmFactory()
         team = TeamFactory(law_firm=firm)
         normal_user = LawyerFactory(law_firm=firm, is_admin=False, is_superuser=False)
-        self.client.force_login(normal_user)
+        self.client.force_login(normal_user)  # type: ignore[arg-type]
 
         response = self.client.delete(f"/api/v1/organization/teams/{team.id}")  # type: ignore[attr-defined]
 

@@ -56,7 +56,7 @@ async def test_rate_limit_async_raises_429_on_overflow():
 @pytest.mark.unit
 def test_get_client_ip_prefers_remote_addr_by_default():
     request = DummyRequest(ip="10.0.0.9")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "10.0.0.9"
 
 
@@ -66,7 +66,7 @@ def test_get_client_ip_does_not_trust_xff_without_trusted_proxy_in_production(se
     monkeypatch.setenv("DJANGO_TRUST_X_FORWARDED_FOR", "true")
     monkeypatch.delenv("DJANGO_TRUSTED_PROXY_IPS", raising=False)
     request = DummyRequest(ip="10.0.0.9", xff="1.1.1.1, 2.2.2.2")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "10.0.0.9"
 
 
@@ -75,7 +75,7 @@ def test_get_client_ip_uses_xff_when_remote_addr_is_trusted_proxy(settings, monk
     settings.DEBUG = False
     monkeypatch.setenv("DJANGO_TRUSTED_PROXY_IPS", "10.0.0.9")
     request = DummyRequest(ip="10.0.0.9", xff="1.1.1.1, 2.2.2.2")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "1.1.1.1"
 
 
@@ -85,7 +85,7 @@ def test_get_client_ip_supports_trusted_proxy_hops(settings, monkeypatch):
     monkeypatch.setenv("DJANGO_TRUSTED_PROXY_IPS", "10.0.0.9")
     monkeypatch.setenv("DJANGO_TRUSTED_PROXY_HOPS", "1")
     request = DummyRequest(ip="10.0.0.9", xff="1.1.1.1, 2.2.2.2")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "1.1.1.1"
 
 
@@ -95,7 +95,7 @@ def test_get_client_ip_allows_unverified_xff_in_debug(settings, monkeypatch):
     monkeypatch.setenv("DJANGO_TRUST_X_FORWARDED_FOR", "true")
     monkeypatch.delenv("DJANGO_TRUSTED_PROXY_IPS", raising=False)
     request = DummyRequest(ip="10.0.0.9", xff="1.1.1.1, 2.2.2.2")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "1.1.1.1"
 
 
@@ -104,7 +104,7 @@ def test_get_client_ip_ignores_invalid_trusted_hops(monkeypatch):
     monkeypatch.setenv("DJANGO_TRUSTED_PROXY_IPS", "10.0.0.9")
     monkeypatch.setenv("DJANGO_TRUSTED_PROXY_HOPS", "not-an-int")
     request = DummyRequest(ip="10.0.0.9", xff="1.1.1.1, 2.2.2.2")
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "1.1.1.1"
 
 
@@ -114,7 +114,7 @@ def test_get_client_ip_returns_unknown_when_no_meta(monkeypatch):
 
     request = DummyRequest(ip="")
     request.META = {}
-    ip = RateLimiter().get_client_ip(request)
+    ip = RateLimiter().get_client_ip(request)  # type: ignore[arg-type]
     assert ip == "unknown"
 
 
@@ -138,7 +138,7 @@ def test_rate_limiter_recovers_from_cache_incr_value_error(monkeypatch):
     monkeypatch.setattr(cache, "incr", incr)
     monkeypatch.setattr(cache, "set", set_value)
 
-    allowed, info = limiter.is_allowed(request)
+    allowed, info = limiter.is_allowed(request)  # type: ignore[arg-type]
     assert allowed is True
     assert info["remaining"] in (0, 1)
     assert calls

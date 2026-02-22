@@ -64,7 +64,7 @@ class TestExceptionMessageChineseConsistencyProperty:
         """
         exc = exc_class()  # type: ignore[call-arg]
         msg = exc.message
-        assert not _ENGLISH_WORD.search(msg), (
+        assert not _ENGLISH_WORD.search(msg), (  # type: ignore[arg-type]
             f"{exc_class.__name__} 的默认消息包含英文单词: {msg!r}"
         )
 
@@ -75,6 +75,6 @@ class TestExceptionMessageChineseConsistencyProperty:
         """具体验证每个异常类的默认消息为中文。"""
         exc = exc_class()  # type: ignore[call-arg]
         assert exc.message, f"{exc_class.__name__} 默认消息不能为空"
-        assert not _ENGLISH_WORD.search(exc.message), (
+        assert not _ENGLISH_WORD.search(exc.message), (  # type: ignore[arg-type]
             f"{exc_class.__name__} 默认消息含英文: {exc.message!r}"
         )

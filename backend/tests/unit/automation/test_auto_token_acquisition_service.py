@@ -127,7 +127,7 @@ class TestAutoTokenAcquisitionService:
             await self.service.acquire_token_if_needed("")
 
         with pytest.raises(ValidationException, match="网站名称不能为空"):
-            await self.service.acquire_token_if_needed(None)
+            await self.service.acquire_token_if_needed(None)  # type: ignore[arg-type]
 
     @pytest.mark.anyio
     async def test_acquire_token_no_available_account(self):

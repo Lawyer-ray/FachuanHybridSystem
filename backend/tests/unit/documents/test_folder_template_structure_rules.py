@@ -22,7 +22,7 @@ class FakeIdService:
 
 
 def test_validate_structure_ids_detects_internal_duplicates():
-    rules = FolderTemplateStructureRules(id_service=FakeIdService())
+    rules = FolderTemplateStructureRules(id_service=FakeIdService())  # type: ignore[arg-type]
     ok, errors = rules.validate_structure_ids({"children": [{"id": "a"}, {"id": "a"}]})
     assert ok is False
     assert any("重复ID" in x for x in errors)
@@ -30,7 +30,7 @@ def test_validate_structure_ids_detects_internal_duplicates():
 
 def test_validate_and_fix_structure_ids_returns_fixed_copy():
     id_service = FakeIdService()
-    rules = FolderTemplateStructureRules(id_service=id_service)
+    rules = FolderTemplateStructureRules(id_service=id_service)  # type: ignore[arg-type]
     original = {"children": [{"id": "a"}, {"id": "b"}]}
     fixed, fixed_structure, messages = rules.validate_and_fix_structure_ids(original)
 

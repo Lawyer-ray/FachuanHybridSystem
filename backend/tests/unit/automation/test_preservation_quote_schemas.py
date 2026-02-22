@@ -25,7 +25,7 @@ class TestPreservationQuoteCreateSchema:
     def test_valid_data(self):
         """测试有效数据"""
         data = {"preserve_amount": 100000.00, "corp_id": "440100", "category_id": "1", "credential_id": 1}
-        schema = PreservationQuoteCreateSchema(**data)
+        schema = PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         assert schema.preserve_amount == Decimal("100000.00")
         assert schema.corp_id == "440100"
         assert schema.category_id == "1"
@@ -35,7 +35,7 @@ class TestPreservationQuoteCreateSchema:
         """测试负数金额被拒绝"""
         data = {"preserve_amount": -1000, "corp_id": "440100", "category_id": "1", "credential_id": 1}
         with pytest.raises(ValidationError) as exc_info:
-            PreservationQuoteCreateSchema(**data)
+            PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         # Pydantic's gt validator triggers first
         assert "greater than 0" in str(exc_info.value).lower()
 
@@ -43,14 +43,14 @@ class TestPreservationQuoteCreateSchema:
         """测试零金额被拒绝"""
         data = {"preserve_amount": 0, "corp_id": "440100", "category_id": "1", "credential_id": 1}
         with pytest.raises(ValidationError) as exc_info:
-            PreservationQuoteCreateSchema(**data)
+            PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         assert "greater than 0" in str(exc_info.value).lower()
 
     def test_empty_corp_id_rejected(self):
         """测试空的企业ID被拒绝"""
         data = {"preserve_amount": 100000, "corp_id": "", "category_id": "1", "credential_id": 1}
         with pytest.raises(ValidationError) as exc_info:
-            PreservationQuoteCreateSchema(**data)
+            PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         # Pydantic's min_length validator triggers first
         assert "at least 1 character" in str(exc_info.value).lower()
 
@@ -58,7 +58,7 @@ class TestPreservationQuoteCreateSchema:
         """测试纯空格的企业ID被拒绝"""
         data = {"preserve_amount": 100000, "corp_id": "   ", "category_id": "1", "credential_id": 1}
         with pytest.raises(ValidationError) as exc_info:
-            PreservationQuoteCreateSchema(**data)
+            PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         assert "字段不能为空" in str(exc_info.value)
 
     def test_missing_required_field(self):
@@ -70,13 +70,13 @@ class TestPreservationQuoteCreateSchema:
             "credential_id": 1,
         }
         with pytest.raises(ValidationError) as exc_info:
-            PreservationQuoteCreateSchema(**data)
+            PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         assert "category_id" in str(exc_info.value).lower()
 
     def test_whitespace_trimmed(self):
         """测试空格被自动去除"""
         data = {"preserve_amount": 100000, "corp_id": "  440100  ", "category_id": "  1  ", "credential_id": 1}
-        schema = PreservationQuoteCreateSchema(**data)
+        schema = PreservationQuoteCreateSchema(**data)  # type: ignore[arg-type]
         assert schema.corp_id == "440100"
         assert schema.category_id == "1"
 
@@ -98,7 +98,7 @@ class TestInsuranceQuoteSchema:
             "response_data": {"key": "value"},
             "created_at": datetime(2024, 1, 1, 12, 0, 0),
         }
-        schema = InsuranceQuoteSchema(**data)
+        schema = InsuranceQuoteSchema(**data)  # type: ignore[arg-type]
         assert schema.id == 1
         assert schema.company_name == "测试保险公司"
         assert schema.premium == Decimal("5000.00")
@@ -117,7 +117,7 @@ class TestInsuranceQuoteSchema:
             "response_data": None,
             "created_at": datetime(2024, 1, 1, 12, 0, 0),
         }
-        schema = InsuranceQuoteSchema(**data)
+        schema = InsuranceQuoteSchema(**data)  # type: ignore[arg-type]
         json_data = schema.model_dump()
         assert isinstance(json_data["premium"], Decimal)
         assert isinstance(json_data["created_at"], datetime)
@@ -158,7 +158,7 @@ class TestPreservationQuoteSchema:
             "quotes": [quote_data],
         }
 
-        schema = PreservationQuoteSchema(**data)
+        schema = PreservationQuoteSchema(**data)  # type: ignore[arg-type]
         assert schema.id == 1
         assert len(schema.quotes) == 1
         assert schema.quotes[0].company_name == "测试保险公司"
@@ -186,7 +186,7 @@ class TestQuoteListSchema:
 
         data = {"total": 100, "page": 1, "page_size": 20, "total_pages": 5, "items": [item_data]}
 
-        schema = QuoteListSchema(**data)
+        schema = QuoteListSchema(**data)  # type: ignore[arg-type]
         assert schema.total == 100
         assert schema.page == 1
         assert schema.total_pages == 5
@@ -217,7 +217,7 @@ class TestQuoteExecuteResponseSchema:
 
         data = {"success": True, "message": "询价成功", "data": quote_data}
 
-        schema = QuoteExecuteResponseSchema(**data)
+        schema = QuoteExecuteResponseSchema(**data)  # type: ignore[arg-type]
         assert schema.success is True
         assert schema.message == "询价成功"
         assert schema.data is not None
@@ -226,6 +226,6 @@ class TestQuoteExecuteResponseSchema:
         """测试错误响应"""
         data = {"success": False, "message": "Token 失效", "data": None}
 
-        schema = QuoteExecuteResponseSchema(**data)
+        schema = QuoteExecuteResponseSchema(**data)  # type: ignore[arg-type]
         assert schema.success is False
         assert schema.data is None

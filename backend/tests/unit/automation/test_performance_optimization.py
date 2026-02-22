@@ -158,7 +158,7 @@ class TestTokenCacheManager(TestCase):
 
         result = self.cache_manager.get_cached_credentials(site_name)
         self.assertIsNotNone(result)
-        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result), 1)  # type: ignore[arg-type]
         self.assertEqual(result[0].account, "test1")  # type: ignore[index]
 
     def test_cache_key_generation(self):
@@ -268,7 +268,7 @@ class TestTokenHistoryRecorder(TestCase):
 
             # 记录历史
             await TokenHistoryRecorder.record_acquisition_history(  # type: ignore[call-arg]
-                acquisition_id, site_name, account, credential_id, result
+                acquisition_id, site_name, account, credential_id, result  # type: ignore[arg-type]
             )
 
             # 验证创建调用

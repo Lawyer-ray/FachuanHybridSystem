@@ -5,7 +5,7 @@ def test_cases_build_case_service_requires_explicit_contract_service():
     from apps.cases.services.case.composition import build_case_service
 
     dummy_contract_service = object()
-    service = build_case_service(contract_service=dummy_contract_service)
+    service = build_case_service(contract_service=dummy_contract_service)  # type: ignore[arg-type]
     assert service.contract_service is dummy_contract_service
 
 

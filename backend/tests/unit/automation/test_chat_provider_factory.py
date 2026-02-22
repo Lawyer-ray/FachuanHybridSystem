@@ -73,7 +73,7 @@ class TestChatProviderFactory:
             pass
 
         with pytest.raises(TypeError, match="必须继承 ChatProvider"):
-            ChatProviderFactory.register(ChatPlatform.FEISHU, InvalidProvider)
+            ChatProviderFactory.register(ChatPlatform.FEISHU, InvalidProvider)  # type: ignore[arg-type]
 
     def test_get_provider_success(self):
         """测试成功获取提供者实例"""

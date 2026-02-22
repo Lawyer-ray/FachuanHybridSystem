@@ -71,7 +71,7 @@ def test_coordinator_retry_policy_is_bounded(failures: List[str], succeed: bool)
         outcomes.extend([NetworkError(message="net", errors={})] * 3)
 
     http_client = _FakeHttpClient(outcomes=outcomes)
-    coordinator = CourtDocumentApiCoordinator(http_client=http_client, parser=parser, retry_count=2)
+    coordinator = CourtDocumentApiCoordinator(http_client=http_client, parser=parser, retry_count=2)  # type: ignore[arg-type]
 
     max_attempts = 3
     first_three = outcomes[:max_attempts]

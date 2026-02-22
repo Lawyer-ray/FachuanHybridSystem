@@ -24,7 +24,7 @@ class TestLawFirmAPI:
         superuser = LawyerFactory(is_superuser=True)
 
         # 模拟认证
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.get("/api/v1/organization/lawfirms")
@@ -42,7 +42,7 @@ class TestLawFirmAPI:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 模拟认证
-        self.client.force_login(user)
+        self.client.force_login(user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.get(f"/api/v1/organization/lawfirms/{lawfirm.id}")  # type: ignore[attr-defined]
@@ -59,7 +59,7 @@ class TestLawFirmAPI:
         admin_user = LawyerFactory(is_admin=True)
 
         # 模拟认证
-        self.client.force_login(admin_user)
+        self.client.force_login(admin_user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.post(
@@ -79,7 +79,7 @@ class TestLawFirmAPI:
         normal_user = LawyerFactory(is_admin=False, is_superuser=False)
 
         # 模拟认证
-        self.client.force_login(normal_user)
+        self.client.force_login(normal_user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.post(
@@ -97,7 +97,7 @@ class TestLawFirmAPI:
         admin_user = LawyerFactory(law_firm=lawfirm, is_admin=True)
 
         # 模拟认证
-        self.client.force_login(admin_user)
+        self.client.force_login(admin_user)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.put(
@@ -116,7 +116,7 @@ class TestLawFirmAPI:
         superuser = LawyerFactory(is_superuser=True)
 
         # 模拟认证
-        self.client.force_login(superuser)
+        self.client.force_login(superuser)  # type: ignore[arg-type]
 
         # 执行测试
         response = self.client.delete(f"/api/v1/organization/lawfirms/{lawfirm.id}")  # type: ignore[attr-defined]

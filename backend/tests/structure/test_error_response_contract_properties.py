@@ -81,7 +81,7 @@ def test_llm_handler_registration_does_not_swallow_unexpected_exceptions():
     handler_types: list[str] = []
     for h in llm_try.handlers:
         if h.type is None:
-            handler_types.append(None)
+            handler_types.append(None)  # type: ignore[arg-type]
         elif isinstance(h.type, ast.Name):
             handler_types.append(h.type.id)
         else:

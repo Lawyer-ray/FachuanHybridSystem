@@ -586,7 +586,7 @@ class TestSuggestRenameBatch:
             MockItem("IMG_003.jpg", "2025年7月2日 金额：8000元"),
         ]
 
-        results = service.suggest_rename_batch(items)
+        results = service.suggest_rename_batch(items)  # type: ignore[arg-type]
 
         assert len(results) == 3
         assert all(r.success for r in results)
@@ -631,7 +631,7 @@ class TestSuggestRenameBatch:
             MockItem("IMG_003.jpg", "2025年7月2日 金额：8000元"),
         ]
 
-        results = service.suggest_rename_batch(items)
+        results = service.suggest_rename_batch(items)  # type: ignore[arg-type]
 
         # 所有项目都应该有结果
         assert len(results) == 3
@@ -689,7 +689,7 @@ class TestSuggestRenameBatch:
             MockItem("IMG_004.jpg", "无法识别"),
         ]
 
-        results = service.suggest_rename_batch(items)
+        results = service.suggest_rename_batch(items)  # type: ignore[arg-type]
 
         assert len(results) == 4
         assert results[0].suggested_filename == "20250630_65500元.jpg"
@@ -717,7 +717,7 @@ class TestSuggestRenameBatch:
             MockItem("third.jpg", "text3"),
         ]
 
-        results = service.suggest_rename_batch(items)
+        results = service.suggest_rename_batch(items)  # type: ignore[arg-type]
 
         assert results[0].original_filename == "first.jpg"
         assert results[1].original_filename == "second.jpg"

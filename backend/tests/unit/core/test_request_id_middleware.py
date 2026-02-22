@@ -50,7 +50,7 @@ def test_request_id_middleware_sets_request_id_and_response_header():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={"X-Request-ID": "rid-123"})
-    response = middleware(request)
+    response = middleware(request)  # type: ignore[arg-type]
 
     assert captured["request_attr"] == "rid-123"
     assert captured["context_request_id"] == "rid-123"
@@ -69,7 +69,7 @@ def test_request_id_middleware_generates_request_id_when_missing():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={})
-    response = middleware(request)
+    response = middleware(request)  # type: ignore[arg-type]
 
     assert captured["context_request_id"]
     assert response.headers["X-Request-ID"] == captured["context_request_id"]
@@ -85,7 +85,7 @@ def test_request_id_middleware_rejects_invalid_request_id():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={"X-Request-ID": "rid-<>-too-long-" + ("x" * 200)})
-    response = middleware(request)
+    response = middleware(request)  # type: ignore[arg-type]
 
     assert captured["context_request_id"]
     assert response.headers["X-Request-ID"] == captured["context_request_id"]
@@ -103,7 +103,7 @@ def test_request_id_middleware_sets_and_clears_trace_id_thread_attrs():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={"X-Request-ID": "rid-abc"})
-    _response = middleware(request)
+    _response = middleware(request)  # type: ignore[arg-type]
 
     assert captured["context_request_id"] == "rid-abc"
     assert captured["thread_request_id"] == "rid-abc"
@@ -132,7 +132,7 @@ def test_request_id_middleware_does_not_leak_between_threads():
 
         middleware = RequestIdMiddleware(get_response)
         req = DummyRequest(headers={"X-Request-ID": rid})
-        _resp = middleware(req)
+        _resp = middleware(req)  # type: ignore[arg-type]
         return (not hasattr(threading.current_thread(), "request_id")) and (
             not hasattr(threading.current_thread(), "trace_id")
         )
@@ -159,7 +159,7 @@ def test_request_id_middleware_falls_back_to_response_mapping_when_no_headers():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={"X-Request-ID": "rid-map"})
-    response = middleware(request)
+    response = middleware(request)  # type: ignore[arg-type]
 
     assert captured["context_request_id"] == "rid-map"
     assert response.items["X-Request-ID"] == "rid-map"  # type: ignore[index]
@@ -172,6 +172,6 @@ def test_request_id_middleware_silently_ignores_header_set_failures():
 
     middleware = RequestIdMiddleware(get_response)
     request = DummyRequest(headers={"X-Request-ID": "rid-broken"})
-    response = middleware(request)
+    response = middleware(request)  # type: ignore[arg-type]
 
     assert isinstance(response, BrokenHeaderResponse)

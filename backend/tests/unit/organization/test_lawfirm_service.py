@@ -29,7 +29,7 @@ class TestLawFirmService:
         )
 
         # 执行测试
-        lawfirm = self.service.create_lawfirm(data, admin_user)
+        lawfirm = self.service.create_lawfirm(data, admin_user)  # type: ignore[arg-type]
 
         # 断言结果
         assert lawfirm.id is not None
@@ -45,7 +45,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied) as exc_info:
-            self.service.create_lawfirm(data, normal_user)
+            self.service.create_lawfirm(data, normal_user)  # type: ignore[arg-type]
 
         assert "无权限" in exc_info.value.message  # type: ignore[operator]
 
@@ -58,7 +58,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
-            self.service.create_lawfirm(data, admin_user)
+            self.service.create_lawfirm(data, admin_user)  # type: ignore[arg-type]
 
         assert "已存在" in exc_info.value.message  # type: ignore[operator]
 
@@ -81,7 +81,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            self.service.get_lawfirm(999, user)
+            self.service.get_lawfirm(999, user)  # type: ignore[arg-type]
 
     def test_get_lawfirm_permission_denied(self):
         """测试获取律所权限不足"""
@@ -101,7 +101,7 @@ class TestLawFirmService:
         superuser = LawyerFactory(is_superuser=True)
 
         # 执行测试
-        result = self.service.list_lawfirms(user=superuser)
+        result = self.service.list_lawfirms(user=superuser)  # type: ignore[arg-type]
 
         # 断言结果：超级管理员可以看到所有律所（包括自己的）
         assert len(list(result)) >= 5
@@ -114,7 +114,7 @@ class TestLawFirmService:
         user = LawyerFactory(law_firm=lawfirm1, is_superuser=False)
 
         # 执行测试
-        result = self.service.list_lawfirms(user=user)
+        result = self.service.list_lawfirms(user=user)  # type: ignore[arg-type]
 
         # 断言结果：只能看到自己所属的律所
         result_list = list(result)

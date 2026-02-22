@@ -5,11 +5,11 @@ def test_court_sms_service_init_builds_default_case_number_extractor():
         pass
 
     svc = CourtSMSService(
-        case_service=_Fake(),
+        case_service=_Fake(),  # type: ignore[arg-type]
         document_processing_service=_Fake(),
         case_number_service=_Fake(),
-        client_service=_Fake(),
-        lawyer_service=_Fake(),
-        case_chat_service=_Fake(),
+        client_service=_Fake(),  # type: ignore[arg-type]
+        lawyer_service=_Fake(),  # type: ignore[arg-type]
+        case_chat_service=_Fake(),  # type: ignore[arg-type]
     )
     assert svc.case_number_extractor is not None

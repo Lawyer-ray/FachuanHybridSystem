@@ -35,7 +35,7 @@ class TestLawyerService:
         )
 
         # 执行测试
-        lawyer = self.service.create_lawyer(data, admin_user)
+        lawyer = self.service.create_lawyer(data, admin_user)  # type: ignore[arg-type]
 
         # 断言结果
         assert lawyer.id is not None
@@ -51,7 +51,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied) as exc_info:
-            self.service.create_lawyer(data, normal_user)
+            self.service.create_lawyer(data, normal_user)  # type: ignore[arg-type]
 
         assert "无权限" in exc_info.value.message  # type: ignore[operator]
 
@@ -64,7 +64,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
-            self.service.create_lawyer(data, admin_user)
+            self.service.create_lawyer(data, admin_user)  # type: ignore[arg-type]
 
         assert "用户名" in exc_info.value.message  # type: ignore[operator]
 
@@ -77,7 +77,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(ValidationException) as exc_info:
-            self.service.create_lawyer(data, admin_user)
+            self.service.create_lawyer(data, admin_user)  # type: ignore[arg-type]
 
         assert "手机号" in exc_info.value.message  # type: ignore[operator]
 
@@ -101,7 +101,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(NotFoundError):
-            self.service.get_lawyer(999, user)
+            self.service.get_lawyer(999, user)  # type: ignore[arg-type]
 
     def test_get_lawyer_permission_denied(self):
         """测试获取律师权限不足"""
@@ -122,7 +122,7 @@ class TestLawyerService:
         superuser = LawyerFactory(is_superuser=True)
 
         # 执行测试
-        result = self.service.list_lawyers(user=superuser)
+        result = self.service.list_lawyers(user=superuser)  # type: ignore[arg-type]
 
         # 断言结果：超级管理员可以看到所有律师（包括自己）
         assert len(list(result)) == 6
@@ -137,7 +137,7 @@ class TestLawyerService:
         user = LawyerFactory(law_firm=lawfirm1, is_superuser=False)
 
         # 执行测试
-        result = self.service.list_lawyers(user=user)
+        result = self.service.list_lawyers(user=user)  # type: ignore[arg-type]
 
         # 断言结果：只能看到同律所的律师（包括自己）
         assert len(list(result)) == 4
@@ -222,7 +222,7 @@ class TestLawyerService:
         lawyer2.lawyer_teams.add(team)  # type: ignore[attr-defined]
 
         # 执行测试
-        member_ids = self.service.get_team_member_ids(lawyer1)
+        member_ids = self.service.get_team_member_ids(lawyer1)  # type: ignore[arg-type]
 
         # 断言结果
         assert lawyer1.id in member_ids  # type: ignore[attr-defined]
