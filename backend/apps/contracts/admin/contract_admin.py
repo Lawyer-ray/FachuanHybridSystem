@@ -135,8 +135,14 @@ class ContractAdmin(BaseModelAdmin):
 
     def get_primary_lawyer(self, obj: Contract) -> str:
         """显示主办律师"""
-        lawyer = obj.primary_lawyer
-        if lawyer:
+        from apps.contracts.services.assignment.contract_assignment_query_service import (
+            ContractAssignmentQueryService,
+        )
+
+        service = ContractAssignmentQueryService()
+        assignment = service.get_primary_lawyer(obj.pk)
+        if assignment:
+            lawyer = assignment.lawyer
             return lawyer.real_name or lawyer.username
         return "-"
 
@@ -144,8 +150,14 @@ class ContractAdmin(BaseModelAdmin):
 
     def get_primary_lawyer_display(self, obj: Contract) -> str:
         """详情页显示主办律师（只读）"""
-        lawyer = obj.primary_lawyer
-        if lawyer:
+        from apps.contracts.services.assignment.contract_assignment_query_service import (
+            ContractAssignmentQueryService,
+        )
+
+        service = ContractAssignmentQueryService()
+        assignment = service.get_primary_lawyer(obj.pk)
+        if assignment:
+            lawyer = assignment.lawyer
             name = lawyer.real_name or lawyer.username
             return f"{name} (ID: {lawyer.id})"
         return "无"

@@ -64,19 +64,21 @@ class ContractServiceAdapter:
         return [self._to_dto(c) for c in contracts]
 
     def get_contract_assigned_lawyer_id(self, contract_id: int) -> int | None:
-        try:
-            contract = self.contract_service._get_contract_internal(contract_id)
-            primary_lawyer = contract.primary_lawyer
-            return primary_lawyer.id if primary_lawyer else None
-        except NotFoundError:
-            return None
+        from .assignment.contract_assignment_query_service import ContractAssignmentQueryService
+
+        query_service = ContractAssignmentQueryService()
+        assignment = query_service.get_primary_lawyer(contract_id)
+        if assignment is not None:
+            return int(assignment.lawyer_id)
+        return None
 
     def get_contract_lawyers(self, contract_id: int) -> list[LawyerDTO]:
         from apps.core.interfaces import LawyerDTO
+        from .assignment.contract_assignment_query_service import ContractAssignmentQueryService
 
-        contract = self.contract_service._get_contract_internal(contract_id)
-        all_lawyers = contract.all_lawyers
-        return [LawyerDTO.from_model(lawyer) for lawyer in all_lawyers]
+        query_service = ContractAssignmentQueryService()
+        assignments = query_service.get_all_lawyers(contract_id)
+        return [LawyerDTO.from_model(a.lawyer) for a in assignments]
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         """获取合同及其补充协议的所有当事人（去重）"""
