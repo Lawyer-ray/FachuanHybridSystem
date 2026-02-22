@@ -26,6 +26,13 @@ def _get_admin_service() -> Any:
 
     return AccountCredentialAdminService()
 
+def _get_credential_service() -> Any:
+    """工厂函数 - 创建 AccountCredentialService 实例"""
+    from apps.organization.services import AccountCredentialService
+
+    return AccountCredentialService()
+
+
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
@@ -160,7 +167,9 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
         """标记为优先账号"""
-        count = queryset.update(is_preferred=True)
+        credential_ids: list[int] = list(queryset.values_list("id", flat=True))
+        service = _get_credential_service()
+        count: int = service.batch_mark_preferred(credential_ids)
         self.message_user(
             request,
             ngettext(
@@ -176,7 +185,9 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
         """取消优先标记"""
-        count = queryset.update(is_preferred=False)
+        credential_ids: list[int] = list(queryset.values_list("id", flat=True))
+        service = _get_credential_service()
+        count: int = service.batch_unmark_preferred(credential_ids)
         self.message_user(
             request,
             ngettext(
