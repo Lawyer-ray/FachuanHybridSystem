@@ -47,9 +47,9 @@ def normalize_case_number(number: str, ensure_hao: bool = False) -> str:
         return ""
 
     result = str(number)
-    result = result.replace("(", "(").replace(")", ")")
-    result = result.replace("〔", "(").replace("〕", ")")
-    result = result.replace("[", "(").replace("]", ")")
+    result = result.replace("(", "（").replace(")", "）")
+    result = result.replace("〔", "（").replace("〕", "）")
+    result = result.replace("[", "（").replace("]", "）")
     result = result.replace(" ", "").replace("\u3000", "")
 
     if ensure_hao and result and not result.endswith("号"):

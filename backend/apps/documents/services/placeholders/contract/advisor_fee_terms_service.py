@@ -82,7 +82,7 @@ class AdvisorFeeTermsService(BasePlaceholderService):
         fixed_amount = getattr(contract, "fixed_amount", None)
 
         if fixed_amount:
-            amount_str = str(float(fixed_amount))
+            amount_str = f"{float(fixed_amount):.2f}"
             amount_chinese = self._number_to_chinese(fixed_amount)
             return f"甲方向乙方支付法律顾问费¥{amount_str}元（大写：人民币{amount_chinese}）"
         else:

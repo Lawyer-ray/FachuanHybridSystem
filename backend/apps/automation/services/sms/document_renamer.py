@@ -322,11 +322,17 @@ class DocumentRenamer:
         case_name = self._sanitize_filename_part(case_name)
 
         # 限制长度避免文件名过长
-        if len(title) > 20:
-            title = title[:20]
+        title_max = get_config("features.document_renaming.title_max_length", 20)
+        case_name_max = get_config("features.document_renaming.case_name_max_length", 60)
+        case_name_hash_length = get_config("features.document_renaming.case_name_hash_length", 6)
 
-        if len(case_name) > 30:
-            case_name = case_name[:30]
+        if len(title) > title_max:
+            title = title[:title_max]
+
+        if len(case_name) > case_name_max:
+            import hashlib
+            suffix = hashlib.md5(case_name.encode()).hexdigest()[:case_name_hash_length]
+            case_name = case_name[: case_name_max - case_name_hash_length - 1] + "_" + suffix
 
         # 格式化日期
         date_str = received_date.strftime("%Y%m%d")
@@ -394,11 +400,11 @@ class DocumentRenamer:
             original_path = Path(document_path)
             new_path = original_path.parent / new_filename
 
-            # 如果新文件名已存在，在"收"字后面添加数字
+            # 如果新文件名已存在，在"收"字后面添加数字（带括号）
             counter = 1
             while new_path.exists():
-                # 格式：xxx收1.pdf, xxx收2.pdf
-                base_filename = new_filename.replace("收.pdf", f"收{counter}.pdf")
+                # 格式：xxx收(1).pdf, xxx收(2).pdf
+                base_filename = new_filename.replace("收.pdf", f"收({counter}).pdf")
                 new_path = original_path.parent / base_filename
                 counter += 1
                 if counter > 100:  # 防止无限循环
@@ -437,7 +443,7 @@ class DocumentRenamer:
 
             # 降级方案：使用原始名称或简单格式
             if original_name:
-                fallback_title = self._extract_title_from_filename(original_name)
+                fallback_title = original_name
             else:
                 fallback_title = "司法文书"
 
@@ -447,10 +453,10 @@ class DocumentRenamer:
                 original_path = Path(document_path)
                 fallback_path = original_path.parent / fallback_filename
 
-                # 避免文件名冲突，在"收"字后面添加数字
+                # 避免文件名冲突，在"收"字后面添加数字（带括号）
                 counter = 1
                 while fallback_path.exists():
-                    base_filename = fallback_filename.replace("收.pdf", f"收{counter}.pdf")
+                    base_filename = fallback_filename.replace("收.pdf", f"收({counter}).pdf")
                     fallback_path = original_path.parent / base_filename
                     counter += 1
                     if counter > 100:
