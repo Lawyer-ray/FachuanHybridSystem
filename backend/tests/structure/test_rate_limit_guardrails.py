@@ -92,7 +92,7 @@ def test_upload_and_export_endpoints_are_rate_limited():
     assert _has_rate_limit_decorator(fn, "EXPORT")
 
 
-def test_high_risk_endpoints_are_rate_limited_systematically(): # noqa: C901
+def test_high_risk_endpoints_are_rate_limited_systematically():  # noqa: C901
     backend_root = _backend_root()
     api_roots = [
         backend_root / "apps",
@@ -154,7 +154,7 @@ def test_high_risk_endpoints_are_rate_limited_systematically(): # noqa: C901
                 actual = _rate_limit_kinds(node)
                 if not (actual & expected):
                     missing.append(
-                        f"{path.relative_to(backend_root)}:{node.name} expected={sorted(expected)} actual={sorted(actual)}" # noqa: E501
+                        f"{path.relative_to(backend_root)}:{node.name} expected={sorted(expected)} actual={sorted(actual)}"  # noqa: E501
                     )
 
     assert not missing, "以下高风险端点缺少 rate_limit_from_settings：\n" + "\n".join(sorted(missing))

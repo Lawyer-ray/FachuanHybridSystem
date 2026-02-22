@@ -15,60 +15,47 @@ from apps.organization.services import LawFirmService
 
 router = Router()
 
-
-def _get_lawfirm_service() -> LawFirmService:
-    """工厂函数：创建 LawFirmService 实例"""
-    return LawFirmService()
+_lawfirm_service = LawFirmService()
 
 
 @router.get("/lawfirms", response=list[LawFirmOut])
 def list_lawfirms(request: HttpRequest) -> list[LawFirmOut]:
     """列表查询律所"""
-    service = _get_lawfirm_service()
-    user = get_request_user(request)
-    return list(service.list_lawfirms(user=user))
+    return list(_lawfirm_service.list_lawfirms(user=get_request_user(request)))
 
 
 @router.get("/lawfirms/{law_firm_id}", response=LawFirmOut)
 def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:
     """获取律所详情"""
-    service = _get_lawfirm_service()
-    user = get_request_user(request)
-    return service.get_lawfirm(law_firm_id, user)
+    return _lawfirm_service.get_lawfirm(law_firm_id, get_request_user(request))
 
 
 @router.post("/lawfirms", response=LawFirmOut)
 def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:
     """创建律所"""
-    service = _get_lawfirm_service()
-    user = get_request_user(request)
     dto = LawFirmCreateDTO(
         name=payload.name,
         address=payload.address,
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    return service.create_lawfirm(data=dto, user=user)
+    return _lawfirm_service.create_lawfirm(data=dto, user=get_request_user(request))
 
 
 @router.put("/lawfirms/{law_firm_id}", response=LawFirmOut)
 def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:
     """更新律所"""
-    service = _get_lawfirm_service()
-    user = get_request_user(request)
     dto = LawFirmUpdateDTO(
         name=payload.name,
         address=payload.address,
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    return service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=user)
+    return _lawfirm_service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=get_request_user(request))
 
 
 @router.delete("/lawfirms/{law_firm_id}")
 def delete_lawfirm(request: HttpRequest, law_firm_id: int) -> dict[str, bool]:
     """删除律所"""
-    service = _get_lawfirm_service()
-    user = get_request_user(request)
-    service.delete_lawfirm(law_firm_id, user)
+    _lawfirm_service.delete_lawfirm(law_firm_id, get_request_user(request))
     return {"success": True}

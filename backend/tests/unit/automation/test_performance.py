@@ -102,13 +102,17 @@ class TestPerformance:
         # 记录开始时间
         start_time = time.time()
 
-        with patch.object(service.token_service, "get_token", return_value=mock_token), patch.object(
-            service.insurance_client,
-            "fetch_insurance_companies",
-            new_callable=AsyncMock,
-            return_value=mock_companies,
-        ), patch.object(
-            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        with (
+            patch.object(service.token_service, "get_token", return_value=mock_token),
+            patch.object(
+                service.insurance_client,
+                "fetch_insurance_companies",
+                new_callable=AsyncMock,
+                return_value=mock_companies,
+            ),
+            patch.object(
+                service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+            ),
         ):
             result = await service.execute_quote(quote.id)
 
@@ -160,7 +164,7 @@ class TestPerformance:
             start_time = time.time()
 
             # 并发执行
-            results = await client.fetch_all_premiums( # noqa: F841
+            results = await client.fetch_all_premiums(  # noqa: F841
                 bearer_token=mock_token,
                 preserve_amount=Decimal("100000.00"),
                 corp_id="test_corp",
@@ -231,13 +235,17 @@ class TestPerformance:
             quotes.append(quote)
 
         # 执行所有任务
-        with patch.object(service.token_service, "get_token", side_effect=mock_get_token), patch.object(
-            service.insurance_client,
-            "fetch_insurance_companies",
-            new_callable=AsyncMock,
-            return_value=mock_companies,
-        ), patch.object(
-            service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+        with (
+            patch.object(service.token_service, "get_token", side_effect=mock_get_token),
+            patch.object(
+                service.insurance_client,
+                "fetch_insurance_companies",
+                new_callable=AsyncMock,
+                return_value=mock_companies,
+            ),
+            patch.object(
+                service.insurance_client, "fetch_all_premiums", new_callable=AsyncMock, return_value=mock_results
+            ),
         ):
             for quote in quotes:
                 await service.execute_quote(quote.id)

@@ -76,7 +76,9 @@ def test_missing_header_text_falls_back_to_default(
     """
     payload = _build_payload(images_per_page, show_page_number, header_text=None)
     layout = ExportLayout.from_payload(
-        export_type, payload, default_header_text=default_header_text,
+        export_type,
+        payload,
+        default_header_text=default_header_text,
     )
     assert layout.header_text == default_header_text
 
@@ -104,7 +106,9 @@ def test_empty_header_text_falls_back_to_default(
     """
     payload = _build_payload(images_per_page, show_page_number, header_text=empty_header)
     layout = ExportLayout.from_payload(
-        export_type, payload, default_header_text=default_header_text,
+        export_type,
+        payload,
+        default_header_text=default_header_text,
     )
     assert layout.header_text == default_header_text
 
@@ -132,6 +136,8 @@ def test_nonempty_header_text_uses_payload_value(
     """
     payload = _build_payload(images_per_page, show_page_number, header_text=header_text)
     layout = ExportLayout.from_payload(
-        export_type, payload, default_header_text=default_header_text,
+        export_type,
+        payload,
+        default_header_text=default_header_text,
     )
     assert layout.header_text == header_text.strip()

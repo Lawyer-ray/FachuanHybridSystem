@@ -223,7 +223,7 @@ async def test_case_stage_validation():
 # ========== 当事人唯一性验证测试场景 ==========
 
 
-async def test_party_uniqueness_validation(): # noqa: C901
+async def test_party_uniqueness_validation():  # noqa: C901
     """
     测试当事人唯一性验证
 
@@ -239,7 +239,7 @@ async def test_party_uniqueness_validation(): # noqa: C901
         print("=" * 80)
 
         # 定义测试场景
-        scenarios = [] # noqa: F841
+        scenarios = []  # noqa: F841
 
         # 准备测试数据
         print("\n准备测试数据...")
@@ -290,10 +290,10 @@ async def test_party_uniqueness_validation(): # noqa: C901
 
         # 这个场景需要特殊处理，因为需要添加两个内联行
         # 我们将手动执行这个场景
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("执行验证场景: party_duplicate")
         print("描述: 测试在同一案件中添加重复的当事人时，系统是否显示验证错误")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         import time
 
@@ -408,11 +408,11 @@ async def test_party_uniqueness_validation(): # noqa: C901
             )
 
             if passed:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✓ 场景通过: party_duplicate")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
             else:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✗ 场景失败: party_duplicate")
                 if len(errors_detected) == 0:
                     print("  原因: 未检测到验证错误")
@@ -422,7 +422,7 @@ async def test_party_uniqueness_validation(): # noqa: C901
                     print("  原因: 修正后保存失败")
                 elif not no_errors:
                     print("  原因: 修正后仍有验证错误")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
 
             result_3_1 = ValidationTestResult(
                 scenario_name="party_duplicate",
@@ -458,10 +458,10 @@ async def test_party_uniqueness_validation(): # noqa: C901
         # Requirements: 2.2
         print("\n准备场景 3.3: 测试不同当事人验证")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("执行验证场景: party_different")
         print("描述: 测试在同一案件中添加不同的当事人时，系统是否允许保存")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         start_time = time.time()
         screenshots = []
@@ -513,17 +513,17 @@ async def test_party_uniqueness_validation(): # noqa: C901
             passed = success and no_errors
 
             if passed:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✓ 场景通过: party_different")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
             else:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✗ 场景失败: party_different")
                 if not success:
                     print("  原因: 保存失败")
                 elif not no_errors:
                     print("  原因: 出现了验证错误")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
 
             result_3_3 = ValidationTestResult(
                 scenario_name="party_different",
@@ -559,10 +559,10 @@ async def test_party_uniqueness_validation(): # noqa: C901
         # Requirements: 2.5
         print("\n准备场景 3.4: 测试跨案件相同当事人")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("执行验证场景: party_cross_case")
         print("描述: 测试在不同案件中添加相同的当事人时，系统是否允许保存")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         start_time = time.time()
         screenshots = []
@@ -628,11 +628,11 @@ async def test_party_uniqueness_validation(): # noqa: C901
             passed = success1 and success2 and no_errors
 
             if passed:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✓ 场景通过: party_cross_case")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
             else:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✗ 场景失败: party_cross_case")
                 if not success1:
                     print("  原因: 第一个案件保存失败")
@@ -640,7 +640,7 @@ async def test_party_uniqueness_validation(): # noqa: C901
                     print("  原因: 第二个案件保存失败")
                 elif not no_errors:
                     print("  原因: 出现了验证错误")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
 
             result_3_4 = ValidationTestResult(
                 scenario_name="party_cross_case",
@@ -676,10 +676,10 @@ async def test_party_uniqueness_validation(): # noqa: C901
         # Requirements: 2.4
         print("\n准备场景 3.5: 测试当事人验证错误恢复")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("执行验证场景: party_error_recovery")
         print("描述: 测试触发重复当事人错误后，删除重复的当事人并重新提交，系统是否成功保存")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         start_time = time.time()
         screenshots = []
@@ -721,7 +721,7 @@ async def test_party_uniqueness_validation(): # noqa: C901
 
             # 5. 验证错误出现
             print("\n步骤 4: 验证错误出现")
-            error_appeared = await test.wait_for_validation_error(timeout=5000) # noqa: F841
+            error_appeared = await test.wait_for_validation_error(timeout=5000)  # noqa: F841
             errors = await test.get_validation_errors()
 
             for error in errors:
@@ -760,11 +760,11 @@ async def test_party_uniqueness_validation(): # noqa: C901
             )
 
             if passed:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✓ 场景通过: party_error_recovery")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
             else:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print("✗ 场景失败: party_error_recovery")
                 if len(errors_detected) == 0:
                     print("  原因: 未检测到验证错误")
@@ -772,7 +772,7 @@ async def test_party_uniqueness_validation(): # noqa: C901
                     print("  原因: 修正后保存失败")
                 elif not no_errors:
                     print("  原因: 修正后仍有验证错误")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
 
             result_3_5 = ValidationTestResult(
                 scenario_name="party_error_recovery",
@@ -851,10 +851,10 @@ if __name__ == "__main__":
     # 运行当事人唯一性验证测试
     success_rate = asyncio.run(test_party_uniqueness_validation())
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("测试完成")
     print(f"成功率: {success_rate:.1f}%")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     # 如果成功率低于80%，退出码为1
     import sys

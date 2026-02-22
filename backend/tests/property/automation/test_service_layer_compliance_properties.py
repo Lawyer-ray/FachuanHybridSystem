@@ -87,9 +87,9 @@ class TestServiceLayerCompliance:
             # *args 和 **kwargs 不需要默认值
             for param in non_self_params:
                 if param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
-                    assert (
-                        param.default is not inspect.Parameter.empty
-                    ), f"{service_class.__name__}构造函数参数 '{param.name}' 必须有默认值以支持依赖注入"
+                    assert param.default is not inspect.Parameter.empty, (
+                        f"{service_class.__name__}构造函数参数 '{param.name}' 必须有默认值以支持依赖注入"
+                    )
 
         # 验证可以无参数实例化
         try:
@@ -148,9 +148,9 @@ class TestServiceLayerCompliance:
                 if dep.startswith("_"):
                     # 私有属性，应该有对应的公开property
                     public_name = dep[1:]  # 去掉下划线
-                    assert (
-                        public_name in property_methods
-                    ), f"{service_class.__name__} 的依赖 '{dep}' 应该有对应的 @property 方法 '{public_name}'"
+                    assert public_name in property_methods, (
+                        f"{service_class.__name__} 的依赖 '{dep}' 应该有对应的 @property 方法 '{public_name}'"
+                    )
 
         except (OSError, TypeError):
             # 如果无法获取源代码，跳过此测试
@@ -201,9 +201,9 @@ class TestServiceLayerCompliance:
                 # 检查是否有@transaction.atomic装饰器
                 has_transaction_atomic = "@transaction.atomic" in source or "transaction.atomic" in source
 
-                assert (
-                    has_transaction_atomic
-                ), f"{service_class.__name__}.{method_name} 业务方法必须使用 @transaction.atomic 装饰器"
+                assert has_transaction_atomic, (
+                    f"{service_class.__name__}.{method_name} 业务方法必须使用 @transaction.atomic 装饰器"
+                )
 
             except (OSError, TypeError):
                 # 如果无法获取源代码，跳过此方法
@@ -220,7 +220,7 @@ class TestServiceLayerCompliance:
         )
     )
     @settings(max_examples=100)
-    def test_property_9_service_exception_three_parameters(self, service_class): # noqa: C901
+    def test_property_9_service_exception_three_parameters(self, service_class):  # noqa: C901
         """
         **Feature: automation-module-compliance, Property 9: Service层异常三参数**
 
@@ -285,9 +285,9 @@ class TestServiceLayerCompliance:
                         "AutoTokenAcquisitionError",
                     ]
                 ):
-                    assert (
-                        has_message and has_code and has_errors
-                    ), f"{service_class.__name__} 中的异常必须包含 message、code、errors 三个参数: {exception_stmt}"
+                    assert has_message and has_code and has_errors, (
+                        f"{service_class.__name__} 中的异常必须包含 message、code、errors 三个参数: {exception_stmt}"
+                    )
 
         except (OSError, TypeError):
             # 如果无法获取源代码，跳过此测试
@@ -338,15 +338,15 @@ class TestServiceLayerCompliance:
                 if matches:
                     # 验证导入语句正确
                     correct_import = "from apps.core.interfaces import ServiceLocator"
-                    assert (
-                        correct_import in source
-                    ), f"{service_class.__name__} 必须正确导入 ServiceLocator: {correct_import}"
+                    assert correct_import in source, (
+                        f"{service_class.__name__} 必须正确导入 ServiceLocator: {correct_import}"
+                    )
 
         except (OSError, TypeError):
             # 如果无法获取源代码，跳过此测试
             pass
 
-    def test_service_layer_comprehensive_compliance_check(self): # noqa: C901
+    def test_service_layer_comprehensive_compliance_check(self):  # noqa: C901
         """
         Service层综合合规性检查
 
@@ -485,7 +485,7 @@ class TestServiceLayerPropertyBasedCompliance:
 
     @given(service_method_source())
     @settings(max_examples=50)
-    def test_service_method_compliance_patterns(self, method_source): # noqa: C901
+    def test_service_method_compliance_patterns(self, method_source):  # noqa: C901
         """
         测试Service方法的合规性模式
 
@@ -511,7 +511,11 @@ class TestServiceLayerPropertyBasedCompliance:
                     # 检查装饰器 - 更准确的AST检查
                     has_transaction = False
                     for decorator in method_def.decorator_list:
-                        if (hasattr(decorator, "attr") and decorator.attr == "atomic") or (hasattr(decorator, "id") and "atomic" in decorator.id) or "transaction" in str(decorator): # noqa: E501
+                        if (
+                            (hasattr(decorator, "attr") and decorator.attr == "atomic")
+                            or (hasattr(decorator, "id") and "atomic" in decorator.id)
+                            or "transaction" in str(decorator)
+                        ):  # noqa: E501
                             has_transaction = True
                             break
 
@@ -527,9 +531,9 @@ class TestServiceLayerPropertyBasedCompliance:
                             keywords = {kw.arg for kw in node.exc.keywords}
                             required_params = {"message", "code", "errors"}
 
-                            assert required_params.issubset(
-                                keywords
-                            ), f"异常 {exc_name} 必须包含 message、code、errors 参数"
+                            assert required_params.issubset(keywords), (
+                                f"异常 {exc_name} 必须包含 message、code、errors 参数"
+                            )
 
 
 if __name__ == "__main__":

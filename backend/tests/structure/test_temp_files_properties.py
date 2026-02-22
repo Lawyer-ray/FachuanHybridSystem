@@ -42,7 +42,7 @@ def is_tracked_by_git(file_path: str) -> bool:
     """检查文件是否被 Git 跟踪"""
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", file_path], # noqa: S607
+            ["git", "ls-files", "--error-unmatch", file_path],  # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -147,7 +147,7 @@ def test_temporary_files_not_in_version_control_property(file_path):
     is_tracked = is_tracked_by_git(file_path)
 
     assert not is_tracked, (
-        f"Temporary/generated file is tracked by Git: {file_path}\n" f"This file should be added to .gitignore"
+        f"Temporary/generated file is tracked by Git: {file_path}\nThis file should be added to .gitignore"
     )
 
 
@@ -222,7 +222,7 @@ def test_cache_directories_not_tracked():
         if cache_path.exists():
             try:
                 result = subprocess.run(
-                    ["git", "ls-files", cache_dir], # noqa: S607
+                    ["git", "ls-files", cache_dir],  # noqa: S607
                     cwd=backend_root,
                     capture_output=True,
                     text=True,
@@ -281,7 +281,7 @@ def test_coverage_files_not_tracked():
     # 使用 git ls-files 批量检查，避免 rglob + subprocess 逐文件调用
     try:
         result = subprocess.run(
-            ["git", "ls-files", ".coverage", "htmlcov"], # noqa: S607
+            ["git", "ls-files", ".coverage", "htmlcov"],  # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -321,7 +321,7 @@ def test_database_files_not_tracked():
     )
 
 
-def test_ide_config_not_tracked(): # noqa: C901
+def test_ide_config_not_tracked():  # noqa: C901
     """
     测试 IDE 配置不被 Git 跟踪
 
@@ -370,7 +370,7 @@ def test_python_cache_not_tracked():
     cache_files = []
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--", "*.pyc", "*__pycache__*"], # noqa: S607
+            ["git", "ls-files", "--", "*.pyc", "*__pycache__*"],  # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,

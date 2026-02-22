@@ -25,7 +25,7 @@ class TestCourtTokenStoreService:
         """测试获取最新有效 token 成功"""
         # 创建有效的 token
         expires_at = timezone.now() + timedelta(hours=1)
-        token = CourtToken.objects.create( # noqa: F841
+        token = CourtToken.objects.create(  # noqa: F841
             site_name="zxfw.court.gov.cn",
             account="test@example.com",
             token="valid_token_123",
@@ -139,9 +139,7 @@ class TestCourtTokenStoreService:
             expires_at=expires_at,
         )
         # 用 update() 绕过 auto_now_add，将 created_at 设为更早
-        CourtToken.objects.filter(pk=old_token.pk).update(
-            created_at=timezone.now() - timedelta(minutes=10)
-        )
+        CourtToken.objects.filter(pk=old_token.pk).update(created_at=timezone.now() - timedelta(minutes=10))
 
         # 更新为新 token（同一 site+account，用 update_or_create 或直接 update）
         CourtToken.objects.filter(pk=old_token.pk).update(token="new_token")

@@ -112,9 +112,9 @@ class TestDebugScriptLocationProperties:
 
         # Verify that debug scripts are properly named
         for script in debug_scripts:
-            assert self._is_debug_script(
-                script
-            ), f"Script {script.name} in development/ should follow debug script naming"
+            assert self._is_debug_script(script), (
+                f"Script {script.name} in development/ should follow debug script naming"
+            )
 
     def test_automation_debug_scripts_in_automation_subdirectory(self, scripts_dir):
         """
@@ -130,7 +130,7 @@ class TestDebugScriptLocationProperties:
 
         # Check that automation subdirectory exists
         assert automation_dev_dir.exists(), (
-            "scripts/development/automation/ directory should exist for " "automation-related debug scripts"
+            "scripts/development/automation/ directory should exist for automation-related debug scripts"
         )
 
         # Verify files in automation subdirectory are debug scripts
@@ -138,9 +138,9 @@ class TestDebugScriptLocationProperties:
             if py_file.name == "__init__.py":
                 continue
 
-            assert self._is_debug_script(
-                py_file
-            ), f"File {py_file.name} in development/automation/ should be a debug script"
+            assert self._is_debug_script(py_file), (
+                f"File {py_file.name} in development/automation/ should be a debug script"
+            )
 
     def test_app_tests_directories_only_contain_tests(self, apps_dir):
         """

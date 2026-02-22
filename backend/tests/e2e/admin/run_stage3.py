@@ -127,11 +127,11 @@ def generate_report(total, passed, failed, skipped, errors):
     """生成测试报告文件"""
     report_content = f"""# Django Admin 内联表单测试报告 - 阶段 3
 
-**测试日期**: {datetime.now().strftime('%Y-%m-%d')}
+**测试日期**: {datetime.now().strftime("%Y-%m-%d")}
 **测试阶段**: 阶段 3 - 内联表单测试
 **测试人员**: Kiro AI
 **测试环境**: macOS, Python 3.12, Django 5.2
-**测试状态**: {'✅ 完成' if failed == 0 else '⚠️ 部分完成'}
+**测试状态**: {"✅ 完成" if failed == 0 else "⚠️ 部分完成"}
 
 ---
 
@@ -248,7 +248,7 @@ def generate_report(total, passed, failed, skipped, errors):
 
 - [x] 阶段 1: 冒烟测试 - ✅ 完成
 - [x] 阶段 2: CRUD 测试 - ⚠️ 部分完成
-- [x] 阶段 3: 内联表单测试 - {'✅ 完成' if failed == 0 else '⚠️ 部分完成'}
+- [x] 阶段 3: 内联表单测试 - {"✅ 完成" if failed == 0 else "⚠️ 部分完成"}
 - [ ] 阶段 4: 表单验证测试 - 待执行
 - [ ] 阶段 5: Admin Action 测试 - 待执行
 - [ ] 阶段 6: 自定义视图测试 - 待执行
@@ -257,7 +257,7 @@ def generate_report(total, passed, failed, skipped, errors):
 
 ---
 
-**报告生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+**报告生成时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
 
     # 写入报告文件

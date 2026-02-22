@@ -345,7 +345,7 @@ class TestInlineForms(BaseAdminTest):
             except Exception:
                 try:
                     await self.fill_raw_id_field("assigned_lawyer", "67")
-                    lawyer_filled = True # noqa: F841
+                    lawyer_filled = True  # noqa: F841
                 except Exception:
                     print("    ℹ️  跳过 assigned_lawyer 字段（无法填写）")
 

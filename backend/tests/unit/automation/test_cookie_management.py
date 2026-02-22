@@ -139,7 +139,10 @@ class TestCookieLoadingBeforeLogin:
         mock_cookie_service = MockCookieService()
 
         service = CourtZxfwService(
-            mock_page, mock_context, captcha_recognizer=MockCaptchaRecognizer(), cookie_service=mock_cookie_service  # type: ignore[arg-type]
+            mock_page,
+            mock_context,
+            captcha_recognizer=MockCaptchaRecognizer(),
+            cookie_service=mock_cookie_service,
         )
 
         # 预先保存一些 Cookie
@@ -304,7 +307,7 @@ class TestFreshLoginOnExpiredCookies:
 
         # 尝试登录（会因为 Cookie 过期而失败，但我们验证流程）
         try:
-            result = service.login("user456", "password", max_captcha_retries=1) # noqa: F841
+            result = service.login("user456", "password", max_captcha_retries=1)  # noqa: F841
         except ValueError:
             # 预期会失败（因为我们的 mock 不支持完整登录）
             pass

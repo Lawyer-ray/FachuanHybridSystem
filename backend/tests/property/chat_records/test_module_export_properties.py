@@ -33,9 +33,7 @@ def test_models_all_has_no_underscore_symbols() -> None:
     """
     all_symbols: list[str] = getattr(models, "__all__", [])
     underscore_symbols = [s for s in all_symbols if s.startswith("_")]
-    assert underscore_symbols == [], (
-        f"models/__init__.py __all__ 中包含下划线开头的符号: {underscore_symbols}"
-    )
+    assert underscore_symbols == [], f"models/__init__.py __all__ 中包含下划线开头的符号: {underscore_symbols}"
 
 
 # ---------------------------------------------------------------------------
@@ -45,12 +43,7 @@ def test_models_all_has_no_underscore_symbols() -> None:
 
 def _collect_public_classes_from_services() -> dict[str, list[str]]:
     """扫描 services/ 目录，返回 {module_name: [公开类名, ...]} 映射。"""
-    services_dir = (
-        Path(__file__).resolve().parents[3]
-        / "apps"
-        / "chat_records"
-        / "services"
-    )
+    services_dir = Path(__file__).resolve().parents[3] / "apps" / "chat_records" / "services"
     result: dict[str, list[str]] = {}
     for py_file in sorted(services_dir.glob("*.py")):
         if py_file.name.startswith("_") or py_file.name == "__init__.py":
@@ -86,6 +79,4 @@ def test_services_all_exports_every_public_class() -> None:
             if cls_name not in all_set:
                 missing.append(f"{module_name}.{cls_name}")
 
-    assert missing == [], (
-        f"services/__init__.py __all__ 缺少以下公开类: {missing}"
-    )
+    assert missing == [], f"services/__init__.py __all__ 缺少以下公开类: {missing}"

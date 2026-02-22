@@ -63,10 +63,10 @@ def _configure_singleton_mocks(
 ) -> None:
     """统一配置单例 mock 的行为"""
     mock_cache.get_cached_token.return_value = None
-    mock_cache.cache_token = Mock()       # 同步调用
-    mock_cache2.cache_token = Mock()      # _login_handler 里也是同步调用
-    mock_perf.record_acquisition_start = Mock()   # 同步调用
-    mock_perf.record_acquisition_end = Mock()     # 同步调用
+    mock_cache.cache_token = Mock()  # 同步调用
+    mock_cache2.cache_token = Mock()  # _login_handler 里也是同步调用
+    mock_perf.record_acquisition_start = Mock()  # 同步调用
+    mock_perf.record_acquisition_end = Mock()  # 同步调用
     mock_conc.acquire_resource = AsyncMock()
     mock_conc.release_resource = AsyncMock()
     mock_hist.record_acquisition_history = AsyncMock()
@@ -90,6 +90,7 @@ class TestBasicTokenAcquisitionProperties:
 
         **Validates: Requirements 1.1, 1.2**
         """
+
         async def _run() -> None:
             mock_account_strategy = Mock()
             mock_login_service = AsyncMock()
@@ -123,6 +124,7 @@ class TestBasicTokenAcquisitionProperties:
 
         **Validates: Requirements 1.1, 1.2**
         """
+
         async def _run() -> None:
             test_credential = create_test_credential(site_name)
             mock_account_strategy = Mock()
@@ -168,6 +170,7 @@ class TestBasicTokenAcquisitionProperties:
 
         **Validates: Requirements 1.4**
         """
+
         async def _run() -> None:
             error_messages = {
                 "network_error": "网络连接失败",
@@ -214,6 +217,7 @@ class TestBasicTokenAcquisitionProperties:
 
         **Validates: Requirements 2.4**
         """
+
         async def _run() -> None:
             mock_account_strategy = Mock()
             mock_account_strategy.select_account = AsyncMock(return_value=None)
@@ -246,6 +250,7 @@ class TestBasicTokenAcquisitionProperties:
 
         **Validates: Requirements 1.1**
         """
+
         async def _run() -> None:
             mock_account_strategy = Mock()
             mock_account_strategy.select_account = AsyncMock()

@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-def test_resource_metrics_endpoints_are_admin_only_and_rate_limited(): # noqa: C901
+def test_resource_metrics_endpoints_are_admin_only_and_rate_limited():  # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     api_py = backend_root / "apiSystem" / "apiSystem" / "api.py"
     tree = ast.parse(api_py.read_text(encoding="utf-8"))

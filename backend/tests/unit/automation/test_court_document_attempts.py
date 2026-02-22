@@ -7,7 +7,7 @@ from pathlib import Path
 def _make_scraper(tmp_path, direct_api=None, api_intercept=None, fallback=None):
     class DummyScraper(CourtDocumentScraper):
         def __init__(self):
-            self.task = SimpleNamespace( # type: ignore[assignment]
+            self.task = SimpleNamespace(  # type: ignore[assignment]
                 url="https://zxfw.court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=1&sdbh=2&sdsin=3",
                 case_id=None,
                 id=1,

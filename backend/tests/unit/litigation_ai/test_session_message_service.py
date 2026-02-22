@@ -161,9 +161,9 @@ class TestSessionMessageService:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 添加测试消息
-        msg1 = self.service.add_message(session_dto.session_id, "user", "消息1") # noqa: F841
-        msg2 = self.service.add_message(session_dto.session_id, "user", "消息2") # noqa: F841
-        msg3 = self.service.add_message(session_dto.session_id, "user", "消息3") # noqa: F841
+        msg1 = self.service.add_message(session_dto.session_id, "user", "消息1")  # noqa: F841
+        msg2 = self.service.add_message(session_dto.session_id, "user", "消息2")  # noqa: F841
+        msg3 = self.service.add_message(session_dto.session_id, "user", "消息3")  # noqa: F841
 
         # 执行测试
         messages = self.service.get_messages_batch(session_dto.session_id, limit=10)
@@ -177,8 +177,8 @@ class TestSessionMessageService:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 添加测试消息
-        msg1 = self.service.add_message(session_dto.session_id, "user", "消息1") # noqa: F841
-        msg2 = self.service.add_message(session_dto.session_id, "user", "消息2") # noqa: F841
+        msg1 = self.service.add_message(session_dto.session_id, "user", "消息1")  # noqa: F841
+        msg2 = self.service.add_message(session_dto.session_id, "user", "消息2")  # noqa: F841
         msg3 = self.service.add_message(session_dto.session_id, "user", "消息3")
 
         # 执行测试（获取 msg3 之前的消息）
@@ -374,9 +374,9 @@ class TestSessionMessageServiceEdgeCases:
         session_dto = self.lifecycle_service.create_session(case_id=self.case.id, user_id=self.lawyer.id)
 
         # 添加测试消息
-        msg1 = self.service.add_message(session_dto.session_id, "user", "第一条") # noqa: F841
-        msg2 = self.service.add_message(session_dto.session_id, "user", "第二条") # noqa: F841
-        msg3 = self.service.add_message(session_dto.session_id, "user", "第三条") # noqa: F841
+        msg1 = self.service.add_message(session_dto.session_id, "user", "第一条")  # noqa: F841
+        msg2 = self.service.add_message(session_dto.session_id, "user", "第二条")  # noqa: F841
+        msg3 = self.service.add_message(session_dto.session_id, "user", "第三条")  # noqa: F841
 
         # 执行测试
         messages = self.service.get_messages(session_dto.session_id)

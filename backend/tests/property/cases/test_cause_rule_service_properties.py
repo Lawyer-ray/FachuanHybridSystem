@@ -73,7 +73,7 @@ class TestAncestorChainProperties:
             while current:
                 expected_codes.append(current.code)
                 expected_names.append(current.name)
-                current = current.parent # type: ignore[assignment]
+                current = current.parent  # type: ignore[assignment]
 
             assert codes == expected_codes, f"祖先链编码 {codes} 与预期 {expected_codes} 不符"
             assert names == expected_names, f"祖先链名称 {names} 与预期 {expected_names} 不符"
@@ -154,12 +154,12 @@ class TestCodeBasedDetectionProperties:
         # 验证编码匹配
         if PERSONALITY_RIGHTS_CODE in codes:
             assert special_type == SpecialCaseType.PERSONALITY_RIGHTS, (
-                f"祖先链包含编码 {PERSONALITY_RIGHTS_CODE}，应识别为人格权案件，" f"但得到 {special_type}"
+                f"祖先链包含编码 {PERSONALITY_RIGHTS_CODE}，应识别为人格权案件，但得到 {special_type}"
             )
         elif IP_CONTRACT_CODE in codes or IP_INFRINGEMENT_CODE in codes:
-            assert (
-                special_type == SpecialCaseType.IP
-            ), f"祖先链包含知识产权编码，应识别为知识产权案件，但得到 {special_type}"
+            assert special_type == SpecialCaseType.IP, (
+                f"祖先链包含知识产权编码，应识别为知识产权案件，但得到 {special_type}"
+            )
 
     def test_personality_rights_detection(self, cause_rule_service: CauseRuleService):
         """
@@ -173,9 +173,9 @@ class TestCodeBasedDetectionProperties:
         cause = CauseOfAction.objects.filter(code=PERSONALITY_RIGHTS_CODE).first()
         if cause:
             special_type = cause_rule_service.detect_special_case_type(cause.id)
-            assert (
-                special_type == SpecialCaseType.PERSONALITY_RIGHTS
-            ), f"编码 {PERSONALITY_RIGHTS_CODE} 应识别为人格权案件"
+            assert special_type == SpecialCaseType.PERSONALITY_RIGHTS, (
+                f"编码 {PERSONALITY_RIGHTS_CODE} 应识别为人格权案件"
+            )
 
     def test_ip_contract_detection(self, cause_rule_service: CauseRuleService):
         """
@@ -240,24 +240,24 @@ class TestNameBasedDetectionProperties:
         # 检查名称匹配
         for name in names:
             if name in PAYMENT_ORDER_NAMES:
-                assert (
-                    special_type == SpecialCaseType.PAYMENT_ORDER
-                ), f"名称 {name} 应识别为支付令案件，但得到 {special_type}"
+                assert special_type == SpecialCaseType.PAYMENT_ORDER, (
+                    f"名称 {name} 应识别为支付令案件，但得到 {special_type}"
+                )
                 return
             elif name in REVOKE_ARBITRATION_NAMES:
-                assert (
-                    special_type == SpecialCaseType.REVOKE_ARBITRATION
-                ), f"名称 {name} 应识别为撤销仲裁案件，但得到 {special_type}"
+                assert special_type == SpecialCaseType.REVOKE_ARBITRATION, (
+                    f"名称 {name} 应识别为撤销仲裁案件，但得到 {special_type}"
+                )
                 return
             elif name in PUBLIC_NOTICE_NAMES:
-                assert (
-                    special_type == SpecialCaseType.PUBLIC_NOTICE
-                ), f"名称 {name} 应识别为公示催告案件，但得到 {special_type}"
+                assert special_type == SpecialCaseType.PUBLIC_NOTICE, (
+                    f"名称 {name} 应识别为公示催告案件，但得到 {special_type}"
+                )
                 return
             elif name in LABOR_DISPUTE_NAMES:
-                assert (
-                    special_type == SpecialCaseType.LABOR_DISPUTE
-                ), f"名称 {name} 应识别为劳动争议案件，但得到 {special_type}"
+                assert special_type == SpecialCaseType.LABOR_DISPUTE, (
+                    f"名称 {name} 应识别为劳动争议案件，但得到 {special_type}"
+                )
                 return
 
     def test_payment_order_detection(self, cause_rule_service: CauseRuleService):

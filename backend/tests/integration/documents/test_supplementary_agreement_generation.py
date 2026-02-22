@@ -129,7 +129,8 @@ class TestSupplementaryAgreementGenerationIntegration:
         try:
             # 创建补充协议（新增李四作为委托人）
             agreement = self._create_supplementary_agreement(
-                name="补充协议一", principals=[self.client1, self.client2]  # 张三 + 李四
+                name="补充协议一",
+                principals=[self.client1, self.client2],  # 张三 + 李四
             )
 
             # 调用生成服务
@@ -241,7 +242,7 @@ class TestSupplementaryAgreementGenerationIntegration:
     def test_template_file_not_exists_error(self):
         """测试模板文件不存在的错误处理"""
         # 创建模板记录但不创建实际文件
-        template = DocumentTemplateFactory( # noqa: F841
+        template = DocumentTemplateFactory(  # noqa: F841
             name="不存在的模板",
             template_type=DocumentTemplateType.CONTRACT,
             contract_sub_type=DocumentContractSubType.SUPPLEMENTARY_AGREEMENT,

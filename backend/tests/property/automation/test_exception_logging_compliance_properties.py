@@ -24,7 +24,7 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from apps.automation.exceptions import AutomationExceptions
+from apps.automation.exceptions import AutomationExceptions  # type: ignore[attr-defined]
 from apps.automation.utils.logging import AutomationLogger
 from apps.core.exceptions import (
     AuthenticationError,
@@ -38,7 +38,7 @@ from apps.core.exceptions import (
 class TestExceptionComplianceProperties:
     """异常处理合规性属性测试"""
 
-    def test_property_18_exception_three_parameters_completeness(self): # noqa: C901
+    def test_property_18_exception_three_parameters_completeness(self):  # noqa: C901
         """
         **Feature: automation-module-compliance, Property 18: 异常三参数完整性**
         验证所有异常都包含message、code、errors三个参数
@@ -127,7 +127,7 @@ class TestExceptionComplianceProperties:
         ]
 
         for method, args in test_cases:
-            exception = method(*args)  # type: ignore[operator]
+            exception = method(*args)
             message = exception.message
 
             # 检查消息是否包含中文字符
@@ -163,7 +163,7 @@ class TestExceptionComplianceProperties:
         ]
 
         for method, args in exception_methods:
-            exception = method(*args)  # type: ignore[operator]
+            exception = method(*args)
             code = exception.code
 
             # 验证代码格式：大写字母和下划线
@@ -242,9 +242,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert (
-                mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called
-            ), f"日志方法 {log_method.__name__} 没有调用logger"
+            assert mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called, (
+                f"日志方法 {log_method.__name__} 没有调用logger"
+            )
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -319,9 +319,9 @@ class TestLoggingComplianceProperties:
             extra = call_args.kwargs["extra"]
 
             # 验证错误日志的必需上下文字段
-            assert (
-                "success" in extra and extra["success"] is False
-            ), f"错误日志 {log_method.__name__} 缺少success=False字段"
+            assert "success" in extra and extra["success"] is False, (
+                f"错误日志 {log_method.__name__} 缺少success=False字段"
+            )
             assert "error_message" in extra, f"错误日志 {log_method.__name__} 缺少error_message字段"
             assert "timestamp" in extra, f"错误日志 {log_method.__name__} 缺少timestamp字段"
 
@@ -385,9 +385,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert (
-                mock_logger.info.called or mock_logger.debug.called
-            ), f"性能日志方法 {log_method.__name__} 没有调用logger"
+            assert mock_logger.info.called or mock_logger.debug.called, (
+                f"性能日志方法 {log_method.__name__} 没有调用logger"
+            )
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -409,7 +409,7 @@ class TestLoggingComplianceProperties:
                     assert extra[field] >= 0, f"性能日志 {log_method.__name__} 的{field}为负数"
 
     @patch("apps.automation.utils.logging.logger")
-    def test_property_24_business_logging_completeness(self, mock_logger): # noqa: C901
+    def test_property_24_business_logging_completeness(self, mock_logger):  # noqa: C901
         """
         **Feature: automation-module-compliance, Property 24: 业务日志信息完整性**
         验证业务日志包含操作类型、资源ID、用户信息
@@ -452,9 +452,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert (
-                mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called
-            ), f"业务日志方法 {log_method.__name__} 没有调用logger"
+            assert mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called, (
+                f"业务日志方法 {log_method.__name__} 没有调用logger"
+            )
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -476,9 +476,9 @@ class TestLoggingComplianceProperties:
                     assert "scraper_task_id" in extra, f"文档创建日志 {log_method.__name__} 缺少scraper_task_id"
                 elif "status" in log_method.__name__:
                     assert "document_id" in extra, f"文档状态日志 {log_method.__name__} 缺少document_id"
-                    assert (
-                        "old_status" in extra and "new_status" in extra
-                    ), f"文档状态日志 {log_method.__name__} 缺少状态字段"
+                    assert "old_status" in extra and "new_status" in extra, (
+                        f"文档状态日志 {log_method.__name__} 缺少状态字段"
+                    )
 
             elif "admin_operation" in log_method.__name__:
                 assert "operation" in extra, f"Admin操作日志 {log_method.__name__} 缺少operation字段"
@@ -534,11 +534,11 @@ class TestExceptionLoggingIntegration:
 
         for case in test_cases:
             # 获取异常
-            exception = case["exception_method"](*case["exception_args"])  # type: ignore[operator]
+            exception = case["exception_method"](*case["exception_args"])
 
             # 调用对应的日志方法
             mock_logger.reset_mock()
-            case["log_method"](**case["log_args"])  # type: ignore[operator]
+            case["log_method"](**case["log_args"])
 
             # 验证日志被调用
             assert mock_logger.error.called, "错误日志没有被调用"
@@ -556,9 +556,9 @@ class TestExceptionLoggingIntegration:
                 if word in exception_code_parts:
                     # 对于失败的情况，日志action应该包含相关词汇
                     if word == "failed" and "failed" in exception_code_parts:
-                        assert (
-                            "failed" in log_action_parts
-                        ), f"异常代码包含'failed'但日志action不包含: {exception.code} vs {extra['action']}"
+                        assert "failed" in log_action_parts, (
+                            f"异常代码包含'failed'但日志action不包含: {exception.code} vs {extra['action']}"
+                        )
 
     def test_exception_error_dict_structure(self):
         """
@@ -575,7 +575,7 @@ class TestExceptionLoggingIntegration:
         ]
 
         for method, args in complex_error_cases:
-            exception = method(*args)  # type: ignore[operator]
+            exception = method(*args)
             errors = exception.errors
 
             # 验证errors是字典
@@ -588,6 +588,6 @@ class TestExceptionLoggingIntegration:
             for key, value in errors.items():
                 assert isinstance(key, str), f"异常 {method.__name__} 的errors键不是字符串: {key}"
                 # 值可以是字符串、数字、列表等基本类型
-                assert isinstance(
-                    value, (str, int, float, list, dict, bool)
-                ), f"异常 {method.__name__} 的errors值类型不合理: {type(value)}"
+                assert isinstance(value, (str, int, float, list, dict, bool)), (
+                    f"异常 {method.__name__} 的errors值类型不合理: {type(value)}"
+                )

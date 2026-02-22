@@ -51,7 +51,7 @@ class ValidationScenario:
     fix_data: dict[str, Any]  # 修正数据
     description: str = ""  # 场景描述
 
-    async def execute(self, test_case) -> ValidationTestResult: # noqa: C901
+    async def execute(self, test_case) -> ValidationTestResult:  # noqa: C901
         """
         执行验证场景
 
@@ -63,10 +63,10 @@ class ValidationScenario:
         """
         import time
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"执行验证场景: {self.name}")
         print(f"描述: {self.description}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         start_time = time.time()
         screenshots = []
@@ -168,11 +168,11 @@ class ValidationScenario:
             )
 
             if passed:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"✓ 场景通过: {self.name}")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
             else:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"✗ 场景失败: {self.name}")
                 if len(errors_detected) == 0:
                     print("  原因: 未检测到验证错误")
@@ -182,7 +182,7 @@ class ValidationScenario:
                     print("  原因: 修正后保存失败")
                 elif not no_errors:
                     print("  原因: 修正后仍有验证错误")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
 
             return ValidationTestResult(
                 scenario_name=self.name,
@@ -198,10 +198,10 @@ class ValidationScenario:
             # 异常处理
             execution_time = time.time() - start_time
 
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"✗ 场景异常: {self.name}")
             print(f"  错误: {e}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
 
             # 截图：异常时
             screenshot_name = f"{self.name}_exception"

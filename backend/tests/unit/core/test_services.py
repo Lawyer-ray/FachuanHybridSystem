@@ -67,7 +67,7 @@ class RateLimiterTest(TestCase):
         # 前10次请求应该被允许
         for i in range(10):
             allowed, info = limiter.is_allowed(mock_request)
-            self.assertTrue(allowed, f"Request {i+1} should be allowed")
+            self.assertTrue(allowed, f"Request {i + 1} should be allowed")
 
     def test_rate_limiter_blocks_excess_requests(self):
         """测试限流器阻止超额请求"""

@@ -20,7 +20,7 @@ class TestLawFirmAPI:
     def test_list_lawfirms_superuser(self):
         """测试超级管理员列表查询律所"""
         # 准备测试数据
-        lawfirms = LawFirmFactory.create_batch(3) # noqa: F841
+        lawfirms = LawFirmFactory.create_batch(3)  # noqa: F841
         superuser = LawyerFactory(is_superuser=True)
 
         # 模拟认证
@@ -101,7 +101,9 @@ class TestLawFirmAPI:
 
         # 执行测试
         response = self.client.put(
-            f"/api/v1/organization/lawfirms/{lawfirm.id}", data={"name": "新名称"}, content_type="application/json"  # type: ignore[attr-defined]
+            f"  # type: ignore[attr-defined]api/v1/organization/lawfirms/{lawfirm.id}",
+            data={"name": "新名称"},
+            content_type="application/json",
         )
 
         # 断言结果

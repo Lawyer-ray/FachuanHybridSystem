@@ -6,7 +6,7 @@ import os
 import sys
 
 import django
-import requests # noqa: TID251
+import requests  # noqa: TID251
 
 # 设置 Django 环境
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
@@ -27,7 +27,7 @@ def test_login():
     # 1. 从 API 获取账号密码
     print("\n1. 获取账号密码...")
     try:
-        response = requests.get("http://127.0.0.1:8002/api/v1/organization/credentials/1") # noqa: S113
+        response = requests.get("http://127.0.0.1:8002/api/v1/organization/credentials/1")  # noqa: S113
         response.raise_for_status()
         credential = response.json()
 

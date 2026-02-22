@@ -123,7 +123,7 @@ class TestCredentialAPI:
         client.force_login(superuser)
 
         # 同时使用 lawyer_id 和 lawyer_name（应该取交集）
-        response = client.get(f"/api/v1/organization/credentials" f"?lawyer_id={cred1.lawyer.id}" f"&lawyer_name=张三")
+        response = client.get(f"/api/v1/organization/credentials?lawyer_id={cred1.lawyer.id}&lawyer_name=张三")
 
         assert response.status_code == 200
         data = response.json()

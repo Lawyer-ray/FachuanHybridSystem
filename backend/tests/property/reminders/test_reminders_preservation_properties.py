@@ -168,7 +168,7 @@ def test_crud_response_structure_preserved(
     assert updated.content == "updated-content"
 
     # ── DELETE ──
-    result = service.delete_reminder(reminder.pk) # type: ignore[func-returns-value]
+    result = service.delete_reminder(reminder.pk)  # type: ignore[func-returns-value]
     assert isinstance(result, dict)
     assert result.get("success") is True
 
@@ -328,9 +328,8 @@ def test_schema_validation_behavior_preserved(
     """
     from pydantic import ValidationError
 
-    has_negative_id: bool = (
-        (contract_id is not None and contract_id <= 0)
-        or (case_log_id is not None and case_log_id <= 0)
+    has_negative_id: bool = (contract_id is not None and contract_id <= 0) or (
+        case_log_id is not None and case_log_id <= 0
     )
     empty_content: bool = content.strip() == ""
     both_none: bool = contract_id is None and case_log_id is None

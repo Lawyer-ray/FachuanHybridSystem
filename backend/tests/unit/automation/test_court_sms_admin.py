@@ -144,8 +144,8 @@ class CourtSMSAdminTest(TestCase):
         request.user = self.user
 
         # 设置消息存储
-        request.session = {}
-        request._messages = FallbackStorage(request)
+        request.session = {}  # type: ignore[assignment]
+        request._messages = FallbackStorage(request)  # type: ignore[attr-defined]
 
         response = self.admin.submit_sms_view(request)
 

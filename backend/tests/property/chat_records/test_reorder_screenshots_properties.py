@@ -91,9 +91,7 @@ def test_reorder_by_capture_time_correctness(
         service.reorder_by_capture_time(project.id)
 
     # -- Assert (a): ordering 值为 1..N 连续整数 --
-    screenshots = list(
-        ChatRecordScreenshot.objects.filter(project=project).order_by("ordering")
-    )
+    screenshots = list(ChatRecordScreenshot.objects.filter(project=project).order_by("ordering"))
     assert len(screenshots) == n
     orderings = [s.ordering for s in screenshots]
     assert orderings == list(range(1, n + 1))
@@ -117,8 +115,7 @@ def test_reorder_by_capture_time_correctness(
         if curr_cts is not None and nxt_cts is not None:
             if curr_cts > nxt_cts:
                 raise AssertionError(
-                    f"ordering {curr.ordering}: cts={curr_cts} > "
-                    f"ordering {nxt.ordering}: cts={nxt_cts}"
+                    f"ordering {curr.ordering}: cts={curr_cts} > ordering {nxt.ordering}: cts={nxt_cts}"
                 )
             # capture_time_seconds 相同时，按 created_at 升序
             if curr_cts == nxt_cts and curr.created_at > nxt.created_at:
@@ -131,6 +128,5 @@ def test_reorder_by_capture_time_correctness(
         if curr_cts is None and nxt_cts is None:
             if curr.created_at > nxt.created_at:
                 raise AssertionError(
-                    f"ordering {curr.ordering}: both NULL cts, "
-                    f"but created_at {curr.created_at} > {nxt.created_at}"
+                    f"ordering {curr.ordering}: both NULL cts, but created_at {curr.created_at} > {nxt.created_at}"
                 )

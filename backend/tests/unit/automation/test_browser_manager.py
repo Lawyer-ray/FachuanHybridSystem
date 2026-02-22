@@ -108,13 +108,15 @@ class TestBrowserCleanupNormalExit:
         )
 
         mock_sync_pw = _make_mock_playwright()
-        mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value # noqa: E501
+        mock_page = (
+            mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+        )  # noqa: E501
         mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
 
         page_created = False
         context_created = False
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw): # noqa: SIM117
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 assert page is not None
                 assert context is not None
@@ -167,7 +169,7 @@ class TestBrowserCleanupOnError:
         page_created = False
         context_created = False
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw): # noqa: SIM117
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
             with pytest.raises(BrowserCreationError):
                 with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                     assert page is not None
@@ -231,18 +233,26 @@ class TestConfigurationApplication:
         )
 
         mock_sync_pw = _make_mock_playwright()
-        mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value # noqa: E501
+        mock_page = (
+            mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+        )  # noqa: E501
         mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
         mock_page.evaluate = MagicMock(return_value=user_agent)
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw): # noqa: SIM117
+        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 viewport = page.viewport_size
-                assert viewport["width"] == viewport_width, f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"  # type: ignore[index] # noqa: E501
-                assert viewport["height"] == viewport_height, f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"  # type: ignore[index] # noqa: E501
+                assert viewport["width"] == viewport_width, (
+                    f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"
+                ) # noqa: E501
+                assert viewport["height"] == viewport_height, (
+                    f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"
+                ) # noqa: E501
 
                 actual_user_agent = page.evaluate("navigator.userAgent")
-                assert actual_user_agent == user_agent, f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}" # noqa: E501
+                assert actual_user_agent == user_agent, (
+                    f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
+                )  # noqa: E501
 
 
 # =============================================================================
@@ -260,7 +270,7 @@ class TestBrowserManagerErrorHandling:
             timeout=10000,
         )
 
-        with pytest.raises(BrowserCreationError) as exc_info: # noqa: SIM117
+        with pytest.raises(BrowserCreationError) as exc_info:  # noqa: SIM117
             with browser_manager.create_browser(config) as (page, context):
                 pass
 
@@ -282,13 +292,16 @@ class TestBrowserManagerErrorHandling:
 
             defaults = BrowserConfig()
             mock_sync_pw = _make_mock_playwright()
-            mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value # noqa: E501
+            mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value  # noqa: E501
             mock_page.viewport_size = {"width": defaults.viewport_width, "height": defaults.viewport_height}
 
-            with patch(
-                "apps.automation.services.scraper.core.browser_manager.sync_playwright",
-                return_value=mock_sync_pw,
-            ), browser_manager.create_browser(None, use_anti_detection=False) as (page, context):
+            with (
+                patch(
+                    "apps.automation.services.scraper.core.browser_manager.sync_playwright",
+                    return_value=mock_sync_pw,
+                ),
+                browser_manager.create_browser(None, use_anti_detection=False) as (page, context),
+            ):
                 assert page is not None
                 assert context is not None
 

@@ -16,11 +16,14 @@ class TestDocumentClassifier:
 
     def test_init_with_defaults(self):
         """测试使用默认配置初始化"""
-        with patch(
-            "apps.automation.services.court_document_recognition.document_classifier.get_ollama_model"
-        ) as mock_model, patch(
-            "apps.automation.services.court_document_recognition.document_classifier.get_ollama_base_url"
-        ) as mock_url:
+        with (
+            patch(
+                "apps.automation.services.court_document_recognition.document_classifier.get_ollama_model"
+            ) as mock_model,
+            patch(
+                "apps.automation.services.court_document_recognition.document_classifier.get_ollama_base_url"
+            ) as mock_url,
+        ):
             mock_model.return_value = "test-model"
             mock_url.return_value = "http://localhost:11434"
 

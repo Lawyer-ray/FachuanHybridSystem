@@ -11,6 +11,7 @@
   - 下载按钮在 iframe 内部
   - XPath: /html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]
 """
+
 import json
 import os
 import sys
@@ -90,7 +91,7 @@ def save_page_state(page, download_dir: Path, name: str):
     return screenshot_path, html_path
 
 
-def analyze_page(page, download_dir: Path, name: str): # noqa: C901
+def analyze_page(page, download_dir: Path, name: str):  # noqa: C901
     """分析页面元素"""
     analysis = {
         "url": page.url,
@@ -181,7 +182,7 @@ def analyze_page(page, download_dir: Path, name: str): # noqa: C901
     return analysis
 
 
-def test_gdems_download(download_dir: Path): # noqa: C901
+def test_gdems_download(download_dir: Path):  # noqa: C901
     """测试 sd.gdems.com 下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 sd.gdems.com 下载")
@@ -194,7 +195,8 @@ def test_gdems_download(download_dir: Path): # noqa: C901
     with sync_playwright() as p:
         # 启动浏览器
         browser = p.chromium.launch(
-            headless=False, args=["--no-sandbox", "--disable-setuid-sandbox"]  # 显示浏览器窗口便于调试
+            headless=False,
+            args=["--no-sandbox", "--disable-setuid-sandbox"],  # 显示浏览器窗口便于调试
         )
 
         context = browser.new_context(
@@ -348,7 +350,7 @@ def test_gdems_download(download_dir: Path): # noqa: C901
             browser.close()
 
 
-def test_zxfw_download(download_dir: Path): # noqa: C901
+def test_zxfw_download(download_dir: Path):  # noqa: C901
     """测试 zxfw.court.gov.cn 下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 zxfw.court.gov.cn 下载")
@@ -532,7 +534,7 @@ def test_zxfw_download(download_dir: Path): # noqa: C901
             browser.close()
 
 
-def test_zxfw_multi_download(download_dir: Path): # noqa: C901
+def test_zxfw_multi_download(download_dir: Path):  # noqa: C901
     """测试 zxfw.court.gov.cn 多文件下载"""
     print("\n" + "=" * 70)
     print("🔗 测试 zxfw.court.gov.cn 多文件下载")
@@ -569,7 +571,7 @@ def test_zxfw_multi_download(download_dir: Path): # noqa: C901
             # 2. 检测文书列表数量
             print("\n📍 步骤2: 检测文书列表...")
 
-            doc_list_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view" # noqa: E501
+            doc_list_xpath = "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view"  # noqa: E501
 
             try:
                 doc_items = page.locator(f"xpath={doc_list_xpath}").all()
@@ -589,7 +591,7 @@ def test_zxfw_multi_download(download_dir: Path): # noqa: C901
                 try:
                     # 点击文书项（如果有多个）
                     if doc_count > 1:
-                        doc_item_xpath = f"/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view[{doc_index}]" # noqa: E501
+                        doc_item_xpath = f"/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"  # noqa: E501
 
                         try:
                             doc_item = page.locator(f"xpath={doc_item_xpath}")

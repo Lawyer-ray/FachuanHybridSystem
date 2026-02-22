@@ -9,10 +9,7 @@ from apps.organization.services import AccountCredentialService
 
 router = Router()
 
-
-def _get_credential_service() -> AccountCredentialService:
-    """工厂函数：创建 AccountCredentialService 实例"""
-    return AccountCredentialService()
+_credential_service = AccountCredentialService()
 
 
 @router.get("/credentials", response=list[AccountCredentialOut])
@@ -21,61 +18,45 @@ def list_credentials(
     lawyer_id: int | None = None,
     lawyer_name: str | None = None,
 ) -> list[AccountCredentialOut]:
-    """
-    获取账号凭证列表
-
-    Args:
-        lawyer_id: 按律师 ID 过滤
-        lawyer_name: 按律师姓名过滤（支持模糊匹配 real_name 或 username）
-    """
-    service = _get_credential_service()
-    user = get_request_user(request)
-    return service.list_credentials(
+    """获取账号凭证列表"""
+    return list(_credential_service.list_credentials(
         lawyer_id=lawyer_id,
         lawyer_name=lawyer_name,
-        user=user,
-    )
+        user=get_request_user(request),
+    ))
 
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
 def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
     """获取单个凭证"""
-    service = _get_credential_service()
-    user = get_request_user(request)
-    return service.get_credential(cred_id, user=user)
+    return _credential_service.get_credential(cred_id, user=get_request_user(request))
 
 
 @router.post("/credentials", response=AccountCredentialOut)
 def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
     """创建凭证"""
-    service = _get_credential_service()
-    user = get_request_user(request)
-    return service.create_credential(
+    return _credential_service.create_credential(
         lawyer_id=payload.lawyer_id,
         site_name=payload.site_name,
         account=payload.account,
         password=payload.password,
         url=payload.url,
-        user=user,
+        user=get_request_user(request),
     )
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
 def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
     """更新凭证"""
-    service = _get_credential_service()
-    user = get_request_user(request)
-    return service.update_credential(
+    return _credential_service.update_credential(
         credential_id=cred_id,
         data=payload.model_dump(exclude_unset=True),
-        user=user,
+        user=get_request_user(request),
     )
 
 
 @router.delete("/credentials/{cred_id}")
 def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:
     """删除凭证"""
-    service = _get_credential_service()
-    user = get_request_user(request)
-    service.delete_credential(cred_id, user=user)
+    _credential_service.delete_credential(cred_id, user=get_request_user(request))
     return {"success": True}

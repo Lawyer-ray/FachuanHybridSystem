@@ -38,7 +38,7 @@ positive_amount_strategy = st.decimals(
 )
 
 
-def manual_calculate_property_case_fee(amount: Decimal) -> Decimal: # noqa: C901
+def manual_calculate_property_case_fee(amount: Decimal) -> Decimal:  # noqa: C901
     """手动计算财产案件受理费，用于验证"""
     if amount <= 0:
         return Decimal("50")
@@ -265,9 +265,9 @@ class TestPaymentOrderFeeProperties:
 
         expected_fee = property_fee / Decimal("3")
 
-        assert (
-            payment_order_fee == expected_fee
-        ), f"支付令费用 {payment_order_fee} 应等于财产案件费用 {property_fee} / 3 = {expected_fee}"
+        assert payment_order_fee == expected_fee, (
+            f"支付令费用 {payment_order_fee} 应等于财产案件费用 {property_fee} / 3 = {expected_fee}"
+        )
 
     @settings(max_examples=100)
     @given(amount=amount_strategy)
@@ -372,9 +372,9 @@ class TestDivorceCaseFeeProperties:
         base_fee = Decimal("200")
         total_fee = service.calculate_divorce_case_fee(base_fee, property_amount)
 
-        assert (
-            total_fee == base_fee
-        ), f"财产 {property_amount} 不超过20万，费用应为基础费用 {base_fee}，但得到 {total_fee}"
+        assert total_fee == base_fee, (
+            f"财产 {property_amount} 不超过20万，费用应为基础费用 {base_fee}，但得到 {total_fee}"
+        )
 
 
 class TestPersonalityRightsFeeProperties:
@@ -575,9 +575,9 @@ class TestAPIProperties:
             "bankruptcy_fee",
         ]:
             value = result[key]
-            assert value is None or isinstance(
-                value, (int, float)
-            ), f"字段 {key} 应为 None 或数值类型，但得到 {type(value)}"
+            assert value is None or isinstance(value, (int, float)), (
+                f"字段 {key} 应为 None 或数值类型，但得到 {type(value)}"
+            )
 
         assert isinstance(result["calculation_details"], list)
 

@@ -53,9 +53,7 @@ class TestExceptionMessageChineseConsistencyProperty:
 
     @given(st.sampled_from(_EXCEPTION_CLASSES))
     @settings(max_examples=100)
-    def test_default_message_contains_no_english_words(
-        self, exc_class: type[BusinessException]
-    ) -> None:
+    def test_default_message_contains_no_english_words(self, exc_class: type[BusinessException]) -> None:
         """
         Property 7: 无参构造时，默认消息不应包含英文单词。
 
@@ -69,9 +67,7 @@ class TestExceptionMessageChineseConsistencyProperty:
         )
 
     @pytest.mark.parametrize("exc_class", _EXCEPTION_CLASSES)
-    def test_each_exception_default_message_is_chinese(
-        self, exc_class: type[BusinessException]
-    ) -> None:
+    def test_each_exception_default_message_is_chinese(self, exc_class: type[BusinessException]) -> None:
         """具体验证每个异常类的默认消息为中文。"""
         exc = exc_class()  # type: ignore[call-arg]
         assert exc.message, f"{exc_class.__name__} 默认消息不能为空"

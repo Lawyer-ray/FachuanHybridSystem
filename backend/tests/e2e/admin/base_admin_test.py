@@ -27,9 +27,7 @@ class BaseAdminTest:
     async def setup(self) -> None:
         """设置测试环境"""
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(
-            headless=False, slow_mo=100
-        )
+        self.browser = await self.playwright.chromium.launch(headless=False, slow_mo=100)
         self.context = await self.browser.new_context(viewport={"width": 1920, "height": 1080})
         self.page = await self.context.new_page()
 
@@ -234,7 +232,7 @@ class BaseAdminTest:
         await self.page.click('input[type="submit"]')
         await self.page.wait_for_load_state("networkidle")
 
-    async def add_inline_row(self, inline_prefix: str) -> None: # noqa: C901
+    async def add_inline_row(self, inline_prefix: str) -> None:  # noqa: C901
         """添加内联表单行（支持 django-nested-admin）"""
         logger.debug("添加内联行: %s", inline_prefix)
 
@@ -502,9 +500,7 @@ class BaseAdminTest:
 
     # ========== 验证错误检测方法 ==========
 
-    async def check_validation_error(
-        self, field_name: str | None = None, expected_message: str | None = None
-    ) -> bool:
+    async def check_validation_error(self, field_name: str | None = None, expected_message: str | None = None) -> bool:
         """
         检查验证错误
 

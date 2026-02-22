@@ -20,6 +20,7 @@ import pytest
 # 公共工具
 # ---------------------------------------------------------------------------
 
+
 def _backend_path() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
@@ -39,12 +40,10 @@ class Violation(NamedTuple):
 # Validates: Requirements 1.1, 1.2, 1.3
 # ---------------------------------------------------------------------------
 
+
 def _collect_all_admin_files() -> list[Path]:
     """收集所有 apps/*/admin/**/*.py 文件"""
-    return [
-        p for p in _apps_path().glob("*/admin/**/*.py")
-        if p.name != "__init__.py" and "__pycache__" not in str(p)
-    ]
+    return [p for p in _apps_path().glob("*/admin/**/*.py") if p.name != "__init__.py" and "__pycache__" not in str(p)]
 
 
 def _check_mark_safe(file_path: Path) -> list[Violation]:
@@ -85,9 +84,8 @@ def test_p1_admin_no_mark_safe() -> None:
     for f in admin_files:
         all_violations.extend(_check_mark_safe(f))
 
-    assert not all_violations, (
-        f"Admin 层发现 {len(all_violations)} 处 mark_safe 违规:\n"
-        + "\n".join(f"  {v.file}:{v.line_no} {v.detail}" for v in all_violations)
+    assert not all_violations, f"Admin 层发现 {len(all_violations)} 处 mark_safe 违规:\n" + "\n".join(
+        f"  {v.file}:{v.line_no} {v.detail}" for v in all_violations
     )
 
 
@@ -95,6 +93,7 @@ def test_p1_admin_no_mark_safe() -> None:
 # Property 2: format_html 正确转义 HTML 特殊字符
 # Validates: Requirements 1.4
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p2_format_html_escapes_special_chars() -> None:
@@ -129,10 +128,9 @@ def test_p2_format_html_escapes_special_chars() -> None:
 # Validates: Requirements 2.1, 2.3
 # ---------------------------------------------------------------------------
 
+
 def _load_baseline(filename: str) -> set[str]:
-    baseline_path: Path = (
-        _backend_path() / "tests" / "structure" / "baselines" / filename
-    )
+    baseline_path: Path = _backend_path() / "tests" / "structure" / "baselines" / filename
     if not baseline_path.exists():
         return set()
     lines: list[str] = baseline_path.read_text(encoding="utf-8").splitlines()
@@ -171,9 +169,8 @@ def test_p3_service_no_new_settings_import() -> None:
         if _file_imports_django_settings(py) and rel not in baseline:
             offenders.append(rel)
 
-    assert not offenders, (
-        f"发现 {len(offenders)} 个新增 Service 层 settings 导入（不在 baseline 中）:\n"
-        + "\n".join(f"  {f}" for f in sorted(offenders))
+    assert not offenders, f"发现 {len(offenders)} 个新增 Service 层 settings 导入（不在 baseline 中）:\n" + "\n".join(
+        f"  {f}" for f in sorted(offenders)
     )
 
 
@@ -181,6 +178,7 @@ def test_p3_service_no_new_settings_import() -> None:
 # Property 4: Baseline 残留条目必须附带注释
 # Validates: Requirements 2.4, 6.4
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p4_baseline_entries_have_comments() -> None:
@@ -212,28 +210,22 @@ def test_p4_baseline_entries_have_comments() -> None:
             has_inline_comment: bool = " # " in line or line.rstrip().endswith("#")
             # 检查前后独立注释行
             has_comment_before: bool = any(
-                lines[j].strip().startswith("#")
-                for j in range(max(0, i - 3), i)
-                if lines[j].strip()
+                lines[j].strip().startswith("#") for j in range(max(0, i - 3), i) if lines[j].strip()
             )
             has_comment_after: bool = any(
-                lines[j].strip().startswith("#")
-                for j in range(i + 1, min(len(lines), i + 3))
-                if lines[j].strip()
+                lines[j].strip().startswith("#") for j in range(i + 1, min(len(lines), i + 3)) if lines[j].strip()
             )
             if not (has_inline_comment or has_comment_before or has_comment_after):
-                violations.append(f"{filename}:{i+1} 条目无注释: {stripped}")
+                violations.append(f"{filename}:{i + 1} 条目无注释: {stripped}")
 
-        assert not violations, (
-            "Baseline 条目缺少注释说明:\n"
-            + "\n".join(f"  {v}" for v in violations)
-        )
+        assert not violations, "Baseline 条目缺少注释说明:\n" + "\n".join(f"  {v}" for v in violations)
 
 
 # ---------------------------------------------------------------------------
 # Property 5: 测试断言与 Admin actions 列表一致
 # Validates: Requirements 3.1, 3.2
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p5_admin_actions_match_test_assertions() -> None:
@@ -245,6 +237,7 @@ def test_p5_admin_actions_match_test_assertions() -> None:
     """
     import django
     import os
+
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
     try:
         django.setup()
@@ -261,15 +254,10 @@ def test_p5_admin_actions_match_test_assertions() -> None:
         admin_site=site,
     )
     # 获取 actions（排除 delete_selected 内置 action）
-    actual_actions: set[str] = {
-        name for name in (admin_instance.actions or [])
-        if name != "delete_selected"
-    }
+    actual_actions: set[str] = {name for name in (admin_instance.actions or []) if name != "delete_selected"}
     expected_actions: set[str] = {"mark_as_preferred", "unmark_as_preferred"}
     assert actual_actions == expected_actions, (
-        f"AccountCredentialAdmin actions 不匹配:\n"
-        f"  实际: {sorted(actual_actions)}\n"
-        f"  期望: {sorted(expected_actions)}"
+        f"AccountCredentialAdmin actions 不匹配:\n  实际: {sorted(actual_actions)}\n  期望: {sorted(expected_actions)}"
     )
 
 
@@ -277,6 +265,7 @@ def test_p5_admin_actions_match_test_assertions() -> None:
 # Property 6: 测试环境 AppConfig.ready() 无副作用
 # Validates: Requirements 4.1, 4.2, 4.4
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p6_appconfig_ready_no_side_effects_in_test() -> None:
@@ -330,9 +319,8 @@ def _find_unwrapped_chinese_strings(file_path: Path) -> list[Violation]:
         if isinstance(node, ast.Call):
             func = node.func
             is_gettext_call: bool = (
-                (isinstance(func, ast.Name) and func.id in ("_", "gettext", "gettext_lazy", "ngettext", "pgettext"))
-                or (isinstance(func, ast.Attribute) and func.attr in ("gettext", "gettext_lazy", "ngettext"))
-            )
+                isinstance(func, ast.Name) and func.id in ("_", "gettext", "gettext_lazy", "ngettext", "pgettext")
+            ) or (isinstance(func, ast.Attribute) and func.attr in ("gettext", "gettext_lazy", "ngettext"))
             if is_gettext_call:
                 for arg in node.args:
                     wrapped_nodes.add(id(arg))
@@ -363,7 +351,8 @@ def test_p7_user_visible_messages_wrapped_with_gettext() -> None:
 
     # 只扫描 api 和 services 层
     target_files: list[Path] = [
-        p for p in list(apps.glob("*/api/**/*.py")) + list(apps.glob("*/services/**/*.py"))
+        p
+        for p in list(apps.glob("*/api/**/*.py")) + list(apps.glob("*/services/**/*.py"))
         if p.name != "__init__.py" and "__pycache__" not in str(p)
     ]
 
@@ -391,6 +380,7 @@ def test_p7_user_visible_messages_wrapped_with_gettext() -> None:
 # Validates: Requirements 7.3
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.property_test
 def test_p8_translation_file_completeness() -> None:
     """
@@ -399,9 +389,7 @@ def test_p8_translation_file_completeness() -> None:
     解析英文 .po 文件，验证每个非空 msgid 有非空 msgstr。
     Validates: Requirements 7.3
     """
-    po_path: Path = (
-        _backend_path() / "apiSystem" / "locale" / "en" / "LC_MESSAGES" / "django.po"
-    )
+    po_path: Path = _backend_path() / "apiSystem" / "locale" / "en" / "LC_MESSAGES" / "django.po"
     assert po_path.exists(), f"英文翻译文件不存在: {po_path}"
 
     content: str = po_path.read_text(encoding="utf-8")
@@ -435,9 +423,8 @@ def test_p8_translation_file_completeness() -> None:
             in_msgid = False
             in_msgstr = False
 
-    assert not incomplete, (
-        f"英文翻译文件有 {len(incomplete)} 个 msgid 缺少翻译:\n"
-        + "\n".join(f"  {m}" for m in incomplete)
+    assert not incomplete, f"英文翻译文件有 {len(incomplete)} 个 msgid 缺少翻译:\n" + "\n".join(
+        f"  {m}" for m in incomplete
     )
 
 
@@ -445,6 +432,7 @@ def test_p8_translation_file_completeness() -> None:
 # Property 9: 生产 settings 无硬编码密码
 # Validates: Requirements 10.1, 10.2
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p9_settings_no_hardcoded_password() -> None:
@@ -454,9 +442,7 @@ def test_p9_settings_no_hardcoded_password() -> None:
     扫描 settings.py，验证 SMOKE_ADMIN_PASSWORD 在非 DEBUG 时强制从环境变量读取。
     Validates: Requirements 10.1, 10.2
     """
-    settings_path: Path = (
-        _backend_path() / "apiSystem" / "apiSystem" / "settings.py"
-    )
+    settings_path: Path = _backend_path() / "apiSystem" / "apiSystem" / "settings.py"
     content: str = settings_path.read_text(encoding="utf-8")
 
     # 验证存在 ImproperlyConfigured 抛出逻辑
@@ -468,15 +454,14 @@ def test_p9_settings_no_hardcoded_password() -> None:
         "settings.py 中未找到 SMOKE_ADMIN_PASSWORD 环境变量读取"
     )
     # 验证非 DEBUG 时不允许空密码
-    assert "not DEBUG" in content or "not _smoke_pw" in content, (
-        "settings.py 中未找到非 DEBUG 时的密码强制检查逻辑"
-    )
+    assert "not DEBUG" in content or "not _smoke_pw" in content, "settings.py 中未找到非 DEBUG 时的密码强制检查逻辑"
 
 
 # ---------------------------------------------------------------------------
 # Property 10: mypy 豁免移除后文件零错误（静态检查）
 # Validates: Requirements 5.1, 5.2, 11.2, 11.3
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 def test_p10_mypy_exemption_removed_file_has_annotations() -> None:
@@ -486,13 +471,7 @@ def test_p10_mypy_exemption_removed_file_has_annotations() -> None:
     检查 token_acquisition_history_admin_service.py 的函数均有返回值注解。
     Validates: Requirements 5.1, 5.2
     """
-    target: Path = (
-        _apps_path()
-        / "automation"
-        / "services"
-        / "admin"
-        / "token_acquisition_history_admin_service.py"
-    )
+    target: Path = _apps_path() / "automation" / "services" / "admin" / "token_acquisition_history_admin_service.py"
     assert target.exists(), f"目标文件不存在: {target}"
 
     content: str = target.read_text(encoding="utf-8")
@@ -509,8 +488,7 @@ def test_p10_mypy_exemption_removed_file_has_annotations() -> None:
             missing.append(f"  行 {node.lineno}: def {node.name}() 缺少返回值注解")
 
     assert not missing, (
-        f"token_acquisition_history_admin_service.py 有 {len(missing)} 个函数缺少返回值注解:\n"
-        + "\n".join(missing)
+        f"token_acquisition_history_admin_service.py 有 {len(missing)} 个函数缺少返回值注解:\n" + "\n".join(missing)
     )
 
 
@@ -555,9 +533,7 @@ def test_p11_modified_files_have_type_annotations() -> None:
                 continue
             # 检查返回值注解
             if node.returns is None:
-                missing_annotations.append(
-                    f"  {rel_path}:{node.lineno} def {node.name}() 缺少返回值注解"
-                )
+                missing_annotations.append(f"  {rel_path}:{node.lineno} def {node.name}() 缺少返回值注解")
             # 检查参数注解（跳过 self/cls）
             for arg in node.args.args:
                 if arg.arg in ("self", "cls"):
@@ -567,7 +543,6 @@ def test_p11_modified_files_have_type_annotations() -> None:
                         f"  {rel_path}:{node.lineno} def {node.name}() 参数 {arg.arg!r} 缺少类型注解"
                     )
 
-    assert not missing_annotations, (
-        f"修改文件中发现 {len(missing_annotations)} 处缺少类型注解:\n"
-        + "\n".join(missing_annotations)
+    assert not missing_annotations, f"修改文件中发现 {len(missing_annotations)} 处缺少类型注解:\n" + "\n".join(
+        missing_annotations
     )

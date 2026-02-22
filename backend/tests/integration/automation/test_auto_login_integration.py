@@ -163,10 +163,10 @@ class TestAutoLoginServiceIntegration:
         )
 
         # Mock不同的登录结果
-        with patch.object(service1, "_sync_login_attempt") as mock1, patch.object(
-            service2, "_sync_login_attempt"
-        ) as mock2:
-
+        with (
+            patch.object(service1, "_sync_login_attempt") as mock1,
+            patch.object(service2, "_sync_login_attempt") as mock2,
+        ):
             mock1.return_value = "token1"
             mock2.return_value = "token2"
 

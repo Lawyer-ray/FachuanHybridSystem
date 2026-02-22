@@ -77,9 +77,9 @@ class TestAdminSmoke(BaseAdminTest):
                 print(f"    ❌ 异常: {e}")
 
         # 打印总结
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("冒烟测试总结")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"总计: {len(self.ADMIN_PAGES)} 个页面")
         print(f"✅ 成功: {len(self.ADMIN_PAGES) - len(failed_pages)} 个")
         print(f"❌ 失败: {len(failed_pages)} 个")

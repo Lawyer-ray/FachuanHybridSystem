@@ -53,7 +53,7 @@ class _FakeHttpClient:
     failures=st.lists(st.sampled_from(["network", "token", "api"]), min_size=0, max_size=5),
     succeed=st.booleans(),
 )
-def test_coordinator_retry_policy_is_bounded(failures: list[str], succeed: bool): # noqa: C901
+def test_coordinator_retry_policy_is_bounded(failures: list[str], succeed: bool):  # noqa: C901
     parser = CourtDocumentResponseParser()
 
     outcomes: list[_Outcome | Exception] = []

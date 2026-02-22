@@ -137,9 +137,9 @@ class TestExceptionStructureProperties:
         exc = exception_class(message=message)
 
         # 验证 errors 是字典类型
-        assert isinstance(
-            exc.errors, dict
-        ), f"{exception_class.__name__}.errors 应该是字典类型，实际是 {type(exc.errors)}"
+        assert isinstance(exc.errors, dict), (
+            f"{exception_class.__name__}.errors 应该是字典类型，实际是 {type(exc.errors)}"
+        )
 
         # 验证 errors 是空字典
         assert exc.errors == {}, f"{exception_class.__name__}.errors 应该是空字典，实际是 {exc.errors}"

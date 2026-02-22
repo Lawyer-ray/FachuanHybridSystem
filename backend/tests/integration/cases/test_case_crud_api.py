@@ -64,7 +64,7 @@ class TestCaseCreateAPI:
         """关联合同创建案件"""
         lawyer = LawyerFactory(is_admin=True)
         contract = ContractFactory(status="active")
-        request = _make_request(user=lawyer) # noqa: F841
+        request = _make_request(user=lawyer)  # noqa: F841
 
         # 直接通过 service 创建（不传 current_stage 避免阶段验证）
         from apps.cases.api.case_api import _get_case_service

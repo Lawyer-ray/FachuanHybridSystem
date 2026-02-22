@@ -28,10 +28,10 @@ REEXPORT_FILES: list[Path] = [
 ALLOWED_TOP_LEVEL_TYPES: tuple[type[ast.stmt], ...] = (
     ast.Import,
     ast.ImportFrom,
-    ast.Assign,       # __all__ 赋值
-    ast.Expr,         # 文档字符串
-    ast.If,           # TYPE_CHECKING 守卫等
-    ast.AnnAssign,    # 带注解的赋值
+    ast.Assign,  # __all__ 赋值
+    ast.Expr,  # 文档字符串
+    ast.If,  # TYPE_CHECKING 守卫等
+    ast.AnnAssign,  # 带注解的赋值
 )
 
 
@@ -56,11 +56,13 @@ def _get_forbidden_nodes(tree: ast.Module) -> list[tuple[int, str, str]]:
         elif isinstance(node, ast.AsyncFunctionDef):
             violations.append((node.lineno, "AsyncFunctionDef", node.name))
         elif not isinstance(node, ALLOWED_TOP_LEVEL_TYPES):
-            violations.append((
-                getattr(node, "lineno", 0),
-                type(node).__name__,
-                "",
-            ))
+            violations.append(
+                (
+                    getattr(node, "lineno", 0),
+                    type(node).__name__,
+                    "",
+                )
+            )
     return violations
 
 
@@ -83,12 +85,8 @@ def test_reexport_file_has_no_class_or_function_definitions(filepath: Path) -> N
     tree: ast.Module = _parse_file(filepath)
     violations: list[tuple[int, str, str]] = _get_forbidden_nodes(tree)
 
-    assert not violations, (
-        f"{filepath.name} 包含不允许的顶层定义:\n"
-        + "\n".join(
-            f"  第 {lineno} 行: {node_type} {name}"
-            for lineno, node_type, name in violations
-        )
+    assert not violations, f"{filepath.name} 包含不允许的顶层定义:\n" + "\n".join(
+        f"  第 {lineno} 行: {node_type} {name}" for lineno, node_type, name in violations
     )
 
 
@@ -102,12 +100,7 @@ _pure_reexport_strategy: st.SearchStrategy[str] = st.builds(
     lambda imports, has_all, docstring: (
         ('"""Pure re-export file."""\n' if docstring else "")
         + "\n".join(imports)
-        + (
-            "\n__all__ = "
-            + repr(["Sym" + str(i) for i in range(len(imports))])
-            if has_all
-            else ""
-        )
+        + ("\n__all__ = " + repr(["Sym" + str(i) for i in range(len(imports))]) if has_all else "")
     ),
     imports=st.lists(
         st.one_of(
@@ -152,11 +145,7 @@ def test_property_pure_reexport_passes_check(source: str) -> None:
     """
     tree: ast.Module = ast.parse(source)
     violations: list[tuple[int, str, str]] = _get_forbidden_nodes(tree)
-    assert not violations, (
-        f"纯重导出内容被误报为包含定义:\n"
-        f"  源码: {source!r}\n"
-        f"  违规: {violations}"
-    )
+    assert not violations, f"纯重导出内容被误报为包含定义:\n  源码: {source!r}\n  违规: {violations}"
 
 
 @given(class_source=_class_def_strategy)
@@ -170,13 +159,8 @@ def test_property_class_def_detected(class_source: str) -> None:
     """
     tree: ast.Module = ast.parse(class_source)
     violations: list[tuple[int, str, str]] = _get_forbidden_nodes(tree)
-    class_violations: list[tuple[int, str, str]] = [
-        v for v in violations if v[1] == "ClassDef"
-    ]
-    assert class_violations, (
-        f"未检测到 class 定义:\n"
-        f"  源码: {class_source!r}"
-    )
+    class_violations: list[tuple[int, str, str]] = [v for v in violations if v[1] == "ClassDef"]
+    assert class_violations, f"未检测到 class 定义:\n  源码: {class_source!r}"
 
 
 @given(func_source=_func_def_strategy)
@@ -190,10 +174,5 @@ def test_property_func_def_detected(func_source: str) -> None:
     """
     tree: ast.Module = ast.parse(func_source)
     violations: list[tuple[int, str, str]] = _get_forbidden_nodes(tree)
-    func_violations: list[tuple[int, str, str]] = [
-        v for v in violations if v[1] == "FunctionDef"
-    ]
-    assert func_violations, (
-        f"未检测到函数定义:\n"
-        f"  源码: {func_source!r}"
-    )
+    func_violations: list[tuple[int, str, str]] = [v for v in violations if v[1] == "FunctionDef"]
+    assert func_violations, f"未检测到函数定义:\n  源码: {func_source!r}"

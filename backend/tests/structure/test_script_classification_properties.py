@@ -89,7 +89,7 @@ class TestScriptClassificationProperties:
             for script in dev_scripts:
                 has_dev_prefix = any(script.name.startswith(prefix) for prefix in dev_prefixes)
                 assert has_dev_prefix, (
-                    f"Script {script.name} in development/ should start with one of: " f"{', '.join(dev_prefixes)}"
+                    f"Script {script.name} in development/ should start with one of: {', '.join(dev_prefixes)}"
                 )
 
         # Check that no dev scripts exist in root scripts directory
@@ -119,9 +119,9 @@ class TestScriptClassificationProperties:
 
             # Verify all court_* files are in automation/
             for script in automation_scripts:
-                assert script.name.startswith(
-                    "court_"
-                ), f"Script {script.name} in automation/ should start with 'court_'"
+                assert script.name.startswith("court_"), (
+                    f"Script {script.name} in automation/ should start with 'court_'"
+                )
 
         # Check that no court_* files exist in root scripts directory
         root_court_scripts = list(scripts_dir.glob("court_*"))
@@ -220,9 +220,9 @@ class TestScriptClassificationProperties:
 
         for subdir in required_subdirs:
             subdir_path = scripts_dir / subdir
-            assert (
-                subdir_path.exists() and subdir_path.is_dir()
-            ), f"Required subdirectory {subdir}/ does not exist in scripts/"
+            assert subdir_path.exists() and subdir_path.is_dir(), (
+                f"Required subdirectory {subdir}/ does not exist in scripts/"
+            )
 
     @given(
         st.sampled_from(

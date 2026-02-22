@@ -30,7 +30,7 @@ class TestSMSParserGdemsLink:
 
     def test_extract_multiple_gdems_links(self):
         """测试提取多个 sd.gdems.com 链接"""
-        test_sms = "链接1: https://sd.gdems.com/v3/dzsd/abc123 " "链接2: https://sd.gdems.com/v3/dzsd/xyz789"
+        test_sms = "链接1: https://sd.gdems.com/v3/dzsd/abc123 链接2: https://sd.gdems.com/v3/dzsd/xyz789"
 
         matches = self.GDEMS_LINK_PATTERN.findall(test_sms)
 
@@ -61,7 +61,7 @@ class TestSMSParserGdemsLink:
         from apps.automation.utils.text_utils import TextUtils
 
         test_sms = (
-            "【佛山市禅城区人民法院】佛山市升平百货有限公司," "（2025）粤0604民初42953号您有一条新的送达通知需要您查看"
+            "【佛山市禅城区人民法院】佛山市升平百货有限公司,（2025）粤0604民初42953号您有一条新的送达通知需要您查看"
         )
 
         case_numbers = TextUtils.extract_case_numbers(test_sms)

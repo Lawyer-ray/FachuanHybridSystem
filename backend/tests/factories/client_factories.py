@@ -27,7 +27,7 @@ class LegalClientFactory(ClientFactory):
     """法人客户 Factory"""
 
     client_type = Client.LEGAL
-    legal_representative = factory.Faker("name", locale="zh_CN") # type: ignore[assignment]
+    legal_representative = factory.Faker("name", locale="zh_CN")  # type: ignore[assignment]
     id_number = factory.Sequence(lambda n: f"91110000{n:010d}")
 
 

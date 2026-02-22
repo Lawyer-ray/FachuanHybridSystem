@@ -48,10 +48,9 @@ class TestTestCentralization:
                         test_files_in_apps.append(test_file)
 
         # 断言：不应该有测试文件在 apps/*/tests/ 目录
-        assert (
-            len(test_files_in_apps) == 0
-        ), f"发现 {len(test_files_in_apps)} 个测试文件仍在 apps/*/tests/ 目录:\n" + "\n".join(
-            str(f) for f in test_files_in_apps
+        assert len(test_files_in_apps) == 0, (
+            f"发现 {len(test_files_in_apps)} 个测试文件仍在 apps/*/tests/ 目录:\n"
+            + "\n".join(str(f) for f in test_files_in_apps)
         )
 
     def test_all_test_files_in_centralized_tests_directory(self, backend_root: Path):
@@ -96,10 +95,9 @@ class TestTestCentralization:
                     invalid_test_files.append(test_file)
 
         # 断言：所有测试文件应该在有效的测试目录中
-        assert (
-            len(invalid_test_files) == 0
-        ), f"发现 {len(invalid_test_files)} 个测试文件不在有效的测试目录中:\n" + "\n".join(
-            str(f) for f in invalid_test_files
+        assert len(invalid_test_files) == 0, (
+            f"发现 {len(invalid_test_files)} 个测试文件不在有效的测试目录中:\n"
+            + "\n".join(str(f) for f in invalid_test_files)
         )
 
     def test_api_tests_in_integration_directory(self, backend_root: Path):
@@ -131,10 +129,9 @@ class TestTestCentralization:
                 if top_level_dir not in {"integration", "unit", "documents", "structure"}:
                     misplaced_api_tests.append(test_file)
 
-        assert (
-            len(misplaced_api_tests) == 0
-        ), f"发现 {len(misplaced_api_tests)} 个 API 测试文件位置不符合约定:\n" + "\n".join(
-            str(f) for f in misplaced_api_tests
+        assert len(misplaced_api_tests) == 0, (
+            f"发现 {len(misplaced_api_tests)} 个 API 测试文件位置不符合约定:\n"
+            + "\n".join(str(f) for f in misplaced_api_tests)
         )
 
     def test_property_tests_in_property_directory(self, backend_root: Path):
@@ -166,10 +163,11 @@ class TestTestCentralization:
                     misplaced_property_tests.append(test_file)
 
         # 断言：所有 property-based 测试应该在 property/ 或 structure/ 目录
-        assert (
-            len(misplaced_property_tests) == 0
-        ), f"发现 {len(misplaced_property_tests)} 个 property-based 测试文件不在 property/ 或 structure/ 目录:\n" + "\n".join( # noqa: E501
-            str(f) for f in misplaced_property_tests
+        assert len(misplaced_property_tests) == 0, (
+            f"发现 {len(misplaced_property_tests)} 个 property-based 测试文件不在 property/ 或 structure/ 目录:\n"
+            + "\n".join(  # noqa: E501
+                str(f) for f in misplaced_property_tests
+            )
         )
 
     def test_factories_in_centralized_factories_directory(self, backend_root: Path):
@@ -191,10 +189,9 @@ class TestTestCentralization:
                     factory_files_in_apps.append(factory_file)
 
         # 断言：apps/tests/factories/ 不应该有 factory 文件
-        assert (
-            len(factory_files_in_apps) == 0
-        ), f"发现 {len(factory_files_in_apps)} 个 factory 文件仍在 apps/tests/factories/:\n" + "\n".join(
-            str(f) for f in factory_files_in_apps
+        assert len(factory_files_in_apps) == 0, (
+            f"发现 {len(factory_files_in_apps)} 个 factory 文件仍在 apps/tests/factories/:\n"
+            + "\n".join(str(f) for f in factory_files_in_apps)
         )
 
         # 验证 tests/factories/ 有 factory 文件
@@ -227,10 +224,9 @@ class TestTestCentralization:
                     mock_files_in_apps.append(mock_file)
 
         # 断言：apps/tests/mocks/ 不应该有 mock 文件
-        assert (
-            len(mock_files_in_apps) == 0
-        ), f"发现 {len(mock_files_in_apps)} 个 mock 文件仍在 apps/tests/mocks/:\n" + "\n".join(
-            str(f) for f in mock_files_in_apps
+        assert len(mock_files_in_apps) == 0, (
+            f"发现 {len(mock_files_in_apps)} 个 mock 文件仍在 apps/tests/mocks/:\n"
+            + "\n".join(str(f) for f in mock_files_in_apps)
         )
 
         # 验证 tests/mocks/ 有 mock 文件
@@ -313,10 +309,9 @@ class TestTestCentralization:
                     strategy_files_in_apps.append(strategy_file)
 
         # 断言：apps/tests/strategies/ 不应该有 strategy 文件
-        assert (
-            len(strategy_files_in_apps) == 0
-        ), f"发现 {len(strategy_files_in_apps)} 个 strategy 文件仍在 apps/tests/strategies/:\n" + "\n".join(
-            str(f) for f in strategy_files_in_apps
+        assert len(strategy_files_in_apps) == 0, (
+            f"发现 {len(strategy_files_in_apps)} 个 strategy 文件仍在 apps/tests/strategies/:\n"
+            + "\n".join(str(f) for f in strategy_files_in_apps)
         )
 
         # 验证 tests/strategies/ 有 strategy 文件

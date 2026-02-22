@@ -18,8 +18,7 @@ def test_api_layer_does_not_import_service_locator():
         for line, stmt in extract_service_locator_imports(file_path):
             violations.append((str(rel), line, stmt))
 
-    assert (
-        len(violations) == 0
-    ), "API 层不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join(
-        f"  {path}:{line} - {stmt}" for path, line, stmt in violations
+    assert len(violations) == 0, (
+        "API 层不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n"
+        + "\n".join(f"  {path}:{line} - {stmt}" for path, line, stmt in violations)
     )

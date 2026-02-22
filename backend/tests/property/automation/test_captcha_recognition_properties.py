@@ -50,9 +50,9 @@ class TestCaptchaRecognitionProperties:
             result = service.recognize_from_base64(base64_str)
 
             # 验证返回类型
-            assert isinstance(
-                result, CaptchaRecognizeOut
-            ), f"返回值应该是 CaptchaRecognizeOut 类型，但得到 {type(result)}"
+            assert isinstance(result, CaptchaRecognizeOut), (
+                f"返回值应该是 CaptchaRecognizeOut 类型，但得到 {type(result)}"
+            )
 
             # 验证必须包含 success 字段
             assert hasattr(result, "success"), "响应必须包含 success 字段"
@@ -159,9 +159,9 @@ class TestCaptchaRecognitionProperties:
 
         # 验证字段类型
         assert isinstance(result.success, bool), "success 必须是布尔值"
-        assert result.processing_time is None or isinstance(
-            result.processing_time, (int, float)
-        ), "processing_time 必须是数字或 None"
+        assert result.processing_time is None or isinstance(result.processing_time, (int, float)), (
+            "processing_time 必须是数字或 None"
+        )
 
         # 如果成功，验证成功响应的字段
         if result.success:
@@ -233,9 +233,9 @@ class TestCaptchaRecognitionProperties:
 
             # 不应该有格式相关的错误
             if not result.success and result.error:
-                assert (
-                    "格式" not in result.error or "支持" in result.error
-                ), f"支持的格式 {image_format} 不应该返回格式错误: {result.error}"
+                assert "格式" not in result.error or "支持" in result.error, (
+                    f"支持的格式 {image_format} 不应该返回格式错误: {result.error}"
+                )
                 # 如果失败，应该是识别失败，而不是格式问题
                 assert "不支持" not in result.error.lower(), f"支持的格式 {image_format} 不应该被拒绝: {result.error}"
 
@@ -289,9 +289,9 @@ class TestCaptchaRecognitionProperties:
             result = service.recognize_from_base64(base64_str)
 
             # 验证返回类型
-            assert isinstance(
-                result, CaptchaRecognizeOut
-            ), f"返回值必须是 CaptchaRecognizeOut 类型，但得到 {type(result)}"
+            assert isinstance(result, CaptchaRecognizeOut), (
+                f"返回值必须是 CaptchaRecognizeOut 类型，但得到 {type(result)}"
+            )
 
             # 验证所有必需字段存在
             required_fields = ["success", "text", "processing_time", "error"]
@@ -301,17 +301,17 @@ class TestCaptchaRecognitionProperties:
             # 验证字段类型
             assert isinstance(result.success, bool), f"success 必须是布尔值，但得到 {type(result.success)}"
 
-            assert result.text is None or isinstance(
-                result.text, str
-            ), f"text 必须是 None 或字符串，但得到 {type(result.text)}"
+            assert result.text is None or isinstance(result.text, str), (
+                f"text 必须是 None 或字符串，但得到 {type(result.text)}"
+            )
 
-            assert result.error is None or isinstance(
-                result.error, str
-            ), f"error 必须是 None 或字符串，但得到 {type(result.error)}"
+            assert result.error is None or isinstance(result.error, str), (
+                f"error 必须是 None 或字符串，但得到 {type(result.error)}"
+            )
 
-            assert result.processing_time is None or isinstance(
-                result.processing_time, (int, float)
-            ), f"processing_time 必须是 None 或数字，但得到 {type(result.processing_time)}"
+            assert result.processing_time is None or isinstance(result.processing_time, (int, float)), (
+                f"processing_time 必须是 None 或数字，但得到 {type(result.processing_time)}"
+            )
 
             # 验证逻辑一致性
             if result.success:
@@ -360,9 +360,9 @@ class TestCaptchaRecognitionProperties:
             # 超过 5MB 应该被拒绝
             assert result.success is False, f"超过 5MB 的图片应该被拒绝，但 {size_mb}MB 的图片被接受了"
             assert result.error is not None, "应该返回错误消息"
-            assert (
-                "5MB" in result.error or "大小" in result.error or "限制" in result.error
-            ), f"错误消息应该提到大小限制: {result.error}"
+            assert "5MB" in result.error or "大小" in result.error or "限制" in result.error, (
+                f"错误消息应该提到大小限制: {result.error}"
+            )
         # 注意：小于 5MB 的可能因为其他原因失败（如格式无效），这是正常的
 
     def test_property_7_exactly_5mb_boundary(self, service):
@@ -383,9 +383,9 @@ class TestCaptchaRecognitionProperties:
         # 恰好 5MB 应该被接受（不应该因为大小被拒绝）
         # 但可能因为格式无效而失败
         if not result.success and result.error:
-            assert (
-                "5MB" not in result.error and "超过" not in result.error
-            ), f"恰好 5MB 不应该因为大小被拒绝: {result.error}"
+            assert "5MB" not in result.error and "超过" not in result.error, (
+                f"恰好 5MB 不应该因为大小被拒绝: {result.error}"
+            )
 
     def test_property_7_over_5mb_rejected(self, service):
         """

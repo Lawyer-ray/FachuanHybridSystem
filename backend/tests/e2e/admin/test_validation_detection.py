@@ -172,7 +172,7 @@ async def main():
             status = "✅ 通过" if result else "❌ 失败"
             print(f"{status}: {test_name}")
 
-        print(f"\n总计: {passed}/{total} 通过 ({passed/total*100:.1f}%)")
+        print(f"\n总计: {passed}/{total} 通过 ({passed / total * 100:.1f}%)")
 
     finally:
         await test.teardown()

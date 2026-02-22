@@ -112,7 +112,10 @@ class TestDependencyInjection:
         mock_cookie_service = MockCookieService()
 
         service = CourtZxfwService(
-            mock_page, mock_context, captcha_recognizer=mock_recognizer, cookie_service=mock_cookie_service  # type: ignore[arg-type]
+            mock_page,
+            mock_context,
+            captcha_recognizer=mock_recognizer,
+            cookie_service=mock_cookie_service,  # type: ignore[arg-type]
         )
 
         assert service.captcha_recognizer is mock_recognizer

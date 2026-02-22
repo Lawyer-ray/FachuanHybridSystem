@@ -24,18 +24,19 @@ class TestExceptionHandlingProperties:
         fy_id=st.text(min_size=1, max_size=50),
     )
     @settings(max_examples=10, deadline=None)
-    def test_property_network_errors_raise_network_error(
-        self, bearer_token: str, c_pid: str, fy_id: str
-    ) -> None:
+    def test_property_network_errors_raise_network_error(self, bearer_token: str, c_pid: str, fy_id: str) -> None:
         """Property: TimeoutException → NetworkError"""
 
         async def _run() -> None:
             client = CourtInsuranceClient()
-            client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout")) # type: ignore[method-assign]
+            client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))  # type: ignore[method-assign]
             with pytest.raises(NetworkError) as exc_info:
                 await client.fetch_insurance_companies(
-                    bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
-                    timeout=30.0, max_retries=1,
+                    bearer_token=bearer_token,
+                    c_pid=c_pid,
+                    fy_id=fy_id,
+                    timeout=30.0,
+                    max_retries=1,
                 )
             assert exc_info.value.message
             assert exc_info.value.code
@@ -64,11 +65,14 @@ class TestExceptionHandlingProperties:
             mock_response.url = "https://test.com"
             mock_response.content = b"test"
             mock_response.request = Mock()
-            client._client.get = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
+            client._client.get = AsyncMock(return_value=mock_response)  # type: ignore[method-assign]
             with pytest.raises(APIError) as exc_info:
                 await client.fetch_insurance_companies(
-                    bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
-                    timeout=30.0, max_retries=1,
+                    bearer_token=bearer_token,
+                    c_pid=c_pid,
+                    fy_id=fy_id,
+                    timeout=30.0,
+                    max_retries=1,
                 )
             assert exc_info.value.message
             assert exc_info.value.code
@@ -84,18 +88,19 @@ class TestExceptionHandlingProperties:
         fy_id=st.text(min_size=1, max_size=50),
     )
     @settings(max_examples=10, deadline=None)
-    def test_property_connect_errors_raise_network_error(
-        self, bearer_token: str, c_pid: str, fy_id: str
-    ) -> None:
+    def test_property_connect_errors_raise_network_error(self, bearer_token: str, c_pid: str, fy_id: str) -> None:
         """Property: ConnectError → NetworkError"""
 
         async def _run() -> None:
             client = CourtInsuranceClient()
-            client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed")) # type: ignore[method-assign]
+            client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))  # type: ignore[method-assign]
             with pytest.raises(NetworkError) as exc_info:
                 await client.fetch_insurance_companies(
-                    bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
-                    timeout=30.0, max_retries=1,
+                    bearer_token=bearer_token,
+                    c_pid=c_pid,
+                    fy_id=fy_id,
+                    timeout=30.0,
+                    max_retries=1,
                 )
             assert exc_info.value.message
             assert exc_info.value.code
@@ -110,9 +115,7 @@ class TestExceptionHandlingProperties:
         fy_id=st.text(min_size=1, max_size=50),
     )
     @settings(max_examples=5, deadline=None)
-    def test_property_exception_structure_consistency(
-        self, bearer_token: str, c_pid: str, fy_id: str
-    ) -> None:
+    def test_property_exception_structure_consistency(self, bearer_token: str, c_pid: str, fy_id: str) -> None:
         """Property: 所有自定义异常结构一致"""
 
         async def _run() -> None:
@@ -121,11 +124,14 @@ class TestExceptionHandlingProperties:
                 (httpx.TimeoutException("Timeout"), NetworkError),
                 (httpx.ConnectError("Connection failed"), NetworkError),
             ]:
-                client._client.get = AsyncMock(side_effect=error) # type: ignore[method-assign]
+                client._client.get = AsyncMock(side_effect=error)  # type: ignore[method-assign]
                 try:
                     await client.fetch_insurance_companies(
-                        bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
-                        timeout=30.0, max_retries=1,
+                        bearer_token=bearer_token,
+                        c_pid=c_pid,
+                        fy_id=fy_id,
+                        timeout=30.0,
+                        max_retries=1,
                     )
                     pytest.fail(f"Expected {expected_type.__name__}")
                 except expected_type as exc:

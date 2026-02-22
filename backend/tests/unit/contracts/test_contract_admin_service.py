@@ -150,7 +150,9 @@ class TestContractAdminService:
         """测试续签日期计算的边界情况"""
         # 测试闰年日期
         original_contract = ContractFactory(
-            case_type=CaseType.ADVISOR, start_date=date(2024, 2, 29), end_date=date(2025, 2, 28)  # 闰年2月29日
+            case_type=CaseType.ADVISOR,
+            start_date=date(2024, 2, 29),
+            end_date=date(2025, 2, 28),  # 闰年2月29日
         )
 
         new_contract = self.service.renew_advisor_contract(original_contract.id)  # type: ignore[attr-defined]

@@ -21,9 +21,9 @@ from .test_smoke import TestAdminSmoke
 
 async def run_test_class(test_class, test_name: str):
     """运行单个测试类"""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"📋 {test_name}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     test = test_class()
     results = {"passed": 0, "failed": 0, "skipped": 0, "errors": []}
@@ -82,11 +82,11 @@ async def run_test_class(test_class, test_name: str):
 
 async def run_all_tests():
     """运行所有测试"""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("🚀 Django Admin 稳定性测试")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     # 定义测试套件
     test_suites = [
@@ -114,9 +114,9 @@ async def run_all_tests():
             all_results["errors"].append({"test": test_name, "type": "SuiteError", "error": str(e)})  # type: ignore[attr-defined]
 
     # 打印总结
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("📊 测试总结")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     total = all_results["passed"] + all_results["failed"] + all_results["skipped"]  # type: ignore[operator]
 
@@ -131,9 +131,9 @@ async def run_all_tests():
 
     # 打印每个测试套件的结果
     if len(all_results["suites"]) > 1:  # type: ignore[arg-type]
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("各测试套件结果:")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         for suite in all_results["suites"]:  # type: ignore[attr-defined]
             name = suite["name"]
@@ -153,9 +153,9 @@ async def run_all_tests():
 
     # 打印失败的测试
     if all_results["errors"]:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("❌ 失败的测试详情:")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         for i, error in enumerate(all_results["errors"], 1):  # type: ignore
             print(f"{i}. {error['test']}")
@@ -163,9 +163,9 @@ async def run_all_tests():
             print(f"   错误: {error['error']}")
             print()
 
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     # 返回退出码
     return 0 if all_results["failed"] == 0 else 1

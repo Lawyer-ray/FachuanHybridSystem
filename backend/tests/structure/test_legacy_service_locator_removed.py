@@ -23,6 +23,6 @@ def test_interfaces_package_does_not_define_service_locator_class():
     init_py = interfaces_dir / "__init__.py"
     assert init_py.exists()
     content = init_py.read_text(encoding="utf-8")
-    assert (
-        "class ServiceLocator" not in content
-    ), "interfaces/__init__.py 不应该定义 ServiceLocator 类，应从 service_locator 模块重导出"
+    assert "class ServiceLocator" not in content, (
+        "interfaces/__init__.py 不应该定义 ServiceLocator 类，应从 service_locator 模块重导出"
+    )
