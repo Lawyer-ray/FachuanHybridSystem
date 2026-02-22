@@ -30,7 +30,7 @@ def _get_case_access_service() -> Any:
     Returns:
         CaseAccessService 实例
     """
-    from apps.cases.services.case_access_service import CaseAccessService
+    from apps.cases.services.case.case_access_service import CaseAccessService
 
     return CaseAccessService()
 
