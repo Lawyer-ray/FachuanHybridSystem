@@ -3,6 +3,9 @@
 import logging
 from typing import Any
 
+from django.contrib import admin
+
+from django.contrib import admin
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join

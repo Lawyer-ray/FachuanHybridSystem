@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from apps.contracts.models import Contract
 from apps.core.interfaces import CaseDTO
@@ -28,17 +28,17 @@ class ContractCaseCreationWorkflow:
             perm_open_access=perm_open_access,
         )
 
-        for party in contract.contract_parties.all():
+        for party in contract.contract_parties.all():  # type: ignore[attr-defined]
             self.case_service.create_case_party(
                 case_id=case_dto.id,
                 client_id=party.client_id,
                 legal_status=None,
             )
 
-        for assignment in contract.assignments.all():
+        for assignment in contract.assignments.all():  # type: ignore[attr-defined]
             self.case_service.create_case_assignment(
                 case_id=case_dto.id,
                 lawyer_id=assignment.lawyer_id,
             )
 
-        return cast(CaseDTO, case_dto)
+        return case_dto  # type: ignore[return-value]

@@ -1,5 +1,7 @@
 """Module for validators."""
 
+
+from __future__ import annotations
 from collections.abc import Iterable
 
 from django.utils.translation import gettext_lazy as _
