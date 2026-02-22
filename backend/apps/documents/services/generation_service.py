@@ -17,6 +17,7 @@ from apps.documents.models import (
     GenerationTask,
 )
 
+_CONFIG_TYPE_GENERATION_RULE = "generation_rule"
 
 @dataclass
 class ConfigValidationResult:
@@ -47,7 +48,7 @@ class GenerationService:
 
         config = GenerationConfig.objects.create(
             name=name,
-            config_type="generation_rule",
+            config_type=_CONFIG_TYPE_GENERATION_RULE,
             is_active=is_active,
             value={
                 "case_type": case_type,
@@ -117,7 +118,7 @@ class GenerationService:
         from django.db.models.fields.json import KeyTextTransform
         from django.db.models.functions import Cast, Coalesce
 
-        qs = GenerationConfig.objects.filter(config_type="generation_rule")
+        qs = GenerationConfig.objects.filter(config_type=_CONFIG_TYPE_GENERATION_RULE)
         if not include_inactive:
             qs = qs.filter(is_active=True)
 
