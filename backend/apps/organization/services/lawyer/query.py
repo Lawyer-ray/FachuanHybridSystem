@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from django.db.models import Q, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.organization.models import Lawyer
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 
 class LawyerQueryService:
-    def __init__(self, access_policy: Any) -> None:
+    def __init__(self, access_policy: OrganizationAccessPolicy) -> None:
         self.access_policy = access_policy
 
     def get_lawyer_queryset(self) -> QuerySet[Lawyer, Lawyer]:
@@ -40,7 +41,7 @@ class LawyerQueryService:
         queryset = self.get_lawyer_queryset()
 
         if user and not user.is_superuser:
-            user_law_firm_id = cast(int | None, getattr(user, "law_firm_id", None))
+            user_law_firm_id: int | None = user.law_firm_id
             if user_law_firm_id is not None:
                 queryset = queryset.filter(law_firm_id=user_law_firm_id)
             else:

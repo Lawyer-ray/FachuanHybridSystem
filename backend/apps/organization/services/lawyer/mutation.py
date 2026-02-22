@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -13,6 +12,7 @@ from apps.core.exceptions import ConflictError, PermissionDenied, ValidationExce
 from apps.core.infrastructure import invalidate_users_access_context  # type: ignore[attr-defined]
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 from .upload import LawyerUploadService
 
@@ -20,7 +20,7 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawyerMutationService:
-    def __init__(self, access_policy: Any, upload_service: LawyerUploadService | None = None) -> None:
+    def __init__(self, access_policy: OrganizationAccessPolicy, upload_service: LawyerUploadService | None = None) -> None:
         self.access_policy = access_policy
         self.upload_service = upload_service or LawyerUploadService()
 

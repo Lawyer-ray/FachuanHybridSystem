@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.organization.dtos import TeamUpsertDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
@@ -92,7 +92,7 @@ class TeamService:
         return team
 
     @transaction.atomic
-    def create_team(self, data: Any, user: Lawyer | None = None) -> Team:
+    def create_team(self, data: TeamUpsertDTO, user: Lawyer | None = None) -> Team:
         """
         创建团队
 
@@ -136,7 +136,7 @@ class TeamService:
         return team
 
     @transaction.atomic
-    def update_team(self, team_id: int, data: Any, user: Lawyer | None = None) -> Team:
+    def update_team(self, team_id: int, data: TeamUpsertDTO, user: Lawyer | None = None) -> Team:
         """
         更新团队
 

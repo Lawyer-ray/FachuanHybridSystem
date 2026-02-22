@@ -9,6 +9,7 @@ from typing import Any
 
 from ninja import Router
 
+from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.organization.schemas import LawFirmIn, LawFirmOut, LawFirmUpdateIn
 from apps.organization.services import LawFirmService
 
@@ -43,7 +44,13 @@ def create_lawfirm(request: Any, payload: LawFirmIn) -> Any:
     """创建律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.create_lawfirm(data=payload, user=user)
+    dto = LawFirmCreateDTO(
+        name=payload.name,
+        address=payload.address,
+        phone=payload.phone,
+        social_credit_code=payload.social_credit_code,
+    )
+    lawfirm = service.create_lawfirm(data=dto, user=user)
     return lawfirm
 
 
@@ -52,7 +59,13 @@ def update_lawfirm(request: Any, law_firm_id: int, payload: LawFirmUpdateIn) -> 
     """更新律所"""
     service = _get_lawfirm_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    lawfirm = service.update_lawfirm(lawfirm_id=law_firm_id, data=payload, user=user)
+    dto = LawFirmUpdateDTO(
+        name=payload.name,
+        address=payload.address,
+        phone=payload.phone,
+        social_credit_code=payload.social_credit_code,
+    )
+    lawfirm = service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=user)
     return lawfirm
 
 

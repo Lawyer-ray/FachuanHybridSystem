@@ -9,6 +9,7 @@ from typing import Any
 
 from ninja import Router
 
+from apps.organization.dtos import TeamUpsertDTO
 from apps.organization.schemas import TeamIn, TeamOut
 from apps.organization.services import TeamService
 
@@ -33,7 +34,8 @@ def create_team(request: Any, payload: TeamIn) -> Any:
     """创建团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    return service.create_team(data=payload, user=user)
+    dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
+    return service.create_team(data=dto, user=user)
 
 
 @router.get("/teams/{team_id}", response=TeamOut)
@@ -49,7 +51,8 @@ def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
     """更新团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
-    return service.update_team(team_id=team_id, data=payload, user=user)
+    dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
+    return service.update_team(team_id=team_id, data=dto, user=user)
 
 
 @router.delete("/teams/{team_id}")
