@@ -6,8 +6,6 @@ LawyerService 门面类
 
 from __future__ import annotations
 
-from typing import Any
-
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 from ninja.files import UploadedFile
@@ -15,6 +13,7 @@ from ninja.files import UploadedFile
 from apps.core.exceptions import AuthenticationError
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.models import Lawyer
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 from .mutation import LawyerMutationService
 from .query import LawyerQueryService
@@ -30,9 +29,7 @@ class LawyerService:
     """
 
     def __init__(self) -> None:
-        from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
-
-        policy: Any = OrganizationAccessPolicy()
+        policy = OrganizationAccessPolicy()
         upload_svc = LawyerUploadService()
         self._mutation = LawyerMutationService(access_policy=policy, upload_service=upload_svc)
         self._query = LawyerQueryService(access_policy=policy)
@@ -51,7 +48,7 @@ class LawyerService:
         self,
         page: int = 1,
         page_size: int = 20,
-        filters: dict[str, Any] | None = None,
+        filters: dict[str, object] | None = None,
         user: Lawyer | None = None,
     ) -> QuerySet[Lawyer, Lawyer]:
         return self._query.list_lawyers(page=page, page_size=page_size, filters=filters, user=user)

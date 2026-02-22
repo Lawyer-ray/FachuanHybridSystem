@@ -17,12 +17,11 @@ from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.models import AccountCredential
+from apps.organization.services import AccountCredentialService
 
 
-def _get_credential_service() -> Any:
+def _get_credential_service() -> AccountCredentialService:
     """工厂函数 - 创建 AccountCredentialService 实例"""
-    from apps.organization.services import AccountCredentialService
-
     return AccountCredentialService()
 
 
@@ -80,7 +79,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     actions: ClassVar[list[str]] = ["mark_as_preferred", "unmark_as_preferred"]
 
-    def get_form(self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any) -> Any:
+    def get_form(self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any) -> type[forms.ModelForm]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
             form.base_fields["password"].widget = forms.PasswordInput(render_value=True)

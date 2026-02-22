@@ -7,14 +7,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Coroutine
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-
 if TYPE_CHECKING:
+    from apps.core.interfaces import IAutoTokenAcquisitionService, IAutomationService
+    from apps.organization.models import AccountCredential
     from apps.organization.services.account_credential_service import (
         AccountCredentialService,
     )
@@ -22,7 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _run_async(coro: Any) -> Any:
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     """安全执行异步协程，兼容已有事件循环的场景"""
     try:
         loop = asyncio.get_running_loop()
@@ -69,8 +72,8 @@ class AccountCredentialAdminService:
     SUPPORTED_SITE = "court_zxfw"
 
     def __init__(self) -> None:
-        self._token_service: Any | None = None
-        self._automation_service: Any | None = None
+        self._token_service: IAutoTokenAcquisitionService | None = None
+        self._automation_service: IAutomationService | None = None
         self._credential_service: AccountCredentialService | None = None
 
     @property
@@ -85,7 +88,7 @@ class AccountCredentialAdminService:
         return self._credential_service
 
     @property
-    def token_service(self) -> "Any":
+    def token_service(self) -> "IAutoTokenAcquisitionService":
         """延迟加载 AutoTokenAcquisitionService"""
         if self._token_service is None:
             from apps.core.dependencies import build_auto_token_acquisition_service
@@ -94,7 +97,7 @@ class AccountCredentialAdminService:
         return self._token_service
 
     @property
-    def automation_service(self) -> "Any":
+    def automation_service(self) -> "IAutomationService":
         """延迟加载 AutomationService"""
         if self._automation_service is None:
             from apps.core.interfaces import ServiceLocator
@@ -335,7 +338,7 @@ class AccountCredentialAdminService:
 
     def _execute_single_login(
         self,
-        credential: Any,
+        credential: "AccountCredential",
         admin_user: str,
         trigger_reason: str,
     ) -> LoginResult:
@@ -437,15 +440,15 @@ class AccountCredentialAdminService:
 
     def _record_login_history(
         self,
-        credential: Any,
+        credential: "AccountCredential",
         success: bool,
         duration: float,
         trigger_reason: str,
-        start_time: Any,
-        end_time: Any,
+        start_time: datetime,
+        end_time: datetime,
         token: str | None = None,
         error_message: str | None = None,
-        error_details: dict[str, Any] | None = None,
+        error_details: dict[str, object] | None = None,
     ) -> None:
         """
         记录登录历史
