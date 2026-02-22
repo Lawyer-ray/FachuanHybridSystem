@@ -22,6 +22,7 @@ from apps.chat_records.schemas import (
     list_export_types,
 )
 from apps.chat_records.services import ExportTaskService, ProjectService, RecordingService, ScreenshotService
+from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.core.auth import JWTOrSessionAuth
 from apps.core.http import build_range_file_response
@@ -52,8 +53,7 @@ def _get_recording_service() -> RecordingService:
     return RecordingService(project_service=_get_project_service())
 
 
-def _get_recording_extract_facade() -> "RecordingExtractFacade":
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
+def _get_recording_extract_facade() -> RecordingExtractFacade:
     from apps.core.dependencies.core import build_task_submission_service
 
     return RecordingExtractFacade(task_submission_service=build_task_submission_service())
@@ -99,7 +99,7 @@ def list_recordings(request: Any, project_id: int) -> Any:
 
 @router.post("/projects/{project_id}/recordings", response=RecordingOut)
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:
+def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:  # type: ignore[type-arg]
     user = getattr(request, "user", None)
     service = _get_recording_service()
     return service.upload_recording(user=user, project_id=project_id, file=file)
@@ -147,13 +147,12 @@ def delete_recording(request: Any, recording_id: str) -> Any:
 def extract_recording(
     request: Any,
     recording_id: str,
-    interval_seconds: float = Form(1.0),
-    strategy: str = Form("interval"),
-    dedup_threshold: int | None = Form(None),
-    ocr_similarity_threshold: float | None = Form(None),
-    ocr_min_new_chars: int | None = Form(None),
+    interval_seconds: float = Form(1.0),  # type: ignore[type-arg]
+    strategy: str = Form("interval"),  # type: ignore[type-arg]
+    dedup_threshold: int | None = Form(None),  # type: ignore[type-arg]
+    ocr_similarity_threshold: float | None = Form(None),  # type: ignore[type-arg]
+    ocr_min_new_chars: int | None = Form(None),  # type: ignore[type-arg]
 ) -> Any:
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractParams
 
     facade = _get_recording_extract_facade()
     return facade.submit(
@@ -193,9 +192,9 @@ def list_screenshots(request: Any, project_id: int) -> Any:
 def upload_screenshots(
     request: Any,
     project_id: int,
-    files: list[UploadedFile] = File(...),
-    deduplicate: bool = Form(True),
-    capture_time_seconds: float | None = Form(None),
+    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    deduplicate: bool = Form(True),  # type: ignore[type-arg]
+    capture_time_seconds: float | None = Form(None),  # type: ignore[type-arg]
 ) -> Any:
     service = _get_screenshot_service()
     return service.upload_screenshots(

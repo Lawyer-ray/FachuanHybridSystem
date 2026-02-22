@@ -3,7 +3,7 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -24,9 +24,8 @@ class ExportTaskService:
 
     def get_task(self, *, user: Any, task_id: str) -> ChatRecordExportTask:
         try:
-            task = cast(
-                ChatRecordExportTask,
-                ChatRecordExportTask.objects.select_related("project").get(id=task_id),
+            task: ChatRecordExportTask = (
+                ChatRecordExportTask.objects.select_related("project").get(id=task_id)
             )
         except ChatRecordExportTask.DoesNotExist:
             raise NotFoundError(f"导出任务 {task_id} 不存在") from None

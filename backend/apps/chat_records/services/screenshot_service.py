@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -36,9 +36,8 @@ class ScreenshotService:
 
     def get_screenshot(self, *, user: Any, screenshot_id: str) -> ChatRecordScreenshot:
         try:
-            screenshot = cast(
-                ChatRecordScreenshot,
-                ChatRecordScreenshot.objects.select_related("project").get(id=screenshot_id),
+            screenshot: ChatRecordScreenshot = (
+                ChatRecordScreenshot.objects.select_related("project").get(id=screenshot_id)
             )
         except ChatRecordScreenshot.DoesNotExist:
             raise NotFoundError(f"截图 {screenshot_id} 不存在") from None

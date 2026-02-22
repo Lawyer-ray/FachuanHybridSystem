@@ -4,7 +4,7 @@ from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -34,9 +34,8 @@ class RecordingExtractFacade:
         from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
 
         try:
-            recording = cast(
-                ChatRecordRecording,
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id),
+            recording: ChatRecordRecording = (
+                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
             )
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
@@ -76,9 +75,8 @@ class RecordingExtractFacade:
     @transaction.atomic
     def request_cancel(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
         try:
-            recording = cast(
-                ChatRecordRecording,
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id),
+            recording: ChatRecordRecording = (
+                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
             )
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
@@ -97,9 +95,8 @@ class RecordingExtractFacade:
     @transaction.atomic
     def reset(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
         try:
-            recording = cast(
-                ChatRecordRecording,
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id),
+            recording: ChatRecordRecording = (
+                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
             )
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
