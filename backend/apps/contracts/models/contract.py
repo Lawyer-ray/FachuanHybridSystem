@@ -93,7 +93,7 @@ class Contract(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.name}"
+        return self.name
 
     def clean(self) -> None:
         from apps.contracts.validators import normalize_representation_stages
@@ -104,6 +104,4 @@ class Contract(models.Model):
         rep = getattr(self, "representation_stages", None)
         with contextlib.suppress(ValidationException):
             self.representation_stages = normalize_representation_stages(ctype, rep, strict=False)
-
-
 
