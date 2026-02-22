@@ -180,7 +180,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         """支持异步上下文管理器"""
         await self.close()
 
-    async def fetch_insurance_companies( # type: ignore
+    async def fetch_insurance_companies(
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float | None = None, max_retries: int = 3
     ) -> list[InsuranceCompany]:
         """
@@ -255,6 +255,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         # 所有重试都失败，抛出最后一个异常
         if last_exception:
             raise last_exception
+        raise NetworkError(message="获取保险公司列表失败", code="INSURANCE_LIST_ERROR")
 
     def _parse_insurance_companies(self, data: Any) -> list[InsuranceCompany]:
         """从 API 响应中解析保险公司列表"""

@@ -62,7 +62,7 @@ class AutomationConfig(AppConfig):
             return
 
         # 防止重复执行：检查是否已经安排过恢复任务
-        if hasattr(self, "_recovery_scheduled"):
+        if self._recovery_scheduled:
             logger.debug("法院短信任务恢复已安排，跳过重复执行")
             return
 
