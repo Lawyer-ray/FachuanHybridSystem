@@ -5,12 +5,10 @@ Client Services Module
 
 from .client_admin_service import ClientAdminService
 from .client_identity_doc_service import ClientIdentityDocService
-from .client_service import ClientService
 from .client_service_adapter import ClientServiceAdapter
 from .property_clue_service import PropertyClueService
 
 __all__ = [
-    "ClientService",
     "ClientServiceAdapter",
     "PropertyClueService",
     "ClientIdentityDocService",
