@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from .folder_binding import ContractFolderBinding
     from .party import ContractAssignment, ContractParty
     from .payment import ContractPayment
-    from .reminder import ContractReminder
     from .supplementary import SupplementaryAgreement
 
 
@@ -66,7 +65,6 @@ class Contract(models.Model):
         contract_parties: RelatedManager[ContractParty]
         assignments: RelatedManager[ContractAssignment]
         payments: RelatedManager[ContractPayment]
-        contract_reminders: RelatedManager[ContractReminder]
         supplementary_agreements: RelatedManager[SupplementaryAgreement]
 
     class Meta:

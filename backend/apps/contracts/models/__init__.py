@@ -20,9 +20,6 @@ from .party import ContractAssignment, ContractParty, PartyRole
 # payment.py - 收款相关模型和枚举
 from .payment import ContractPayment, InvoiceStatus
 
-# reminder.py - 提醒相关模型和枚举
-from .reminder import ContractReminder, ContractReminderType
-
 # supplementary.py - 补充协议相关模型
 from .supplementary import SupplementaryAgreement, SupplementaryAgreementParty
 
@@ -45,7 +42,4 @@ __all__ = [
     "SupplementaryAgreementParty",
     # folder_binding.py
     "ContractFolderBinding",
-    # reminder.py
-    "ContractReminder",
-    "ContractReminderType",
 ]

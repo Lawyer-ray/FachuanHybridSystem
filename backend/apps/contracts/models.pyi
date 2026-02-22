@@ -38,7 +38,6 @@ class Contract(models.Model):
     assignments: Manager[ContractAssignment]
     payments: Manager[ContractPayment]
     finance_logs: Manager[ContractFinanceLog]
-    reminders: Manager[ContractReminder]
     supplementary_agreements: Manager[SupplementaryAgreement]
 
     # Meta
@@ -120,23 +119,6 @@ class ContractFinanceLog(models.Model):
 
     # Meta
     objects: Manager[ContractFinanceLog]
-
-    def __str__(self) -> str: ...
-
-class ContractReminder(models.Model):
-    # 主键
-    id: int
-
-    # 字段
-    contract_id: int
-    contract: Contract
-    kind: str
-    content: str
-    due_date: date
-    created_at: datetime
-
-    # Meta
-    objects: Manager[ContractReminder]
 
     def __str__(self) -> str: ...
 

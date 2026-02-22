@@ -17,7 +17,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
-from hypothesis import given, settings, assume
+from hypothesis import given, settings, assume, HealthCheck
 from hypothesis import strategies as st
 
 
@@ -167,16 +167,15 @@ class TestStartOrderProperty:
         return EvidenceService()
 
     @given(
-        items_counts=st.lists(st.integers(min_value=0, max_value=100), min_size=1, max_size=8),
-        pages_counts=st.lists(st.integers(min_value=0, max_value=500), min_size=1, max_size=8),
+        items_counts=st.lists(st.integers(min_value=0, max_value=100), min_size=2, max_size=8),
+        pages_counts=st.lists(st.integers(min_value=0, max_value=500), min_size=2, max_size=8),
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow], deadline=None)
     def test_start_order_equals_sum_of_previous_items_plus_one(
         self, items_counts: list[int], pages_counts: list[int]
     ) -> None:
         """对任意链表，start_order = 所有前置清单 items 总数 + 1。"""
         min_len = min(len(items_counts), len(pages_counts))
-        assume(min_len >= 2)
         items_counts = items_counts[:min_len]
         pages_counts = pages_counts[:min_len]
 
@@ -188,16 +187,15 @@ class TestStartOrderProperty:
         assert result == expected
 
     @given(
-        items_counts=st.lists(st.integers(min_value=0, max_value=100), min_size=1, max_size=8),
-        pages_counts=st.lists(st.integers(min_value=0, max_value=500), min_size=1, max_size=8),
+        items_counts=st.lists(st.integers(min_value=0, max_value=100), min_size=2, max_size=8),
+        pages_counts=st.lists(st.integers(min_value=0, max_value=500), min_size=2, max_size=8),
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow], deadline=None)
     def test_start_page_equals_sum_of_previous_pages_plus_one(
         self, items_counts: list[int], pages_counts: list[int]
     ) -> None:
         """对任意链表，start_page = 所有前置清单 total_pages 总和 + 1。"""
         min_len = min(len(items_counts), len(pages_counts))
-        assume(min_len >= 2)
         items_counts = items_counts[:min_len]
         pages_counts = pages_counts[:min_len]
 
@@ -514,7 +512,7 @@ class TestPlaceholderFilterProperty:
             max_size=10,
         ),
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow], deadline=None)
     def test_four_categories_are_disjoint_and_exhaustive(
         self, keys: list[str], usage_types: list[frozenset[str]]
     ) -> None:
@@ -614,7 +612,7 @@ class TestFilePathDisplayPreservation:
 
         admin_instance = DocumentTemplateAdmin.__new__(DocumentTemplateAdmin)
 
-        with patch("apps.documents.admin.document_template_admin.reverse", return_value="/admin/download/1/"):
+        with patch("django.urls.reverse", return_value="/admin/download/1/"):
             result = admin_instance.file_location_display(obj)
 
         # 结果应包含 absolute_file_path

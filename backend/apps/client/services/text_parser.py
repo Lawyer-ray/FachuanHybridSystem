@@ -1,10 +1,12 @@
 """当事人文本解析器。"""
 
+from __future__ import annotations
+
 import re
 from typing import Any
 
 # 关键字列表，用于智能分割无换行文本
-_FIELD_KEYWORDS = [
+_FIELD_KEYWORDS: list[str] = [
     "法定代表人",
     "法人代表",
     "负责人",

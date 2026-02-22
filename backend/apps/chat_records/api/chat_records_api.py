@@ -36,17 +36,20 @@ def _get_project_service() -> ProjectService:
 
 
 def _get_screenshot_service() -> ScreenshotService:
-    return ScreenshotService()
+    return ScreenshotService(project_service=_get_project_service())
 
 
 def _get_export_task_service() -> ExportTaskService:
     from apps.core.dependencies.core import build_task_submission_service
 
-    return ExportTaskService(task_submission_service=build_task_submission_service())
+    return ExportTaskService(
+        task_submission_service=build_task_submission_service(),
+        project_service=_get_project_service(),
+    )
 
 
 def _get_recording_service() -> RecordingService:
-    return RecordingService()
+    return RecordingService(project_service=_get_project_service())
 
 
 @router.get("/export-types")

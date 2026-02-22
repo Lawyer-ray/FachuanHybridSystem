@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,8 @@ from django.dispatch import receiver
 
 from .models import ChatRecordExportTask, ChatRecordRecording, ChatRecordScreenshot
 
+logger = logging.getLogger("apps.chat_records")
+
 
 def _safe_prune_empty_parents(file_path: str | None) -> None:
     if not file_path:
@@ -19,11 +22,13 @@ def _safe_prune_empty_parents(file_path: str | None) -> None:
         p = Path(file_path).resolve()
     except Exception:
         # 静默处理:路径解析失败不影响主流程
+        logger.debug("文件路径解析失败: %s", file_path)
         return
     try:
         media_root = Path(settings.MEDIA_ROOT).resolve()
     except Exception:
         # 静默处理:MEDIA_ROOT 解析失败不影响主流程
+        logger.debug("MEDIA_ROOT 解析失败, 原始文件路径: %s", file_path)
         return
 
     if not p.is_absolute():
@@ -40,6 +45,7 @@ def _safe_prune_empty_parents(file_path: str | None) -> None:
             cur.rmdir()
         except Exception:
             # 静默处理:目录删除失败(可能非空或权限问题)不影响主流程
+            logger.debug("空目录清理失败: %s", cur)
             break
         cur = cur.parent
 
@@ -52,11 +58,13 @@ def _delete_field_file(field_file: Any) -> None:
         old_path = field_file.path
     except Exception:
         # 静默处理:获取文件路径失败不影响主流程
+        logger.debug("获取文件路径失败: %s", field_file)
         old_path = None
     try:
         field_file.delete(save=False)
     except Exception:
         # 静默处理:文件删除失败不影响主流程
+        logger.debug("文件删除失败: %s", old_path or field_file)
         return
     _safe_prune_empty_parents(old_path)
 
