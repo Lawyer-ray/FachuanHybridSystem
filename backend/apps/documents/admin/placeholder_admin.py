@@ -173,23 +173,13 @@ class PlaceholderAdmin(admin.ModelAdmin):
     @admin.action(description=_("启用选中的替换词"))
     def activate_placeholders(self, request: Any, queryset: Any) -> None:
         """批量启用替换词"""
-        updated = 0
-        for placeholder in queryset:
-            if not placeholder.is_active:
-                placeholder.is_active = True
-                placeholder.save(update_fields=["is_active"])
-                updated += 1
+        updated = queryset.filter(is_active=False).update(is_active=True)
         self.message_user(request, _("已启用 %(count)d 个替换词") % {"count": updated})
 
     @admin.action(description=_("禁用选中的替换词"))
     def deactivate_placeholders(self, request: Any, queryset: Any) -> None:
         """批量禁用替换词"""
-        updated = 0
-        for placeholder in queryset:
-            if placeholder.is_active:
-                placeholder.is_active = False
-                placeholder.save(update_fields=["is_active"])
-                updated += 1
+        updated = queryset.filter(is_active=True).update(is_active=False)
         self.message_user(request, _("已禁用 %(count)d 个替换词") % {"count": updated})
 
     @admin.action(description=_("复制选中的替换词"))

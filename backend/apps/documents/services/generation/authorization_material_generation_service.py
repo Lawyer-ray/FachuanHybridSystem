@@ -10,7 +10,7 @@ from typing import Any, ClassVar, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.path import Path
-from apps.documents.models import DocumentTemplate
+from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder
 
@@ -434,7 +434,7 @@ class AuthorizationMaterialGenerationService:
         case_stage = case_dto.current_stage
 
         # 查询匹配的通用模板
-        templates = DocumentTemplate.objects.filter(name=template_name, is_active=True, template_type="case")
+        templates = DocumentTemplate.objects.filter(name=template_name, is_active=True, template_type=DocumentTemplateType.CASE)
 
         for template in templates:
             case_types = template.case_types or []
