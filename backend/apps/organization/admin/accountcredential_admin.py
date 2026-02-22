@@ -20,9 +20,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.organization.models import AccountCredential
 from apps.organization.services import AccountCredentialService
 
-
-def _get_credential_service() -> AccountCredentialService:
-    return AccountCredentialService()
+_credential_service = AccountCredentialService()
 
 
 @admin.register(AccountCredential)
@@ -156,7 +154,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        count: int = _get_credential_service().batch_mark_preferred(credential_ids)
+        count: int = _credential_service.batch_mark_preferred(credential_ids)
         self.message_user(
             request,
             _("已将 %(count)d 个账号标记为优先使用") % {"count": count},
@@ -167,7 +165,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         self, request: HttpRequest, queryset: QuerySet[AccountCredential]
     ) -> None:
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        count: int = _get_credential_service().batch_unmark_preferred(credential_ids)
+        count: int = _credential_service.batch_unmark_preferred(credential_ids)
         self.message_user(
             request,
             _("已取消 %(count)d 个账号的优先标记") % {"count": count},
