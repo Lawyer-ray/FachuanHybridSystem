@@ -8,13 +8,14 @@ from django.utils.translation import gettext_lazy as _
 import json
 import logging
 import tempfile
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from apps.client.dependencies import get_ocr_engine
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
-from pathlib import Path
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
 
@@ -145,8 +146,6 @@ class IdentityExtractionService:
 
     def _extract_from_image(self, image_bytes: bytes) -> str:
         """从图片提取文字"""
-        from io import BytesIO
-
         from PIL import Image
 
         try:
