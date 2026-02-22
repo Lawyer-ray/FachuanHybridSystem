@@ -190,11 +190,14 @@ class EvidenceMutationService:
         return True
 
     def _reorder_items_after_delete(self, list_id: int) -> None:
-        items = EvidenceItem.objects.filter(evidence_list_id=list_id).order_by("order")
+        items = list(EvidenceItem.objects.filter(evidence_list_id=list_id).order_by("order"))
+        to_update = []
         for index, item in enumerate(items, start=1):
             if item.order != index:
                 item.order = index
-                item.save(update_fields=["order"])
+                to_update.append(item)
+        if to_update:
+            EvidenceItem.objects.bulk_update(to_update, ["order"])
 
     @transaction.atomic
     def reorder_items(self, *, evidence_list: EvidenceList, item_ids: list[int]) -> bool:
