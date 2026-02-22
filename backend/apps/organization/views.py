@@ -10,7 +10,6 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
 from .forms import LawyerRegistrationForm
-from .models import Lawyer
 
 
 def _get_auth_service() -> "AuthService":  # noqa: F821
@@ -21,12 +20,12 @@ def _get_auth_service() -> "AuthService":  # noqa: F821
 
 def register(request: HttpRequest) -> HttpResponse:
     """用户注册视图"""
-    is_first_user = not Lawyer.objects.exists()
+    auth_service = _get_auth_service()
+    is_first_user = auth_service.is_first_user()
 
     if request.method == "POST":
         form = LawyerRegistrationForm(request.POST)
         if form.is_valid():
-            auth_service = _get_auth_service()
             username: str = form.cleaned_data["username"]
             password: str = form.cleaned_data["password1"]
             result = auth_service.register(
