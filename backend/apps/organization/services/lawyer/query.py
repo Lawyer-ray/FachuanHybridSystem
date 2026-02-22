@@ -20,7 +20,7 @@ class LawyerQueryService:
 
     def get_lawyer(self, lawyer_id: int, user: Lawyer) -> Lawyer:
         lawyer = self.get_lawyer_queryset().filter(id=lawyer_id).first()
-        if not lawyer:
+        if lawyer is None:
             raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
 
         if not self.access_policy.can_read_lawyer(user=user, lawyer=lawyer):

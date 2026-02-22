@@ -44,7 +44,7 @@ class LawFirmService:
 
         lawfirm = self._get_lawfirm_internal(lawfirm_id)
 
-        if not lawfirm:
+        if lawfirm is None:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
 
         if not self._access_policy.can_read_lawfirm(user, lawfirm):
@@ -244,7 +244,7 @@ class LawFirmServiceAdapter(ILawFirmService):
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
         lawfirm = self.service._get_lawfirm_internal(lawfirm_id)
-        if not lawfirm:
+        if lawfirm is None:
             return None
         return self._assembler.to_dto(lawfirm)
 
