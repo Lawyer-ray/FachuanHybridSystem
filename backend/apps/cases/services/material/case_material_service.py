@@ -104,6 +104,29 @@ class CaseMaterialService:
                 perm_open_access=perm_open_access,
             ),
         )
+    def get_used_type_ids(self, case_id: int) -> set[int]:
+        """获取案件已使用的材料类型 ID 集合。"""
+        return cast(
+            set[int],
+            self.query_service.get_used_type_ids(case_id=case_id),
+        )
+
+    def get_material_types_by_category(
+        self,
+        category: str,
+        law_firm_id: int | None,
+        used_type_ids: set[int],
+    ) -> list[dict[str, Any]]:
+        """按分类获取可用的材料类型列表。"""
+        return cast(
+            list[dict[str, Any]],
+            self.query_service.get_material_types_by_category(
+                category=category,
+                law_firm_id=law_firm_id,
+                used_type_ids=used_type_ids,
+            ),
+        )
+
 
     def save_group_order(
         self,

@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from django.core.exceptions import PermissionDenied
-from django.db import models
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import URLPattern, path, reverse
@@ -23,20 +22,33 @@ def _log_inline_formset(inline_formset: Any, logger: logging.Logger) -> None:
     formset = inline_formset.formset
     for i, f in enumerate(formset.forms):
         if f.errors:
-            logger.warning(f"[CaseAdmin.changeform_view] Inline {formset.prefix} form[{i}] errors: {f.errors}")
+            logger.warning(
+                "[CaseAdmin.changeform_view] Inline %s form[%s] errors: %s",
+                formset.prefix, i, f.errors,
+            )
     logger.info(
-        f"[CaseAdmin.changeform_view] Inline {formset.prefix} errors: "
-        f"{formset.errors}, non_form_errors: {formset.non_form_errors()}"
+        "[CaseAdmin.changeform_view] Inline %s errors: %s, non_form_errors: %s",
+        formset.prefix, formset.errors, formset.non_form_errors(),
     )
-    logger.info(f"[CaseAdmin.changeform_view] Inline {formset.prefix} is_valid: {formset.is_valid()}")
+    logger.info(
+        "[CaseAdmin.changeform_view] Inline %s is_valid: %s",
+        formset.prefix, formset.is_valid(),
+    )
     for nested in getattr(inline_formset, "inline_admin_formsets", []):
         nested_formset = nested.formset
-        logger.info(f"[CaseAdmin.changeform_view] Nested {nested_formset.prefix} errors: {nested_formset.errors}")
-        logger.info(f"[CaseAdmin.changeform_view] Nested {nested_formset.prefix} is_valid: {nested_formset.is_valid()}")
+        logger.info(
+            "[CaseAdmin.changeform_view] Nested %s errors: %s",
+            nested_formset.prefix, nested_formset.errors,
+        )
+        logger.info(
+            "[CaseAdmin.changeform_view] Nested %s is_valid: %s",
+            nested_formset.prefix, nested_formset.is_valid(),
+        )
         for i, nf in enumerate(nested_formset.forms):
             if nf.errors:
                 logger.warning(
-                    f"[CaseAdmin.changeform_view] Nested {nested_formset.prefix} form[{i}] errors: {nf.errors}"
+                    "[CaseAdmin.changeform_view] Nested %s form[%s] errors: %s",
+                    nested_formset.prefix, i, nf.errors,
                 )
 
 
@@ -230,21 +242,15 @@ class CaseAdminViewsMixin:
         user = getattr(request, "user", None)
         law_firm_id = getattr(user, "law_firm_id", None) if user else None
 
-        from apps.cases.models import CaseMaterial, CaseMaterialType
+        material_service = self._get_case_material_service()  # type: ignore[attr-defined]
+        used_type_ids = material_service.get_used_type_ids(case_id=object_id)
 
-        used_type_ids = set(
-            CaseMaterial.objects.filter(case_id=object_id, type_id__isnull=False).values_list("type_id", flat=True)
+        party_types = material_service.get_material_types_by_category(
+            category="party", law_firm_id=law_firm_id, used_type_ids=used_type_ids,
         )
-
-        party_types_qs = CaseMaterialType.objects.filter(category="party", is_active=True).filter(
-            models.Q(law_firm_id=law_firm_id) | models.Q(law_firm_id__isnull=True) | models.Q(id__in=used_type_ids)
+        non_party_types = material_service.get_material_types_by_category(
+            category="non_party", law_firm_id=law_firm_id, used_type_ids=used_type_ids,
         )
-        party_types = list(party_types_qs.order_by("name").values("id", "name", "law_firm_id"))
-
-        non_party_types_qs = CaseMaterialType.objects.filter(category="non_party", is_active=True).filter(
-            models.Q(law_firm_id=law_firm_id) | models.Q(law_firm_id__isnull=True) | models.Q(id__in=used_type_ids)
-        )
-        non_party_types = list(non_party_types_qs.order_by("name").values("id", "name", "law_firm_id"))
 
         our_parties: list[dict[str, Any]] = []
         opponent_parties: list[dict[str, Any]] = []
@@ -342,7 +348,7 @@ class CaseAdminViewsMixin:
         logger = logging.getLogger(__name__)
 
         if request.method == "POST":
-            logger.info(f"[CaseAdmin.changeform_view] POST request, object_id={object_id}")
+            logger.info("[CaseAdmin.changeform_view] POST request, object_id=%s", object_id)
 
         response = super().changeform_view(request, object_id, form_url, extra_context)  # type: ignore[misc]
 
@@ -353,14 +359,14 @@ class CaseAdminViewsMixin:
 
     @staticmethod
     def _log_post_response(response: HttpResponse, logger: logging.Logger) -> None:
-        logger.info(f"[CaseAdmin.changeform_view] Response status: {response.status_code}")
+        logger.info("[CaseAdmin.changeform_view] Response status: %s", response.status_code)
         ctx = getattr(response, "context_data", None)
         if not ctx:
             return
         if "adminform" in ctx:
             form = ctx["adminform"].form
-            logger.info(f"[CaseAdmin.changeform_view] Form errors: {form.errors}")
-            logger.info(f"[CaseAdmin.changeform_view] Form is_valid: {not form.errors}")
+            logger.info("[CaseAdmin.changeform_view] Form errors: %s", form.errors)
+            logger.info("[CaseAdmin.changeform_view] Form is_valid: %s", not form.errors)
         for inline_formset in ctx.get("inline_admin_formsets", []):
             _log_inline_formset(inline_formset, logger)
 
