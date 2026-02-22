@@ -67,5 +67,10 @@ class Reminder(models.Model):
             raise ValidationError(_("必须且只能绑定合同或案件日志之一"))
 
     def __str__(self) -> str:
-        target = f"contract:{self.contract_id}" if self.contract_id else f"case_log:{self.case_log_id}"
+        if self.contract_id:
+            target = f"contract:{self.contract_id}"
+        elif self.case_log_id:
+            target = f"case_log:{self.case_log_id}"
+        else:
+            target = "unbound"
         return f"{target}-{self.reminder_type}-{self.due_at}"

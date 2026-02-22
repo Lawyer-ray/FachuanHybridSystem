@@ -20,6 +20,15 @@ class ReminderIn(Schema):
     due_at: datetime
     metadata: dict[str, Any] | None = None
 
+    @model_validator(mode="after")
+    def validate_binding_exclusivity(self) -> "ReminderIn":
+        """contract_id 和 case_log_id 互斥校验。"""
+        both_none = self.contract_id is None and self.case_log_id is None
+        both_set = self.contract_id is not None and self.case_log_id is not None
+        if both_none or both_set:
+            raise ValueError(_("必须且只能绑定合同或案件日志之一"))
+        return self
+
 
 class ReminderUpdate(Schema):
     contract_id: int | None = None

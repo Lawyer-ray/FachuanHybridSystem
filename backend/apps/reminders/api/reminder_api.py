@@ -7,17 +7,17 @@ from typing import TYPE_CHECKING, Any
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
-from apps.reminders.schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
+from ..schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
 
 if TYPE_CHECKING:
-    from apps.reminders.services import ReminderService
+    from ..services import ReminderService
 
 router = Router()
 
 
 def _get_service() -> ReminderService:
     """获取 ReminderService 实例（延迟导入）。"""
-    from apps.reminders.services import ReminderService as _ReminderService
+    from ..services import ReminderService as _ReminderService
 
     return _ReminderService()
 

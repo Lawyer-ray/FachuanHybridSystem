@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from django.utils.translation import gettext_lazy as _
+
 CASE_LOG_ALLOWED_EXTENSIONS = {
     ".pdf",
     ".doc",
@@ -36,9 +38,9 @@ def get_file_extension_lower(filename: str) -> str:
 def validate_case_log_attachment(filename: str, size: int | None) -> tuple[bool, str | None]:
     ext = get_file_extension_lower(filename)
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
-        return False, "不支持的文件类型"
+        return False, _("不支持的文件类型")
     if size and size > CASE_LOG_MAX_FILE_SIZE:
-        return False, "文件大小超过50MB限制"
+        return False, _("文件大小超过50MB限制")
     return True, None
 
 
