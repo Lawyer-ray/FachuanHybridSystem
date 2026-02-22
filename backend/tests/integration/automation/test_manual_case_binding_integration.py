@@ -133,7 +133,7 @@ class TestManualCaseBindingIntegration:
         assert result.success is True
 
         # 验证提醒类型为开庭
-        case_log = CaseLog.objects.get(id=result.case_log_id)
+        case_log = CaseLog.objects.get(id=result.case_log_id)  # type: ignore[misc]
         assert case_log.reminder_type == CaseLogReminderType.HEARING
         assert case_log.reminder_time is not None
 

@@ -76,12 +76,12 @@ class TestClientAPI:
         client = ClientFactory()
 
         # 执行请求
-        response = self.http_client.get(f"/api/v1/client/clients/{client.id}")
+        response = self.http_client.get(f"/api/v1/client/clients/{client.id}")  # type: ignore[attr-defined]
 
         # 断言结果
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == client.id
+        assert data["id"] == client.id  # type: ignore[attr-defined]
         assert data["name"] == client.name
 
     def test_get_client_not_found(self):
@@ -139,7 +139,7 @@ class TestClientAPI:
 
         # 执行请求
         response = self.http_client.put(
-            f"/api/v1/client/clients/{client.id}", data=data, content_type="application/json"
+            f"/api/v1/client/clients/{client.id}", data=data, content_type="application/json"  # type: ignore[attr-defined]
         )
 
         # 断言结果
@@ -148,7 +148,7 @@ class TestClientAPI:
         assert result["name"] == "新名称"
 
         # 验证数据库
-        client.refresh_from_db()
+        client.refresh_from_db()  # type: ignore[attr-defined]
         assert client.name == "新名称"
 
     def test_update_client_not_found(self):
@@ -166,7 +166,7 @@ class TestClientAPI:
         """测试删除客户成功"""
         # 准备测试数据
         client = ClientFactory()
-        client_id = client.id
+        client_id = client.id  # type: ignore[attr-defined]
 
         # 执行请求
         response = self.http_client.delete(f"/api/v1/client/clients/{client_id}")

@@ -189,4 +189,4 @@ class TestTokenErrorHandling:
                 # 验证：任务状态被更新
                 quote.refresh_from_db()
                 assert quote.status == QuoteStatus.FAILED
-                assert "Token" in quote.error_message
+                assert "Token" in quote.error_message  # type: ignore[operator]

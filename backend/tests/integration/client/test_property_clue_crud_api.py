@@ -36,13 +36,13 @@ class TestPropertyClueCreate:
         service = PropertyClueService()
 
         clue = service.create_clue(
-            client_id=client.id,
+            client_id=client.id,  # type: ignore[attr-defined]
             data={"content": "户名：张三\n开户行：工商银行"},
             user=lawyer,
         )
 
         assert clue.id is not None
-        assert clue.client_id == client.id
+        assert clue.client_id == client.id  # type: ignore[attr-defined]
         assert clue.clue_type == PropertyClue.BANK
         assert "张三" in clue.content
 
@@ -52,7 +52,7 @@ class TestPropertyClueCreate:
         service = PropertyClueService()
 
         clue = service.create_clue(
-            client_id=client.id,
+            client_id=client.id,  # type: ignore[attr-defined]
             data={"clue_type": "real_estate", "content": "北京市朝阳区某小区"},
         )
 
@@ -72,7 +72,7 @@ class TestPropertyClueCreate:
 
         with pytest.raises(ValidationException):
             service.create_clue(
-                client_id=client.id,
+                client_id=client.id,  # type: ignore[attr-defined]
                 data={"clue_type": "invalid_type"},
             )
 
@@ -87,7 +87,7 @@ class TestPropertyClueList:
         client = ClientFactory()
         service = PropertyClueService()
 
-        clues = service.list_clues_by_client(client_id=client.id)
+        clues = service.list_clues_by_client(client_id=client.id)  # type: ignore[attr-defined]
         assert len(clues) == 0
 
     def test_list_clues_returns_all(self) -> None:
@@ -95,10 +95,10 @@ class TestPropertyClueList:
         client = ClientFactory()
         service = PropertyClueService()
 
-        service.create_clue(client_id=client.id, data={"clue_type": "bank"})
-        service.create_clue(client_id=client.id, data={"clue_type": "wechat"})
+        service.create_clue(client_id=client.id, data={"clue_type": "bank"})  # type: ignore[attr-defined]
+        service.create_clue(client_id=client.id, data={"clue_type": "wechat"})  # type: ignore[attr-defined]
 
-        clues = service.list_clues_by_client(client_id=client.id)
+        clues = service.list_clues_by_client(client_id=client.id)  # type: ignore[attr-defined]
         assert len(clues) == 2
 
     def test_list_clues_client_not_found(self) -> None:
@@ -119,7 +119,7 @@ class TestPropertyClueGet:
         client = ClientFactory()
         service = PropertyClueService()
         clue = service.create_clue(
-            client_id=client.id,
+            client_id=client.id,  # type: ignore[attr-defined]
             data={"content": "测试内容"},
         )
 
@@ -146,7 +146,7 @@ class TestPropertyClueUpdate:
         client = ClientFactory()
         service = PropertyClueService()
         clue = service.create_clue(
-            client_id=client.id,
+            client_id=client.id,  # type: ignore[attr-defined]
             data={"content": "旧内容"},
         )
 
@@ -162,7 +162,7 @@ class TestPropertyClueUpdate:
         client = ClientFactory()
         service = PropertyClueService()
         clue = service.create_clue(
-            client_id=client.id,
+            client_id=client.id,  # type: ignore[attr-defined]
             data={"clue_type": "bank"},
         )
 
@@ -184,7 +184,7 @@ class TestPropertyClueUpdate:
         """更新为无效线索类型被拒绝"""
         client = ClientFactory()
         service = PropertyClueService()
-        clue = service.create_clue(client_id=client.id, data={})
+        clue = service.create_clue(client_id=client.id, data={})  # type: ignore[attr-defined]
 
         with pytest.raises(ValidationException):
             service.update_clue(
@@ -202,7 +202,7 @@ class TestPropertyClueDelete:
         """删除线索"""
         client = ClientFactory()
         service = PropertyClueService()
-        clue = service.create_clue(client_id=client.id, data={})
+        clue = service.create_clue(client_id=client.id, data={})  # type: ignore[attr-defined]
         clue_id = clue.id
 
         service.delete_clue(clue_id=clue_id)
@@ -213,7 +213,7 @@ class TestPropertyClueDelete:
         """删除线索时级联删除附件"""
         client = ClientFactory()
         service = PropertyClueService()
-        clue = service.create_clue(client_id=client.id, data={})
+        clue = service.create_clue(client_id=client.id, data={})  # type: ignore[attr-defined]
         attachment = service.add_attachment(
             clue_id=clue.id,
             file_path="/tmp/test.pdf",
@@ -242,7 +242,7 @@ class TestPropertyClueAttachment:
         """添加附件"""
         client = ClientFactory()
         service = PropertyClueService()
-        clue = service.create_clue(client_id=client.id, data={})
+        clue = service.create_clue(client_id=client.id, data={})  # type: ignore[attr-defined]
 
         attachment = service.add_attachment(
             clue_id=clue.id,
@@ -269,7 +269,7 @@ class TestPropertyClueAttachment:
         """删除附件"""
         client = ClientFactory()
         service = PropertyClueService()
-        clue = service.create_clue(client_id=client.id, data={})
+        clue = service.create_clue(client_id=client.id, data={})  # type: ignore[attr-defined]
         attachment = service.add_attachment(
             clue_id=clue.id,
             file_path="/tmp/test.pdf",

@@ -98,7 +98,7 @@ class TestCaseService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_case(data, user=user)
 
-        assert "合同不存在" in exc_info.value.message
+        assert "合同不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "CONTRACT_NOT_FOUND"
 
     def test_create_case_contract_inactive(self):
@@ -123,7 +123,7 @@ class TestCaseService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_case(data, user=user)
 
-        assert "合同未激活" in exc_info.value.message
+        assert "合同未激活" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "CONTRACT_INACTIVE"
 
     def test_create_case_without_contract(self):
@@ -298,28 +298,28 @@ class TestCaseService:
         # 使用 ContractAssignment 关联律师
         from apps.contracts.models import ContractAssignment
 
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True)  # type: ignore[misc]
         client1 = ClientFactory(name="客户1")
         client2 = ClientFactory(name="客户2")
 
         # 创建 Mock 用户
         user = Mock()
         user.is_authenticated = True
-        user.id = lawyer.id
+        user.id = lawyer.id  # type: ignore[attr-defined]
 
         # 准备测试数据
         data = {
             "case": {
                 "name": "完整案件",
-                "contract_id": contract.id,
+                "contract_id": contract.id,  # type: ignore[attr-defined]
                 "is_archived": False,
             },
             "parties": [
-                {"client_id": client1.id, "legal_status": "plaintiff"},
-                {"client_id": client2.id, "legal_status": "defendant"},
+                {"client_id": client1.id, "legal_status": "plaintiff"},  # type: ignore[attr-defined]
+                {"client_id": client2.id, "legal_status": "defendant"},  # type: ignore[attr-defined]
             ],
             "assignments": [
-                {"lawyer_id": lawyer.id},
+                {"lawyer_id": lawyer.id},  # type: ignore[attr-defined]
             ],
             "logs": [
                 {"content": "案件创建"},
@@ -329,12 +329,12 @@ class TestCaseService:
 
         # 配置 Mock
         self.mock_contract_service.get_contract.return_value = ContractDTO(
-            id=contract.id, name="测试合同", case_type="civil", status="active", representation_stages=[]
+            id=contract.id, name="测试合同", case_type="civil", status="active", representation_stages=[]  # type: ignore[attr-defined]
         )
         self.mock_contract_service.validate_contract_active.return_value = True
 
         # 执行测试
-        result = self.service.create_case_full(data, actor_id=lawyer.id, user=user)
+        result = self.service.create_case_full(data, actor_id=lawyer.id, user=user)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result["case"].id is not None
@@ -354,7 +354,7 @@ class TestCaseService:
 
         # 创建测试案件
         case = Case.objects.create(name="测试案件", is_archived=False)
-        CaseParty.objects.create(case=case, client_id=client.id, legal_status="plaintiff")
+        CaseParty.objects.create(case=case, client_id=client.id, legal_status="plaintiff")  # type: ignore[attr-defined]
 
         # 准备测试数据（包含重复的当事人）
         data = {
@@ -363,7 +363,7 @@ class TestCaseService:
                 "is_archived": False,
             },
             "parties": [
-                {"client_id": client.id, "legal_status": "plaintiff"},
+                {"client_id": client.id, "legal_status": "plaintiff"},  # type: ignore[attr-defined]
             ],
             "assignments": [],
             "logs": [],
@@ -383,7 +383,7 @@ class TestCaseService:
                 "is_archived": False,
             },
             "parties": [
-                {"client_id": client.id, "legal_status": "plaintiff"},
+                {"client_id": client.id, "legal_status": "plaintiff"},  # type: ignore[attr-defined]
             ],
             "assignments": [],
             "logs": [],
@@ -422,9 +422,9 @@ class TestCaseServiceQueryOptimization:
             initial_query_count = len(connection.queries)
 
             # 访问预加载的关系
-            _ = list(case_obj.parties.all())
-            _ = list(case_obj.assignments.all())
-            _ = list(case_obj.case_numbers.all())
+            _ = list(case_obj.parties.all())  # type: ignore[union-attr]
+            _ = list(case_obj.assignments.all())  # type: ignore[union-attr]
+            _ = list(case_obj.case_numbers.all())  # type: ignore[union-attr]
 
             # 查询次数不应该增加（因为已经预加载）
             final_query_count = len(connection.queries)
@@ -460,7 +460,7 @@ class TestCaseServiceSearch:
 
         # 断言结果
         assert result.count() == 1
-        assert result.first().id == case.id
+        assert result.first().id == case.id  # type: ignore[union-attr]
 
     def test_search_by_case_number_fuzzy_match(self):
         """测试按案号模糊匹配搜索"""
@@ -495,7 +495,7 @@ class TestCaseServiceSearch:
 
         # 断言结果（应该能找到）
         assert result.count() == 1
-        assert result.first().id == case.id
+        assert result.first().id == case.id  # type: ignore[union-attr]
 
     def test_search_by_case_number_with_permission(self):
         """测试按案号搜索时的权限控制"""
@@ -637,7 +637,7 @@ class TestCaseServiceList:
 
         # 断言结果（只能看到分配给自己的案件）
         assert result.count() == 1
-        assert result.first().id == case1.id
+        assert result.first().id == case1.id  # type: ignore[union-attr]
 
 
 @pytest.mark.django_db

@@ -49,8 +49,8 @@ class TestClientServiceAdapterExistenceProperties:
         client = ClientFactory(name=client_name)
 
         # 验证存在的客户
-        exists = adapter.validate_client_exists(client.id)
-        dto = adapter.get_client(client.id)
+        exists = adapter.validate_client_exists(client.id)  # type: ignore[attr-defined]
+        dto = adapter.get_client(client.id)  # type: ignore[attr-defined]
 
         # Property: exists == True 当且仅当 dto is not None
         assert exists is True
@@ -172,7 +172,7 @@ class TestClientServiceAdapterNameQueryProperties:
         # Property: DTO 字段完整
         assert dto is not None
         assert isinstance(dto, ClientDTO)
-        assert dto.id == client.id
+        assert dto.id == client.id  # type: ignore[attr-defined]
         assert dto.name == client.name
         assert dto.client_type == client.client_type
         assert dto.is_our_client == client.is_our_client
@@ -206,11 +206,11 @@ class TestClientServiceAdapterInstanceMethodProperties:
         client = ClientFactory(name=client_name)
 
         # 调用 get_client
-        dto = adapter.get_client(client.id)
+        dto = adapter.get_client(client.id)  # type: ignore[attr-defined]
 
         # 验证返回正确的 DTO
         assert dto is not None
-        assert dto.id == client.id
+        assert dto.id == client.id  # type: ignore[attr-defined]
         assert dto.name == client_name
 
     @given(
@@ -229,7 +229,7 @@ class TestClientServiceAdapterInstanceMethodProperties:
         # 使用 Factory 创建多个客户
         clients = [ClientFactory(name=f"测试客户_{i}") for i in range(count)]
 
-        client_ids = [c.id for c in clients]
+        client_ids = [c.id for c in clients]  # type: ignore[attr-defined]
 
         # 调用 get_clients_by_ids
         dtos = adapter.get_clients_by_ids(client_ids)

@@ -54,13 +54,13 @@ class TestContractCreateAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        payload = ContractIn(
+        payload = ContractIn(  # type: ignore[call-arg]
             name="测试合同",
             case_type="civil",
             status="active",
             fee_mode="fixed",
             fixed_amount=10000.00,
-            lawyer_ids=[lawyer.id],
+            lawyer_ids=[lawyer.id],  # type: ignore[attr-defined]
         )
         result = create_contract(request, payload)
 
@@ -74,13 +74,13 @@ class TestContractCreateAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        payload = ContractIn(
+        payload = ContractIn(  # type: ignore[call-arg]
             name="风险合同",
             case_type="civil",
             status="active",
             fee_mode="full_risk",
             risk_rate=15.0,
-            lawyer_ids=[lawyer.id],
+            lawyer_ids=[lawyer.id],  # type: ignore[attr-defined]
         )
         result = create_contract(request, payload)
 
@@ -142,9 +142,9 @@ class TestContractGetAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        result = get_contract(request, contract.id)
+        result = get_contract(request, contract.id)  # type: ignore[attr-defined]
 
-        assert result.id == contract.id
+        assert result.id == contract.id  # type: ignore[attr-defined]
         assert result.name == "详情测试合同"
 
     def test_get_contract_not_found(self) -> None:
@@ -166,7 +166,7 @@ class TestContractGetAPI:
         )
 
         with pytest.raises(PermissionDenied):
-            get_contract(request, contract.id)
+            get_contract(request, contract.id)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -181,10 +181,10 @@ class TestContractUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = ContractUpdate(name="新名称")
-        result = update_contract(request, contract.id, payload)
+        result = update_contract(request, contract.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "新名称"
-        contract.refresh_from_db()
+        contract.refresh_from_db()  # type: ignore[attr-defined]
         assert contract.name == "新名称"
 
     def test_update_contract_partial(self) -> None:
@@ -194,7 +194,7 @@ class TestContractUpdateAPI:
         request = _make_request(user=lawyer)
 
         payload = ContractUpdate(status="closed")
-        result = update_contract(request, contract.id, payload)
+        result = update_contract(request, contract.id, payload)  # type: ignore[attr-defined]
 
         assert result.name == "原名称"
         assert result.status == "closed"
@@ -219,7 +219,7 @@ class TestContractUpdateAPI:
 
         payload = ContractUpdate(fixed_amount=20000.00)
         with pytest.raises(PermissionDenied):
-            update_contract(request, contract.id, payload, confirm_finance=True)
+            update_contract(request, contract.id, payload, confirm_finance=True)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -230,7 +230,7 @@ class TestContractDeleteAPI:
     def test_delete_contract_success(self) -> None:
         """删除合同"""
         contract = ContractFactory()
-        contract_id = contract.id
+        contract_id = contract.id  # type: ignore[attr-defined]
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
@@ -261,10 +261,10 @@ class TestContractLawyersAPI:
         lawyer = LawyerFactory(is_admin=True)
         request = _make_request(user=lawyer)
 
-        payload = UpdateLawyersIn(lawyer_ids=[lawyer1.id, lawyer2.id])
+        payload = UpdateLawyersIn(lawyer_ids=[lawyer1.id, lawyer2.id])  # type: ignore[attr-defined]
         # API 直接调用返回 List[ContractAssignment]
-        assignments = update_contract_lawyers(request, contract.id, payload)
+        assignments = update_contract_lawyers(request, contract.id, payload)  # type: ignore[attr-defined]
 
         assigned_ids = {a.lawyer_id for a in assignments}
-        assert lawyer1.id in assigned_ids
-        assert lawyer2.id in assigned_ids
+        assert lawyer1.id in assigned_ids  # type: ignore[attr-defined]
+        assert lawyer2.id in assigned_ids  # type: ignore[attr-defined]

@@ -419,4 +419,4 @@ class TestPreservationQuoteService:
         )()
         assert failed_quote.status == QuoteItemStatus.FAILED
         assert failed_quote.premium is None
-        assert "HTTP 500" in failed_quote.error_message
+        assert "HTTP 500" in failed_quote.error_message  # type: ignore[operator]

@@ -473,14 +473,14 @@ class TestAPILayerCompliance:
 
             # 记录结果
             if not violations:
-                compliance_report["compliant_modules"] += 1
+                compliance_report["compliant_modules"] += 1  # type: ignore[operator]
             else:
-                compliance_report["violations"].append({"module": api_module.__name__, "violations": violations})
+                compliance_report["violations"].append({"module": api_module.__name__, "violations": violations})  # type: ignore[attr-defined]
 
         # 计算合规率
         compliance_rate = (
-            compliance_report["compliant_modules"] / compliance_report["total_modules"] * 100
-            if compliance_report["total_modules"] > 0
+            compliance_report["compliant_modules"] / compliance_report["total_modules"] * 100  # type: ignore[operator]
+            if compliance_report["total_modules"] > 0  # type: ignore[operator]
             else 0
         )
 
@@ -492,7 +492,7 @@ class TestAPILayerCompliance:
 
         if compliance_report["violations"]:
             print(f"\n违规详情:")
-            for violation in compliance_report["violations"]:
+            for violation in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"  {violation['module']}:")
                 for v in violation["violations"]:
                     print(f"    - {v}")
@@ -500,7 +500,7 @@ class TestAPILayerCompliance:
         # 要求至少80%的合规率
         assert compliance_rate >= 80.0, (
             f"API层合规率 {compliance_rate:.1f}% 低于要求的80%。"
-            f"违规模块: {[v['module'] for v in compliance_report['violations']]}"
+            f"违规模块: {[v['module'] for v in compliance_report['violations']]}"  # type: ignore[attr-defined]
         )
 
 

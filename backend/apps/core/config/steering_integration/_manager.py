@@ -11,7 +11,7 @@ from typing import Any
 
 from apps.core.config.manager import ConfigManager
 from apps.core.config.steering.performance_monitor import SteeringPerformanceMonitor
-from apps.core.config.steering_cache_strategies import CacheStrategy, SteeringCacheStrategyManager
+from apps.core.config.steering.cache_strategies import CacheStrategy, SteeringCacheStrategyManager
 from apps.core.config.steering.dependency_manager import SteeringDependencyManager
 
 from ._cache import SteeringCacheManager

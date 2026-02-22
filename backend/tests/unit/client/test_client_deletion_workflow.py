@@ -16,7 +16,7 @@ def test_cleanup_files_on_commit_runs_after_commit():
     workflow = ClientDeletionWorkflow(file_deleter=_deleter)
     client = ClientFactory()
     doc = ClientIdentityDocFactory(client=client, file_path="client_identity_docs/a.png")
-    clue = PropertyClue.objects.create(client=client, clue_type=PropertyClue.BANK, content="x")
+    clue = PropertyClue.objects.create(client=client, clue_type=PropertyClue.BANK, content="x")  # type: ignore[misc]
     attachment = PropertyClueAttachment.objects.create(
         property_clue=clue,
         file_path="property_clue_attachments/b.png",
@@ -24,7 +24,7 @@ def test_cleanup_files_on_commit_runs_after_commit():
     )
 
     with transaction.atomic():
-        file_paths = workflow.collect_client_file_paths(client_id=client.id)
+        file_paths = workflow.collect_client_file_paths(client_id=client.id)  # type: ignore[attr-defined]
         assert set(file_paths) == {doc.file_path, attachment.file_path}
         workflow.cleanup_files_on_commit(file_paths=file_paths)
         assert called == []

@@ -129,7 +129,7 @@ class TestExceptionComplianceProperties:
         ]
 
         for method, args in test_cases:
-            exception = method(*args)
+            exception = method(*args)  # type: ignore[operator]
             message = exception.message
 
             # 检查消息是否包含中文字符
@@ -165,7 +165,7 @@ class TestExceptionComplianceProperties:
         ]
 
         for method, args in exception_methods:
-            exception = method(*args)
+            exception = method(*args)  # type: ignore[operator]
             code = exception.code
 
             # 验证代码格式：大写字母和下划线
@@ -241,7 +241,7 @@ class TestLoggingComplianceProperties:
             mock_logger.reset_mock()
 
             # 调用日志方法
-            log_method(**kwargs)
+            log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
             assert (
@@ -312,7 +312,7 @@ class TestLoggingComplianceProperties:
             mock_logger.reset_mock()
 
             # 调用错误日志方法
-            log_method(**kwargs)
+            log_method(**kwargs)  # type: ignore[operator]
 
             # 验证使用了error级别
             assert mock_logger.error.called, f"错误日志方法 {log_method.__name__} 没有使用error级别"
@@ -384,7 +384,7 @@ class TestLoggingComplianceProperties:
             mock_logger.reset_mock()
 
             # 调用性能日志方法
-            log_method(**kwargs)
+            log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
             assert (
@@ -451,7 +451,7 @@ class TestLoggingComplianceProperties:
             mock_logger.reset_mock()
 
             # 调用业务日志方法
-            log_method(**kwargs)
+            log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
             assert (
@@ -484,15 +484,15 @@ class TestLoggingComplianceProperties:
 
             elif "admin_operation" in log_method.__name__:
                 assert "operation" in extra, f"Admin操作日志 {log_method.__name__} 缺少operation字段"
-                if "user_id" in kwargs:
+                if "user_id" in kwargs:  # type: ignore[operator]
                     assert "user_id" in extra, f"Admin操作日志 {log_method.__name__} 缺少user_id字段"
 
             elif "business_operation" in log_method.__name__:
                 assert "operation" in extra, f"业务操作日志 {log_method.__name__} 缺少operation字段"
                 assert "resource_type" in extra, f"业务操作日志 {log_method.__name__} 缺少resource_type字段"
-                if "resource_id" in kwargs:
+                if "resource_id" in kwargs:  # type: ignore[operator]
                     assert "resource_id" in extra, f"业务操作日志 {log_method.__name__} 缺少resource_id字段"
-                if "user_id" in kwargs:
+                if "user_id" in kwargs:  # type: ignore[operator]
                     assert "user_id" in extra, f"业务操作日志 {log_method.__name__} 缺少user_id字段"
 
             elif "cross_module" in log_method.__name__:
@@ -536,11 +536,11 @@ class TestExceptionLoggingIntegration:
 
         for case in test_cases:
             # 获取异常
-            exception = case["exception_method"](*case["exception_args"])
+            exception = case["exception_method"](*case["exception_args"])  # type: ignore[operator]
 
             # 调用对应的日志方法
             mock_logger.reset_mock()
-            case["log_method"](**case["log_args"])
+            case["log_method"](**case["log_args"])  # type: ignore[operator]
 
             # 验证日志被调用
             assert mock_logger.error.called, "错误日志没有被调用"
@@ -577,7 +577,7 @@ class TestExceptionLoggingIntegration:
         ]
 
         for method, args in complex_error_cases:
-            exception = method(*args)
+            exception = method(*args)  # type: ignore[operator]
             errors = exception.errors
 
             # 验证errors是字典

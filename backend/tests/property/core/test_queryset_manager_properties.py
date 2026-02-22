@@ -89,7 +89,7 @@ class TestQuerySetManagerConsistencyProperty:
 
             first_qs = CaseQuerySetManager.with_standard_prefetch()
             first_select = first_qs.query.select_related
-            first_prefetch = tuple(first_qs._prefetch_related_lookups)
+            first_prefetch = tuple(first_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
 
             for _ in range(call_count - 1):
                 qs = CaseQuerySetManager.with_standard_prefetch()
@@ -97,7 +97,7 @@ class TestQuerySetManagerConsistencyProperty:
                     qs.query.select_related == first_select
                 ), "CaseQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
                 assert (
-                    tuple(qs._prefetch_related_lookups) == first_prefetch
+                    tuple(qs._prefetch_related_lookups) == first_prefetch  # type: ignore[attr-defined]
                 ), "CaseQuerySetManager.with_standard_prefetch() 的 prefetch_related 配置应保持一致"
 
     @given(st.integers(min_value=2, max_value=5))
@@ -123,7 +123,7 @@ class TestQuerySetManagerConsistencyProperty:
 
             first_qs = ContractQuerySetManager.with_standard_prefetch()
             first_select = first_qs.query.select_related
-            first_prefetch = tuple(first_qs._prefetch_related_lookups)
+            first_prefetch = tuple(first_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
 
             for _ in range(call_count - 1):
                 qs = ContractQuerySetManager.with_standard_prefetch()
@@ -131,7 +131,7 @@ class TestQuerySetManagerConsistencyProperty:
                     qs.query.select_related == first_select
                 ), "ContractQuerySetManager.with_standard_prefetch() 的 select_related 配置应保持一致"
                 assert (
-                    tuple(qs._prefetch_related_lookups) == first_prefetch
+                    tuple(qs._prefetch_related_lookups) == first_prefetch  # type: ignore[attr-defined]
                 ), "ContractQuerySetManager.with_standard_prefetch() 的 prefetch_related 配置应保持一致"
 
 
@@ -170,11 +170,11 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
             patch("apps.core.querysets.CaseQuerySetManager.with_extra_prefetch", side_effect=_extra),
         ):
             standard_qs = CaseQuerySetManager.with_standard_prefetch()
-            standard_prefetch = set(standard_qs._prefetch_related_lookups)
+            standard_prefetch = set(standard_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
             standard_select: Any = standard_qs.query.select_related
 
             extra_qs = CaseQuerySetManager.with_extra_prefetch(*extras)
-            extra_prefetch = set(extra_qs._prefetch_related_lookups)
+            extra_prefetch = set(extra_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
             extra_select: Any = extra_qs.query.select_related
 
             assert extra_select == standard_select, "with_extra_prefetch() 不应改变 select_related 配置"
@@ -209,11 +209,11 @@ class TestQuerySetManagerExtraPrefetchInclusionProperty:
             patch("apps.core.querysets.ContractQuerySetManager.with_extra_prefetch", side_effect=_extra),
         ):
             standard_qs = ContractQuerySetManager.with_standard_prefetch()
-            standard_prefetch = set(standard_qs._prefetch_related_lookups)
+            standard_prefetch = set(standard_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
             standard_select: Any = standard_qs.query.select_related
 
             extra_qs = ContractQuerySetManager.with_extra_prefetch(*extras)
-            extra_prefetch = set(extra_qs._prefetch_related_lookups)
+            extra_prefetch = set(extra_qs._prefetch_related_lookups)  # type: ignore[attr-defined]
             extra_select: Any = extra_qs.query.select_related
 
             assert extra_select == standard_select, "with_extra_prefetch() 不应改变 select_related 配置"

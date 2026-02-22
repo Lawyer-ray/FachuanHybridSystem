@@ -41,7 +41,7 @@ class TestContractAPI:
             "status": "active",
             "fee_mode": "fixed",
             "fixed_amount": 10000.00,
-            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段
+            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段  # type: ignore[attr-defined]
         }
 
         # 模拟请求
@@ -66,10 +66,10 @@ class TestContractAPI:
         assert float(contract.fixed_amount) == 10000.00
 
         # 验证律师指派
-        assert contract.primary_lawyer.id == lawyer.id
+        assert contract.primary_lawyer.id == lawyer.id  # type: ignore[attr-defined]
         assignments = contract.assignments.all()
         assert len(assignments) == 1
-        assert assignments[0].lawyer_id == lawyer.id
+        assert assignments[0].lawyer_id == lawyer.id  # type: ignore[attr-defined]
         assert assignments[0].is_primary is True
 
     def test_create_contract_with_cases_success(self):
@@ -84,13 +84,13 @@ class TestContractAPI:
             "status": "active",
             "fee_mode": "fixed",
             "fixed_amount": 10000.00,
-            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段
+            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段  # type: ignore[attr-defined]
             "cases": [
                 {
                     "name": "测试案件1",
                     "case_type": "civil",
                     "target_amount": 50000.00,
-                    "parties": [{"client_id": client.id, "legal_status": "plaintiff"}],
+                    "parties": [{"client_id": client.id, "legal_status": "plaintiff"}],  # type: ignore[attr-defined]
                 }
             ],
         }
@@ -112,7 +112,7 @@ class TestContractAPI:
         assert contract.name == "测试合同"
 
         # 验证律师指派
-        assert contract.primary_lawyer.id == lawyer.id
+        assert contract.primary_lawyer.id == lawyer.id  # type: ignore[attr-defined]
 
         # 验证案件创建
         cases = contract.cases.all()
@@ -122,7 +122,7 @@ class TestContractAPI:
         # 验证当事人创建
         parties = cases[0].parties.all()
         assert len(parties) == 1
-        assert parties[0].client_id == client.id
+        assert parties[0].client_id == client.id  # type: ignore[attr-defined]
         assert parties[0].legal_status == "plaintiff"
 
     def test_update_contract_success(self):
@@ -144,14 +144,14 @@ class TestContractAPI:
         from apps.contracts.schemas import ContractUpdate
 
         payload = ContractUpdate(**update_data)
-        updated_contract = update_contract(request, contract.id, payload, confirm_finance=False)
+        updated_contract = update_contract(request, contract.id, payload, confirm_finance=False)  # type: ignore[attr-defined]
 
         # 验证结果
         assert updated_contract.name == "新名称"
         assert updated_contract.status == "active"
 
         # 验证数据库
-        contract.refresh_from_db()
+        contract.refresh_from_db()  # type: ignore[attr-defined]
         assert contract.name == "新名称"
         assert contract.status == "active"
 
@@ -178,7 +178,7 @@ class TestContractAPI:
 
         # 验证抛出权限异常（Service 层抛出 PermissionDenied，全局处理器转为 403）
         with pytest.raises(PermissionDenied) as exc_info:
-            update_contract(request, contract.id, payload, confirm_finance=True)
+            update_contract(request, contract.id, payload, confirm_finance=True)  # type: ignore[attr-defined]
 
         assert "管理员权限" in str(exc_info.value)
 
@@ -206,7 +206,7 @@ class TestContractAPI:
 
         # 验证抛出异常
         with pytest.raises(HttpError) as exc_info:
-            update_contract(request, contract.id, payload, confirm_finance=False)
+            update_contract(request, contract.id, payload, confirm_finance=False)  # type: ignore[attr-defined]
 
         assert exc_info.value.status_code == 400
         assert "二次确认" in str(exc_info.value)
@@ -219,7 +219,7 @@ class TestContractAPI:
         # 准备收款数据
         payments_data = [
             {
-                "contract_id": contract.id,
+                "contract_id": contract.id,  # type: ignore[attr-defined]
                 "amount": 5000.00,
                 "received_at": "2024-01-01",
                 "invoiced_amount": 5000.00,
@@ -240,10 +240,10 @@ class TestContractAPI:
         payload = ContractUpdate()
         payments = [ContractPaymentIn(**p) for p in payments_data]
 
-        updated_contract = update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)
+        updated_contract = update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)  # type: ignore[attr-defined]
 
         # 验证收款记录
-        payments = ContractPayment.objects.filter(contract=contract)
+        payments = ContractPayment.objects.filter(contract=contract)  # type: ignore[misc]
         assert payments.count() == 1
         assert float(payments[0].amount) == 5000.00
         assert payments[0].invoice_status == InvoiceStatus.INVOICED_FULL
@@ -256,7 +256,7 @@ class TestContractAPI:
         # 准备收款数据（超过固定金额）
         payments_data = [
             {
-                "contract_id": contract.id,
+                "contract_id": contract.id,  # type: ignore[attr-defined]
                 "amount": 15000.00,
                 "received_at": "2024-01-01",
                 "invoiced_amount": 0,
@@ -280,7 +280,7 @@ class TestContractAPI:
 
         # 验证抛出异常（Service 层抛出 ValidationException，全局处理器转为 400）
         with pytest.raises(ValidationException) as exc_info:
-            update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)
+            update_contract(request, contract.id, payload, confirm_finance=True, new_payments=payments)  # type: ignore[attr-defined]
 
         assert "超过" in str(exc_info.value)
 
@@ -288,7 +288,7 @@ class TestContractAPI:
         """测试删除合同成功"""
         # 创建合同
         contract = ContractFactory()
-        contract_id = contract.id
+        contract_id = contract.id  # type: ignore[attr-defined]
 
         # 模拟请求
         from unittest.mock import Mock
@@ -322,10 +322,10 @@ class TestContractAPI:
         # 调用 API
         from apps.contracts.api.contract_api import get_contract
 
-        result = get_contract(request, contract.id)
+        result = get_contract(request, contract.id)  # type: ignore[attr-defined]
 
         # 验证结果
-        assert result.id == contract.id
+        assert result.id == contract.id  # type: ignore[attr-defined]
         assert result.name == "测试合同"
 
     def test_list_contracts_success(self):

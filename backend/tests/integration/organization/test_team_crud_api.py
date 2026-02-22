@@ -49,7 +49,7 @@ class TestTeamListAPI:
         superuser = LawyerFactory(is_superuser=True)
         self.client.force_login(superuser)
 
-        response = self.client.get(f"/api/v1/organization/teams?law_firm_id={firm_a.id}")
+        response = self.client.get(f"/api/v1/organization/teams?law_firm_id={firm_a.id}")  # type: ignore[attr-defined]
 
         assert response.status_code == 200
         data: Any = response.json()
@@ -100,11 +100,11 @@ class TestTeamGetAPI:
         user = LawyerFactory(law_firm=firm)
         self.client.force_login(user)
 
-        response = self.client.get(f"/api/v1/organization/teams/{team.id}")
+        response = self.client.get(f"/api/v1/organization/teams/{team.id}")  # type: ignore[attr-defined]
 
         assert response.status_code == 200
         data: Any = response.json()
-        assert data["id"] == team.id
+        assert data["id"] == team.id  # type: ignore[attr-defined]
         assert data["name"] == "测试团队A"
 
     def test_get_team_not_found(self) -> None:
@@ -135,7 +135,7 @@ class TestTeamCreateAPI:
         payload = {
             "name": "新律师团队",
             "team_type": "lawyer",
-            "law_firm_id": firm.id,
+            "law_firm_id": firm.id,  # type: ignore[attr-defined]
         }
         response = self.client.post(
             "/api/v1/organization/teams",
@@ -157,7 +157,7 @@ class TestTeamCreateAPI:
         payload = {
             "name": "新团队",
             "team_type": "lawyer",
-            "law_firm_id": firm.id,
+            "law_firm_id": firm.id,  # type: ignore[attr-defined]
         }
         response = self.client.post(
             "/api/v1/organization/teams",
@@ -177,7 +177,7 @@ class TestTeamCreateAPI:
         payload = {
             "name": "无效团队",
             "team_type": "invalid_type",
-            "law_firm_id": firm.id,
+            "law_firm_id": firm.id,  # type: ignore[attr-defined]
         }
         response = self.client.post(
             "/api/v1/organization/teams",
@@ -207,10 +207,10 @@ class TestTeamUpdateAPI:
         payload = {
             "name": "新名称",
             "team_type": "lawyer",
-            "law_firm_id": firm.id,
+            "law_firm_id": firm.id,  # type: ignore[attr-defined]
         }
         response = self.client.put(
-            f"/api/v1/organization/teams/{team.id}",
+            f"/api/v1/organization/teams/{team.id}",  # type: ignore[attr-defined]
             data=json.dumps(payload),
             content_type="application/json",
         )
@@ -228,7 +228,7 @@ class TestTeamUpdateAPI:
         payload = {
             "name": "新名称",
             "team_type": "lawyer",
-            "law_firm_id": firm.id,
+            "law_firm_id": firm.id,  # type: ignore[attr-defined]
         }
         response = self.client.put(
             "/api/v1/organization/teams/999999",
@@ -252,7 +252,7 @@ class TestTeamDeleteAPI:
         """管理员删除团队"""
         firm = LawFirmFactory()
         team = TeamFactory(law_firm=firm)
-        team_id = team.id
+        team_id = team.id  # type: ignore[attr-defined]
         admin = LawyerFactory(law_firm=firm, is_admin=True)
         self.client.force_login(admin)
 
@@ -278,7 +278,7 @@ class TestTeamDeleteAPI:
         normal_user = LawyerFactory(law_firm=firm, is_admin=False, is_superuser=False)
         self.client.force_login(normal_user)
 
-        response = self.client.delete(f"/api/v1/organization/teams/{team.id}")
+        response = self.client.delete(f"/api/v1/organization/teams/{team.id}")  # type: ignore[attr-defined]
 
         # PermissionDenied 由全局异常处理器捕获
         assert response.status_code in (403, 500)

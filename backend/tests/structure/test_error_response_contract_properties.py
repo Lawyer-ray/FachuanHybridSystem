@@ -53,7 +53,7 @@ def test_business_exception_to_dict_has_unified_contract():
             success_index = i
             break
     assert success_index is not None, "BusinessException.to_dict must include success"
-    assert isinstance(returned.values[success_index], ast.Constant) and returned.values[success_index].value is False
+    assert isinstance(returned.values[success_index], ast.Constant) and returned.values[success_index].value is False  # type: ignore[attr-defined]
 
 
 def test_llm_handler_registration_does_not_swallow_unexpected_exceptions():

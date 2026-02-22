@@ -370,7 +370,7 @@ class TestPerformance:
                 )
 
         # 测试获取任务详情的性能
-        quote_id = PreservationQuote.objects.first().id
+        quote_id = PreservationQuote.objects.first().id  # type: ignore[union-attr]
 
         start_time = time.time()
 

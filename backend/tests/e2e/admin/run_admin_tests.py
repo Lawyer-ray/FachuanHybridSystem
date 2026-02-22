@@ -48,12 +48,12 @@ async def run_test_class(test_class, test_name: str):
                 method = getattr(test, method_name)
                 await method()
                 print("✅ PASSED")
-                results["passed"] += 1
+                results["passed"] += 1  # type: ignore[operator]
             except AssertionError as e:
                 print(f"❌ FAILED")
                 print(f"      原因: {e}")
-                results["failed"] += 1
-                results["errors"].append(
+                results["failed"] += 1  # type: ignore[operator]
+                results["errors"].append(  # type: ignore[attr-defined]
                     {"test": f"{test_class.__name__}.{method_name}", "type": "AssertionError", "error": str(e)}
                 )
             except Exception as e:
@@ -61,12 +61,12 @@ async def run_test_class(test_class, test_name: str):
                 if "跳过" in error_msg or "skip" in error_msg.lower():
                     print(f"⏭️  SKIPPED")
                     print(f"      原因: {e}")
-                    results["skipped"] += 1
+                    results["skipped"] += 1  # type: ignore[operator]
                 else:
                     print(f"💥 ERROR")
                     print(f"      原因: {e}")
-                    results["failed"] += 1
-                    results["errors"].append(
+                    results["failed"] += 1  # type: ignore[operator]
+                    results["errors"].append(  # type: ignore[attr-defined]
                         {"test": f"{test_class.__name__}.{method_name}", "type": type(e).__name__, "error": str(e)}
                     )
 
@@ -106,26 +106,26 @@ async def run_all_tests():
             all_results["passed"] += results["passed"]
             all_results["failed"] += results["failed"]
             all_results["skipped"] += results["skipped"]
-            all_results["errors"].extend(results["errors"])
-            all_results["suites"].append({"name": test_name, "results": results})
+            all_results["errors"].extend(results["errors"])  # type: ignore[attr-defined]
+            all_results["suites"].append({"name": test_name, "results": results})  # type: ignore[attr-defined]
         except Exception as e:
             print(f"\n❌ 测试套件 '{test_name}' 执行失败: {e}\n")
-            all_results["failed"] += 1
-            all_results["errors"].append({"test": test_name, "type": "SuiteError", "error": str(e)})
+            all_results["failed"] += 1  # type: ignore[operator]
+            all_results["errors"].append({"test": test_name, "type": "SuiteError", "error": str(e)})  # type: ignore[attr-defined]
 
     # 打印总结
     print(f"\n{'='*70}")
     print(f"📊 测试总结")
     print(f"{'='*70}\n")
 
-    total = all_results["passed"] + all_results["failed"] + all_results["skipped"]
+    total = all_results["passed"] + all_results["failed"] + all_results["skipped"]  # type: ignore[operator]
 
     print(f"总计测试: {total}")
     print(f"  ✅ 通过: {all_results['passed']}")
     print(f"  ❌ 失败: {all_results['failed']}")
     print(f"  ⏭️  跳过: {all_results['skipped']}")
 
-    if all_results["passed"] > 0:
+    if all_results["passed"] > 0:  # type: ignore[operator]
         success_rate = (all_results["passed"] / total) * 100
         print(f"\n成功率: {success_rate:.1f}%")
 
@@ -135,7 +135,7 @@ async def run_all_tests():
         print(f"各测试套件结果:")
         print(f"{'='*70}\n")
 
-        for suite in all_results["suites"]:
+        for suite in all_results["suites"]:  # type: ignore[attr-defined]
             name = suite["name"]
             results = suite["results"]
             suite_total = results["passed"] + results["failed"] + results["skipped"]
@@ -215,8 +215,8 @@ async def run_crud_tests():
         results["passed"] += suite_results["passed"]
         results["failed"] += suite_results["failed"]
         results["skipped"] += suite_results["skipped"]
-        results["errors"].extend(suite_results["errors"])
-        results["suites"].append({"name": test_name, "results": suite_results})
+        results["errors"].extend(suite_results["errors"])  # type: ignore[attr-defined]
+        results["suites"].append({"name": test_name, "results": suite_results})  # type: ignore[attr-defined]
 
     return results
 

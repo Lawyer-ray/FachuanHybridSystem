@@ -45,7 +45,7 @@ class TestCourtDocumentFieldIntegrity:
         with django_db_blocker.unblock():
             # 创建必需的关联对象
             case = CaseFactory()
-            scraper_task = ScraperTask.objects.create(
+            scraper_task = ScraperTask.objects.create(  # type: ignore[misc]
                 task_type="court_document",
                 status="pending",
                 url="https://zxfw.court.gov.cn",
@@ -58,7 +58,7 @@ class TestCourtDocumentFieldIntegrity:
                 dt_cjsj = timezone.make_aware(dt_cjsj)
 
             # 创建 CourtDocument 记录
-            document = CourtDocument.objects.create(
+            document = CourtDocument.objects.create(  # type: ignore[misc]
                 scraper_task=scraper_task,
                 case=case,
                 c_sdbh=api_data["c_sdbh"],
@@ -98,4 +98,4 @@ class TestCourtDocumentFieldIntegrity:
             # 清理
             document.delete()
             scraper_task.delete()
-            case.delete()
+            case.delete()  # type: ignore[attr-defined]

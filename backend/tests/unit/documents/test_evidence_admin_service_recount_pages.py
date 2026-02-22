@@ -9,8 +9,8 @@ from tests.factories.case_factories import CaseFactory
 def test_recount_pages_does_not_count_items_without_file():
     case = CaseFactory()
 
-    list_1 = EvidenceList.objects.create(case=case, list_type=ListType.LIST_1, total_pages=19)
-    list_2 = EvidenceList.objects.create(case=case, list_type=ListType.LIST_2, previous_list=list_1, total_pages=1)
+    list_1 = EvidenceList.objects.create(case=case, list_type=ListType.LIST_1, total_pages=19)  # type: ignore[misc]
+    list_2 = EvidenceList.objects.create(case=case, list_type=ListType.LIST_2, previous_list=list_1, total_pages=1)  # type: ignore[misc]
 
     item = EvidenceItem.objects.create(
         evidence_list=list_2,

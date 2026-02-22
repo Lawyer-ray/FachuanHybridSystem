@@ -112,8 +112,8 @@ class TeamService:
         if not self._access_policy.can_create(user):
             logger.warning(
                 "用户 %s 尝试创建团队但权限不足",
-                getattr(user, "id", None),
-                extra={"user_id": getattr(user, "id", None), "action": "create_team"},
+                user.id if user else None,
+                extra={"user_id": user.id if user else None, "action": "create_team"},
             )
             raise PermissionDenied(message=_("无权限创建团队"), code="PERMISSION_DENIED")
 
@@ -130,7 +130,7 @@ class TeamService:
 
         # 5. 记录日志
         logger.info(
-            "团队创建成功", extra={"team_id": team.id, "user_id": getattr(user, "id", None), "action": "create_team"}
+            "团队创建成功", extra={"team_id": team.id, "user_id": user.id if user else None, "action": "create_team"}
         )
 
         return team
@@ -160,9 +160,9 @@ class TeamService:
         if not self._access_policy.can_update_team(user, team):
             logger.warning(
                 "用户 %s 尝试更新团队 %s 但权限不足",
-                getattr(user, "id", None),
+                user.id if user else None,
                 team_id,
-                extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "update_team"},
+                extra={"user_id": user.id if user else None, "team_id": team_id, "action": "update_team"},
             )
             raise PermissionDenied(message=_("无权限更新该团队"), code="PERMISSION_DENIED")
 
@@ -182,7 +182,7 @@ class TeamService:
 
         # 6. 记录日志
         logger.info(
-            "团队更新成功", extra={"team_id": team.id, "user_id": getattr(user, "id", None), "action": "update_team"}
+            "团队更新成功", extra={"team_id": team.id, "user_id": user.id if user else None, "action": "update_team"}
         )
 
         return team
@@ -207,9 +207,9 @@ class TeamService:
         if not self._access_policy.can_delete_team(user, team):
             logger.warning(
                 "用户 %s 尝试删除团队 %s 但权限不足",
-                getattr(user, "id", None),
+                user.id if user else None,
                 team_id,
-                extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "delete_team"},
+                extra={"user_id": user.id if user else None, "team_id": team_id, "action": "delete_team"},
             )
             raise PermissionDenied(message=_("无权限删除该团队"), code="PERMISSION_DENIED")
 
@@ -218,7 +218,7 @@ class TeamService:
 
         # 4. 记录日志
         logger.info(
-            "团队删除成功", extra={"team_id": team_id, "user_id": getattr(user, "id", None), "action": "delete_team"}
+            "团队删除成功", extra={"team_id": team_id, "user_id": user.id if user else None, "action": "delete_team"}
         )
 
     # ========== 私有方法（业务逻辑封装） ==========

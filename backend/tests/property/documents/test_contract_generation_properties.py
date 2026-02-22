@@ -182,6 +182,6 @@ class TestContractGenerationServiceProperties:
         # 验证结果
         if is_active:
             assert result is not None, "应该找到激活的模板"
-            assert result.id == template.id
+            assert result.id == template.id  # type: ignore[attr-defined]
         else:
             assert result is None, "不应该找到未激活的模板"

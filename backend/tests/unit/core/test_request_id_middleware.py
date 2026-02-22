@@ -162,7 +162,7 @@ def test_request_id_middleware_falls_back_to_response_mapping_when_no_headers():
     response = middleware(request)
 
     assert captured["context_request_id"] == "rid-map"
-    assert response.items["X-Request-ID"] == "rid-map"
+    assert response.items["X-Request-ID"] == "rid-map"  # type: ignore[index]
 
 
 @pytest.mark.unit

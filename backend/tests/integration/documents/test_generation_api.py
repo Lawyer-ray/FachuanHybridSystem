@@ -61,10 +61,10 @@ class TestDownloadContractDocumentAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_contract_document(request, contract.id)
+            result = download_contract_document(request, contract.id)  # type: ignore[attr-defined]
 
             assert result["Content-Disposition"] is not None
-            mock_service.generate_contract_document_result.assert_called_once_with(contract.id)
+            mock_service.generate_contract_document_result.assert_called_once_with(contract.id)  # type: ignore[attr-defined]
 
     def test_download_contract_document_saved_to_folder(self) -> None:
         """合同文档保存到绑定文件夹（返回 JSON）"""
@@ -84,7 +84,7 @@ class TestDownloadContractDocumentAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_contract_document(request, contract.id)
+            result = download_contract_document(request, contract.id)  # type: ignore[attr-defined]
 
             assert result["success"] is True
             assert result["folder_path"] == "/path/to/folder"
@@ -108,7 +108,7 @@ class TestDownloadContractDocumentAPI:
             mock_factory.return_value = mock_service
 
             with pytest.raises(ValidationException):
-                download_contract_document(request, contract.id)
+                download_contract_document(request, contract.id)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -134,7 +134,7 @@ class TestDownloadContractFolderAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_contract_folder(request, contract.id)
+            result = download_contract_folder(request, contract.id)  # type: ignore[attr-defined]
 
             assert result["Content-Disposition"] is not None
 
@@ -156,7 +156,7 @@ class TestDownloadContractFolderAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_contract_folder(request, contract.id)
+            result = download_contract_folder(request, contract.id)  # type: ignore[attr-defined]
 
             assert result["success"] is True
             assert result["folder_path"] == "/extract/path"
@@ -180,7 +180,7 @@ class TestDownloadContractFolderAPI:
             mock_factory.return_value = mock_service
 
             with pytest.raises(ValidationException):
-                download_contract_folder(request, contract.id)
+                download_contract_folder(request, contract.id)  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
@@ -206,7 +206,7 @@ class TestDownloadSupplementaryAgreementAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_supplementary_agreement(request, contract.id, 1)
+            result = download_supplementary_agreement(request, contract.id, 1)  # type: ignore[attr-defined]
 
             assert result["Content-Disposition"] is not None
 
@@ -228,7 +228,7 @@ class TestDownloadSupplementaryAgreementAPI:
             )
             mock_factory.return_value = mock_service
 
-            result = download_supplementary_agreement(request, contract.id, 1)
+            result = download_supplementary_agreement(request, contract.id, 1)  # type: ignore[attr-defined]
 
             assert result["success"] is True
             assert result["folder_path"] == "/saved/path"
@@ -252,4 +252,4 @@ class TestDownloadSupplementaryAgreementAPI:
             mock_factory.return_value = mock_service
 
             with pytest.raises(ValidationException):
-                download_supplementary_agreement(request, contract.id, 1)
+                download_supplementary_agreement(request, contract.id, 1)  # type: ignore[attr-defined]

@@ -30,7 +30,7 @@ def test_chat_records_export_task_access_is_scoped_to_project():
     task = ChatRecordExportTask.objects.create(project=project, export_type=ExportType.PDF, layout={})
 
     fake_submitter = TaskSubmissionService()
-    service = ExportTaskService(task_submission_service=fake_submitter)
+    service = ExportTaskService(task_submission_service=fake_submitter)  # type: ignore[call-arg]
 
     assert service.get_task(user=u1, task_id=str(task.id)).id == task.id
     with pytest.raises(PermissionDenied):

@@ -110,7 +110,7 @@ class TestCourtInsuranceClient:
 
         assert result.status == "failed"
         assert result.premium is None
-        assert "未找到" in result.error_message
+        assert "未找到" in result.error_message  # type: ignore[operator]
 
     @pytest.mark.anyio
     async def test_fetch_premium_http_error(self, client: CourtInsuranceClient, mock_token: str) -> None:
@@ -123,7 +123,7 @@ class TestCourtInsuranceClient:
 
         assert result.status == "failed"
         assert result.premium is None
-        assert "HTTP 500" in result.error_message
+        assert "HTTP 500" in result.error_message  # type: ignore[operator]
 
     @pytest.mark.anyio
     async def test_fetch_premium_timeout(self, client: CourtInsuranceClient, mock_token: str) -> None:
@@ -138,7 +138,7 @@ class TestCourtInsuranceClient:
 
         assert result.status == "failed"
         assert result.premium is None
-        assert "超时" in result.error_message
+        assert "超时" in result.error_message  # type: ignore[operator]
 
     # ── fetch_all_premiums ─────────────────────────────────────────────────
 

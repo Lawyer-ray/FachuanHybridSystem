@@ -68,15 +68,15 @@ class TestClientServiceRead:
     def test_get_client_success(self) -> None:
         """测试获取客户成功"""
         client = ClientFactory()
-        result = self.service.get_client(client.id)
-        assert result.id == client.id
+        result = self.service.get_client(client.id)  # type: ignore[attr-defined]
+        assert result.id == client.id  # type: ignore[attr-defined]
         assert result.name == client.name
 
     def test_get_client_not_found(self) -> None:
         """测试获取不存在的客户"""
         with pytest.raises(NotFoundError) as exc_info:
             self.service.get_client(99999)
-        assert "客户不存在" in exc_info.value.message
+        assert "客户不存在" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "CLIENT_NOT_FOUND"
 
     def test_get_clients_by_ids(self) -> None:
@@ -85,12 +85,12 @@ class TestClientServiceRead:
         client2 = ClientFactory()
         client3 = ClientFactory()
 
-        clients = self.service.get_clients_by_ids([client1.id, client2.id])
+        clients = self.service.get_clients_by_ids([client1.id, client2.id])  # type: ignore[attr-defined]
         assert len(clients) == 2
         client_ids = [c.id for c in clients]
-        assert client1.id in client_ids
-        assert client2.id in client_ids
-        assert client3.id not in client_ids
+        assert client1.id in client_ids  # type: ignore[attr-defined]
+        assert client2.id in client_ids  # type: ignore[attr-defined]
+        assert client3.id not in client_ids  # type: ignore[attr-defined]
 
 
 def _make_user(*, has_perm: bool = True) -> Mock:
@@ -164,9 +164,9 @@ class TestClientMutationService:
         """测试更新客户成功"""
         client = ClientFactory(name="旧名称")
         user = _make_user()
-        result = self.service.update_client(client_id=client.id, data={"name": "新名称"}, user=user)
+        result = self.service.update_client(client_id=client.id, data={"name": "新名称"}, user=user)  # type: ignore[attr-defined]
         assert result.name == "新名称"
-        client.refresh_from_db()
+        client.refresh_from_db()  # type: ignore[attr-defined]
         assert client.name == "新名称"
 
     def test_update_client_not_found(self) -> None:
@@ -180,20 +180,20 @@ class TestClientMutationService:
         client = ClientFactory()
         user = _make_user(has_perm=False)
         with pytest.raises(PermissionDenied):
-            self.service.update_client(client_id=client.id, data={"name": "新名称"}, user=user)
+            self.service.update_client(client_id=client.id, data={"name": "新名称"}, user=user)  # type: ignore[attr-defined]
 
     def test_update_client_invalid_name(self) -> None:
         """测试更新客户名称为空"""
         client = ClientFactory()
         user = _make_user()
         with pytest.raises(ValidationException) as exc_info:
-            self.service.update_client(client_id=client.id, data={"name": ""}, user=user)
+            self.service.update_client(client_id=client.id, data={"name": ""}, user=user)  # type: ignore[attr-defined]
         assert exc_info.value.code == "INVALID_NAME"
 
     def test_delete_client_success(self) -> None:
         """测试删除客户成功"""
         client = ClientFactory()
-        client_id = client.id
+        client_id = client.id  # type: ignore[attr-defined]
         user = _make_user()
         self.service.delete_client(client_id=client_id, user=user)
         assert not Client.objects.filter(id=client_id).exists()
@@ -209,4 +209,4 @@ class TestClientMutationService:
         client = ClientFactory()
         user = _make_user(has_perm=False)
         with pytest.raises(PermissionDenied):
-            self.service.delete_client(client_id=client.id, user=user)
+            self.service.delete_client(client_id=client.id, user=user)  # type: ignore[attr-defined]

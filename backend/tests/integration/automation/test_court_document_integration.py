@@ -74,7 +74,7 @@ class TestCourtDocumentIntegration:
 
         # Mock page 和 browser
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -85,7 +85,7 @@ class TestCourtDocumentIntegration:
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                         with patch("time.sleep"):  # Mock sleep 避免延迟
-                            result = scraper._download_via_api_intercept(Path("/tmp"))
+                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：API 拦截被调用
         mock_intercept.assert_called_once()
@@ -151,7 +151,7 @@ class TestCourtDocumentIntegration:
         # 创建 scraper 并执行
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -162,7 +162,7 @@ class TestCourtDocumentIntegration:
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                         with patch("time.sleep"):
-                            result = scraper._download_via_api_intercept(Path("/tmp"))
+                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：返回结果正确
         assert result["document_count"] == 3
@@ -182,9 +182,9 @@ class TestCourtDocumentIntegration:
 
         # 验证：失败记录包含错误信息
         failed_doc = failed_docs.first()
-        assert failed_doc.error_message == "下载超时"
-        assert failed_doc.local_file_path is None
-        assert failed_doc.downloaded_at is None
+        assert failed_doc.error_message == "下载超时"  # type: ignore[union-attr]
+        assert failed_doc.local_file_path is None  # type: ignore[union-attr]
+        assert failed_doc.downloaded_at is None  # type: ignore[union-attr]
 
 
 @pytest.mark.django_db
@@ -223,7 +223,7 @@ class TestCourtDocumentFallbackMechanism:
         # 创建 scraper
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -233,7 +233,7 @@ class TestCourtDocumentFallbackMechanism:
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        result = scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")
+                        result = scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")  # type: ignore[attr-defined]
 
         # 验证：API 拦截被调用
         mock_api_intercept.assert_called_once()
@@ -273,7 +273,7 @@ class TestCourtDocumentFallbackMechanism:
         # 创建 scraper
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -283,7 +283,7 @@ class TestCourtDocumentFallbackMechanism:
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        result = scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")
+                        result = scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")  # type: ignore[attr-defined]
 
         # 验证：回退方法被调用
         mock_fallback.assert_called_once()
@@ -317,7 +317,7 @@ class TestCourtDocumentFallbackMechanism:
         # 创建 scraper
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -328,7 +328,7 @@ class TestCourtDocumentFallbackMechanism:
                 with patch.object(scraper, "random_wait"):
                     with patch.object(scraper, "_save_page_state"):
                         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                            scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")
+                            scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")  # type: ignore[attr-defined]
 
         # 验证：异常包含完整错误链
         exception = exc_info.value
@@ -388,7 +388,7 @@ class TestCourtDocumentConcurrentDownload:
         # 创建 scraper 并执行
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -398,7 +398,7 @@ class TestCourtDocumentConcurrentDownload:
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        result = scraper._download_via_api_intercept(Path("/tmp"))
+                        result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：下载方法被调用 5 次
         assert mock_download.call_count == 5
@@ -464,7 +464,7 @@ class TestCourtDocumentPerformanceOptimization:
         # 创建 scraper 并执行
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -478,7 +478,7 @@ class TestCourtDocumentPerformanceOptimization:
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                         with patch("time.sleep"):  # Mock sleep 避免延迟影响性能测试
-                            result = scraper._download_via_api_intercept(Path("/tmp"))
+                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 记录结束时间
         elapsed_time = time.time() - start_time
@@ -535,7 +535,7 @@ class TestCourtDocumentPerformanceOptimization:
         # 创建 scraper 并执行
         scraper = CourtDocumentScraper(self.scraper_task)
         scraper.page = MagicMock()
-        scraper.browser = MagicMock()
+        scraper.browser = MagicMock()  # type: ignore[attr-defined]
         scraper.page.url = "https://zxfw.court.gov.cn/test"
         scraper.page.title.return_value = "Test Page"
         scraper.page.wait_for_load_state = MagicMock()
@@ -546,7 +546,7 @@ class TestCourtDocumentPerformanceOptimization:
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
                         with patch("time.sleep"):
-                            scraper._download_via_api_intercept(Path("/tmp"))
+                            scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 使用 Django 的查询计数器测试查询优化
         from django.db import connection

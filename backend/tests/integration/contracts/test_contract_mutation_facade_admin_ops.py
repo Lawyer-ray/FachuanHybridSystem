@@ -11,7 +11,7 @@ from tests.factories.organization_factories import LawyerFactory
 class TestContractMutationFacadeAdminOps:
     def _build_contract_service(self):
         from apps.client.services import ClientServiceAdapter
-        from apps.contracts.services import ContractPaymentService, ContractService, SupplementaryAgreementService
+        from apps.contracts.services import ContractPaymentService, ContractService, SupplementaryAgreementService  # type: ignore[attr-defined]
         from apps.contracts.services.assignment.lawyer_assignment_service import LawyerAssignmentService
 
         case_service = ServiceLocator.get_case_service()
@@ -32,13 +32,13 @@ class TestContractMutationFacadeAdminOps:
 
         service = self._build_contract_service()
         new_contract = service.mutation_facade.duplicate_contract(
-            contract_id=contract.id,
+            contract_id=contract.id,  # type: ignore[attr-defined]
             user=admin_user,
             org_access=None,
             perm_open_access=False,
         )
 
-        assert new_contract.id != contract.id
+        assert new_contract.id != contract.id  # type: ignore[attr-defined]
         assert new_contract.name.endswith("(副本)")
 
     def test_renew_advisor_contract_via_mutation_facade(self):
@@ -54,12 +54,12 @@ class TestContractMutationFacadeAdminOps:
 
         service = self._build_contract_service()
         renewed = service.mutation_facade.renew_advisor_contract(
-            contract_id=contract.id,
+            contract_id=contract.id,  # type: ignore[attr-defined]
             user=admin_user,
             org_access=None,
             perm_open_access=False,
         )
 
-        assert renewed.id != contract.id
+        assert renewed.id != contract.id  # type: ignore[attr-defined]
         assert renewed.start_date == start.replace(year=start.year + 1)
         assert renewed.end_date == end.replace(year=end.year + 1)

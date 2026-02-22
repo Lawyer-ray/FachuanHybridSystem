@@ -23,14 +23,14 @@ class TestCaseMaterialService:
         p1 = CasePartyFactory(case=case, client__is_our_client=True)
         p2 = CasePartyFactory(case=case, client__is_our_client=True)
         log = CaseLogFactory(case=case, actor=user)
-        att = CaseLogAttachment.objects.create(
+        att = CaseLogAttachment.objects.create(  # type: ignore[misc]
             log=log,
             file=SimpleUploadedFile("evidence.pdf", b"pdf", content_type="application/pdf"),
         )
 
         service = build_case_material_service()
         saved = service.bind_materials(
-            case_id=case.id,
+            case_id=case.id,  # type: ignore[attr-defined]
             items=[
                 {
                     "attachment_id": att.id,
@@ -38,7 +38,7 @@ class TestCaseMaterialService:
                     "type_id": None,
                     "type_name": "身份证",
                     "side": CaseMaterialSide.OUR,
-                    "party_ids": [p1.id, p2.id],
+                    "party_ids": [p1.id, p2.id],  # type: ignore[attr-defined]
                     "supervising_authority_id": None,
                 }
             ],
@@ -49,16 +49,16 @@ class TestCaseMaterialService:
 
         assert len(saved) == 1
         m = CaseMaterial.objects.get(source_attachment_id=att.id)
-        assert m.case_id == case.id
+        assert m.case_id == case.id  # type: ignore[attr-defined]
         assert m.category == CaseMaterialCategory.PARTY
         assert m.side == CaseMaterialSide.OUR
-        assert set(m.parties.values_list("id", flat=True)) == {p1.id, p2.id}
+        assert set(m.parties.values_list("id", flat=True)) == {p1.id, p2.id}  # type: ignore[attr-defined]
 
     def test_bind_materials_requires_supervising_authority_for_non_party(self):
         user = LawyerFactory()
         case = CaseFactory()
         log = CaseLogFactory(case=case, actor=user)
-        att = CaseLogAttachment.objects.create(
+        att = CaseLogAttachment.objects.create(  # type: ignore[misc]
             log=log,
             file=SimpleUploadedFile("notice.pdf", b"pdf", content_type="application/pdf"),
         )
@@ -66,7 +66,7 @@ class TestCaseMaterialService:
         service = build_case_material_service()
         with pytest.raises(ValidationException) as exc_info:
             service.bind_materials(
-                case_id=case.id,
+                case_id=case.id,  # type: ignore[attr-defined]
                 items=[
                     {
                         "attachment_id": att.id,
@@ -89,7 +89,7 @@ class TestCaseMaterialService:
         case1 = CaseFactory()
         case2 = CaseFactory()
         log = CaseLogFactory(case=case2, actor=user)
-        att = CaseLogAttachment.objects.create(
+        att = CaseLogAttachment.objects.create(  # type: ignore[misc]
             log=log,
             file=SimpleUploadedFile("evidence.pdf", b"pdf", content_type="application/pdf"),
         )
@@ -97,7 +97,7 @@ class TestCaseMaterialService:
         service = build_case_material_service()
         with pytest.raises(NotFoundError) as exc_info:
             service.bind_materials(
-                case_id=case1.id,
+                case_id=case1.id,  # type: ignore[attr-defined]
                 items=[
                     {
                         "attachment_id": att.id,
@@ -119,23 +119,23 @@ class TestCaseMaterialService:
         user = LawyerFactory()
         case = CaseFactory()
         p1 = CasePartyFactory(case=case, client__is_our_client=True)
-        auth = SupervisingAuthority.objects.create(case=case, name="测试机关")
+        auth = SupervisingAuthority.objects.create(case=case, name="测试机关")  # type: ignore[misc]
         log = CaseLogFactory(case=case, actor=user)
-        att = CaseLogAttachment.objects.create(
+        att = CaseLogAttachment.objects.create(  # type: ignore[misc]
             log=log,
             file=SimpleUploadedFile("notice.pdf", b"pdf", content_type="application/pdf"),
         )
 
         service = build_case_material_service()
         materials = service.bind_materials(
-            case_id=case.id,
+            case_id=case.id,  # type: ignore[attr-defined]
             items=[
                 {
                     "attachment_id": att.id,
                     "category": CaseMaterialCategory.NON_PARTY,
                     "type_name": "法院通知",
                     "side": None,
-                    "party_ids": [p1.id],
+                    "party_ids": [p1.id],  # type: ignore[attr-defined]
                     "supervising_authority_id": auth.id,
                 }
             ],
@@ -146,7 +146,7 @@ class TestCaseMaterialService:
         assert materials
 
         candidates = service.list_bind_candidates(
-            case_id=case.id,
+            case_id=case.id,  # type: ignore[attr-defined]
             user=user,
             org_access=None,
             perm_open_access=True,

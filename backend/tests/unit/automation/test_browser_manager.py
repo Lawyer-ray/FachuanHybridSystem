@@ -238,8 +238,8 @@ class TestConfigurationApplication:
         with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 viewport = page.viewport_size
-                assert viewport["width"] == viewport_width, f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"
-                assert viewport["height"] == viewport_height, f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"
+                assert viewport["width"] == viewport_width, f"视口宽度不匹配: 期望={viewport_width}, 实际={viewport['width']}"  # type: ignore[index]
+                assert viewport["height"] == viewport_height, f"视口高度不匹配: 期望={viewport_height}, 实际={viewport['height']}"  # type: ignore[index]
 
                 actual_user_agent = page.evaluate("navigator.userAgent")
                 assert actual_user_agent == user_agent, f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
@@ -294,8 +294,8 @@ class TestBrowserManagerErrorHandling:
                     assert context is not None
 
                     viewport = page.viewport_size
-                    assert viewport["width"] == defaults.viewport_width
-                    assert viewport["height"] == defaults.viewport_height
+                    assert viewport["width"] == defaults.viewport_width  # type: ignore[index]
+                    assert viewport["height"] == defaults.viewport_height  # type: ignore[index]
 
         finally:
             for key, value in original_env.items():

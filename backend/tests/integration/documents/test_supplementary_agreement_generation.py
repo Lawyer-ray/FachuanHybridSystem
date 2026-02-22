@@ -64,7 +64,7 @@ class TestSupplementaryAgreementGenerationIntegration:
         ContractAssignmentFactory(contract=self.contract, lawyer=self.lawyer, is_primary=True)
 
         # 创建合同当事人（原合同只有张三）
-        ContractParty.objects.create(contract=self.contract, client=self.client1, role=PartyRole.PRINCIPAL)
+        ContractParty.objects.create(contract=self.contract, client=self.client1, role=PartyRole.PRINCIPAL)  # type: ignore[misc]
 
     def _create_test_template(self, case_type="civil"):
         """创建测试模板文件"""
@@ -103,7 +103,7 @@ class TestSupplementaryAgreementGenerationIntegration:
 
     def _create_supplementary_agreement(self, name="补充协议一", principals=None, opposing=None):
         """创建补充协议"""
-        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name=name)
+        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name=name)  # type: ignore[misc]
 
         # 添加委托人
         if principals:
@@ -133,7 +133,7 @@ class TestSupplementaryAgreementGenerationIntegration:
             )
 
             # 调用生成服务
-            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
             # 验证结果
             assert error is None
@@ -168,7 +168,7 @@ class TestSupplementaryAgreementGenerationIntegration:
             )
 
             # 调用生成服务
-            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
             # 验证结果
             assert error is None
@@ -193,7 +193,7 @@ class TestSupplementaryAgreementGenerationIntegration:
             agreement = self._create_supplementary_agreement(name="补充协议三", principals=[self.client1])  # 只有张三
 
             # 调用生成服务
-            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
             # 验证结果
             assert error is None
@@ -218,7 +218,7 @@ class TestSupplementaryAgreementGenerationIntegration:
     def test_supplementary_agreement_not_found_error(self):
         """测试补充协议不存在的错误处理"""
         # 调用生成服务（使用不存在的补充协议ID）
-        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, 99999)
+        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, 99999)  # type: ignore[attr-defined]
 
         # 验证错误处理
         assert content is None
@@ -231,7 +231,7 @@ class TestSupplementaryAgreementGenerationIntegration:
         agreement = self._create_supplementary_agreement(name="测试补充协议", principals=[self.client1])
 
         # 调用生成服务（没有创建模板）
-        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
         # 验证错误处理
         assert content is None
@@ -254,7 +254,7 @@ class TestSupplementaryAgreementGenerationIntegration:
         agreement = self._create_supplementary_agreement(name="测试补充协议", principals=[self.client1])
 
         # 调用生成服务
-        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+        content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
         # 验证错误处理
         assert content is None
@@ -314,7 +314,7 @@ class TestSupplementaryAgreementGenerationIntegration:
     def test_filename_generation_with_empty_names(self):
         """测试空名称时的文件名生成"""
         # 创建没有名称的补充协议
-        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name="")  # 空名称
+        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name="")  # 空名称  # type: ignore[misc]
 
         # 创建没有名称的合同
         contract_no_name = ContractFactory(name="")
@@ -394,7 +394,7 @@ class TestSupplementaryAgreementGenerationIntegration:
             )
 
             # 调用生成服务
-            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)
+            content, filename, error = self.service.generate_supplementary_agreement(self.contract.id, agreement.id)  # type: ignore[attr-defined]
 
             # 验证成功生成
             assert error is None

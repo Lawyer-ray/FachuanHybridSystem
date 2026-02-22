@@ -798,13 +798,13 @@ class TestDecouplingComprehensiveCompliance:
         compliance_report = {"total_files": 0, "existing_files": 0, "compliant_files": 0, "violations": []}
 
         for relative_path, file_type in DECOUPLED_FILES.items():
-            compliance_report["total_files"] += 1
+            compliance_report["total_files"] += 1  # type: ignore[operator]
 
             file_path = services_path / relative_path
             if not file_path.exists():
                 continue
 
-            compliance_report["existing_files"] += 1
+            compliance_report["existing_files"] += 1  # type: ignore[operator]
             file_violations = []
 
             # 检查 1: 文件行数限制
@@ -838,16 +838,16 @@ class TestDecouplingComprehensiveCompliance:
                 file_violations.append(f"ServiceLocator 使用不正确: {error}")
 
             if file_violations:
-                compliance_report["violations"].append(
+                compliance_report["violations"].append(  # type: ignore[attr-defined]
                     {"file": file_path.name, "type": file_type, "violations": file_violations}
                 )
             else:
-                compliance_report["compliant_files"] += 1
+                compliance_report["compliant_files"] += 1  # type: ignore[operator]
 
         # 计算合规率
         compliance_rate = (
-            compliance_report["compliant_files"] / compliance_report["existing_files"] * 100
-            if compliance_report["existing_files"] > 0
+            compliance_report["compliant_files"] / compliance_report["existing_files"] * 100  # type: ignore[operator]
+            if compliance_report["existing_files"] > 0  # type: ignore[operator]
             else 0
         )
 
@@ -860,7 +860,7 @@ class TestDecouplingComprehensiveCompliance:
 
         if compliance_report["violations"]:
             print(f"\n违规详情:")
-            for v in compliance_report["violations"]:
+            for v in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"\n  {v['file']} ({v['type']}):")
                 for violation in v["violations"]:
                     print(f"    - {violation}")
@@ -868,7 +868,7 @@ class TestDecouplingComprehensiveCompliance:
         # 要求至少 80% 的合规率
         assert compliance_rate >= 80.0, (
             f"解耦架构合规率 {compliance_rate:.1f}% 低于要求的 80%。"
-            f"违规文件: {[v['file'] for v in compliance_report['violations']]}"
+            f"违规文件: {[v['file'] for v in compliance_report['violations']]}"  # type: ignore[attr-defined]
         )
 
 

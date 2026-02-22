@@ -47,7 +47,7 @@ class TestLawFirmService:
         with pytest.raises(PermissionDenied) as exc_info:
             self.service.create_lawfirm(data, normal_user)
 
-        assert "无权限" in exc_info.value.message
+        assert "无权限" in exc_info.value.message  # type: ignore[operator]
 
     def test_create_lawfirm_duplicate_name(self):
         """测试创建重复名称的律所"""
@@ -60,7 +60,7 @@ class TestLawFirmService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_lawfirm(data, admin_user)
 
-        assert "已存在" in exc_info.value.message
+        assert "已存在" in exc_info.value.message  # type: ignore[operator]
 
     def test_get_lawfirm_success(self):
         """测试获取律所成功"""
@@ -69,10 +69,10 @@ class TestLawFirmService:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 执行测试
-        result = self.service.get_lawfirm(lawfirm.id, user)
+        result = self.service.get_lawfirm(lawfirm.id, user)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert result.id == lawfirm.id
+        assert result.id == lawfirm.id  # type: ignore[attr-defined]
         assert result.name == lawfirm.name
 
     def test_get_lawfirm_not_found(self):
@@ -92,7 +92,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_lawfirm(lawfirm2.id, user)
+            self.service.get_lawfirm(lawfirm2.id, user)  # type: ignore[attr-defined]
 
     def test_list_lawfirms_superuser(self):
         """测试超级管理员列表查询"""
@@ -119,7 +119,7 @@ class TestLawFirmService:
         # 断言结果：只能看到自己所属的律所
         result_list = list(result)
         assert len(result_list) == 1
-        assert result_list[0].id == lawfirm1.id
+        assert result_list[0].id == lawfirm1.id  # type: ignore[attr-defined]
 
     def test_update_lawfirm_success(self):
         """测试更新律所成功"""
@@ -129,13 +129,13 @@ class TestLawFirmService:
         data = LawFirmUpdateIn(name="新名称")
 
         # 执行测试
-        result = self.service.update_lawfirm(lawfirm.id, data, admin_user)
+        result = self.service.update_lawfirm(lawfirm.id, data, admin_user)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result.name == "新名称"
 
         # 验证数据库
-        lawfirm.refresh_from_db()
+        lawfirm.refresh_from_db()  # type: ignore[attr-defined]
         assert lawfirm.name == "新名称"
 
     def test_update_lawfirm_permission_denied(self):
@@ -147,7 +147,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.update_lawfirm(lawfirm.id, data, normal_user)
+            self.service.update_lawfirm(lawfirm.id, data, normal_user)  # type: ignore[attr-defined]
 
     def test_delete_lawfirm_success(self):
         """测试删除律所成功"""
@@ -156,12 +156,12 @@ class TestLawFirmService:
         superuser = LawyerFactory(is_superuser=True)
 
         # 执行测试
-        self.service.delete_lawfirm(lawfirm.id, superuser)
+        self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore[attr-defined]
 
         # 验证律所已删除
         from apps.organization.models import LawFirm
 
-        assert not LawFirm.objects.filter(id=lawfirm.id).exists()
+        assert not LawFirm.objects.filter(id=lawfirm.id).exists()  # type: ignore[attr-defined]
 
     def test_delete_lawfirm_with_lawyers(self):
         """测试删除有律师的律所"""
@@ -172,9 +172,9 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(ConflictError) as exc_info:
-            self.service.delete_lawfirm(lawfirm.id, superuser)
+            self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore[attr-defined]
 
-        assert "律师" in exc_info.value.message
+        assert "律师" in exc_info.value.message  # type: ignore[operator]
 
     def test_delete_lawfirm_permission_denied(self):
         """测试删除律所权限不足"""
@@ -184,4 +184,4 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.delete_lawfirm(lawfirm.id, admin_user)
+            self.service.delete_lawfirm(lawfirm.id, admin_user)  # type: ignore[attr-defined]

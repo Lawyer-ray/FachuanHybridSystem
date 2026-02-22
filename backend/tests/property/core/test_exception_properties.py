@@ -62,7 +62,7 @@ class TestExceptionMessageChineseConsistencyProperty:
         # Feature: backend-quality-to-10, Property 7: 异常消息中文一致性
         Validates: Requirements 4.4
         """
-        exc = exc_class()
+        exc = exc_class()  # type: ignore[call-arg]
         msg = exc.message
         assert not _ENGLISH_WORD.search(msg), (
             f"{exc_class.__name__} 的默认消息包含英文单词: {msg!r}"
@@ -73,7 +73,7 @@ class TestExceptionMessageChineseConsistencyProperty:
         self, exc_class: type[BusinessException]
     ) -> None:
         """具体验证每个异常类的默认消息为中文。"""
-        exc = exc_class()
+        exc = exc_class()  # type: ignore[call-arg]
         assert exc.message, f"{exc_class.__name__} 默认消息不能为空"
         assert not _ENGLISH_WORD.search(exc.message), (
             f"{exc_class.__name__} 默认消息含英文: {exc.message!r}"

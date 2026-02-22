@@ -23,11 +23,11 @@ def test_sensitive_data_filter_scrubs_nested_extras():
 
     assert f.filter(record) is True
 
-    assert record.account == "so***om"
-    assert record.errors["authorization"] == "***"
-    assert record.errors["nested"]["token"] == "***"
-    assert record.errors["nested"]["account"] == "fo***om"
-    assert "***" in record.errors["value"]
+    assert record.account == "so***om"  # type: ignore[attr-defined]
+    assert record.errors["authorization"] == "***"  # type: ignore[attr-defined]
+    assert record.errors["nested"]["token"] == "***"  # type: ignore[attr-defined]
+    assert record.errors["nested"]["account"] == "fo***om"  # type: ignore[attr-defined]
+    assert "***" in record.errors["value"]  # type: ignore[attr-defined]
 
 
 def test_sensitive_data_filter_scrubs_message_text():

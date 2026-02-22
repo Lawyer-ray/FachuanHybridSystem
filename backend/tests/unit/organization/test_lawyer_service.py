@@ -30,7 +30,7 @@ class TestLawyerService:
             password="testpass123",
             real_name="测试律师",
             phone="13800138001",
-            law_firm_id=lawfirm.id,
+            law_firm_id=lawfirm.id,  # type: ignore[attr-defined]
             is_admin=False,
         )
 
@@ -41,7 +41,7 @@ class TestLawyerService:
         assert lawyer.id is not None
         assert lawyer.username == "testlawyer"
         assert lawyer.real_name == "测试律师"
-        assert lawyer.law_firm_id == lawfirm.id
+        assert lawyer.law_firm_id == lawfirm.id  # type: ignore[attr-defined]
 
     def test_create_lawyer_permission_denied(self):
         """测试创建律师权限不足"""
@@ -53,7 +53,7 @@ class TestLawyerService:
         with pytest.raises(PermissionDenied) as exc_info:
             self.service.create_lawyer(data, normal_user)
 
-        assert "无权限" in exc_info.value.message
+        assert "无权限" in exc_info.value.message  # type: ignore[operator]
 
     def test_create_lawyer_duplicate_username(self):
         """测试创建重复用户名的律师"""
@@ -66,7 +66,7 @@ class TestLawyerService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_lawyer(data, admin_user)
 
-        assert "用户名" in exc_info.value.message
+        assert "用户名" in exc_info.value.message  # type: ignore[operator]
 
     def test_create_lawyer_duplicate_phone(self):
         """测试创建重复手机号的律师"""
@@ -79,7 +79,7 @@ class TestLawyerService:
         with pytest.raises(ValidationException) as exc_info:
             self.service.create_lawyer(data, admin_user)
 
-        assert "手机号" in exc_info.value.message
+        assert "手机号" in exc_info.value.message  # type: ignore[operator]
 
     def test_get_lawyer_success(self):
         """测试获取律师成功"""
@@ -89,10 +89,10 @@ class TestLawyerService:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 执行测试
-        result = self.service.get_lawyer(lawyer.id, user)
+        result = self.service.get_lawyer(lawyer.id, user)  # type: ignore[attr-defined]
 
         # 断言结果
-        assert result.id == lawyer.id
+        assert result.id == lawyer.id  # type: ignore[attr-defined]
         assert result.username == lawyer.username
 
     def test_get_lawyer_not_found(self):
@@ -113,7 +113,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_lawyer(lawyer.id, user)
+            self.service.get_lawyer(lawyer.id, user)  # type: ignore[attr-defined]
 
     def test_list_lawyers_superuser(self):
         """测试超级管理员列表查询"""
@@ -151,13 +151,13 @@ class TestLawyerService:
         data = LawyerUpdateIn(real_name="新名称")
 
         # 执行测试
-        result = self.service.update_lawyer(lawyer.id, data, admin_user)
+        result = self.service.update_lawyer(lawyer.id, data, admin_user)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result.real_name == "新名称"
 
         # 验证数据库
-        lawyer.refresh_from_db()
+        lawyer.refresh_from_db()  # type: ignore[attr-defined]
         assert lawyer.real_name == "新名称"
 
     def test_update_lawyer_self(self):
@@ -167,7 +167,7 @@ class TestLawyerService:
         data = LawyerUpdateIn(real_name="新名称")
 
         # 执行测试
-        result = self.service.update_lawyer(lawyer.id, data, lawyer)
+        result = self.service.update_lawyer(lawyer.id, data, lawyer)  # type: ignore[attr-defined]
 
         # 断言结果
         assert result.real_name == "新名称"
@@ -183,7 +183,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.update_lawyer(lawyer.id, data, user)
+            self.service.update_lawyer(lawyer.id, data, user)  # type: ignore[attr-defined]
 
     def test_delete_lawyer_success(self):
         """测试删除律师成功"""
@@ -193,12 +193,12 @@ class TestLawyerService:
         admin_user = LawyerFactory(law_firm=lawfirm, is_admin=True)
 
         # 执行测试
-        self.service.delete_lawyer(lawyer.id, admin_user)
+        self.service.delete_lawyer(lawyer.id, admin_user)  # type: ignore[attr-defined]
 
         # 验证律师已删除
         from apps.organization.models import Lawyer
 
-        assert not Lawyer.objects.filter(id=lawyer.id).exists()
+        assert not Lawyer.objects.filter(id=lawyer.id).exists()  # type: ignore[attr-defined]
 
     def test_delete_lawyer_permission_denied(self):
         """测试删除律师权限不足"""
@@ -209,7 +209,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.delete_lawyer(lawyer.id, normal_user)
+            self.service.delete_lawyer(lawyer.id, normal_user)  # type: ignore[attr-defined]
 
     def test_get_team_member_ids(self):
         """测试获取团队成员 ID"""
@@ -218,12 +218,12 @@ class TestLawyerService:
         team = TeamFactory(law_firm=lawfirm, team_type="lawyer")
         lawyer1 = LawyerFactory(law_firm=lawfirm)
         lawyer2 = LawyerFactory(law_firm=lawfirm)
-        lawyer1.lawyer_teams.add(team)
-        lawyer2.lawyer_teams.add(team)
+        lawyer1.lawyer_teams.add(team)  # type: ignore[attr-defined]
+        lawyer2.lawyer_teams.add(team)  # type: ignore[attr-defined]
 
         # 执行测试
         member_ids = self.service.get_team_member_ids(lawyer1)
 
         # 断言结果
-        assert lawyer1.id in member_ids
-        assert lawyer2.id in member_ids
+        assert lawyer1.id in member_ids  # type: ignore[attr-defined]
+        assert lawyer2.id in member_ids  # type: ignore[attr-defined]

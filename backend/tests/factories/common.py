@@ -5,7 +5,7 @@
 """
 
 from .case_factories import CaseFactory, CasePartyFactory
-from .client_factories import ClientFactory, NaturalPersonFactory
+from .client_factories import ClientFactory, NaturalPersonFactory  # type: ignore[attr-defined]
 from .contract_factories import ContractFactory, ContractPaymentFactory
 from .organization_factories import LawFirmFactory, LawyerFactory
 

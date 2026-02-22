@@ -116,7 +116,7 @@ class TestFetchInsuranceCompanies:
                 max_retries=1,  # 只重试 1 次以加快测试
             )
 
-        assert "超时" in exc_info.value.message
+        assert "超时" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "INSURANCE_LIST_TIMEOUT"
 
     async def test_fetch_insurance_companies_http_error(self):
@@ -142,7 +142,7 @@ class TestFetchInsuranceCompanies:
                 max_retries=1,
             )
 
-        assert "HTTP 500" in exc_info.value.message
+        assert "HTTP 500" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "INSURANCE_LIST_HTTP_ERROR"
 
     async def test_fetch_insurance_companies_network_error(self):
@@ -161,7 +161,7 @@ class TestFetchInsuranceCompanies:
                 max_retries=1,
             )
 
-        assert "网络错误" in exc_info.value.message
+        assert "网络错误" in exc_info.value.message  # type: ignore[operator]
         assert exc_info.value.code == "INSURANCE_LIST_NETWORK_ERROR"
 
     async def test_fetch_insurance_companies_retry_on_network_error(self):
@@ -296,7 +296,7 @@ class TestFetchPremium:
         # 验证结果（返回失败结果）
         assert result.status == "failed"
         assert result.premium is None
-        assert "超时" in result.error_message
+        assert "超时" in result.error_message  # type: ignore[operator]
 
     async def test_fetch_premium_http_error(self):
         """测试查询报价 HTTP 错误（返回失败结果）"""
@@ -324,7 +324,7 @@ class TestFetchPremium:
         # 验证结果（返回失败结果）
         assert result.status == "failed"
         assert result.premium is None
-        assert "HTTP 500" in result.error_message
+        assert "HTTP 500" in result.error_message  # type: ignore[operator]
 
     async def test_fetch_premium_no_premium_data(self):
         """测试响应中没有报价数据"""
@@ -353,7 +353,7 @@ class TestFetchPremium:
         # 验证结果（返回失败结果）
         assert result.status == "failed"
         assert result.premium is None
-        assert "未找到费率数据" in result.error_message
+        assert "未找到费率数据" in result.error_message  # type: ignore[operator]
 
 
 @pytest.mark.django_db

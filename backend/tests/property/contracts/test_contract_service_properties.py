@@ -45,7 +45,7 @@ class TestContractServiceProperties:
             contract = ContractFactory()
             # 为每个合同创建主办律师
             lawyer = LawyerFactory()
-            ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
+            ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
             # 为每个合同创建 2-3 个收款记录
             ContractPaymentFactory.create_batch(2, contract=contract)
             contracts.append(contract)
@@ -60,13 +60,13 @@ class TestContractServiceProperties:
         # 访问关联对象
         for contract in contract_list: # type: ignore[assignment]
             # 访问律师指派关系（应该已经预加载）
-            assignments = list(contract.assignments.all())
+            assignments = list(contract.assignments.all())  # type: ignore[attr-defined]
             if assignments:
                 _ = assignments[0].lawyer.real_name
 
             # 访问反向外键关系（应该已经预加载）
-            _ = list(contract.payments.all())
-            _ = list(contract.cases.all())
+            _ = list(contract.payments.all())  # type: ignore[attr-defined]
+            _ = list(contract.cases.all())  # type: ignore[attr-defined]
 
         # 获取查询次数
         query_count = len(connection.queries)
@@ -92,7 +92,7 @@ class TestContractServiceProperties:
         # 创建测试数据
         contract = ContractFactory()
         lawyer = LawyerFactory()
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)  # type: ignore[misc]
         ContractPaymentFactory.create_batch(payment_count, contract=contract)
 
         # 重置查询计数
@@ -101,7 +101,7 @@ class TestContractServiceProperties:
         reset_queries()
 
         # 执行查询（使用 perm_open_access=True 绕过权限检查）
-        result = self.service.get_contract(contract.id, perm_open_access=True)
+        result = self.service.get_contract(contract.id, perm_open_access=True)  # type: ignore[attr-defined]
 
         # 访问关联对象
         assignments = list(result.assignments.all())
@@ -142,8 +142,8 @@ class TestContractServiceProperties:
 
         # 对每个合同获取财务汇总
         for contract in contracts:
-            summary = self.service.get_finance_summary(contract.id)
-            assert summary["contract_id"] == contract.id
+            summary = self.service.get_finance_summary(contract.id)  # type: ignore[attr-defined]
+            assert summary["contract_id"] == contract.id  # type: ignore[attr-defined]
             assert "total_received" in summary
             assert "total_invoiced" in summary
 

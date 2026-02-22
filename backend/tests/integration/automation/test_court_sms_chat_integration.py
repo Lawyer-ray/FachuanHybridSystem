@@ -37,7 +37,7 @@ class CourtSMSChatIntegrationTest(TestCase):
         self.case_chat_service = Mock()
         self.fee_check_service = Mock()
         self.chat_message_sender = Mock()
-        self.notification_service = SMSNotificationService(
+        self.notification_service = SMSNotificationService(  # type: ignore[call-arg]
             case_chat_service=self.case_chat_service,
             fee_check_service=self.fee_check_service,
             chat_message_sender=self.chat_message_sender,

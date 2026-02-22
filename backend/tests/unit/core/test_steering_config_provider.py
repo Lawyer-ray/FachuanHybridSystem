@@ -1,5 +1,5 @@
 def test_steering_config_provider_defaults():
-    from apps.core.config.steering import SteeringConfigProvider
+    from apps.core.config.steering import SteeringConfigProvider  # type: ignore[attr-defined]
 
     class DummyConfigManager:
         def __init__(self):

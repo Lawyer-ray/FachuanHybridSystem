@@ -34,8 +34,8 @@ def test_token_acquisition_history_scrubs_preview_and_error_details_on_save():
     assert record.token_redacted == mask_secret(preview)
     assert record.token_fingerprint == fingerprint_sha256(preview)
 
-    assert record.error_details["authorization"] == "***"
-    assert record.error_details["token"] == "***"
-    assert record.error_details["nested"]["api_key"] == "***"
-    assert "***" in record.error_message
-    assert preview not in record.error_message
+    assert record.error_details["authorization"] == "***"  # type: ignore[index]
+    assert record.error_details["token"] == "***"  # type: ignore[index]
+    assert record.error_details["nested"]["api_key"] == "***"  # type: ignore[index]
+    assert "***" in record.error_message  # type: ignore[operator]
+    assert preview not in record.error_message  # type: ignore[operator]

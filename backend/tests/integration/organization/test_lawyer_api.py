@@ -45,12 +45,12 @@ class TestLawyerAPI:
         self.client.force_login(user)
 
         # 执行测试
-        response = self.client.get(f"/api/v1/organization/lawyers/{lawyer.id}")
+        response = self.client.get(f"/api/v1/organization/lawyers/{lawyer.id}")  # type: ignore[attr-defined]
 
         # 断言结果
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == lawyer.id
+        assert data["id"] == lawyer.id  # type: ignore[attr-defined]
         assert data["username"] == lawyer.username
 
     def test_create_lawyer_success(self):
@@ -67,7 +67,7 @@ class TestLawyerAPI:
             "/api/v1/organization/lawyers",
             data={
                 "payload": '{"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "phone": "13800138001", "law_firm_id": '
-                + str(lawfirm.id)
+                + str(lawfirm.id)  # type: ignore[attr-defined]
                 + ', "is_admin": false}'
             },
         )
@@ -107,7 +107,7 @@ class TestLawyerAPI:
         # 执行测试 - 使用 generic 方法发送 multipart form data
         response = self.client.generic(
             "PUT",
-            f"/api/v1/organization/lawyers/{lawyer.id}",
+            f"/api/v1/organization/lawyers/{lawyer.id}",  # type: ignore[attr-defined]
             data='payload={"real_name": "新名称"}',
             content_type="application/x-www-form-urlencoded",
         )
@@ -128,7 +128,7 @@ class TestLawyerAPI:
         self.client.force_login(admin_user)
 
         # 执行测试
-        response = self.client.delete(f"/api/v1/organization/lawyers/{lawyer.id}")
+        response = self.client.delete(f"/api/v1/organization/lawyers/{lawyer.id}")  # type: ignore[attr-defined]
 
         # 断言结果
         assert response.status_code == 200
@@ -136,4 +136,4 @@ class TestLawyerAPI:
         # 验证律师已删除
         from apps.organization.models import Lawyer
 
-        assert not Lawyer.objects.filter(id=lawyer.id).exists()
+        assert not Lawyer.objects.filter(id=lawyer.id).exists()  # type: ignore[attr-defined]

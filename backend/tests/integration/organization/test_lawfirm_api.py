@@ -45,12 +45,12 @@ class TestLawFirmAPI:
         self.client.force_login(user)
 
         # 执行测试
-        response = self.client.get(f"/api/v1/organization/lawfirms/{lawfirm.id}")
+        response = self.client.get(f"/api/v1/organization/lawfirms/{lawfirm.id}")  # type: ignore[attr-defined]
 
         # 断言结果
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == lawfirm.id
+        assert data["id"] == lawfirm.id  # type: ignore[attr-defined]
         assert data["name"] == lawfirm.name
 
     def test_create_lawfirm_success(self):
@@ -101,7 +101,7 @@ class TestLawFirmAPI:
 
         # 执行测试
         response = self.client.put(
-            f"/api/v1/organization/lawfirms/{lawfirm.id}", data={"name": "新名称"}, content_type="application/json"
+            f"/api/v1/organization/lawfirms/{lawfirm.id}", data={"name": "新名称"}, content_type="application/json"  # type: ignore[attr-defined]
         )
 
         # 断言结果
@@ -119,7 +119,7 @@ class TestLawFirmAPI:
         self.client.force_login(superuser)
 
         # 执行测试
-        response = self.client.delete(f"/api/v1/organization/lawfirms/{lawfirm.id}")
+        response = self.client.delete(f"/api/v1/organization/lawfirms/{lawfirm.id}")  # type: ignore[attr-defined]
 
         # 断言结果
         assert response.status_code == 200
@@ -127,4 +127,4 @@ class TestLawFirmAPI:
         # 验证律所已删除
         from apps.organization.models import LawFirm
 
-        assert not LawFirm.objects.filter(id=lawfirm.id).exists()
+        assert not LawFirm.objects.filter(id=lawfirm.id).exists()  # type: ignore[attr-defined]
