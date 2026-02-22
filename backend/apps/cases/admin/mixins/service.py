@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from apps.cases.services.case_admin_service import CaseAdminService
+    from apps.cases.services.case.case_admin_service import CaseAdminService
     from apps.cases.services.case_assignment_service import CaseAssignmentService
     from apps.cases.services.case_chat_service import CaseChatService
+    from apps.cases.services.material.case_material_service import CaseMaterialService
+    from apps.cases.services.template.case_template_binding_service import CaseTemplateBindingService
 
 
 class CaseAdminServiceMixin:
@@ -13,7 +15,7 @@ class CaseAdminServiceMixin:
 
     def _get_case_admin_service(self) -> CaseAdminService:
         """工厂方法：获取 CaseAdminService 实例（延迟导入避免循环依赖）。"""
-        from apps.cases.services.case_admin_service import CaseAdminService
+        from apps.cases.services.case.case_admin_service import CaseAdminService
 
         return CaseAdminService()
 
@@ -23,13 +25,13 @@ class CaseAdminServiceMixin:
 
         return CaseChatService()
 
-    def _get_case_material_service(self) -> Any:
+    def _get_case_material_service(self) -> CaseMaterialService:
         """工厂方法：获取 CaseMaterialService 实例（延迟导入避免循环依赖）。"""
         from apps.cases.services.material.wiring import build_case_material_service
 
         return build_case_material_service()
 
-    def _get_case_template_binding_service(self) -> Any:
+    def _get_case_template_binding_service(self) -> CaseTemplateBindingService:
         """工厂方法：获取 CaseTemplateBindingService 实例（延迟导入避免循环依赖）。"""
         from apps.cases.services.template.case_template_binding_service import CaseTemplateBindingService
         from apps.core.interfaces import ServiceLocator

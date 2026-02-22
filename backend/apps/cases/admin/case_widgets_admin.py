@@ -6,6 +6,7 @@ import json
 from typing import Any, ClassVar
 
 from django import forms
+from django.forms.renderers import BaseRenderer
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
@@ -28,7 +29,7 @@ class AutocompleteWidget(forms.TextInput):
         self.listen_case_type = listen_case_type
         super().__init__(*args, **kwargs)
 
-    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: Any = None) -> SafeString:
+    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: BaseRenderer | None = None) -> SafeString:
         if attrs is None:
             attrs = {}
 

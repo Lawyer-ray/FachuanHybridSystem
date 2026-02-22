@@ -9,8 +9,11 @@ from typing import Any, cast
 from django.apps import apps
 from django.contrib import messages
 from django.db import IntegrityError, connection
+from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
 
@@ -20,7 +23,7 @@ logger = logging.getLogger("apps.cases")
 
 
 class CaseAdminSaveMixin(CaseAdminServiceMixin):
-    def _cleanup_before_delete(self, case_ids: list[Any]) -> None:
+    def _cleanup_before_delete(self, case_ids: list[int]) -> None:
         if not case_ids:
             return
 
@@ -47,7 +50,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     """
                 )
 
-    def delete_model(self, request: HttpRequest, obj: Any) -> None:
+    def delete_model(self, request: HttpRequest, obj: Case) -> None:
         try:
             self._cleanup_before_delete([obj.id])
             super().delete_model(request, obj)  # type: ignore[misc]
@@ -59,9 +62,9 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             )
             with connection.constraint_checks_disabled():
                 super().delete_model(request, obj)  # type: ignore[misc]
-            messages.warning(request, f"已强制删除案件 {cast(int, obj.id)}(已绕过外键检查)")
+            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": cast(int, obj.id)})
 
-    def delete_queryset(self, request: HttpRequest, queryset: Any) -> None:
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         case_ids = list(queryset.values_list("id", flat=True))
         try:
             self._cleanup_before_delete(case_ids)
@@ -74,7 +77,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             )
             with connection.constraint_checks_disabled():
                 super().delete_queryset(request, queryset)  # type: ignore[misc]
-            messages.warning(request, f"已强制批量删除 {len(case_ids)} 个案件(已绕过外键检查)")
+            messages.warning(request, _("已强制批量删除 %d 个案件(已绕过外键检查)") % len(case_ids))
 
     def save_model(
         self,
@@ -83,8 +86,8 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
         form: ModelForm[Case],
         change: bool,
     ) -> None:
-        old_case_type: Any | None = None
-        old_current_stage: Any | None = None
+        old_case_type: str | None = None
+        old_current_stage: str | None = None
         if change and obj.pk:
             try:
                 old_obj = Case.objects.get(pk=obj.pk)
@@ -119,7 +122,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 extra={"case_id": obj.id},
                 exc_info=True,
             )
-            messages.error(request, f"处理建档编号失败: {e!s}")
+            messages.error(request, _("处理建档编号失败: %s") % str(e))
 
         case_type_changed = old_case_type != obj.case_type
         stage_changed = old_current_stage != obj.current_stage
@@ -145,7 +148,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     extra={"case_id": obj.id},
                     exc_info=True,
                 )
-                messages.warning(request, f"同步模板绑定失败: {e!s}")
+                messages.warning(request, _("同步模板绑定失败: %s") % str(e))
 
         try:
             assignment_service = self._get_case_assignment_service()
@@ -162,9 +165,9 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 extra={"case_id": obj.id},
                 exc_info=True,
             )
-            messages.error(request, f"同步律师指派失败: {e!s}")
+            messages.error(request, _("同步律师指派失败: %s") % str(e))
 
-    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
+    def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:
         instances = formset.save(commit=False)
         for obj in instances:
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
