@@ -7,7 +7,7 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.exceptions import ChatCreationException, MessageSendException
+from apps.core.exceptions import ChatCreationException, MessageSendException
 from apps.core.enums import ChatPlatform
 
 logger = logging.getLogger(__name__)

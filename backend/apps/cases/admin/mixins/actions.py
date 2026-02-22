@@ -10,7 +10,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.exceptions import ChatProviderException
+from apps.core.exceptions import ChatProviderException
 from apps.cases.models import Case
 from apps.core.enums import ChatPlatform
 

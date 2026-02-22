@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 import logging
 from datetime import timedelta
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 from django.db.models import Avg, Count, Max, Min, Q
 from django.utils import timezone

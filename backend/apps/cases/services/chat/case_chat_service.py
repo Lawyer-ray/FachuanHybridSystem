@@ -24,7 +24,7 @@ from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
-from apps.cases.exceptions import ChatCreationException, MessageSendException
+from apps.core.exceptions import ChatCreationException, MessageSendException
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import ValidationException

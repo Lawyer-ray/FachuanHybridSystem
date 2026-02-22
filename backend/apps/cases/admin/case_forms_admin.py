@@ -9,7 +9,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseParty, CaseStage, SupervisingAuthority
-from apps.cases.validators import normalize_stages
+from apps.cases.domain.validators import normalize_stages
 
 
 class CaseAdminForm(forms.ModelForm[Case]):

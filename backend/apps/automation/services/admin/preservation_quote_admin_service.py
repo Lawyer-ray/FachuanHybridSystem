@@ -8,7 +8,7 @@ import asyncio
 import logging
 from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Min, Q
