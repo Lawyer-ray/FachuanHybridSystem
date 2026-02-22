@@ -21,8 +21,6 @@ logger = logging.getLogger("apps.client")
 class IdCardMergeService:
     ID_CARD_WIDTH = 85.6
     ID_CARD_HEIGHT = 54.0
-    A4_WIDTH = 210
-    A4_HEIGHT = 297
     ID_CARD_ASPECT_RATIO = ID_CARD_WIDTH / ID_CARD_HEIGHT
     SUPPORTED_FORMATS: ClassVar = {"image/jpeg", "image/png", "image/jpg"}
     SUPPORTED_EXTENSIONS: ClassVar = {".jpg", ".jpeg", ".png"}
@@ -185,9 +183,6 @@ class IdCardMergeService:
 
     def _validate_corners(self, corners: list[list[int]]) -> str | None:
         return validation.validate_corners(corners)
-
-    def _is_convex_quadrilateral(self, corners: NDArray[np.float32]) -> bool:
-        return validation.is_convex_quadrilateral(corners)
 
     def _save_temp_image(self, image: UploadedFile, prefix: str) -> str:
         media_root = get_media_root()

@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin, messages
+from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -26,9 +27,9 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
     """当事人证件表单"""
 
     file_upload = forms.FileField(
-        label="上传文件",
+        label=_("上传文件"),
         required=False,
-        help_text="上传后将自动重命名为：当事人名称_证件类型.扩展名",
+        help_text=_("上传后将自动重命名为：当事人名称_证件类型.扩展名"),
     )
 
     class Meta:
@@ -38,7 +39,7 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields["file_upload"].help_text = f"当前文件：{Path(self.instance.file_path or '').name}"
+            self.fields["file_upload"].help_text = _("当前文件：") + Path(self.instance.file_path or "").name
 
 
 @admin.register(ClientIdentityDoc)
@@ -49,6 +50,9 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
     list_filter = ("doc_type",)
     actions = ["rename_files"]
     fields = ("client", "doc_type", "file_upload", "file_path")
+
+    def get_queryset(self, request: HttpRequest) -> Any:
+        return super().get_queryset(request).select_related("client")
 
     def file_link(self, obj: ClientIdentityDoc) -> str:
         url = obj.media_url
@@ -73,9 +77,9 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
         try:
             service.rename_uploaded_file(obj)
             if change:
-                messages.success(request, "文件已重命名为标准格式")
+                messages.success(request, _("文件已重命名为标准格式"))
         except Exception as e:
-            messages.warning(request, f"文件重命名失败: {e!s}")
+            messages.warning(request, _("文件重命名失败: ") + str(e))
 
     def rename_files(self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]) -> None:
         """批量重命名文件"""
@@ -92,8 +96,8 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
                 error_count += 1
 
         if success_count > 0:
-            messages.success(request, f"成功重命名 {success_count} 个文件")
+            messages.success(request, _("成功重命名 %(count)d 个文件") % {"count": success_count})
         if error_count > 0:
-            messages.error(request, f"{error_count} 个文件重命名失败")
+            messages.error(request, _("%(count)d 个文件重命名失败") % {"count": error_count})
 
     rename_files.short_description = _("重命名选中的文件")  # type: ignore[attr-defined]

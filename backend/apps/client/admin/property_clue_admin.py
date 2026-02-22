@@ -21,7 +21,7 @@ def _get_property_clue_service() -> Any:
 class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
     """财产线索附件内联表单"""
 
-    file_upload = forms.FileField(required=False, label="上传文件")
+    file_upload = forms.FileField(required=False, label=_("上传文件"))
 
     class Meta:
         model = PropertyClueAttachment
@@ -71,6 +71,9 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
         (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
+    def get_queryset(self, request: HttpRequest) -> Any:
+        return super().get_queryset(request).select_related("client").prefetch_related("attachments")
+
     def clue_type_display(self, obj: PropertyClue) -> str:
         """显示线索类型标签"""
         return obj.get_clue_type_display()
@@ -92,8 +95,8 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
         """显示附件数量"""
         count = obj.attachments.count()
         if count > 0:
-            return format_html('<span style="color: green;">{} 个附件</span>', count)
-        return "无附件"
+            return format_html('<span style="color: green;">{}</span>', _("%(count)d 个附件") % {"count": count})
+        return str(_("无附件"))
 
     attachment_count.short_description = _("附件")  # type: ignore[attr-defined]
 
