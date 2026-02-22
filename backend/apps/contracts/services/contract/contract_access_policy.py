@@ -84,11 +84,11 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
 
     def filter_queryset(
         self,
-        qs: QuerySet["Contract", "Contract"],
+        qs: QuerySet[Contract, Contract],
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
-    ) -> QuerySet["Contract", "Contract"]:
+    ) -> QuerySet[Contract, Contract]:
         if perm_open_access:
             return qs
 
@@ -107,7 +107,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             Q(assignments__lawyer_id__in=list(allowed_lawyers)) | Q(cases__assignments__lawyer_id=user_id)
         ).distinct()
 
-    def has_access_ctx(self, *, contract_id: int, ctx: "AccessContext", contract: Contract | None = None) -> bool:
+    def has_access_ctx(self, *, contract_id: int, ctx: AccessContext, contract: Contract | None = None) -> bool:
         return self.has_access(
             contract_id=contract_id,
             user=ctx.user,
@@ -120,7 +120,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         self,
         *,
         contract_id: int,
-        ctx: "AccessContext",
+        ctx: AccessContext,
         contract: Contract | None = None,
         message: str | Any = "无权限访问该合同",
     ) -> None:
@@ -134,8 +134,8 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         )
 
     def filter_queryset_ctx(
-        self, qs: QuerySet["Contract", "Contract"], ctx: "AccessContext"
-    ) -> QuerySet["Contract", "Contract"]:
+        self, qs: QuerySet[Contract, Contract], ctx: AccessContext
+    ) -> QuerySet[Contract, Contract]:
         return self.filter_queryset(
             qs=qs, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access
         )
