@@ -62,9 +62,14 @@ class ClientAdminFileMixin:
             ClientIdentityDoc.objects.filter(id=doc_id).update(file_path=file_path)
             doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
             if doc:
-                from .client_identity_doc_service import ClientIdentityDocService
+                # 通过 self 访问 identity_doc_service（由 ClientAdminService 提供）
+                identity_doc_service = getattr(self, "identity_doc_service", None)
+                if identity_doc_service is not None:
+                    identity_doc_service.rename_uploaded_file(doc)
+                else:
+                    from .client_identity_doc_service import ClientIdentityDocService
 
-                ClientIdentityDocService().rename_uploaded_file(doc)
+                    ClientIdentityDocService().rename_uploaded_file(doc)
             logger.info(
                 "证件文件保存成功",
                 extra={
