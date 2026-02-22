@@ -55,8 +55,6 @@ class LawyerDTO:
     is_active: bool = True
     law_firm_id: int | None = None
     law_firm_name: str | None = None
-    team_id: int | None = None
-    team_name: str | None = None
 
     @classmethod
     def from_model(cls, lawyer: Lawyer) -> LawyerDTO:
@@ -70,8 +68,6 @@ class LawyerDTO:
             is_active=lawyer.is_active,
             law_firm_id=lawyer.law_firm_id,
             law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,
-            team_id=None,
-            team_name=None,
         )
 
 
