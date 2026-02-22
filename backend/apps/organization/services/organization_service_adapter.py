@@ -11,6 +11,7 @@ from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 from apps.organization.services.lawfirm_service import LawFirmService
+from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
 from apps.organization.services.lawyer.facade import LawyerService
 from apps.organization.services.team_service import TeamService
 
@@ -210,8 +211,6 @@ class OrganizationServiceAdapter(IOrganizationService):
         Returns:
             默认律师 ID，不存在返回 None
         """
-        from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
-
         adapter = LawyerServiceAdapter(service=self.lawyer_service)
         admin_dto = adapter.get_admin_lawyer_internal()
         return admin_dto.id if admin_dto else None
