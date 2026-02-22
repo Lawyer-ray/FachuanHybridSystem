@@ -63,13 +63,13 @@ class ClientServiceAdapter(IClientService):
     def _to_dto(self, client: Client) -> ClientDTO:
         return self.dto_assembler.to_dto(client)
 
-    def get_client(self, client_id: int) -> ClientDTO | None | None:
+    def get_client(self, client_id: int) -> ClientDTO | None:
         client = self.service._get_client_internal(client_id)
         if client:
             return self._to_dto(client)
         return None
 
-    def get_client_internal(self, client_id: int) -> ClientDTO | None | None:
+    def get_client_internal(self, client_id: int) -> ClientDTO | None:
         client = self.service._get_client_internal(client_id)
         if client:
             return self._to_dto(client)
@@ -82,7 +82,7 @@ class ClientServiceAdapter(IClientService):
     def validate_client_exists(self, client_id: int) -> bool:
         return self.internal_query_service.get_client(client_id=client_id) is not None
 
-    def get_client_by_name(self, name: str) -> ClientDTO | None | None:
+    def get_client_by_name(self, name: str) -> ClientDTO | None:
         client = self.internal_query_service.get_client_by_name(name=name)
         if client:
             return self._to_dto(client)
