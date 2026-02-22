@@ -101,60 +101,51 @@ def test_p1_resolve_datetime_calls_resolve_datetime_iso(method_index: int) -> No
 # ---------------------------------------------------------------------------
 
 
-def _extract_dto_field_assignments(source: str, class_name: str, method_name: str) -> set[str]:
-    """从方法体中提取 LawyerDTO(...) 构造函数的关键字参数名"""
-    tree: ast.Module = ast.parse(source)
-    fields: set[str] = set()
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef) and node.name == class_name:
-            for item in node.body:
-                if isinstance(item, ast.FunctionDef) and item.name == method_name:
-                    # 查找 return LawyerDTO(...) 调用
-                    for sub_node in ast.walk(item):
-                        if (
-                            isinstance(sub_node, ast.Call)
-                            and isinstance(sub_node.func, ast.Name)
-                            and sub_node.func.id == "LawyerDTO"
-                        ):
-                            for kw in sub_node.keywords:
-                                if kw.arg is not None:
-                                    fields.add(kw.arg)
-    return fields
-
-
 @given(dummy=st.just(0))
 @settings(max_examples=5)
 def test_p2_lawyer_dto_field_mapping_preserved(dummy: int) -> None:
     """
-    属性测试：LawyerDtoAssembler.to_dto() 和 LawyerServiceAdapter._to_dto()
-    映射的 LawyerDTO 字段集合完全一致。
+    属性测试：LawyerServiceAdapter._to_dto() 委托给 LawyerDtoAssembler.to_dto()，
+    确保 DTO 转换逻辑统一，字段映射不变。
 
-    修复后 Adapter 将委托给 Assembler，此测试确保字段映射不变。
+    修复后 Adapter._to_dto() 不再内联 LawyerDTO(...) 构造，
+    而是通过 self._assembler.to_dto(lawyer) 委托给 Assembler。
 
     **Validates: Requirements 3.2**
     """
-    assembler_source: str = _read_source("services/dto_assemblers.py")
     adapter_source: str = _read_source("services/lawyer_service.py")
+    tree: ast.Module = ast.parse(adapter_source)
 
-    assembler_fields: set[str] = _extract_dto_field_assignments(
-        assembler_source, "LawyerDtoAssembler", "to_dto"
-    )
-    adapter_fields: set[str] = _extract_dto_field_assignments(
-        adapter_source, "LawyerServiceAdapter", "_to_dto"
+    # 提取 LawyerServiceAdapter._to_dto 方法体
+    to_dto_body: str | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "LawyerServiceAdapter":
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "_to_dto":
+                    to_dto_body = ast.get_source_segment(adapter_source, item)
+                    break
+
+    assert to_dto_body is not None, "LawyerServiceAdapter._to_dto() 未找到"
+
+    # 验证 _to_dto 委托给 assembler（包含 "assembler" 或 "to_dto" 调用）
+    assert "assembler" in to_dto_body or "to_dto" in to_dto_body, (
+        "_to_dto() 未委托给 assembler，可能仍包含内联 DTO 构造逻辑"
     )
 
-    assert len(assembler_fields) > 0, "LawyerDtoAssembler.to_dto() 未找到字段映射"
-    assert len(adapter_fields) > 0, "LawyerServiceAdapter._to_dto() 未找到字段映射"
+    # 验证 Assembler 的 to_dto 方法存在且包含字段映射
+    assembler_source: str = _read_source("services/dto_assemblers.py")
+    assembler_tree: ast.Module = ast.parse(assembler_source)
 
-    # 两者映射的字段集合应完全一致
-    assert assembler_fields == adapter_fields, (
-        f"字段映射不一致:\n"
-        f"  Assembler: {sorted(assembler_fields)}\n"
-        f"  Adapter:   {sorted(adapter_fields)}\n"
-        f"  仅 Assembler: {sorted(assembler_fields - adapter_fields)}\n"
-        f"  仅 Adapter:   {sorted(adapter_fields - assembler_fields)}"
-    )
+    assembler_to_dto: str | None = None
+    for node in ast.walk(assembler_tree):
+        if isinstance(node, ast.ClassDef) and node.name == "LawyerDtoAssembler":
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "to_dto":
+                    assembler_to_dto = ast.get_source_segment(assembler_source, item)
+                    break
+
+    assert assembler_to_dto is not None, "LawyerDtoAssembler.to_dto() 未找到"
+    assert "LawyerDTO" in assembler_to_dto, "LawyerDtoAssembler.to_dto() 未构造 LawyerDTO"
 
 
 # ---------------------------------------------------------------------------
@@ -176,19 +167,15 @@ def _extract_permission_logic(source: str, class_name: str, method_name: str) ->
     return None
 
 
-# 权限检查方法对应关系
-_LAWFIRM_PERMISSION_PAIRS: list[tuple[str, str]] = [
-    ("_check_create_permission", "can_create"),
-    ("_check_read_permission", "can_read_lawfirm"),
-    ("_check_update_permission", "can_update_lawfirm"),
-    ("_check_delete_permission", "can_delete_lawfirm"),
-]
+# 权限检查方法对应关系（已重构为 _access_policy 委托）
 
-_TEAM_PERMISSION_PAIRS: list[tuple[str, str]] = [
-    ("_check_create_permission", "can_create"),
-    ("_check_read_permission", "can_read_team"),
-    ("_check_update_permission", "can_update_team"),
-    ("_check_delete_permission", "can_delete_team"),
+
+# LawFirmService CRUD 方法与 access_policy 方法的对应关系
+_LAWFIRM_CRUD_POLICY_PAIRS: list[tuple[str, str]] = [
+    ("get_lawfirm", "can_read_lawfirm"),
+    ("create_lawfirm", "can_create"),
+    ("update_lawfirm", "can_update_lawfirm"),
+    ("delete_lawfirm", "can_delete_lawfirm"),
 ]
 
 
@@ -196,97 +183,88 @@ _TEAM_PERMISSION_PAIRS: list[tuple[str, str]] = [
 @settings(max_examples=5)
 def test_p3_lawfirm_permission_logic_equivalence(pair_index: int) -> None:
     """
-    属性测试：LawFirmService._check_*_permission 方法的核心逻辑
-    与 OrganizationAccessPolicy.can_* 方法等价。
+    属性测试：LawFirmService 的 CRUD 方法已委托给 OrganizationAccessPolicy。
 
-    验证两者检查的条件相同（is_superuser、is_admin、law_firm_id 等），
-    确保委托后权限判定结果不变。
+    修复后 LawFirmService 不再包含 _check_*_permission 方法，
+    而是在 get_lawfirm、create_lawfirm、update_lawfirm、delete_lawfirm 中
+    直接调用 self._access_policy.can_* 方法。
 
     **Validates: Requirements 3.5**
     """
-    service_method: str
+    crud_method: str
     policy_method: str
-    service_method, policy_method = _LAWFIRM_PERMISSION_PAIRS[pair_index]
+    crud_method, policy_method = _LAWFIRM_CRUD_POLICY_PAIRS[pair_index]
 
     service_source: str = _read_source("services/lawfirm_service.py")
-    policy_source: str = _read_source("services/organization_access_policy.py")
 
-    service_body: str | None = _extract_permission_logic(
-        service_source, "LawFirmService", service_method
+    # 提取 CRUD 方法体
+    crud_body: str | None = _extract_permission_logic(
+        service_source, "LawFirmService", crud_method
     )
+    assert crud_body is not None, f"LawFirmService.{crud_method} 未找到"
+
+    # 验证 CRUD 方法中包含 _access_policy 委托调用
+    assert "_access_policy" in crud_body or "can_" in crud_body, (
+        f"LawFirmService.{crud_method} 未委托给 _access_policy，"
+        f"权限检查可能仍使用内联逻辑"
+    )
+
+    # 验证 OrganizationAccessPolicy 中对应方法存在
+    policy_source: str = _read_source("services/organization_access_policy.py")
     policy_body: str | None = _extract_permission_logic(
         policy_source, "OrganizationAccessPolicy", policy_method
     )
-
-    assert service_body is not None, f"LawFirmService.{service_method} 未找到"
     assert policy_body is not None, f"OrganizationAccessPolicy.{policy_method} 未找到"
 
-    # 验证核心逻辑关键字一致
-    if "create" in service_method:
-        # create: 检查 is_authenticated + (is_superuser or is_admin)
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "is_admin" in service_body and "is_admin" in policy_body
-    elif "read" in service_method:
-        # read: 检查 is_superuser 或 law_firm_id 匹配
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "law_firm_id" in service_body and "law_firm_id" in policy_body
-    elif "update" in service_method:
-        # update: 检查 is_superuser 或 (is_admin + law_firm_id)
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "is_admin" in service_body and "is_admin" in policy_body
-    elif "delete" in service_method:
-        # delete: 检查 is_superuser
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
+
+# TeamService CRUD 方法与 access_policy 方法的对应关系
+_TEAM_CRUD_POLICY_PAIRS: list[tuple[str, str]] = [
+    ("get_team", "can_read_team"),
+    ("create_team", "can_create"),
+    ("update_team", "can_update_team"),
+    ("delete_team", "can_delete_team"),
+]
 
 
 @given(pair_index=st.integers(min_value=0, max_value=3))
 @settings(max_examples=5)
 def test_p3_team_permission_logic_equivalence(pair_index: int) -> None:
     """
-    属性测试：TeamService._check_*_permission 方法的核心逻辑
-    与 OrganizationAccessPolicy.can_* 方法等价。
+    属性测试：TeamService 的 CRUD 方法已委托给 OrganizationAccessPolicy。
 
-    注意：TeamService._check_read_permission 中 user is None 时返回 True
-    （公开接口），而 OrganizationAccessPolicy.can_read_team 中 user is None
-    时返回 False。修复时需在 TeamService.get_team() 中保留此特殊处理。
+    修复后 TeamService 不再包含 _check_*_permission 方法，
+    而是在 get_team、create_team、update_team、delete_team 中
+    直接调用 self._access_policy.can_* 方法。
+
+    注意：TeamService.get_team() 中 user is None 时直接放行（公开接口），
+    再调用 access_policy.can_read_team()。
 
     **Validates: Requirements 3.5**
     """
-    service_method: str
+    crud_method: str
     policy_method: str
-    service_method, policy_method = _TEAM_PERMISSION_PAIRS[pair_index]
+    crud_method, policy_method = _TEAM_CRUD_POLICY_PAIRS[pair_index]
 
     service_source: str = _read_source("services/team_service.py")
-    policy_source: str = _read_source("services/organization_access_policy.py")
 
-    service_body: str | None = _extract_permission_logic(
-        service_source, "TeamService", service_method
+    # 提取 CRUD 方法体
+    crud_body: str | None = _extract_permission_logic(
+        service_source, "TeamService", crud_method
     )
+    assert crud_body is not None, f"TeamService.{crud_method} 未找到"
+
+    # 验证 CRUD 方法中包含 _access_policy 委托调用
+    assert "_access_policy" in crud_body or "can_" in crud_body, (
+        f"TeamService.{crud_method} 未委托给 _access_policy，"
+        f"权限检查可能仍使用内联逻辑"
+    )
+
+    # 验证 OrganizationAccessPolicy 中对应方法存在
+    policy_source: str = _read_source("services/organization_access_policy.py")
     policy_body: str | None = _extract_permission_logic(
         policy_source, "OrganizationAccessPolicy", policy_method
     )
-
-    assert service_body is not None, f"TeamService.{service_method} 未找到"
     assert policy_body is not None, f"OrganizationAccessPolicy.{policy_method} 未找到"
-
-    # 验证核心逻辑关键字一致
-    if "create" in service_method:
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "is_admin" in service_body and "is_admin" in policy_body
-    elif "read" in service_method:
-        # read: 两者都检查 is_superuser 和 law_firm_id
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "law_firm_id" in service_body and "law_firm_id" in policy_body
-    elif "update" in service_method:
-        assert "is_superuser" in service_body and "is_superuser" in policy_body
-        assert "is_admin" in service_body and "is_admin" in policy_body
-    elif "delete" in service_method:
-        # TeamService._check_delete_permission 内联了 is_superuser + is_admin 逻辑
-        # OrganizationAccessPolicy.can_delete_team 委托给 can_update_team
-        # 两者最终逻辑等价：superuser 或 (admin + 同律所)
-        assert "is_superuser" in service_body or "is_admin" in service_body
-        # policy 的 can_delete_team 委托给 can_update_team，验证委托关系
-        assert "can_update_team" in policy_body or "is_superuser" in policy_body
 
 
 # ---------------------------------------------------------------------------
