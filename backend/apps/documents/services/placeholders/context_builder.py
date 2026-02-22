@@ -58,7 +58,7 @@ class EnhancedContextBuilder:
                     extra={
                         "service_name": service.name,
                         "error": str(e),
-                        "context_keys": list[Any](context_data.keys()),
+                        "context_keys": list(context_data.keys()),
                     },
                     exc_info=True,
                 )

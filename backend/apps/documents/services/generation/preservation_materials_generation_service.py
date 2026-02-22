@@ -296,7 +296,7 @@ class PreservationMaterialsGenerationService:
             )
         try:
             logger.info(
-                "财产保全材料渲染模板", extra={"template_path": str(template_path), "keys": list[Any](context.keys())}
+                "财产保全材料渲染模板", extra={"template_path": str(template_path), "keys": list(context.keys())}
             )
             doc = DocxTemplate(str(template_path))
             doc.render(context)
