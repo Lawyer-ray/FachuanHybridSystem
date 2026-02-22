@@ -342,7 +342,7 @@ class AutoLoginService:
 
     def _sync_login_attempt(self, credential: AccountCredentialDTO) -> str:
         """
-        异步的登录尝试
+        同步的登录尝试
 
         Args:
             credential: 账号凭证DTO
@@ -378,8 +378,6 @@ class AutoLoginService:
 
             return cast(str, token)
 
-        except Exception as e:
-            raise e
         finally:
             # 清理浏览器上下文
             if "browser_context" in locals():

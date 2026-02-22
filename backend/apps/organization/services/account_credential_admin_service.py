@@ -5,16 +5,13 @@ AccountCredentialAdminService - 账号凭证管理服务
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-
-from typing import TYPE_CHECKING
 
 from apps.core.exceptions import NotFoundError
 
@@ -38,8 +35,6 @@ def _run_async(coro: Any) -> Any:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

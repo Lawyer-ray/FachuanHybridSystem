@@ -16,7 +16,7 @@ from apps.documents.models import PromptVersion
 logger = logging.getLogger(__name__)
 
 
-def _get_prompt_version_service() -> None:
+def _get_prompt_version_service() -> Any:
     """工厂函数获取 Prompt 版本服务"""
     from apps.documents.services.generation.prompt_version_service import PromptVersionService
 

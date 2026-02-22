@@ -105,7 +105,7 @@ class SystemConfigService:
         Returns:
             更新后的 SystemConfig 实例
         """
-        config = self._model.objects.filter(id=config_id).first()
+        config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
                 message=_("系统配置不存在"),
@@ -240,7 +240,7 @@ class SystemConfigService:
         Returns:
             SystemConfig 列表
         """
-        queryset = self._model.objects.all()
+        queryset = self._repository.get_all()
 
         if category is not None:
             queryset = queryset.filter(category=category)
@@ -255,7 +255,7 @@ class SystemConfigService:
         if not requested:
             return {}
 
-        queryset = self._model.objects.filter(key__in=requested, is_active=True)
+        queryset = self._repository.get_by_keys(requested)
         values: dict[str, str] = {str(cfg.key): str(cfg.value) for cfg in queryset}
 
         for key in requested:
@@ -284,7 +284,7 @@ class SystemConfigService:
         Returns:
             配置键值对字典
         """
-        configs = self._model.objects.filter(category=category, is_active=True)
+        configs = self._repository.get_by_category(category)
         return {str(config.key): str(config.value) for config in configs}
 
     def get_category_configs_internal(self, category: str) -> dict[str, str]:
@@ -316,7 +316,7 @@ class SystemConfigService:
             from apps.core.security.secret_codec import SecretCodec
             stored_value = SecretCodec().encrypt(value)
 
-        config, _created = self._model.objects.update_or_create(
+        config = self._repository.update_or_create(
             key=key,
             defaults={
                 "value": stored_value,

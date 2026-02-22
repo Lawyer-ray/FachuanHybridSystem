@@ -58,6 +58,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
     )
 
     ordering = ("-created_at",)
+    list_select_related: ClassVar[tuple[str, ...]] = ("user",)
 
     date_hierarchy = "created_at"
 

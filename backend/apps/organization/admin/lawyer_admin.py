@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
 from apps.organization.models import AccountCredential, Lawyer
 
@@ -20,12 +21,12 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
         lawyer_teams = cleaned.get("lawyer_teams")
         biz_teams = cleaned.get("biz_teams")
         if not lawyer_teams or lawyer_teams.count() == 0:
-            raise ValidationError({"lawyer_teams": "律师必须至少关联一个律师团队"})
+            raise ValidationError({"lawyer_teams": str(_("律师必须至少关联一个律师团队"))})
         if law_firm:
             bad_lt = [t for t in (lawyer_teams or []) if t.law_firm_id != law_firm.id]
             bad_bt = [t for t in (biz_teams or []) if t and t.law_firm_id != law_firm.id]
             if bad_lt or bad_bt:
-                raise ValidationError("所选团队的所属律所必须与律师所属律所一致")
+                raise ValidationError(str(_("所选团队的所属律所必须与律师所属律所一致")))
         return cleaned
 
 

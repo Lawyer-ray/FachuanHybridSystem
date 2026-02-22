@@ -59,17 +59,6 @@ class ReminderUpdate(Schema):
     _validate_ids = field_validator("contract_id", "case_log_id")(_validate_positive_id)
     _validate_content = field_validator("content")(_validate_content_not_blank)
 
-    @model_validator(mode="after")
-    def validate_binding_exclusivity(self) -> "ReminderUpdate":
-        """contract_id 和 case_log_id 互斥校验（仅当两者都被显式提交时）。"""
-        fields_set = self.model_fields_set
-        if "contract_id" in fields_set and "case_log_id" in fields_set:
-            both_none = self.contract_id is None and self.case_log_id is None
-            both_set = self.contract_id is not None and self.case_log_id is not None
-            if both_none or both_set:
-                raise ValueError(_("必须且只能绑定合同或案件日志之一"))
-        return self
-
 
 class ReminderOut(SchemaMixin, Schema):
     id: int

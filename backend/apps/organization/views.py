@@ -1,13 +1,10 @@
-"""
-用户注册视图
-"""
-
 from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth import login
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.translation import gettext_lazy as _
 
 from .forms import LawyerRegistrationForm
 
@@ -35,16 +32,14 @@ def register(request: HttpRequest) -> HttpResponse:
             )
             user = result.user
             if user.is_admin:
-                # 第一个用户（管理员）自动登录
                 login(request, user)
                 messages.success(
                     request,
-                    f"注册成功！您是第一个用户，已自动获得管理员权限。欢迎 {user.real_name or user.username}",
+                    _("注册成功！您是第一个用户，已自动获得管理员权限。欢迎 %(name)s") % {"name": user.real_name or user.username},
                 )
                 return redirect("admin:index")
             else:
-                # 后续用户提示等待审核
-                messages.info(request, "注册成功！请等待管理员开通权限后再登录。")
+                messages.info(request, _("注册成功！请等待管理员开通权限后再登录。"))
                 return redirect("admin:login")
     else:
         form = LawyerRegistrationForm()
@@ -54,7 +49,7 @@ def register(request: HttpRequest) -> HttpResponse:
         "admin/register.html",
         {
             "form": form,
-            "title": "用户注册",
+            "title": _("用户注册"),
             "is_first_user": is_first_user,
         },
     )

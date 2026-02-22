@@ -159,7 +159,7 @@ class ContractDisplayMixin:
                 "has_change_permission": self.has_change_permission(request, contract),
                 "has_view_permission": self.has_view_permission(request, contract),
                 # 传递模板需要的额外数据
-                "primary_lawyer": contract.primary_lawyer,
+                "primary_lawyer": self.get_primary_lawyer(contract),
                 "contract_parties": contract.contract_parties.all(),
                 "assignments": contract.assignments.all(),
                 "payments": ctx_data["payments"],

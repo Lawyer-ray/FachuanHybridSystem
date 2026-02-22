@@ -89,6 +89,7 @@ class EvidenceListAdmin(
 
     inlines: ClassVar = [EvidenceItemInline]
     actions: ClassVar = ["merge_pdfs", "export_list_word"]
+    list_select_related: tuple[Any, ...] = ("case", "created_by")
 
     class Media:
         css: ClassVar = {"all": ("documents/css/evidence_admin.css",)}

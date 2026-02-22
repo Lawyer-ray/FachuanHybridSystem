@@ -324,5 +324,5 @@ class LawFirmServiceAdapter(ILawFirmService):
 
     def get_lawfirms_by_ids(self, lawfirm_ids: list[int]) -> list[LawFirmDTO]:
         """批量获取律所信息"""
-        lawfirms = LawFirm.objects.filter(id__in=lawfirm_ids)
+        lawfirms = self.service.get_lawfirm_queryset().filter(id__in=lawfirm_ids)
         return [self._assembler.to_dto(lf) for lf in lawfirms]

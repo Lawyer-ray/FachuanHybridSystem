@@ -18,6 +18,17 @@ from apps.core.security import get_request_access_context
 logger = logging.getLogger("apps.contracts")
 
 
+def _build_docx_response(result: Any) -> Any:
+    """构建 DOCX 文件下载响应"""
+    response = HttpResponse(
+        result["content"],
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    encoded_filename = urllib.parse.quote(result["filename"].encode("utf-8"))
+    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+    return response
+
+
 def _get_contract_admin_service() -> Any:
     """工厂函数获取合同 Admin 服务"""
     from apps.contracts.admin.wiring_admin import get_contract_admin_service
@@ -119,14 +130,7 @@ class ContractActionMixin:
             messages.error(request, f"创建案件失败: {e!s}")
             return HttpResponseRedirect(request.path)
 
-    def _build_docx_response(self, result: Any) -> Any:
-        response = HttpResponse(
-            result["content"],
-            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-        encoded_filename = urllib.parse.quote(result["filename"].encode("utf-8"))
-        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
-        return response
+    _build_docx_response = staticmethod(_build_docx_response)  # noqa: RUF012
 
     def response_add(self, request, obj, post_url_continue=None) -> Any:
         """处理新建合同后的保存并创建案件按钮"""
