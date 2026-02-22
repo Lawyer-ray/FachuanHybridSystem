@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger("apps.cases")
 
@@ -26,18 +27,20 @@ class CauseCourtDataCache:
         try:
             if not file_path.exists():
                 logger.error(
-                    f"JSON文件不存在: {filename}",
+                    "JSON文件不存在: %s",
+                    filename,
                     extra={"action": "load_json_file", "file_name": filename, "file_path": str(file_path)},
                 )
                 raise ValidationException(
-                    message=f"数据文件不存在: {filename}", code="FILE_NOT_FOUND", errors={"filename": filename}
+                    message=_("数据文件不存在: %(name)s") % {"name": filename}, code="FILE_NOT_FOUND", errors={"filename": filename}
                 )
 
             with open(str(file_path), encoding="utf-8") as f:
                 data = json.load(f)
 
             logger.debug(
-                f"成功加载JSON文件: {filename}",
+                "成功加载JSON文件: %s",
+                filename,
                 extra={
                     "action": "load_json_file",
                     "file_name": filename,
@@ -49,21 +52,25 @@ class CauseCourtDataCache:
 
         except json.JSONDecodeError as e:
             logger.error(
-                f"JSON文件解析失败: {filename}, 错误: {e}",
+                "JSON文件解析失败: %s, 错误: %s",
+                filename,
+                e,
                 extra={"action": "load_json_file", "file_name": filename, "error": str(e)},
             )
             raise ValidationException(
-                message=f"数据文件格式错误: {filename}",
+                message=_("数据文件格式错误: %(name)s") % {"name": filename},
                 code="JSON_PARSE_ERROR",
                 errors={"filename": filename, "error": str(e)},
             ) from e
         except Exception as e:
             logger.error(
-                f"加载JSON文件异常: {filename}, 错误: {e}",
+                "加载JSON文件异常: %s, 错误: %s",
+                filename,
+                e,
                 extra={"action": "load_json_file", "file_name": filename, "error": str(e)},
             )
             raise ValidationException(
-                message=f"加载数据文件失败: {filename}",
+                message=_("加载数据文件失败: %(name)s") % {"name": filename},
                 code="FILE_LOAD_ERROR",
                 errors={"filename": filename, "error": str(e)},
             ) from e
@@ -158,7 +165,7 @@ class CauseCourtJsonProvider:
         filenames = self.case_type_file_map[case_type]
         if not filenames:
             logger.info(
-                f"案件类型 {case_type} 不提供自动补全", extra={"action": "get_causes_by_type", "case_type": case_type}
+                "案件类型 %s 不提供自动补全", case_type, extra={"action": "get_causes_by_type", "case_type": case_type}
             )
             return []
 
@@ -170,19 +177,25 @@ class CauseCourtJsonProvider:
                 all_causes.extend(causes)
 
                 logger.debug(
-                    f"从 {filename} 加载了 {len(causes)} 个案由",
+                    "从 %s 加载了 %d 个案由",
+                    filename,
+                    len(causes),
                     extra={"action": "get_causes_by_type", "file_name": filename, "cause_count": len(causes)},
                 )
 
             except Exception as e:
                 logger.error(
-                    f"加载案由文件失败: {filename}, 错误: {e}",
+                    "加载案由文件失败: %s, 错误: %s",
+                    filename,
+                    e,
                     extra={"action": "get_causes_by_type", "file_name": filename, "error": str(e)},
                 )
                 continue
 
         logger.info(
-            f"案件类型 {case_type} 共加载 {len(all_causes)} 个案由",
+            "案件类型 %s 共加载 %d 个案由",
+            case_type,
+            len(all_causes),
             extra={"action": "get_causes_by_type", "case_type": case_type, "total_causes": len(all_causes)},
         )
 
@@ -215,8 +228,11 @@ class CauseCourtJsonProvider:
             result = matching_causes[:limit]
 
             logger.debug(
-                f"案由搜索完成: 关键词='{query}', 类型={case_type}, "
-                f"找到={len(matching_causes)}个, 返回={len(result)}个",
+                "案由搜索完成: 关键词='%s', 类型=%s, 找到=%d个, 返回=%d个",
+                query,
+                case_type,
+                len(matching_causes),
+                len(result),
                 extra={
                     "action": "search_causes_from_json",
                     "query": query,
@@ -240,7 +256,10 @@ class CauseCourtJsonProvider:
             result = matching_courts[:limit]
 
             logger.debug(
-                f"法院搜索完成: 关键词='{query}', 找到={len(matching_courts)}个, 返回={len(result)}个",
+                "法院搜索完成: 关键词='%s', 找到=%d个, 返回=%d个",
+                query,
+                len(matching_courts),
+                len(result),
                 extra={
                     "action": "search_courts_from_json",
                     "query": query,
@@ -341,7 +360,8 @@ class CauseCourtDataService:
     def get_causes_by_type(self, case_type: str) -> list[dict[str, Any]]:
         if case_type not in self.CASE_TYPE_FILE_MAP:
             logger.warning(
-                f"无效的案件类型: {case_type}",
+                "无效的案件类型: %s",
+                case_type,
                 extra={
                     "action": "get_causes_by_type",
                     "case_type": case_type,
@@ -349,7 +369,7 @@ class CauseCourtDataService:
                 },
             )
             raise ValidationException(
-                message=f"无效的案件类型: {case_type}",
+                message=_("无效的案件类型: %(type)s") % {"type": case_type},
                 code="INVALID_CASE_TYPE",
                 errors={"case_type": case_type, "valid_types": list(self.CASE_TYPE_FILE_MAP.keys())},
             )

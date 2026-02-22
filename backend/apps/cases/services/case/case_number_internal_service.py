@@ -55,7 +55,8 @@ class CaseNumberInternalService:
             return False
         except Exception as e:
             logger.error(
-                f"添加案号失败:{e}",
+                "添加案号失败: %s",
+                e,
                 extra={
                     "action": "add_case_number_internal",
                     "case_id": case_id,
