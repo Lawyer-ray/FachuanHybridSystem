@@ -12,22 +12,15 @@ if TYPE_CHECKING:
 
     from .client_dto_assembler import ClientDtoAssembler, ClientRelatedDtoAssembler
     from .client_internal_query_service import ClientInternalQueryService
-    from .client_service import ClientService
 
 
 class ClientServiceAdapter(IClientService):
     def __init__(
         self,
-        client_service: ClientService | None = None,
         dto_assembler: ClientDtoAssembler | None = None,
         internal_query_service: ClientInternalQueryService | None = None,
         related_dto_assembler: ClientRelatedDtoAssembler | None = None,
     ) -> None:
-        if client_service is None:
-            from .client_service import ClientService
-
-            client_service = ClientService()
-        self.service = client_service
         self._dto_assembler = dto_assembler
         self._internal_query_service = internal_query_service
         self._related_dto_assembler = related_dto_assembler

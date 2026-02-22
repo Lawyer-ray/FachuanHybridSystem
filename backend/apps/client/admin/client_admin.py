@@ -26,7 +26,7 @@ def _get_admin_service() -> Any:
 
 
 class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):
-    upload = forms.FileField(required=False, label="上传文件")
+    upload = forms.FileField(required=False, label=_("上传文件"))
 
     class Meta:
         model = ClientIdentityDoc
