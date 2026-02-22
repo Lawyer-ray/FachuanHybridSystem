@@ -44,7 +44,7 @@ class EvidenceDigestService:
                 page_range = f"{page_start}-{page_end}" if page_start != page_end else str(page_start)
             else:
                 page_range = "-"
-            lines.append(f"[证据#{item.id}] {item.order}. {item.name}(证明:{item.purpose},页码:{page_range})")
+            lines.append(f"[证据#{item.id}] {item.order}. {item.name}(证明：{item.purpose}，页码：{page_range})")
         return "\n".join(lines)
 
     def search_evidence_for_agent(

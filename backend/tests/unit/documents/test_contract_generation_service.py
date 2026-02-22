@@ -235,14 +235,14 @@ class TestContractGenerationService:
 
         assert result == expected
 
+    @patch("pathlib.Path.exists")
     @patch("docxtpl.DocxTemplate")
-    @patch("os.path.exists")
     def test_generate_contract_document_success(
-        self, mock_exists, mock_docx_template, contract_generation_service, mock_contract, mock_template
+        self, mock_docx_template, mock_path_exists, contract_generation_service, mock_contract, mock_template
     ):
         """测试成功生成合同文档"""
         # Mock 文件存在
-        mock_exists.return_value = True
+        mock_path_exists.return_value = True
 
         # Mock 模板文件路径
         mock_template.get_file_location = MagicMock(return_value="/path/to/template.docx")
@@ -283,13 +283,13 @@ class TestContractGenerationService:
         assert filename is None
         assert error == "请先添加合同模板"
 
-    @patch("os.path.exists")
+    @patch("pathlib.Path.exists")
     def test_generate_contract_document_template_file_not_found(
-        self, mock_exists, contract_generation_service, mock_contract, mock_template
+        self, mock_path_exists, contract_generation_service, mock_contract, mock_template
     ):
         """测试模板文件不存在的情况"""
         # Mock 文件不存在
-        mock_exists.return_value = False
+        mock_path_exists.return_value = False
         mock_template.get_file_location = MagicMock(return_value="/path/to/nonexistent.docx")
 
         with patch.object(contract_generation_service, "find_matching_template", return_value=mock_template):
@@ -299,14 +299,14 @@ class TestContractGenerationService:
         assert filename is None
         assert error == "模板文件不存在"
 
+    @patch("pathlib.Path.exists")
     @patch("docxtpl.DocxTemplate")
-    @patch("os.path.exists")
     def test_generate_contract_document_render_error(
-        self, mock_exists, mock_docx_template, contract_generation_service, mock_contract, mock_template
+        self, mock_docx_template, mock_path_exists, contract_generation_service, mock_contract, mock_template
     ):
         """测试模板渲染错误的情况"""
         # Mock 文件存在
-        mock_exists.return_value = True
+        mock_path_exists.return_value = True
         mock_template.get_file_location = MagicMock(return_value="/path/to/template.docx")
 
         # Mock DocxTemplate 抛出异常

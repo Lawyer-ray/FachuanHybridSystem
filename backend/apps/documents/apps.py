@@ -25,6 +25,10 @@ class DocumentsConfig(AppConfig):
         from .services.code_placeholder_autodiscover import autodiscover_code_placeholders
 
         autodiscover_code_placeholders()
+
+        # 注册信号处理器（包含缓存失效逻辑）
+        from . import signals  # noqa: F401
+
         from django.db.models.signals import post_migrate
 
         post_migrate.connect(self._on_post_migrate, sender=self)

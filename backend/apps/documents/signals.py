@@ -127,7 +127,7 @@ def capture_pre_save_state(sender: type[Any], instance: Any, **kwargs: Any) -> N
 @receiver(post_save, sender=DocumentTemplate)
 @receiver(post_save, sender=Placeholder)
 def log_save(sender: type[Any], instance: Any, created: bool, **kwargs: Any) -> None:
-    """记录创建和更新操作"""
+    """记录创建和更新操作，并使相关缓存失效"""
     key = f"{sender.__name__}_{instance.pk}"
     old_instance = _pre_save_state.pop(key, None)
 
@@ -145,6 +145,9 @@ def log_save(sender: type[Any], instance: Any, created: bool, **kwargs: Any) -> 
                 action = TemplateAuditAction.UPDATE
             _create_audit_log(instance, action, changes)
 
+    # 使模板匹配缓存失效
+    _invalidate_template_matching_cache(sender)
+
 
 # ============================================================
 # Post-delete signals - 记录删除
@@ -157,3 +160,27 @@ def log_save(sender: type[Any], instance: Any, created: bool, **kwargs: Any) -> 
 def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:
     """记录删除操作"""
     _create_audit_log(instance, TemplateAuditAction.DELETE)
+
+
+def _invalidate_template_matching_cache(sender: type[Any]) -> None:
+    """根据 sender 类型递增对应的版本号缓存，使模板匹配缓存失效"""
+    try:
+        from django.core.cache import cache
+
+        from apps.core.infrastructure import CacheKeys, CacheTimeout
+
+        if sender is DocumentTemplate:
+            version_key = CacheKeys.documents_matching_version_document_templates()
+        elif sender is FolderTemplate:
+            version_key = CacheKeys.documents_matching_version_folder_templates()
+        else:
+            return
+
+        current = cache.get(version_key)
+        if current is None:
+            cache.set(version_key, 2, timeout=CacheTimeout.get_day())
+        else:
+            cache.set(version_key, int(current) + 1, timeout=CacheTimeout.get_day())
+        logger.debug("已递增模板匹配缓存版本号: %s", version_key)
+    except Exception as e:
+        logger.warning(f"清除模板匹配缓存失败: {e}")

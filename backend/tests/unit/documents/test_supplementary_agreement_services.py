@@ -106,13 +106,13 @@ class TestSupplementaryAgreementPrincipalService:
         service._get_agreement_principals = Mock(return_value=[])
         service._get_contract_principals = Mock(return_value=[])
         service._find_new_principals = Mock(return_value=([], []))
-        service.format_principal_info = Mock(return_value="委托人信息")
+        service.format_principal_info = Mock(return_value="补充协议委托人信息")
         service.format_principal_clause = Mock(return_value="")
 
         result = service.generate(context_data)
 
-        assert "委托人信息" in result
-        assert "委托人主体信息条款" in result
+        assert "补充协议委托人信息" in result
+        assert "补充协议委托人主体信息条款" in result
 
     def test_format_principal_info_single(self):
         """测试单个委托人信息格式化"""
@@ -183,7 +183,7 @@ class TestSupplementaryAgreementOpposingService:
 
         result = service.generate(context_data)
 
-        assert "对方当事人主体信息条款" in result
+        assert "补充协议对方当事人主体信息条款" in result
 
 
 class TestSupplementaryAgreementSignatureService:
@@ -204,4 +204,4 @@ class TestSupplementaryAgreementSignatureService:
 
         result = service.generate(context_data)
 
-        assert "委托人签名盖章信息" in result
+        assert "补充协议委托人签名盖章信息" in result
