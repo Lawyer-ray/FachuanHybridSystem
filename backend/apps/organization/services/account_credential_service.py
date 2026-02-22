@@ -384,7 +384,7 @@ class AccountCredentialService:
         credential = self._get_base_queryset().filter(account=account, site_name=site_name).first()
         if not credential:
             raise NotFoundError(
-                message=_(f"账号凭证不存在: {account}@{site_name}"),
+                message=_("账号凭证不存在"),
                 code="CREDENTIAL_NOT_FOUND",
             )
         return credential

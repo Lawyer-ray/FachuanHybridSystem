@@ -217,8 +217,14 @@ class ConversationService:
             创建的对话记录
         """
         # 保存到数据库
-        record = ConversationHistory.objects.create(
-            session_id=self.session_id, user_id=self.user_id, role="system", content=content, metadata=metadata or {}
+        record = self._repository.create(
+            session_id=self.session_id,
+            user_id=self.user_id,
+            role="system",
+            content=content,
+            metadata=metadata or {},
+            litigation_session_id=None,
+            step="",
         )
 
         # 添加到 LangChain 记忆(系统消息不加入对话记忆)
@@ -262,7 +268,7 @@ class ConversationService:
     def clear_history(self) -> None:
         """清除对话历史"""
         # 清除数据库记录
-        ConversationHistory.objects.filter(session_id=self.session_id).delete()
+        self._repository.delete_by_session_id(self.session_id)
 
         # 清除 LangChain 记忆
         if self._memory:
@@ -278,7 +284,7 @@ class ConversationService:
         Returns:
             对话记录列表
         """
-        return list(ConversationHistory.objects.filter(session_id=self.session_id).order_by("-created_at")[:limit])
+        return list(self._repository.get_by_session_id(self.session_id).order_by("-created_at")[:limit])
 
     def cleanup_old_conversations(self, days: int = 30) -> int:
         """
@@ -288,7 +294,7 @@ class ConversationService:
             days: 保留天数
         """
         cutoff_date = timezone.now() - timedelta(days=days)
-        deleted_count, _ = ConversationHistory.objects.filter(created_at__lt=cutoff_date).delete()
+        deleted_count, _ = self._repository.get_all().filter(created_at__lt=cutoff_date).delete()
         return deleted_count
 
     @classmethod
@@ -303,8 +309,10 @@ class ConversationService:
         Returns:
             会话信息列表
         """
+        repository = ConversationHistoryRepository()
         sessions = (
-            ConversationHistory.objects.filter(user_id=user_id)
+            repository.get_all()
+            .filter(user_id=user_id)
             .values("session_id")
             .annotate(last_message=models.Max("created_at"), message_count=models.Count("id"))
             .order_by("-last_message")[:limit]

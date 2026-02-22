@@ -113,6 +113,7 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin[DocumentTemplateFolder
     )
 
     autocomplete_fields: ClassVar[list[str]] = ["document_template", "folder_template"]
+    list_select_related: ClassVar[tuple[str, ...]] = ("document_template", "folder_template")
 
     readonly_fields = ("folder_node_path", "created_at", "updated_at")
 

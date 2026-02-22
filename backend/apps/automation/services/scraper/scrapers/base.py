@@ -3,9 +3,9 @@
 """
 
 import logging
-from datetime import datetime
 from typing import Any
 
+from django.utils import timezone
 from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.models import ScraperTask, ScraperTaskStatus
@@ -69,17 +69,18 @@ class BaseScraper:
         Returns:
             执行结果字典
         """
-        logger.info(f"开始执行任务 {self.task.id}: {self.task.get_task_type_display()}")
+        logger.info("开始执行任务 %s: %s", self.task.id, self.task.get_task_type_display())
 
         # 更新状态为执行中
         self.task.status = ScraperTaskStatus.RUNNING
-        self.task.started_at = datetime.now()
+        self.task.started_at = timezone.now()
         _safe_save_task(self.task)
 
         try:
             # 创建独立的浏览器上下文（启用反检测）
-            self.context = self.browser_service.create_context(use_anti_detection=True) # type: ignore
-            self.page = self.context.new_page() # type: ignore
+            self.context = self.browser_service.create_context(use_anti_detection=True)  # type: ignore[assignment]
+            assert self.context is not None
+            self.page = self.context.new_page()
 
             # 注入反检测脚本
             self.anti_detection.inject_stealth_script(self.page)
@@ -96,20 +97,20 @@ class BaseScraper:
             self.task.result = result
             self.task.error_message = None
 
-            logger.info(f"任务 {self.task.id} 执行成功")
+            logger.info("任务 %s 执行成功", self.task.id)
             return result
 
         except Exception as e:
             # 更新为失败状态
             self.task.status = ScraperTaskStatus.FAILED
             self.task.error_message = str(e)
-            logger.error(f"任务 {self.task.id} 执行失败: {e}", exc_info=True)
+            logger.error("任务 %s 执行失败: %s", self.task.id, e, exc_info=True)
             raise
 
         finally:
             # 清理资源
             self._cleanup()
-            self.task.finished_at = datetime.now()
+            self.task.finished_at = timezone.now()
             _safe_save_task(self.task)
 
     def _run(self) -> dict[str, Any]:
@@ -131,9 +132,9 @@ class BaseScraper:
                 self.page.close()
             if self.context:
                 self.context.close()
-            logger.info(f"任务 {self.task.id} 资源已清理")
+            logger.info("任务 %s 资源已清理", self.task.id)
         except Exception as e:
-            logger.warning(f"清理资源时出错: {e}")
+            logger.warning("清理资源时出错: %s", e)
 
     def navigate_to_url(self, timeout: int = 30000) -> None:
         """
@@ -142,8 +143,9 @@ class BaseScraper:
         Args:
             timeout: 超时时间（毫秒）
         """
-        logger.info(f"导航到: {self.task.url}")
-        self.page.goto(self.task.url, timeout=timeout, wait_until="domcontentloaded") # type: ignore
+        assert self.page is not None, "浏览器页面未初始化，请先调用 execute()"
+        logger.info("导航到: %s", self.task.url)
+        self.page.goto(self.task.url, timeout=timeout, wait_until="domcontentloaded")
 
     def wait_for_selector(self, selector: str, timeout: int = 10000) -> None:
         """
@@ -153,8 +155,9 @@ class BaseScraper:
             selector: CSS 选择器
             timeout: 超时时间（毫秒）
         """
-        logger.debug(f"等待元素: {selector}")
-        self.page.wait_for_selector(selector, timeout=timeout) # type: ignore
+        assert self.page is not None, "浏览器页面未初始化，请先调用 execute()"
+        logger.debug("等待元素: %s", selector)
+        self.page.wait_for_selector(selector, timeout=timeout)
 
     def screenshot(self, name: str = "screenshot") -> str:
         """
