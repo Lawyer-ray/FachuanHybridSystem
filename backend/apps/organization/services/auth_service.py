@@ -99,13 +99,15 @@ class AuthService:
         is_first_user = not Lawyer.objects.exists()
         allow_first_superuser = getattr(settings, "ALLOW_FIRST_USER_SUPERUSER", False)
 
-        if is_first_user and allow_first_superuser and not getattr(settings, "DEBUG", True):
-            expected_token = getattr(settings, "BOOTSTRAP_ADMIN_TOKEN", None)
-            if not bootstrap_token or bootstrap_token != expected_token:
-                raise PermissionDenied(
-                    message=_("需要 Bootstrap Token 才能注册第一个管理员"),
-                    code="BOOTSTRAP_FORBIDDEN",
-                )
+        if is_first_user and allow_first_superuser:
+            # 生产环境需要 bootstrap token
+            if not getattr(settings, "DEBUG", True):
+                expected_token = getattr(settings, "BOOTSTRAP_ADMIN_TOKEN", None)
+                if not bootstrap_token or bootstrap_token != expected_token:
+                    raise PermissionDenied(
+                        message=_("需要 Bootstrap Token 才能注册第一个管理员"),
+                        code="BOOTSTRAP_FORBIDDEN",
+                    )
             user = Lawyer.objects.create_user(
                 username=username,
                 password=password,

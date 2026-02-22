@@ -38,7 +38,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
     @property
     def mutation_service(self) -> "ContractMutationService":
         if self._get_mutation_service is None:
-            raise RuntimeError("ContractFinanceMutationService.mutation_service 未注入")
+            raise RuntimeError(_("ContractFinanceMutationService.mutation_service 未注入"))
         return self._get_mutation_service()
 
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
@@ -84,9 +84,9 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         touch_finance = any(k in update_data for k in finance_keys)
 
         if touch_finance and not confirm_finance:
-            raise ValidationException("关键财务操作需二次确认")
+            raise ValidationException(_("关键财务操作需二次确认"))
         if new_payments and not confirm_finance:
-            raise ValidationException("关键财务操作需二次确认")
+            raise ValidationException(_("关键财务操作需二次确认"))
 
         user_id = getattr(user, "id", None)
 

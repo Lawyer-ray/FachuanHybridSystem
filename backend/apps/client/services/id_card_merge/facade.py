@@ -28,7 +28,10 @@ class IdCardMergeService:
     SUPPORTED_EXTENSIONS: ClassVar = {".jpg", ".jpeg", ".png"}
     MIN_IMAGE_SIZE = 200
 
-    def merge_id_card(self, front_image: UploadedFile, back_image: UploadedFile) -> dict[str, Any]:
+    def _load_and_validate_images(
+        self, front_image: UploadedFile, back_image: UploadedFile
+    ) -> dict[str, Any] | tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+        """验证并加载正反面图片，失败返回错误 dict，成功返回 (front, back) 元组。"""
         for image, name in [(front_image, "正面"), (back_image, "反面")]:
             validation_error = self._validate_image_format(image)
             if validation_error:
@@ -44,26 +47,25 @@ class IdCardMergeService:
             size_error = self._validate_image_size(cv_image, name)
             if size_error:
                 return size_error
-        pdf_path = self._generate_pdf(front_cv_image, back_cv_image)
+        return (front_cv_image, back_cv_image)
+
+    def _success_result(self, pdf_path: str) -> dict[str, Any]:
         logger.info("身份证合并成功", extra={"pdf_path": pdf_path})
         return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
 
+    def merge_id_card(self, front_image: UploadedFile, back_image: UploadedFile) -> dict[str, Any]:
+        loaded = self._load_and_validate_images(front_image, back_image)
+        if isinstance(loaded, dict):
+            return loaded
+        front_cv_image, back_cv_image = loaded
+        pdf_path = self._generate_pdf(front_cv_image, back_cv_image)
+        return self._success_result(pdf_path)
+
     def merge_id_card_with_detection(self, front_image: UploadedFile, back_image: UploadedFile) -> dict[str, Any]:
-        for image, name in [(front_image, "正面"), (back_image, "反面")]:
-            validation_error = self._validate_image_format(image)
-            if validation_error:
-                logger.warning("%s图片格式验证失败", name, extra={"error": validation_error, "file_name": image.name})
-                return validation_error
-        front_cv_image = self._read_uploaded_image(front_image)
-        back_cv_image = self._read_uploaded_image(back_image)
-        if front_cv_image is None:
-            return {"success": False, "error": "INVALID_IMAGE_FORMAT", "message": "无法读取正面图片,请确保图片格式正确"}
-        if back_cv_image is None:
-            return {"success": False, "error": "INVALID_IMAGE_FORMAT", "message": "无法读取反面图片,请确保图片格式正确"}
-        for cv_image, name in [(front_cv_image, "正面"), (back_cv_image, "反面")]:
-            size_error = self._validate_image_size(cv_image, name)
-            if size_error:
-                return size_error
+        loaded = self._load_and_validate_images(front_image, back_image)
+        if isinstance(loaded, dict):
+            return loaded
+        front_cv_image, back_cv_image = loaded
         front_corners = self._detect_id_card(front_cv_image)
         back_corners = self._detect_id_card(back_cv_image)
         if front_corners is None or back_corners is None:
@@ -83,8 +85,7 @@ class IdCardMergeService:
         front_transformed = self._perspective_transform(front_cv_image, front_corners)
         back_transformed = self._perspective_transform(back_cv_image, back_corners)
         pdf_path = self._generate_pdf(front_transformed, back_transformed)
-        logger.info("身份证合并成功", extra={"pdf_path": pdf_path})
-        return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
+        return self._success_result(pdf_path)
 
     def merge_id_card_manual(
         self, front_image_path: str, back_image_path: str, front_corners: list[list[int]], back_corners: list[list[int]]

@@ -13,7 +13,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.client.models import Client, ClientIdentityDoc
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
     from django.forms import ModelForm
 
 logger = logging.getLogger("apps.client")

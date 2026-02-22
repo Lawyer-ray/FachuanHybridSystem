@@ -10,10 +10,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.services.reminder_service import ReminderService
-from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type
+from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type, normalize_target_id
 
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
@@ -95,7 +96,8 @@ class ReminderServiceAdapter:
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建合同提醒。"""
-        if not contract_id or not reminders:
+        normalized_contract_id: int | None = normalize_target_id(contract_id, field_name=_("合同ID"))
+        if normalized_contract_id is None or not reminders:
             return 0
 
         objs: list[Reminder] = []
@@ -113,7 +115,7 @@ class ReminderServiceAdapter:
 
             objs.append(
                 Reminder(
-                    contract_id=contract_id,
+                    contract_id=normalized_contract_id,
                     reminder_type=reminder_type,
                     content=content,
                     due_at=due_at,

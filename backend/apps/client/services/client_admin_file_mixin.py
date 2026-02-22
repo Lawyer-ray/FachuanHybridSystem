@@ -37,12 +37,10 @@ class ClientAdminFileMixin:
         return rel_path
 
     def _update_identity_doc(self, doc_id: int, file_path: str, admin_user: str) -> None:
-        from apps.client.models import ClientIdentityDoc
-
-        doc = ClientIdentityDoc.objects.get(id=doc_id)
+        doc = self.identity_doc_service.get_identity_doc(doc_id)
         old_path = doc.file_path
         doc.file_path = file_path
-        doc.save()
+        doc.save(update_fields=["file_path"])
         logger.info(
             "证件文档文件路径更新成功",
             extra={

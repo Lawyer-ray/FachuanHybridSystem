@@ -184,9 +184,9 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
     def _pick_best_rule(self, matched: Any) -> Any:
 
         def mode_rank(mode: str) -> int:
-            if mode == ProxyMatterRule.LegalStatusMatchMode.EXACT:
+            if mode == LegalStatusMatchMode.EXACT:
                 return 3
-            if mode == ProxyMatterRule.LegalStatusMatchMode.ALL:
+            if mode == LegalStatusMatchMode.ALL:
                 return 2
             return 1
 
@@ -232,10 +232,10 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             return True
         if not party_statuses:
             return False
-        mode = getattr(rule, "legal_status_match_mode", ProxyMatterRule.LegalStatusMatchMode.ANY)
-        if mode == ProxyMatterRule.LegalStatusMatchMode.EXACT:
+        mode = getattr(rule, "legal_status_match_mode", LegalStatusMatchMode.ANY)
+        if mode == LegalStatusMatchMode.EXACT:
             return rule_statuses == party_statuses
-        if mode == ProxyMatterRule.LegalStatusMatchMode.ALL:
+        if mode == LegalStatusMatchMode.ALL:
             return rule_statuses.issubset(party_statuses)
         return bool(rule_statuses & party_statuses)
 

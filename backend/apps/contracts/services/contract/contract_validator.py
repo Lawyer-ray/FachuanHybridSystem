@@ -1,8 +1,10 @@
-"""Business logic services."""
+"""合同验证器"""
 
 from __future__ import annotations
 
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import FeeMode
 from apps.core.business_config import BusinessConfig
@@ -10,7 +12,10 @@ from apps.core.exceptions import ValidationException
 
 
 class ContractValidator:
-    def __init__(self, config: BusinessConfig) -> None:
+    def __init__(self, config: BusinessConfig | None = None) -> None:
+        if config is None:
+            from apps.core.business_config import business_config
+            config = business_config
         self.config = config
 
     def validate_fee_mode(self, data: dict[str, Any]) -> None:
@@ -30,28 +35,28 @@ class ContractValidator:
                 validator(data, errors)
 
         if errors:
-            raise ValidationException("收费模式验证失败", errors=errors)
+            raise ValidationException(_("收费模式验证失败"), errors=errors)
 
     # 向后兼容（旧版 ContractHelpersMixin 使用下划线前缀）
     _validate_fee_mode = validate_fee_mode
 
     def _validate_fixed(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = "固定收费需填写金额"
+            errors["fixed_amount"] = _("固定收费需填写金额")
 
     def _validate_semi_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = "半风险需填写前期金额"
+            errors["fixed_amount"] = _("半风险需填写前期金额")
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = "半风险需填写风险比例"
+            errors["risk_rate"] = _("半风险需填写风险比例")
 
     def _validate_full_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = "全风险需填写风险比例"
+            errors["risk_rate"] = _("全风险需填写风险比例")
 
     def _validate_custom(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("custom_terms") or not str(data["custom_terms"]).strip():
-            errors["custom_terms"] = "自定义收费需填写条款文本"
+            errors["custom_terms"] = _("自定义收费需填写条款文本")
 
     def validate_stages(self, stages: list[str], case_type: str | None) -> list[str]:
         if not stages:
@@ -61,7 +66,7 @@ class ContractValidator:
         invalid = set(stages) - set(valid_stages)
         if invalid:
             raise ValidationException(
-                "无效的代理阶段", errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
+                _("无效的代理阶段"), errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
             )
 
         return stages

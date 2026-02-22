@@ -63,7 +63,7 @@ class ApiTrailingSlashMiddleware(MiddlewareMixin):
 def invalidate_user_org_cache(user_id: int) -> None:
     """
     使用户组织权限缓存失效
-    在用户团队变更时调用
+    在用户团队变更或案件授权变更时调用
 
     Args:
         user_id: 用户 ID
@@ -71,12 +71,5 @@ def invalidate_user_org_cache(user_id: int) -> None:
     cache.delete(CacheKeys.user_org_access(user_id))
 
 
-def invalidate_case_access_cache(user_id: int) -> None:
-    """
-    使用户案件访问授权缓存失效
-    在案件授权变更时调用
-
-    Args:
-        user_id: 用户 ID
-    """
-    cache.delete(CacheKeys.user_org_access(user_id))
+# 保持向后兼容
+invalidate_case_access_cache = invalidate_user_org_cache

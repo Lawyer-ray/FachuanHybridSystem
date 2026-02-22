@@ -174,7 +174,8 @@ class PropertyClueService:
         clue.delete()
 
         if file_paths:
-            transaction.on_commit(lambda: [delete_media_file(p) for p in file_paths])
+            paths_snapshot = list(file_paths)
+            transaction.on_commit(lambda paths=paths_snapshot: [delete_media_file(p) for p in paths])
 
         logger.info(
             "财产线索删除成功",
@@ -272,7 +273,7 @@ class PropertyClueService:
         attachment.delete()
 
         if file_path:
-            transaction.on_commit(lambda: delete_media_file(file_path))
+            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))
 
         logger.info(
             "财产线索附件删除成功",

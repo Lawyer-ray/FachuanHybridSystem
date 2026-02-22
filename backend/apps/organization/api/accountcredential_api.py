@@ -69,7 +69,7 @@ def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpda
     user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.update_credential(
         credential_id=cred_id,
-        data=payload.dict(exclude_unset=True),
+        data=payload.model_dump(exclude_unset=True),
         user=user,
     )
 

@@ -48,6 +48,7 @@ except ModuleNotFoundError:
 
 
 from apps.core.models import ConversationHistory
+from apps.core.repositories.conversation_repository import ConversationHistoryRepository
 
 
 class _SimpleChatMemory:
@@ -91,17 +92,24 @@ class ConversationService:
     提供基于 LangChain 的对话记忆功能,支持多轮对话的上下文管理.
     """
 
-    def __init__(self, session_id: str | None = None, user_id: str | None = None) -> None:
+    def __init__(
+        self,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        repository: ConversationHistoryRepository | None = None,
+    ) -> None:
         """
         初始化对话服务
 
         Args:
             session_id: 会话ID(可选,自动生成)
             user_id: 用户ID(可选)
+            repository: 对话历史仓库(可选,用于依赖注入)
         """
         self.session_id = session_id or self._generate_session_id()
         self.user_id = user_id or ""
         self._memory: Any | None = None
+        self._repository = repository or ConversationHistoryRepository()
 
     def _generate_session_id(self) -> str:
         """生成会话ID"""
@@ -132,9 +140,7 @@ class ConversationService:
         if self._memory is None:
             return
 
-        history = ConversationHistory.objects.filter(session_id=self.session_id).order_by("created_at")[
-            :20
-        ]  # 最近20条记录
+        history = self._repository.get_by_session(self.session_id, limit=20)
 
         for record in history:
             if record.role == "user":
@@ -161,8 +167,12 @@ class ConversationService:
             创建的对话记录
         """
         # 保存到数据库
-        record = ConversationHistory.objects.create(
-            session_id=self.session_id, user_id=self.user_id, role="user", content=content, metadata=metadata or {}
+        record = self._repository.create(
+            session_id=self.session_id,
+            user_id=self.user_id,
+            role="user",
+            content=content,
+            metadata=metadata or {},
         )
 
         # 添加到 LangChain 记忆
@@ -182,8 +192,12 @@ class ConversationService:
             创建的对话记录
         """
         # 保存到数据库
-        record = ConversationHistory.objects.create(
-            session_id=self.session_id, user_id=self.user_id, role="assistant", content=content, metadata=metadata or {}
+        record = self._repository.create(
+            session_id=self.session_id,
+            user_id=self.user_id,
+            role="assistant",
+            content=content,
+            metadata=metadata or {},
         )
 
         # 添加到 LangChain 记忆
