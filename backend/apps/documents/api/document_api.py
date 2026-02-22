@@ -73,7 +73,7 @@ def update_document_template(request: Any, template_id: int, payload: DocumentTe
     return template
 
 
-@router.delete("/templates/{template_id}")
+@router.delete("/templates/{template_id}", response=dict[str, Any])
 def delete_document_template(request: Any, template_id: int) -> Any:
     """删除文件模板(软删除)"""
     service = _get_template_service()

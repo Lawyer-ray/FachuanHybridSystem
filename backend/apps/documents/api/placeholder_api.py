@@ -96,7 +96,7 @@ def update_placeholder(request: Any, placeholder_id: int, payload: PlaceholderUp
     )
 
 
-@router.delete("/placeholders/{placeholder_id}")
+@router.delete("/placeholders/{placeholder_id}", response=dict[str, Any])
 def delete_placeholder(request: Any, placeholder_id: int) -> Any:
     """删除替换词(软删除)"""
     service = _get_placeholder_service()

@@ -47,7 +47,7 @@ class DefenseRequest(Schema):
     case_id: int | None = None
 
 
-@router.post("/litigation/complaint/generate")
+@router.post("/litigation/complaint/generate", response=dict[str, Any])
 def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
     """
     生成起诉状
@@ -82,7 +82,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
     return {"success": True, "data": result.model_dump(), "duration_ms": duration_ms}
 
 
-@router.post("/litigation/defense/generate")
+@router.post("/litigation/defense/generate", response=dict[str, Any])
 def generate_defense(request: Any, data: DefenseRequest) -> Any:
     """
     生成答辩状

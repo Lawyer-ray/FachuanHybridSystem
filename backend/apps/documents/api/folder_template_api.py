@@ -71,7 +71,7 @@ def update_folder_template(request: Any, template_id: int, payload: FolderTempla
     return template
 
 
-@router.delete("/folder-templates/{template_id}")
+@router.delete("/folder-templates/{template_id}", response=dict[str, Any])
 def delete_folder_template(request: Any, template_id: int) -> Any:
     """删除文件夹模板(软删除)"""
     service = _get_folder_template_service()
@@ -79,7 +79,7 @@ def delete_folder_template(request: Any, template_id: int) -> Any:
     return {"success": True, "message": "文件夹模板已删除"}
 
 
-@router.post("/folder-templates/{template_id}/validate")
+@router.post("/folder-templates/{template_id}/validate", response=dict[str, Any])
 def validate_folder_structure(request: Any, template_id: int) -> Any:
     """验证文件夹模板结构"""
     service = _get_folder_template_service()
