@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import tempfile
 from typing import Any
 
 from django.utils import timezone
@@ -15,7 +14,9 @@ logger = logging.getLogger("apps.chat_records")
 
 def export_chat_record_task(task_id: str) -> Any:
     from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
-    from apps.chat_records.services.export_service import ExportLayout, ExportService
+    from apps.chat_records.services.export_service import ExportService
+    from apps.chat_records.services.export_task_service import ExportTaskService
+    from apps.chat_records.services.export_types import ExportLayout
 
     try:
         task = ChatRecordExportTask.objects.select_related("project").get(id=task_id)
@@ -23,42 +24,39 @@ def export_chat_record_task(task_id: str) -> Any:
         logger.error("导出任务不存在", extra={"task_id": task_id})
         return {"task_id": task_id, "status": "failed", "error": "导出任务不存在"}
 
+    export_task_svc = ExportTaskService.__new__(ExportTaskService)
+
     try:
         screenshots = list(task.project.screenshots.all().order_by("ordering", "created_at"))
         if not screenshots:
             raise ValidationException("没有截图,无法导出")
 
-        layout = ExportLayout.from_payload(task.export_type, task.layout or {})
+        layout = ExportLayout.from_payload(
+            task.export_type,
+            task.layout or {},
+            default_header_text=task.project.name,
+        )
 
-        ChatRecordExportTask.objects.filter(id=task.id).update(
+        export_task_svc.update_export_progress(
+            task_id=task_id,
             status=ExportStatus.RUNNING,
-            started_at=timezone.now(),
-            finished_at=None,
-            error="",
-            message="开始生成文件",
             progress=0,
             current=0,
             total=len(screenshots),
-            updated_at=timezone.now(),
+            message="开始生成文件",
         )
 
         def on_progress(current: int, total: int, message: str) -> Any:
             progress = int(current * 100 / total) if total else 0
-            ChatRecordExportTask.objects.filter(id=task.id).update(
+            export_task_svc.update_export_progress(
+                task_id=task_id,
                 progress=progress,
                 current=current,
                 total=total,
                 message=message,
-                updated_at=timezone.now(),
             )
 
         export_service = ExportService()
-        header_text = layout.header_text or task.project.name
-        layout = ExportLayout(
-            images_per_page=layout.images_per_page,
-            show_page_number=layout.show_page_number,
-            header_text=header_text,
-        )
 
         if task.export_type == ExportType.PDF:
             filename = f"梳理聊天记录_{task.project.id}.pdf"
@@ -101,12 +99,12 @@ def export_chat_record_task(task_id: str) -> Any:
         return {"task_id": task_id, "status": "success", "export_type": task.export_type}
     except Exception as e:
         logger.error("导出失败", extra={"task_id": task_id, "error": str(e)}, exc_info=True)
-        ChatRecordExportTask.objects.filter(id=task_id).update(
+        export_task_svc.update_export_progress(
+            task_id=task_id,
             status=ExportStatus.FAILED,
             error=str(e),
             message="生成失败",
             finished_at=timezone.now(),
-            updated_at=timezone.now(),
         )
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
@@ -115,6 +113,8 @@ def extract_recording_frames_task(
     recording_id: str,
     interval_seconds: float = 1.0,
 ) -> dict[str, Any]:
+    import tempfile
+
     from django.db.models import Max
 
     from apps.chat_records.models import (
