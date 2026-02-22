@@ -21,7 +21,8 @@ class ReminderType(models.TextChoices):
 
 class Reminder(models.Model):
     id: int
-    contract_id: int  # 外键ID字段
+    contract_id: int | None  # ForeignKey ID 字段，可为 null
+    case_log_id: int | None  # ForeignKey ID 字段，可为 null
     contract = models.ForeignKey(
         "contracts.Contract",
         on_delete=models.CASCADE,
