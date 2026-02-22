@@ -11,10 +11,9 @@ from django.utils import timezone
 
 from apps.chat_records.models import ChatRecordRecording, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.tasking import TaskContext
+from apps.core.tasking import TaskContext, TaskSubmissionService
 
 from .access_policy import ensure_can_access_project
-from .wiring import get_task_submission_service
 
 
 @dataclass(frozen=True)
@@ -27,6 +26,9 @@ class RecordingExtractParams:
 
 
 class RecordingExtractFacade:
+    def __init__(self, *, task_submission_service: TaskSubmissionService) -> None:
+        self._task_submission_service = task_submission_service
+
     @transaction.atomic
     def submit(self, *, user: Any, recording_id: str, params: RecordingExtractParams) -> ChatRecordRecording:
         from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
@@ -60,7 +62,7 @@ class RecordingExtractFacade:
 
         task_timeout = 1800 if str(params.strategy or "").strip().lower() == "ocr" else None
         task_name = f"chat_records_extract_{recording.id}"
-        get_task_submission_service().submit(
+        self._task_submission_service.submit(
             "apps.chat_records.tasks.extract_recording_frames_task",
             args=(str(recording.id), float(params.interval_seconds or 1.0)),
             task_name=task_name,

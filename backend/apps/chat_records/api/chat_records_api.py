@@ -52,6 +52,13 @@ def _get_recording_service() -> RecordingService:
     return RecordingService(project_service=_get_project_service())
 
 
+def _get_recording_extract_facade() -> "RecordingExtractFacade":
+    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
+    from apps.core.dependencies.core import build_task_submission_service
+
+    return RecordingExtractFacade(task_submission_service=build_task_submission_service())
+
+
 @router.get("/export-types")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def get_export_types(request: Any) -> Any:
@@ -146,9 +153,9 @@ def extract_recording(
     ocr_similarity_threshold: float | None = Form(None),
     ocr_min_new_chars: int | None = Form(None),
 ) -> Any:
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
+    from apps.chat_records.services.recording_extract_facade import RecordingExtractParams
 
-    facade = RecordingExtractFacade()
+    facade = _get_recording_extract_facade()
     return facade.submit(
         user=getattr(request, "user", None),
         recording_id=recording_id,
@@ -165,17 +172,13 @@ def extract_recording(
 @router.post("/recordings/{recording_id}/extract/cancel", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
 def cancel_extract_recording(request: Any, recording_id: str) -> Any:
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
-
-    return RecordingExtractFacade().request_cancel(user=getattr(request, "user", None), recording_id=recording_id)
+    return _get_recording_extract_facade().request_cancel(user=getattr(request, "user", None), recording_id=recording_id)
 
 
 @router.post("/recordings/{recording_id}/extract/reset", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
 def reset_extract_recording(request: Any, recording_id: str) -> Any:
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
-
-    return RecordingExtractFacade().reset(user=getattr(request, "user", None), recording_id=recording_id)
+    return _get_recording_extract_facade().reset(user=getattr(request, "user", None), recording_id=recording_id)
 
 
 @router.get("/projects/{project_id}/screenshots", response=list[ScreenshotOut])

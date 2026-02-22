@@ -1,14 +1,7 @@
 """当事人批量查询服务。"""
 
-from typing import Any
-
-from django.contrib.auth import get_user_model
-
 from apps.client.models import Client
 from apps.client.services.client_internal_query_service import ClientInternalQueryService
-
-User = get_user_model()
-
 
 class ClientBatchQueryService:
     def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:
@@ -20,5 +13,5 @@ class ClientBatchQueryService:
             self._internal_query_service = ClientInternalQueryService()
         return self._internal_query_service
 
-    def get_clients_by_ids(self, *, client_ids: list[int], user: Any | None = None) -> list[Client]:
+    def get_clients_by_ids(self, *, client_ids: list[int]) -> list[Client]:
         return self.internal_query_service.get_clients_by_ids(client_ids=client_ids)
