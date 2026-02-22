@@ -109,11 +109,7 @@ class PropertyClueAttachmentOut(Schema):
 
     @staticmethod
     def resolve_media_url(obj: Any) -> str | None:
-        """解析附件的媒体 URL。"""
-        if hasattr(obj, "media_url"):
-            result: str | None = obj.media_url
-            return result
-        return None
+        return obj.media_url if hasattr(obj, "media_url") else None
 
 
 class PropertyClueIn(Schema):
@@ -144,15 +140,12 @@ class PropertyClueOut(Schema):
 
     @staticmethod
     def resolve_clue_type_label(obj: Any) -> str:
-        """解析线索类型显示名。"""
         if hasattr(obj, "get_clue_type_display"):
-            result: str = obj.get_clue_type_display()
-            return result
+            return obj.get_clue_type_display()
         return str(getattr(obj, "clue_type", ""))
 
     @staticmethod
     def resolve_attachments(obj: Any) -> list[PropertyClueAttachmentOut]:
-        """解析财产线索附件列表。"""
         if not hasattr(obj, "attachments"):
             return []
         return [
