@@ -9,12 +9,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.services.reminder_service import ReminderService
-from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type, normalize_target_id
+from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type, normalize_target_id, validate_fk_exists
 
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
@@ -57,7 +56,7 @@ class ReminderServiceAdapter:
             reminder = self._service.create_reminder(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
-                content=str(reminder_type_label),
+                content=normalize_content(str(reminder_type_label)),
                 due_at=reminder_time,
                 metadata=metadata,
             )
@@ -100,6 +99,8 @@ class ReminderServiceAdapter:
         if normalized_contract_id is None or not reminders:
             return 0
 
+        validate_fk_exists(contract_id=normalized_contract_id, case_log_id=None)
+
         objs: list[Reminder] = []
         for item in reminders:
             try:
@@ -135,8 +136,8 @@ class ReminderServiceAdapter:
 
         return ReminderDTO(
             id=reminder.pk,
-            case_log_id=reminder.case_log_id if reminder.case_log_id else None,
-            contract_id=reminder.contract_id if reminder.contract_id else None,
+            case_log_id=reminder.case_log_id,
+            contract_id=reminder.contract_id,
             reminder_type=str(reminder.reminder_type),
             reminder_time=reminder.due_at.isoformat() if reminder.due_at else "",
             is_completed=False,

@@ -58,6 +58,8 @@ def get_reminder(request: Any, reminder_id: int) -> Any:
 def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> Any:
     service = _get_service()
     data = schema_to_update_dict(payload)
+    if "reminder_type" in data and data["reminder_type"] is not None:
+        data["reminder_type"] = data["reminder_type"].value
     return service.update_reminder(reminder_id, data)
 
 

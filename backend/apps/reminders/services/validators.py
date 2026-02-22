@@ -12,7 +12,7 @@ from apps.core.exceptions import ValidationException
 from apps.reminders.models import ReminderType
 
 
-def normalize_target_id(value: int | None, *, field_name: str) -> int | None:
+def normalize_target_id(value: int | None, *, field_name: str | Any) -> int | None:
     if value is None:
         return None
     if not isinstance(value, int) or value <= 0:

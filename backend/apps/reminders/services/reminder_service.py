@@ -36,9 +36,9 @@ class ReminderService:
 
         qs = Reminder.objects.all().select_related("contract", "case_log").order_by("-due_at", "-id")
 
-        if contract_id:
+        if contract_id is not None:
             qs = qs.filter(contract_id=contract_id)
-        if case_log_id:
+        if case_log_id is not None:
             qs = qs.filter(case_log_id=case_log_id)
 
         return qs
@@ -111,7 +111,7 @@ class ReminderService:
             reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
         if "content" in data and data["content"] is not None:
             reminder.content = normalize_content(data["content"])
-        if "metadata" in data and data["metadata"] is not None:
+        if "metadata" in data:
             reminder.metadata = normalize_metadata(data["metadata"])
         if "due_at" in data and data["due_at"] is not None:
             reminder.due_at = normalize_due_at(data["due_at"])
@@ -123,6 +123,8 @@ class ReminderService:
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""
+        if case_log_id is None:
+            raise ValidationException(_("案件日志ID 不能为空"))
         return set(
             Reminder.objects.filter(
                 case_log_id=case_log_id,
