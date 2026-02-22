@@ -1,37 +1,33 @@
 """
 客户服务层
-处理客户相关的业务逻辑
+处理客户相关的业务逻辑（只读操作）
 """
 
 from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-from django.contrib.auth import get_user_model
-from django.db import transaction
 from django.db.models import Q, QuerySet
 
 from apps.core.config import get_config
-from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.core.exceptions import NotFoundError
 
 from apps.client.models import Client
 
 if TYPE_CHECKING:
     from .client_identity_doc_service import ClientIdentityDocService
 
-User = get_user_model()
 logger = logging.getLogger("apps.client")
 
 
 class ClientService:
     """
-    客户服务
+    客户服务（只读）
 
     职责：
-    1. 封装客户相关的所有业务逻辑
-    2. 管理数据库事务
-    3. 执行权限检查
-    4. 优化数据库查询
+    1. 封装客户查询相关的业务逻辑
+    2. 优化数据库查询
+    写操作请使用 ClientMutationService
     """
 
     def __init__(self, identity_doc_service: Optional["ClientIdentityDocService"] = None):
@@ -85,7 +81,7 @@ class ClientService:
             page_size = max_page_size
 
         if not isinstance(page_size, int):
-            page_size = int(page_size) # type: ignore
+            page_size = int(page_size)  # type: ignore
 
         # 1. 构建基础查询（使用 prefetch_related 优化）
         queryset = Client.objects.prefetch_related("identity_docs").order_by("-id")
@@ -122,7 +118,6 @@ class ClientService:
         Raises:
             NotFoundError: 客户不存在
         """
-        # 1. 查询客户（使用 prefetch_related 优化）
         client: Client | None = Client.objects.prefetch_related("identity_docs").filter(id=client_id).first()
 
         if not client:
@@ -180,214 +175,3 @@ class ClientService:
         from .text_parser import parse_client_text
 
         return parse_client_text(text)
-
-    @transaction.atomic
-    def create_client(self, data: dict[str, Any], user: Any = None) -> Client:
-        """
-        创建客户
-
-        Args:
-            data: 客户数据
-            user: 当前用户
-
-        Returns:
-            创建的客户对象
-
-        Raises:
-            ValidationException: 数据验证失败
-            PermissionDenied: 权限不足
-        """
-        # 1. 权限检查
-        if user and not self._check_create_permission(user):
-            logger.warning(
-                f"用户 {user.id} 尝试创建客户但权限不足", extra={"user_id": user.id, "action": "create_client"}
-            )
-            raise PermissionDenied(message=_("无权限创建客户"), code="PERMISSION_DENIED")
-
-        # 2. 业务验证
-        self._validate_create_data(data)
-
-        # 3. 创建客户
-        client = Client.objects.create(**data)
-
-        # 4. 记录日志
-        logger.info(
-            "客户创建成功",
-            extra={
-                "client_id": client.id,
-                "user_id": user.id if user else None,
-                "action": "create_client",
-            },
-        )
-
-        return client
-
-    @transaction.atomic
-    def update_client(
-        self,
-        client_id: int,
-        data: dict[str, Any],
-        user: Any = None,
-    ) -> Client:
-        """
-        更新客户
-
-        Args:
-            client_id: 客户 ID
-            data: 更新数据
-            user: 当前用户
-
-        Returns:
-            更新后的客户对象
-
-        Raises:
-            NotFoundError: 客户不存在
-            PermissionDenied: 权限不足
-            ValidationException: 数据验证失败
-        """
-        # 1. 获取客户
-        client = self.get_client(client_id, user)
-
-        # 2. 权限检查
-        if user and not self._check_update_permission(user, client):
-            logger.warning(
-                f"用户 {user.id} 尝试更新客户 {client_id} 但权限不足",
-                extra={"user_id": user.id, "client_id": client_id, "action": "update_client"},
-            )
-            raise PermissionDenied(message=_("无权限更新该客户"), code="PERMISSION_DENIED")
-
-        # 3. 业务验证
-        self._validate_update_data(client, data)
-
-        # 4. 更新字段
-        for key, value in data.items():
-            if hasattr(client, key):
-                setattr(client, key, value)
-
-        client.save()
-
-        # 5. 记录日志
-        logger.info(
-            "客户更新成功",
-            extra={
-                "client_id": client.id,
-                "user_id": user.id if user else None,
-                "action": "update_client",
-            },
-        )
-
-        return client
-
-    @transaction.atomic
-    def delete_client(self, client_id: int, user: Any = None) -> None:
-        """
-        删除客户
-
-        Args:
-            client_id: 客户 ID
-            user: 当前用户
-
-        Raises:
-            NotFoundError: 客户不存在
-            PermissionDenied: 权限不足
-        """
-        # 1. 获取客户
-        client = self.get_client(client_id, user)
-
-        # 2. 权限检查
-        if user and not self._check_delete_permission(user, client):
-            logger.warning(
-                f"用户 {user.id} 尝试删除客户 {client_id} 但权限不足",
-                extra={"user_id": user.id, "client_id": client_id, "action": "delete_client"},
-            )
-            raise PermissionDenied(message=_("无权限删除该客户"), code="PERMISSION_DENIED")
-
-        # 3. 删除客户
-        client.delete()
-
-        # 4. 记录日志
-        logger.info(
-            "客户删除成功",
-            extra={
-                "client_id": client_id,
-                "user_id": user.id if user else None,
-                "action": "delete_client",
-            },
-        )
-
-    # ========== 私有方法（业务逻辑封装） ==========
-
-    def _check_create_permission(self, user: Any) -> bool:
-        """检查创建权限（私有方法）"""
-        return bool(
-            user.is_authenticated
-            and (user.has_perm("client.add_client") or getattr(user, "is_admin", False) or user.is_superuser)
-        )
-
-    def _check_update_permission(self, user: Any, client: Client) -> bool:
-        """检查更新权限（私有方法）"""
-        return bool(
-            user.is_authenticated
-            and (user.has_perm("client.change_client") or getattr(user, "is_admin", False) or user.is_superuser)
-        )
-
-    def _check_delete_permission(self, user: Any, client: Client) -> bool:
-        """检查删除权限（私有方法）"""
-        return bool(
-            user.is_authenticated
-            and (user.has_perm("client.delete_client") or getattr(user, "is_admin", False) or user.is_superuser)
-        )
-
-    def _validate_create_data(self, data: dict[str, Any]) -> None:
-        """验证创建数据（私有方法）"""
-        # 验证必填字段
-        if not data.get("name"):
-            raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
-            )
-
-        # 验证客户类型
-        valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
-        if data.get("client_type") not in valid_types:
-            raise ValidationException(
-                message=_("无效的客户类型"),
-                code="INVALID_CLIENT_TYPE",
-                errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
-            )
-
-        # 验证法人必须有法定代表人
-        if data.get("client_type") == Client.LEGAL and not data.get("legal_representative"):
-            raise ValidationException(
-                message=_("法人客户必须填写法定代表人"),
-                code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": "法人客户必须填写法定代表人"},
-            )
-
-    def _validate_update_data(self, client: Client, data: dict[str, Any]) -> None:
-        """验证更新数据（私有方法）"""
-        # 验证名称
-        if "name" in data and not data["name"]:
-            raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": "客户名称不能为空"}
-            )
-
-        # 验证客户类型
-        if "client_type" in data:
-            valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
-            if data["client_type"] not in valid_types:
-                raise ValidationException(
-                    message=_("无效的客户类型"),
-                    code="INVALID_CLIENT_TYPE",
-                    errors={"client_type": f"客户类型必须是: {', '.join(valid_types)}"},
-                )
-
-        # 验证法人必须有法定代表人
-        client_type = data.get("client_type", client.client_type)
-        legal_rep = data.get("legal_representative", client.legal_representative)
-        if client_type == Client.LEGAL and not legal_rep:
-            raise ValidationException(
-                message=_("法人客户必须填写法定代表人"),
-                code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": "法人客户必须填写法定代表人"},
-            )
-
