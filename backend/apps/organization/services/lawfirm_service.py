@@ -23,18 +23,9 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawFirmService:
-    """
-    律所服务
-
-    职责：
-    1. 封装律所相关的所有业务逻辑
-    2. 管理数据库事务
-    3. 执行权限检查
-    4. 协调多个 Model 操作
-    """
+    """律所服务，封装律所相关的所有业务逻辑。"""
 
     def __init__(self) -> None:
-        """初始化服务"""
         self._access_policy = OrganizationAccessPolicy()
 
     def get_lawfirm_queryset(self) -> "QuerySet[LawFirm, LawFirm]":
