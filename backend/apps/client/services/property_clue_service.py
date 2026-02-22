@@ -74,6 +74,7 @@ class PropertyClueService:
         self._validate_clue_type(clue_type)
 
         clue = PropertyClue.objects.create(client=client, clue_type=clue_type, content=data.get("content", ""))
+        clue = PropertyClue.objects.prefetch_related("attachments").get(pk=clue.pk)
 
         logger.info(
             "财产线索创建成功",
