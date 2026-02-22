@@ -3,6 +3,8 @@
 符合三层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from django.utils.dateparse import parse_date
