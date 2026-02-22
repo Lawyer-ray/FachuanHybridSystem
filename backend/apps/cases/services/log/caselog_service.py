@@ -33,9 +33,6 @@ class CaseLogService:
     - 版本历史管理
     """
 
-    ALLOWED_EXTENSIONS = CASE_LOG_ALLOWED_EXTENSIONS
-    MAX_FILE_SIZE = CASE_LOG_MAX_FILE_SIZE
-
     def __init__(
         self,
         case_service: ICaseService | None = None,
