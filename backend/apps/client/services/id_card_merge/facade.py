@@ -31,7 +31,7 @@ class IdCardMergeService:
         for image, name in [(front_image, "正面"), (back_image, "反面")]:
             validation_error = self._validate_image_format(image)
             if validation_error:
-                logger.warning(f"{name}图片格式验证失败", extra={"error": validation_error, "file_name": image.name})
+                logger.warning("%s图片格式验证失败", name, extra={"error": validation_error, "file_name": image.name})
                 return validation_error
         front_cv_image = self._read_uploaded_image(front_image)
         back_cv_image = self._read_uploaded_image(back_image)
@@ -51,7 +51,7 @@ class IdCardMergeService:
         for image, name in [(front_image, "正面"), (back_image, "反面")]:
             validation_error = self._validate_image_format(image)
             if validation_error:
-                logger.warning(f"{name}图片格式验证失败", extra={"error": validation_error, "file_name": image.name})
+                logger.warning("%s图片格式验证失败", name, extra={"error": validation_error, "file_name": image.name})
                 return validation_error
         front_cv_image = self._read_uploaded_image(front_image)
         back_cv_image = self._read_uploaded_image(back_image)
@@ -91,14 +91,14 @@ class IdCardMergeService:
         for label, corners in [("正面", front_corners), ("反面", back_corners)]:
             validation = self._validate_corners(corners)
             if validation is not None:
-                logger.warning(f"{label}四角坐标无效", extra={"corners": corners, "reason": validation})
+                logger.warning("%s四角坐标无效", label, extra={"corners": corners, "reason": validation})
                 return {"success": False, "error": "INVALID_CORNERS", "message": f"{label}四角坐标无效: {validation}"}
         media_root = get_media_root()
         front_full_path, front_rel_path = self._resolve_image_path(front_image_path, media_root)
         back_full_path, back_rel_path = self._resolve_image_path(back_image_path, media_root)
         for label, full_path in [("正面", front_full_path), ("反面", back_full_path)]:
             if not full_path.exists():
-                logger.warning(f"{label}图片不存在", extra={"path": str(full_path)})
+                logger.warning("%s图片不存在", label, extra={"path": str(full_path)})
                 return {"success": False, "error": "INVALID_CORNERS", "message": f"{label}图片不存在,请重新上传"}
         front_cv_image = cv2.imread(str(front_full_path))
         back_cv_image = cv2.imread(str(back_full_path))

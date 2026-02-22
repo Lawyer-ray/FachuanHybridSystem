@@ -127,7 +127,8 @@ class ClientAdminService(ClientAdminFileMixin):
         except Exception as e:
             # 记录错误日志
             logger.error(
-                f"JSON 导入客户失败: {e!s}",
+                "JSON 导入客户失败: %s",
+                e,
                 extra={"admin_user": admin_user, "action": "import_from_json", "error": str(e)},
             )
             return ImportResult(success=False, error_message=f"导入失败: {e!s}")
@@ -285,7 +286,8 @@ class ClientAdminService(ClientAdminFileMixin):
         except Exception as e:
             # 记录错误日志
             logger.error(
-                f"表单集文件处理失败: {e!s}",
+                "表单集文件处理失败: %s",
+                e,
                 extra={
                     "client_id": client_id,
                     "admin_user": admin_user,
