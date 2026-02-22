@@ -2,14 +2,6 @@
 
 from __future__ import annotations
 
-"""
-文书生成系统 Django Signals
-
-实现模板修改的审计日志自动记录.
-
-Requirements: 6.6
-"""
-
 import logging
 import threading
 from typing import Any

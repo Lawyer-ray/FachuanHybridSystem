@@ -3,14 +3,6 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-"""
-证据导出服务
-
-提供证据清单和证据明细的 Word 文档导出功能.
-
-Requirements: 8.1-8.10, 10.1-10.5, 6.1-6.4
-"""
-
 import io
 from datetime import datetime
 from typing import TYPE_CHECKING, Any

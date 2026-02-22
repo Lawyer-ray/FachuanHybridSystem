@@ -4,15 +4,6 @@ from __future__ import annotations
 
 import logging
 
-"""
-文档服务适配器
-
-实现 IDocumentService 接口,供其他模块(如合同模块、案件模块)调用.
-使用延迟导入避免循环依赖.
-
-Requirements: 2.1, 2.2, 4.4, 6.1, 6.2, 7.1
-"""
-
 from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.dtos import DocumentTemplateDTO

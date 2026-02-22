@@ -1,8 +1,6 @@
 """Django app configuration."""
 
 from __future__ import annotations
-
-"\nDocuments App 配置\n"
 import logging
 import sys
 from typing import Any

@@ -4,14 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-"""
-证据清单 Admin 服务
-
-封装 Admin 层的证据清单操作.
-
-Requirements: 11.5, 12.3
-"""
-
 from apps.documents.services.evidence_export_service import EvidenceExportService
 from apps.documents.services.evidence_service import EvidenceService
 from apps.documents.services.pdf_merge_service import PDFMergeService

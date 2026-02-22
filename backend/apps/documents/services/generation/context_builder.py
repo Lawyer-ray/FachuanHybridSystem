@@ -2,16 +2,6 @@
 
 from __future__ import annotations
 
-"""
-上下文构建器
-
-从数据库提取数据并构建替换词上下文字典.
-使用 EnhancedContextBuilder 进行占位符服务调用,
-同时保留直接构建上下文的能力以支持向后兼容.
-
-注意:此类主要用于向后兼容,新代码应优先使用 EnhancedContextBuilder.
-"""
-
 import logging
 from datetime import date
 from decimal import Decimal

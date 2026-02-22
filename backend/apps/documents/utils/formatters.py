@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-"""
-通用格式化工具
-
-提供日期、货币、百分比等通用格式化方法.
-"""
-
 import logging
 from datetime import date
 from decimal import Decimal

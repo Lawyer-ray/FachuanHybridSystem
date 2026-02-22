@@ -5,14 +5,6 @@ from django.utils.translation import gettext_lazy as _
 
 import logging
 
-"""
-Prompt 版本管理服务
-
-本模块提供 Prompt 模板版本的管理功能,包括版本激活、加载等.
-
-Requirements: 5.3, 5.4, 5.5
-"""
-
 
 from typing import TYPE_CHECKING, Any
 

@@ -2,13 +2,6 @@
 
 from __future__ import annotations
 
-"""
-生成器注册表
-
-管理所有可用的文书生成器,支持自动发现和手动注册.
-实现单例模式,确保全局唯一的注册表实例.
-"""
-
 
 import importlib
 import logging

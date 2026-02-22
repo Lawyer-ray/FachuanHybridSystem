@@ -3,12 +3,6 @@
 from __future__ import annotations
 
 
-"""
-证据文件存储
-
-自定义存储类,保留中文文件名中的特殊字符(如括号)
-"""
-
 import re
 
 from django.core.files.storage import FileSystemStorage
