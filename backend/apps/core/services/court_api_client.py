@@ -158,9 +158,7 @@ class CourtApiClient:
                     response_text = ""
                     try:
                         response_text = e.response.text
-                    except Exception:
-                        logger.exception("操作失败")
-
+                    except (AttributeError, UnicodeDecodeError):
                         response_text = "<无法读取响应体>"
 
                     logger.error(f"{case_type}案由 API 请求失败: HTTP {e.response.status_code}")

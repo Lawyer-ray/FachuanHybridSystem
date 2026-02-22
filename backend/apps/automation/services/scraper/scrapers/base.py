@@ -176,11 +176,12 @@ class BaseScraper:
         screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
         screenshot_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{name}_{self.task.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = screenshot_dir / filename
 
-        self.page.screenshot(path=str(filepath)) # type: ignore
-        logger.info(f"截图已保存: {filepath}")
+        assert self.page is not None, "浏览器页面未初始化，请先调用 execute()"
+        self.page.screenshot(path=str(filepath))
+        logger.info("截图已保存: %s", filepath)
 
         return str(filepath)
 

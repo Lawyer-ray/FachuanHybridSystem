@@ -19,6 +19,6 @@ def get_current_trace_ids() -> tuple[str | None, str | None]:
         return f"{context.trace_id:032x}", f"{context.span_id:016x}"
     except ModuleNotFoundError:
         return None, None
-    except Exception:
-        logger.exception("操作失败")
+    except (AttributeError, ValueError):
+        logger.warning("获取 trace ID 失败")
         return None, None

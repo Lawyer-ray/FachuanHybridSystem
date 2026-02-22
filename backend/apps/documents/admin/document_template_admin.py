@@ -540,26 +540,26 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         """批量启用模板"""
         service = _get_admin_service()
         updated: int = service.batch_activate(queryset)
-        self.message_user(request, _(f"已启用 {updated} 个模板"))
+        self.message_user(request, _("已启用 %(count)d 个模板") % {"count": updated})
 
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         service = _get_admin_service()
         updated: int = service.batch_deactivate(queryset)
-        self.message_user(request, _(f"已禁用 {updated} 个模板"))
+        self.message_user(request, _("已禁用 %(count)d 个模板") % {"count": updated})
 
     @admin.action(description=_("刷新占位符信息"))
     def refresh_placeholders(self, request: Any, queryset: Any) -> None:
         """刷新占位符信息(触发重新解析)"""
         count = queryset.count()
-        self.message_user(request, _(f"已刷新 {count} 个模板的占位符信息"))
+        self.message_user(request, _("已刷新 %(count)d 个模板的占位符信息") % {"count": count})
 
     @admin.action(description=_("复制选中的模板"))
     def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文书模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)
-        self.message_user(request, _(f"已复制 {count} 个模板"))
+        self.message_user(request, _("已复制 %(count)d 个模板") % {"count": count})
 
     def save_model(self, request: Any, obj: DocumentTemplate, form: Any, change: bool) -> None:
         """保存模型时的额外处理"""

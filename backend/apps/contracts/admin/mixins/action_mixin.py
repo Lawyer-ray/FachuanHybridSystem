@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 
-from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.core.exceptions import BusinessException, NotFoundError, PermissionDenied, ValidationException
 from apps.core.security import get_request_access_context
 
 logger = logging.getLogger("apps.contracts")
@@ -72,7 +72,7 @@ class ContractActionMixin:
                 messages.success(request, f"合同文档已生成并保存到: {result['folder_path']}")
                 return HttpResponseRedirect(request.path)
             return self._build_docx_response(result)
-        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.exception("操作失败")
             messages.error(request, f"生成合同失败: {e!s}")
             return HttpResponseRedirect(request.path)
@@ -89,7 +89,7 @@ class ContractActionMixin:
                 messages.success(request, f"补充协议已生成并保存到: {result['folder_path']}")
                 return HttpResponseRedirect(request.path)
             return self._build_docx_response(result)
-        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.exception("操作失败")
             messages.error(request, f"生成补充协议失败: {e!s}")
             return HttpResponseRedirect(request.path)
@@ -101,7 +101,7 @@ class ContractActionMixin:
             new_contract = facade.renew_advisor_contract_ctx(contract_id=obj.pk, ctx=ctx)
             messages.success(request, f"续签成功!已创建新合同,正在编辑新合同: {new_contract.name}")
             return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[new_contract.pk]))
-        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.exception("操作失败")
             messages.error(request, f"续签失败: {e!s}")
             return HttpResponseRedirect(request.path)
@@ -113,7 +113,7 @@ class ContractActionMixin:
             new_contract = facade.duplicate_contract_ctx(contract_id=obj.pk, ctx=ctx)
             messages.success(request, f"已复制合同,正在编辑新合同: {new_contract.name}")
             return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[new_contract.pk]))
-        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.exception("操作失败")
             messages.error(request, f"复制失败: {e!s}")
             return HttpResponseRedirect(request.path)
@@ -125,7 +125,7 @@ class ContractActionMixin:
             new_case = facade.create_case_from_contract_ctx(contract_id=obj.pk, ctx=ctx)
             messages.success(request, f"已创建案件: {new_case.name}")
             return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.id]))
-        except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+        except (BusinessException, RuntimeError, Exception) as e:
             logger.exception("操作失败")
             messages.error(request, f"创建案件失败: {e!s}")
             return HttpResponseRedirect(request.path)
@@ -141,7 +141,7 @@ class ContractActionMixin:
                 new_case = facade.create_case_from_contract_ctx(contract_id=obj.pk, ctx=ctx)
                 messages.success(request, f"已创建案件: {new_case.name}")
                 return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.id]))
-            except (NotFoundError, ValidationException, PermissionDenied, RuntimeError) as e:
+            except (BusinessException, RuntimeError, Exception) as e:
                 logger.exception("操作失败")
                 messages.error(request, f"创建案件失败: {e!s}")
                 return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[obj.pk]))

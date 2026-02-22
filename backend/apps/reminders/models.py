@@ -50,8 +50,8 @@ class Reminder(models.Model):
         verbose_name_plural = _("重要日期提醒")
         constraints: ClassVar = [
             models.CheckConstraint(
-                condition=Q(contract__isnull=False) & Q(case_log__isnull=True)
-                | Q(contract__isnull=True) & Q(case_log__isnull=False),
+                condition=(Q(contract__isnull=False) & Q(case_log__isnull=True))
+                | (Q(contract__isnull=True) & Q(case_log__isnull=False)),
                 name="reminders_reminder_bind_exactly_one",
             )
         ]

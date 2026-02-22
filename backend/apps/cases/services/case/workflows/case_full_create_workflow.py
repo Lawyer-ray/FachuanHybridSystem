@@ -48,7 +48,7 @@ class CaseFullCreateWorkflow:
         for party in parties_data:
             client_id = party["client_id"]
             if client_id in seen_party_client_ids:
-                raise ConflictError("当事人数据重复")
+                raise ConflictError(_("当事人数据重复"))
             seen_party_client_ids.add(client_id)
 
         parties = self.repo.bulk_create_case_parties(case=case, parties=parties_data)
@@ -57,7 +57,7 @@ class CaseFullCreateWorkflow:
         for assignment in assignments_data:
             lawyer_id = assignment["lawyer_id"]
             if lawyer_id in seen_assignment_lawyer_ids:
-                raise ConflictError("指派数据重复")
+                raise ConflictError(_("指派数据重复"))
             seen_assignment_lawyer_ids.add(lawyer_id)
         assignments = self.repo.bulk_create_case_assignments(case=case, assignments=assignments_data)
 
