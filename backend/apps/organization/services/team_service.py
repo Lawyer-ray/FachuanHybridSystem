@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
 
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 
@@ -32,7 +33,7 @@ class TeamService:
 
     def __init__(self) -> None:
         """初始化服务"""
-        pass
+        self._access_policy = OrganizationAccessPolicy()
 
     def list_teams(
         self, law_firm_id: int | None = None, team_type: str | None = None, user: Lawyer | None = None
@@ -82,8 +83,8 @@ class TeamService:
         if not team:
             raise NotFoundError(message=_("团队不存在"), code="TEAM_NOT_FOUND")
 
-        # 权限检查
-        if not self._check_read_permission(user, team):
+        # 权限检查（user is None 时为公开接口，允许访问）
+        if user is not None and not self._access_policy.can_read_team(user, team):
             raise PermissionDenied(message=_("无权限访问该团队"), code="PERMISSION_DENIED")
 
         return cast(Team, team)
@@ -106,7 +107,7 @@ class TeamService:
             PermissionDenied: 权限不足
         """
         # 1. 权限检查
-        if not self._check_create_permission(user):
+        if not self._access_policy.can_create(user):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试创建团队但权限不足",
                 extra={"user_id": getattr(user, "id", None), "action": "create_team"},
@@ -153,7 +154,7 @@ class TeamService:
         team = self.get_team(team_id, user)
 
         # 2. 权限检查
-        if not self._check_update_permission(user, team):
+        if not self._access_policy.can_update_team(user, team):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试更新团队 {team_id} 但权限不足",
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "update_team"},
@@ -198,7 +199,7 @@ class TeamService:
         team = self.get_team(team_id, user)
 
         # 2. 权限检查
-        if not self._check_delete_permission(user, team):
+        if not self._access_policy.can_delete_team(user, team):
             logger.warning(
                 f"用户 {getattr(user, 'id', None)} 尝试删除团队 {team_id} 但权限不足",
                 extra={"user_id": getattr(user, "id", None), "team_id": team_id, "action": "delete_team"},
@@ -232,46 +233,3 @@ class TeamService:
                 code="INVALID_TEAM_TYPE",
                 errors={"team_type": f"团队类型必须是 {valid_types} 之一"},
             )
-
-    def _check_read_permission(self, user: Lawyer | None, team: Team) -> bool:
-        """检查读取权限"""
-        # 无用户时允许访问（公开接口）
-        if user is None:
-            return True
-
-        # 超级管理员可以访问所有团队
-        if user.is_superuser:
-            return True
-
-        # 用户可以访问同律所的团队
-        return bool(user.law_firm_id == team.law_firm_id)
-
-    def _check_create_permission(self, user: Lawyer | None) -> bool:
-        """检查创建权限"""
-        if user is None:
-            return False
-        return bool(user.is_authenticated and (user.is_superuser or user.is_admin))
-
-    def _check_update_permission(self, user: Lawyer | None, team: Team) -> bool:
-        """检查更新权限"""
-        if user is None:
-            return False
-
-        # 超级管理员可以更新所有团队
-        if user.is_superuser:
-            return True
-
-        # 律所管理员可以更新同律所的团队
-        return bool(user.is_admin and user.law_firm_id == team.law_firm_id)
-
-    def _check_delete_permission(self, user: Lawyer | None, team: Team) -> bool:
-        """检查删除权限"""
-        if user is None:
-            return False
-
-        # 超级管理员可以删除所有团队
-        if user.is_superuser:
-            return True
-
-        # 律所管理员可以删除同律所的团队
-        return bool(user.is_admin and user.law_firm_id == team.law_firm_id)
