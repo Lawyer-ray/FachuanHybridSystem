@@ -175,7 +175,7 @@ def save_uploaded_file(
         filename = f"{uuid.uuid4().hex}{ext}" if use_uuid_name else f"{uuid.uuid4().hex}_{preferred}"
         target_abs = base_dir / filename
 
-    with open(str(target_abs), "wb+") as f:
+    with open(target_abs, "wb+") as f:
         if hasattr(uploaded_file, "chunks"):
             for chunk in uploaded_file.chunks():
                 f.write(chunk)

@@ -95,7 +95,7 @@ class ClientIdentityDocService:
         # 重命名文件
         if abs_path.resolve() != new_abs_path.resolve():
             try:
-                shutil.move(str(abs_path), str(new_abs_path))
+                shutil.move(abs_path, new_abs_path)
                 # 保存相对路径（相对于 MEDIA_ROOT）
                 media_root = Path(settings.MEDIA_ROOT)
                 try:
