@@ -109,7 +109,7 @@ class CompatibleSettings:
             if not attr_name.startswith("_") and attr_name.isupper():
                 try:
                     self._django_settings_cache[attr_name] = getattr(django_settings, attr_name)
-                except Exception:
+                except (AttributeError, TypeError):
                     # 忽略无法获取的属性
                     continue
 
@@ -340,7 +340,7 @@ class CompatibleSettings:
 
             return False
 
-        except Exception:
+        except (AttributeError, TypeError, KeyError):
             return False
 
     def get_all_settings(self) -> dict[str, Any]:
@@ -364,7 +364,7 @@ class CompatibleSettings:
                     if attr_name not in settings_dict:  # 避免重复
                         try:
                             settings_dict[attr_name] = getattr(django_settings, attr_name)
-                        except Exception:
+                        except (AttributeError, TypeError):
                             continue
 
             # 添加缓存中的设置

@@ -173,7 +173,7 @@ class CauseRuleService:
         logger.info("获取案由祖先链名称", extra={"cause_id": cause_id, "names": names})
         return cast(list[str], names)
 
-    def detect_special_case_type(self, cause_id: int) -> str | None | None:
+    def detect_special_case_type(self, cause_id: int) -> str | None:
         """
         检测案由对应的特殊案件类型
 
