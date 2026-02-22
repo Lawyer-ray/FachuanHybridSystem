@@ -26,7 +26,7 @@ def _get_team_service() -> TeamService:
 def list_teams(request: Any, law_firm_id: int | None = None, team_type: str | None = None) -> Any:
     """列表查询团队"""
     service = _get_team_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=user)
 
 
@@ -34,7 +34,7 @@ def list_teams(request: Any, law_firm_id: int | None = None, team_type: str | No
 def create_team(request: Any, payload: TeamIn) -> Any:
     """创建团队"""
     service = _get_team_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.create_team(data=payload, user=user)
 
 
@@ -42,7 +42,7 @@ def create_team(request: Any, payload: TeamIn) -> Any:
 def get_team(request: Any, team_id: int) -> Any:
     """获取团队详情"""
     service = _get_team_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.get_team(team_id=team_id, user=user)
 
 
@@ -50,7 +50,7 @@ def get_team(request: Any, team_id: int) -> Any:
 def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
     """更新团队"""
     service = _get_team_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.update_team(team_id=team_id, data=payload, user=user)
 
 
@@ -58,6 +58,6 @@ def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
 def delete_team(request: Any, team_id: int) -> dict[str, bool]:
     """删除团队"""
     service = _get_team_service()
-    user = getattr(request, "user", None)
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
     service.delete_team(team_id=team_id, user=user)
     return {"success": True}
