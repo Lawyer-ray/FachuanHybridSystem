@@ -73,8 +73,8 @@ class SuccessOut(Schema):
 
 class ReminderLiteOut(SchemaMixin, Schema):
     id: int
-    contract: int | None = None
-    case_log: int | None = None
+    contract_id: int | None = None
+    case_log_id: int | None = None
     reminder_type: str
     content: str
     metadata: dict[str, Any] | None = None
@@ -86,8 +86,8 @@ class ReminderLiteOut(SchemaMixin, Schema):
     def from_model(cls, obj: Any) -> "ReminderLiteOut":
         return cls(
             id=obj.id,
-            contract=getattr(obj, "contract_id", None),
-            case_log=getattr(obj, "case_log_id", None),
+            contract_id=getattr(obj, "contract_id", None),
+            case_log_id=getattr(obj, "case_log_id", None),
             reminder_type=getattr(obj, "reminder_type", ""),
             content=getattr(obj, "content", "") or "",
             metadata=getattr(obj, "metadata", None),

@@ -418,7 +418,7 @@ class CauseCourtDataService:
             logger.exception("get_causes_by_parent_failed", extra={"parent_id": parent_id})
             raise
 
-    def get_cause_by_id(self, cause_id: int) -> dict[str, Any] | None | None:
+    def get_cause_by_id(self, cause_id: int) -> dict[str, Any] | None:
         """根据 ID 获取案由信息
 
         Args:

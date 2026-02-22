@@ -1,6 +1,7 @@
 """Module for views."""
 
 import logging
+from typing import Any
 
 from django.db import models
 from django.http import FileResponse, Http404, HttpResponse
@@ -20,14 +21,14 @@ logger = logging.getLogger(__name__)
 
 
 class EvidenceListAdminServiceMixin:
-    def _get_admin_service(self) -> None:
+    def _get_admin_service(self) -> Any:
         from apps.documents.services.evidence_admin_service import EvidenceAdminService
 
         return EvidenceAdminService()
 
 
 class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None) -> None:
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None) -> Any:
         if request.method == "POST":
             logger.info(
                 "EvidenceListAdmin changeform POST",
@@ -46,7 +47,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return response
 
-    def total_pages_display(self, obj) -> None:
+    def total_pages_display(self, obj) -> Any:
         if not obj.total_pages:
             return ""
         return obj.total_pages
@@ -54,7 +55,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
     total_pages_display.short_description = _("总页数")
     total_pages_display.admin_order_field = "total_pages"
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs) -> None:
+    def formfield_for_foreignkey(self, db_field, request, **kwargs) -> Any:
         if db_field.name == "export_template":
             from apps.documents.models import DocumentTemplate
 
@@ -65,7 +66,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_form(self, request, obj=None, **kwargs) -> None:
+    def get_form(self, request, obj=None, **kwargs) -> Any:
         form = super().get_form(request, obj=obj, **kwargs)
         if "export_template" not in form.base_fields:
             return form
@@ -82,7 +83,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         field.queryset = field.queryset | DocumentTemplate.objects.filter(pk=obj.export_template_id)
         return form
 
-    def get_urls(self) -> None:
+    def get_urls(self) -> Any:
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -123,7 +124,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         ]
         return custom_urls + urls
 
-    def next_list_type_view(self, request, case_id) -> None:
+    def next_list_type_view(self, request, case_id) -> Any:
         from django.http import JsonResponse
 
         existing_types = set(EvidenceList.objects.filter(case_id=case_id).values_list("list_type", flat=True))
@@ -152,28 +153,28 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 }
             )
 
-    def case_display(self, obj) -> None:
+    def case_display(self, obj) -> Any:
         return obj.case.name
 
     case_display.short_description = _("案件")
 
-    def item_count_display(self, obj) -> None:
+    def item_count_display(self, obj) -> Any:
         count = obj.items.count()
         return count
 
     item_count_display.short_description = _("证据数量")
 
-    def page_range_display(self, obj) -> None:
+    def page_range_display(self, obj) -> Any:
         return obj.page_range_display
 
     page_range_display.short_description = _("页码范围")
 
-    def order_range_display(self, obj) -> None:
+    def order_range_display(self, obj) -> Any:
         return obj.order_range_display
 
     order_range_display.short_description = _("序号范围")
 
-    def has_merged_pdf_display(self, obj) -> None:
+    def has_merged_pdf_display(self, obj) -> Any:
         from apps.documents.models import MergeStatus
 
         if obj.merge_status == MergeStatus.PROCESSING:
@@ -196,7 +197,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     has_merged_pdf_display.short_description = _("合并状态")
 
-    def actions_display(self, obj) -> None:
+    def actions_display(self, obj) -> Any:
         merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
         export_list_url = reverse("admin:documents_evidencelist_export_list", args=[obj.pk])
         recount_url = reverse("admin:documents_evidencelist_recount_pages", args=[obj.pk])
@@ -217,7 +218,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     actions_display.short_description = _("操作")
 
-    def merge_view(self, request, pk) -> None:
+    def merge_view(self, request, pk) -> Any:
         from django.contrib import messages
         from django.http import JsonResponse
         from django.shortcuts import redirect
@@ -292,7 +293,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
         return redirect("admin:documents_evidencelist_change", pk)
 
-    def merge_status_view(self, request, pk) -> None:
+    def merge_status_view(self, request, pk) -> Any:
         from django.http import JsonResponse
 
         try:
@@ -322,7 +323,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             }
         )
 
-    def export_list_view(self, request, pk) -> None:
+    def export_list_view(self, request, pk) -> Any:
         try:
             evidence_list = EvidenceList.objects.get(pk=pk)
             admin_service = self._get_admin_service()
@@ -350,7 +351,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.error("导出失败", extra={"pk": pk, "error": error_detail}, exc_info=True)
             raise Http404(f"导出失败: {e!s}") from e
 
-    def download_pdf_view(self, request, pk) -> None:
+    def download_pdf_view(self, request, pk) -> Any:
         try:
             admin_service = self._get_admin_service()
             evidence_list = EvidenceList.objects.select_related("case").get(pk=pk)
@@ -367,7 +368,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         except EvidenceList.DoesNotExist:
             raise Http404("证据清单不存在") from None
 
-    def reorder_view(self, request, pk) -> None:
+    def reorder_view(self, request, pk) -> Any:
         import json
 
         from django.http import JsonResponse
@@ -387,7 +388,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.exception("EvidenceList reorder 失败", extra={"evidence_list_id": pk, "error": str(e)})
             return JsonResponse({"error": str(e)}, status=400)
 
-    def recount_pages_view(self, request, pk) -> None:
+    def recount_pages_view(self, request, pk) -> Any:
         from django.contrib import messages
         from django.shortcuts import redirect
 

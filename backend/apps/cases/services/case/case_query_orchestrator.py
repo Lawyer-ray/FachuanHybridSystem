@@ -108,7 +108,7 @@ class CaseQueryOrchestrator:
         case_ids = [case.id for case in cases]
         return self.case_number_orchestrator.get_primary_case_numbers_by_case_ids(case_ids)
 
-    def get_case(self, case_id: int) -> CaseDTO | None | None:
+    def get_case(self, case_id: int) -> CaseDTO | None:
         case = self.case_repo.get_case_by_id(case_id)
         if not case:
             return None

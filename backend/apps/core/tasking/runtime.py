@@ -32,9 +32,7 @@ class TaskRunContext:
         if effective_timeout is None:
             try:
                 effective_timeout = float(q_cluster.get("timeout") or 600)
-            except Exception:
-                logger.exception("操作失败")
-
+            except (TypeError, ValueError, KeyError):
                 effective_timeout = 600.0
         soft = start + max(min_soft_deadline_seconds, float(effective_timeout) - float(safety_margin_seconds))
         return cls(started_monotonic=start, soft_deadline_monotonic=soft, timeout_seconds=float(effective_timeout))
@@ -50,9 +48,7 @@ class CancellationToken:
     def is_cancelled(self) -> bool:
         try:
             return bool(self._should_cancel())
-        except Exception:
-            logger.exception("操作失败")
-
+        except (TypeError, AttributeError):
             return False
 
 
@@ -72,9 +68,7 @@ class ProgressReporter:
     def report(self, *, current: int, total: int, message: str, force: bool = False) -> None:
         try:
             progress = int(current * 100 / total) if total else 0
-        except Exception:
-            logger.exception("操作失败")
-
+        except (ZeroDivisionError, TypeError, ValueError):
             progress = 0
         progress = min(max(progress, 0), 100)
 

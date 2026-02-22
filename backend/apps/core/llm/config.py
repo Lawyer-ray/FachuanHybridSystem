@@ -94,8 +94,8 @@ class LLMConfig:
                 from apps.core.services.system_config_service import SystemConfigService
 
                 cls._config_service = SystemConfigService()
-            except Exception:
-                logger.warning("[LLMConfig] 无法加载 SystemConfigService", exc_info=True)
+            except (ImportError, AttributeError):
+                logger.warning("[LLMConfig] 无法加载 SystemConfigService")
                 return None
         return cls._config_service
 
@@ -147,8 +147,8 @@ class LLMConfig:
                     return value
                 else:
                     logger.debug("[LLMConfig] SystemConfigService 未找到", extra={"key": key})
-            except Exception:
-                logger.warning("[LLMConfig] SystemConfigService 读取失败", exc_info=True, extra={"key": key})
+            except (KeyError, AttributeError, TypeError):
+                logger.warning("[LLMConfig] SystemConfigService 读取失败", extra={"key": key})
 
         # Fallback 到 Django settings(Requirement 5.4)
         fallback_value = cls._get_django_settings_fallback(key, default)
@@ -188,8 +188,8 @@ class LLMConfig:
                     return value
                 else:
                     logger.debug("[LLMConfig] 异步 SystemConfigService 未找到", extra={"key": key})
-            except Exception:
-                logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", exc_info=True, extra={"key": key})
+            except (KeyError, AttributeError, TypeError):
+                logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", extra={"key": key})
 
         # Fallback 到 Django settings
         return cls._get_django_settings_fallback(key, default)

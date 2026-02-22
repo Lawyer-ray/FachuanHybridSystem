@@ -96,7 +96,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
-    def _save_instances(self, instances, max_order, items_need_page_count, request, messages, traceback) -> None:
+    def _save_instances(self, instances, max_order, items_need_page_count, request, messages, traceback) -> Any:
         for obj in instances:
             if isinstance(obj, EvidenceItem):
                 self._prepare_evidence_item(obj, max_order, items_need_page_count)

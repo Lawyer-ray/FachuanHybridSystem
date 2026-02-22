@@ -36,7 +36,7 @@ class PlaceholderUsageFilter(admin.SimpleListFilter):
     title = _("用途")
     parameter_name: str = "usage"
 
-    def lookups(self, request, model_admin) -> None:
+    def lookups(self, request, model_admin) -> Any:
         return (
             ("contract", _("合同文件")),
             ("case", _("案件文件")),
@@ -44,7 +44,7 @@ class PlaceholderUsageFilter(admin.SimpleListFilter):
             ("unused", _("未使用")),
         )
 
-    def queryset(self, request, queryset) -> None:
+    def queryset(self, request, queryset) -> Any:
         value = self.value()
         if not value:
             return queryset
@@ -93,17 +93,17 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
     actions: ClassVar = ["activate_placeholders", "deactivate_placeholders"]
 
-    def has_add_permission(self, request) -> None:
+    def has_add_permission(self, request) -> Any:
         return False
 
-    def _catalog_cache(self) -> None:
+    def _catalog_cache(self) -> Any:
         if not hasattr(self, "_cached_code_placeholder_catalog"):
             catalog = _get_code_placeholder_catalog_service()
             definitions = {d.key: d for d in catalog.list_definitions()}
             self._cached_code_placeholder_catalog = definitions
         return self._cached_code_placeholder_catalog
 
-    def _usage_map_cache(self, request) -> None:
+    def _usage_map_cache(self, request) -> Any:
         if request is not None and getattr(request, "_placeholder_usage_map_cached", None) is not None:
             return request._placeholder_usage_map_cached
         usage_map = _get_placeholder_usage_service().get_usage_map()
@@ -128,7 +128,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         service = _get_placeholder_admin_service()
         return service.get_filtered_queryset(qs, code_keys)
 
-    def usage_display(self, obj) -> None:
+    def usage_display(self, obj) -> Any:
         usage_map = getattr(self, "_usage_map_for_changelist", None)
         if usage_map is None:
             usage_map = _get_placeholder_usage_service().get_usage_map()
@@ -144,7 +144,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
     usage_display.short_description = _("用途")
 
-    def code_service_display(self, obj) -> None:
+    def code_service_display(self, obj) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.source if definition else ""
 
@@ -156,7 +156,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
     code_category_display.short_description = _("分类")
 
-    def example_value_display(self, obj) -> None:
+    def example_value_display(self, obj) -> Any:
         """显示示例值"""
         if obj.example_value:
             # 截断过长的示例值
@@ -203,7 +203,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
         self.message_user(request, _("已复制 %(count)d 个替换词") % {"count": count})
 
-    def get_readonly_fields(self, request, obj=None) -> None:
+    def get_readonly_fields(self, request, obj=None) -> Any:
         """编辑时 key 字段只读"""
         if obj:  # 编辑现有对象
             return ("key",)

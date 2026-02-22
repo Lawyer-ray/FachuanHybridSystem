@@ -32,7 +32,7 @@ class DocumentTemplateQueryService:
 
     def get_template_by_function_code_internal(
         self, function_code: str, case_type: str | None = None, is_active: bool = True
-    ) -> None:
+    ) -> Any:
         from apps.documents.models import DocumentTemplate
 
         queryset = DocumentTemplate.objects.filter(function_code=function_code)

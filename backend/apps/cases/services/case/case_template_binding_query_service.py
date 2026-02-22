@@ -9,7 +9,7 @@ logger = logging.getLogger("apps.cases")
 
 
 class CaseTemplateBindingQueryService:
-    def get_case_template_binding_internal(self, case_id: int) -> CaseTemplateBindingDTO | None | None:
+    def get_case_template_binding_internal(self, case_id: int) -> CaseTemplateBindingDTO | None:
         try:
             binding = CaseTemplateBinding.objects.select_related("template").filter(case_id=case_id).first()
             if not binding:
