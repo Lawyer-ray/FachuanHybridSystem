@@ -1,10 +1,6 @@
-"""API endpoints."""
+"""案件文件夹绑定 API"""
 
 from __future__ import annotations
-
-"""
-案件文件夹绑定 API
-"""
 
 import logging
 from typing import Any
@@ -50,8 +46,8 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
     ctx = get_request_access_context(request)
 
     binding = service.create_binding_ctx(case_id=case_id, folder_path=data.folder_path, ctx=ctx)
-    is_accessible = service.check_folder_accessible(binding.folder_path)
-    display_path = service.format_path_for_display(binding.folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.folder_path)
+    display_path: str = service.format_path_for_display(binding.folder_path)
 
     logger.info(
         "case_folder_binding_upsert",
@@ -73,7 +69,7 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
 
 
 @router.get("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema | None)
-def get_folder_binding(request: HttpRequest, case_id: int) -> Any:
+def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingResponseSchema | None:
     """获取案件文件夹绑定信息"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
@@ -83,20 +79,19 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> Any:
     if not binding:
         return None
 
-    # 检查文件夹可访问性
-    is_accessible = service.check_folder_accessible(binding.folder_path)
-    display_path = service.format_path_for_display(binding.folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.folder_path)
+    display_path: str = service.format_path_for_display(binding.folder_path)
 
     return CaseFolderBindingResponseSchema.from_binding(binding, is_accessible=is_accessible, display_path=display_path)
 
 
 @router.delete("/{case_id}/folder-binding")
-def delete_folder_binding(request: HttpRequest, case_id: int) -> Any:
+def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool | str]:
     """删除案件文件夹绑定"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    success = service.delete_binding_ctx(case_id=case_id, ctx=ctx)
+    success: bool = service.delete_binding_ctx(case_id=case_id, ctx=ctx)
 
     logger.info(
         "case_folder_binding_delete",

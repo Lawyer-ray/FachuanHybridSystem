@@ -63,6 +63,13 @@ if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
 
+def _get_evidence_service() -> Any:
+    """工厂函数: 获取 EvidenceService 实例"""
+    from apps.documents.services.evidence_service import EvidenceService
+
+    return EvidenceService()
+
+
 class EvidenceList(models.Model):
     """
     证据清单
@@ -221,55 +228,13 @@ class EvidenceList(models.Model):
 
     @property
     def start_order(self) -> int:
-        """
-        计算起始序号(自动从前置清单推导)
-        添加循环检测防止无限递归
-        """
-        if not self.previous_list_id:
-            return 1
-
-        # 循环检测
-        visited = {self.pk}
-        current = self.previous_list
-        total_items = 0
-
-        while current:
-            if current.pk in visited:
-                # 检测到循环,返回默认值
-                return 1
-            visited.add(current.pk)
-            total_items += current.items.count()
-            if not current.previous_list_id:
-                break
-            current = current.previous_list
-
-        return total_items + 1
+        """计算起始序号(委托给 Service 层)"""
+        return _get_evidence_service().calculate_start_order(self)
 
     @property
     def start_page(self) -> int:
-        """
-        计算起始页码(自动从前置清单推导)
-        添加循环检测防止无限递归
-        """
-        if not self.previous_list_id:
-            return 1
-
-        # 循环检测
-        visited = {self.pk}
-        current = self.previous_list
-        total_pages = 0
-
-        while current:
-            if current.pk in visited:
-                # 检测到循环,返回默认值
-                return 1
-            visited.add(current.pk)
-            total_pages += current.total_pages
-            if not current.previous_list_id:
-                break
-            current = current.previous_list
-
-        return total_pages + 1
+        """计算起始页码(委托给 Service 层)"""
+        return _get_evidence_service().calculate_start_page(self)
 
     @property
     def end_page(self) -> int:
@@ -295,6 +260,7 @@ class EvidenceList(models.Model):
         if self.start_order == end_order:
             return str(self.start_order)
         return f"{self.start_order}-{end_order}"
+
 
 
 class EvidenceItem(models.Model):

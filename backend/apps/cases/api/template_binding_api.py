@@ -1,12 +1,9 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
-"""
-案件模板绑定 API
+"""案件模板绑定 API
 
 管理案件与文书模板的绑定关系.
 """
+
+from __future__ import annotations
 
 from typing import Any
 from urllib.parse import quote
@@ -77,7 +74,7 @@ def bind_template_to_case(request: HttpRequest, case_id: int, payload: BindTempl
 
 
 @router.delete("/{case_id}/template-bindings/{binding_id}", response=SuccessResponseSchema)
-def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: int) -> Any:
+def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: int) -> dict[str, bool]:
     """
     解绑模板
 
