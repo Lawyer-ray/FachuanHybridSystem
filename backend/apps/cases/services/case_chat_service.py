@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.utils import timezone
 
 if TYPE_CHECKING:
     from apps.core.dto.chat import ChatResult
@@ -621,3 +622,46 @@ class CaseChatService:
                 code="BINDING_CREATION_ERROR",
                 errors={"case_id": case_id, "chat_id": chat_id, "original_error": str(e)},
             ) from e
+    def update_owner_verification(self, chat: CaseChat, verified: bool = True, save: bool = True) -> None:
+        """更新群主验证状态
+
+        Args:
+            chat: 群聊对象
+            verified: 是否已验证
+            save: 是否立即保存
+        """
+        chat.owner_verified = verified
+        if verified:
+            chat.owner_verified_at = timezone.now()
+        else:
+            chat.owner_verified_at = None
+        if save:
+            chat.save(update_fields=["owner_verified", "owner_verified_at", "updated_at"])
+        logger.info("群主验证状态已更新: chat_id=%s, verified=%s", chat.pk, verified)
+
+    def add_creation_audit_entry(
+        self, chat: CaseChat, action: str, details: dict[str, Any], save: bool = True
+    ) -> None:
+        """添加创建审计日志条目
+
+        Args:
+            chat: 群聊对象
+            action: 操作名称
+            details: 操作详情
+            save: 是否立即保存
+        """
+        if not isinstance(chat.creation_audit_log, dict):
+            chat.creation_audit_log = {}
+        if "entries" not in chat.creation_audit_log:
+            chat.creation_audit_log["entries"] = []
+        entry: dict[str, Any] = {
+            "timestamp": timezone.now().isoformat(),
+            "action": action,
+            "details": details,
+        }
+        chat.creation_audit_log["entries"].append(entry)
+        if save:
+            chat.save(update_fields=["creation_audit_log", "updated_at"])
+        logger.info("创建审计日志条目已添加: chat_id=%s, action=%s", chat.pk, action)
+
+
