@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from apps.core.enums import CaseStage, CaseType
@@ -70,7 +70,7 @@ class TestNormalizeRepresentationStagesPreservation:
         case_type=applicable_case_type_st,
         stages=valid_stages_st,
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
     def test_valid_stages_returned_unchanged(
         self, case_type: str, stages: list[str]
     ) -> None:
@@ -296,7 +296,11 @@ class TestValidateFeeModePreservation:
 
 @pytest.mark.django_db
 class TestLawyerQueryPreservation:
-    """验证 Contract.primary_lawyer / all_lawyers 属性的行为基线。"""
+    """验证律师查询通过 ContractAssignmentQueryService 的行为基线。
+
+    Task 3.1 将 Contract.primary_lawyer / all_lawyers 从 Model 迁移到 Service 层，
+    此处验证 Service 层查询结果与原 Model 属性行为一致。
+    """
 
     def _create_contract_with_assignments(
         self,
@@ -333,22 +337,29 @@ class TestLawyerQueryPreservation:
 
         return contract, lawyers
 
+    def _get_query_service(self) -> Any:
+        from apps.contracts.services.assignment.contract_assignment_query_service import (
+            ContractAssignmentQueryService,
+        )
+        return ContractAssignmentQueryService()
+
     def test_primary_lawyer_returns_correct_lawyer(self) -> None:
         """
-        primary_lawyer 属性应返回 is_primary=True 的律师。
+        get_primary_lawyer 应返回 is_primary=True 的律师指派。
 
         **Validates: Requirements 3.1, 3.2**
         """
         contract, lawyers = self._create_contract_with_assignments(
             num_lawyers=3, primary_index=1
         )
-        primary = contract.primary_lawyer
+        svc = self._get_query_service()
+        primary = svc.get_primary_lawyer(contract.id)
         assert primary is not None
-        assert primary.id == lawyers[1].id
+        assert primary.lawyer_id == lawyers[1].id
 
     def test_primary_lawyer_none_when_no_primary(self) -> None:
         """
-        无 is_primary=True 的指派时，primary_lawyer 应返回 None。
+        无 is_primary=True 的指派时，get_primary_lawyer 应返回 None。
 
         **Validates: Requirements 3.1, 3.2**
         """
@@ -371,24 +382,26 @@ class TestLawyerQueryPreservation:
             is_primary=False,
             order=0,
         )
-        assert contract.primary_lawyer is None
+        svc = self._get_query_service()
+        assert svc.get_primary_lawyer(contract.id) is None
 
     def test_all_lawyers_returns_all(self) -> None:
         """
-        all_lawyers 属性应返回所有指派律师。
+        get_all_lawyers 应返回所有律师指派记录。
 
         **Validates: Requirements 3.1, 3.2**
         """
         contract, lawyers = self._create_contract_with_assignments(num_lawyers=3)
-        all_lawyers = contract.all_lawyers
-        assert len(all_lawyers) == 3
-        returned_ids = {lw.id for lw in all_lawyers}
+        svc = self._get_query_service()
+        all_assignments = svc.get_all_lawyers(contract.id)
+        assert len(all_assignments) == 3
+        returned_ids = {a.lawyer_id for a in all_assignments}
         expected_ids = {lw.id for lw in lawyers}
         assert returned_ids == expected_ids
 
     def test_all_lawyers_empty_when_no_assignments(self) -> None:
         """
-        无指派时，all_lawyers 应返回空列表。
+        无指派时，get_all_lawyers 应返回空列表。
 
         **Validates: Requirements 3.1, 3.2**
         """
@@ -398,7 +411,8 @@ class TestLawyerQueryPreservation:
             name="无指派合同",
             case_type=CaseType.CIVIL,
         )
-        assert contract.all_lawyers == []
+        svc = self._get_query_service()
+        assert svc.get_all_lawyers(contract.id) == []
 
 
 # ---------------------------------------------------------------------------
