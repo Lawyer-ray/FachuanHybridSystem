@@ -30,7 +30,7 @@ _FIELD_KEYWORDS: list[str] = [
 
 # 角色标签模式（用于分割多当事人文本）
 # 带括号注释的模式优先（更具体），无括号的作为回退
-_ROLE_SPLIT_PATTERNS: list[str] = [
+_ROLE_SPLIT_STRS: list[str] = [
     r"甲方\s*（[^）]*）\s*[:：]",
     r"乙方\s*（[^）]*）\s*[:：]",
     r"丙方\s*（[^）]*）\s*[:：]",
@@ -51,8 +51,13 @@ _ROLE_SPLIT_PATTERNS: list[str] = [
     r"乙方\s*[:：]",
 ]
 
+_ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
+
 # 角色标签 + 名称捕获模式（用于提取名称）
-_ROLE_NAME_PATTERNS: list[str] = [p.replace(r"[:：]", r"[:：]\s*([^\n法统地住电]+)") for p in _ROLE_SPLIT_PATTERNS]
+_ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n法统地住电]+)"), re.IGNORECASE)
+    for p in _ROLE_SPLIT_STRS
+]
 
 
 _ETHNICITY_PATTERN = re.compile(
@@ -133,21 +138,21 @@ def _parse_fields_directly(text: str) -> dict[str, Any]:
     return _parse_single_party(text, use_smart_name=True)
 
 
+_SMART_NAME_PATTERN = re.compile(
+    r"^[甲乙丙丁]方\s*(?:（[^）]*）)?\s*[:：]\s*(.+?)(?=法定代表人|统一社会信用代码|地址|电话|$)",
+    re.DOTALL,
+)
+
+
 def _extract_name_smart(text: str) -> str | None:
     """智能提取名称"""
-    # 先尝试从角色标签提取
     name = _extract_name(text)
     if name:
         return name
 
-    # 如果没有角色标签，从开头提取到第一个关键字
-    # 匹配：甲方（原告）：XXX 或 甲方：XXX 格式
-    role_pattern = r"^[甲乙丙丁]方\s*(?:（[^）]*）)?\s*[:：]\s*(.+?)(?=法定代表人|统一社会信用代码|地址|电话|$)"
-    match = re.search(role_pattern, text, re.DOTALL)
+    match = _SMART_NAME_PATTERN.search(text)
     if match:
-        name = match.group(1).strip()
-        # 清理名称中的换行
-        name = _WHITESPACE_PATTERN.sub("", name)
+        name = _WHITESPACE_PATTERN.sub("", match.group(1).strip())
         if name:
             return name
 
@@ -163,9 +168,8 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
 
     # 找到所有角色标签的位置
     all_matches = []
-    for pattern in role_patterns:
-        matches = list(re.finditer(pattern, text, re.IGNORECASE))
-        all_matches.extend(matches)
+    for compiled in role_patterns:
+        all_matches.extend(compiled.finditer(text))
 
     # 按位置排序，去除同一起始位置的重复匹配（保留最长匹配）
     all_matches.sort(key=lambda x: (x.start(), -(x.end() - x.start())))
@@ -255,8 +259,8 @@ def _extract_name(text: str) -> str | None:
     # 定义角色标签模式（支持 甲方（原告）、乙方（被告）等格式）
     role_patterns = _ROLE_NAME_PATTERNS
 
-    for pattern in role_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+    for compiled in role_patterns:
+        match = compiled.search(text)
         if match:
             name_part = match.group(1).strip()
 
