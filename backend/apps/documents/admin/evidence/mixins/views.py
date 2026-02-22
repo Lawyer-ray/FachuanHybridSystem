@@ -45,13 +45,12 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return response
 
+    @admin.display(description=_("总页数"), ordering="total_pages")
     def total_pages_display(self, obj: Any) -> Any:
         if not obj.total_pages:
             return ""
         return obj.total_pages
 
-    total_pages_display.short_description = _("总页数")
-    total_pages_display.admin_order_field = "total_pages"
 
     def formfield_for_foreignkey(self, db_field: Any, request: Any, **kwargs: Any) -> Any:
         if db_field.name == "export_template":
@@ -151,27 +150,28 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 }
             )
 
+    @admin.display(description=_("案件"))
     def case_display(self, obj: Any) -> Any:
         return obj.case.name
 
-    case_display.short_description = _("案件")
 
+    @admin.display(description=_("证据数量"))
     def item_count_display(self, obj: Any) -> Any:
         count = obj.items.count()
         return count
 
-    item_count_display.short_description = _("证据数量")
 
+    @admin.display(description=_("页码范围"))
     def page_range_display(self, obj: Any) -> Any:
         return obj.page_range_display
 
-    page_range_display.short_description = _("页码范围")
 
+    @admin.display(description=_("序号范围"))
     def order_range_display(self, obj: Any) -> Any:
         return obj.order_range_display
 
-    order_range_display.short_description = _("序号范围")
 
+    @admin.display(description=_("合并状态"))
     def has_merged_pdf_display(self, obj: Any) -> Any:
         from apps.documents.models import MergeStatus
 
@@ -193,7 +193,6 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             return format_html('<span style="color: #2e7d32;">{}</span>', "✓ 已合并")
         return format_html('<span style="color: #999;">{}</span>', "未合并")
 
-    has_merged_pdf_display.short_description = _("合并状态")
 
     def actions_display(self, obj: Any) -> Any:
         merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
