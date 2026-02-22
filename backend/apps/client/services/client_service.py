@@ -11,7 +11,6 @@ from apps.core.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from apps.client.models import Client
-    from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
 
 logger = logging.getLogger("apps.client")
@@ -22,20 +21,9 @@ class ClientService:
 
     def __init__(
         self,
-        identity_doc_service: ClientIdentityDocService | None = None,
         internal_query_service: ClientInternalQueryService | None = None,
     ) -> None:
-        self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
-
-    @property
-    def identity_doc_service(self) -> ClientIdentityDocService:
-        """延迟获取 ClientIdentityDocService"""
-        if self._identity_doc_service is None:
-            from .client_identity_doc_service import ClientIdentityDocService
-
-            self._identity_doc_service = ClientIdentityDocService()
-        return self._identity_doc_service
 
     @property
     def internal_query_service(self) -> ClientInternalQueryService:
