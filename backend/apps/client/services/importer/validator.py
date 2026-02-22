@@ -1,7 +1,8 @@
 """当事人 JSON 导入校验器。"""
 
-from django.utils.translation import gettext_lazy as _
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client
 from apps.core.exceptions import ValidationException

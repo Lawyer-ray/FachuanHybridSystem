@@ -24,6 +24,12 @@ def normalize_target_id(value: int | None, *, field_name: "str | Promise") -> in
     return value
 
 
+def validate_positive_id(value: int, *, field_name: "str | Promise") -> None:
+    """校验 ID 为正整数（非 bool）。"""
+    if isinstance(value, bool) or value <= 0:
+        raise ValidationException(_("%(field_name)s 必须为正整数") % {"field_name": field_name})
+
+
 def validate_binding_exclusive(*, contract_id: int | None, case_log_id: int | None) -> None:
     has_contract = contract_id is not None
     has_case_log = case_log_id is not None

@@ -63,7 +63,7 @@ class ContractTemplateCache:
         """缓存文件夹模板"""
         cache_key = self._get_cache_key(case_type, "folder_templates")
         cache.set(cache_key, templates, TEMPLATE_CACHE_TIMEOUT)
-        logger.debug(f"缓存文件夹模板: {cache_key}, 数量: {len(templates)}")
+        logger.debug("缓存文件夹模板: %s, 数量: %d", cache_key, len(templates))
 
     def get_template_check(self, case_type: str) -> dict[str, bool] | None:
         """获取缓存的模板检查结果"""
@@ -74,7 +74,7 @@ class ContractTemplateCache:
         """缓存模板检查结果"""
         cache_key = self._get_cache_key(case_type, "check_templates")
         cache.set(cache_key, result, TEMPLATE_CACHE_TIMEOUT)
-        logger.debug(f"缓存模板检查结果: {cache_key}, 结果: {result}")
+        logger.debug("缓存模板检查结果: %s, 结果: %s", cache_key, result)
 
     def clear_cache_for_case_type(self, case_type: str) -> None:
         """清除特定案件类型的所有缓存"""
@@ -84,7 +84,7 @@ class ContractTemplateCache:
             self._get_cache_key(case_type, "check_templates"),
         ]
         cache.delete_many(cache_keys)
-        logger.info(f"清除案件类型 {case_type} 的模板缓存")
+        logger.info("清除案件类型 %s 的模板缓存", case_type)
 
     def clear_all_cache(self) -> None:
         """清除所有模板缓存"""
