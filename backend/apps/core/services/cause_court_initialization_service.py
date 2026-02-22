@@ -194,28 +194,23 @@ class CauseCourtInitializationService:
         """
         logger.info("获取一张网 Token (HS256)...")
 
-        try:
-            # 1. 检查现有一张网 Token
-            from .wiring import get_court_token_store_service
+        # 1. 检查现有一张网 Token
+        from .wiring import get_court_token_store_service
 
-            token_store = get_court_token_store_service()
-            token_info = await sync_to_async(token_store.get_latest_valid_token_internal)(
-                site_name=self.COURT_SITE_NAME,
-                token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",
-            )
-            if token_info:
-                logger.info(f"✅ 找到现有有效一张网 Token: {token_info.account}")
-                return token_info.token
+        token_store = get_court_token_store_service()
+        token_info = await sync_to_async(token_store.get_latest_valid_token_internal)(
+            site_name=self.COURT_SITE_NAME,
+            token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",
+        )
+        if token_info:
+            logger.info(f"✅ 找到现有有效一张网 Token: {token_info.account}")
+            return token_info.token
 
-            # 2. 如果没有有效 Token,需要登录获取
-            logger.info("无现有有效一张网 Token,将自动获取")
-            token = await self._acquire_zxfw_token(credential_id)
+        # 2. 如果没有有效 Token,需要登录获取
+        logger.info("无现有有效一张网 Token,将自动获取")
+        token = await self._acquire_zxfw_token(credential_id)
 
-            return token
-
-        except Exception as e:
-            logger.error(f"❌ 一张网 Token 获取失败: {e}", exc_info=True)
-            raise TokenError(f"一张网 Token 获取失败: {e}") from e
+        return token
 
     async def _acquire_zxfw_token(self, credential_id: int | None = None) -> str:
         """自动登录并获取一张网 Token
