@@ -1,11 +1,9 @@
-"""Business logic services."""
-
-from __future__ import annotations
-
 """
 合同服务层
 处理合同相关的业务逻辑
 """
+
+from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
@@ -29,8 +27,6 @@ if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
 
     from .contract_access_policy import ContractAccessPolicy
-    from .contract_mutation_facade import ContractMutationFacade
-    from .contract_validator import ContractValidator
     from .query import ContractQueryFacade, ContractQueryService
     from .supplementary_agreement_query_service import SupplementaryAgreementQueryService
 

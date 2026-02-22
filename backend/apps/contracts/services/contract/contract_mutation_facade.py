@@ -1,8 +1,8 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
+from django.utils.translation import gettext_lazy as _
 from typing import TYPE_CHECKING, Any, cast
 
 from apps.contracts.models import Contract
@@ -91,7 +91,7 @@ class ContractMutationFacade:
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
-            message=_("无权限操作该合同"), # type: ignore
+            message=_("无权限操作该合同"),
         )
 
     def create_contract_with_cases(
