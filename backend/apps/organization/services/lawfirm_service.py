@@ -244,10 +244,7 @@ class LawFirmService:
 
 
 class LawFirmServiceAdapter(ILawFirmService):
-    """
-    律所服务适配器
-    实现跨模块接口，将 Model 转换为 DTO
-    """
+    """律所服务适配器，实现跨模块接口，将 Model 转换为 DTO。"""
 
     _assembler: ClassVar[LawFirmDtoAssembler] = LawFirmDtoAssembler()
 
@@ -255,13 +252,11 @@ class LawFirmServiceAdapter(ILawFirmService):
         self.service = lawfirm_service or LawFirmService()
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
-        """获取律所信息"""
         lawfirm = self.service._get_lawfirm_internal(lawfirm_id)
         if not lawfirm:
             return None
         return self._assembler.to_dto(lawfirm)
 
     def get_lawfirms_by_ids(self, lawfirm_ids: list[int]) -> list[LawFirmDTO]:
-        """批量获取律所信息"""
         lawfirms = self.service.get_lawfirm_queryset().filter(id__in=lawfirm_ids)
         return [self._assembler.to_dto(lf) for lf in lawfirms]
