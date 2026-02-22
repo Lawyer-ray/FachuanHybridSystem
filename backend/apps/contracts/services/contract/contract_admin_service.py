@@ -1,5 +1,7 @@
 """合同 Admin 服务 - 处理 Admin 层的复杂业务逻辑"""
 
+from __future__ import annotations
+
 import logging
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -37,12 +39,12 @@ class ContractAdminService:
 
     def __init__(
         self,
-        display_service: Optional["ContractDisplayService"] = None,
-        filing_number_service: Optional["FilingNumberService"] = None,
-        document_service: Optional["ContractAdminDocumentService"] = None,
-        query_service: Optional["ContractAdminQueryService"] = None,
-        mutation_service: Optional["ContractAdminMutationService"] = None,
-        progress_service: Optional["ContractProgressService"] = None,
+        display_service: ContractDisplayService | None = None,
+        filing_number_service: FilingNumberService | None = None,
+        document_service: ContractAdminDocumentService | None = None,
+        query_service: ContractAdminQueryService | None = None,
+        mutation_service: ContractAdminMutationService | None = None,
+        progress_service: ContractProgressService | None = None,
     ) -> None:
         """
         初始化合同 Admin 服务

@@ -11,6 +11,7 @@ from .contract.contract_display_service import ContractDisplayService
 from .contract.contract_progress_service import ContractProgressService
 from .contract.contract_service import ContractService
 from .contract.contract_service_adapter import ContractServiceAdapter
+from .folder.folder_binding_service import FolderBindingService
 
 __all__ = [
     "ContractAdminService",
@@ -18,4 +19,5 @@ __all__ = [
     "ContractProgressService",
     "ContractService",
     "ContractServiceAdapter",
+    "FolderBindingService",
 ]
