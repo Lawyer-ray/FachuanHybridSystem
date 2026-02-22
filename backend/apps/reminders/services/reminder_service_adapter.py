@@ -12,6 +12,8 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
+from django.db import transaction
+
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
 
@@ -78,7 +80,8 @@ class ReminderServiceAdapter:
             # 验证提醒类型是否有效
             if reminder_type not in ReminderType.values:
                 logger.warning(
-                    f"无效的提醒类型: {reminder_type}",
+                    "无效的提醒类型: %s",
+                    reminder_type,
                     extra={"case_log_id": case_log_id, "reminder_type": reminder_type},
                 )
                 return None
@@ -96,6 +99,9 @@ class ReminderServiceAdapter:
             if timezone.is_naive(reminder_time):
                 reminder_time = timezone.make_aware(reminder_time)
 
+            # 注意: 此处直接操作 Reminder.objects.create() 而非复用 ReminderService,
+            # 原因: 本方法为内部适配器方法,供跨模块调用(案件模块、自动化模块),
+            # 参数签名与 ReminderService.create_reminder 不同,且无需权限检查。
             # 创建提醒
             reminder = Reminder.objects.create(
                 case_log_id=case_log_id,
@@ -141,7 +147,7 @@ class ReminderServiceAdapter:
 
             # 检查代码是否有效
             if code not in ReminderType.values:
-                logger.debug(f"提醒类型代码不存在: {code}")
+                logger.debug("提醒类型代码不存在: %s", code)
                 return None
 
             # 获取提醒类型信息
@@ -175,7 +181,7 @@ class ReminderServiceAdapter:
             reminder_type_code = self.DOCUMENT_TYPE_TO_REMINDER_TYPE.get(document_type)
 
             if not reminder_type_code:
-                logger.debug(f"文书类型 {document_type} 没有对应的提醒类型")
+                logger.debug("文书类型 %s 没有对应的提醒类型", document_type)
                 return None
 
             # 使用已有方法获取提醒类型
@@ -201,6 +207,9 @@ class ReminderServiceAdapter:
         try:
             from apps.reminders.models import Reminder
 
+            # 注意: 此处直接操作 Reminder.objects.filter() 而非复用 ReminderService,
+            # 原因: ReminderService 无对应的查询方法,且本方法为内部适配器方法,
+            # 仅返回时间集合,参数签名和返回类型与 Service 层不同,无需权限检查。
             due_at_values = Reminder.objects.filter(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
@@ -225,6 +234,7 @@ class ReminderServiceAdapter:
             )
             raise
 
+    @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         from django.utils import timezone
 
@@ -290,6 +300,8 @@ class ReminderServiceAdapter:
             case_log_id=cast(int, reminder.case_log_id),
             reminder_type=cast(str, reminder.reminder_type),
             reminder_time=str(reminder.due_at) if reminder.due_at else "",
-            is_completed=False,  # Reminder 模型没有 is_completed 字段,默认 False
+            # Reminder 模型没有 is_completed 字段。此处硬编码 False 作为默认值,
+            # 表示提醒尚未完成。若未来模型新增 is_completed 字段,应改为从模型读取。
+            is_completed=False,
             created_at=str(reminder.created_at) if reminder.created_at else None,
         )
