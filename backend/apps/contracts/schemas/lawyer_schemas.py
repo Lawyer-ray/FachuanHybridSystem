@@ -1,12 +1,10 @@
-"""API schemas and serializers."""
-
-from __future__ import annotations
-
 """
 Contract Schemas - Lawyer, Reminder, Case
 
 律师、提醒和案件相关的 Schema 定义.
 """
+
+from __future__ import annotations
 
 from typing import Any
 

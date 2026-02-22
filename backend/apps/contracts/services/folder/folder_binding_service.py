@@ -1,11 +1,9 @@
-"""Business logic services."""
-
-from __future__ import annotations
-
 """
 合同文件夹绑定服务
 处理合同与本地文件夹绑定的业务逻辑
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any, ClassVar

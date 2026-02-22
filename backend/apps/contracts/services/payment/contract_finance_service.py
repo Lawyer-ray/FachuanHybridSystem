@@ -3,6 +3,8 @@
 处理合同财务统计相关的业务逻辑,符合三层架构规范
 """
 
+from __future__ import annotations
+
 from datetime import date
 from typing import Any
 

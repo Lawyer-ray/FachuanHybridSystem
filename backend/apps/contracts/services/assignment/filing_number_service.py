@@ -1,10 +1,3 @@
-"""Business logic services."""
-
-from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
-
-import logging
-
 """
 建档编号生成服务
 
@@ -15,15 +8,16 @@ import logging
 - 确保并发安全
 """
 
-from typing import TYPE_CHECKING, Any
+from __future__ import annotations
+
+import logging
+from typing import Any
 
 from django.db import connection, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import CaseType
 from apps.core.exceptions import ConflictError, ValidationException
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger("apps.contracts")
 
@@ -184,4 +178,4 @@ class FilingNumberService:
             CaseType.ADVISOR: "常法顾问",
         }
 
-        return case_type_map.get(case_type, case_type) # type: ignore
+        return case_type_map.get(case_type, case_type)

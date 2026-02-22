@@ -4,6 +4,8 @@ Contract Schemas - Payment
 支付和财务相关的 Schema 定义.
 """
 
+from __future__ import annotations
+
 from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema

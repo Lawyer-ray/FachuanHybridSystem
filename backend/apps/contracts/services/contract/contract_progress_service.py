@@ -3,6 +3,8 @@
 处理合同履行进度和开票汇总的计算逻辑
 """
 
+from __future__ import annotations
+
 from decimal import Decimal
 from typing import Any
 
