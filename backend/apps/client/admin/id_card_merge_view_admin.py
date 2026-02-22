@@ -60,7 +60,12 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
             context["pdf_url"] = pdf_url
             messages.success(
                 request,
-                format_html(str(_('身份证合并成功!')) + '<a href="{}" target="_blank">' + str(_('点击下载 PDF')) + '</a>', pdf_url),
+                format_html(
+                    '{} <a href="{}" target="_blank">{}</a>',
+                    _("身份证合并成功!"),
+                    pdf_url,
+                    _("点击下载 PDF"),
+                ),
             )
         else:
             error = result.get("error", "UNKNOWN")
@@ -111,7 +116,12 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
         pdf_url = result.get("pdf_url", "")
         messages.success(
             request,
-            format_html(str(_('身份证合并成功!')) + '<a href="{}" target="_blank">' + str(_('点击下载 PDF')) + '</a>', pdf_url),
+            format_html(
+                '{} <a href="{}" target="_blank">{}</a>',
+                _("身份证合并成功!"),
+                pdf_url,
+                _("点击下载 PDF"),
+            ),
         )
     else:
         message = result.get("message", _("未知错误"))
