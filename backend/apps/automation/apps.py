@@ -53,7 +53,7 @@ class AutomationConfig(AppConfig):
                 court_sms_config = getattr(settings, "COURT_SMS_PROCESSING", {})
                 auto_recovery_enabled = court_sms_config.get("AUTO_RECOVERY", True)
         except Exception as e:
-            logger.warning(f"获取法院短信自动恢复配置失败，使用默认值: {e}")
+            logger.warning("获取法院短信自动恢复配置失败，使用默认值: %s", e)
             auto_recovery_enabled = True
 
         if not auto_recovery_enabled:
@@ -82,7 +82,7 @@ class AutomationConfig(AppConfig):
 
         except Exception as e:
             # 恢复失败不应该影响应用启动
-            logger.error(f"安排法院短信任务恢复失败: {e!s}", exc_info=True)
+            logger.error("安排法院短信任务恢复失败: %s", e, exc_info=True)
 
 
 def _delayed_recovery_task(*args: Any, **kwargs: Any) -> None:
@@ -108,4 +108,4 @@ def _delayed_recovery_task(*args: Any, **kwargs: Any) -> None:
         logger.debug("延迟的法院短信任务恢复完成")
 
     except Exception as e:
-        logger.error(f"延迟的法院短信任务恢复失败: {e!s}", exc_info=True)
+        logger.error("延迟的法院短信任务恢复失败: %s", e, exc_info=True)

@@ -108,7 +108,9 @@ class AutoRenameService:
                 from apps.automation.services.wiring import get_llm_service
 
                 llm_service = get_llm_service()
-                llm_resp = llm_service.chat(messages=messages, backend="ollama", model=self._ollama_model, fallback=False)
+                llm_resp = llm_service.chat(
+                    messages=messages, backend="ollama", model=self._ollama_model, fallback=False
+                )
                 response_text = (llm_resp.content or "").strip()
             if not response_text:
                 logger.warning("LLM 返回内容为空")

@@ -380,50 +380,9 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         row_parts: list[SafeString] = []
         rank = 1
         for quote in quotes:
-            if quote.status == "success":
-                status_cell = format_html('<span style="color: #28a745;">✅ {}</span>', _("成功"))
-            else:
-                status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
-
-            if quote.premium is not None:
-                amount_val: Any = quote.premium
-            elif quote.min_amount is not None:
-                amount_val = quote.min_amount
-            else:
-                amount_val = None
-
-            if amount_val is not None:
-                amount_str = f"{amount_val:,.2f}"
-                if rank == 1:
-                    premium_cell = format_html(
-                        '<span style="color: #28a745; font-weight: bold; font-size: 16px;">¥{}</span> 🏆',
-                        amount_str,
-                    )
-                else:
-                    premium_cell = format_html(
-                        '<span style="font-weight: bold;">¥{}</span>',
-                        amount_str,
-                    )
-                rank_cell = format_html('<span style="font-weight: bold;">#{}</span>', rank)
+            row_parts.append(self._render_quote_row(quote, rank))
+            if (quote.premium is not None) or (quote.min_amount is not None):
                 rank += 1
-            else:
-                premium_cell = format_html('<span style="color: #999;">{}</span>', "-")
-                rank_cell = format_html('<span style="color: #999;">{}</span>', "-")
-
-            row_parts.append(
-                format_html(
-                    "<tr>"
-                    '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
-                    '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
-                    '<td style="padding: 8px; text-align: right; border: 1px solid #ddd;">{}</td>'
-                    '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{}</td>'
-                    "</tr>",
-                    rank_cell,
-                    quote.company_name,
-                    premium_cell,
-                    status_cell,
-                )
-            )
 
         rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
         table_close = format_html("{}", "</tbody></table>")
@@ -455,6 +414,40 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
             return format_html("{}{}{}{}", table_header, rows_html, table_close, stats_html)
 
         return format_html("{}{}{}", table_header, rows_html, table_close)
+
+    def _render_quote_row(self, quote: Any, rank: int) -> SafeString:
+        """渲染单行报价。"""
+        if quote.status == "success":
+            status_cell = format_html('<span style="color: #28a745;">✅ {}</span>', _("成功"))
+        else:
+            status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
+
+        amount_val = quote.premium if quote.premium is not None else quote.min_amount
+        if amount_val is not None:
+            amount_str = f"{amount_val:,.2f}"
+            if rank == 1:
+                premium_cell = format_html(
+                    '<span style="color: #28a745; font-weight: bold; font-size: 16px;">¥{}</span> 🏆', amount_str
+                )
+            else:
+                premium_cell = format_html('<span style="font-weight: bold;">¥{}</span>', amount_str)
+            rank_cell = format_html('<span style="font-weight: bold;">#{}</span>', rank)
+        else:
+            premium_cell = format_html('<span style="color: #999;">{}</span>', "-")
+            rank_cell = format_html('<span style="color: #999;">{}</span>', "-")
+
+        return format_html(
+            "<tr>"
+            '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
+            '<td style="padding: 8px; border: 1px solid #ddd;">{}</td>'
+            '<td style="padding: 8px; text-align: right; border: 1px solid #ddd;">{}</td>'
+            '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{}</td>'
+            "</tr>",
+            rank_cell,
+            quote.company_name,
+            premium_cell,
+            status_cell,
+        )
 
     @admin.action(description="执行选中的询价任务")
     def execute_quotes(

@@ -7,7 +7,7 @@
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseNumberService, ICaseService, IDocumentProcessingService
@@ -29,10 +29,10 @@ class CaseNumberExtractorService:
 
     def __init__(
         self,
-        document_processing_service: Optional["IDocumentProcessingService"] = None,
-        case_service: Optional["ICaseService"] = None,
-        case_number_service: Optional["ICaseNumberService"] = None,
-        extraction_provider: Optional[Any] = None,
+        document_processing_service: "IDocumentProcessingService | None" = None,
+        case_service: "ICaseService | None" = None,
+        case_number_service: "ICaseNumberService | None" = None,
+        extraction_provider: Any | None = None,
     ):
         """
         初始化服务，支持依赖注入
