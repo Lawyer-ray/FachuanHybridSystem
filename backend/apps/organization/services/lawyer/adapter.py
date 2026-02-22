@@ -5,6 +5,8 @@ LawyerServiceAdapter
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from apps.core.interfaces import ILawyerService, LawyerDTO
 from apps.organization.models import Lawyer
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
@@ -18,9 +20,10 @@ class LawyerServiceAdapter(ILawyerService):
     实现跨模块接口，将 Model 转换为 DTO
     """
 
+    _assembler: ClassVar[LawyerDtoAssembler] = LawyerDtoAssembler()
+
     def __init__(self, service: LawyerService | None = None) -> None:
         self.service = service or LawyerService()
-        self._assembler = LawyerDtoAssembler()
 
     def _to_dto(self, lawyer: Lawyer) -> LawyerDTO:
         """将 Model 转换为 DTO"""
