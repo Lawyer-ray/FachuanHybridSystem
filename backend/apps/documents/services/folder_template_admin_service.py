@@ -146,21 +146,21 @@ class FolderTemplateAdminService:
             from .folder_template.default_templates import get_default_folder_templates
 
             default_templates = get_default_folder_templates()
+            existing_names = set(
+                FolderTemplate.objects.filter(
+                    name__in=[t["name"] for t in default_templates]
+                ).values_list("name", flat=True)
+            )
 
-            created_count = 0
-            skipped_count = 0
+            to_create = [
+                FolderTemplate(**template_data)
+                for template_data in default_templates
+                if template_data["name"] not in existing_names
+            ]
+            FolderTemplate.objects.bulk_create(to_create, ignore_conflicts=True)
 
-            for template_data in default_templates:
-                # 检查是否已存在相同名称的模板
-                existing = FolderTemplate.objects.filter(name=template_data["name"]).first()
-
-                if existing:
-                    skipped_count += 1
-                    continue
-
-                # 创建新模板
-                FolderTemplate.objects.create(**template_data)
-                created_count += 1
+            created_count = len(to_create)
+            skipped_count = len(default_templates) - created_count
 
             messages_out: list[dict[str, str]] = []
             if created_count > 0:
