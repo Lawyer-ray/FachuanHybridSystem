@@ -190,7 +190,7 @@ class CaseAdminService:
             is_archived: 是否已建档
 
         Returns:
-            Optional[str]: 建档编号(如果已建档)
+            str | None: 建档编号(如果已建档)
 
         Raises:
             NotFoundError: 案件不存在

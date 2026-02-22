@@ -7,7 +7,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 
@@ -28,7 +28,7 @@ class CaseTemplateBindingService:
 
     def __init__(
         self,
-        document_service: Optional["IDocumentService"] = None,
+        document_service: "IDocumentService | None" = None,
         match_policy: CaseTemplateMatchPolicy | None = None,
         assembler: TemplateBindingAssembler | None = None,
         repo: CaseTemplateBindingRepo | None = None,

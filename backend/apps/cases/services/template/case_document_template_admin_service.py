@@ -9,7 +9,7 @@ Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 2.3, 2.4
 
 from django.utils.translation import gettext_lazy as _
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .repo import CaseTemplateBindingRepo
 from .wiring import get_document_service
@@ -34,8 +34,8 @@ class CaseDocumentTemplateAdminService:
 
     def __init__(
         self,
-        document_service: Optional["IDocumentService"] = None,
-        binding_service: Optional["CaseTemplateBindingService"] = None,
+        document_service: "IDocumentService | None" = None,
+        binding_service: "CaseTemplateBindingService | None" = None,
         repo: CaseTemplateBindingRepo | None = None,
     ) -> None:
         self._document_service = document_service
