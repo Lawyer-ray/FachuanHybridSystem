@@ -18,7 +18,7 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 
 def get_backend_path() -> Path:

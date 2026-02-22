@@ -74,7 +74,7 @@ class TestFetchInsuranceCompanies:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.get = AsyncMock(return_value=mock_response)
+        client._client.get = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试
         companies = await client.fetch_insurance_companies(
@@ -104,7 +104,7 @@ class TestFetchInsuranceCompanies:
         """测试获取保险公司列表超时"""
         # 创建客户端并 Mock httpx 客户端抛出超时异常
         client = CourtInsuranceClient()
-        client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+        client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout")) # type: ignore[method-assign]
 
         # 执行测试并验证抛出 NetworkError
         with pytest.raises(NetworkError) as exc_info:
@@ -130,7 +130,7 @@ class TestFetchInsuranceCompanies:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.get = AsyncMock(return_value=mock_response)
+        client._client.get = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试并验证抛出 APIError
         with pytest.raises(APIError) as exc_info:
@@ -149,7 +149,7 @@ class TestFetchInsuranceCompanies:
         """测试获取保险公司列表网络错误"""
         # 创建客户端并 Mock httpx 客户端抛出连接错误
         client = CourtInsuranceClient()
-        client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))
+        client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed")) # type: ignore[method-assign]
 
         # 执行测试并验证抛出 NetworkError
         with pytest.raises(NetworkError) as exc_info:
@@ -177,7 +177,7 @@ class TestFetchInsuranceCompanies:
         mock_response.content = b"test"
         mock_response.text = "test"
 
-        client._client.get = AsyncMock(
+        client._client.get = AsyncMock( # type: ignore[method-assign]
             side_effect=[
                 httpx.ConnectError("Connection failed"),
                 httpx.ConnectError("Connection failed"),
@@ -210,7 +210,7 @@ class TestFetchInsuranceCompanies:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.get = AsyncMock(return_value=mock_response)
+        client._client.get = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试
         companies = await client.fetch_insurance_companies(
@@ -254,7 +254,7 @@ class TestFetchPremium:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.post = AsyncMock(return_value=mock_response)
+        client._client.post = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试
         result = await client.fetch_premium(
@@ -282,7 +282,7 @@ class TestFetchPremium:
         """测试查询报价超时（返回失败结果而非抛出异常）"""
         # 创建客户端并 Mock httpx 客户端抛出超时异常
         client = CourtInsuranceClient()
-        client._client.post = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+        client._client.post = AsyncMock(side_effect=httpx.TimeoutException("Timeout")) # type: ignore[method-assign]
 
         # 执行测试
         result = await client.fetch_premium(
@@ -310,7 +310,7 @@ class TestFetchPremium:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.post = AsyncMock(return_value=mock_response)
+        client._client.post = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试
         result = await client.fetch_premium(
@@ -339,7 +339,7 @@ class TestFetchPremium:
 
         # 创建客户端并 Mock httpx 客户端
         client = CourtInsuranceClient()
-        client._client.post = AsyncMock(return_value=mock_response)
+        client._client.post = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
 
         # 执行测试
         result = await client.fetch_premium(
@@ -381,7 +381,7 @@ class TestFetchAllPremiums:
 
         # 创建客户端并 Mock fetch_premium
         client = CourtInsuranceClient()
-        client.fetch_premium = AsyncMock(side_effect=mock_fetch_premium)
+        client.fetch_premium = AsyncMock(side_effect=mock_fetch_premium) # type: ignore[method-assign]
 
         # 执行测试
         results = await client.fetch_all_premiums(
@@ -444,7 +444,7 @@ class TestFetchAllPremiums:
 
         # 创建客户端并 Mock fetch_premium
         client = CourtInsuranceClient()
-        client.fetch_premium = AsyncMock(side_effect=mock_fetch_premium)
+        client.fetch_premium = AsyncMock(side_effect=mock_fetch_premium) # type: ignore[method-assign]
 
         # 执行测试
         results = await client.fetch_all_premiums(
@@ -471,7 +471,7 @@ class TestClientLifecycle:
         client = CourtInsuranceClient()
 
         # Mock aclose 方法
-        client._client.aclose = AsyncMock()
+        client._client.aclose = AsyncMock() # type: ignore[method-assign]
 
         # 执行关闭
         await client.close()
@@ -486,7 +486,7 @@ class TestClientLifecycle:
             assert isinstance(client, CourtInsuranceClient)
 
             # Mock aclose 方法
-            client._client.aclose = AsyncMock()
+            client._client.aclose = AsyncMock() # type: ignore[method-assign]
 
         # 验证退出时自动关闭
         client._client.aclose.assert_called_once()

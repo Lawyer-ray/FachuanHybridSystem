@@ -134,7 +134,7 @@ def get_json_response(response) -> Dict[str, Any]:
         AssertionError: 如果响应不是 JSON
     """
     try:
-        return response.json()
+        return response.json()  # type: ignore[no-any-return]
     except ValueError:
         raise AssertionError(f"Response is not JSON. Content: {response.content.decode('utf-8')}")
 

@@ -73,7 +73,7 @@ class TestAncestorChainProperties:
             while current:
                 expected_codes.append(current.code)
                 expected_names.append(current.name)
-                current = current.parent
+                current = current.parent # type: ignore[assignment]
 
             assert codes == expected_codes, f"祖先链编码 {codes} 与预期 {expected_codes} 不符"
             assert names == expected_names, f"祖先链名称 {names} 与预期 {expected_names} 不符"

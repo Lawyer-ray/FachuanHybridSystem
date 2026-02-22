@@ -99,7 +99,7 @@ from apps.core.protocols import (
 )
 
 # Service Locator and Event Bus
-from .service_locator import EventBus, Events, ServiceLocator
+from .service_locator import ServiceLocator
 
 __all__ = [
     # DTOs
@@ -189,7 +189,4 @@ __all__ = [
     "IConversationHistoryService",
     "IEvidenceListPlaceholderService",
     # Service Locator and Event Bus
-    "ServiceLocator",
-    "EventBus",
-    "Events",
-]
+    "ServiceLocator",]

@@ -253,7 +253,7 @@ class ValidateModelDataTest(TestCase):
             "phone": "invalid",
             "amount": "100.50",
         }
-        rules = {
+        rules: dict[str, list[tuple[object, dict[str, object]]]] = {
             "phone": [(Validators.validate_phone, {})],
         }
 

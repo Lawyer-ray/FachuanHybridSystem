@@ -31,7 +31,7 @@ class TestExceptionHandlingProperties:
 
         async def _run() -> None:
             client = CourtInsuranceClient()
-            client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+            client._client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout")) # type: ignore[method-assign]
             with pytest.raises(NetworkError) as exc_info:
                 await client.fetch_insurance_companies(
                     bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
@@ -64,7 +64,7 @@ class TestExceptionHandlingProperties:
             mock_response.url = "https://test.com"
             mock_response.content = b"test"
             mock_response.request = Mock()
-            client._client.get = AsyncMock(return_value=mock_response)
+            client._client.get = AsyncMock(return_value=mock_response) # type: ignore[method-assign]
             with pytest.raises(APIError) as exc_info:
                 await client.fetch_insurance_companies(
                     bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
@@ -91,7 +91,7 @@ class TestExceptionHandlingProperties:
 
         async def _run() -> None:
             client = CourtInsuranceClient()
-            client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))
+            client._client.get = AsyncMock(side_effect=httpx.ConnectError("Connection failed")) # type: ignore[method-assign]
             with pytest.raises(NetworkError) as exc_info:
                 await client.fetch_insurance_companies(
                     bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,
@@ -121,7 +121,7 @@ class TestExceptionHandlingProperties:
                 (httpx.TimeoutException("Timeout"), NetworkError),
                 (httpx.ConnectError("Connection failed"), NetworkError),
             ]:
-                client._client.get = AsyncMock(side_effect=error)
+                client._client.get = AsyncMock(side_effect=error) # type: ignore[method-assign]
                 try:
                     await client.fetch_insurance_companies(
                         bearer_token=bearer_token, c_pid=c_pid, fy_id=fy_id,

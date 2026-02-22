@@ -157,7 +157,7 @@ async def run_all_tests():
         print(f"❌ 失败的测试详情:")
         print(f"{'='*70}\n")
 
-        for i, error in enumerate(all_results["errors"], 1):
+        for i, error in enumerate(all_results["errors"], 1):  # type: ignore[var-annotated]
             print(f"{i}. {error['test']}")
             print(f"   类型: {error['type']}")
             print(f"   错误: {error['error']}")

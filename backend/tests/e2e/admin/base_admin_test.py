@@ -22,7 +22,7 @@ class BaseAdminTest:
     playwright: Any = None
     browser: Browser | None = None
     context: BrowserContext | None = None
-    page: Page | None = None
+    page: Page  # set in setup()
 
     async def setup(self) -> None:
         """设置测试环境"""
@@ -637,17 +637,17 @@ class BaseAdminTest:
             if field:
                 field_name = await field.get_attribute("name")
                 if field_name:
-                    return field_name
+                    return field_name  # type: ignore[no-any-return]
 
             parent_class = await parent.get_attribute("class")
             if parent_class and "field-" in parent_class:
                 for cls in parent_class.split():
                     if cls.startswith("field-"):
-                        return cls.replace("field-", "")
+                        return cls.replace("field-", "")  # type: ignore[no-any-return]
 
             parent_id = await parent.get_attribute("id")
             if parent_id:
-                return parent_id
+                return parent_id  # type: ignore[no-any-return]
         except Exception:
             pass
 

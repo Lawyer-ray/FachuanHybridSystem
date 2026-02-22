@@ -678,7 +678,7 @@ class TestCaseServiceGetCase:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 配置无权限
-        org_access = {"lawyers": set(), "extra_cases": set()}
+        org_access: dict[str, set[int]] = {"lawyers": set(), "extra_cases": set()}
 
         # 断言抛出异常
         with pytest.raises(ForbiddenError):
@@ -768,7 +768,7 @@ class TestCaseServiceCheckAccess:
         case = Case.objects.create(name="测试案件", is_archived=False)
 
         # 配置无权限
-        org_access = {"lawyers": set(), "extra_cases": set()}
+        org_access: dict[str, set[int]] = {"lawyers": set(), "extra_cases": set()}
 
         # 执行检查
         result = self.service.check_case_access(case=case, user=self.user, org_access=org_access)

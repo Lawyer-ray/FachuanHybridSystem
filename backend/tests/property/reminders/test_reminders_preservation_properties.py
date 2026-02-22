@@ -81,7 +81,7 @@ def _ensure_case_log() -> int:
 
     lawyer = Lawyer.objects.first()
     if lawyer is None:
-        lawyer = Lawyer.objects.create_user(username="test-lawyer", password="test1234")  # type: ignore[attr-defined]
+        lawyer = Lawyer.objects.create_user(username="test-lawyer", password="test1234")
 
     case = Case.objects.first()
     if case is None:
@@ -168,7 +168,7 @@ def test_crud_response_structure_preserved(
     assert updated.content == "updated-content"
 
     # ── DELETE ──
-    result = service.delete_reminder(reminder.pk)
+    result = service.delete_reminder(reminder.pk) # type: ignore[func-returns-value]
     assert isinstance(result, dict)
     assert result.get("success") is True
 

@@ -44,6 +44,22 @@ def validate_case_log_attachment(filename: str, size: int | None) -> tuple[bool,
     return True, None
 
 
+def fix_sqlite_orphan_contract_fk() -> None:
+    """SQLite 不强制 FK 约束，删除案件前清理孤立的 contract_id 引用。"""
+    from django.db import connection
+
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE cases_case
+                SET contract_id = NULL
+                WHERE contract_id IS NOT NULL
+                  AND contract_id NOT IN (SELECT id FROM contracts_contract)
+                """
+            )
+
+
 def normalize_case_number(number: str, ensure_hao: bool = False) -> str:
     if not number:
         return ""

@@ -26,7 +26,7 @@ from apps.automation.services.scraper.scrapers.court_document.base_court_scraper
 
 # 定义策略
 @st.composite
-def api_response_strategy(draw):  # type: ignore[no-untyped-def]
+def api_response_strategy(draw):
     """生成有效的 API 响应数据"""
     doc_count = draw(st.integers(min_value=0, max_value=10))
 
@@ -73,7 +73,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy())
-    def test_property_1_api_interceptor_configuration(self, api_response):  # type: ignore[no-untyped-def]
+    def test_property_1_api_interceptor_configuration(self, api_response):
         """
         属性 1: API拦截器正确配置
 
@@ -92,7 +92,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         listener_registered = False
         registered_handler = None
 
-        def mock_on(event_name, handler):  # type: ignore[no-untyped-def]
+        def mock_on(event_name, handler):
             nonlocal listener_registered, registered_handler
             if event_name == "response":
                 listener_registered = True
@@ -103,14 +103,14 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         mock_page.wait_for_load_state = MagicMock()
 
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = mock_page  # type: ignore[assignment]
-        scraper.navigate_to_url = MagicMock()  # type: ignore[assignment]
-        scraper.random_wait = MagicMock()  # type: ignore[assignment]
-        scraper._debug_log = MagicMock()  # type: ignore[assignment]
+        scraper.page = mock_page
+        scraper.navigate_to_url = MagicMock()  # type: ignore[method-assign]
+        scraper.random_wait = MagicMock()  # type: ignore[method-assign]
+        scraper._debug_log = MagicMock()  # type: ignore[method-assign]
 
         import threading
 
-        def trigger_response():  # type: ignore[no-untyped-def]
+        def trigger_response():
             time.sleep(0.1)
             if registered_handler:
                 registered_handler(mock_response)
@@ -130,7 +130,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy(), timeout_ms=st.integers(min_value=1000, max_value=10000))
-    def test_property_19_statistics_log_accuracy(self, api_response, timeout_ms):  # type: ignore[no-untyped-def]
+    def test_property_19_statistics_log_accuracy(self, api_response, timeout_ms):
         """
         属性 19: 统计日志准确性
 
@@ -145,9 +145,9 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         mock_response.url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
         mock_response.json.return_value = api_response
 
-        log_calls: list[dict] = []  # type: ignore[type-arg]
+        log_calls: list[dict] = []
 
-        def mock_on(event_name, handler):  # type: ignore[no-untyped-def]
+        def mock_on(event_name, handler):
             if event_name == "response":
                 handler(mock_response)
 
@@ -156,13 +156,13 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         mock_page.wait_for_load_state = MagicMock()
 
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = mock_page  # type: ignore[assignment]
-        scraper.navigate_to_url = MagicMock()  # type: ignore[assignment]
-        scraper.random_wait = MagicMock()  # type: ignore[assignment]
-        scraper._debug_log = MagicMock()  # type: ignore[assignment]
+        scraper.page = mock_page
+        scraper.navigate_to_url = MagicMock()  # type: ignore[method-assign]
+        scraper.random_wait = MagicMock()  # type: ignore[method-assign]
+        scraper._debug_log = MagicMock()  # type: ignore[method-assign]
 
         with patch("apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin.logger") as mock_logger:
-            def capture_log(*args, **kwargs):  # type: ignore[no-untyped-def]
+            def capture_log(*args, **kwargs):
                 log_calls.append({"args": args, "kwargs": kwargs})
 
             mock_logger.info.side_effect = capture_log
@@ -193,7 +193,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy())
-    def test_property_4_document_list_traversal_completeness(self, api_response):  # type: ignore[no-untyped-def]
+    def test_property_4_document_list_traversal_completeness(self, api_response):
         """
         属性 4: 文书列表遍历完整性
 
@@ -204,19 +204,19 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         """
         mock_page = MagicMock()
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = mock_page  # type: ignore[assignment]
+        scraper.page = mock_page
 
         download_dir = Path("/tmp/test_downloads")
         download_dir.mkdir(parents=True, exist_ok=True)
 
         processed_count = 0
 
-        def mock_download(document_data, download_dir, download_timeout=60000):  # type: ignore[no-untyped-def]
+        def mock_download(document_data, download_dir, download_timeout=60000):
             nonlocal processed_count
             processed_count += 1
             return True, f"/tmp/test_{processed_count}.pdf", None
 
-        scraper._download_document_directly = mock_download  # type: ignore[assignment]
+        scraper._download_document_directly = mock_download  # type: ignore[method-assign]
 
         documents = api_response.get("data", [])
         for doc in documents:
@@ -227,7 +227,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy())
-    def test_property_5_url_extraction_correctness(self, api_response):  # type: ignore[no-untyped-def]
+    def test_property_5_url_extraction_correctness(self, api_response):
         """
         属性 5: URL提取正确性
 
@@ -256,7 +256,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy())
-    def test_property_6_download_function_invocation(self, api_response):  # type: ignore[no-untyped-def]
+    def test_property_6_download_function_invocation(self, api_response):
         """
         属性 6: 下载功能调用
 
@@ -298,7 +298,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
     @settings(max_examples=30, deadline=None)
     @given(api_response=api_response_strategy())
-    def test_property_7_file_naming_correctness(self, api_response):  # type: ignore[no-untyped-def]
+    def test_property_7_file_naming_correctness(self, api_response):
         """
         属性 7: 文件命名正确性
 
@@ -347,7 +347,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
             st.floats(min_value=0.5, max_value=1.5), st.floats(min_value=1.5, max_value=3.0)
         ).filter(lambda x: x[0] < x[1]),
     )
-    def test_property_22_download_delay_existence(self, doc_count, delay_range):  # type: ignore[no-untyped-def]
+    def test_property_22_download_delay_existence(self, doc_count, delay_range):
         """
         属性 22: 下载延迟存在性
 
@@ -358,19 +358,19 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         """
         mock_page = MagicMock()
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = mock_page  # type: ignore[assignment]
+        scraper.page = mock_page
 
         download_dir = Path("/tmp/test_downloads")
         download_dir.mkdir(parents=True, exist_ok=True)
 
         download_times: list[float] = []
-        delay_calls: list[dict] = []  # type: ignore[type-arg]
+        delay_calls: list[dict] = []
 
-        def mock_download(document_data, download_dir, download_timeout=60000):  # type: ignore[no-untyped-def]
+        def mock_download(document_data, download_dir, download_timeout=60000):
             download_times.append(time.time())
             return True, f"/tmp/test_{len(download_times)}.pdf", None
 
-        scraper._download_document_directly = mock_download  # type: ignore[assignment]
+        scraper._download_document_directly = mock_download  # type: ignore[method-assign]
 
         def mock_random_wait(min_sec: float = 0.5, max_sec: float = 2.0) -> None:
             delay_calls.append({"min_sec": min_sec, "max_sec": max_sec, "timestamp": time.time()})
@@ -413,7 +413,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         total_docs=st.integers(min_value=3, max_value=10),
         failure_indices=st.lists(st.integers(min_value=0, max_value=9), min_size=1, max_size=3, unique=True),
     )
-    def test_property_8_error_isolation(self, total_docs, failure_indices):  # type: ignore[no-untyped-def]
+    def test_property_8_error_isolation(self, total_docs, failure_indices):
         """
         属性 8: 错误隔离性
 
@@ -446,7 +446,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         success_count = 0
         failure_count = 0
 
-        def mock_download(document_data, download_dir, download_timeout=60000):  # type: ignore[no-untyped-def]
+        def mock_download(document_data, download_dir, download_timeout=60000):
             nonlocal success_count, failure_count
             doc_index = int(document_data["c_sdbh"].split("_")[1])
             processed_docs.append(doc_index)
@@ -457,19 +457,19 @@ class TestCourtDocumentScraperAPIInterceptProperties:
                 success_count += 1
                 return True, f"/tmp/test_{doc_index}.pdf", None
 
-        scraper._download_document_directly = mock_download  # type: ignore[assignment]
+        scraper._download_document_directly = mock_download  # type: ignore[method-assign]
 
-        saved_docs: list[dict] = []  # type: ignore[type-arg]
+        saved_docs: list[dict] = []
 
-        def mock_save_to_db(document_data, download_result):  # type: ignore[no-untyped-def]
+        def mock_save_to_db(document_data, download_result):
             doc_index = int(document_data["c_sdbh"].split("_")[1])
             saved_docs.append({"index": doc_index, "success": download_result[0], "error": download_result[2]})
             return doc_index + 1000
 
-        scraper._save_document_to_db = mock_save_to_db  # type: ignore[assignment]
+        scraper._save_document_to_db = mock_save_to_db  # type: ignore[method-assign]
 
         # 使用基类的 _save_documents_batch 实现（绕过 Mixin 的 MRO 覆盖）
-        scraper._save_documents_batch = types.MethodType(  # type: ignore[assignment]
+        scraper._save_documents_batch = types.MethodType(  # type: ignore[method-assign]
             BaseCourtDocumentScraper._save_documents_batch, scraper
         )
 
@@ -507,7 +507,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         api_error_type=st.sampled_from(["timeout", "invalid_format", "empty_data", "network_error"]),
         fallback_success=st.booleans(),
     )
-    def test_property_13_fallback_log_recording(self, api_error_type, fallback_success):  # type: ignore[no-untyped-def]
+    def test_property_13_fallback_log_recording(self, api_error_type, fallback_success):
         """
         属性 13: 回退日志记录
 
@@ -517,12 +517,12 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         验证需求: 4.2
         """
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = MagicMock()  # type: ignore[assignment]
+        scraper.page = MagicMock()
         scraper.page.goto = MagicMock()
         scraper.page.wait_for_load_state = MagicMock()
-        scraper.random_wait = MagicMock()  # type: ignore[assignment]
-        scraper._save_page_state = MagicMock(return_value={"screenshot": "/tmp/test.png"})  # type: ignore[assignment]
-        scraper._prepare_download_dir = MagicMock(return_value=Path("/tmp/test_downloads"))  # type: ignore[assignment]
+        scraper.random_wait = MagicMock()  # type: ignore[method-assign]
+        scraper._save_page_state = MagicMock(return_value={"screenshot": "/tmp/test.png"})  # type: ignore[method-assign]
+        scraper._prepare_download_dir = MagicMock(return_value=Path("/tmp/test_downloads"))  # type: ignore[method-assign]
 
         download_dir = Path("/tmp/test_downloads")
         download_dir.mkdir(parents=True, exist_ok=True)
@@ -537,17 +537,17 @@ class TestCourtDocumentScraperAPIInterceptProperties:
 
         # 新架构有3级策略：直接API → 拦截 → 回退
         # 让直接API和拦截都失败
-        def mock_direct_api(url, download_dir):  # type: ignore[no-untyped-def]
+        def mock_direct_api(url, download_dir):
             raise api_error
 
-        scraper._download_via_direct_api = mock_direct_api  # type: ignore[assignment]
+        scraper._download_via_direct_api = mock_direct_api  # type: ignore[method-assign]
 
-        def mock_api_intercept(download_dir):  # type: ignore[no-untyped-def]
+        def mock_api_intercept(download_dir):
             raise api_error
 
-        scraper._download_via_api_intercept_with_navigation = mock_api_intercept  # type: ignore[assignment]
+        scraper._download_via_api_intercept_with_navigation = mock_api_intercept  # type: ignore[method-assign]
 
-        def mock_fallback(download_dir):  # type: ignore[no-untyped-def]
+        def mock_fallback(download_dir):
             if fallback_success:
                 return {
                     "source": "zxfw.court.gov.cn", "document_count": 1,
@@ -558,13 +558,13 @@ class TestCourtDocumentScraperAPIInterceptProperties:
             else:
                 raise Exception("回退机制也失败")
 
-        scraper._download_via_fallback = mock_fallback  # type: ignore[assignment]
+        scraper._download_via_fallback = mock_fallback  # type: ignore[method-assign]
 
-        log_calls: list[dict] = []  # type: ignore[type-arg]
+        log_calls: list[dict] = []
 
         with patch("apps.automation.services.scraper.scrapers.court_document.zxfw_scraper.logger") as mock_logger:
-            def capture_log(level):  # type: ignore[no-untyped-def]
-                def log_func(*args, **kwargs):  # type: ignore[no-untyped-def]
+            def capture_log(level):
+                def log_func(*args, **kwargs):
                     log_calls.append({"level": level, "args": args, "kwargs": kwargs})
                 return log_func
 
@@ -600,7 +600,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         ),
         use_fallback=st.booleans(),
     )
-    def test_property_14_fallback_result_marking(self, api_error_message, use_fallback):  # type: ignore[no-untyped-def]
+    def test_property_14_fallback_result_marking(self, api_error_message, use_fallback):
         """
         属性 14: 回退结果标记
 
@@ -610,29 +610,29 @@ class TestCourtDocumentScraperAPIInterceptProperties:
         验证需求: 4.4
         """
         scraper = ZxfwCourtScraper(self.scraper_task)
-        scraper.page = MagicMock()  # type: ignore[assignment]
+        scraper.page = MagicMock()
         scraper.page.goto = MagicMock()
         scraper.page.wait_for_load_state = MagicMock()
-        scraper.random_wait = MagicMock()  # type: ignore[assignment]
-        scraper._save_page_state = MagicMock(return_value={"screenshot": "/tmp/test.png"})  # type: ignore[assignment]
-        scraper._prepare_download_dir = MagicMock(return_value=Path("/tmp/test_downloads"))  # type: ignore[assignment]
+        scraper.random_wait = MagicMock()  # type: ignore[method-assign]
+        scraper._save_page_state = MagicMock(return_value={"screenshot": "/tmp/test.png"})  # type: ignore[method-assign]
+        scraper._prepare_download_dir = MagicMock(return_value=Path("/tmp/test_downloads"))  # type: ignore[method-assign]
 
         download_dir = Path("/tmp/test_downloads")
         download_dir.mkdir(parents=True, exist_ok=True)
 
         if use_fallback:
             # 让直接API和拦截都失败，回退成功
-            def mock_direct_api(url, download_dir):  # type: ignore[no-untyped-def]
+            def mock_direct_api(url, download_dir):
                 raise ValueError(api_error_message)
 
-            scraper._download_via_direct_api = mock_direct_api  # type: ignore[assignment]
+            scraper._download_via_direct_api = mock_direct_api  # type: ignore[method-assign]
 
-            def mock_api_intercept(download_dir):  # type: ignore[no-untyped-def]
+            def mock_api_intercept(download_dir):
                 raise ValueError(api_error_message)
 
-            scraper._download_via_api_intercept_with_navigation = mock_api_intercept  # type: ignore[assignment]
+            scraper._download_via_api_intercept_with_navigation = mock_api_intercept  # type: ignore[method-assign]
 
-            def mock_fallback(download_dir):  # type: ignore[no-untyped-def]
+            def mock_fallback(download_dir):
                 return {
                     "source": "zxfw.court.gov.cn", "document_count": 1,
                     "downloaded_count": 1, "failed_count": 0,
@@ -640,10 +640,10 @@ class TestCourtDocumentScraperAPIInterceptProperties:
                     "message": "回退方式：成功下载 1/1 份文书",
                 }
 
-            scraper._download_via_fallback = mock_fallback  # type: ignore[assignment]
+            scraper._download_via_fallback = mock_fallback  # type: ignore[method-assign]
         else:
             # 直接API成功
-            def mock_direct_api_ok(url, download_dir):  # type: ignore[no-untyped-def]
+            def mock_direct_api_ok(url, download_dir):
                 return {
                     "source": "zxfw.court.gov.cn", "method": "direct_api",
                     "document_count": 1, "downloaded_count": 1, "failed_count": 0,
@@ -652,7 +652,7 @@ class TestCourtDocumentScraperAPIInterceptProperties:
                     "message": "直接 API 方式：成功下载 1/1 份文书",
                 }
 
-            scraper._download_via_direct_api = mock_direct_api_ok  # type: ignore[assignment]
+            scraper._download_via_direct_api = mock_direct_api_ok  # type: ignore[method-assign]
 
         with patch("apps.automation.services.scraper.scrapers.court_document.zxfw_scraper.logger"):
             result = scraper.run()

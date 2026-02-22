@@ -28,7 +28,7 @@ async def test_auto_login_usecase_network_retry_success(sample_credential):
         login_gateway=Mock(),
         sleep=AsyncMock(),
     )
-    usecase._single_login_attempt = AsyncMock(side_effect=[NetworkError("network down"), "token_123"])
+    usecase._single_login_attempt = AsyncMock(side_effect=[NetworkError("network down"), "token_123"]) # type: ignore[method-assign]
 
     token = await usecase.execute(sample_credential)
 

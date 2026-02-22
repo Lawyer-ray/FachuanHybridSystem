@@ -127,7 +127,7 @@ class TestContractService:
         contract = ContractFactory()
 
         # 执行测试
-        result = self.service.delete_contract(contract.id)
+        result = self.service.delete_contract(contract.id) # type: ignore[func-returns-value]
 
         # 断言返回 None
         assert result is None
@@ -171,7 +171,7 @@ class TestContractService:
         user.id = 1
 
         # 配置无权限
-        org_access = {
+        org_access: dict[str, set[int]] = {
             "lawyers": set(),
         }
 
@@ -360,7 +360,7 @@ class TestContractService:
         ContractParty.objects.create(contract=contract, client=client)
 
         # 执行测试（返回 None）
-        result = self.service.remove_party(contract.id, client.id)
+        result = self.service.remove_party(contract.id, client.id) # type: ignore[func-returns-value]
 
         # 断言返回 None
         assert result is None

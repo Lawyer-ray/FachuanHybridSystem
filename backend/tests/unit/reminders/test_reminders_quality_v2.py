@@ -52,8 +52,8 @@ class TestUpdateReminderTypeValidation:
         mock_reminder.content = "test"
         mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
         mock_reminder.metadata = {}
-        mock_reminder.full_clean = MagicMock()  # type: ignore[assignment]
-        mock_reminder.save = MagicMock()  # type: ignore[assignment]
+        mock_reminder.full_clean = MagicMock()
+        mock_reminder.save = MagicMock()
 
         data: dict[str, Any] = {"reminder_type": reminder_type}
 
@@ -79,8 +79,8 @@ class TestUpdateReminderTypeValidation:
         mock_reminder.content = "test"
         mock_reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
         mock_reminder.metadata = {}
-        mock_reminder.full_clean = MagicMock()  # type: ignore[assignment]
-        mock_reminder.save = MagicMock()  # type: ignore[assignment]
+        mock_reminder.full_clean = MagicMock()
+        mock_reminder.save = MagicMock()
 
         data: dict[str, Any] = {"content": "updated content"}
 
@@ -159,7 +159,7 @@ class TestReminderStrBindingFormat:
         reminder.due_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
         # 直接调用 Reminder.__str__ 绕过 MagicMock 的 __str__
-        result: str = Reminder.__str__(reminder)  # type: ignore[arg-type]
+        result: str = Reminder.__str__(reminder)
 
         if contract_id:
             assert f"contract:{contract_id}" in result

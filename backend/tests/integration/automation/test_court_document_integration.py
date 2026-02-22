@@ -11,7 +11,7 @@ import pytest
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from apps.core.path import Path
+from pathlib import Path
 
 
 @pytest.mark.django_db

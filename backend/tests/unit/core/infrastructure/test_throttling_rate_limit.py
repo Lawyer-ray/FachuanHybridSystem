@@ -17,7 +17,7 @@ class DummyRequest:
         self.META = {"REMOTE_ADDR": ip}
         if xff is not None:
             self.META["HTTP_X_FORWARDED_FOR"] = xff
-        self.headers = {}
+        self.headers: dict[str, str] = {}
 
 
 @pytest.mark.unit

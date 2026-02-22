@@ -39,16 +39,8 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 continue
             model.objects.filter(case_id__in=case_ids).update(case=None)
 
-        if connection.vendor == "sqlite":
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE cases_case
-                    SET contract_id = NULL
-                    WHERE contract_id IS NOT NULL
-                      AND contract_id NOT IN (SELECT id FROM contracts_contract)
-                    """
-                )
+        from apps.cases.utils import fix_sqlite_orphan_contract_fk
+        fix_sqlite_orphan_contract_fk()
 
     def delete_model(self, request: HttpRequest, obj: Case) -> None:
         try:

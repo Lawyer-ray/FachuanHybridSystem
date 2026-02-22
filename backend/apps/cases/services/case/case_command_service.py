@@ -253,6 +253,8 @@ class CaseCommandService(PermissionMixin):
                 "user_id": getattr(user, "id", None) if user else None,
             },
         )
+        from apps.cases.utils import fix_sqlite_orphan_contract_fk
+        fix_sqlite_orphan_contract_fk()
         case.delete()
 
     @transaction.atomic

@@ -73,7 +73,7 @@ class TestSupplementaryAgreementBasicService:
         """测试没有补充协议时的生成"""
         service = SupplementaryAgreementBasicService()
 
-        context_data = {}
+        context_data: dict[str, str] = {}
 
         result = service.generate(context_data)
 
@@ -103,11 +103,11 @@ class TestSupplementaryAgreementPrincipalService:
         context_data = {"contract": mock_contract, "supplementary_agreement": mock_agreement}
 
         # 模拟方法返回值
-        service._get_agreement_principals = Mock(return_value=[])
-        service._get_contract_principals = Mock(return_value=[])
-        service._find_new_principals = Mock(return_value=([], []))
-        service.format_principal_info = Mock(return_value="补充协议委托人信息")
-        service.format_principal_clause = Mock(return_value="")
+        service._get_agreement_principals = Mock(return_value=[]) # type: ignore[method-assign]
+        service._get_contract_principals = Mock(return_value=[]) # type: ignore[method-assign]
+        service._find_new_principals = Mock(return_value=([], [])) # type: ignore[method-assign]
+        service.format_principal_info = Mock(return_value="补充协议委托人信息") # type: ignore[method-assign]
+        service.format_principal_clause = Mock(return_value="") # type: ignore[method-assign]
 
         result = service.generate(context_data)
 
@@ -122,7 +122,7 @@ class TestSupplementaryAgreementPrincipalService:
         mock_client = Mock()
         mock_client.name = "张三"
 
-        service._format_client_details = Mock(return_value=["身份证号码：123456789012345678"])
+        service._format_client_details = Mock(return_value=["身份证号码：123456789012345678"]) # type: ignore[method-assign]
 
         result = service.format_principal_info([mock_client])
 
@@ -139,7 +139,7 @@ class TestSupplementaryAgreementPrincipalService:
         mock_client2 = Mock()
         mock_client2.name = "李四"
 
-        service._format_client_details = Mock(return_value=["详细信息"])
+        service._format_client_details = Mock(return_value=["详细信息"]) # type: ignore[method-assign]
 
         result = service.format_principal_info([mock_client1, mock_client2])
 
@@ -178,8 +178,8 @@ class TestSupplementaryAgreementOpposingService:
         mock_agreement = Mock()
         context_data = {"supplementary_agreement": mock_agreement}
 
-        service._get_opposing_parties = Mock(return_value=[])
-        service.format_opposing_party_clause = Mock(return_value="")
+        service._get_opposing_parties = Mock(return_value=[]) # type: ignore[method-assign]
+        service.format_opposing_party_clause = Mock(return_value="") # type: ignore[method-assign]
 
         result = service.generate(context_data)
 
@@ -199,8 +199,8 @@ class TestSupplementaryAgreementSignatureService:
 
         context_data = {"supplementary_agreement": mock_agreement, "contract": mock_contract}
 
-        service._get_agreement_principals = Mock(return_value=[])
-        service.format_signature_info = Mock(return_value="签名信息")
+        service._get_agreement_principals = Mock(return_value=[]) # type: ignore[method-assign]
+        service.format_signature_info = Mock(return_value="签名信息") # type: ignore[method-assign]
 
         result = service.generate(context_data)
 

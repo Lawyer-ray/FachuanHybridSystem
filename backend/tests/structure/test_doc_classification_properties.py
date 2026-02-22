@@ -9,7 +9,7 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 # 定义文档类型和对应的目录映射
 DOC_TYPE_MAPPING = {

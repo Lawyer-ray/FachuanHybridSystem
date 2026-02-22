@@ -8,8 +8,7 @@
 """
 
 from .base import ConfigProvider
-from .django import DjangoProvider
 from .env import EnvProvider
 from .yaml import YamlProvider
 
-__all__ = ["ConfigProvider", "EnvProvider", "YamlProvider", "DjangoProvider"]
+__all__ = ["ConfigProvider", "EnvProvider", "YamlProvider"]

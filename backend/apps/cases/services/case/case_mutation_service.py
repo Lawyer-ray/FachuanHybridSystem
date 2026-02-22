@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any
 
-from django.db import connection, transaction
+from django.db import transaction
 
 from apps.cases.models import Case
 from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
@@ -162,17 +162,8 @@ class CaseMutationService:
             extra={"action": "delete_case", "case_id": case_id, "user_id": getattr(user, "id", None) if user else None},
         )
 
-        if connection.vendor == "sqlite":
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE cases_case
-                    SET contract_id = NULL
-                    WHERE contract_id IS NOT NULL
-                      AND contract_id NOT IN (SELECT id FROM contracts_contract)
-                    """
-                )
-
+        from apps.cases.utils import fix_sqlite_orphan_contract_fk
+        fix_sqlite_orphan_contract_fk()
         case.delete()
 
     def unbind_cases_from_contract_internal(self, contract_id: int) -> int:

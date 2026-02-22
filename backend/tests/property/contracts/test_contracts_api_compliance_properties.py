@@ -9,7 +9,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 # 合同模块 API 文件列表
 CONTRACTS_API_FILES = [

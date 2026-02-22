@@ -4,7 +4,7 @@ from django.test import SimpleTestCase, override_settings
 
 from apps.cases.services.folder_binding_service import CaseFolderBindingService
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from pathlib import Path
 
 
 class CaseFolderBrowseServiceTests(SimpleTestCase):

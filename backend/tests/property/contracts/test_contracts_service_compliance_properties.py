@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apps.core.path import Path
+from pathlib import Path
 
 # 合同模块 Service 文件列表
 CONTRACTS_SERVICE_FILES = [
@@ -41,7 +41,7 @@ def extract_method_bodies(content: str) -> list[tuple[str, str, int]]:
 
     in_method = False
     method_name = ""
-    method_body = []
+    method_body: list[str] = []
     method_start_line = 0
     method_indent = 0
     is_property = False

@@ -1,11 +1,1 @@
-from .ai import AutomationAiLoggerMixin
-from .auth import AutomationAuthLoggerMixin
-from .document import AutomationDocumentLoggerMixin
-from .misc import AutomationMiscLoggerMixin
-
-__all__ = [
-    "AutomationAiLoggerMixin",
-    "AutomationAuthLoggerMixin",
-    "AutomationDocumentLoggerMixin",
-    "AutomationMiscLoggerMixin",
-]
+"""Logging mixins — 仅保留被外部引用的 common 工具函数"""

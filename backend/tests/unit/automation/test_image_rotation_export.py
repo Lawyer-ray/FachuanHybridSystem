@@ -314,7 +314,7 @@ class TestGetUniqueFilename:
     def test_first_occurrence_keeps_original_name(self):
         """第一次出现的文件名保持不变"""
         service = ImageRotationService()
-        used_names = {}
+        used_names: dict[str, int] = {}
 
         result = service._get_unique_filename("test.jpg", used_names)
 
@@ -353,7 +353,7 @@ class TestGetUniqueFilename:
     def test_handles_empty_filename(self):
         """处理空文件名"""
         service = ImageRotationService()
-        used_names = {}
+        used_names: dict[str, int] = {}
 
         result = service._get_unique_filename("", used_names)
 

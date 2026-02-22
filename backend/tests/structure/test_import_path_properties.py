@@ -38,7 +38,7 @@ NEW_IMPORT_PATHS = [
 ]
 
 
-def find_all_python_files(root: Path, exclude_dirs: set = None) -> list[Path]:
+def find_all_python_files(root: Path, exclude_dirs: set[str] | None = None) -> list[Path]:
     """查找所有 Python 文件"""
     if exclude_dirs is None:
         exclude_dirs = {

@@ -43,8 +43,6 @@ class EvidenceQueryService:
                     file_path = file_field.storage.path(item["file"])
                 except Exception:
                     # 静默处理:文件操作失败不影响主流程
-                    # 静默处理:文件操作失败不影响主流程
-                    # 静默处理:文件操作失败不影响主流程
 
                     # 静默处理:文件操作失败不影响主流程
 
@@ -89,8 +87,6 @@ class EvidenceQueryService:
                     file_path = file_field.storage.path(item["file"])
             except Exception:
                 # 静默处理:文件操作失败不影响主流程
-                # 静默处理:文件操作失败不影响主流程
-                # 静默处理:文件操作失败不影响主流程
 
                 # 静默处理:文件操作失败不影响主流程
 
@@ -133,8 +129,6 @@ class EvidenceQueryService:
                 try:
                     file_path = file_field.storage.path(item["file"])
                 except Exception:
-                    # 静默处理:文件操作失败不影响主流程
-                    # 静默处理:文件操作失败不影响主流程
                     # 静默处理:文件操作失败不影响主流程
 
                     # 静默处理:文件操作失败不影响主流程

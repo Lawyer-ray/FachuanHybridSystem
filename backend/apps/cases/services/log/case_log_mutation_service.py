@@ -50,7 +50,19 @@ class CaseLogMutationService:
         if not actor_id:
             raise ValidationException(_("操作人不能为空"), errors={"actor": _("缺少有效的操作人")})
 
-        return CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
+        log = CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
+
+        if reminder_type and reminder_time:
+            from apps.core.interfaces import ServiceLocator
+            reminder_service = ServiceLocator.get_reminder_service()
+            reminder_service.create_reminder(
+                case_log_id=log.id,
+                reminder_type=reminder_type,
+                content=content,
+                due_at=reminder_time,
+            )
+
+        return log
 
     @transaction.atomic
     def update_log(

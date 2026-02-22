@@ -66,7 +66,7 @@ class MockPage:
         self.goto_call_count = 0
         self.login_success = login_success
 
-    def on(self, event: str, handler) -> None:  # type: ignore[type-arg]
+    def on(self, event: str, handler) -> None:
         """Mock 事件监听器"""
         pass
 

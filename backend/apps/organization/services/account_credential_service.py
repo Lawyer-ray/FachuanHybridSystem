@@ -154,7 +154,7 @@ class AccountCredentialService:
 
         return credential
 
-    _UPDATABLE_FIELDS: frozenset[str] = frozenset({"site_name", "url", "account", "password"})
+    _UPDATABLE_FIELDS: ClassVar[frozenset[str]] = frozenset({"site_name", "url", "account", "password"})
 
     @transaction.atomic
     def update_credential(
@@ -278,7 +278,7 @@ class AccountCredentialService:
             site_name=site_name,
         )
 
-    SITE_URL_MAPPING: dict[str, str] = {
+    SITE_URL_MAPPING: ClassVar[dict[str, str]] = {
         "court_zxfw": "zxfw.court.gov.cn",
     }
 

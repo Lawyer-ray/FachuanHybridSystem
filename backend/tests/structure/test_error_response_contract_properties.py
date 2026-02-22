@@ -78,7 +78,7 @@ def test_llm_handler_registration_does_not_swallow_unexpected_exceptions():
             break
     assert llm_try is not None, "missing try block importing apps.core.llm.exceptions"
 
-    handler_types = []
+    handler_types: list[str] = []
     for h in llm_try.handlers:
         if h.type is None:
             handler_types.append(None)
