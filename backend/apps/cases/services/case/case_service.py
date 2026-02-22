@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-"""
-案件服务层
-处理案件相关的业务逻辑
-"""
-
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.business_config import business_config
@@ -248,9 +244,9 @@ class CaseService:
         representation_stages: list[str] | None = None,
     ) -> str:
         if case_type and not business_config.is_stage_valid_for_case_type(stage, case_type):
-            raise ValidationException("该案件类型不支持此阶段", errors={"current_stage": "阶段不适用于此案件类型"})
+            raise ValidationException(_("该案件类型不支持此阶段"), errors={"current_stage": "阶段不适用于此案件类型"})
         if representation_stages and stage not in representation_stages:
-            raise ValidationException("当前阶段必须属于代理阶段集合", errors={"current_stage": "阶段不在代理范围内"})
+            raise ValidationException(_("当前阶段必须属于代理阶段集合"), errors={"current_stage": "阶段不在代理范围内"})
         return stage
 
     @transaction.atomic

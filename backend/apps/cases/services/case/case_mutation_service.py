@@ -29,7 +29,7 @@ class CaseMutationService:
         perm_open_access: bool = False,
     ) -> Case:
         if not perm_open_access and (not user or not getattr(user, "is_authenticated", False)):
-            raise ForbiddenError("用户未认证")
+            raise ForbiddenError(_("用户未认证"))
 
         contract_id = data.get("contract_id")
         if contract_id:
@@ -81,11 +81,11 @@ class CaseMutationService:
         try:
             case = Case.objects.select_related("contract").get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         if not perm_open_access:
             if not user or not getattr(user, "is_authenticated", False):
-                raise ForbiddenError("用户未认证")
+                raise ForbiddenError(_("用户未认证"))
             self.case_service.access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -143,11 +143,11 @@ class CaseMutationService:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(f"案件 {case_id} 不存在") from None
+            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
 
         if not perm_open_access:
             if not user or not getattr(user, "is_authenticated", False):
-                raise ForbiddenError("用户未认证")
+                raise ForbiddenError(_("用户未认证"))
             self.case_service.access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
