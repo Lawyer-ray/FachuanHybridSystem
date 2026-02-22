@@ -78,7 +78,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/llm", llm_router)
     api_v1.add_router("/i18n", i18n_router)
     api_v1.add_router("/organization", organization_router)
-    api_v1.add_router("/client", client_router)
+    api_v1.add_router("/client", client_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/cases", cases_router)
     api_v1.add_router("/contracts", contracts_router)
     api_v1.add_router("/automation", automation_router)
