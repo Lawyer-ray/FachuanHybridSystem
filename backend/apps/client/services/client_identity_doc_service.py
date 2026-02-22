@@ -16,7 +16,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.client.services.storage import sanitize_upload_filename
 
 if TYPE_CHECKING:
-    from apps.client.models import Client, ClientIdentityDoc
+    from apps.client.models import ClientIdentityDoc
 
 logger = logging.getLogger("apps.client")
 
@@ -109,7 +109,7 @@ class ClientIdentityDocService:
         """获取证件文档，不存在则抛出 NotFoundError"""
         from apps.client.models import ClientIdentityDoc
 
-        doc = ClientIdentityDoc.objects.filter(id=doc_id).first()
+        doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
         if not doc:
             raise NotFoundError(
                 message=_("证件文档不存在"),
