@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apps.client.models import Client
 from apps.core.interfaces import ClientDTO, IClientService
 
 if TYPE_CHECKING:
+    from apps.client.models import Client
     from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
 
     from .client_dto_assembler import ClientDtoAssembler, ClientRelatedDtoAssembler
@@ -63,7 +63,7 @@ class ClientServiceAdapter(IClientService):
         return self.get_client_internal(client_id)
 
     def get_client_internal(self, client_id: int) -> ClientDTO | None:
-        client = self.service._get_client_internal(client_id)
+        client = self.internal_query_service.get_client(client_id=client_id)
         if client:
             return self._to_dto(client)
         return None
