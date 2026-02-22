@@ -38,7 +38,10 @@ class VideoFrameExtractService:
             root_real = Path(root).resolve()
             return path_real == root_real or root_real in path_real.parents
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "路径安全检查失败",
+                extra={"path": path, "root": root},
+            )
             return False
 
     def _default_allowed_output_roots(self) -> list[str]:
@@ -48,9 +51,7 @@ class VideoFrameExtractService:
             if media_root:
                 roots.append(str(media_root))
         except Exception:
-            logger.exception("操作失败")
-
-            pass
+            logger.exception("获取 MEDIA_ROOT 失败")
         roots.append(tempfile.gettempdir())
         return roots
 
@@ -115,8 +116,10 @@ class VideoFrameExtractService:
                         n, d = tb.split("/", 1)
                         time_base_seconds = float(n) / float(d) if float(d) else None
             except Exception:
-                logger.exception("操作失败")
-
+                logger.exception(
+                    "ffprobe 解析视频信息失败",
+                    extra={"video_path": video_path},
+                )
                 duration = 0.0
         else:
             duration = self._probe_duration_by_ffmpeg(video_path)
@@ -152,8 +155,7 @@ class VideoFrameExtractService:
         try:
             proc.wait(timeout=2)
         except Exception:
-            logger.exception("操作失败")
-
+            logger.exception("ffmpeg 进程终止超时，强制 kill")
             with contextlib.suppress(Exception):
                 proc.kill()
 
@@ -197,8 +199,7 @@ class VideoFrameExtractService:
         try:
             rc = proc.wait(timeout=5)
         except Exception:
-            logger.exception("操作失败")
-
+            logger.exception("ffmpeg 退出码检查超时")
             with contextlib.suppress(Exception):
                 proc.kill()
             rc = proc.wait()
@@ -208,8 +209,7 @@ class VideoFrameExtractService:
                 if proc.stderr is not None:
                     err = proc.stderr.read() or ""
             except Exception:
-                logger.exception("操作失败")
-
+                logger.exception("读取 ffmpeg stderr 失败")
                 err = ""
             err = (err or "").strip()
             if err:
@@ -297,8 +297,10 @@ class VideoFrameExtractService:
         try:
             out = SubprocessRunner().run(args=cmd, timeout_seconds=10, check=False, text=True)
         except Exception:
-            logger.exception("操作失败")
-
+            logger.exception(
+                "ffmpeg 探测视频时长失败",
+                extra={"video_path": video_path},
+            )
             return 0.0
         text = (out.stderr or "") + "\n" + (out.stdout or "")
         m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", text)

@@ -9,9 +9,11 @@ from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
-from django.db.models import F, Max, QuerySet
+from django.db.models import Case, F, IntegerField, Max, QuerySet, Value, When
 
 from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .access_policy import ensure_can_access_project
@@ -108,9 +110,8 @@ class ScreenshotService:
             content = file.read()
             file.seek(0)
         except Exception:
-            logger.exception("操作失败")
-
-            content = b""
+            logger.exception("截图文件读取失败: %s", getattr(file, 'name', '<unknown>'))
+            raise ValidationException(_("截图文件读取失败，无法进行去重"))
         if not content:
             return "", ""
         return hashlib.sha256(content).hexdigest(), selection_service.calc_dhash_hex(content)
@@ -121,8 +122,10 @@ class ScreenshotService:
         try:
             capture_time_seconds = float(capture_time_seconds)
         except Exception:
-            logger.exception("操作失败")
-
+            logger.exception(
+                "capture_time_seconds 转换失败",
+                extra={"capture_time_seconds": capture_time_seconds, "project_id": project_id},
+            )
             return default_ordering
 
         insert_before = (
@@ -173,11 +176,13 @@ class ScreenshotService:
     @transaction.atomic
     def reorder_screenshots(self, *, user: Any, project_id: int, screenshot_ids: list[str]) -> dict[str, bool]:
         self._project_service.get_project(user=user, project_id=project_id)
-        existing_ids = list(ChatRecordScreenshot.objects.filter(project_id=project_id).values_list("id", flat=True))
-        if set(existing_ids) != set(screenshot_ids):
+        existing_ids = set(ChatRecordScreenshot.objects.filter(project_id=project_id).values_list("id", flat=True))
+        if existing_ids != set(screenshot_ids):
             raise ValidationException("截图列表不匹配,无法保存顺序")
 
-        for index, sid in enumerate(screenshot_ids, start=1):
-            ChatRecordScreenshot.objects.filter(project_id=project_id, id=sid).update(ordering=index)
+        cases = [When(id=sid, then=Value(idx)) for idx, sid in enumerate(screenshot_ids, start=1)]
+        ChatRecordScreenshot.objects.filter(project_id=project_id).update(
+            ordering=Case(*cases, output_field=IntegerField())
+        )
         return {"success": True}
 
