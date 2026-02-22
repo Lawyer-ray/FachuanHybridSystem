@@ -494,7 +494,6 @@ class CaseMatcher:
 
     def _check_and_log_closed_cases(self, sms: Any) -> None:
         """检查是否有匹配的案件但状态为已结案"""
-        from apps.core.enums import CaseStatus
 
         closed_cases: set[Any] = set()
 

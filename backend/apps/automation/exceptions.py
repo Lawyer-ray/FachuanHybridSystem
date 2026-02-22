@@ -6,7 +6,6 @@ from apps.core.exceptions import (
     AutoTokenAcquisitionError,
     BusinessException,
     CaptchaRecognitionError,
-    ExternalServiceError,
     LoginFailedError,
     NoAvailableAccountError,
     NotFoundError,

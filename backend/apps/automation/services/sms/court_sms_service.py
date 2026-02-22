@@ -13,7 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 from django_q.tasks import async_task
 
-from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask
+from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from ._sms_case_binding_mixin import SMSCaseBindingMixin

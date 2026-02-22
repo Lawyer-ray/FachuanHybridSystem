@@ -15,7 +15,7 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
-from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.automation")
 

@@ -3,7 +3,7 @@
 import logging
 import re
 import time
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol
 
 from apps.automation.utils.logging_mixins.common import sanitize_url
 from apps.core.path import Path

@@ -15,7 +15,6 @@ from django.utils import timezone
 
 from apps.core.cache import CacheTimeout
 from apps.core.interfaces import AccountCredentialDTO
-from apps.core.telemetry import metrics as telemetry_metrics
 from apps.core.telemetry.metrics import record_cache_access, record_cache_result
 
 from .performance_monitor import performance_monitor
