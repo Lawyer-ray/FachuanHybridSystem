@@ -87,9 +87,12 @@ class LawyerMutationService:
             raise PermissionDenied(message=_("无权限更新该律师信息"), code="PERMISSION_DENIED")
 
         self._validate_update_data(lawyer, data)
-        self._apply_field_updates(lawyer, data)
+        updated_fields = self._apply_field_updates(lawyer, data)
         self.upload_service.attach_license_pdf(lawyer, license_pdf)
-        lawyer.save()
+        if license_pdf is not None:
+            updated_fields.append("license_pdf")
+        if updated_fields:
+            lawyer.save(update_fields=updated_fields)
 
         if data.lawyer_team_ids is not None:
             self._set_lawyer_teams(lawyer, data.lawyer_team_ids, lawyer.law_firm)
@@ -103,18 +106,25 @@ class LawyerMutationService:
         )
         return lawyer
 
-    def _apply_field_updates(self, lawyer: Lawyer, data: LawyerUpdateDTO) -> None:
-        """应用字段更新"""
-        field_map = {
-            "real_name": data.real_name,
-            "phone": data.phone,
-            "license_no": data.license_no,
-            "id_card": data.id_card,
-            "is_admin": data.is_admin,
-        }
-        for field_name, value in field_map.items():
-            if value is not None:
-                setattr(lawyer, field_name, value)
+    def _apply_field_updates(self, lawyer: Lawyer, data: LawyerUpdateDTO) -> list[str]:
+        """返回实际更新的字段列表。"""
+        updated: list[str] = []
+
+        if data.real_name is not None:
+            lawyer.real_name = data.real_name
+            updated.append("real_name")
+        if data.phone is not None:
+            lawyer.phone = data.phone
+            updated.append("phone")
+        if data.license_no is not None:
+            lawyer.license_no = data.license_no
+            updated.append("license_no")
+        if data.id_card is not None:
+            lawyer.id_card = data.id_card
+            updated.append("id_card")
+        if data.is_admin is not None:
+            lawyer.is_admin = data.is_admin
+            updated.append("is_admin")
 
         if data.law_firm_id is not None:
             law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
@@ -123,9 +133,13 @@ class LawyerMutationService:
                     message=_("律所不存在"), code="LAWFIRM_NOT_FOUND", errors={"law_firm_id": str(_("无效的律所 ID"))}
                 )
             lawyer.law_firm = law_firm
+            updated.append("law_firm_id")
 
         if data.password:
             lawyer.set_password(data.password)
+            updated.append("password")
+
+        return updated
 
     @transaction.atomic
     def delete_lawyer(self, lawyer: Lawyer, user: Lawyer) -> None:
