@@ -38,7 +38,7 @@ from apps.core.exceptions import (
 class TestExceptionComplianceProperties:
     """异常处理合规性属性测试"""
 
-    def test_property_18_exception_three_parameters_completeness(self):
+    def test_property_18_exception_three_parameters_completeness(self): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 18: 异常三参数完整性**
         验证所有异常都包含message、code、errors三个参数
@@ -71,9 +71,7 @@ class TestExceptionComplianceProperties:
                         exception = method(30, "test_site", "test_account")
                     elif "no_available" in method_name:
                         exception = method("test_site")
-                    elif "invalid_credential" in method_name:
-                        exception = method(123)
-                    elif "document_not_found" in method_name:
+                    elif "invalid_credential" in method_name or "document_not_found" in method_name:
                         exception = method(123)
                     elif "missing_required" in method_name:
                         exception = method(["field1", "field2"])
@@ -173,7 +171,7 @@ class TestExceptionComplianceProperties:
             assert code_pattern.match(code), f"异常代码格式不符合规范: {code}"
 
             # 验证代码不为空
-            assert code.strip(), f"异常代码不能为空"
+            assert code.strip(), "异常代码不能为空"
 
             # 验证代码长度合理（不超过50个字符）
             assert len(code) <= 50, f"异常代码过长: {code}"
@@ -411,7 +409,7 @@ class TestLoggingComplianceProperties:
                     assert extra[field] >= 0, f"性能日志 {log_method.__name__} 的{field}为负数"
 
     @patch("apps.automation.utils.logging.logger")
-    def test_property_24_business_logging_completeness(self, mock_logger):
+    def test_property_24_business_logging_completeness(self, mock_logger): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 24: 业务日志信息完整性**
         验证业务日志包含操作类型、资源ID、用户信息

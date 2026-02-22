@@ -66,7 +66,7 @@ class TestLawyerAPI:
         response = self.client.post(
             "/api/v1/organization/lawyers",
             data={
-                "payload": '{"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "phone": "13800138001", "law_firm_id": '
+                "payload": '{"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "phone": "13800138001", "law_firm_id": ' # noqa: E501
                 + str(lawfirm.id)  # type: ignore[attr-defined]
                 + ', "is_admin": false}'
             },

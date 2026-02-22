@@ -10,11 +10,11 @@ def get_backend_path() -> Path:
     return Path(__file__).parent.parent.parent
 
 
-def load_baseline(backend_path: Path) -> Set[str]:
+def load_baseline(backend_path: Path) -> set[str]:
     baseline_path = backend_path / "tests" / "structure" / "baselines" / "cross_app_model_imports.txt"
     if not baseline_path.exists():
         return set()
-    result: Set[str] = set()
+    result: set[str] = set()
     for raw in baseline_path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -26,9 +26,9 @@ def load_baseline(backend_path: Path) -> Set[str]:
     return result
 
 
-def _get_type_checking_linenos(tree: ast.AST) -> Set[int]:
+def _get_type_checking_linenos(tree: ast.AST) -> set[int]:
     """返回 TYPE_CHECKING 块内所有语句的行号集合，这些导入仅用于类型注解，运行时不执行."""
-    linenos: Set[int] = set()
+    linenos: set[int] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.If):
             continue
@@ -48,10 +48,10 @@ def _get_type_checking_linenos(tree: ast.AST) -> Set[int]:
     return linenos
 
 
-def find_cross_app_model_imports(backend_path: Path) -> Set[str]:
+def find_cross_app_model_imports(backend_path: Path) -> set[str]: # noqa: C901
     apps_root = backend_path / "apps"
     pattern = re.compile(r"apps\.(\w+)\.models")
-    findings: Set[str] = set()
+    findings: set[str] = set()
 
     for py_file in apps_root.rglob("*.py"):
         if "migrations" in py_file.parts or "__pycache__" in py_file.parts:
@@ -66,7 +66,7 @@ def find_cross_app_model_imports(backend_path: Path) -> Set[str]:
         try:
             content = py_file.read_text(encoding="utf-8")
             tree = ast.parse(content)
-            lines: List[str] = content.splitlines()
+            lines: list[str] = content.splitlines()
         except Exception:
             continue
 

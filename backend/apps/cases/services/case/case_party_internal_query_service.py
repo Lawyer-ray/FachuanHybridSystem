@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.cases")
 
 
-class CasePartyQueryService:
+class CasePartyInternalQueryService:
     def get_case_parties_by_legal_status_internal(self, case_id: int, legal_status: str) -> list[str]:
         try:
             party_names = (

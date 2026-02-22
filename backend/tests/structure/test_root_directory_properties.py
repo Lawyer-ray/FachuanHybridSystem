@@ -251,7 +251,7 @@ def test_root_directory_has_required_directories():
     # 过滤出只关于缺失必需目录的错误
     missing_required = [error for error in errors if "Missing required directory" in error]
 
-    assert len(missing_required) == 0, f"Root directory is missing required directories:\n" + "\n".join(
+    assert len(missing_required) == 0, "Root directory is missing required directories:\n" + "\n".join(
         f"  - {error}" for error in missing_required
     )
 
@@ -268,7 +268,7 @@ def test_root_directory_only_contains_allowed_items():
     # 过滤出只关于意外项目的错误
     unexpected_items = [error for error in errors if "Unexpected item" in error]
 
-    assert len(unexpected_items) == 0, f"Root directory contains unexpected items:\n" + "\n".join(
+    assert len(unexpected_items) == 0, "Root directory contains unexpected items:\n" + "\n".join(
         f"  - {error}" for error in unexpected_items
     )
 
@@ -282,7 +282,7 @@ def test_root_directory_structure_complete():
     validator = ProjectStructureValidator(project_root)
     errors = validator.validate_root_directory()
 
-    assert len(errors) == 0, f"Root directory validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
+    assert len(errors) == 0, "Root directory validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
 
 
 def test_essential_config_files_exist():
@@ -300,7 +300,7 @@ def test_essential_config_files_exist():
         if not file_path.exists():
             missing_files.append(file_name)
 
-    assert len(missing_files) == 0, f"Root directory is missing essential config files:\n" + "\n".join(
+    assert len(missing_files) == 0, "Root directory is missing essential config files:\n" + "\n".join(
         f"  - {file}" for file in missing_files
     )
 
@@ -321,7 +321,7 @@ def test_no_markdown_files_in_root_except_readme():
     unexpected_markdown = [f for f in markdown_files if f not in allowed_exceptions]
 
     assert len(unexpected_markdown) == 0, (
-        f"Root directory contains unexpected Markdown files:\n"
+        "Root directory contains unexpected Markdown files:\n"
         + "\n".join(f"  - {file}" for file in unexpected_markdown)
         + "\n\nThese files should be moved to the docs/ directory."
     )
@@ -339,7 +339,7 @@ def test_no_python_files_in_root():
             python_files.append(item.name)
 
     assert len(python_files) == 0, (
-        f"Root directory contains unexpected Python files:\n"
+        "Root directory contains unexpected Python files:\n"
         + "\n".join(f"  - {file}" for file in python_files)
         + "\n\nPython files should be in appropriate modules (apps/, scripts/, tests/)."
     )
@@ -365,6 +365,6 @@ def test_cache_directories_in_gitignore():
         if pattern not in gitignore_content:
             missing_in_gitignore.append(pattern)
 
-    assert len(missing_in_gitignore) == 0, f"The following patterns should be in .gitignore:\n" + "\n".join(
+    assert len(missing_in_gitignore) == 0, "The following patterns should be in .gitignore:\n" + "\n".join(
         f"  - {pattern}" for pattern in missing_in_gitignore
     )

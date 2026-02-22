@@ -80,12 +80,11 @@ class TestCourtDocumentIntegration:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
-            with patch.object(scraper, "random_wait"):
-                with patch.object(scraper, "_save_page_state"):
-                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        with patch("time.sleep"):  # Mock sleep 避免延迟
-                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+            with patch.object(scraper, "_save_page_state"):
+                with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                    with patch("time.sleep"):  # Mock sleep 避免延迟
+                        result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：API 拦截被调用
         mock_intercept.assert_called_once()
@@ -157,12 +156,11 @@ class TestCourtDocumentIntegration:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
-            with patch.object(scraper, "random_wait"):
-                with patch.object(scraper, "_save_page_state"):
-                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        with patch("time.sleep"):
-                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+            with patch.object(scraper, "_save_page_state"):
+                with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                    with patch("time.sleep"):
+                        result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：返回结果正确
         assert result["document_count"] == 3
@@ -229,7 +227,7 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
+        with patch.object(scraper, "navigate_to_url"): # noqa: SIM117
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
@@ -279,7 +277,7 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
+        with patch.object(scraper, "navigate_to_url"): # noqa: SIM117
             with patch.object(scraper, "random_wait"):
                 with patch.object(scraper, "_save_page_state"):
                     with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
@@ -323,12 +321,11 @@ class TestCourtDocumentFallbackMechanism:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载，应该抛出异常
-        with pytest.raises(ExternalServiceError) as exc_info:
-            with patch.object(scraper, "navigate_to_url"):
-                with patch.object(scraper, "random_wait"):
-                    with patch.object(scraper, "_save_page_state"):
-                        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                            scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")  # type: ignore[attr-defined]
+        with pytest.raises(ExternalServiceError) as exc_info, patch.object(scraper, "navigate_to_url"): # noqa: SIM117
+            with patch.object(scraper, "random_wait"):
+                with patch.object(scraper, "_save_page_state"):
+                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                        scraper._download_zxfw_court("https://zxfw.court.gov.cn/test")  # type: ignore[attr-defined]
 
         # 验证：异常包含完整错误链
         exception = exc_info.value
@@ -394,11 +391,10 @@ class TestCourtDocumentConcurrentDownload:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
-            with patch.object(scraper, "random_wait"):
-                with patch.object(scraper, "_save_page_state"):
-                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+            with patch.object(scraper, "_save_page_state"):
+                with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                    result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 验证：下载方法被调用 5 次
         assert mock_download.call_count == 5
@@ -473,12 +469,11 @@ class TestCourtDocumentPerformanceOptimization:
         start_time = time.time()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
-            with patch.object(scraper, "random_wait"):
-                with patch.object(scraper, "_save_page_state"):
-                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        with patch("time.sleep"):  # Mock sleep 避免延迟影响性能测试
-                            result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+            with patch.object(scraper, "_save_page_state"):
+                with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                    with patch("time.sleep"):  # Mock sleep 避免延迟影响性能测试
+                        result = scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 记录结束时间
         elapsed_time = time.time() - start_time
@@ -541,12 +536,11 @@ class TestCourtDocumentPerformanceOptimization:
         scraper.page.wait_for_load_state = MagicMock()
 
         # 执行下载
-        with patch.object(scraper, "navigate_to_url"):
-            with patch.object(scraper, "random_wait"):
-                with patch.object(scraper, "_save_page_state"):
-                    with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
-                        with patch("time.sleep"):
-                            scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
+        with patch.object(scraper, "navigate_to_url"), patch.object(scraper, "random_wait"): # noqa: SIM117
+            with patch.object(scraper, "_save_page_state"):
+                with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")):
+                    with patch("time.sleep"):
+                        scraper._download_via_api_intercept(Path("/tmp"))  # type: ignore[attr-defined]
 
         # 使用 Django 的查询计数器测试查询优化
         from django.db import connection

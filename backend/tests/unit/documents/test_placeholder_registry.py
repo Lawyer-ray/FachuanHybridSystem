@@ -13,7 +13,7 @@ class _TestPlaceholderService(BasePlaceholderService):
         "case_name": {"display_name": "案件名称", "description": "案件名称", "example_value": "示例"}
     }
 
-    def generate(self, context_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         return {"case_name": "X"}
 
 

@@ -56,7 +56,7 @@ def get_backend_path() -> Path:
     return Path(__file__).parent.parent.parent
 
 
-def find_service_files(module_name: str) -> List[Path]:
+def find_service_files(module_name: str) -> list[Path]:
     """
     查找模块的服务文件
 
@@ -81,14 +81,14 @@ def find_service_files(module_name: str) -> List[Path]:
     return service_files
 
 
-def find_schema_files(module_name: str) -> List[Path]:
+def find_schema_files(module_name: str) -> list[Path]:
     backend_path = get_backend_path()
     schema_file = backend_path / "apps" / module_name / "schemas.py"
     return [schema_file] if schema_file.exists() else []
 
 
-def extract_cross_module_schema_imports(file_path: Path, current_module: str) -> List[Tuple[str, int, str]]:
-    imports: List[Tuple[str, int, str]] = []
+def extract_cross_module_schema_imports(file_path: Path, current_module: str) -> list[tuple[str, int, str]]:
+    imports: list[tuple[str, int, str]] = []
 
     try:
         content = file_path.read_text(encoding="utf-8")
@@ -108,7 +108,7 @@ def extract_cross_module_schema_imports(file_path: Path, current_module: str) ->
     return imports
 
 
-def extract_model_imports(file_path: Path) -> List[Tuple[str, int, str]]:
+def extract_model_imports(file_path: Path) -> list[tuple[str, int, str]]:
     """
     从 Python 文件中提取 Model 导入语句
 
@@ -134,14 +134,14 @@ def extract_model_imports(file_path: Path) -> List[Tuple[str, int, str]]:
                         module_name = match.group(1)
                         line_content = lines[node.lineno - 1].strip()
                         imports.append((module_name, node.lineno, line_content))
-    except (SyntaxError, UnicodeDecodeError) as e:
+    except (SyntaxError, UnicodeDecodeError):
         pass
 
     return imports
 
 
-def extract_schema_imports(file_path: Path) -> List[Tuple[int, str]]:
-    imports: List[Tuple[int, str]] = []
+def extract_schema_imports(file_path: Path) -> list[tuple[int, str]]:
+    imports: list[tuple[int, str]] = []
 
     try:
         content = file_path.read_text(encoding="utf-8")
@@ -158,8 +158,8 @@ def extract_schema_imports(file_path: Path) -> List[Tuple[int, str]]:
     return imports
 
 
-def extract_service_locator_imports(file_path: Path) -> List[Tuple[int, str]]:
-    imports: List[Tuple[int, str]] = []
+def extract_service_locator_imports(file_path: Path) -> list[tuple[int, str]]:
+    imports: list[tuple[int, str]] = []
     try:
         content = file_path.read_text(encoding="utf-8")
         tree = ast.parse(content)
@@ -178,8 +178,8 @@ def extract_service_locator_imports(file_path: Path) -> List[Tuple[int, str]]:
     return imports
 
 
-def extract_internal_method_usages(file_path: Path) -> List[Tuple[int, str, str]]:
-    usages: List[Tuple[int, str, str]] = []
+def extract_internal_method_usages(file_path: Path) -> list[tuple[int, str, str]]:
+    usages: list[tuple[int, str, str]] = []
     try:
         content = file_path.read_text(encoding="utf-8")
         tree = ast.parse(content)
@@ -194,14 +194,14 @@ def extract_internal_method_usages(file_path: Path) -> List[Tuple[int, str, str]
     return usages
 
 
-def check_schema_imports_in_services(module_name: str, file_path: Path) -> List[Tuple[str, int, str]]:
-    violations: List[Tuple[str, int, str]] = []
+def check_schema_imports_in_services(module_name: str, file_path: Path) -> list[tuple[str, int, str]]:
+    violations: list[tuple[str, int, str]] = []
     for line_no, import_stmt in extract_schema_imports(file_path):
         violations.append((str(file_path), line_no, import_stmt))
     return violations
 
 
-def check_cross_module_imports(module_name: str, file_path: Path) -> List[Tuple[str, int, str, str]]:
+def check_cross_module_imports(module_name: str, file_path: Path) -> list[tuple[str, int, str, str]]:
     """
     检查文件中的跨模块 Model 导入
 
@@ -224,7 +224,7 @@ def check_cross_module_imports(module_name: str, file_path: Path) -> List[Tuple[
     return violations
 
 
-def extract_class_init_params(file_path: Path, class_name: str) -> Optional[List[str]]:
+def extract_class_init_params(file_path: Path, class_name: str) -> list[str] | None:
     """
     提取类的 __init__ 方法参数
 
@@ -254,7 +254,7 @@ def extract_class_init_params(file_path: Path, class_name: str) -> Optional[List
         return None
 
 
-def check_di_constructor_signature(module_name: str, class_name: str, required_params: List[str]) -> Tuple[bool, str]:
+def check_di_constructor_signature(module_name: str, class_name: str, required_params: list[str]) -> tuple[bool, str]:
     """
     检查服务类的构造函数是否包含必要的依赖注入参数
 
@@ -314,7 +314,7 @@ def test_no_cross_module_model_imports_in_cases():
 @pytest.mark.property_test
 @pytest.mark.parametrize("module_name", SERVICE_MODULES)
 def test_no_schema_imports_in_services(module_name: str):
-    all_violations: List[Tuple[str, int, str]] = []
+    all_violations: list[tuple[str, int, str]] = []
     for file_path in find_service_files(module_name):
         all_violations.extend(check_schema_imports_in_services(module_name, file_path))
 
@@ -328,7 +328,7 @@ def test_no_schema_imports_in_services(module_name: str):
 @pytest.mark.property_test
 @pytest.mark.parametrize("module_name", SERVICE_MODULES)
 def test_no_cross_module_schema_imports_in_schema_layer(module_name: str):
-    all_violations: List[Tuple[str, int, str, str]] = []
+    all_violations: list[tuple[str, int, str, str]] = []
     for file_path in find_schema_files(module_name):
         for imported_module, line_no, stmt in extract_cross_module_schema_imports(file_path, module_name):
             all_violations.append((str(file_path), line_no, imported_module, stmt))
@@ -374,7 +374,7 @@ def test_contracts_api_does_not_import_service_locator():
 
     assert (
         len(violations) == 0
-    ), "apps/contracts/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join(
+    ), "apps/contracts/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join( # noqa: E501
         f"  {name}:{line} - {stmt}" for name, line, stmt in violations
     )
 
@@ -393,7 +393,7 @@ def test_documents_api_does_not_import_service_locator():
 
     assert (
         len(violations) == 0
-    ), "apps/documents/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join(
+    ), "apps/documents/api/*.py 不应直接导入 ServiceLocator，请通过 composition/build_* 或 wiring 统一装配:\n" + "\n".join( # noqa: E501
         f"  {name}:{line} - {stmt}" for name, line, stmt in violations
     )
 
@@ -403,7 +403,7 @@ def test_api_layer_does_not_use_internal_methods():
     backend_path = get_backend_path()
     apps_dir = backend_path / "apps"
 
-    violations: List[Tuple[str, int, str, str]] = []
+    violations: list[tuple[str, int, str, str]] = []
     for file_path in apps_dir.rglob("api/**/*.py"):
         if file_path.name == "__init__.py":
             continue
@@ -568,7 +568,7 @@ def test_case_service_has_di_constructor():
 @given(st.sampled_from(SERVICES_REQUIRING_DI))
 @settings(max_examples=100)
 @pytest.mark.property_test
-def test_di_constructor_signature_property(service_info: Tuple[str, str, List[str]]):
+def test_di_constructor_signature_property(service_info: tuple[str, str, list[str]]):
     """
     Property 5: 依赖注入构造函数签名 (Property-Based)
 
@@ -622,4 +622,4 @@ def test_all_service_modules_no_cross_imports():
             for path, line, mod, stmt in violations:
                 error_msg += f"  {Path(path).name}:{line} - 导入了 {mod}.models\n"
 
-        assert False, error_msg
+        raise AssertionError(error_msg)

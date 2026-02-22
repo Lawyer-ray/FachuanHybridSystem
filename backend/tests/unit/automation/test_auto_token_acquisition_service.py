@@ -148,7 +148,7 @@ class TestAutoTokenAcquisitionService:
 
         self.mock_token_service.get_token_internal.return_value = None
         self.mock_account_strategy.select_account.return_value = credential
-        self.mock_login_service.login_and_get_token.side_effect = asyncio.TimeoutError()
+        self.mock_login_service.login_and_get_token.side_effect = TimeoutError()
 
         with pytest.raises((AutoTokenAcquisitionError, TokenAcquisitionTimeoutError)):
             await self.service.acquire_token_if_needed(site_name)

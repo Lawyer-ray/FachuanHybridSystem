@@ -22,7 +22,7 @@ def test_subprocess_runner_popen_rejects_shell_true(monkeypatch):
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should not popen")),
     )
     with pytest.raises(ExternalServiceError) as e:
-        SubprocessRunner().popen(args=["echo", "hi"], shell=True)
+        SubprocessRunner().popen(args=["echo", "hi"], shell=True) # noqa: S604
     assert e.value.code == "SUBPROCESS_UNSAFE_OPTIONS"
 
 

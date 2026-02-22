@@ -19,16 +19,16 @@ from apps.core.exceptions import NetworkError
 @dataclass(frozen=True)
 class _Outcome:
     kind: str
-    payload: Optional[Dict[str, Any]] = None
+    payload: dict[str, Any] | None = None
 
 
 class _FakeHttpClient:
-    def __init__(self, outcomes: List[Union[_Outcome, Exception]]):
+    def __init__(self, outcomes: list[_Outcome | Exception]):
         self._outcomes = list(outcomes)
         self.calls: int = 0
         self.timeout_seconds: float = 1.0
 
-    def post_json(self, *, url: str, headers: Dict[str, str], json_data: Dict[str, Any]) -> Dict[str, Any]:
+    def post_json(self, *, url: str, headers: dict[str, str], json_data: dict[str, Any]) -> dict[str, Any]:
         self.calls += 1
         if not self._outcomes:
             raise NetworkError(message="no more outcomes", errors={})
@@ -37,7 +37,7 @@ class _FakeHttpClient:
             raise item
         return item.payload or {}
 
-    def get_bytes(self, *, url: str, timeout_seconds: Optional[float] = None) -> bytes:
+    def get_bytes(self, *, url: str, timeout_seconds: float | None = None) -> bytes:
         self.calls += 1
         if not self._outcomes:
             raise NetworkError(message="no more outcomes", errors={})
@@ -53,10 +53,10 @@ class _FakeHttpClient:
     failures=st.lists(st.sampled_from(["network", "token", "api"]), min_size=0, max_size=5),
     succeed=st.booleans(),
 )
-def test_coordinator_retry_policy_is_bounded(failures: List[str], succeed: bool):
+def test_coordinator_retry_policy_is_bounded(failures: list[str], succeed: bool): # noqa: C901
     parser = CourtDocumentResponseParser()
 
-    outcomes: List[Union[_Outcome, Exception]] = []
+    outcomes: list[_Outcome | Exception] = []
     for f in failures:
         if f == "network":
             outcomes.append(NetworkError(message="net", errors={}))
@@ -76,7 +76,7 @@ def test_coordinator_retry_policy_is_bounded(failures: List[str], succeed: bool)
     max_attempts = 3
     first_three = outcomes[:max_attempts]
     expected_calls = 0
-    expected_exception: Optional[type] = None
+    expected_exception: type | None = None
     for i, o in enumerate(first_three):
         expected_calls = i + 1
         if isinstance(o, NetworkError):
@@ -120,7 +120,7 @@ def test_coordinator_retry_policy_is_bounded(failures: List[str], succeed: bool)
     invalid=st.lists(st.dictionaries(keys=st.text(min_size=0, max_size=5), values=st.integers()), max_size=10),
 )
 def test_parser_document_list_is_monotonic_under_invalid_additions(
-    valid: List[Dict[str, Any]], invalid: List[Dict[str, Any]]
+    valid: list[dict[str, Any]], invalid: list[dict[str, Any]]
 ):
     parser = CourtDocumentResponseParser()
 
@@ -150,7 +150,7 @@ def test_parser_document_list_is_monotonic_under_invalid_additions(
         max_size=30,
     ),
 )
-def test_parser_never_raises_on_weird_document_items(weird_items: List[Any]):
+def test_parser_never_raises_on_weird_document_items(weird_items: list[Any]):
     parser = CourtDocumentResponseParser()
     response = {"code": 200, "data": {"total": 0, "data": weird_items}}
     result = parser.parse_document_list(response)

@@ -19,10 +19,10 @@ from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 class MockCaptchaRecognizer(CaptchaRecognizer):
     """Mock 验证码识别器"""
 
-    def recognize(self, image_bytes: bytes) -> Optional[str]:
+    def recognize(self, image_bytes: bytes) -> str | None:
         return "MOCK1234"
 
-    def recognize_from_element(self, page, selector: str) -> Optional[str]:
+    def recognize_from_element(self, page, selector: str) -> str | None:
         return "MOCK1234"
 
 
@@ -30,14 +30,14 @@ class MockCookieService:
     """Mock Cookie 服务"""
 
     def __init__(self):
-        self.storage: Dict[str, List[Dict]] = {}
+        self.storage: dict[str, list[dict]] = {}
         self.load_called = False
         self.save_called = False
         self.load_call_count = 0
         self.save_call_count = 0
         self.last_saved_path = None
 
-    def load(self, context, storage_path: Optional[str] = None) -> bool:
+    def load(self, context, storage_path: str | None = None) -> bool:
         self.load_called = True
         self.load_call_count += 1
         key = storage_path or ""
@@ -47,7 +47,7 @@ class MockCookieService:
         context.add_cookies(cookies)
         return True
 
-    def save(self, context, storage_path: Optional[str] = None) -> str:
+    def save(self, context, storage_path: str | None = None) -> str:
         self.save_called = True
         self.save_call_count += 1
         self.last_saved_path = storage_path
@@ -304,7 +304,7 @@ class TestFreshLoginOnExpiredCookies:
 
         # 尝试登录（会因为 Cookie 过期而失败，但我们验证流程）
         try:
-            result = service.login("user456", "password", max_captcha_retries=1)
+            result = service.login("user456", "password", max_captcha_retries=1) # noqa: F841
         except ValueError:
             # 预期会失败（因为我们的 mock 不支持完整登录）
             pass

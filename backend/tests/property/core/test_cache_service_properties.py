@@ -31,7 +31,7 @@ class TestCacheInvalidationAfterModifyProperty:
     """
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")),
+        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
         value1=st.integers(),
         value2=st.integers(),
     )
@@ -97,7 +97,7 @@ class TestCacheFallbackNoExceptionProperty:
     """
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")),
+        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
         expected=st.integers(),
     )
     @settings(max_examples=100)
@@ -121,7 +121,7 @@ class TestCacheFallbackNoExceptionProperty:
             assert result == expected
 
     @given(
-        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")),
+        key=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="_:")), # noqa: E501
     )
     @settings(max_examples=100)
     def test_invalidate_cache_failure_does_not_raise(self, key: str) -> None:

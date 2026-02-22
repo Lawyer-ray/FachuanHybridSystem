@@ -66,7 +66,7 @@ def test_admin_directory_exists():
         if len(admin_files) == 0:
             errors.append(f"App {app_name} admin/ directory has no *_admin.py files")
 
-    assert len(errors) == 0, f"Admin organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Admin organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -102,7 +102,7 @@ def test_admin_files_follow_naming_convention():
                     f"App {app_name}: admin file {py_file.name} does not follow " f"naming convention (*_admin.py)"
                 )
 
-    assert len(errors) == 0, f"Admin file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Admin file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -149,7 +149,7 @@ def test_root_admin_py_is_import_only():
                     )
                     break
 
-    assert len(errors) == 0, f"Root admin.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Root admin.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @given(st.sampled_from(DJANGO_APPS))

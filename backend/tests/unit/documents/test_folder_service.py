@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 FolderTemplateService 单元测试
 
@@ -200,7 +199,7 @@ class TestFolderTemplateServiceQuery(TestCase):
     def test_get_template_for_case_returns_latest(self):
         """测试获取最新更新的模板 - Requirements 1.4"""
         # 创建两个相同类型的模板
-        template1 = self.service.create_template(
+        template1 = self.service.create_template( # noqa: F841
             name="模板1",
             case_type=DocumentCaseType.CIVIL,
             case_stage=DocumentCaseStage.FIRST_TRIAL,
@@ -221,7 +220,7 @@ class TestFolderTemplateServiceQuery(TestCase):
 
     def test_get_template_for_case_excludes_inactive(self):
         """测试查询排除非活跃模板"""
-        template = self.service.create_template(
+        template = self.service.create_template( # noqa: F841
             name="模板",
             case_type=DocumentCaseType.CIVIL,
             case_stage=DocumentCaseStage.FIRST_TRIAL,

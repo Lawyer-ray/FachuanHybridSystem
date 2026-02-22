@@ -15,7 +15,7 @@ from .case_details_query_service import CaseDetailsQueryService
 from .case_internal_query_service import CaseInternalQueryService
 from .case_log_internal_service import CaseLogInternalService
 from .case_number_internal_service import CaseNumberInternalService
-from .case_party_query_service import CasePartyQueryService
+from .case_party_internal_query_service import CasePartyInternalQueryService
 from .case_template_binding_query_service import CaseTemplateBindingQueryService
 
 
@@ -43,7 +43,7 @@ class CaseServiceAdapter:
         self._log_internal = CaseLogInternalService()
         self._number_internal = CaseNumberInternalService()
         self._details_query = CaseDetailsQueryService()
-        self._party_query = CasePartyQueryService()
+        self._party_query = CasePartyInternalQueryService()
         self._template_binding_query = CaseTemplateBindingQueryService()
 
     # ------------------------------------------------------------------

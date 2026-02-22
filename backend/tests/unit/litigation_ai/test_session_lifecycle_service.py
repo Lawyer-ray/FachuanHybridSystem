@@ -14,12 +14,12 @@ from apps.litigation_ai.services.session_shared import SessionDTO
 _NONEXISTENT_UUID = str(uuid.uuid4())
 
 
-def _make_case(name: str = "测试案件") -> "Case":  # type: ignore[name-defined]
+def _make_case(name: str = "测试案件") -> "Case":  # type: ignore[name-defined] # noqa: F821
     from apps.cases.models import Case
     return Case.objects.create(name=name, is_archived=False)
 
 
-def _make_lawyer(username: str = "test_lawyer") -> "Lawyer":  # type: ignore[name-defined]
+def _make_lawyer(username: str = "test_lawyer") -> "Lawyer":  # type: ignore[name-defined] # noqa: F821
     from apps.organization.models import Lawyer
     return Lawyer.objects.create_user(
         username=username, password="testpass", real_name="测试律师", is_active=True

@@ -20,7 +20,7 @@ class TestLawFirmAPI:
     def test_list_lawfirms_superuser(self):
         """测试超级管理员列表查询律所"""
         # 准备测试数据
-        lawfirms = LawFirmFactory.create_batch(3)
+        lawfirms = LawFirmFactory.create_batch(3) # noqa: F841
         superuser = LawyerFactory(is_superuser=True)
 
         # 模拟认证

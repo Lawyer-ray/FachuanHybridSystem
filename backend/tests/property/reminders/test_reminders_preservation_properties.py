@@ -12,7 +12,7 @@ Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 from typing import Any
 
 import pytest
@@ -41,7 +41,7 @@ st_content = st.text(
 st_due_at = st.datetimes(
     min_value=datetime(2020, 1, 1),
     max_value=datetime(2030, 12, 31),
-    timezones=st.just(timezone.utc),
+    timezones=st.just(UTC),
 )
 st_metadata = st.one_of(
     st.none(),
@@ -346,7 +346,7 @@ def test_schema_validation_behavior_preserved(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,  # type: ignore[arg-type]
                 content=content,
-                due_at=datetime.now(tz=timezone.utc),
+                due_at=datetime.now(tz=UTC),
             )
     else:
         schema = ReminderIn(
@@ -354,7 +354,7 @@ def test_schema_validation_behavior_preserved(
             case_log_id=case_log_id,
             reminder_type=reminder_type,  # type: ignore[arg-type]
             content=content,
-            due_at=datetime.now(tz=timezone.utc),
+            due_at=datetime.now(tz=UTC),
         )
         assert schema.content == content.strip()
         assert schema.contract_id == contract_id

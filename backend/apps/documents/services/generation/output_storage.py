@@ -23,7 +23,7 @@ class GeneratedDocumentStorage:
     def save_bytes(self, *, relative_dir: str, filename: str, content: bytes) -> str:
         media_root = self.media_root
         target_dir = media_root / relative_dir
-        target_dir.makedirs_p()
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         file_path = target_dir / filename
         with file_path.open("wb") as f:

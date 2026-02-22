@@ -24,9 +24,9 @@ class MockService:
 
     def __init__(self):
         """初始化 Mock 服务"""
-        self._mock_returns: Dict[str, Any] = {}
-        self._mock_side_effects: Dict[str, Any] = {}
-        self._call_history: List[Dict[str, Any]] = []
+        self._mock_returns: dict[str, Any] = {}
+        self._mock_side_effects: dict[str, Any] = {}
+        self._call_history: list[dict[str, Any]] = []
 
     def set_return(self, method_name: str, return_value: Any) -> None:
         """
@@ -48,7 +48,7 @@ class MockService:
         """
         self._mock_side_effects[method_name] = side_effect
 
-    def _get_mock_return(self, method_name: str, args: Dict[str, Any]) -> Any:
+    def _get_mock_return(self, method_name: str, args: dict[str, Any]) -> Any:
         """
         获取 Mock 方法的返回值
 
@@ -92,7 +92,7 @@ class MockService:
         """
         return sum(1 for call in self._call_history if call["method"] == method_name)
 
-    def get_call_args(self, method_name: str, call_index: int = 0) -> Optional[Dict[str, Any]]:
+    def get_call_args(self, method_name: str, call_index: int = 0) -> dict[str, Any] | None:
         """
         获取方法的调用参数
 

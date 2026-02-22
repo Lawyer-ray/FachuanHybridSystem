@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-def test_litigation_generation_api_logs_do_not_include_plaintiff_defendant():
+def test_litigation_generation_api_logs_do_not_include_plaintiff_defendant(): # noqa: C901
     backend_root = Path(__file__).parent.parent.parent
     api_py = backend_root / "apps" / "documents" / "api" / "litigation_generation_api.py"
     tree = ast.parse(api_py.read_text(encoding="utf-8"))

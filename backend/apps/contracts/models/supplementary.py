@@ -38,7 +38,7 @@ class SupplementaryAgreement(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.contract.name} - {self.name or '未命名补充协议'}"
+        return f"{self.contract.name} - {self.name or _('未命名补充协议')}"
 
 
 class SupplementaryAgreementParty(models.Model):

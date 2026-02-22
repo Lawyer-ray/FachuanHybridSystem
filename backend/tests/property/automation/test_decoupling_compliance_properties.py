@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Automation Document/SMS 解耦架构合规性属性测试
 
@@ -150,7 +149,7 @@ class TestFileSizeLimitProperties:
         """获取 automation services 目录路径"""
         return get_backend_path() / "apps" / "automation" / "services"
 
-    def get_decoupled_files(self) -> List[Tuple[Path, str, int]]:
+    def get_decoupled_files(self) -> list[tuple[Path, str, int]]:
         """
         获取所有需要检查的拆分后的文件
 
@@ -200,7 +199,7 @@ class TestFileSizeLimitProperties:
                 )
 
         # 输出检查报告
-        print(f"\n=== 文件行数限制检查报告 ===")
+        print("\n=== 文件行数限制检查报告 ===")
         print(f"检查文件数: {checked_files}")
         print(f"违规文件数: {len(violations)}")
 
@@ -257,7 +256,7 @@ REQUIRED_PATTERNS = {
 }
 
 
-def check_file_for_staticmethod(file_path: Path) -> List[Tuple[int, str]]:
+def check_file_for_staticmethod(file_path: Path) -> list[tuple[int, str]]:
     """
     检查文件中是否使用了 @staticmethod 装饰器
 
@@ -285,7 +284,7 @@ def check_file_for_staticmethod(file_path: Path) -> List[Tuple[int, str]]:
     return violations
 
 
-def check_file_for_cross_module_model_import(file_path: Path) -> List[Tuple[int, str]]:
+def check_file_for_cross_module_model_import(file_path: Path) -> list[tuple[int, str]]:
     """
     检查文件中是否直接导入了跨模块的 Model
 
@@ -348,7 +347,7 @@ def check_file_has_lazy_loading(file_path: Path) -> bool:
         return True
 
 
-def check_file_uses_service_locator_correctly(file_path: Path) -> Tuple[bool, str]:
+def check_file_uses_service_locator_correctly(file_path: Path) -> tuple[bool, str]:
     """
     检查文件是否正确使用 ServiceLocator 进行跨模块调用
 
@@ -364,8 +363,8 @@ def check_file_uses_service_locator_correctly(file_path: Path) -> Tuple[bool, st
         # 检查是否导入了 ServiceLocator
         has_service_locator_import = (
             "from apps.core.interfaces import ServiceLocator" in content
-            or "from apps.core.interfaces import" in content
-            and "ServiceLocator" in content
+            or ("from apps.core.interfaces import" in content
+            and "ServiceLocator" in content)
         )
 
         if has_service_locator_import:
@@ -384,7 +383,7 @@ def check_file_uses_service_locator_correctly(file_path: Path) -> Tuple[bool, st
         return False, str(e)
 
 
-def check_constructor_supports_di(file_path: Path) -> List[Tuple[str, str]]:
+def check_constructor_supports_di(file_path: Path) -> list[tuple[str, str]]:
     """
     检查文件中的类构造函数是否支持依赖注入
 
@@ -451,7 +450,7 @@ class TestArchitectureComplianceProperties:
         """获取 automation services 目录路径"""
         return get_backend_path() / "apps" / "automation" / "services"
 
-    def get_all_decoupled_files(self) -> List[Path]:
+    def get_all_decoupled_files(self) -> list[Path]:
         """获取所有拆分后的文件路径"""
         services_path = self.get_automation_services_path()
         files = []
@@ -487,7 +486,7 @@ class TestArchitectureComplianceProperties:
                 for line_no, line_content in v["violations"]:
                     error_msg += f"  行 {line_no}: {line_content}\n"
 
-            assert False, error_msg
+            raise AssertionError(error_msg)
 
     @pytest.mark.property_test
     def test_property_2_no_cross_module_model_import(self):
@@ -513,7 +512,7 @@ class TestArchitectureComplianceProperties:
                 for line_no, line_content in v["violations"]:
                     error_msg += f"  行 {line_no}: {line_content}\n"
 
-            assert False, error_msg
+            raise AssertionError(error_msg)
 
     @pytest.mark.property_test
     def test_property_2_lazy_loading(self):
@@ -531,7 +530,7 @@ class TestArchitectureComplianceProperties:
             if not check_file_has_lazy_loading(file_path):
                 violations.append(file_path.name)
 
-        assert len(violations) == 0, f"以下文件有依赖但未使用 @property 延迟加载:\n" + "\n".join(
+        assert len(violations) == 0, "以下文件有依赖但未使用 @property 延迟加载:\n" + "\n".join(
             f"  {f}" for f in violations
         )
 
@@ -559,7 +558,7 @@ class TestArchitectureComplianceProperties:
                 for class_name, error in v["violations"]:
                     error_msg += f"  {class_name}: {error}\n"
 
-            assert False, error_msg
+            raise AssertionError(error_msg)
 
     @given(st.sampled_from(list(DECOUPLED_FILES.keys())))
     @settings(max_examples=100)
@@ -605,7 +604,7 @@ class TestCrossModuleCallProperties:
         """获取 automation services 目录路径"""
         return get_backend_path() / "apps" / "automation" / "services"
 
-    def get_all_decoupled_files(self) -> List[Path]:
+    def get_all_decoupled_files(self) -> list[Path]:
         """获取所有拆分后的文件路径"""
         services_path = self.get_automation_services_path()
         files = []
@@ -617,7 +616,7 @@ class TestCrossModuleCallProperties:
 
         return files
 
-    def check_cross_module_call_compliance(self, file_path: Path) -> Tuple[bool, List[str]]:
+    def check_cross_module_call_compliance(self, file_path: Path) -> tuple[bool, list[str]]: # noqa: C901
         """
         检查文件的跨模块调用是否符合规范
 
@@ -692,7 +691,7 @@ class TestCrossModuleCallProperties:
                     violations.append("使用了 ServiceLocator 但调用方式不正确")
 
         except Exception as e:
-            violations.append(f"检查失败: {str(e)}")
+            violations.append(f"检查失败: {e!s}")
 
         return len(violations) == 0, violations
 
@@ -720,7 +719,7 @@ class TestCrossModuleCallProperties:
                 for violation in v["violations"]:
                     error_msg += f"  {violation}\n"
 
-            assert False, error_msg
+            raise AssertionError(error_msg)
 
     @pytest.mark.property_test
     def test_property_3_service_locator_usage(self):
@@ -744,7 +743,7 @@ class TestCrossModuleCallProperties:
             for v in violations:
                 error_msg += f"  {v['file']}: {v['error']}\n"
 
-            assert False, error_msg
+            raise AssertionError(error_msg)
 
     @given(st.sampled_from(list(DECOUPLED_FILES.keys())))
     @settings(max_examples=100)
@@ -781,7 +780,7 @@ class TestDecouplingComprehensiveCompliance:
         return get_backend_path() / "apps" / "automation" / "services"
 
     @pytest.mark.property_test
-    def test_comprehensive_decoupling_compliance(self):
+    def test_comprehensive_decoupling_compliance(self): # noqa: C901
         """
         综合测试：所有拆分后的文件合规性
 
@@ -852,14 +851,14 @@ class TestDecouplingComprehensiveCompliance:
         )
 
         # 输出合规性报告
-        print(f"\n=== 解耦架构合规性报告 ===")
+        print("\n=== 解耦架构合规性报告 ===")
         print(f"预期文件数: {compliance_report['total_files']}")
         print(f"已存在文件数: {compliance_report['existing_files']}")
         print(f"合规文件数: {compliance_report['compliant_files']}")
         print(f"合规率: {compliance_rate:.1f}%")
 
         if compliance_report["violations"]:
-            print(f"\n违规详情:")
+            print("\n违规详情:")
             for v in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"\n  {v['file']} ({v['type']}):")
                 for violation in v["violations"]:

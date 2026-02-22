@@ -42,7 +42,7 @@ def is_tracked_by_git(file_path: str) -> bool:
     """检查文件是否被 Git 跟踪"""
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", file_path],
+            ["git", "ls-files", "--error-unmatch", file_path], # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -196,7 +196,7 @@ def test_common_temp_patterns_in_gitignore():
         if not any(alt in gitignore_content for alt in alternatives):
             missing_patterns.append(pattern_name)
 
-    assert len(missing_patterns) == 0, f"The following patterns should be in .gitignore:\n" + "\n".join(
+    assert len(missing_patterns) == 0, "The following patterns should be in .gitignore:\n" + "\n".join(
         f"  - {pattern}" for pattern in missing_patterns
     )
 
@@ -222,7 +222,7 @@ def test_cache_directories_not_tracked():
         if cache_path.exists():
             try:
                 result = subprocess.run(
-                    ["git", "ls-files", cache_dir],
+                    ["git", "ls-files", cache_dir], # noqa: S607
                     cwd=backend_root,
                     capture_output=True,
                     text=True,
@@ -234,7 +234,7 @@ def test_cache_directories_not_tracked():
                 pass
 
     assert len(tracked_cache_files) == 0, (
-        f"The following cache files are tracked by Git:\n"
+        "The following cache files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in tracked_cache_files)
         + "\n\nThese files should be removed from Git and added to .gitignore"
     )
@@ -264,7 +264,7 @@ def test_log_files_not_tracked():
                 log_files.append(str(relative_path))
 
     assert len(log_files) == 0, (
-        f"The following log files are tracked by Git:\n"
+        "The following log files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in log_files)
         + "\n\nLog files should not be in version control"
     )
@@ -281,7 +281,7 @@ def test_coverage_files_not_tracked():
     # 使用 git ls-files 批量检查，避免 rglob + subprocess 逐文件调用
     try:
         result = subprocess.run(
-            ["git", "ls-files", ".coverage", "htmlcov"],
+            ["git", "ls-files", ".coverage", "htmlcov"], # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -293,7 +293,7 @@ def test_coverage_files_not_tracked():
         pass
 
     assert len(coverage_files) == 0, (
-        f"The following coverage files are tracked by Git:\n"
+        "The following coverage files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in coverage_files)
         + "\n\nCoverage files should not be in version control"
     )
@@ -315,13 +315,13 @@ def test_database_files_not_tracked():
                 db_files.append(str(relative_path))
 
     assert len(db_files) == 0, (
-        f"The following database files are tracked by Git:\n"
+        "The following database files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in db_files)
         + "\n\nDatabase files should not be in version control"
     )
 
 
-def test_ide_config_not_tracked():
+def test_ide_config_not_tracked(): # noqa: C901
     """
     测试 IDE 配置不被 Git 跟踪
 
@@ -354,7 +354,7 @@ def test_ide_config_not_tracked():
             ide_files.append(".DS_Store")
 
     assert len(ide_files) == 0, (
-        f"The following IDE files are tracked by Git:\n"
+        "The following IDE files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in ide_files)
         + "\n\nIDE-specific files should not be in version control"
     )
@@ -370,7 +370,7 @@ def test_python_cache_not_tracked():
     cache_files = []
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--", "*.pyc", "*__pycache__*"],
+            ["git", "ls-files", "--", "*.pyc", "*__pycache__*"], # noqa: S607
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -382,7 +382,7 @@ def test_python_cache_not_tracked():
         pytest.skip("git 命令不可用")
 
     assert len(cache_files) == 0, (
-        f"The following Python cache files are tracked by Git:\n"
+        "The following Python cache files are tracked by Git:\n"
         + "\n".join(f"  - {file}" for file in cache_files)
         + "\n\nPython cache files should not be in version control"
     )

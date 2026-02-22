@@ -54,7 +54,7 @@ class TestAdminSmoke(BaseAdminTest):
                 response = self.page.url
                 if "500" in response or "error" in response.lower():
                     failed_pages.append({"page": display_name, "url": url, "error": "返回错误页面"})
-                    print(f"    ❌ 失败: 返回错误页面")
+                    print("    ❌ 失败: 返回错误页面")
                     continue
 
                 # 检查页面是否加载完成
@@ -68,7 +68,7 @@ class TestAdminSmoke(BaseAdminTest):
                     print(f"    ❌ 失败: {error_text}")
                     continue
 
-                print(f"    ✅ 成功")
+                print("    ✅ 成功")
 
             except Exception as e:
                 failed_pages.append(
@@ -78,14 +78,14 @@ class TestAdminSmoke(BaseAdminTest):
 
         # 打印总结
         print(f"\n{'='*60}")
-        print(f"冒烟测试总结")
+        print("冒烟测试总结")
         print(f"{'='*60}")
         print(f"总计: {len(self.ADMIN_PAGES)} 个页面")
         print(f"✅ 成功: {len(self.ADMIN_PAGES) - len(failed_pages)} 个")
         print(f"❌ 失败: {len(failed_pages)} 个")
 
         if failed_pages:
-            print(f"\n失败的页面:")
+            print("\n失败的页面:")
             for page in failed_pages:
                 print(f"  - {page['page']}: {page['error']}")
 
@@ -94,7 +94,7 @@ class TestAdminSmoke(BaseAdminTest):
 
     async def test_admin_home_page(self):
         """测试 Admin 首页"""
-        print(f"\n  测试: Admin 首页")
+        print("\n  测试: Admin 首页")
 
         await self.page.goto(self.ADMIN_URL)
         await self.page.wait_for_load_state("networkidle")
@@ -111,11 +111,11 @@ class TestAdminSmoke(BaseAdminTest):
         has_admin_content = "#content" in content or "module" in content or "app-" in content
         self.assert_true(has_admin_content, "首页没有显示 Admin 内容")
 
-        print(f"    ✅ 成功")
+        print("    ✅ 成功")
 
     async def test_logout(self):
         """测试登出功能"""
-        print(f"\n  测试: 登出功能")
+        print("\n  测试: 登出功能")
 
         try:
             # 尝试多种可能的登出链接选择器
@@ -134,11 +134,11 @@ class TestAdminSmoke(BaseAdminTest):
                     await self.page.click(selector, timeout=2000)
                     clicked = True
                     break
-                except:
+                except Exception:
                     continue
 
             if not clicked:
-                print(f"    ⏭️  跳过: 找不到登出按钮（这是正常的，某些 Admin 配置可能没有登出链接）")
+                print("    ⏭️  跳过: 找不到登出按钮（这是正常的，某些 Admin 配置可能没有登出链接）")
                 return
 
             await self.page.wait_for_load_state("networkidle", timeout=5000)
@@ -148,7 +148,7 @@ class TestAdminSmoke(BaseAdminTest):
             logout_ok = "logout" in url.lower() or "login" in url.lower()
             self.assert_true(logout_ok, f"没有跳转到登出/登录页面: {url}")
 
-            print(f"    ✅ 成功")
+            print("    ✅ 成功")
 
         except Exception as e:
             print(f"    ⏭️  跳过: {e}")

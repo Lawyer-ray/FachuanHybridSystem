@@ -58,7 +58,7 @@ def test_services_directory_exists():
             if len(subdirs) == 0:
                 errors.append(f"App {app_name} services/ directory has no *_service.py files or subdirectories")
 
-    assert len(errors) == 0, f"Services organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Services organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -205,7 +205,7 @@ def test_service_files_follow_naming_convention():
                     f"does not follow naming convention (*_service.py or allowed special file)"
                 )
 
-    assert len(errors) == 0, f"Service file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Service file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -241,7 +241,7 @@ def test_service_files_contain_service_class():
                     f"does not define a Service class"
                 )
 
-    assert len(errors) == 0, f"Service class validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Service class validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -268,7 +268,7 @@ def test_no_root_services_py():
                 f"App {app_name}: has root services.py file. " f"Services should be in services/ subdirectory"
             )
 
-    assert len(errors) == 0, f"Root services.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Root services.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @given(st.sampled_from(DJANGO_APPS))

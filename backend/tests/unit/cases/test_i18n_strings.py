@@ -65,7 +65,7 @@ class TestNormalizeStagesI18n:
             assert len(rendered) > 0
         else:
             # normalize_stages 对不适用类型 + strict 应抛出 ValueError
-            raise AssertionError("Expected ValueError was not raised")  # noqa: TC003
+            raise AssertionError("Expected ValueError was not raised")
 
     def test_invalid_stage_raises_lazy(self) -> None:
         from apps.cases.domain.validators import normalize_stages
@@ -79,7 +79,7 @@ class TestNormalizeStagesI18n:
             assert isinstance(rendered, str)
             assert len(rendered) > 0
         else:
-            raise AssertionError("Expected ValueError was not raised")  # noqa: TC003
+            raise AssertionError("Expected ValueError was not raised")
 
 
 class TestLazyStringStrConversion:

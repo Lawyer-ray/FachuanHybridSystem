@@ -73,7 +73,7 @@ async def run_stage3_tests():
             except AssertionError as e:
                 failed_tests += 1
                 duration = time.time() - start_time
-                error_msg = f"断言失败: {str(e)}"
+                error_msg = f"断言失败: {e!s}"
                 errors.append((test_name, error_msg))
                 print(f"  ❌ 失败 ({duration:.2f}s): {error_msg}\n")
             except Exception as e:
@@ -81,11 +81,11 @@ async def run_stage3_tests():
                 if "跳过" in str(e) or "skip" in str(e).lower():
                     skipped_tests += 1
                     duration = time.time() - start_time
-                    print(f"  ⏭️  跳过 ({duration:.2f}s): {str(e)}\n")
+                    print(f"  ⏭️  跳过 ({duration:.2f}s): {e!s}\n")
                 else:
                     failed_tests += 1
                     duration = time.time() - start_time
-                    error_msg = f"异常: {str(e)}"
+                    error_msg = f"异常: {e!s}"
                     errors.append((test_name, error_msg))
                     print(f"  💥 错误 ({duration:.2f}s): {error_msg}\n")
 
@@ -264,7 +264,7 @@ def generate_report(total, passed, failed, skipped, errors):
     with open("backend/tests/admin/TEST_REPORT_STAGE3.md", "w", encoding="utf-8") as f:
         f.write(report_content)
 
-    print(f"✓ 测试报告已生成: backend/tests/admin/TEST_REPORT_STAGE3.md")
+    print("✓ 测试报告已生成: backend/tests/admin/TEST_REPORT_STAGE3.md")
 
 
 if __name__ == "__main__":

@@ -241,7 +241,7 @@ class TestSupplementaryAgreementGenerationIntegration:
     def test_template_file_not_exists_error(self):
         """测试模板文件不存在的错误处理"""
         # 创建模板记录但不创建实际文件
-        template = DocumentTemplateFactory(
+        template = DocumentTemplateFactory( # noqa: F841
             name="不存在的模板",
             template_type=DocumentTemplateType.CONTRACT,
             contract_sub_type=DocumentContractSubType.SUPPLEMENTARY_AGREEMENT,

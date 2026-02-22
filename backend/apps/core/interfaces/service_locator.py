@@ -1,7 +1,4 @@
-"""
-服务定位器和事件总线 - 重导出层
-从 apps.core.service_locator 和 apps.core.event_bus 重导出
-"""
+"""服务定位器重导出层"""
 
 from __future__ import annotations
 

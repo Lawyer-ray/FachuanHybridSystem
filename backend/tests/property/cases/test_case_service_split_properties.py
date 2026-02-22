@@ -30,7 +30,7 @@ class TestServiceSplitImportCompatibilityProperty:
         # Feature: backend-perfect-score, Property 3: Service 拆分后导入兼容性
         Validates: Requirements 3.4
         """
-        from apps.cases.services import CaseService  # noqa: F401
+        from apps.cases.services import CaseService
 
         assert CaseService is not None
 
@@ -44,7 +44,7 @@ class TestServiceSplitImportCompatibilityProperty:
         # Feature: backend-perfect-score, Property 3: Service 拆分后导入兼容性
         Validates: Requirements 3.4
         """
-        from apps.cases.services import CaseCommandService, CaseQueryService, CaseServiceAdapter  # noqa: F401
+        from apps.cases.services import CaseCommandService, CaseQueryService, CaseServiceAdapter
 
         assert CaseQueryService is not None
         assert CaseCommandService is not None

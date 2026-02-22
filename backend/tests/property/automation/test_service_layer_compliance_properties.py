@@ -36,7 +36,7 @@ from apps.automation.services.token.cache_manager import TokenCacheManager
 class TestServiceLayerCompliance:
     """Service层合规性属性测试"""
 
-    def get_automation_service_classes(self) -> List[type]:
+    def get_automation_service_classes(self) -> list[type]:
         """获取所有automation模块的Service类"""
         return [
             CaptchaRecognitionService,
@@ -220,7 +220,7 @@ class TestServiceLayerCompliance:
         )
     )
     @settings(max_examples=100)
-    def test_property_9_service_exception_three_parameters(self, service_class):
+    def test_property_9_service_exception_three_parameters(self, service_class): # noqa: C901
         """
         **Feature: automation-module-compliance, Property 9: Service层异常三参数**
 
@@ -346,7 +346,7 @@ class TestServiceLayerCompliance:
             # 如果无法获取源代码，跳过此测试
             pass
 
-    def test_service_layer_comprehensive_compliance_check(self):
+    def test_service_layer_comprehensive_compliance_check(self): # noqa: C901
         """
         Service层综合合规性检查
 
@@ -424,13 +424,13 @@ class TestServiceLayerCompliance:
         )
 
         # 输出合规性报告
-        print(f"\n=== Service层合规性报告 ===")
+        print("\n=== Service层合规性报告 ===")
         print(f"总Service数: {compliance_report['total_services']}")
         print(f"合规Service数: {compliance_report['compliant_services']}")
         print(f"合规率: {compliance_rate:.1f}%")
 
         if compliance_report["violations"]:
-            print(f"\n违规详情:")
+            print("\n违规详情:")
             for violation in compliance_report["violations"]:  # type: ignore[attr-defined]
                 print(f"  {violation['service']}:")
                 for v in violation["violations"]:
@@ -485,7 +485,7 @@ class TestServiceLayerPropertyBasedCompliance:
 
     @given(service_method_source())
     @settings(max_examples=50)
-    def test_service_method_compliance_patterns(self, method_source):
+    def test_service_method_compliance_patterns(self, method_source): # noqa: C901
         """
         测试Service方法的合规性模式
 
@@ -511,13 +511,7 @@ class TestServiceLayerPropertyBasedCompliance:
                     # 检查装饰器 - 更准确的AST检查
                     has_transaction = False
                     for decorator in method_def.decorator_list:
-                        if hasattr(decorator, "attr") and decorator.attr == "atomic":
-                            has_transaction = True
-                            break
-                        elif hasattr(decorator, "id") and "atomic" in decorator.id:
-                            has_transaction = True
-                            break
-                        elif "transaction" in str(decorator):
+                        if (hasattr(decorator, "attr") and decorator.attr == "atomic") or (hasattr(decorator, "id") and "atomic" in decorator.id) or "transaction" in str(decorator): # noqa: E501
                             has_transaction = True
                             break
 

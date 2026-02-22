@@ -14,7 +14,10 @@ def test_merge_progress_is_visible_while_running(monkeypatch):
         cursor.execute(
             """
             INSERT INTO cases_case
-                (is_archived, name, status, start_date, effective_date, cause_of_action, target_amount, case_type, current_stage)
+                (  # noqa: E501
+                    is_archived, name, status, start_date, effective_date,
+                    cause_of_action, target_amount, case_type, current_stage,
+                )
             VALUES
                 (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,

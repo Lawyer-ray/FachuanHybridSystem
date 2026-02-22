@@ -87,7 +87,7 @@ class TestLoginSuccessContinuationProperties:
 
             async def mock_login_with_delay(*args: object, **kwargs: object) -> str:
                 await asyncio.sleep(login_delay)
-                return f"token_after_delay"
+                return "token_after_delay"
 
             mock_login_service.login_and_get_token = AsyncMock(side_effect=mock_login_with_delay)
             mock_token_service = AsyncMock()

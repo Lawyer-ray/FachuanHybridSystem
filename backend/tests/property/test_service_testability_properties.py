@@ -145,7 +145,7 @@ class MockUser:
         is_authenticated: bool = True,
         is_admin: bool = False,
         is_superuser: bool = False,
-        law_firm_id: Optional[int] = None,
+        law_firm_id: int | None = None,
     ):
         self.id = id
         self.is_authenticated = is_authenticated
@@ -549,7 +549,7 @@ def test_service_methods_do_not_access_request_attributes(data):
         case = service.create_case(data, user=user)
 
         # 验证：方法成功执行（或抛出业务异常）
-        assert case is not None or True
+        assert case is not None
 
     except AttributeError as e:
         # 如果抛出 AttributeError，说明方法尝试访问不存在的属性

@@ -29,7 +29,7 @@ class TestTokenLookupFix:
         """
         # 创建一个有效的 Token
         expires_at = timezone.now() + timedelta(hours=2)
-        token_obj = CourtToken.objects.create(
+        token_obj = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="test_account",
             token="Bearer test_token_123",
@@ -56,7 +56,7 @@ class TestTokenLookupFix:
         expires_at = timezone.now() + timedelta(hours=2)
 
         # 创建多个 Token
-        token1 = CourtToken.objects.create(
+        token1 = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="account1",
             token="Bearer token1",
@@ -64,7 +64,7 @@ class TestTokenLookupFix:
             expires_at=expires_at,
         )
 
-        token2 = CourtToken.objects.create(
+        token2 = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="account2",
             token="Bearer token2",
@@ -89,7 +89,7 @@ class TestTokenLookupFix:
         """
         # 创建一个已过期的 Token
         expired_at = timezone.now() - timedelta(hours=1)
-        token_obj = CourtToken.objects.create(
+        token_obj = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="test_account",
             token="Bearer expired_token",
@@ -114,7 +114,7 @@ class TestTokenLookupFix:
         expires_at = timezone.now() + timedelta(hours=2)
 
         # 创建多个 Token（按时间顺序）
-        token1 = CourtToken.objects.create(
+        token1 = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="account1",
             token="Bearer old_token",
@@ -127,7 +127,7 @@ class TestTokenLookupFix:
 
         time.sleep(0.1)
 
-        token2 = CourtToken.objects.create(
+        token2 = CourtToken.objects.create( # noqa: F841
             site_name="court_zxfw",
             account="account2",
             token="Bearer new_token",

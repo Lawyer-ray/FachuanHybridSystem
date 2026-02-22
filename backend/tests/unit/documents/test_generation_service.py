@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 GenerationService 单元测试
 

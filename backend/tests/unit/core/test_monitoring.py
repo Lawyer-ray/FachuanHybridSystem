@@ -54,9 +54,8 @@ class TestPerformanceMonitor:
     def test_monitor_operation_with_exception(self):
         """测试操作监控上下文管理器（异常场景）"""
 
-        with pytest.raises(ValueError):
-            with monitor_operation("test_operation"):
-                raise ValueError("Test error")
+        with pytest.raises(ValueError), monitor_operation("test_operation"):
+            raise ValueError("Test error")
 
     @patch("apps.core.monitoring.logger")
     def test_performance_logging(self, mock_logger):

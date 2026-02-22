@@ -38,7 +38,7 @@ positive_amount_strategy = st.decimals(
 )
 
 
-def manual_calculate_property_case_fee(amount: Decimal) -> Decimal:
+def manual_calculate_property_case_fee(amount: Decimal) -> Decimal: # noqa: C901
     """手动计算财产案件受理费，用于验证"""
     if amount <= 0:
         return Decimal("50")
@@ -599,7 +599,7 @@ class TestAPIProperties:
         # 应该抛出验证异常
         try:
             calculate_fee(None, data)  # type: ignore[arg-type]
-            assert False, "应该抛出 ValidationException"
+            raise AssertionError("应该抛出 ValidationException")
         except ValidationException as e:
             assert "负数" in str(e) or "不能" in str(e)
 
@@ -621,6 +621,6 @@ class TestAPIProperties:
         # 应该抛出验证异常
         try:
             calculate_fee(None, data)  # type: ignore[arg-type]
-            assert False, "应该抛出 ValidationException"
+            raise AssertionError("应该抛出 ValidationException")
         except ValidationException as e:
             assert "负数" in str(e) or "不能" in str(e)

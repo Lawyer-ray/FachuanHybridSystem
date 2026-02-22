@@ -30,7 +30,7 @@ def api_data_strategy(draw):
     return {
         "c_sdbh": draw(safe_text),
         "c_stbh": draw(safe_text),
-        "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}",
+        "wjlj": f"https://example.com/{draw(st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))))}", # noqa: E501
         "c_wsbh": draw(safe_text),
         "c_wsmc": draw(safe_text),
         "c_fybh": draw(safe_text),

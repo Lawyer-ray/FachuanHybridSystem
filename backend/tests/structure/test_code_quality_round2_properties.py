@@ -225,7 +225,7 @@ def test_p4_baseline_entries_have_comments() -> None:
                 violations.append(f"{filename}:{i+1} 条目无注释: {stripped}")
 
         assert not violations, (
-            f"Baseline 条目缺少注释说明:\n"
+            "Baseline 条目缺少注释说明:\n"
             + "\n".join(f"  {v}" for v in violations)
         )
 

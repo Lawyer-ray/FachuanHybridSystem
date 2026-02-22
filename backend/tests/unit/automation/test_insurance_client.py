@@ -36,7 +36,7 @@ class TestCourtInsuranceClient:
         mock_http.get.return_value = mock_resp
         client._client = mock_http
 
-    def _mock_post(self, client: CourtInsuranceClient, data: dict | None = None, status: int = 200, text: str = "") -> None:
+    def _mock_post(self, client: CourtInsuranceClient, data: dict | None = None, status: int = 200, text: str = "") -> None: # noqa: E501
         mock_resp = Mock()
         mock_resp.status_code = status
         mock_resp.text = text
@@ -72,7 +72,7 @@ class TestCourtInsuranceClient:
         assert len(companies) == 0
 
     @pytest.mark.anyio
-    async def test_fetch_insurance_companies_incomplete_data(self, client: CourtInsuranceClient, mock_token: str) -> None:
+    async def test_fetch_insurance_companies_incomplete_data(self, client: CourtInsuranceClient, mock_token: str) -> None: # noqa: E501
         self._mock_get(client, {"data": [
             {"cId": "1", "cCode": "ABC", "cName": "保险公司A"},
             {"cId": "2", "cCode": "DEF"},          # 缺 cName

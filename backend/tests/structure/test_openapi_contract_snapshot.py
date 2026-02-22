@@ -22,7 +22,7 @@ def test_openapi_v1_schema_snapshot():
         return
     if not snapshot_path.exists():
         raise AssertionError(
-            f"缺少 OpenAPI 快照文件：{snapshot_path}。如需生成/更新，请运行：UPDATE_SNAPSHOTS=1 pytest -q --no-cov {Path(__file__).name}"
+            f"缺少 OpenAPI 快照文件：{snapshot_path}。如需生成/更新，请运行：UPDATE_SNAPSHOTS=1 pytest -q --no-cov {Path(__file__).name}" # noqa: E501
         )
 
     expected = snapshot_path.read_text(encoding="utf-8")

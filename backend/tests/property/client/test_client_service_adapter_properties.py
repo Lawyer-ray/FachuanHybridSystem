@@ -114,7 +114,7 @@ class TestClientServiceAdapterNameQueryProperties:
         adapter = ClientServiceAdapter()
 
         # 使用 Factory 创建客户
-        client = ClientFactory(name=client_name)
+        client = ClientFactory(name=client_name) # noqa: F841
 
         # 按名称查询
         dto = adapter.get_client_by_name(client_name)

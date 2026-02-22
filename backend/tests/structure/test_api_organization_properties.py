@@ -54,7 +54,7 @@ def test_api_directory_exists():
         if len(api_files) == 0:
             errors.append(f"App {app_name} api/ directory has no *_api.py files")
 
-    assert len(errors) == 0, f"API organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "API organization validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -90,7 +90,7 @@ def test_api_files_follow_naming_convention():
                     f"App {app_name}: API file {py_file.name} does not follow " f"naming convention (*_api.py)"
                 )
 
-    assert len(errors) == 0, f"API file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "API file naming validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -144,7 +144,7 @@ def test_root_api_py_is_import_only():
                         )
                         break
 
-    assert len(errors) == 0, f"Root api.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "Root api.py validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @pytest.mark.property_test
@@ -177,7 +177,7 @@ def test_api_files_contain_router():
             if "router = Router(" not in content and "router=Router(" not in content:
                 errors.append(f"App {app_name}: API file {api_file.name} does not define a Router instance")
 
-    assert len(errors) == 0, f"API Router validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+    assert len(errors) == 0, "API Router validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
 
 
 @given(st.sampled_from(DJANGO_APPS))

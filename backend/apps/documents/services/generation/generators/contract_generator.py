@@ -75,7 +75,7 @@ class ContractGenerator(BaseGenerator):
             output_path = Path(output_dir) / output_filename
 
             # 确保输出目录存在
-            Path(output_dir).makedirs_p()
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
 
             # 写入文件
             with Path(output_path).open("wb") as f:

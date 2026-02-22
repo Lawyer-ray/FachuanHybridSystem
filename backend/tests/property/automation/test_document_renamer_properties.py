@@ -125,7 +125,7 @@ class TestDocumentRenamerProperties:
 
     @settings(max_examples=100, deadline=None)
     @given(title=valid_title_strategy(), case_name=valid_case_name_strategy(), received_date=valid_date_strategy())
-    def test_property_7_filename_format_correctness(self, title, case_name, received_date):
+    def test_property_7_filename_format_correctness(self, title, case_name, received_date): # noqa: C901
         """
         属性 7: 文件名格式正确性
 
@@ -244,7 +244,7 @@ class TestDocumentRenamerProperties:
 
         # 验证：控制字符处理
         control_chars = r"[\x00-\x1f\x7f]"
-        assert not re.search(control_chars, filename), f"文件名不应包含控制字符: {repr(filename)}"
+        assert not re.search(control_chars, filename), f"文件名不应包含控制字符: {filename!r}"
 
         # 验证：首尾空格和点号处理
         assert not actual_title.startswith(" "), f"标题不应以空格开头: '{actual_title}'"

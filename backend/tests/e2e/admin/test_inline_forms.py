@@ -32,7 +32,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 添加单个当事人成功")
+            print("    ✅ 添加单个当事人成功")
         except Exception as e:
             await self.take_screenshot("error_case_single_party")
             print(f"    ❌ 测试失败: {e}")
@@ -65,7 +65,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 添加多个当事人成功")
+            print("    ✅ 添加多个当事人成功")
         except Exception as e:
             await self.take_screenshot("error_case_multiple_parties")
             print(f"    ❌ 测试失败: {e}")
@@ -92,7 +92,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 添加指派成功")
+            print("    ✅ 添加指派成功")
         except Exception as e:
             await self.take_screenshot("error_case_assignment")
             print(f"    ❌ 测试失败: {e}")
@@ -120,7 +120,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 添加案件编号成功")
+            print("    ✅ 添加案件编号成功")
         except Exception as e:
             await self.take_screenshot("error_case_number")
             print(f"    ❌ 测试失败: {e}")
@@ -134,7 +134,7 @@ class TestInlineForms(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过测试")
+            print("    ⚠️  没有案件记录，跳过测试")
             return
 
         # 编辑第一条记录
@@ -157,7 +157,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 添加案件日志成功")
+            print("    ✅ 添加案件日志成功")
         except Exception as e:
             await self.take_screenshot("error_case_log")
             print(f"    ❌ 测试失败: {e}")
@@ -193,7 +193,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 同时添加所有内联成功")
+            print("    ✅ 同时添加所有内联成功")
         except Exception as e:
             await self.take_screenshot("error_case_all_inlines")
             print(f"    ❌ 测试失败: {e}")
@@ -224,7 +224,7 @@ class TestInlineForms(BaseAdminTest):
                 error_text = await self.get_error_text()
                 print(f"    ✅ 内联必填字段验证生效: {error_text}")
             else:
-                print(f"    ⚠️  没有显示必填字段错误（可能验证未启用）")
+                print("    ⚠️  没有显示必填字段错误（可能验证未启用）")
         except Exception as e:
             await self.take_screenshot("error_inline_validation")
             print(f"    ❌ 测试失败: {e}")
@@ -238,7 +238,7 @@ class TestInlineForms(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过测试")
+            print("    ⚠️  没有案件记录，跳过测试")
             return
 
         # 编辑第一条记录
@@ -263,7 +263,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 编辑内联记录成功")
+            print("    ✅ 编辑内联记录成功")
         except Exception as e:
             await self.take_screenshot("error_case_edit_inline")
             print(f"    ❌ 测试失败: {e}")
@@ -277,7 +277,7 @@ class TestInlineForms(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有案件记录，跳过测试")
+            print("    ⚠️  没有案件记录，跳过测试")
             return
 
         # 编辑第一条记录
@@ -297,9 +297,9 @@ class TestInlineForms(BaseAdminTest):
                 # 检查成功
                 self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-                print(f"    ✅ 删除内联记录成功")
+                print("    ✅ 删除内联记录成功")
             else:
-                print(f"    ⚠️  没有内联记录可删除")
+                print("    ⚠️  没有内联记录可删除")
         except Exception as e:
             await self.take_screenshot("error_case_delete_inline")
             print(f"    ❌ 测试失败: {e}")
@@ -322,7 +322,7 @@ class TestInlineForms(BaseAdminTest):
             try:
                 await self.select_option("law_firm", "1")
                 law_firm_filled = True
-            except:
+            except Exception:
                 pass
 
             # 方式2: 尝试 raw_id_field
@@ -330,24 +330,24 @@ class TestInlineForms(BaseAdminTest):
                 try:
                     await self.fill_raw_id_field("law_firm", "1")
                     law_firm_filled = True
-                except:
+                except Exception:
                     pass
 
             # 方式3: 跳过这个字段（可能不是必填）
             if not law_firm_filled:
-                print(f"    ℹ️  跳过 law_firm 字段（无法填写）")
+                print("    ℹ️  跳过 law_firm 字段（无法填写）")
 
             # assigned_lawyer 字段
             lawyer_filled = False
             try:
                 await self.select_option("assigned_lawyer", "67")
                 lawyer_filled = True
-            except:
+            except Exception:
                 try:
                     await self.fill_raw_id_field("assigned_lawyer", "67")
-                    lawyer_filled = True
-                except:
-                    print(f"    ℹ️  跳过 assigned_lawyer 字段（无法填写）")
+                    lawyer_filled = True # noqa: F841
+                except Exception:
+                    print("    ℹ️  跳过 assigned_lawyer 字段（无法填写）")
 
             await self.select_option("case_type", "civil")
 
@@ -361,7 +361,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 合同添加案件成功")
+            print("    ✅ 合同添加案件成功")
         except Exception as e:
             await self.take_screenshot("error_contract_case_inline")
             print(f"    ❌ 测试失败: {e}")
@@ -375,7 +375,7 @@ class TestInlineForms(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有合同记录，跳过测试")
+            print("    ⚠️  没有合同记录，跳过测试")
             return
 
         # 编辑第一条记录
@@ -392,7 +392,7 @@ class TestInlineForms(BaseAdminTest):
                 await self.select_option("cases-0-parties-0-client", "16")
                 await self.select_option("cases-0-parties-0-legal_status", "plaintiff")
 
-                print(f"    ℹ️  嵌套内联功能可用")
+                print("    ℹ️  嵌套内联功能可用")
             except Exception as e:
                 print(f"    ℹ️  嵌套内联功能不可用: {e}")
 
@@ -402,7 +402,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 合同嵌套内联测试完成")
+            print("    ✅ 合同嵌套内联测试完成")
         except Exception as e:
             await self.take_screenshot("error_contract_nested_inline")
             print(f"    ❌ 测试失败: {e}")
@@ -438,7 +438,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 客户添加身份证件成功")
+            print("    ✅ 客户添加身份证件成功")
         except Exception as e:
             await self.take_screenshot("error_client_identity_doc")
             print(f"    ❌ 测试失败: {e}")
@@ -452,7 +452,7 @@ class TestInlineForms(BaseAdminTest):
         # 检查是否有记录
         row_count = await self.get_table_row_count()
         if row_count == 0:
-            print(f"    ⚠️  没有律师记录，跳过测试")
+            print("    ⚠️  没有律师记录，跳过测试")
             return
 
         # 编辑第一条记录
@@ -476,7 +476,7 @@ class TestInlineForms(BaseAdminTest):
             # 检查成功
             self.assert_true(await self.check_success_message(), "没有显示成功消息")
 
-            print(f"    ✅ 律师添加账号凭证成功")
+            print("    ✅ 律师添加账号凭证成功")
         except Exception as e:
             await self.take_screenshot("error_lawyer_credential")
             print(f"    ❌ 测试失败: {e}")
@@ -501,14 +501,14 @@ class TestInlineForms(BaseAdminTest):
                 try:
                     await self.add_inline_row("caseparty_set")
                     added_count += 1
-                except:
+                except Exception:
                     print(f"    ℹ️  达到内联最大数量限制: {added_count}")
                     break
 
             if added_count == max_attempts:
                 print(f"    ℹ️  没有内联数量限制（或限制 >= {max_attempts}）")
 
-            print(f"    ✅ 内联数量限制测试完成")
+            print("    ✅ 内联数量限制测试完成")
         except Exception as e:
             await self.take_screenshot("error_inline_max_num")
             print(f"    ❌ 测试失败: {e}")
