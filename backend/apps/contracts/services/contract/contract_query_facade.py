@@ -1,9 +1,11 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
-from typing import Any, cast
+from __future__ import annotations
+
+from typing import Any
 
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.security.access_context import AccessContext
@@ -98,15 +100,15 @@ class ContractQueryFacade:
             org_access=org_access,
             perm_open_access=perm_open_access,
             contract=contract,
-            message=_("无权限访问该合同"), # type: ignore
+            message=_("无权限访问该合同"),
         )
         self.list_assembler.enrich([contract])
-        return cast(Contract, contract)
+        return contract  # type: ignore[return-value]
 
     def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         contract = self.query_service.get_contract_internal(contract_id)
         self.access_policy.ensure_access_ctx(
-            contract_id=contract_id, ctx=ctx, contract=contract, message=_("无权限访问该合同") # type: ignore
+            contract_id=contract_id, ctx=ctx, contract=contract, message=_("无权限访问该合同")
         )
         self.list_assembler.enrich([contract])
         return contract

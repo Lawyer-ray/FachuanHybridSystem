@@ -1,6 +1,8 @@
 """Business workflow orchestration."""
 
-from typing import TYPE_CHECKING, Any, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -21,11 +23,11 @@ class ContractWorkflowService:
     def __init__(
         self,
         *,
-        mutation_service: "ContractMutationService",
-        supplementary_agreement_service: "SupplementaryAgreementService",
-        finance_mutation_service: "ContractFinanceMutationService",
-        lawyer_assignment_service: "LawyerAssignmentService",
-        case_service: "ICaseService",
+        mutation_service: ContractMutationService,
+        supplementary_agreement_service: SupplementaryAgreementService,
+        finance_mutation_service: ContractFinanceMutationService,
+        lawyer_assignment_service: LawyerAssignmentService,
+        case_service: ICaseService,
     ) -> None:
         self.mutation_service = mutation_service
         self.supplementary_agreement_service = supplementary_agreement_service
@@ -57,12 +59,12 @@ class ContractWorkflowService:
         if supplementary_agreements_data:
             for sa_data in supplementary_agreements_data:
                 self.supplementary_agreement_service.create_supplementary_agreement(
-                    contract_id=cast(Any, contract).id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
+                    contract_id=contract.id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
                 )
 
         if payments_data:
             self.finance_mutation_service.add_payments(
-                contract_id=cast(Any, contract).id,
+                contract_id=contract.id,
                 payments_data=payments_data,
                 user=user,
                 confirm=True,
@@ -70,17 +72,17 @@ class ContractWorkflowService:
 
         if cases_data:
             all_lawyers = self.lawyer_assignment_service.get_all_lawyers(contract.id)
-            all_lawyer_ids = [cast(Any, lawyer).id for lawyer in all_lawyers]
+            all_lawyer_ids = [lawyer.id for lawyer in all_lawyers]
 
             for case_data in cases_data:
                 case_create_data = {
                     "name": case_data.get("name"),
-                    "contract_id": cast(Any, contract).id,
+                    "contract_id": contract.id,
                     "is_archived": case_data.get("is_archived", False),
                     "case_type": case_data.get("case_type"),
                     "target_amount": case_data.get("target_amount"),
                 }
-                case_dto = self.case_service.create_case(case_create_data, user=user) # type: ignore
+                case_dto = self.case_service.create_case(case_create_data, user=user)  # type: ignore[arg-type]
 
                 for lawyer_id in all_lawyer_ids:
                     self.case_service.create_case_assignment(case_dto.id, lawyer_id)
