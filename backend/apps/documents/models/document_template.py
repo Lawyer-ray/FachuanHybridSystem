@@ -171,10 +171,10 @@ class DocumentTemplate(models.Model):
     def template_type_display(self) -> str:
         """模板类型显示"""
         base_type = str(dict(DocumentTemplateType.choices).get(self.template_type, self.template_type))
-        if self.template_type == "contract" and self.contract_sub_type:
+        if self.template_type == DocumentTemplateType.CONTRACT and self.contract_sub_type:
             sub_type = str(dict(DocumentContractSubType.choices).get(self.contract_sub_type, self.contract_sub_type))
             return f"{base_type} - {sub_type}"
-        if self.template_type == "case" and self.case_sub_type:
+        if self.template_type == DocumentTemplateType.CASE and self.case_sub_type:
             sub_type = str(dict(DocumentCaseFileSubType.choices).get(self.case_sub_type, self.case_sub_type))
             return f"{base_type} - {sub_type}"
         return base_type

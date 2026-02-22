@@ -54,7 +54,7 @@ class EvidenceMutationService:
         evidence_list = EvidenceList.objects.create(
             case=case,
             title=title.strip(),
-            list_type=list_type or "list_1",
+            list_type=list_type or ListType.LIST_1,
             order=order,
             created_by=user,
         )
