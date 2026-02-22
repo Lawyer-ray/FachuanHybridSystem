@@ -199,27 +199,6 @@ class BaseGenerator(ABC):
 
         return safe_name
 
-    def _record_metrics(self, start_time: float, success: bool, error_message: str | None = None) -> int:
-        """
-        记录生成指标
-
-        Args:
-            start_time: 开始时间戳
-            success: 是否成功
-            error_message: 错误信息(可选)
-
-        Returns:
-            生成耗时(毫秒)
-        """
-        duration_ms = int((time.time() - start_time) * 1000)
-
-        if success:
-            logger.info("文书生成成功 - 生成器: %s, 耗时: %sms", self.name, duration_ms)
-        else:
-            logger.error("文书生成失败 - 生成器: %s, 耗时: %sms, 错误: %s", self.name, duration_ms, error_message)
-
-        return duration_ms
-
     def __str__(self) -> str:
         """字符串表示"""
         return f"{self.display_name or self.name} ({self.category})"
