@@ -69,7 +69,3 @@ def invalidate_user_org_cache(user_id: int) -> None:
         user_id: 用户 ID
     """
     cache.delete(CacheKeys.user_org_access(user_id))
-
-
-# 保持向后兼容
-invalidate_case_access_cache = invalidate_user_org_cache
