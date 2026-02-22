@@ -19,7 +19,6 @@ def list_credentials(
     lawyer_id: int | None = None,
     lawyer_name: str | None = None,
 ) -> list[AccountCredentialOut]:
-    """获取账号凭证列表"""
     return list(_credential_service.list_credentials(
         lawyer_id=lawyer_id,
         lawyer_name=lawyer_name,
@@ -29,13 +28,11 @@ def list_credentials(
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
 def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
-    """获取单个凭证"""
     return _credential_service.get_credential(cred_id, user=get_request_user(request))
 
 
 @router.post("/credentials", response=AccountCredentialOut)
 def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
-    """创建凭证"""
     return _credential_service.create_credential(
         lawyer_id=payload.lawyer_id,
         site_name=payload.site_name,
@@ -48,7 +45,6 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
 def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
-    """更新凭证"""
     dto = AccountCredentialUpdateDTO(
         site_name=payload.site_name,
         url=payload.url,
@@ -64,6 +60,5 @@ def update_credential(request: HttpRequest, cred_id: int, payload: AccountCreden
 
 @router.delete("/credentials/{cred_id}")
 def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:
-    """删除凭证"""
     _credential_service.delete_credential(cred_id, user=get_request_user(request))
     return {"success": True}
