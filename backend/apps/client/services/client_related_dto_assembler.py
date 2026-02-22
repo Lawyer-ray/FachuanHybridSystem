@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人关联 DTO 组装器。"""
 
 from apps.client.models import ClientIdentityDoc, PropertyClue
 from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO

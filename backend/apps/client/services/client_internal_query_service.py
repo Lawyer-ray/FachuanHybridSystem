@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人内部查询服务。"""
 
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue
 
