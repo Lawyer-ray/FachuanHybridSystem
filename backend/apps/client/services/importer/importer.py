@@ -2,9 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, cast
-
-from apps.core.exceptions import ValidationException
+from typing import Any
 
 from .mapper import ClientJsonImportMapper
 from .persister import ClientJsonImportPersister
@@ -51,29 +49,20 @@ class ClientJsonImporter:
         return self._persister
 
     def import_from_json(self, json_data: dict[str, Any], *, admin_user: str) -> ClientJsonImportResult:
-        try:
-            self.validator.validate(json_data)
-            cmd = self.mapper.to_command(json_data, admin_user=admin_user)
-            client = self.persister.persist(
-                client_data=cmd.client_data,
-                identity_docs=[{"doc_type": d.doc_type, "file_path": d.file_path} for d in cmd.identity_docs],
-            )
+        self.validator.validate(json_data)
+        cmd = self.mapper.to_command(json_data, admin_user=admin_user)
+        client = self.persister.persist(
+            client_data=cmd.client_data,
+            identity_docs=[{"doc_type": d.doc_type, "file_path": d.file_path} for d in cmd.identity_docs],
+        )
 
-            logger.info(
-                "JSON 导入客户成功",
-                extra={
-                    "client_id": cast(int, client.pk),
-                    "client_name": client.name,
-                    "admin_user": admin_user,
-                    "action": "import_from_json",
-                },
-            )
-            return ClientJsonImportResult(success=True, client_id=cast(int, client.pk))
-        except ValidationException:
-            raise
-        except Exception as e:
-            logger.error(
-                "JSON 导入客户失败",
-                extra={"admin_user": admin_user, "action": "import_from_json", "error": str(e)},
-            )
-            return ClientJsonImportResult(success=False, error_message=f"导入失败: {e!s}")
+        logger.info(
+            "JSON 导入客户成功",
+            extra={
+                "client_id": client.pk,
+                "client_name": client.name,
+                "admin_user": admin_user,
+                "action": "import_from_json",
+            },
+        )
+        return ClientJsonImportResult(success=True, client_id=client.pk)

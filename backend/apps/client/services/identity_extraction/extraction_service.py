@@ -72,7 +72,9 @@ class IdentityExtractionService:
         except Exception as e:
             logger.exception("证件信息提取失败: %s", e)
             raise ValidationException(
-                message=_("证件信息提取失败: %(error)s") % {"error": str(e)}, code="EXTRACTION_FAILED", errors={"extraction": str(e)}
+                message=_("证件信息提取失败: %(error)s") % {"error": str(e)},
+                code="EXTRACTION_FAILED",
+                errors={"extraction": str(e)},
             ) from e
 
     def _ocr_extract(self, image_bytes: bytes) -> str:
