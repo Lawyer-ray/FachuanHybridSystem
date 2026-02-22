@@ -5,9 +5,8 @@
 """
 
 import logging
-from collections.abc import Iterable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
 from django.utils import timezone
@@ -85,11 +84,7 @@ class ReminderServiceAdapter:
 
     def get_existing_reminder_times_internal(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """内部方法：获取案件日志已存在的提醒时间集合。"""
-        due_at_values = Reminder.objects.filter(
-            case_log_id=case_log_id,
-            reminder_type=reminder_type,
-        ).values_list("due_at", flat=True)
-        return set(cast(Iterable[datetime], due_at_values))
+        return self._service.get_existing_due_times(case_log_id, reminder_type)
 
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
