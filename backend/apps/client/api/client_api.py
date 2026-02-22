@@ -40,6 +40,13 @@ def _get_identity_doc_service() -> Any:
     return ClientIdentityDocService()
 
 
+def _get_mutation_service() -> Any:
+    """工厂函数：创建 ClientMutationService 实例"""
+    from apps.client.services.client_mutation_service import ClientMutationService
+
+    return ClientMutationService()
+
+
 @router.get("/clients", response=list[ClientOut])
 def list_clients(
     request: Any,
@@ -67,9 +74,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
     service = _get_client_service()
 
     if payload.parse_multiple:
-        from apps.client.services.text_parser import parse_multiple_clients_text
-
-        parsed_clients = parse_multiple_clients_text(payload.text)
+        parsed_clients = service.parse_multiple_clients_text(payload.text)
         results = [c for c in parsed_clients if c.get("name")]
         return {"success": True, "clients": results}
     else:
@@ -91,7 +96,7 @@ def get_client(request: Any, client_id: int) -> Any:
 @router.post("/clients", response=ClientOut)
 def create_client(request: Any, payload: ClientIn) -> Any:
     """创建客户"""
-    service = _get_client_service()
+    service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     return service.create_client(data=payload.dict(), user=user)
 
@@ -104,9 +109,9 @@ def create_client_with_docs(
     files: list[UploadedFile] = File(...),  # type: ignore[call-overload]
 ) -> Any:
     """创建客户并上传文档"""
-    service = _get_client_service()
+    mutation_service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    client = service.create_client(data=payload.dict(), user=user)
+    client = mutation_service.create_client(data=payload.dict(), user=user)
 
     if doc_types and files:
         identity_doc_service = _get_identity_doc_service()
@@ -124,7 +129,7 @@ def create_client_with_docs(
 @router.put("/clients/{client_id}", response=ClientOut)
 def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:
     """更新客户"""
-    service = _get_client_service()
+    service = _get_mutation_service()
     data = payload.dict(exclude_unset=True)
     user = getattr(request, "auth", None) or extract_request_context(request).user
     return service.update_client(client_id=client_id, data=data, user=user)
@@ -133,7 +138,7 @@ def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:
 @router.delete("/clients/{client_id}", response={204: None})
 def delete_client(request: Any, client_id: int) -> tuple[int, None]:
     """删除客户"""
-    service = _get_client_service()
+    service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     service.delete_client(client_id=client_id, user=user)
 
