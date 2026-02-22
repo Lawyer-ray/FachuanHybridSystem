@@ -54,6 +54,11 @@ class ClientIdentityDoc(models.Model):
         (LEGAL_REP_ID_CARD, _("法定代表人/负责人身份证")),
     ]
 
+    _NATURAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset({
+        ID_CARD, PASSPORT, HK_MACAO_PERMIT, RESIDENCE_PERMIT, HOUSEHOLD_REGISTER,
+    })
+    _LEGAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset({BUSINESS_LICENSE, LEGAL_REP_ID_CARD})
+
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name=_("当事人"))
     doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name=_("证件类型"))
     file_path = models.CharField(max_length=512, verbose_name=_("文件路径"))
@@ -69,19 +74,11 @@ class ClientIdentityDoc(models.Model):
 
     def clean(self) -> None:
         if self.client:
-            natural_docs = {
-                self.ID_CARD,
-                self.PASSPORT,
-                self.HK_MACAO_PERMIT,
-                self.RESIDENCE_PERMIT,
-                self.HOUSEHOLD_REGISTER,
-            }
-            legal_docs = {self.BUSINESS_LICENSE, self.LEGAL_REP_ID_CARD}
-            if self.client.client_type == Client.NATURAL and self.doc_type not in natural_docs:
+            if self.client.client_type == Client.NATURAL and self.doc_type not in self._NATURAL_DOC_TYPES:
                 raise ValidationError({"doc_type": _("Invalid doc type for natural person")})
             if (
                 self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG}
-                and self.doc_type not in natural_docs | legal_docs
+                and self.doc_type not in self._NATURAL_DOC_TYPES | self._LEGAL_DOC_TYPES
             ):
                 raise ValidationError({"doc_type": _("Invalid doc type for organization")})
 
