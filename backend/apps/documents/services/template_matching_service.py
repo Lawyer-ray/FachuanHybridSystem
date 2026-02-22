@@ -1,6 +1,8 @@
 """Business logic services."""
 
 from __future__ import annotations
+
+from apps.documents.models.choices import LegalStatusMatchMode, DocumentCaseStage
 from django.utils.translation import gettext_lazy as _
 
 import logging
@@ -34,7 +36,7 @@ class TemplateMatchingService:
             matched: list[str] = []
             for template in templates:
                 case_types = template.case_types or []
-                if not case_types or "all" in case_types or case_type in case_types:
+                if not case_types or LegalStatusMatchMode.ALL in case_types or case_type in case_types:
                     matched.append(template.name)
             return matched
         except Exception:
@@ -58,18 +60,18 @@ class TemplateMatchingService:
 
     def _matches_case_folder_template(self, template: Any, case_type: str, case_legal_statuses_set: set[Any]) -> bool:
         case_types = template.case_types or []
-        if case_types and "all" not in case_types and case_type not in case_types:
+        if case_types and LegalStatusMatchMode.ALL not in case_types and case_type not in case_types:
             return False
 
         template_legal_statuses = template.legal_statuses or []
         if not template_legal_statuses:
             return True
 
-        match_mode = template.legal_status_match_mode or "any"
+        match_mode = template.legal_status_match_mode or LegalStatusMatchMode.ANY
         tls = set(template_legal_statuses)
-        if match_mode == "any":
+        if match_mode == LegalStatusMatchMode.ANY:
             return not case_legal_statuses_set or bool(case_legal_statuses_set & tls)
-        if match_mode == "all":
+        if match_mode == LegalStatusMatchMode.ALL:
             return tls <= case_legal_statuses_set
         if match_mode == "exact":
             return case_legal_statuses_set == tls
@@ -122,7 +124,7 @@ class TemplateMatchingService:
             for template in templates:
                 type_list = template.contract_types if template_type == FolderTemplateType.CONTRACT else template.case_types
                 type_list = type_list or []
-                if not type_list or "all" in type_list or (case_type and case_type in type_list):
+                if not type_list or LegalStatusMatchMode.ALL in type_list or (case_type and case_type in type_list):
                     matched.append({"id": template.id, "name": template.name})
             cache.set(cache_key, matched, CacheTimeout.get_long())
             return matched
@@ -169,11 +171,11 @@ class TemplateMatchingService:
             matched: list[dict[str, Any]] = []
             for template in templates:
                 template_case_types = template.case_types or []
-                if "all" not in template_case_types and case_type not in template_case_types:
+                if LegalStatusMatchMode.ALL not in template_case_types and case_type not in template_case_types:
                     continue
 
                 template_case_stages = template.case_stages or []
-                if "all" not in template_case_stages and not any(
+                if LegalStatusMatchMode.ALL not in template_case_stages and not any(
                     stage in template_case_stages for stage in normalized_stages
                 ):
                     continue
@@ -212,5 +214,5 @@ class TemplateMatchingService:
             "petition_protest",
         }
         if case_stage in retrial_related:
-            return ["retrial"]
+            return [DocumentCaseStage.RETRIAL]
         return [case_stage]

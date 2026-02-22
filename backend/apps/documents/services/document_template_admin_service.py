@@ -54,7 +54,7 @@ class DocumentTemplateAdminService:
             "existing_file": "",
             "file_path": "",
             "legal_statuses_field": instance.legal_statuses or [],
-            "legal_status_match_mode": instance.legal_status_match_mode or "any",
+            "legal_status_match_mode": instance.legal_status_match_mode or LegalStatusMatchMode.ANY,
         }
         case_stages = instance.case_stages or []
         initial["case_stage_field"] = case_stages[0] if case_stages else ""
@@ -197,7 +197,7 @@ class DocumentTemplateAdminService:
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
-            "legal_status_match_mode": "any",
+            "legal_status_match_mode": LegalStatusMatchMode.ANY,
             "file": file,
             "file_path": file_path,
         }
@@ -207,7 +207,7 @@ class DocumentTemplateAdminService:
             data["case_types"] = case_types_field or []
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             data["legal_statuses"] = legal_statuses_field or []
-            data["legal_status_match_mode"] = legal_status_match_mode or "any"
+            data["legal_status_match_mode"] = legal_status_match_mode or LegalStatusMatchMode.ANY
         else:
             data["contract_types"] = contract_types_field or []
             data["case_types"] = case_types_field or []
@@ -313,7 +313,7 @@ class DocumentTemplateAdminService:
         return count
 
     def match_legal_status(
-        self, template_legal_statuses: list[str], case_legal_statuses: list[str], match_mode: str = "any"
+        self, template_legal_statuses: list[str], case_legal_statuses: list[str], match_mode: str = LegalStatusMatchMode.ANY
     ) -> bool:
         """
         检查案件诉讼地位是否匹配模板配置
@@ -339,9 +339,9 @@ class DocumentTemplateAdminService:
             return False
         template_set = set(template_legal_statuses)
         case_set = set(case_legal_statuses)
-        if match_mode == "any":
+        if match_mode == LegalStatusMatchMode.ANY:
             return bool(template_set & case_set)
-        elif match_mode == "all":
+        elif match_mode == LegalStatusMatchMode.ALL:
             return template_set <= case_set
         elif match_mode == "exact":
             return template_set == case_set
