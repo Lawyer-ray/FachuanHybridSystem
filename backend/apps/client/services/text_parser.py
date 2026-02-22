@@ -110,45 +110,7 @@ def _normalize_text(text: str) -> str:
 
 def _parse_fields_directly(text: str) -> dict[str, Any]:
     """直接从文本提取字段（无角色标签时使用）"""
-    result = _empty_result()
-
-    # 提取统一社会信用代码
-    credit_code = _extract_credit_code(text)
-    if credit_code:
-        result["id_number"] = credit_code
-        result["client_type"] = "legal"
-
-    # 提取身份证号
-    if not result["id_number"]:
-        id_number = _extract_id_number(text)
-        if id_number:
-            result["id_number"] = id_number
-            result["client_type"] = "natural"
-
-    # 提取法定代表人
-    legal_rep = _extract_legal_representative(text)
-    if legal_rep:
-        result["legal_representative"] = legal_rep
-        result["client_type"] = "legal"
-
-    # 提取地址
-    address = _extract_address(text)
-    if address:
-        result["address"] = address
-
-    # 提取电话
-    phone = _extract_phone(text)
-    if phone:
-        result["phone"] = phone
-
-    # 提取名称（从角色标签后提取，或从开头提取到第一个关键字）
-    name = _extract_name_smart(text)
-    if name:
-        result["name"] = name
-        if not result["id_number"] and not result["legal_representative"]:
-            result["client_type"] = _determine_client_type(name, text)
-
-    return result
+    return _parse_single_party(text, use_smart_name=True)
 
 
 def _extract_name_smart(text: str) -> str | None:
@@ -226,12 +188,11 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
     return parties
 
 
-def _parse_single_party(text: str) -> dict[str, Any]:
+def _parse_single_party(text: str, *, use_smart_name: bool = False) -> dict[str, Any]:
     """解析单个当事人信息"""
     result = _empty_result()
 
-    # 提取名称（第一行或第一个非标签内容）
-    name = _extract_name(text)
+    name = _extract_name_smart(text) if use_smart_name else _extract_name(text)
     if name:
         result["name"] = name
         result["client_type"] = _determine_client_type(name, text)
