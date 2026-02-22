@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import URLPattern, path
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger("apps.client")
 
@@ -32,7 +33,7 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
     POST: 处理上传并合并
     """
     context: dict[str, Any] = {
-        "title": "身份证合并",
+        "title": _("身份证合并"),
         "site_header": admin.site.site_header,
         "site_title": admin.site.site_title,
         "has_permission": True,
@@ -43,11 +44,11 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
         back_image = request.FILES.get("back_image")
 
         if not front_image:
-            messages.error(request, "请上传身份证正面图片")
+            messages.error(request, _("请上传身份证正面图片"))
             return render(request, "admin/client/id_card_merge.html", context)
 
         if not back_image:
-            messages.error(request, "请上传身份证反面图片")
+            messages.error(request, _("请上传身份证反面图片"))
             return render(request, "admin/client/id_card_merge.html", context)
 
         service = _get_id_card_merge_service()
@@ -59,19 +60,19 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
             context["pdf_url"] = pdf_url
             messages.success(
                 request,
-                format_html('身份证合并成功!<a href="{}" target="_blank">点击下载 PDF</a>', pdf_url),
+                format_html(str(_('身份证合并成功!')) + '<a href="{}" target="_blank">' + str(_('点击下载 PDF')) + '</a>', pdf_url),
             )
         else:
             error = result.get("error", "UNKNOWN")
-            message = result.get("message", "未知错误")
+            message = result.get("message", _("未知错误"))
 
             if error == "AUTO_DETECT_FAILED":
                 context["auto_detect_failed"] = True
                 context["front_image_url"] = result.get("front_image_url", "")
                 context["back_image_url"] = result.get("back_image_url", "")
-                messages.warning(request, f"自动检测失败:{message}")
+                messages.warning(request, _("自动检测失败:") + str(message))
             else:
-                messages.error(request, f"合并失败:{message}")
+                messages.error(request, _("合并失败:") + str(message))
 
     return render(request, "admin/client/id_card_merge.html", context)
 
@@ -95,7 +96,7 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
         front_corners = json.loads(front_corners_str)
         back_corners = json.loads(back_corners_str)
     except json.JSONDecodeError:
-        messages.error(request, "四角坐标格式错误,请输入有效的 JSON 数组")
+        messages.error(request, _("四角坐标格式错误,请输入有效的 JSON 数组"))
         return redirect("admin:id_card_merge")
 
     service = _get_id_card_merge_service()
@@ -110,11 +111,11 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
         pdf_url = result.get("pdf_url", "")
         messages.success(
             request,
-            format_html('身份证合并成功!<a href="{}" target="_blank">点击下载 PDF</a>', pdf_url),
+            format_html(str(_('身份证合并成功!')) + '<a href="{}" target="_blank">' + str(_('点击下载 PDF')) + '</a>', pdf_url),
         )
     else:
-        message = result.get("message", "未知错误")
-        messages.error(request, f"合并失败:{message}")
+        message = result.get("message", _("未知错误"))
+        messages.error(request, _("合并失败:") + str(message))
 
     return redirect("admin:id_card_merge")
 

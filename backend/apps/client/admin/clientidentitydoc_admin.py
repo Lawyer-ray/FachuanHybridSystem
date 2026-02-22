@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin, messages
@@ -11,9 +11,6 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import ClientIdentityDoc
-
-if TYPE_CHECKING:
-    from django.db.models import QuerySet
 
 logger = logging.getLogger("apps.client")
 
