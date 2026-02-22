@@ -255,7 +255,8 @@ def test_1h_module_docstring_not_external_service_client(rel_path: str, expected
 
 
 # ---------------------------------------------------------------------------
-# Test 1i: client_admin_service.py 中 _process_single_form 不应直接调用 Client.objects / ClientIdentityDoc.objects.create
+# Test 1i: client_admin_service.py 中 _process_single_form
+# 不应直接调用 Client.objects / ClientIdentityDoc.objects.create
 # ---------------------------------------------------------------------------
 def test_1i_process_single_form_no_direct_model_objects() -> None:
     """

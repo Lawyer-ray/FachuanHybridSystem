@@ -41,10 +41,9 @@ def test_storage_get_media_root_fallback(tmp_path: object) -> None:
 
     from apps.client.services.storage import _get_media_root
 
-    with override_settings(MEDIA_ROOT=""):
-        with patch("apps.client.services.storage.get_config", return_value=fallback):
-            result = _get_media_root()
-            assert result == fallback
+    with override_settings(MEDIA_ROOT=""), patch("apps.client.services.storage.get_config", return_value=fallback):
+        result = _get_media_root()
+        assert result == fallback
 
 
 # ============================================================
