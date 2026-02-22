@@ -11,6 +11,7 @@ from django import forms
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
@@ -144,7 +145,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     def auto_login_button(self, obj: AccountCredential) -> SafeString:
         """操作按钮 - 查看历史"""
         if obj.site_name == "court_zxfw":
-            from django.urls import reverse
             url = reverse("admin:automation_tokenacquisitionhistory_changelist")
             return format_html(
                 '<a class="button" href="{}?credential_id={}" '

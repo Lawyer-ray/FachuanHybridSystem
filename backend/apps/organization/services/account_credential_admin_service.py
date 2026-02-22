@@ -6,6 +6,7 @@ AccountCredentialAdminService - 账号凭证管理服务
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 from collections.abc import Coroutine
 from dataclasses import dataclass
@@ -33,7 +34,6 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
         loop = None
 
     if loop and loop.is_running():
-        import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
