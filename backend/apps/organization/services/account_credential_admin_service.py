@@ -333,7 +333,7 @@ class AccountCredentialAdminService:
                 history_data.update(
                     {
                         "status": "SUCCESS",
-                        "token_preview": token[:50] if token and len(token) > 50 else token,
+                        "token_preview": token[:50] if token else None,
                     }
                 )
             else:
