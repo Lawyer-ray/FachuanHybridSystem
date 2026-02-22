@@ -1,7 +1,3 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
 """
 诉讼费用计算 API
 
@@ -13,8 +9,11 @@ API 层职责:
 不包含:业务逻辑、权限检查、异常处理(依赖全局异常处理器)
 """
 
+from __future__ import annotations
+
 from typing import Any
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.cases.schemas.litigation_fee_schemas import FeeCalculationRequest, FeeCalculationResponse
@@ -30,7 +29,7 @@ def _get_litigation_fee_calculator_service() -> Any:
 
 
 @router.post("/calculate-fee", response=FeeCalculationResponse)
-def calculate_fee(request: Any, data: FeeCalculationRequest) -> Any:
+def calculate_fee(request: HttpRequest, data: FeeCalculationRequest) -> FeeCalculationResponse:
     """
     计算诉讼费用
 
@@ -50,7 +49,7 @@ def calculate_fee(request: Any, data: FeeCalculationRequest) -> Any:
         preservation_amount=data.preservation_amount,
     )
 
-    result = service.calculate_all_fees(
+    result: dict[str, Any] = service.calculate_all_fees(
         target_amount=target_amount,
         preservation_amount=preservation_amount,
         case_type=data.case_type,
