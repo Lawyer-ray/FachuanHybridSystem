@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
