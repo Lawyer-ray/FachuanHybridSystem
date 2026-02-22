@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 import logging
 from collections.abc import Callable
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -102,7 +102,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             SupplementaryAgreement.objects.filter(contract_id=contract_id).delete()
             for sa_data in supplementary_agreements_data:
                 self.supplementary_agreement_service.create_supplementary_agreement(
-                    contract_id=cast(Any, contract).id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
+                    contract_id=contract.id, name=sa_data.get("name"), party_ids=sa_data.get("party_ids")
                 )
 
         if new_payments:
@@ -117,7 +117,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
             }
             if changes:
                 self._log_finance_change(
-                    contract_id=cast(Any, contract).id,
+                    contract_id=contract.id,
                     user_id=user_id,
                     action="update_contract_finance",
                     changes=changes,

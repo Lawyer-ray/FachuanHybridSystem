@@ -1,14 +1,12 @@
-"""API schemas and serializers."""
-
-from __future__ import annotations
-
 """
 Contract Schemas - Supplementary Agreement
 
 补充协议相关的 Schema 定义.
 """
 
-from typing import Any, ClassVar, cast
+from __future__ import annotations
+
+from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
 
@@ -76,18 +74,15 @@ class SupplementaryAgreementPartyOut(ModelSchema):
 
     @staticmethod
     def resolve_client_name(obj: Any) -> str:
-        """解析客户名称"""
-        return cast(str, obj.client.name) if obj.client else ""
+        return obj.client.name if obj.client else ""
 
     @staticmethod
     def resolve_is_our_client(obj: Any) -> bool:
-        """解析是否为我方客户"""
-        return cast(bool, obj.client.is_our_client) if obj.client else False
+        return bool(obj.client.is_our_client) if obj.client else False
 
     @staticmethod
     def resolve_role_label(obj: Any) -> str:
-        """解析身份标签"""
-        return cast(str, cast(Any, obj).get_role_display()) if obj.role else ""
+        return obj.get_role_display() if obj.role else ""  # type: ignore[no-any-return, attr-defined]
 
 
 class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
@@ -101,16 +96,13 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_parties(obj: Any) -> list[SupplementaryAgreementPartyOut]:
-        """解析当事人列表"""
-        parties = cast(Any, obj).parties
+        parties = obj.parties  # type: ignore[attr-defined]
         return list(parties.select_related("client").all())
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str:
-        """解析创建时间为 ISO 格式"""
-        return cast(str, SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None)))
+        return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))  # type: ignore[return-value]
 
     @staticmethod
     def resolve_updated_at(obj: Any) -> str:
-        """解析更新时间为 ISO 格式"""
-        return cast(str, SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None)))
+        return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))  # type: ignore[return-value]
