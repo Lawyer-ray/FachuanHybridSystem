@@ -10,7 +10,6 @@ from django.db.models import QuerySet
 
 from apps.cases.models import CaseLog, CaseLogAttachment, CaseLogVersion
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.interfaces import ICaseService
 
 from .case_log_attachment_service import CaseLogAttachmentService

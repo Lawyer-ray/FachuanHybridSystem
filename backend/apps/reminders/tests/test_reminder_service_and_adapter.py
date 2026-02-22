@@ -353,3 +353,46 @@ def test_adapter_reminder_dto_uses_iso_datetime(case_log: CaseLog) -> None:
     assert "T" in dto.reminder_time
     assert dto.created_at is not None
     assert "T" in dto.created_at
+
+
+# ── validators ───────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_normalize_target_id_rejects_non_int() -> None:
+    from apps.reminders.services.validators import normalize_target_id
+
+    with pytest.raises(ValidationException, match="正整数"):
+        normalize_target_id("abc", field_name="test_field")  # type: ignore[arg-type]
+
+
+@pytest.mark.django_db
+def test_validate_fk_exists_rejects_nonexistent_case_log() -> None:
+    from apps.reminders.services.validators import validate_fk_exists
+
+    with pytest.raises(ValidationException, match="案件日志"):
+        validate_fk_exists(contract_id=None, case_log_id=999999)
+
+
+@pytest.mark.django_db
+def test_normalize_due_at_rejects_non_datetime() -> None:
+    from apps.reminders.services.validators import normalize_due_at
+
+    with pytest.raises(ValidationException, match="格式不正确"):
+        normalize_due_at("2026-01-01")  # type: ignore[arg-type]
+
+
+# ── _apply_update_fields FK switching ────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_update_reminder_switch_from_case_log_to_contract(case_log: CaseLog, contract: Contract) -> None:
+    """从 case_log 绑定切换到 contract 绑定。"""
+    service = ReminderService()
+    reminder = service.create_reminder(
+        case_log_id=case_log.id,
+        reminder_type=ReminderType.HEARING,
+        content="原始提醒",
+        due_at=timezone.now() + timedelta(days=1),
+    )
+    # 同时传两个 FK → 应报错
+    with pytest.raises(ValidationException, match="只能绑定"):
+        service.update_reminder(reminder.id, {"contract_id": contract.id, "case_log_id": case_log.id})
