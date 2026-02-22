@@ -321,7 +321,7 @@ class FolderGenerationService:
                 if content:
                     documents.append((placement.folder_path, content, placement.file_name))
                     logger.info(
-                        f"合同文书生成成功,放置路径: {placement.folder_path}/{placement.file_name}",
+                        "合同文书生成成功,放置路径: %s/%s", placement.folder_path, placement.file_name,
                         extra={
                             "contract_id": contract_id,
                             "folder_path": placement.folder_path,
@@ -418,7 +418,7 @@ class FolderGenerationService:
 
             if extract_path:
                 logger.info(
-                    f"文件夹ZIP已自动解压到绑定文件夹: {extract_path}",
+                    "文件夹ZIP已自动解压到绑定文件夹: %s", extract_path,
                     extra={
                         "contract_id": contract_id,
                         "extract_path": extract_path,

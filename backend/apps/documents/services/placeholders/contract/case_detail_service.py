@@ -54,7 +54,7 @@ class CaseDetailService(BasePlaceholderService):
             return {"案件详情": result}
         except Exception as e:
             logger.warning(
-                f"生成案件详情占位符失败: {e}",
+                "生成案件详情占位符失败: %s", e,
                 extra={"contract_id": getattr(context_data.get("contract"), "id", None)},
                 exc_info=True,
             )

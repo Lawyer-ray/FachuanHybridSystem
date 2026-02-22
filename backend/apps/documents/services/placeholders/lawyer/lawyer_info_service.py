@@ -94,9 +94,10 @@ class LawyerInfoService(BasePlaceholderService):
             is_primary = hasattr(assignment, "is_primary") and assignment.is_primary
 
             logger.info(
-                f"处理律师分配 - ID: {getattr(assignment, 'id', 'N/A')}, "
-                f"姓名: {lawyer_name or '(空)'}, "
-                f"是否主办: {is_primary}"
+                "处理律师分配 - ID: %s, 姓名: %s, 是否主办: %s",
+                getattr(assignment, 'id', 'N/A'),
+                lawyer_name or '(空)',
+                is_primary,
             )
 
             if lawyer_name:
@@ -106,8 +107,9 @@ class LawyerInfoService(BasePlaceholderService):
                     assistant_lawyers.append(lawyer_name)
             else:
                 logger.warning(
-                    f"律师姓名为空 - 分配ID: {getattr(assignment, 'id', 'N/A')}, "
-                    f"律师ID: {getattr(getattr(assignment, 'lawyer', None), 'id', 'N/A')}"
+                    "律师姓名为空 - 分配ID: %s, 律师ID: %s",
+                    getattr(assignment, 'id', 'N/A'),
+                    getattr(getattr(assignment, 'lawyer', None), 'id', 'N/A'),
                 )
 
         # 主办律师在前,协办律师在后
@@ -180,20 +182,21 @@ class LawyerInfoService(BasePlaceholderService):
 
                 if not result:
                     logger.warning(
-                        f"律师姓名为空 - 律师ID: {getattr(lawyer, 'id', 'N/A')}, "
-                        f"real_name: '{real_name}', username: '{username}'"
+                        "律师姓名为空 - 律师ID: %s, real_name: '%s', username: '%s'",
+                        getattr(lawyer, 'id', 'N/A'), real_name, username,
                     )
 
                 return result
             else:
                 logger.warning(
-                    f"律师对象不存在 - 分配ID: {getattr(assignment, 'id', 'N/A')}, "
-                    f"hasattr(lawyer): {hasattr(assignment, 'lawyer')}, "
-                    f"lawyer: {getattr(assignment, 'lawyer', None)}"
+                    "律师对象不存在 - 分配ID: %s, hasattr(lawyer): %s, lawyer: %s",
+                    getattr(assignment, 'id', 'N/A'),
+                    hasattr(assignment, 'lawyer'),
+                    getattr(assignment, 'lawyer', None),
                 )
         except Exception as e:
             logger.warning(
-                f"获取律师姓名失败: {e}", extra={"assignment_id": getattr(assignment, "id", None)}, exc_info=True
+                "获取律师姓名失败: %s", e, extra={"assignment_id": getattr(assignment, "id", None)}, exc_info=True
             )
 
         return ""

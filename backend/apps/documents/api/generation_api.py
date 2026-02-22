@@ -175,7 +175,7 @@ def download_supplementary_agreement(request: Any, contract_id: int, agreement_i
 
     if error:
         logger.warning(
-            f"生成补充协议失败: {error}",
+            "生成补充协议失败: %s", error,
             extra={"contract_id": contract_id, "agreement_id": agreement_id, "error": error},
         )
         raise ValidationException(

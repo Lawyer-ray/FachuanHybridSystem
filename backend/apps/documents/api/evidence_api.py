@@ -1,7 +1,3 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
 """
 证据清单 API
 
@@ -9,6 +5,8 @@ from __future__ import annotations
 
 Requirements: 4.2, 4.3, 12.1
 """
+
+from __future__ import annotations
 
 from typing import Any
 

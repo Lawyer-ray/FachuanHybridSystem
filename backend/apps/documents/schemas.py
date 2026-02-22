@@ -1,12 +1,10 @@
-"""API schemas and serializers."""
-
-from __future__ import annotations
-
 """
 Documents 模块 Schemas
 
 定义文书生成系统的 API 输入输出数据结构.
 """
+
+from __future__ import annotations
 
 from typing import Any, ClassVar
 

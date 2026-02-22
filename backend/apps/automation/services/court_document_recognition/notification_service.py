@@ -215,7 +215,8 @@ class DocumentRecognitionNotificationService:
                 )
 
                 if result.success:
-                    sent_at = datetime.now()
+                    from django.utils import timezone as tz
+                    sent_at = tz.now()
                     # 判断文件是否发送成功（根据消息内容判断）
                     file_sent = file_path and "文件发送成功" in (result.message or "")
 
