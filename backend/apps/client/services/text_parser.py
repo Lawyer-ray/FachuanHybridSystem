@@ -100,12 +100,14 @@ def parse_multiple_clients_text(text: str) -> list[dict[str, Any]]:
     return _extract_parties(text)
 
 
+_FIELD_KEYWORDS_PATTERN = re.compile(
+    r"(?<!\n)(" + "|".join(re.escape(kw) for kw in _FIELD_KEYWORDS) + r")\s*[:：]"
+)
+
+
 def _normalize_text(text: str) -> str:
     """预处理文本：在关键字前插入换行"""
-    for keyword in _FIELD_KEYWORDS:
-        # 在关键字前插入换行（如果前面不是换行或开头）
-        text = re.sub(rf"(?<!\n)({keyword}\s*[:：])", r"\n\1", text)
-    return text
+    return _FIELD_KEYWORDS_PATTERN.sub(r"\n\g<0>", text)
 
 
 def _parse_fields_directly(text: str) -> dict[str, Any]:
