@@ -106,10 +106,14 @@ class EvidenceMutationService:
     def delete_evidence_list(self, *, evidence_list: EvidenceList) -> bool:
         previous_list = evidence_list.previous_list
 
-        next_lists = EvidenceList.objects.filter(previous_list=evidence_list)
-        for next_list in next_lists:
-            next_list.previous_list = previous_list
-            next_list.save(update_fields=["previous_list", "updated_at"])
+        next_lists = list(EvidenceList.objects.filter(previous_list=evidence_list))
+        if next_lists:
+            from django.utils import timezone as _tz
+            now = _tz.now()
+            for nl in next_lists:
+                nl.previous_list = previous_list
+                nl.updated_at = now  # type: ignore[attr-defined]
+            EvidenceList.objects.bulk_update(next_lists, ["previous_list", "updated_at"])
 
         if evidence_list.merged_pdf:
             with contextlib.suppress(Exception):
