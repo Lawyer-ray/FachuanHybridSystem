@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import ValidationException
 
+from apps.client.models import ClientIdentityDoc
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
@@ -110,8 +111,6 @@ class ClientAdminService(ClientAdminFileMixin):
                 extra={"client_id": client.pk, "admin_user": admin_user, "action": "process_single_form"},
             )
             return None
-
-        from apps.client.models import ClientIdentityDoc  # noqa: PLC0415
 
         doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
 
