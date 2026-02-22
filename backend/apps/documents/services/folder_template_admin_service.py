@@ -15,6 +15,8 @@ from typing import Any
 
 from django.db import transaction
 
+from apps.core.exceptions import NotFoundError
+
 from .folder_service import FolderTemplateService
 
 logger = logging.getLogger("apps.documents.services.folder_template_admin_service")
@@ -338,3 +340,93 @@ class FolderTemplateAdminService:
             self.duplicate_template(template)
             count += 1
         return count
+
+    def get_structure_json(self, pk: int) -> dict[str, Any]:
+        """
+        查询 FolderTemplate 并返回结构 JSON
+
+        Args:
+            pk: 模板主键
+
+        Returns:
+            包含 success, structure, name 的字典
+
+        Raises:
+            NotFoundError: 模板不存在时抛出
+        """
+        from apps.documents.models import FolderTemplate
+
+        try:
+            template = FolderTemplate.objects.get(pk=pk)
+        except FolderTemplate.DoesNotExist:
+            raise NotFoundError(
+                message="模板不存在",
+                code="FOLDER_TEMPLATE_NOT_FOUND",
+                errors={"pk": pk},
+            )
+        return {
+            "success": True,
+            "structure": template.structure,
+            "name": template.name,
+        }
+
+    def batch_activate(self, queryset: Any) -> int:
+        """
+        批量启用模板
+
+        Args:
+            queryset: 要启用的模板查询集
+
+        Returns:
+            实际启用的数量
+        """
+        updated: int = 0
+        for template in queryset:
+            if not template.is_active:
+                template.is_active = True
+                template.save(update_fields=["is_active"])
+                updated += 1
+        return updated
+
+    def batch_deactivate(self, queryset: Any) -> int:
+        """
+        批量禁用模板
+
+        Args:
+            queryset: 要禁用的模板查询集
+
+        Returns:
+            实际禁用的数量
+        """
+        updated: int = 0
+        for template in queryset:
+            if template.is_active:
+                template.is_active = False
+                template.save(update_fields=["is_active"])
+                updated += 1
+        return updated
+
+    def get_folder_template_by_pk(self, pk: int | str) -> Any:
+        """
+        根据主键获取 FolderTemplate，供 FolderBindingForm 使用
+
+        Args:
+            pk: 模板主键
+
+        Returns:
+            FolderTemplate 实例
+
+        Raises:
+            NotFoundError: 模板不存在时抛出
+        """
+        from apps.documents.models import FolderTemplate
+
+        try:
+            return FolderTemplate.objects.get(pk=pk)
+        except FolderTemplate.DoesNotExist:
+            raise NotFoundError(
+                message="模板不存在",
+                code="FOLDER_TEMPLATE_NOT_FOUND",
+                errors={"pk": pk},
+            )
+
