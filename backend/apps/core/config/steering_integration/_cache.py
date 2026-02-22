@@ -132,7 +132,7 @@ class SteeringCacheManager:
                 if expired_keys:
                     logger.debug(f"定期清理删除了 {len(expired_keys)} 个过期缓存条目")
 
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             logger.error(f"定期清理失败: {e}")
 
         finally:

@@ -137,7 +137,7 @@ class SteeringPerformanceMonitor:
         for callback in self.alert_callbacks:
             try:
                 callback(alert)
-            except Exception as e:
+            except (ValueError, RuntimeError, AttributeError) as e:
                 logger.error(f"告警回调失败: {e}")
 
     def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]) -> None:
@@ -177,7 +177,7 @@ class SteeringPerformanceMonitor:
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False, default=str)
             logger.info(f"性能数据已导出到: {file_path}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"导出性能数据失败: {e}")
 
     def _start_periodic_checks(self) -> None:
@@ -225,7 +225,7 @@ class SteeringPerformanceMonitor:
                                 timestamp=time.time(),
                             )
                         )
-                except Exception as e:
+                except (ValueError, RuntimeError) as e:
                     logger.error(f"定期性能检查失败: {e}")
 
         threading.Thread(target=periodic_check, daemon=True).start()

@@ -85,7 +85,7 @@ class SteeringIntegrationManager:
 
                 specifications.append(spec)
 
-            except Exception as e:
+            except (OSError, ValueError, KeyError) as e:
                 logger.error(f"加载规范失败 {spec_path}: {e}")
 
         return specifications
@@ -122,7 +122,7 @@ class SteeringIntegrationManager:
 
             logger.info(f"集成报告已导出到: {output_path}")
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"导出集成报告失败: {e}")
 
     def refresh_all_caches(self) -> None:

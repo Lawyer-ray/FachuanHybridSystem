@@ -108,6 +108,7 @@ __all__ = [
     "AccountCredentialDTO",
     "LawyerDTO",
     "LawFirmDTO",
+    "TeamDTO",
     "ClientDTO",
     "ClientIdentityDocDTO",
     "PropertyClueDTO",

@@ -396,7 +396,7 @@ class SteeringDependencyManager:
                     self._metadata_cache[spec_path] = metadata
                     self.dependency_graph.add_specification(metadata)
 
-            except Exception as e:
+            except (OSError, ValueError, KeyError) as e:
                 logger.warning(f"加载规范元数据失败 {spec_file}: {e}")
 
     def _load_specification_metadata(self, spec_path: str) -> SpecificationMetadata | None:
@@ -444,7 +444,7 @@ class SteeringDependencyManager:
 
             return metadata
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.error(f"加载规范元数据失败 {spec_path}: {e}")
             return None
 
@@ -632,7 +632,7 @@ class SteeringDependencyManager:
 
                 logger.info(f"依赖图已导出到: {output_path}")
 
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.error(f"导出依赖图失败: {e}")
 
     def get_statistics(self) -> dict[str, Any]:
