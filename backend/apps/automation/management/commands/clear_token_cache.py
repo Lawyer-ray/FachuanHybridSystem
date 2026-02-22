@@ -24,7 +24,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]
         manager = TokenCacheManager()
         site = options.get("site") or None
-        accounts: list[Any] = []
+        accounts: list[Any] = list(options.get("account") or [])
         do_blacklist = bool(options.get("blacklist"))
         do_all = bool(options.get("all"))
         execute = bool(options.get("execute"))

@@ -6,7 +6,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from playwright.sync_api import BrowserContext, Page
 
@@ -15,6 +15,18 @@ if TYPE_CHECKING:
         CaptchaRecognizer,
     )
     from apps.automation.services.scraper.core.token_service import TokenService
+
+
+class CookieServiceProtocol(Protocol):
+    """Cookie 服务协议，支持依赖注入"""
+
+    def load(self, context: Any, storage_path: Optional[str] = None) -> bool:
+        """加载 Cookie 到浏览器上下文，返回是否成功"""
+        ...
+
+    def save(self, context: Any, storage_path: Optional[str] = None) -> str:
+        """保存浏览器上下文中的 Cookie，返回存储路径"""
+        ...
 
 logger = logging.getLogger("apps.automation")
 
@@ -44,6 +56,7 @@ class CourtZxfwService:
         captcha_recognizer: Optional["CaptchaRecognizer"] = None,
         token_service: Optional["TokenService"] = None,
         site_name: str = "court_zxfw",
+        cookie_service: Optional[CookieServiceProtocol] = None,
     ):
         """
         初始化服务
@@ -54,11 +67,13 @@ class CourtZxfwService:
             captcha_recognizer: 验证码识别器，None 则使用默认的 DdddocrRecognizer
             token_service: Token 服务，None 则使用默认的 TokenService
             site_name: 网站名称，用于 Token 管理，默认 "court_zxfw"
+            cookie_service: Cookie 服务，None 则不使用 Cookie 管理
         """
         self.page = page
         self.context = context
         self.site_name = site_name
         self.is_logged_in = False
+        self._cookie_service = cookie_service
 
         # 依赖注入：验证码识别器
         if captcha_recognizer is None:
@@ -181,6 +196,19 @@ class CourtZxfwService:
         logger.info("开始登录全国法院'一张网'...")
         logger.info("=" * 60)
 
+        # 尝试使用 Cookie 登录
+        if self._cookie_service is not None:
+            cookie_path = self._get_cookie_path(account)
+            loaded = self._cookie_service.load(self.context, cookie_path)
+            if loaded:
+                logger.info("已加载 Cookie，尝试跳过登录")
+                self.page.goto(self.BASE_URL, timeout=30000, wait_until="networkidle")
+                if self._check_login_success():
+                    logger.info("Cookie 有效，跳过登录")
+                    self.is_logged_in = True
+                    return {"success": True, "message": "Cookie 登录成功", "url": self.page.url, "token": None, "used_cookie": True}
+                logger.info("Cookie 无效，执行完整登录流程")
+
         captured_token: dict[str, Any] = {"value": None}
         try:
             self.page.on("response", self._make_response_handler(captured_token))
@@ -197,6 +225,10 @@ class CourtZxfwService:
             if not self._try_captcha_login(max_captcha_retries=max_captcha_retries, save_debug=save_debug):
                 raise ValueError("登录失败")
 
+            # 登录成功后保存 Cookie
+            if self._cookie_service is not None:
+                self._save_cookies(account)
+
             return {"success": True, "message": "登录成功", "url": self.page.url, "token": captured_token["value"]}
 
         except Exception as e:
@@ -204,6 +236,19 @@ class CourtZxfwService:
             if save_debug:
                 self._save_screenshot("error_login_failed")
             raise ValueError(f"登录失败: {e}") from e
+
+    def _get_cookie_path(self, account: str) -> str:
+        """获取 Cookie 存储路径"""
+        safe_account = account.replace("@", "_at_").replace("/", "_")
+        return f"cookies/{self.site_name}/{safe_account}.json"
+
+    def _save_cookies(self, account: str) -> None:
+        """保存当前浏览器上下文的 Cookie"""
+        if self._cookie_service is None:
+            return
+        cookie_path = self._get_cookie_path(account)
+        self._cookie_service.save(self.context, cookie_path)
+        logger.info("Cookie 已保存", extra={"account": account, "path": cookie_path})
 
     def _try_captcha_login(self, max_captcha_retries: int, save_debug: bool) -> bool:
         """

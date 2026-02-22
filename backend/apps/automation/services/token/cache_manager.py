@@ -302,6 +302,41 @@ class TokenCacheManager:
         except Exception as e:
             logger.warning(f"使黑名单缓存失效失败: {e}")
 
+    def invalidate_site_cache(self, site_name: str, *, accounts: list[str] | None = None) -> None:
+        """
+        定向失效指定站点的缓存
+
+        Args:
+            site_name: 网站名称
+            accounts: 指定账号列表，None 则仅失效凭证缓存
+        """
+        self.invalidate_credentials_cache(site_name)
+        logger.info("站点凭证缓存已失效", extra={"site_name": site_name})
+
+        if accounts:
+            for account in accounts:
+                self.invalidate_token_cache(site_name, account)
+                self.invalidate_account_stats_cache(account, site_name)
+            logger.info(
+                "站点账号缓存已失效",
+                extra={"site_name": site_name, "account_count": len(accounts)},
+            )
+
+    def _is_cache_clear_allowed(self) -> bool:
+        """
+        检查全量清理是否被允许
+
+        仅在 DEBUG 模式或设置了 ALLOW_CACHE_CLEAR 环境变量时允许。
+        """
+        import os
+
+        from django.conf import settings
+
+        if getattr(settings, "DEBUG", False):
+            return True
+        allow_env = (os.environ.get("ALLOW_CACHE_CLEAR", "") or "").lower()
+        return allow_env in ("true", "1", "yes")
+
     def warm_up_cache(self, site_name: str) -> None:
         """
         预热缓存

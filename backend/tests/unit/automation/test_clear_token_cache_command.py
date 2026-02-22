@@ -10,7 +10,7 @@ from apps.automation.services.token.cache_manager import TokenCacheManager
 def test_clear_token_cache_command_prints_plan_without_execute():
     out = io.StringIO()
     call_command("clear_token_cache", "--site", "s1", stdout=out)
-    assert "计划：定向失效 token 缓存" in out.getvalue()
+    assert "计划:定向失效 token 缓存" in out.getvalue()
 
 
 def test_clear_token_cache_command_all_requires_allow_in_production(settings, monkeypatch):
