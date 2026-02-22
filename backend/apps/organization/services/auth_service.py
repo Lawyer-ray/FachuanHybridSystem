@@ -22,7 +22,6 @@ class RegisterResult:
 
 
 class AuthService:
-    """认证服务，封装用户登录、登出、注册业务逻辑。"""
 
     def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """

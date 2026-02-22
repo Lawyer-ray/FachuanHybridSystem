@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
-    """安全执行异步协程，兼容已有事件循环的场景"""
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -41,7 +40,6 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
 
 @dataclass
 class LoginResult:
-    """单次登录结果"""
 
     success: bool
     duration: float
@@ -51,7 +49,6 @@ class LoginResult:
 
 @dataclass
 class BatchLoginResult:
-    """批量登录结果"""
 
     success_count: int
     error_count: int
@@ -60,7 +57,6 @@ class BatchLoginResult:
 
 
 class AccountCredentialAdminService:
-    """账号凭证管理服务，封装 Admin 层批量/单个自动登录业务逻辑。"""
 
     SUPPORTED_SITE: ClassVar[str] = "court_zxfw"
 
@@ -71,7 +67,6 @@ class AccountCredentialAdminService:
 
     @property
     def credential_service(self) -> "AccountCredentialService":
-        """延迟加载 AccountCredentialService"""
         if self._credential_service is None:
             from apps.organization.services.account_credential_service import (
                 AccountCredentialService,
@@ -82,7 +77,6 @@ class AccountCredentialAdminService:
 
     @property
     def token_service(self) -> "IAutoTokenAcquisitionService":
-        """延迟加载 AutoTokenAcquisitionService"""
         if self._token_service is None:
             from apps.core.dependencies import build_auto_token_acquisition_service
 
@@ -91,7 +85,6 @@ class AccountCredentialAdminService:
 
     @property
     def automation_service(self) -> "IAutomationService":
-        """延迟加载 AutomationService"""
         if self._automation_service is None:
             from apps.core.interfaces import ServiceLocator
 
@@ -103,7 +96,6 @@ class AccountCredentialAdminService:
         credential_id: int,
         admin_user: str,
     ) -> LoginResult:
-        """单个账号自动登录。凭证不存在时抛 NotFoundError。"""
         credential = self.credential_service._get_credential_internal(credential_id)
 
         if credential.site_name != self.SUPPORTED_SITE:
@@ -134,7 +126,6 @@ class AccountCredentialAdminService:
         credential_ids: list[int],
         admin_user: str,
     ) -> BatchLoginResult:
-        """批量自动登录。"""
         # 只处理法院一张网的账号，物化为列表避免多次 SQL 查询
         court_credentials = list(
             self.credential_service.filter_by_ids_and_site(
@@ -213,7 +204,6 @@ class AccountCredentialAdminService:
         admin_user: str,
         trigger_reason: str,
     ) -> LoginResult:
-        """执行单个账号登录（内部方法）。"""
         start_time = timezone.now()
 
         try:
@@ -314,7 +304,6 @@ class AccountCredentialAdminService:
         error_message: str | None = None,
         error_details: dict[str, object] | None = None,
     ) -> None:
-        """记录登录历史。"""
         # 通过automation服务获取
         try:
             automation_service = self.automation_service
