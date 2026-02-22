@@ -214,8 +214,6 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
         return format_html_join(" ", "{}", ((b,) for b in buttons))
 
-    actions_display.short_description = _("操作")
-
     def merge_view(self, request: Any, pk: int) -> Any:
         from django.contrib import messages
         from django.http import JsonResponse
