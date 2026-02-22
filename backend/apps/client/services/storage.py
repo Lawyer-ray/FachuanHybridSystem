@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""文件存储工具函数。"""
 
 from django.utils.translation import gettext_lazy as _
 import logging

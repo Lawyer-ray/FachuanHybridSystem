@@ -6,6 +6,7 @@
 
 import contextlib
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
@@ -372,10 +373,8 @@ class CaseLogService:
         Raises:
             ValidationException: 验证失败
         """
-        import os
-
-        name = getattr(file, "name", "")
-        ext = os.path.splitext(name)[1].lower()
+        name: str = getattr(file, "name", "")
+        ext = Path(name).suffix.lower()
 
         if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
             raise ValidationException(

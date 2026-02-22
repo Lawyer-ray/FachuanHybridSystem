@@ -1,8 +1,4 @@
-"""
-身份证合并独立视图
-
-提供独立的上传界面,用户可以直接上传正反面图片进行合并
-"""
+"""身份证合并独立视图。"""
 
 from __future__ import annotations
 
@@ -121,22 +117,6 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
         messages.error(request, f"合并失败:{message}")
 
     return redirect("admin:id_card_merge")
-
-
-def get_id_card_merge_urls() -> list[URLPattern]:
-    """获取身份证合并相关的 URL 配置"""
-    return [
-        path(
-            "client/id-card-merge/",
-            admin.site.admin_view(id_card_merge_view),
-            name="id_card_merge",
-        ),
-        path(
-            "client/id-card-merge/manual/",
-            admin.site.admin_view(id_card_merge_manual_view),
-            name="id_card_merge_manual",
-        ),
-    ]
 
 
 def register_id_card_merge_urls(admin_site: admin.AdminSite) -> None:

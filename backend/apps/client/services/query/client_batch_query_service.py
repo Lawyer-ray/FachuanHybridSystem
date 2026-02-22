@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人批量查询服务。"""
 
 from typing import Any
 

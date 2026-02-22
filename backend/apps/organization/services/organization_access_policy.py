@@ -1,12 +1,12 @@
 """Business logic services."""
 
-from apps.core.exceptions import ForbiddenError
+from apps.core.exceptions import PermissionDenied
 
 
 class OrganizationAccessPolicy:
     def ensure_authenticated(self, user: object | None) -> None:
         if not user or not getattr(user, "is_authenticated", False):
-            raise ForbiddenError("用户未认证")
+            raise PermissionDenied("用户未认证")
 
     def can_create(self, user: object | None) -> bool:
         return bool(
@@ -17,7 +17,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_create(self, user: object | None) -> None:
         if not self.can_create(user):
-            raise ForbiddenError("权限不足")
+            raise PermissionDenied("权限不足")
 
     def can_read_lawyer(self, user: object | None, lawyer: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -28,7 +28,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_read_lawyer(self, user: object | None, lawyer: object) -> None:
         if not self.can_read_lawyer(user=user, lawyer=lawyer):
-            raise ForbiddenError("无权限访问")
+            raise PermissionDenied("无权限访问")
 
     def can_update_lawyer(self, user: object | None, lawyer: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -43,7 +43,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_update_lawyer(self, user: object | None, lawyer: object) -> None:
         if not self.can_update_lawyer(user=user, lawyer=lawyer):
-            raise ForbiddenError("无权限更新")
+            raise PermissionDenied("无权限更新")
 
     def can_delete_lawyer(self, user: object | None, lawyer: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -58,7 +58,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_delete_lawyer(self, user: object | None, lawyer: object) -> None:
         if not self.can_delete_lawyer(user=user, lawyer=lawyer):
-            raise ForbiddenError("无权限删除")
+            raise PermissionDenied("无权限删除")
 
     def can_read_lawfirm(self, user: object | None, lawfirm: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -69,7 +69,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_read_lawfirm(self, user: object | None, lawfirm: object) -> None:
         if not self.can_read_lawfirm(user=user, lawfirm=lawfirm):
-            raise ForbiddenError("无权限访问该律所")
+            raise PermissionDenied("无权限访问该律所")
 
     def can_update_lawfirm(self, user: object | None, lawfirm: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -81,7 +81,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_update_lawfirm(self, user: object | None, lawfirm: object) -> None:
         if not self.can_update_lawfirm(user=user, lawfirm=lawfirm):
-            raise ForbiddenError("无权限更新该律所")
+            raise PermissionDenied("无权限更新该律所")
 
     def can_delete_lawfirm(self, user: object | None, lawfirm: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -90,7 +90,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_delete_lawfirm(self, user: object | None, lawfirm: object) -> None:
         if not self.can_delete_lawfirm(user=user, lawfirm=lawfirm):
-            raise ForbiddenError("无权限删除该律所")
+            raise PermissionDenied("无权限删除该律所")
 
     def can_read_team(self, user: object | None, team: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -101,7 +101,7 @@ class OrganizationAccessPolicy:
 
     def ensure_can_read_team(self, user: object | None, team: object) -> None:
         if not self.can_read_team(user=user, team=team):
-            raise ForbiddenError("无权限访问该团队")
+            raise PermissionDenied("无权限访问该团队")
 
     def can_update_team(self, user: object | None, team: object) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
@@ -115,11 +115,11 @@ class OrganizationAccessPolicy:
 
     def ensure_can_update_team(self, user: object | None, team: object) -> None:
         if not self.can_update_team(user=user, team=team):
-            raise ForbiddenError("无权限更新该团队")
+            raise PermissionDenied("无权限更新该团队")
 
     def can_delete_team(self, user: object | None, team: object) -> bool:
         return self.can_update_team(user=user, team=team)
 
     def ensure_can_delete_team(self, user: object | None, team: object) -> None:
         if not self.can_delete_team(user=user, team=team):
-            raise ForbiddenError("无权限删除该团队")
+            raise PermissionDenied("无权限删除该团队")

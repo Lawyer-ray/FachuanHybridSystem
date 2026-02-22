@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""媒体路径工具。"""
 
 from django.conf import settings
 

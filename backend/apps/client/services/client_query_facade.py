@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人查询门面（含权限检查）。"""
 
 from __future__ import annotations
 
