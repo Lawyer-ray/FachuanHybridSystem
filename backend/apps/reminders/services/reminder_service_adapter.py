@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import ValidationException
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.services.reminder_service import ReminderService
 from apps.reminders.services.validators import normalize_content, normalize_due_at, normalize_metadata, normalize_reminder_type, normalize_target_id, validate_fk_exists
@@ -111,7 +112,7 @@ class ReminderServiceAdapter:
                     continue
                 due_at = normalize_due_at(due_at)
                 metadata = normalize_metadata(item.get("metadata"))
-            except Exception:
+            except (ValidationException, ValueError, TypeError):
                 continue
 
             objs.append(

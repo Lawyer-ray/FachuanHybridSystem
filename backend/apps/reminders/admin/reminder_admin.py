@@ -35,9 +35,12 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
             return value
         if isinstance(value, str):
             try:
-                return json.loads(value)
+                parsed = json.loads(value)
             except json.JSONDecodeError:
                 raise forms.ValidationError(_("请输入合法的 JSON 格式")) from None
+            if not isinstance(parsed, dict):
+                raise forms.ValidationError(_("请输入合法的 JSON 对象（非数组或标量）"))
+            return parsed
         raise forms.ValidationError(_("请输入合法的 JSON 格式"))
 
 
