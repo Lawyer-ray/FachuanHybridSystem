@@ -107,6 +107,14 @@ class PropertyClueAttachmentOut(Schema):
     uploaded_at: datetime
     media_url: str | None = None
 
+    @staticmethod
+    def resolve_media_url(obj: Any) -> str | None:
+        """解析附件的媒体 URL。"""
+        if hasattr(obj, "media_url") and callable(obj.media_url):
+            result: str | None = obj.media_url()
+            return result
+        return None
+
 
 class PropertyClueIn(Schema):
     """财产线索创建输入 Schema"""
