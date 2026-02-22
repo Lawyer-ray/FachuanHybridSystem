@@ -15,7 +15,7 @@ from django.db.models import Avg, Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
-from apps.core.cache import CacheTimeout
+from apps.core.infrastructure.cache import CacheTimeout
 
 logger = logging.getLogger(__name__)
 

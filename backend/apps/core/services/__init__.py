@@ -7,7 +7,6 @@ Core 模块服务层
 - InitializationResult: 初始化结果数据类
 - SystemConfigService: 系统配置服务
 - BusinessConfigService: 业务配置服务
-- SystemConfigAdminService: 系统配置 Admin 服务
 - PromptTemplateService: Prompt 模板服务
 - ConversationService: 对话服务
 """
@@ -16,7 +15,6 @@ from .business_config_service import BusinessConfigService
 from .cause_court_initialization_service import CauseCourtInitializationService, InitializationResult
 from .court_api_client import CourtApiClient
 from .prompt_template_service import PromptTemplateService
-from .system_config_admin_service import SystemConfigAdminService
 from .system_config_service import SystemConfigService
 
 __all__ = [
@@ -27,7 +25,6 @@ __all__ = [
     "CourtApiClient",
     "InitializationResult",
     "PromptTemplateService",
-    "SystemConfigAdminService",
     "SystemConfigService",
 ]
 
