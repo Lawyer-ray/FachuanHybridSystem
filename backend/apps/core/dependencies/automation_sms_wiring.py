@@ -49,12 +49,11 @@ def build_court_sms_service_with_deps(
         client_service=client_service,
         lawyer_service=lawyer_service,
     )
-    document_parser_service = DocumentParserService(  # type: ignore[call-arg]
+    document_parser_service = DocumentParserService(
         client_service=client_service,
         lawyer_service=lawyer_service,
-        document_processing_service=document_processing_service,
     )
-    parser = SMSParserService(party_matching_service=party_matching_service)  # type: ignore[call-arg]
+    parser = SMSParserService(party_matching_service=party_matching_service)
     matcher = CaseMatcher(
         case_service=case_service,
         document_parser_service=document_parser_service,
@@ -73,20 +72,17 @@ def build_court_sms_service_with_deps(
 
     parsing_stage = SMSParsingStage(parser=parser)
     downloading_stage = SMSDownloadingStage(task_queue=task_queue, execute_scraper_task=execute_scraper_task)
-    matching_stage = SMSMatchingStage(  # type: ignore[call-arg]
+    matching_stage = SMSMatchingStage(
         matcher=matcher,
         case_number_extractor=case_number_extractor,
         case_service=case_service,
         lawyer_service=lawyer_service,
-        caselog_service=caselog_service,
     )
-    renaming_stage = SMSRenamingStage(  # type: ignore[call-arg, call-arg]
+    renaming_stage = SMSRenamingStage(
         document_attachment=document_attachment,
         case_number_extractor=case_number_extractor,
         matcher=matcher,
         lawyer_service=lawyer_service,
-        caselog_service=caselog_service,
-        reminder_service=reminder_service,
     )
     notifying_stage = SMSNotifyingStage(
         notification_service=notification,
@@ -103,31 +99,21 @@ def build_court_sms_service_with_deps(
     workflow = CourtSMSProcessingWorkflow(repo=repo, processor=processor)
     orchestrator = CourtSMSOrchestrator(workflow=workflow, repo=repo)
 
-    submission_service = SMSSubmissionService(  # type: ignore[call-arg, call-arg]
+    submission_service = SMSSubmissionService(
         case_service=case_service,
         lawyer_service=lawyer_service,
-        caselog_service=caselog_service,
-        task_queue=task_queue,
     )
 
-    return CourtSMSService(  # type: ignore[return-value, call-arg, call-arg, call-arg, call-arg, call-arg, call-arg, call-arg, call-arg]
+    return CourtSMSService(  # type: ignore[return-value]
         parser=parser,
         matcher=matcher,
         case_number_extractor=case_number_extractor,
         document_attachment=document_attachment,
         notification=notification,
         case_service=case_service,
-        document_processing_service=document_processing_service,
-        case_number_service=case_number_service,
         client_service=client_service,
         lawyer_service=lawyer_service,
         case_chat_service=case_chat_service,
-        caselog_service=caselog_service,
-        reminder_service=reminder_service,
-        task_queue=task_queue,
-        repo=repo,
-        orchestrator=orchestrator,
-        submission_service=submission_service,
     )
 
 

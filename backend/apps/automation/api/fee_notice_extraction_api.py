@@ -12,7 +12,7 @@ Requirements: 1.1, 2.1, 5.1-5.5
 
 import logging
 import uuid
-from typing import Any, ClassVar
+from typing import Any
 
 from django.http import HttpRequest
 from ninja import File, Router, Schema
@@ -94,7 +94,7 @@ class FeeNoticeExtractionResponse(Schema):
     notices: list[FeeNoticeSchema]  # 识别到的交费通知书列表
     total_files: int  # 处理的文件总数
     total_notices: int  # 识别到的通知书数量
-    errors: ClassVar[list[dict[str, Any]]] = []  # 错误信息列表
+    errors: list[dict[str, Any]] = []  # 错误信息列表
     debug_logs: list[str] | None = None  # 调试日志
 
 
@@ -164,6 +164,23 @@ def extract_fee_notices(
 
     batch_id = uuid.uuid4().hex[:8]
     logger.info("开始处理交费通知书提取请求", extra={"batch_id": batch_id, "file_count": len(files), "debug": debug})
+
+    # 验证所有文件名安全性（防止路径穿越）
+    from pathlib import Path
+    invalid_files = []
+    for f in files:
+        name = f.name or ""
+        if Path(name).name != name or ".." in name or "/" in name or "\\" in name:
+            invalid_files.append(name)
+    if invalid_files:
+        return FeeNoticeExtractionResponse(  # type: ignore[call-arg]
+            success=False,
+            notices=[],
+            total_files=len(files),
+            total_notices=0,
+            errors=[{"code": "INVALID_FILE_NAME", "message": f"文件名不合法: {', '.join(invalid_files)}"}],
+            debug_logs=[] if debug else None,
+        )
 
     saved_files, file_errors = service.save_uploaded_files(files, temp_dir_name="fee_notice", batch_id=batch_id)
 

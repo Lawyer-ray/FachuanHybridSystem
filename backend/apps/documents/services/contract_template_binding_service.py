@@ -153,6 +153,6 @@ class DocumentTemplateBindingService:
             folder_template=matching_folder_template,
             is_active=True,
         ).first()
-        if binding and binding.folder_node_path:
-            return binding.folder_node_path # type: ignore
+        if binding is not None:
+            return binding.folder_node_path  # type: ignore
         return None

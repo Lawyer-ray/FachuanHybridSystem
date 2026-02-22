@@ -106,7 +106,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
         try:
             if not cases:
                 return ""
-            opposing_client_ids, our_client_ids = self._get_contract_party_ids(contract) # type: ignore
+            opposing_client_ids, our_client_ids = self._get_contract_party_ids(contract)
             case_parts: list[Any] = []
             for case in cases:
                 part = self._format_single_case(case, opposing_client_ids, our_client_ids)
@@ -120,18 +120,18 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
             logger.warning(f"格式化有案件情况失败: {e}")
             return ""
 
-        def _get_contract_party_ids(contract: Any) -> tuple[set[Any], set[Any]]:
-            opposing_ids: set[Any] = set()
-            our_ids: set[Any] = set()
-            try:
-                for cp in contract.contract_parties.all():
-                    if getattr(cp, "role", None) == "OPPOSING":
-                        opposing_ids.add(cp.client_id)
-                    else:
-                        our_ids.add(cp.client_id)
-            except Exception:
-                logger.exception("操作失败")
-            return (opposing_ids, our_ids)
+    def _get_contract_party_ids(self, contract: Any) -> tuple[set[Any], set[Any]]:
+        opposing_ids: set[Any] = set()
+        our_ids: set[Any] = set()
+        try:
+            for cp in contract.contract_parties.all():
+                if getattr(cp, "role", None) == "OPPOSING":
+                    opposing_ids.add(cp.client_id)
+                else:
+                    our_ids.add(cp.client_id)
+        except Exception:
+            logger.exception("操作失败")
+        return (opposing_ids, our_ids)
 
     def _format_single_case(self, case: Any, opposing_client_ids: set[Any], our_client_ids: set[Any]) -> str:
         opposing_parties = self._extract_opposing_parties_from_case(

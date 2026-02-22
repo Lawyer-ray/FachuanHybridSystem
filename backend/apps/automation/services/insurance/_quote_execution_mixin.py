@@ -97,12 +97,21 @@ class QuoteExecutionMixin:
                 if token:
                     logger.info("✅ 找到现有有效Token")
                     return token
+                # Token 不存在，直接报错，不再尝试自动获取
+                msg = (
+                    "Token 不存在或已过期，请先手动登录获取 Token。\n"
+                    "操作步骤：\n"
+                    "1. 访问 /admin/automation/testcourt/ 测试登录\n"
+                    "2. 或访问 /admin/automation/courttoken/ 查看 Token 状态\n"
+                    "3. 登录成功后重新执行询价"
+                )
+                raise TokenError(msg)
 
             token = await self.auto_token_service.acquire_token_if_needed(
                 site_name=site_name, credential_id=credential_id
             )
             logger.info("✅ 自动Token获取成功", extra={"action": "get_valid_token_success"})
-            return token # type: ignore
+            return token  # type: ignore
 
         except Exception as e:
             logger.error(

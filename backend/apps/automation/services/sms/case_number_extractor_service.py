@@ -32,6 +32,7 @@ class CaseNumberExtractorService:
         document_processing_service: Optional["IDocumentProcessingService"] = None,
         case_service: Optional["ICaseService"] = None,
         case_number_service: Optional["ICaseNumberService"] = None,
+        extraction_provider: Optional[Any] = None,
     ):
         """
         初始化服务，支持依赖注入
@@ -40,10 +41,12 @@ class CaseNumberExtractorService:
             document_processing_service: 文档处理服务（可选）
             case_service: 案件服务（可选）
             case_number_service: 案号服务（可选）
+            extraction_provider: 案号提取提供者（可选），需实现 extract(content: str) -> str
         """
         self._document_processing_service = document_processing_service
         self._case_service = case_service
         self._case_number_service = case_number_service
+        self._extraction_provider = extraction_provider
 
     @property
     def document_processing_service(self) -> "IDocumentProcessingService":
@@ -132,11 +135,22 @@ class CaseNumberExtractorService:
 
     def extract_from_content(self, content: str) -> list[str]:
         """
-        从文本内容中提取案号（使用 Ollama AI）
+        从文本内容中提取案号（使用 extraction_provider 或 Ollama AI）
         """
         if not content or not content.strip():
             logger.warning("文书内容为空，无法提取案号")
             return []
+
+        # 优先使用注入的 extraction_provider
+        if self._extraction_provider is not None:
+            try:
+                import json
+
+                response_text = self._extraction_provider.extract(content=content)
+                return self._parse_ollama_response(response_text)
+            except Exception as e:
+                logger.error(f"extraction_provider 提取案号失败: {e!s}")
+                return []
 
         try:
             import json
