@@ -81,7 +81,7 @@ class SteeringDependencyResolver:
 
             return []
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.warning(f"获取规范依赖失败 {spec_path}: {e}")
             return []
 

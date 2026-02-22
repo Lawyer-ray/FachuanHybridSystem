@@ -205,7 +205,7 @@ class PerformanceDataCollector:
                     memory_usage = self._get_current_memory_usage()
                     self._memory_samples.append(memory_usage)
                     time.sleep(5)  # 每5秒采样一次
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     logger.error(f"内存监控失败: {e}")
                     time.sleep(10)
 

@@ -128,7 +128,7 @@ class ResourceMonitor:
                 disk_total_gb=disk_total_gb,
                 timestamp=datetime.now(),
             )
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to get resource usage: {e}")
             return None
 
@@ -300,7 +300,7 @@ class ResourceMonitor:
                     # 例如:发送信号给容器管理器或记录重启请求
                     self.record_restart()
 
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 logger.error(f"Error in resource monitoring loop: {e}")
 
 
