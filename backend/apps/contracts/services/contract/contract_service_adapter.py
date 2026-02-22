@@ -1,6 +1,7 @@
 """Business logic services."""
 
 import logging
+import warnings
 from typing import Any
 
 from apps.contracts.models import Contract, ContractParty
@@ -122,7 +123,19 @@ class ContractServiceAdapter:
             contract_id=contract_id,
         )
 
-    def get_contract_model_internal(self, contract_id: int) -> Any | None | None:
+    def get_contract_model_internal(self, contract_id: int) -> Any | None:
+        """返回原始 Contract Model 实例（供文档生成等内部使用）。
+
+        .. deprecated::
+            此方法直接返回原始 Model 实例，破坏适配器层 DTO 封装边界。
+            请使用 ``get_contract_with_details_internal`` 获取字典格式数据。
+        """
+        warnings.warn(
+            "get_contract_model_internal 已弃用，请使用 "
+            "get_contract_with_details_internal 替代",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         try:
             return Contract.objects.prefetch_related("contract_parties__client", "assignments__lawyer").get(
                 pk=contract_id

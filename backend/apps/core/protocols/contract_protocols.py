@@ -199,6 +199,10 @@ class IContractService(Protocol):
         """
         内部方法:获取合同 Model 对象(用于外键赋值或占位符服务)
 
+        .. deprecated::
+            此方法直接返回原始 Model 实例，破坏适配器层 DTO 封装边界。
+            请使用 ``get_contract_with_details_internal`` 获取字典格式数据。
+
         Args:
             contract_id: 合同 ID
 
