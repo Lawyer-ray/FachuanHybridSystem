@@ -55,7 +55,7 @@ class LawFirmService:
             AuthenticationError: 未认证
             PermissionDenied: 无权限访问
         """
-        lawfirm = self.get_lawfirm_queryset().filter(id=lawfirm_id).first()
+        lawfirm = self._get_lawfirm_internal(lawfirm_id)
 
         if not lawfirm:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
