@@ -1,6 +1,7 @@
 """PDF 生成。"""
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -9,8 +10,6 @@ from numpy.typing import NDArray
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
-
-from pathlib import Path
 
 
 def generate_a4_pdf(
