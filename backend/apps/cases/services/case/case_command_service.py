@@ -8,9 +8,9 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty
+from apps.cases.models import Case
 from apps.core.business_config import business_config
-from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IContractService
 from apps.core.permissions import PermissionMixin
 from apps.core.security.access_context import AccessContext
@@ -267,7 +267,6 @@ class CaseCommandService(PermissionMixin):
             perm_open_access=ctx.perm_open_access,
         )
 
-    @transaction.atomic
     def create_case_full(
         self,
         data: dict[str, Any],
@@ -281,64 +280,9 @@ class CaseCommandService(PermissionMixin):
             ConflictError: 数据冲突
             ForbiddenError: 权限不足
         """
-        case_data: dict[str, Any] = data.get("case", {})
-        parties_data: list[dict[str, Any]] = data.get("parties", [])
-        assignments_data: list[dict[str, Any]] = data.get("assignments", [])
-        logs_data: list[dict[str, Any]] = data.get("logs", [])
-        supervising_authorities_data: list[dict[str, Any]] = data.get("supervising_authorities", [])
+        from .workflows.case_full_create_workflow import CaseFullCreateWorkflow
 
-        case = self.create_case(case_data, user=user)
-
-        parties: list[CaseParty] = []
-        for party in parties_data:
-            if CaseParty.objects.filter(case=case, client_id=party["client_id"]).exists():
-                raise ConflictError(_("该当事人已存在于此案件"))
-            parties.append(
-                CaseParty.objects.create(
-                    case=case,
-                    client_id=party["client_id"],
-                    legal_status=party.get("legal_status"),
-                )
-            )
-
-        assignments: list[CaseAssignment] = []
-        for assignment in assignments_data:
-            assignments.append(
-                CaseAssignment.objects.create(
-                    case=case,
-                    lawyer_id=assignment["lawyer_id"],
-                )
-            )
-
-        logs: list[CaseLog] = []
-        for log in logs_data:
-            logs.append(
-                CaseLog.objects.create( # type: ignore
-                    case=case,
-                    content=log["content"],
-                    actor_id=actor_id,
-                )
-            )
-
-        from apps.cases.models import SupervisingAuthority
-
-        supervising_authorities: list[SupervisingAuthority] = []
-        for authority in supervising_authorities_data:
-            supervising_authorities.append(
-                SupervisingAuthority.objects.create(
-                    case=case,
-                    name=authority.get("name"),
-                    authority_type=authority.get("authority_type"),
-                )
-            )
-
-        return {
-            "case": case,
-            "parties": parties,
-            "assignments": assignments,
-            "logs": logs,
-            "supervising_authorities": supervising_authorities,
-        }
+        return CaseFullCreateWorkflow(case_service=self).run(data=data, actor_id=actor_id, user=user)
 
     # ------------------------------------------------------------------
     # Internal (cross-module) mutations

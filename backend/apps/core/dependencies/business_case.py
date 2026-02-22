@@ -29,10 +29,8 @@ def build_case_service() -> ICaseService:
 
 def build_case_service_with_deps(*, contract_service: IContractService, client_service: IClientService) -> ICaseService:
     from apps.cases.services.case.case_service_adapter import CaseServiceAdapter
-    from apps.cases.services.case.composition import build_case_service
 
-    service = build_case_service(contract_service=contract_service)
-    return CaseServiceAdapter(service=service, contract_service=contract_service, client_service=client_service)
+    return CaseServiceAdapter(contract_service=contract_service, client_service=client_service)
 
 
 def build_case_assignment_service() -> None:
