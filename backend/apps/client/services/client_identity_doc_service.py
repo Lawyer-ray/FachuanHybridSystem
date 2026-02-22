@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 import logging
 import shutil
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +112,11 @@ class ClientIdentityDocService:
                 errors={"doc_id": f"ID 为 {doc_id} 的证件文档不存在"},
             )
         return doc
+    def update_expiry_date(self, doc_id: int, expiry_date: date) -> None:
+        """更新证件到期日期"""
+        doc = self.get_identity_doc(doc_id)
+        doc.expiry_date = expiry_date
+        doc.save(update_fields=["expiry_date"])
 
     @transaction.atomic
     def delete_identity_doc(self, doc_id: int, user: Any) -> None:

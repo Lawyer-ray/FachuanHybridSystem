@@ -303,6 +303,6 @@ class IdentityExtractionService:
         except ValidationException as e:
             result["error"] = str(e)
         except Exception as e:
-            logger.warning("证件识别未知错误: %s", e)
+            logger.exception("证件识别未知错误: %s", e)
             result["error"] = f"未知错误: {e}"
         return result

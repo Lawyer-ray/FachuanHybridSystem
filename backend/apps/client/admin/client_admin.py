@@ -67,7 +67,7 @@ class ClientAdminForm(forms.ModelForm[Client]):
             ct = self.data.get("client_type")
         elif self.initial.get("client_type"):
             ct = self.initial.get("client_type")
-        self.fields["id_number"].label = "身份证号码" if ct == "natural" else "统一社会信用代码"
+        self.fields["id_number"].label = _("身份证号码") if ct == "natural" else _("统一社会信用代码")
 
 
 @admin.register(Client)
