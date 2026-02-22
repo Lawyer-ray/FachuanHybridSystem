@@ -399,16 +399,19 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         """下载文件视图"""
         from django.http import FileResponse, Http404
 
+        from apps.core.exceptions import NotFoundError
+
         obj = self.get_object(request, pk)
         if not obj:
             raise Http404("模板不存在")
 
-        file_path = obj.get_file_location()
-        if not file_path or not Path(file_path).exists():
+        try:
+            service = _get_admin_service()
+            file_path, filename = service.download_file(obj)
+        except NotFoundError:
             raise Http404("文件不存在")
 
-        filename = Path(file_path).name
-        response = FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)
+        response: Any = FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)
         return response
 
     @admin.display(description=_("模板类型"))
@@ -535,26 +538,16 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
             logger.exception("操作失败")
             return format_html('<span style="color: #c62828;">检查失败: {}</span>', str(e))
 
-    @admin.action(description=_("启用选中的模板"))
     def activate_templates(self, request: Any, queryset: Any) -> None:
         """批量启用模板"""
-        updated = 0
-        for template in queryset:
-            if not template.is_active:
-                template.is_active = True
-                template.save(update_fields=["is_active"])
-                updated += 1
+        service = _get_admin_service()
+        updated: int = service.batch_activate(queryset)
         self.message_user(request, _(f"已启用 {updated} 个模板"))
 
-    @admin.action(description=_("禁用选中的模板"))
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
-        updated = 0
-        for template in queryset:
-            if template.is_active:
-                template.is_active = False
-                template.save(update_fields=["is_active"])
-                updated += 1
+        service = _get_admin_service()
+        updated: int = service.batch_deactivate(queryset)
         self.message_user(request, _(f"已禁用 {updated} 个模板"))
 
     @admin.action(description=_("刷新占位符信息"))
