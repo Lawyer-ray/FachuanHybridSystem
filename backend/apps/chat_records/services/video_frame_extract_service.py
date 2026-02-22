@@ -15,7 +15,6 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from django.conf import settings
 
@@ -148,7 +147,7 @@ class VideoFrameExtractService:
         fps = 1.0 / interval_seconds
         return [], f"fps={fps},{scale},mpdecimate", []
 
-    def _force_kill_proc(self, proc: Any) -> None:
+    def _force_kill_proc(self, proc: subprocess.Popen[str]) -> None:
         """强制终止进程"""
         with contextlib.suppress(Exception):
             proc.terminate()
@@ -161,7 +160,7 @@ class VideoFrameExtractService:
 
     def _read_ffmpeg_progress_lines(
         self,
-        proc: Any,
+        proc: subprocess.Popen[str],
         *,
         should_cancel: Callable[[], bool] | None,
         timeout_seconds: float | None,
@@ -194,7 +193,7 @@ class VideoFrameExtractService:
             k, v = line.split("=", 1)
             yield {k: v}
 
-    def _check_ffmpeg_exit(self, proc: Any) -> None:
+    def _check_ffmpeg_exit(self, proc: subprocess.Popen[str]) -> None:
         """检查 ffmpeg 退出码,非零则抛出异常"""
         try:
             rc = proc.wait(timeout=5)
