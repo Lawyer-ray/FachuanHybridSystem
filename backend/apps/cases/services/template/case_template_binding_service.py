@@ -87,7 +87,7 @@ class CaseTemplateBindingService:
         templates_by_id = {t.id: t for t in bound_templates}
 
         # 按 case_sub_type 分组
-        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list[Any])
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for binding in bindings:
             template = templates_by_id.get(binding.template_id)
             category = getattr(template, "case_sub_type", None) or "other_materials"

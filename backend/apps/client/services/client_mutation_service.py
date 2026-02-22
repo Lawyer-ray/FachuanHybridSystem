@@ -24,6 +24,8 @@ logger = logging.getLogger("apps.client")
 
 
 class ClientMutationService:
+    _VALID_CLIENT_TYPES: list[str] = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
+
     def __init__(
         self,
         access_policy: ClientAccessPolicy | None = None,
@@ -161,8 +163,7 @@ class ClientMutationService:
                 message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
             )
 
-        valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
-        if data.get("client_type") not in valid_types:
+        if data.get("client_type") not in self._VALID_CLIENT_TYPES:
             raise ValidationException(
                 message=_("无效的客户类型"),
                 code="INVALID_CLIENT_TYPE",
@@ -182,14 +183,12 @@ class ClientMutationService:
                 message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
             )
 
-        if "client_type" in data:
-            valid_types = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
-            if data["client_type"] not in valid_types:
-                raise ValidationException(
-                    message=_("无效的客户类型"),
-                    code="INVALID_CLIENT_TYPE",
-                    errors={"client_type": _("无效的客户类型")},
-                )
+        if "client_type" in data and data["client_type"] not in self._VALID_CLIENT_TYPES:
+            raise ValidationException(
+                message=_("无效的客户类型"),
+                code="INVALID_CLIENT_TYPE",
+                errors={"client_type": _("无效的客户类型")},
+            )
 
         client_type = data.get("client_type", client.client_type)
         legal_rep = data.get("legal_representative", client.legal_representative)

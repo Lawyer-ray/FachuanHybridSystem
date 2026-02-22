@@ -34,17 +34,7 @@ class ImportResult:
 
 
 class ClientAdminService(ClientAdminFileMixin):
-    """
-    客户 Admin 服务
-
-    封装 Admin 层的复杂业务逻辑，确保 Admin 层方法保持在 20 行以内
-
-    职责：
-    1. 处理 JSON 数据导入
-    2. 处理表单集文件上传
-    3. 管理数据库事务
-    4. 记录操作日志
-    """
+    """客户 Admin 服务：JSON 导入、表单集文件上传、事务管理。"""
 
     def __init__(
         self,
@@ -96,18 +86,7 @@ class ClientAdminService(ClientAdminFileMixin):
         return ImportResult(success=False, error_message=result.error_message)
 
     def process_formset_files(self, client_id: int, formset_data: list[dict[str, Any]], admin_user: str) -> None:
-        """
-        处理表单集文件上传
-
-        Args:
-            client_id: 客户 ID
-            formset_data: 表单集数据列表
-            admin_user: 管理员用户名
-
-        Raises:
-            ValidationException: 数据验证失败
-        """
-        # 1. 验证客户存在
+        """处理表单集文件上传。"""
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise ValidationException(
@@ -116,15 +95,13 @@ class ClientAdminService(ClientAdminFileMixin):
                 errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )
 
-        # 2. 处理每个表单项
         processed_files = []
         for form_data in formset_data:
             if self._should_process_form(form_data):
-                file_info = self._process_single_form(client_id, form_data, admin_user)
+                file_info = self._process_single_form(client, form_data, admin_user)
                 if file_info:
                     processed_files.append(file_info)
 
-        # 3. 记录操作日志
         logger.info(
             "表单集文件处理完成",
             extra={
@@ -136,64 +113,35 @@ class ClientAdminService(ClientAdminFileMixin):
         )
 
     def _should_process_form(self, form_data: dict[str, Any]) -> bool:
-        """
-        判断是否应该处理该表单项
-
-        Args:
-            form_data: 表单数据
-
-        Returns:
-            是否应该处理
-        """
-        # 跳过标记为删除的项
+        """判断是否应该处理该表单项。"""
         if form_data.get("DELETE"):
             return False
-
-        # 必须有文件路径或上传的文件
         return bool(form_data.get("file_path") or form_data.get("uploaded_file"))
 
-    def _process_single_form(self, client_id: int, form_data: dict[str, Any], admin_user: str) -> dict[str, Any] | None:
-        """
-        处理单个表单项
-
-        Args:
-            client_id: 客户 ID
-            form_data: 表单数据
-            admin_user: 管理员用户名
-
-        Returns:
-            处理后的文件信息，如果没有处理则返回 None
-        """
-        # 1. 获取证件类型
+    def _process_single_form(self, client: "Client", form_data: dict[str, Any], admin_user: str) -> dict[str, Any] | None:
+        """处理单个表单项。"""
         doc_type = form_data.get("doc_type")
         if not doc_type:
             logger.warning(
                 "表单项缺少证件类型",
-                extra={"client_id": client_id, "admin_user": admin_user, "action": "process_single_form"},
+                extra={"client_id": client.pk, "admin_user": admin_user, "action": "process_single_form"},
             )
             return None
 
-        # 2. 获取当事人名称和证件类型显示名
         from apps.client.models import ClientIdentityDoc  # noqa: PLC0415
 
-        client = self.internal_query_service.get_client(client_id=client_id)
-        client_name = client.name if client else ""
         doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
 
-        # 3. 处理文件存储（传递当事人名称和证件类型用于重命名）
-        file_path = self._handle_file_storage(form_data, client_name, doc_type_display)
+        file_path = self._handle_file_storage(form_data, client.name, doc_type_display)
         if not file_path:
             return None
 
-        # 4. 更新或创建 ClientIdentityDoc 记录
         doc_id = form_data.get("id")
         if doc_id:
-            # 更新现有记录
             self._update_identity_doc(doc_id, file_path, admin_user)
         else:
-            # 创建新记录，通过 identity_doc_service 委托
             self.identity_doc_service.add_identity_doc(
-                client_id=client_id,
+                client_id=client.pk,
                 doc_type=doc_type,
                 file_path=file_path,
             )

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, ClassVar
 
 from django.utils.translation import gettext_lazy as _
-from ninja import ModelSchema, Schema
+from ninja import Schema
 from pydantic import field_validator, model_validator
 
 from apps.core.schemas import SchemaMixin
@@ -82,23 +82,24 @@ class ReminderUpdate(Schema):
         return self
 
 
-class ReminderOut(ModelSchema, SchemaMixin):
+class ReminderOut(SchemaMixin, Schema):
+    id: int
+    contract_id: int | None = None
+    case_log_id: int | None = None
+    reminder_type: str
     reminder_type_label: str
-    due_at: str | None
-    created_at: str | None
+    content: str
+    metadata: dict[str, Any] | None = None
+    due_at: str | None = None
+    created_at: str | None = None
 
-    class Meta:
-        model = Reminder
-        fields: ClassVar = [
-            "id",
-            "contract",
-            "case_log",
-            "reminder_type",
-            "content",
-            "metadata",
-            "due_at",
-            "created_at",
-        ]
+    @staticmethod
+    def resolve_contract_id(obj: Reminder) -> int | None:
+        return obj.contract_id
+
+    @staticmethod
+    def resolve_case_log_id(obj: Reminder) -> int | None:
+        return obj.case_log_id
 
     @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:

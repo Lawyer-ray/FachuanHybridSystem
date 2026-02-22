@@ -92,7 +92,7 @@ class SafeExpressionEvaluator:
             ast.Set: lambda n: {self._eval_node(elt) for elt in n.elts},
             ast.Dict: lambda n: dict[str, Any](
                 zip(
-                    [self._eval_node(k) if k is not None else None for k in n.keys],
+                    [str(self._eval_node(k)) if k is not None else "" for k in n.keys],
                     [self._eval_node(v) for v in n.values],
                     strict=False,
                 )

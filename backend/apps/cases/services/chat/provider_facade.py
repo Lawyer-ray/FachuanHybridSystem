@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.cases.exceptions import ChatCreationException, MessageSendException
 from apps.core.enums import ChatPlatform
 
@@ -24,7 +26,7 @@ class ChatProviderFacade:
             provider = self.factory.get_provider(platform)
         except Exception as e:
             raise ChatCreationException(
-                message=f"无法获取群聊提供者: {platform.label}",
+                message=_("无法获取群聊提供者: %(platform)s") % {"platform": platform.label},
                 code="PROVIDER_UNAVAILABLE",
                 platform=platform.value,
                 errors={"original_error": str(e)},
@@ -32,7 +34,7 @@ class ChatProviderFacade:
 
         if not provider.is_available():
             raise ChatCreationException(
-                message=f"群聊平台不可用: {platform.label}",
+                message=_("群聊平台不可用: %(platform)s") % {"platform": platform.label},
                 code="PROVIDER_NOT_AVAILABLE",
                 platform=platform.value,
                 errors={"platform_status": "配置不完整或服务不可用"},
@@ -44,7 +46,7 @@ class ChatProviderFacade:
             provider = self.factory.get_provider(platform)
         except Exception as e:
             raise MessageSendException(
-                message=f"无法获取群聊提供者: {platform.label}",
+                message=_("无法获取群聊提供者: %(platform)s") % {"platform": platform.label},
                 code="PROVIDER_UNAVAILABLE",
                 platform=platform.value,
                 chat_id=chat_id,

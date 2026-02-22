@@ -63,7 +63,8 @@ class CaseChatServiceAdapter(ICaseChatService):
                 return True
             else:
                 logger.error(
-                    f"发送消息到案件群聊失败:{result.message}",
+                    "发送消息到案件群聊失败: %s",
+                    result.message,
                     extra={
                         "action": "send_message_to_case_chat",
                         "case_id": case_id,
@@ -81,7 +82,8 @@ class CaseChatServiceAdapter(ICaseChatService):
             raise
         except Exception as e:
             logger.error(
-                f"发送消息到案件群聊时发生未预期错误:{e}",
+                "发送消息到案件群聊时发生未预期错误: %s",
+                e,
                 extra={"action": "send_message_to_case_chat", "case_id": case_id, "error": str(e)},
             )
             raise BusinessException(message=_("发送消息时发生系统错误"), code="SYSTEM_ERROR") from e

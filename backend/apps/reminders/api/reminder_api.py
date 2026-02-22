@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.http import HttpResponse
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
@@ -61,6 +62,7 @@ def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> 
 
 
 @router.delete("/{reminder_id}")
-def delete_reminder(request: Any, reminder_id: int) -> Any:
+def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:
     service = _get_service()
-    return service.delete_reminder(reminder_id)
+    service.delete_reminder(reminder_id)
+    return HttpResponse(status=204)

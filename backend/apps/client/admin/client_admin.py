@@ -42,7 +42,7 @@ class ClientIdentityDocInline(admin.TabularInline):  # type: ignore[type-arg]
     readonly_fields: ClassVar = ("file_link",)
 
     def file_link(self, obj: ClientIdentityDoc) -> str:
-        url = obj.media_url()
+        url = obj.media_url
         if url:
             return format_html('<a href="{}" target="_blank">{}</a>', url, Path(obj.file_path or "").name)
         return ""

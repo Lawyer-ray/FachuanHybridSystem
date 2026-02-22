@@ -48,7 +48,7 @@ class CauseCourtDataCache:
                 extra={
                     "action": "load_json_file",
                     "file_name": filename,
-                    "data_keys": list[Any](data.keys()) if isinstance(data, dict) else "list[Any]",
+                    "data_keys": list(data.keys()) if isinstance(data, dict) else "list",
                 },
             )
 
@@ -311,7 +311,7 @@ class CauseCourtDataService:
             extra={
                 "action": "init_cause_court_data_service",
                 "data_dir": str(self.data_dir),
-                "case_type_mappings": list[Any](self.CASE_TYPE_FILE_MAP.keys()),
+                "case_type_mappings": list(self.CASE_TYPE_FILE_MAP.keys()),
             },
         )
 
@@ -352,13 +352,13 @@ class CauseCourtDataService:
                 extra={
                     "action": "get_causes_by_type",
                     "case_type": case_type,
-                    "valid_types": list[Any](self.CASE_TYPE_FILE_MAP.keys()),
+                    "valid_types": list(self.CASE_TYPE_FILE_MAP.keys()),
                 },
             )
             raise ValidationException(
                 message=f"无效的案件类型: {case_type}",
                 code="INVALID_CASE_TYPE",
-                errors={"case_type": case_type, "valid_types": list[Any](self.CASE_TYPE_FILE_MAP.keys())},
+                errors={"case_type": case_type, "valid_types": list(self.CASE_TYPE_FILE_MAP.keys())},
             )
         return self.json_provider.get_causes_by_type(case_type)
 

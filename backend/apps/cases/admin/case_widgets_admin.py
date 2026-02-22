@@ -214,8 +214,8 @@ class AutocompleteWidget(forms.TextInput):
 
                     scrollToHighlighted() {{
                         this.$nextTick(() => {{
-                            if (!this.$refs.list[Any]) return;
-                            const items = this.$refs.list[Any].querySelectorAll('.ac-item');
+                            if (!this.$refs.resultList) return;
+                            const items = this.$refs.resultList.querySelectorAll('.ac-item');
                             const el = items[this.highlightedIndex];
                             if (el) el.scrollIntoView({{ block: 'nearest' }});
                         }});
@@ -239,7 +239,7 @@ class AutocompleteWidget(forms.TextInput):
                     {_search_svg}
                     <span>未找到匹配结果</span>
                 </div>
-                <div x-ref="list[Any]" class="ac-list[Any]">
+                <div x-ref="resultList" class="ac-list">
                     <template x-for="(item, index) in results" :key="item.id || index">
                         <div @click="selectItem(item)" @mouseenter="highlightedIndex = index"
                              x-html="highlightMatch(item.name)"

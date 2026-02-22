@@ -80,7 +80,6 @@ class ReminderService:
     def update_reminder(self, reminder_id: int, data: dict[str, Any]) -> Reminder:
         reminder = self.get_reminder(reminder_id)
         self._apply_update_fields(reminder, data)
-        reminder.full_clean()
         reminder.save()
         return reminder
 
@@ -88,20 +87,24 @@ class ReminderService:
         """将 data 中的字段应用到 reminder 实例，复用 validators 校验。"""
         new_contract_id: int | None = reminder.contract_id
         new_case_log_id: int | None = reminder.case_log_id
+        fk_changed = False
 
         if "contract_id" in data:
             new_contract_id = normalize_target_id(data["contract_id"], field_name="contract_id")
+            fk_changed = True
         if "case_log_id" in data:
             new_case_log_id = normalize_target_id(data["case_log_id"], field_name="case_log_id")
+            fk_changed = True
 
-        if "contract_id" in data or "case_log_id" in data:
+        if fk_changed:
             validate_binding_exclusive(contract_id=new_contract_id, case_log_id=new_case_log_id)
-            validate_fk_exists(contract_id=new_contract_id, case_log_id=new_case_log_id)
-
-        if "contract_id" in data:
+            validate_fk_exists(
+                contract_id=new_contract_id if "contract_id" in data else None,
+                case_log_id=new_case_log_id if "case_log_id" in data else None,
+            )
             reminder.contract_id = new_contract_id
-        if "case_log_id" in data:
             reminder.case_log_id = new_case_log_id
+
         if "reminder_type" in data and data["reminder_type"] is not None:
             reminder.reminder_type = normalize_reminder_type(data["reminder_type"])
         if "content" in data and data["content"] is not None:
@@ -112,10 +115,9 @@ class ReminderService:
             reminder.due_at = normalize_due_at(data["due_at"])
 
     @transaction.atomic
-    def delete_reminder(self, reminder_id: int) -> dict[str, bool]:
+    def delete_reminder(self, reminder_id: int) -> None:
         reminder = self.get_reminder(reminder_id)
         reminder.delete()
-        return {"success": True}
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""

@@ -30,7 +30,7 @@ class TimestampMixin:
             return None
         try:
             return timezone.localtime(value)
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             return cast(datetime | None, value)
 
     @classmethod
@@ -49,7 +49,7 @@ class TimestampMixin:
         try:
             local_time = timezone.localtime(value)
             return local_time.isoformat()
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
@@ -76,7 +76,7 @@ class DisplayLabelMixin:
             if getter:
                 return cast(str | None, getter())
             return getattr(obj, field_name, None)
-        except Exception:
+        except AttributeError:
             return None
 
 
@@ -101,7 +101,7 @@ class FileFieldMixin:
             return None
         try:
             return cast(str | None, file_field.url)
-        except Exception:
+        except (AttributeError, ValueError):
             return None
 
     @classmethod
@@ -119,7 +119,7 @@ class FileFieldMixin:
             return None
         try:
             return cast(str | None, file_field.path)
-        except Exception:
+        except (AttributeError, ValueError):
             return None
 
 
