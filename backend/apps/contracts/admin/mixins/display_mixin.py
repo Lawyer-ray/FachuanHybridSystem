@@ -187,7 +187,7 @@ class ContractDisplayMixin:
             result = display_service.get_matched_document_template(contract)
             return result not in ["无匹配模板", "查询失败"]
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(f"检查合同 {contract.id} 的文书模板失败: {e!s}", exc_info=True)
+            logger.error("检查合同 %s 的文书模板失败: %s", contract.id, e, exc_info=True)
             return False
 
     def _check_folder_template(self, contract) -> Any:
@@ -204,5 +204,5 @@ class ContractDisplayMixin:
             result = display_service.get_matched_folder_templates(contract)
             return result not in ["无匹配模板", "查询失败"]
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(f"检查合同 {contract.id} 的文件夹模板失败: {e!s}", exc_info=True)
+            logger.error("检查合同 %s 的文件夹模板失败: %s", contract.id, e, exc_info=True)
             return False

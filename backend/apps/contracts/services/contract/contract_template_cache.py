@@ -52,7 +52,7 @@ class ContractTemplateCache:
         """缓存文书模板"""
         cache_key = self._get_cache_key(case_type, "document_templates")
         cache.set(cache_key, templates, TEMPLATE_CACHE_TIMEOUT)
-        logger.debug(f"缓存文书模板: {cache_key}, 数量: {len(templates)}")
+        logger.debug("缓存文书模板: %s, 数量: %d", cache_key, len(templates))
 
     def get_folder_templates(self, case_type: str) -> list[dict[str, Any]] | None:
         """获取缓存的文件夹模板"""
