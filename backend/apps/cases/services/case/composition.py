@@ -1,5 +1,7 @@
 """Business logic services."""
 
+from __future__ import annotations
+
 from apps.core.interfaces import IContractService
 
 from .case_service import CaseService

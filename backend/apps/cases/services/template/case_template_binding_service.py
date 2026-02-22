@@ -4,6 +4,8 @@
 管理案件与文书模板的绑定关系,支持自动推荐和手动绑定.
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from collections import defaultdict

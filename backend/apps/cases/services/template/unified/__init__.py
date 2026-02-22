@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .context import TemplateContextBuilder
 from .filename import FilenameInputs, FilenamePolicy
 from .party_selection import PartySelectionPolicy, SelectedParties

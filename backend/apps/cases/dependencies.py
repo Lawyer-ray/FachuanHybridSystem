@@ -1,5 +1,7 @@
 """跨模块依赖注入 - 隔离 cases 模块对其他 app 的导入."""
 
+from __future__ import annotations
+
 from typing import Any
 
 

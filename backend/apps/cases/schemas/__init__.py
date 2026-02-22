@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .access_schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentIn, CaseAssignmentOut, CaseAssignmentUpdate
 from .base import ClientIdentityDocOut, ClientOut, ReminderOut

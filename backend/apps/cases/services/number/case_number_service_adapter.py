@@ -4,6 +4,8 @@
 实现 ICaseNumberService 接口,供跨模块调用
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from apps.core.interfaces import ICaseNumberService

@@ -1,5 +1,7 @@
 """Business workflow orchestration."""
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 from collections.abc import Sequence
 from typing import Any

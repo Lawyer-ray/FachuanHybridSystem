@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Chat services
 from .case_chat_service import CaseChatService
 from .case_chat_service_adapter import CaseChatServiceAdapter

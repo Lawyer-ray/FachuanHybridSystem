@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Party services
 from .case_assignment_service import CaseAssignmentService
 from .case_party_mutation_facade import CasePartyMutationFacade
