@@ -286,40 +286,6 @@ class ConversationService:
         """
         return list(self._repository.get_by_session_id(self.session_id).order_by("-created_at")[:limit])
 
-    def cleanup_old_conversations(self, days: int = 30) -> int:
-        """
-        清理旧对话记录
-
-        Args:
-            days: 保留天数
-        """
-        cutoff_date = timezone.now() - timedelta(days=days)
-        deleted_count, _ = self._repository.get_all().filter(created_at__lt=cutoff_date).delete()
-        return deleted_count
-
-    @classmethod
-    def get_user_sessions(cls, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
-        """
-        获取用户的会话列表
-
-        Args:
-            user_id: 用户ID
-            limit: 会话数量限制
-
-        Returns:
-            会话信息列表
-        """
-        repository = ConversationHistoryRepository()
-        sessions = (
-            repository.get_all()
-            .filter(user_id=user_id)
-            .values("session_id")
-            .annotate(last_message=models.Max("created_at"), message_count=models.Count("id"))
-            .order_by("-last_message")[:limit]
-        )
-
-        return list(sessions)
-
     def chat_with_context(self, user_message: str, system_prompt: str | None = None) -> str:
         """
         带上下文的对话

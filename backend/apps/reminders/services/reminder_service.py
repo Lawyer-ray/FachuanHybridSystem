@@ -35,6 +35,8 @@ class ReminderService:
             raise ValidationException(_("不能同时查询合同和案件日志的提醒"))
         if contract_id is None and case_log_id is None:
             raise ValidationException(_("必须指定合同或案件日志"))
+        normalize_target_id(contract_id, field_name=_("contract_id"))
+        normalize_target_id(case_log_id, field_name=_("case_log_id"))
 
         qs = Reminder.objects.order_by("-due_at", "-id")
 
