@@ -1,5 +1,7 @@
 """Business logic services."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from .workflows.case_full_create_workflow import CaseFullCreateWorkflow

@@ -1,5 +1,7 @@
 """Data repository layer."""
 
+from __future__ import annotations
+
 from apps.cases.models import Case
 
 from .case_search_query_builder import CaseSearchQueryBuilder

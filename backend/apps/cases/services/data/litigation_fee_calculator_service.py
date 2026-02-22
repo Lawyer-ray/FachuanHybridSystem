@@ -1,5 +1,7 @@
 """诉讼费用计算服务 - 根据《诉讼费用交纳办法》计算各类诉讼费用"""
 
+from __future__ import annotations
+
 import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any

@@ -3,6 +3,8 @@ Cases App Admin模块主文件
 统一管理所有案件的Admin界面
 """
 
+from __future__ import annotations
+
 from .case_admin import CaseAdmin
 from .caseparty_admin import CasePartyAdmin
 from .caseassignment_admin import CaseAssignmentAdmin

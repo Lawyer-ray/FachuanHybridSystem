@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .case_access_repo import CaseAccessRepo
 from .case_assignment_repo import CaseAssignmentRepo
 from .case_number_repo import CaseNumberRepo

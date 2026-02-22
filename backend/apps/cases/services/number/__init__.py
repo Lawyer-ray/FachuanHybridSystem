@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Number services
 from .case_filing_number_service import CaseFilingNumberService
 from .case_filing_number_service_adapter import CaseFilingNumberServiceAdapter

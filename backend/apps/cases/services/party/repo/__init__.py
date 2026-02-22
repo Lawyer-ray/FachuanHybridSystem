@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .case_party_command_repo import CasePartyCommandRepo
 
 __all__ = [

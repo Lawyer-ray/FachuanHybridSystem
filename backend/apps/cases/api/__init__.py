@@ -2,6 +2,8 @@
 Cases App API 模块
 """
 
+from __future__ import annotations
+
 from ninja import Router
 
 from .case_api import router as case_router

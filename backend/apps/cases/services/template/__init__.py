@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Template services
 from .case_document_template_admin_service import CaseDocumentTemplateAdminService
 from .case_template_binding_service import CaseTemplateBindingService

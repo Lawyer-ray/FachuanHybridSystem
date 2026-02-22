@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Case services
 from .case_access_policy import CaseAccessPolicy
 from .case_access_service import CaseAccessService

@@ -3,6 +3,8 @@
 实现跨模块接口,提供案件群聊服务的统一接口
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Data services
 from .cause_court_data_service import CauseCourtDataService
 from .cause_rule_service import CauseRuleService, SpecialCaseType
