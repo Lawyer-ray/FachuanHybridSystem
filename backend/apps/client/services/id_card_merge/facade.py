@@ -161,7 +161,7 @@ class IdCardMergeService:
         return detection.detect_id_card_corners(image, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
     def _perspective_transform(self, image: NDArray[np.uint8], corners: NDArray[np.float32]) -> NDArray[np.uint8]:
-        return apply_perspective_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
+        return perspective_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, min_output_width=400, logger=logger)
 
     def _generate_pdf(self, front_image: NDArray[np.uint8], back_image: NDArray[np.uint8]) -> str:
         media_root = get_media_root()
@@ -186,11 +186,3 @@ class IdCardMergeService:
         media_root = get_media_root()
         temp_dir = ensure_temp_dir(media_root)
         return image_io.save_temp_image(image, prefix=prefix, temp_dir=temp_dir, logger=logger)
-
-
-def apply_perspective_transform(
-    image: NDArray[np.uint8], corners: NDArray[np.float32], *, id_card_aspect_ratio: float, logger: Any
-) -> NDArray[np.uint8]:
-    return perspective_transform(
-        image, corners, id_card_aspect_ratio=id_card_aspect_ratio, min_output_width=400, logger=logger
-    )
