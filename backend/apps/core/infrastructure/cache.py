@@ -264,18 +264,6 @@ class CacheTimeout(metaclass=_CacheTimeoutMeta):
     DAY = 86400
 
 
-def invalidate_user_org_access_cache(user_id: int) -> None:
-    from django.core.cache import cache
-
-    cache.delete(CacheKeys.user_org_access(user_id))
-
-
-def invalidate_case_access_cache(user_id: int) -> None:
-    from django.core.cache import cache
-
-    cache.delete(CacheKeys.case_access_grants(user_id))
-
-
 def invalidate_user_access_context(user_id: int, *, org_access: bool = True, case_grants: bool = True) -> None:
     from django.core.cache import cache
 
