@@ -70,7 +70,7 @@ class GenerationTaskService:
         task.save(update_fields=["status", "error_message", "completed_at"])
         return self._to_dto(task)
 
-    def get_task_internal(self, task_id: int) -> GenerationTaskDTO | None | None:
+    def get_task_internal(self, task_id: int) -> GenerationTaskDTO | None:
         task = GenerationTask.objects.filter(id=task_id).first()
         if not task:
             return None

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.core.auth import JWTOrSessionAuth
@@ -75,7 +76,7 @@ def download_contract_document(request: Any, contract_id: int) -> Any:
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
-            message="生成合同文档失败", code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
+            message=_("生成合同文档失败"), code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
         )
 
     if saved_path:
@@ -128,7 +129,7 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
     if error:
         logger.warning("生成合同文件夹失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
-            message="生成合同文件夹失败", code="FOLDER_GENERATION_FAILED", errors={"detail": error}
+            message=_("生成合同文件夹失败"), code="FOLDER_GENERATION_FAILED", errors={"detail": error}
         )
 
     if extract_path:
@@ -179,7 +180,7 @@ def download_supplementary_agreement(request: Any, contract_id: int, agreement_i
             extra={"contract_id": contract_id, "agreement_id": agreement_id, "error": error},
         )
         raise ValidationException(
-            message="生成补充协议失败", code="AGREEMENT_GENERATION_FAILED", errors={"detail": error}
+            message=_("生成补充协议失败"), code="AGREEMENT_GENERATION_FAILED", errors={"detail": error}
         )
 
     if saved_path:

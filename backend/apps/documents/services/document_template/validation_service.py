@@ -8,7 +8,7 @@ from apps.core.path import Path
 
 
 class DocumentTemplateValidationService:
-    def normalize_file_path(self, file_path: str | None) -> str | None | None:
+    def normalize_file_path(self, file_path: str | None) -> str | None:
         if file_path is None:
             return None
         return file_path.strip()

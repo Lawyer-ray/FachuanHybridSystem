@@ -402,7 +402,7 @@ class AuthorizationMaterialGenerationService:
             )
         return template
 
-    def _get_template_path_from_case_bindings(self, case_id: int, template_name: str) -> Path | None | None:
+    def _get_template_path_from_case_bindings(self, case_id: int, template_name: str) -> Path | None:
         """
         从案件绑定的模板中查找指定名称的模板路径
 

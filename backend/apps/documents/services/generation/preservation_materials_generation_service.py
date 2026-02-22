@@ -170,7 +170,7 @@ class PreservationMaterialsGenerationService:
         buffer.seek(0)
         return (buffer.getvalue(), zip_filename)
 
-    def get_missing_clues_report(self, case_id: int) -> str | None | None:
+    def get_missing_clues_report(self, case_id: int) -> str | None:
         """
         生成缺失财产线索报告
 
