@@ -1,21 +1,25 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import contextlib
 import logging
 import mimetypes
-from typing import Any
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .access_policy import ensure_can_access_project
 from .project_service import ProjectService
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser as User
+    from django.core.files.uploadedfile import UploadedFile
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +30,11 @@ class RecordingService:
     def __init__(self, *, project_service: ProjectService) -> None:
         self._project_service = project_service
 
-    def list_recordings(self, *, user: Any, project_id: int) -> QuerySet[ChatRecordRecording, ChatRecordRecording]:
+    def list_recordings(self, *, user: User, project_id: int) -> QuerySet[ChatRecordRecording, ChatRecordRecording]:
         self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordRecording.objects.filter(project_id=project_id).order_by("-created_at")
 
-    def get_recording(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
+    def get_recording(self, *, user: User, recording_id: str) -> ChatRecordRecording:
         try:
             recording: ChatRecordRecording = (
                 ChatRecordRecording.objects.select_related("project").get(id=recording_id)
@@ -41,7 +45,7 @@ class RecordingService:
         return recording
 
     @transaction.atomic
-    def upload_recording(self, *, user: Any, project_id: int, file: Any) -> ChatRecordRecording:
+    def upload_recording(self, *, user: User, project_id: int, file: UploadedFile) -> ChatRecordRecording:
         project = self._project_service.get_project(user=user, project_id=project_id)
         if not file:
             raise ValidationException("请上传录屏文件")
@@ -79,7 +83,7 @@ class RecordingService:
         return recording
 
     @transaction.atomic
-    def delete_recording(self, *, user: Any, recording_id: str) -> dict[str, bool]:
+    def delete_recording(self, *, user: User, recording_id: str) -> dict[str, bool]:
         recording = self.get_recording(user=user, recording_id=recording_id)
         if recording.extract_status == ExtractStatus.RUNNING:
             raise ValidationException("抽帧处理中,无法删除")
@@ -90,12 +94,11 @@ class RecordingService:
         return {"success": True}
 
     @transaction.atomic
-    def update_duration(self, *, user: Any, recording_id: str, duration_seconds: float | None) -> ChatRecordRecording:
+    def update_duration(self, *, user: User, recording_id: str, duration_seconds: float | None) -> ChatRecordRecording:
         recording = self.get_recording(user=user, recording_id=recording_id)
         recording.duration_seconds = duration_seconds
         recording.save(update_fields=["duration_seconds"])
         return recording
-
 
     def _get_max_video_size_bytes(self) -> int:
         from apps.core.services.system_config_service import SystemConfigService
@@ -107,5 +110,8 @@ class RecordingService:
         try:
             return int(raw)
         except (ValueError, TypeError):
-            logger.warning(f"CHAT_RECORDS_MAX_VIDEO_SIZE_BYTES 配置值无效: {raw!r}，使用默认值")
+            logger.warning(
+                "CHAT_RECORDS_MAX_VIDEO_SIZE_BYTES 配置值无效: %s，使用默认值",
+                repr(raw),
+            )
             return self.DEFAULT_MAX_VIDEO_SIZE_BYTES
