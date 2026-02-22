@@ -1,7 +1,12 @@
 """Business logic services."""
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from apps.documents.services.generation.outputs import ComplaintOutput, DefenseOutput
 
 from apps.core.enums import LegalStatus
 from apps.documents.services.placeholders import EnhancedContextBuilder
@@ -57,7 +62,7 @@ class LitigationContextBuilder:
             "defense_reasons": "答辩理由待补充",
         }
 
-    def build_complaint_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]: # type: ignore
+    def build_complaint_context(self, *, case_dto: Any, llm_result: ComplaintOutput) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,
@@ -81,7 +86,7 @@ class LitigationContextBuilder:
         )
         return context
 
-    def build_defense_context(self, *, case_dto: Any, llm_result) -> dict[str, Any]: # type: ignore
+    def build_defense_context(self, *, case_dto: Any, llm_result: DefenseOutput) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
         required = [
             LitigationPlaceholderKeys.PLAINTIFF,

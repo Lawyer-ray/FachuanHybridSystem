@@ -7,8 +7,10 @@
 Requirements: 7.1, 7.2, 7.4
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from apps.core.exceptions import NotFoundError
 

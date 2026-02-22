@@ -6,12 +6,14 @@
 Requirements: 2.1, 2.6, 2.7, 3.1, 4.1
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 import zipfile
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException

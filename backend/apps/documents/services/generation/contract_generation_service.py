@@ -6,9 +6,11 @@
 Requirements: 2.1, 2.2, 3.1-3.5, 5.1-5.4
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractFolderBindingService, IContractService

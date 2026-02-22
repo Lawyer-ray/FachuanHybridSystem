@@ -6,8 +6,10 @@
 Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5, 9.4
 """
 
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.interfaces import IContractService
 from apps.core.path import Path
