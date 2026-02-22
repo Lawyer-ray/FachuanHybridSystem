@@ -2,128 +2,64 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
-from apps.core.exceptions import PermissionDenied
+from apps.organization.models import Lawyer, LawFirm, Team
 
 
 class OrganizationAccessPolicy:
-    def ensure_authenticated(self, user: object | None) -> None:
-        if not user or not getattr(user, "is_authenticated", False):
-            raise PermissionDenied(_("用户未认证"))
+    def can_create(self, user: Lawyer | None) -> bool:
+        return bool(user and user.is_authenticated and (user.is_superuser or user.is_admin))
 
-    def can_create(self, user: object | None) -> bool:
-        return bool(
-            user
-            and getattr(user, "is_authenticated", False)
-            and (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
-        )
-
-    def ensure_can_create(self, user: object | None) -> None:
-        if not self.can_create(user):
-            raise PermissionDenied(_("权限不足"))
-
-    def can_read_lawyer(self, user: object | None, lawyer: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_read_lawyer(self, user: Lawyer | None, lawyer: Lawyer) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
             return True
-        return getattr(user, "law_firm_id", None) == getattr(lawyer, "law_firm_id", None)
+        return user.law_firm_id == lawyer.law_firm_id
 
-    def ensure_can_read_lawyer(self, user: object | None, lawyer: object) -> None:
-        if not self.can_read_lawyer(user=user, lawyer=lawyer):
-            raise PermissionDenied(_("无权限访问"))
-
-    def can_update_lawyer(self, user: object | None, lawyer: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_update_lawyer(self, user: Lawyer | None, lawyer: Lawyer) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
             return True
-        if getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(
-            lawyer, "law_firm_id", None
-        ):
+        if user.is_admin and user.law_firm_id == lawyer.law_firm_id:
             return True
-        return getattr(user, "id", None) == getattr(lawyer, "id", None)
+        return user.id == lawyer.id
 
-    def ensure_can_update_lawyer(self, user: object | None, lawyer: object) -> None:
-        if not self.can_update_lawyer(user=user, lawyer=lawyer):
-            raise PermissionDenied(_("无权限更新"))
-
-    def can_delete_lawyer(self, user: object | None, lawyer: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_delete_lawyer(self, user: Lawyer | None, lawyer: Lawyer) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        return bool(
-            getattr(user, "is_superuser", False)
-            or (
-                getattr(user, "is_admin", False)
-                and getattr(user, "law_firm_id", None) == getattr(lawyer, "law_firm_id", None)
-            )
-        )
+        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawyer.law_firm_id))
 
-    def ensure_can_delete_lawyer(self, user: object | None, lawyer: object) -> None:
-        if not self.can_delete_lawyer(user=user, lawyer=lawyer):
-            raise PermissionDenied(_("无权限删除"))
-
-    def can_read_lawfirm(self, user: object | None, lawfirm: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_read_lawfirm(self, user: Lawyer | None, lawfirm: LawFirm) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
             return True
-        return getattr(user, "law_firm_id", None) == getattr(lawfirm, "id", None)
+        return user.law_firm_id == lawfirm.id
 
-    def ensure_can_read_lawfirm(self, user: object | None, lawfirm: object) -> None:
-        if not self.can_read_lawfirm(user=user, lawfirm=lawfirm):
-            raise PermissionDenied(_("无权限访问该律所"))
-
-    def can_update_lawfirm(self, user: object | None, lawfirm: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_update_lawfirm(self, user: Lawyer | None, lawfirm: LawFirm) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        return bool(
-            getattr(user, "is_superuser", False)
-            or (getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(lawfirm, "id", None))
-        )
+        return bool(user.is_superuser or (user.is_admin and user.law_firm_id == lawfirm.id))
 
-    def ensure_can_update_lawfirm(self, user: object | None, lawfirm: object) -> None:
-        if not self.can_update_lawfirm(user=user, lawfirm=lawfirm):
-            raise PermissionDenied(_("无权限更新该律所"))
-
-    def can_delete_lawfirm(self, user: object | None, lawfirm: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_delete_lawfirm(self, user: Lawyer | None, lawfirm: LawFirm) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        return bool(getattr(user, "is_superuser", False))
+        return bool(user.is_superuser)
 
-    def ensure_can_delete_lawfirm(self, user: object | None, lawfirm: object) -> None:
-        if not self.can_delete_lawfirm(user=user, lawfirm=lawfirm):
-            raise PermissionDenied(_("无权限删除该律所"))
-
-    def can_read_team(self, user: object | None, team: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_read_team(self, user: Lawyer | None, team: Team) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
             return True
-        return getattr(user, "law_firm_id", None) == getattr(team, "law_firm_id", None)
+        return user.law_firm_id == team.law_firm_id
 
-    def ensure_can_read_team(self, user: object | None, team: object) -> None:
-        if not self.can_read_team(user=user, team=team):
-            raise PermissionDenied(_("无权限访问该团队"))
-
-    def can_update_team(self, user: object | None, team: object) -> bool:
-        if not user or not getattr(user, "is_authenticated", False):
+    def can_update_team(self, user: Lawyer | None, team: Team) -> bool:
+        if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
             return True
-        return bool(
-            getattr(user, "is_admin", False)
-            and getattr(user, "law_firm_id", None) == getattr(team, "law_firm_id", None)
-        )
+        return bool(user.is_admin and user.law_firm_id == team.law_firm_id)
 
-    def ensure_can_update_team(self, user: object | None, team: object) -> None:
-        if not self.can_update_team(user=user, team=team):
-            raise PermissionDenied(_("无权限更新该团队"))
-
-    def can_delete_team(self, user: object | None, team: object) -> bool:
+    def can_delete_team(self, user: Lawyer | None, team: Team) -> bool:
         return self.can_update_team(user=user, team=team)
-
-    def ensure_can_delete_team(self, user: object | None, team: object) -> None:
-        if not self.can_delete_team(user=user, team=team):
-            raise PermissionDenied(_("无权限删除该团队"))
