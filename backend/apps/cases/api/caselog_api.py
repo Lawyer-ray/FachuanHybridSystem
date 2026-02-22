@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, cast
 
 from ninja import Router
@@ -21,30 +20,6 @@ router = Router()
 def _get_caselog_service() -> CaseLogService:
     """工厂函数：创建 CaseLogService 实例"""
     return CaseLogService()
-
-
-def _parse_reminder_time(rt: str | None) -> datetime | None:
-    """解析提醒时间字符串"""
-    if not rt:
-        return None
-    for fmt in (None, "%Y-%m-%d %H:%M:%S"):
-        parsed = _try_parse_dt(rt, fmt)
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def _try_parse_dt(rt: str, fmt: str | None) -> datetime | None:
-    """尝试单种格式解析，失败返回 None"""
-    if fmt is None:
-        import contextlib
-        with contextlib.suppress(ValueError, TypeError):
-            return datetime.fromisoformat(rt)
-        return None
-    import contextlib
-    with contextlib.suppress(ValueError, TypeError):
-        return datetime.strptime(rt, fmt)
-    return None
 
 
 @router.get("/logs", response=list[CaseLogOut])
@@ -70,7 +45,7 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
     service = _get_caselog_service()
     ctx = extract_request_context(request)
 
-    reminder_time = _parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
+    reminder_time = service.parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
 
     return cast(
         CaseLogOut,
@@ -110,7 +85,7 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     data = payload.dict(exclude_unset=True)
 
     if "reminder_time" in data and isinstance(data["reminder_time"], str):
-        data["reminder_time"] = _parse_reminder_time(data["reminder_time"])
+        data["reminder_time"] = service.parse_reminder_time(data["reminder_time"])
 
     return cast(
         CaseLogOut,
