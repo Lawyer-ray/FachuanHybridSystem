@@ -8,15 +8,11 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import CaseStage, LegalStatus, SimpleCaseType
+from apps.documents.models.choices import LegalStatusMatchMode
 
 
 class ProxyMatterRule(models.Model):
     id: int
-
-    class LegalStatusMatchMode(models.TextChoices):
-        ANY = "any", _("任意匹配")
-        ALL = "all", _("全部包含")
-        EXACT = "exact", _("完全一致")
 
     case_type = models.CharField(
         max_length=32,

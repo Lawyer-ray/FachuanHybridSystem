@@ -1,7 +1,7 @@
 """API schemas and serializers."""
 
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 from ninja import Schema
@@ -12,6 +12,21 @@ from apps.core.schemas import SchemaMixin
 from .models import Reminder, ReminderType
 
 
+def _validate_positive_id(value: int | None) -> int | None:
+    if value is not None and value <= 0:
+        raise ValueError(_("ID 必须为正整数"))
+    return value
+
+
+def _validate_content_not_blank(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(_("提醒事项不能为空"))
+    return normalized
+
+
 class ReminderIn(Schema):
     contract_id: int | None = None
     case_log_id: int | None = None
@@ -20,20 +35,8 @@ class ReminderIn(Schema):
     due_at: datetime
     metadata: dict[str, Any] | None = None
 
-    @field_validator("contract_id", "case_log_id")
-    @classmethod
-    def validate_positive_target_id(cls, value: int | None) -> int | None:
-        if value is not None and value <= 0:
-            raise ValueError(_("ID 必须为正整数"))
-        return value
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, value: str) -> str:
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError(_("提醒事项不能为空"))
-        return normalized
+    _validate_ids = field_validator("contract_id", "case_log_id")(_validate_positive_id)
+    _validate_content = field_validator("content")(_validate_content_not_blank)
 
     @model_validator(mode="after")
     def validate_binding_exclusivity(self) -> "ReminderIn":
@@ -53,22 +56,8 @@ class ReminderUpdate(Schema):
     due_at: datetime | None = None
     metadata: dict[str, Any] | None = None
 
-    @field_validator("contract_id", "case_log_id")
-    @classmethod
-    def validate_positive_target_id(cls, value: int | None) -> int | None:
-        if value is not None and value <= 0:
-            raise ValueError(_("ID 必须为正整数"))
-        return value
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError(_("提醒事项不能为空"))
-        return normalized
+    _validate_ids = field_validator("contract_id", "case_log_id")(_validate_positive_id)
+    _validate_content = field_validator("content")(_validate_content_not_blank)
 
     @model_validator(mode="after")
     def validate_binding_exclusivity(self) -> "ReminderUpdate":

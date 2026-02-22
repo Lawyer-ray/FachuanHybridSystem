@@ -7,7 +7,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from apps.core.exceptions import ValidationException
@@ -20,7 +19,6 @@ if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService
     from .client_mutation_service import ClientMutationService
 
-User = get_user_model()
 logger = logging.getLogger("apps.client")
 
 

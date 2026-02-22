@@ -22,20 +22,13 @@ from .choices import (
     DocumentContractSubType,
     DocumentContractType,
     DocumentTemplateType,
+    LegalStatusMatchMode,
 )
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
     from .evidence import EvidenceList
-
-
-class LegalStatusMatchMode(models.TextChoices):
-    """诉讼地位匹配模式枚举"""
-
-    ANY = "any", _("任意匹配")
-    ALL = "all", _("全部包含")
-    EXACT = "exact", _("完全一致")
 
 
 class DocumentTemplate(models.Model):

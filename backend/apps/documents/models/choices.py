@@ -136,3 +136,16 @@ class TemplateAuditAction(models.TextChoices):
     DEACTIVATE = "deactivate", _("禁用")
     DUPLICATE = "duplicate", _("复制")
     SET_DEFAULT = "set_default", _("设为默认")
+
+
+# ============================================================
+# 诉讼地位匹配模式
+# ============================================================
+
+
+class LegalStatusMatchMode(models.TextChoices):
+    """诉讼地位匹配模式"""
+
+    ANY = "any", _("任意匹配")
+    ALL = "all", _("全部包含")
+    EXACT = "exact", _("完全一致")

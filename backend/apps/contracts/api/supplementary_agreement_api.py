@@ -11,7 +11,7 @@ from ninja import Router
 from apps.client.services import ClientServiceAdapter
 
 from apps.contracts.schemas import SupplementaryAgreementIn, SupplementaryAgreementOut, SupplementaryAgreementUpdate
-from apps.contracts.services.supplementary_agreement_service import SupplementaryAgreementService
+from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
 
 router = Router()
 

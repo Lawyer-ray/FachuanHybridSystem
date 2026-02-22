@@ -21,7 +21,7 @@ router = Router()
 
 def _get_payment_service() -> Any:
     """工厂函数：创建 ContractPaymentService 实例"""
-    from apps.contracts.services.contract_payment_service import ContractPaymentService
+    from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
     return ContractPaymentService()
 

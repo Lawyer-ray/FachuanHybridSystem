@@ -24,10 +24,10 @@ class FolderTemplateIn(Schema):
 
     name: str
     template_type: str = FolderTemplateType.CONTRACT
-    case_types: ClassVar[list[str]] = []
-    case_stages: ClassVar[list[str]] = []
-    contract_types: ClassVar[list[str]] = []
-    structure: ClassVar[dict[str, Any]] = {}
+    case_types: list[str] = []
+    case_stages: list[str] = []
+    contract_types: list[str] = []
+    structure: dict[str, Any] = {}
     is_default: bool = False
     is_active: bool = True
 
@@ -98,9 +98,9 @@ class DocumentTemplateIn(Schema):
     description: str = ""
     template_type: str = DocumentTemplateType.CONTRACT
     file_path: str | None = None
-    case_types: ClassVar[list[str]] = []
-    case_stages: ClassVar[list[str]] = []
-    contract_types: ClassVar[list[str]] = []
+    case_types: list[str] = []
+    case_stages: list[str] = []
+    contract_types: list[str] = []
     is_active: bool = True
 
 
@@ -125,7 +125,6 @@ class FolderBindingOut(Schema):
     folder_template_name: str
     folder_node_id: str
     folder_node_path: str
-    priority: int
     is_active: bool
 
 
@@ -137,7 +136,7 @@ class DocumentTemplateOut(ModelSchema):
     case_stages_display: str
     contract_types_display: str
     file_location: str | None = None
-    folder_bindings: ClassVar[list[FolderBindingOut]] = []
+    folder_bindings: list[FolderBindingOut] = []
 
     class Meta:
         model = DocumentTemplate
@@ -184,7 +183,6 @@ class DocumentTemplateOut(ModelSchema):
                 folder_template_name=binding.folder_template.name,
                 folder_node_id=binding.folder_node_id,
                 folder_node_path=binding.folder_node_path,
-                priority=binding.priority,
                 is_active=binding.is_active,
             )
             for binding in obj.folder_bindings.all()
@@ -234,7 +232,7 @@ class PlaceholderOut(ModelSchema):
 class PlaceholderPreviewOut(Schema):
     contract_id: int
     values: dict[str, Any]
-    missing_keys: ClassVar[list[str]] = []
+    missing_keys: list[str] = []
 
 
 # ============================================================

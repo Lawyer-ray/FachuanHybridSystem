@@ -3,14 +3,11 @@
 from django.utils.translation import gettext_lazy as _
 from typing import Any
 
-from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
 
 from apps.client.models import Client
 from apps.client.services.client_query_builder import ClientQueryBuilder
 from apps.core.exceptions import ValidationException
-
-User = get_user_model()
 
 
 class ClientListQueryService:

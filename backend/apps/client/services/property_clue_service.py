@@ -163,9 +163,19 @@ class PropertyClueService:
 
     @transaction.atomic
     def delete_clue(self, clue_id: int, user: Any = None) -> None:
-        """删除财产线索及其所有附件。"""
+        """删除财产线索及其所有附件（含磁盘文件）。"""
+        from apps.client.services.storage import delete_media_file
+
         clue = self.get_clue(clue_id, user)
+
+        # 收集所有附件文件路径
+        file_paths = [a.file_path for a in clue.attachments.all() if a.file_path]
+
         clue.delete()
+
+        if file_paths:
+            transaction.on_commit(lambda: [delete_media_file(p) for p in file_paths])
+
         logger.info(
             "财产线索删除成功",
             extra={
@@ -245,8 +255,9 @@ class PropertyClueService:
 
     @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: Any = None) -> None:
-        """删除财产线索附件。"""
+        """删除财产线索附件（含磁盘文件）。"""
         from apps.client.models import PropertyClueAttachment
+        from apps.client.services.storage import delete_media_file
 
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
@@ -257,7 +268,12 @@ class PropertyClueService:
                 errors={"attachment_id": f"ID 为 {attachment_id} 的附件不存在"},
             ) from e
 
+        file_path = attachment.file_path
         attachment.delete()
+
+        if file_path:
+            transaction.on_commit(lambda: delete_media_file(file_path))
+
         logger.info(
             "财产线索附件删除成功",
             extra={

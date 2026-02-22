@@ -23,6 +23,7 @@ from apps.documents.models import (
     DocumentContractType,
     FolderTemplate,
     FolderTemplateType,
+    LegalStatusMatchMode,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class FolderTemplateForm(forms.ModelForm):
 
     # 诉讼地位匹配模式
     legal_status_match_mode = forms.ChoiceField(
-        choices=FolderTemplate.LegalStatusMatchMode.choices,
+        choices=LegalStatusMatchMode.choices,
         widget=forms.Select,
         required=False,
         label=_("诉讼地位匹配模式"),

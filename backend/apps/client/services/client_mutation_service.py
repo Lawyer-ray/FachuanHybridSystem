@@ -25,6 +25,11 @@ logger = logging.getLogger("apps.client")
 
 class ClientMutationService:
     _VALID_CLIENT_TYPES: list[str] = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
+    _UPDATABLE_FIELDS: set[str] = {
+        "name", "phone", "address", "client_type",
+        "id_number", "legal_representative", "legal_representative_id_number",
+        "is_our_client",
+    }
 
     def __init__(
         self,
@@ -106,7 +111,7 @@ class ClientMutationService:
         self._validate_update_data(client, data)
 
         for key, value in data.items():
-            if hasattr(client, key):
+            if key in self._UPDATABLE_FIELDS:
                 setattr(client, key, value)
 
         client.save()

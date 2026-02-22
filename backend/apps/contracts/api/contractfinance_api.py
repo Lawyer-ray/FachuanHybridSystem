@@ -9,7 +9,7 @@ from django.utils.dateparse import parse_date
 from ninja import Router
 
 from apps.contracts.schemas import FinanceStatsItem, FinanceStatsOut
-from apps.contracts.services.contract_finance_service import ContractFinanceService
+from apps.contracts.services.payment.contract_finance_service import ContractFinanceService
 
 router = Router()
 

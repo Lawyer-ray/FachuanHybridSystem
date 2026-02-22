@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .choices import DocumentCaseStage, DocumentCaseType, DocumentContractType, FolderTemplateType
+from .choices import DocumentCaseStage, DocumentCaseType, DocumentContractType, FolderTemplateType, LegalStatusMatchMode
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
@@ -30,13 +30,6 @@ class FolderTemplate(models.Model):
     """
 
     id: int
-
-    class LegalStatusMatchMode(models.TextChoices):
-        """诉讼地位匹配模式"""
-
-        ANY = "any", _("任意匹配")
-        ALL = "all", _("全部包含")
-        EXACT = "exact", _("完全一致")
 
     name = models.CharField(max_length=100, verbose_name=_("模板名称"))
     template_type = models.CharField(

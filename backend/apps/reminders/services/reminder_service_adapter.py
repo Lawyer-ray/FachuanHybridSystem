@@ -35,8 +35,8 @@ class ReminderServiceAdapter:
         "asset_preservation": "asset_preservation_expires",
     }
 
-    def __init__(self) -> None:
-        self._service = ReminderService()
+    def __init__(self, service: ReminderService | None = None) -> None:
+        self._service = service or ReminderService()
 
     def create_reminder_internal(
         self, case_log_id: int, reminder_type: str, reminder_time: datetime | None, user_id: int | None = None

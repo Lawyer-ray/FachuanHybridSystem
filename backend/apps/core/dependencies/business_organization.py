@@ -30,17 +30,12 @@ def build_organization_service() -> IOrganizationService:
 def build_reminder_service() -> IReminderService:
     from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
 
-    return ReminderServiceAdapter()
+    return ReminderServiceAdapter(service=build_reminder_api_service())
 
 def build_reminder_api_service() -> ReminderService:
-    """组装 ReminderService 及其 checker 依赖。"""
-    from apps.cases.models import CaseLog
-    from apps.contracts.models import Contract
+    """组装 API 层使用的 ReminderService。"""
     from apps.reminders.services.reminder_service import ReminderService
 
-    return ReminderService(
-        contract_exists_checker=lambda pk: Contract.objects.filter(id=pk).exists(),
-        case_log_exists_checker=lambda pk: CaseLog.objects.filter(id=pk).exists(),
-    )
+    return ReminderService()
 
 

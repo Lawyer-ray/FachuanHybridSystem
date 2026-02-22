@@ -126,9 +126,16 @@ class ClientIdentityDocService:
 
     @transaction.atomic
     def delete_identity_doc(self, doc_id: int, user: Any) -> None:
-        """删除证件文档"""
+        """删除证件文档及其磁盘文件。"""
+        from apps.client.services.storage import delete_media_file
+
         doc = self.get_identity_doc(doc_id)
+        file_path = doc.file_path
         doc.delete()
+
+        if file_path:
+            transaction.on_commit(lambda: delete_media_file(file_path))
+
         logger.info("删除证件文档 %s", doc_id, extra={"user": user})
 
     def save_uploaded_file_to_dir(self, uploaded_file: Any, rel_dir: str) -> str:

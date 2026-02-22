@@ -1,19 +1,21 @@
 """
 Contracts Services Module
 合同业务逻辑服务层
+
+重新导出所有服务类，保持向后兼容性.
 """
 
-from .contract_service import ContractService, ContractServiceAdapter
-from .contract_payment_service import ContractPaymentService
-from .contract_finance_service import ContractFinanceService
-from .supplementary_agreement_service import SupplementaryAgreementService
-from .lawyer_assignment_service import LawyerAssignmentService
+# 新版服务（从子包导入）
+from .contract.contract_admin_service import ContractAdminService
+from .contract.contract_display_service import ContractDisplayService
+from .contract.contract_progress_service import ContractProgressService
+from .contract.contract_service import ContractService
+from .contract.contract_service_adapter import ContractServiceAdapter
 
 __all__ = [
+    "ContractAdminService",
+    "ContractDisplayService",
+    "ContractProgressService",
     "ContractService",
     "ContractServiceAdapter",
-    "ContractPaymentService",
-    "ContractFinanceService",
-    "SupplementaryAgreementService",
-    "LawyerAssignmentService",
 ]
