@@ -4,13 +4,14 @@
 使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 Ollama 结构化提取信息.
 """
 
-from django.utils.translation import gettext_lazy as _
 import json
 import logging
 import tempfile
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.client.dependencies import get_ocr_engine
 from apps.client.services.wiring import get_llm_service
