@@ -314,7 +314,7 @@ class TestSupplementaryAgreementGenerationIntegration:
     def test_filename_generation_with_empty_names(self):
         """测试空名称时的文件名生成"""
         # 创建没有名称的补充协议
-        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name="")  # 空名称  # type: ignore[misc]
+        agreement = SupplementaryAgreement.objects.create(contract=self.contract, name="")  # type: ignore
 
         # 创建没有名称的合同
         contract_no_name = ContractFactory(name="")

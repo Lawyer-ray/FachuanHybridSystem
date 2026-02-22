@@ -81,6 +81,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
         """禁止删除"""
         return False
 
+    @admin.display(description=_("对象描述"))
     def object_repr_display(self, obj: TemplateAuditLog) -> str:
         """显示对象描述(截断)"""
         text = obj.object_repr
@@ -88,8 +89,8 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
             text = text[:50] + "..."
         return text
 
-    object_repr_display.short_description = _("对象描述")  # type: ignore[attr-defined]
 
+    @admin.display(description=_("变更详情"))
     def changes_display(self, obj: TemplateAuditLog) -> Any:
         """格式化显示变更内容"""
         if not obj.changes:
@@ -135,4 +136,3 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
             rows_html,
         )
 
-    changes_display.short_description = _("变更详情")  # type: ignore[attr-defined]

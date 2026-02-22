@@ -30,6 +30,7 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
         qs: QuerySet[EvidenceItem, EvidenceItem] = super().get_queryset(request)
         return qs
 
+    @admin.display(description=_("序号"))
     def global_order_display(self, obj: EvidenceItem) -> Any:
         if not obj.pk:
             return "-"
@@ -38,14 +39,13 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
         global_order = evidence_list.start_order + obj.order - 1
         return global_order
 
-    global_order_display.short_description = _("序号")  # type: ignore[attr-defined]
 
+    @admin.display(description=_("页码范围"))
     def page_range_display(self, obj: EvidenceItem) -> Any:
         if obj.pk:
             return obj.page_range_display
         return "-"
 
-    page_range_display.short_description = _("页码范围")  # type: ignore[attr-defined]
 
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/evidence_inline.css",)}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 from apps.documents.models import FolderTemplate
 
@@ -46,7 +46,7 @@ class FolderTemplateStructureIdRepairService:
         def repair_node(node: Any) -> Any: # type: ignore[no-any-return]
             nonlocal changes
             if not isinstance(node, dict):
-                return cast(None, node)
+                return node
 
             current_id = node.get("id")
             if not current_id or current_id in global_used_ids:

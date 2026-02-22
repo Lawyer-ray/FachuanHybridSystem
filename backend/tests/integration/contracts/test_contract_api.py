@@ -41,7 +41,7 @@ class TestContractAPI:
             "status": "active",
             "fee_mode": "fixed",
             "fixed_amount": 10000.00,
-            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段  # type: ignore[attr-defined]
+            "lawyer_ids": [lawyer.id],  # type: ignore
         }
 
         # 模拟请求
@@ -84,7 +84,7 @@ class TestContractAPI:
             "status": "active",
             "fee_mode": "fixed",
             "fixed_amount": 10000.00,
-            "lawyer_ids": [lawyer.id],  # 使用新的 lawyer_ids 字段  # type: ignore[attr-defined]
+            "lawyer_ids": [lawyer.id],  # type: ignore
             "cases": [
                 {
                     "name": "测试案件1",

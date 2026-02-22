@@ -127,7 +127,7 @@ class TestContractService:
         contract = ContractFactory()
 
         # 执行测试
-        result = self.service.delete_contract(contract.id) # type: ignore[func-returns-value]
+        result = self.service.delete_contract(contract.id) # type: ignore
 
         # 断言返回 None
         assert result is None
@@ -360,7 +360,7 @@ class TestContractService:
         ContractParty.objects.create(contract=contract, client=client)  # type: ignore[misc]
 
         # 执行测试（返回 None）
-        result = self.service.remove_party(contract.id, client.id) # type: ignore[func-returns-value]
+        result = self.service.remove_party(contract.id, client.id) # type: ignore
 
         # 断言返回 None
         assert result is None

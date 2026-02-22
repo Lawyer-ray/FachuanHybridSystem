@@ -17,7 +17,7 @@ class TestContractInSchema:
     def test_lawyer_ids_required(self):
         """测试 lawyer_ids 必填"""
         with pytest.raises(ValidationError) as exc_info:
-            ContractIn(name="测试合同", case_type="civil", status="active", lawyer_ids=[])  # 空列表应该失败  # type: ignore[call-arg]
+            ContractIn(name="测试合同", case_type="civil", status="active", lawyer_ids=[])  # type: ignore
 
         assert "至少需要指派一个律师" in str(exc_info.value)
 

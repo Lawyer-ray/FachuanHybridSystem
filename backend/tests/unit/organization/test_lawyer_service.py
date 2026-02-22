@@ -89,7 +89,7 @@ class TestLawyerService:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 执行测试
-        result = self.service.get_lawyer(lawyer.id, user)  # type: ignore[attr-defined]
+        result = self.service.get_lawyer(lawyer.id, user)  # type: ignore
 
         # 断言结果
         assert result.id == lawyer.id  # type: ignore[attr-defined]
@@ -113,7 +113,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_lawyer(lawyer.id, user)  # type: ignore[attr-defined]
+            self.service.get_lawyer(lawyer.id, user)  # type: ignore
 
     def test_list_lawyers_superuser(self):
         """测试超级管理员列表查询"""
@@ -151,7 +151,7 @@ class TestLawyerService:
         data = LawyerUpdateIn(real_name="新名称")
 
         # 执行测试
-        result = self.service.update_lawyer(lawyer.id, data, admin_user)  # type: ignore[attr-defined]
+        result = self.service.update_lawyer(lawyer.id, data, admin_user)  # type: ignore
 
         # 断言结果
         assert result.real_name == "新名称"
@@ -167,7 +167,7 @@ class TestLawyerService:
         data = LawyerUpdateIn(real_name="新名称")
 
         # 执行测试
-        result = self.service.update_lawyer(lawyer.id, data, lawyer)  # type: ignore[attr-defined]
+        result = self.service.update_lawyer(lawyer.id, data, lawyer)  # type: ignore
 
         # 断言结果
         assert result.real_name == "新名称"
@@ -183,7 +183,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.update_lawyer(lawyer.id, data, user)  # type: ignore[attr-defined]
+            self.service.update_lawyer(lawyer.id, data, user)  # type: ignore
 
     def test_delete_lawyer_success(self):
         """测试删除律师成功"""
@@ -193,7 +193,7 @@ class TestLawyerService:
         admin_user = LawyerFactory(law_firm=lawfirm, is_admin=True)
 
         # 执行测试
-        self.service.delete_lawyer(lawyer.id, admin_user)  # type: ignore[attr-defined]
+        self.service.delete_lawyer(lawyer.id, admin_user)  # type: ignore
 
         # 验证律师已删除
         from apps.organization.models import Lawyer
@@ -209,7 +209,7 @@ class TestLawyerService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.delete_lawyer(lawyer.id, normal_user)  # type: ignore[attr-defined]
+            self.service.delete_lawyer(lawyer.id, normal_user)  # type: ignore
 
     def test_get_team_member_ids(self):
         """测试获取团队成员 ID"""

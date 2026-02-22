@@ -154,7 +154,7 @@ class PropertyClueOut(Schema):
                 file_path=item.file_path,
                 file_name=item.file_name,
                 uploaded_at=item.uploaded_at,
-                media_url=item.media_url if hasattr(item, "media_url") else None,
+                media_url=item.media_url,
             )
             for item in obj.attachments.all()
         ]
