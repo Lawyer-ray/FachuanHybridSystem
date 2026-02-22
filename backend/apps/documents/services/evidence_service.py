@@ -6,8 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from apps.documents.models import EvidenceItem, EvidenceList
-
-logger = logging.getLogger(__name__)
 from apps.documents.services.evidence import (
     EvidenceFileService,
     EvidenceMutationService,
@@ -17,6 +15,8 @@ from apps.documents.services.evidence import (
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
+
+logger = logging.getLogger(__name__)
 
 
 class EvidenceService:
