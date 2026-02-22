@@ -6,7 +6,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -14,7 +14,7 @@ from django.db import transaction
 from apps.core.exceptions import ValidationException
 
 from apps.client.models import Client, ClientIdentityDoc
-from apps.client.services.storage import sanitize_upload_filename
+from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
     from .client_service import ClientService
@@ -33,7 +33,7 @@ class ImportResult:
     error_message: str | None = None
 
 
-class ClientAdminService:
+class ClientAdminService(ClientAdminFileMixin):
     """
     客户 Admin 服务
 
@@ -353,152 +353,6 @@ class ClientAdminService:
             ClientIdentityDoc.objects.create(client_id=client_id, doc_type=doc_type, file_path=file_path)
 
         return {"doc_type": doc_type, "file_path": file_path, "doc_id": doc_id}
-
-    def _handle_file_storage(
-        self, form_data: dict[str, Any], client_name: str = "", doc_type_display: str = ""
-    ) -> str | None:
-        """
-        处理文件存储
-
-        Args:
-            form_data: 表单数据
-            client_name: 当事人名称
-            doc_type_display: 证件类型显示名
-
-        Returns:
-            文件路径（相对路径），如果没有文件则返回 None
-        """
-        # 如果已有文件路径，直接使用
-        if form_data.get("file_path"):
-            return cast(str | None, form_data["file_path"])
-
-        # 如果有上传的文件，处理文件存储
-        uploaded_file = form_data.get("uploaded_file")
-        if uploaded_file:
-            return self._save_uploaded_file(uploaded_file, client_name, doc_type_display)
-
-        return None
-
-    def _save_uploaded_file(self, uploaded_file: Any, client_name: str = "", doc_type: str = "") -> str:
-        """
-        保存上传的文件并重命名
-
-        Args:
-            uploaded_file: 上传的文件对象
-            client_name: 当事人名称
-            doc_type: 证件类型
-
-        Returns:
-            保存后的相对文件路径（相对于 MEDIA_ROOT）
-        """
-        from pathlib import Path
-
-        from django.conf import settings
-
-        if not hasattr(uploaded_file, "name"):
-            return ""
-
-        # 创建目录
-        upload_dir = Path(settings.MEDIA_ROOT) / "client_docs"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-        # 获取文件扩展名
-        ext = Path(uploaded_file.name).suffix
-
-        # 生成新文件名：当事人名称_证件类型.扩展名
-        if client_name and doc_type:
-            clean_name = sanitize_upload_filename(client_name)
-            clean_type = sanitize_upload_filename(doc_type)
-            new_filename = f"{clean_name}_{clean_type}{ext}"
-        else:
-            new_filename = uploaded_file.name
-
-        # 处理重名文件
-        file_path = upload_dir / new_filename
-        counter = 1
-        base_name = Path(new_filename).stem
-        while file_path.exists():
-            new_filename = f"{base_name}_{counter}{ext}"
-            file_path = upload_dir / new_filename
-            counter += 1
-
-        # 保存文件
-        with open(file_path, "wb+") as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
-
-        # 返回相对路径（相对于 MEDIA_ROOT）
-        return f"client_docs/{new_filename}"
-
-    def _update_identity_doc(self, doc_id: int, file_path: str, admin_user: str) -> None:
-        """
-        更新证件文档记录
-
-        Args:
-            doc_id: 证件文档 ID
-            file_path: 新的文件路径
-            admin_user: 管理员用户名
-        """
-        try:
-            doc = ClientIdentityDoc.objects.get(id=doc_id)
-            old_path = doc.file_path
-            doc.file_path = file_path
-            doc.save()
-
-            # 记录更新日志
-            logger.info(
-                "证件文档文件路径更新成功",
-                extra={
-                    "doc_id": doc_id,
-                    "old_path": old_path,
-                    "new_path": file_path,
-                    "admin_user": admin_user,
-                    "action": "update_identity_doc",
-                },
-            )
-
-        except ClientIdentityDoc.DoesNotExist:
-            logger.warning(
-                "尝试更新不存在的证件文档",
-                extra={"doc_id": doc_id, "admin_user": admin_user, "action": "update_identity_doc"},
-            )
-
-    def save_and_rename_file(
-        self, client_id: int, client_name: str, doc_id: int, doc_type: str, uploaded_file: Any
-    ) -> str:
-        """
-        保存上传文件并重命名，更新数据库记录
-
-        Args:
-            client_id: 客户 ID
-            client_name: 客户名称
-            doc_id: 证件文档 ID
-            doc_type: 证件类型
-            uploaded_file: 上传的文件对象
-
-        Returns:
-            保存后的相对文件路径
-        """
-        # 获取证件类型显示名
-        doc_type_display = dict(ClientIdentityDoc.DOC_TYPE_CHOICES).get(doc_type, doc_type)
-
-        # 保存文件并重命名
-        file_path = self._save_uploaded_file(uploaded_file, client_name, doc_type_display)
-
-        # 更新数据库记录
-        if file_path:
-            ClientIdentityDoc.objects.filter(id=doc_id).update(file_path=file_path)
-            logger.info(
-                "证件文件保存成功",
-                extra={
-                    "client_id": client_id,
-                    "doc_id": doc_id,
-                    "file_path": file_path,
-                    "action": "save_and_rename_file",
-                },
-            )
-
-        return file_path
 
     def parse_client_text(self, text: str) -> dict[str, Any]:
         """
