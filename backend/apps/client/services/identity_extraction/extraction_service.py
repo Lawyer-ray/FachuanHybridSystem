@@ -266,7 +266,7 @@ class IdentityExtractionService:
 
         except ConnectionError as e:
             logger.exception("Ollama 服务连接失败: %s", e)
-            raise ServiceUnavailableError(message=str(_("Ollama 服务连接失败: %(e)s") % {"e": e}), service_name="Ollama") from e
+            raise ServiceUnavailableError(message=_("Ollama 服务连接失败: %(e)s") % {"e": e}, service_name="Ollama") from e
         except OllamaExtractionError:
             raise
         except Exception as e:
