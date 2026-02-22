@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
-from .base import CaseLog, CaseLogAttachment, ModelSchema, Optional, ReminderOut, Schema, SchemaMixin
+from .base import CaseLog, CaseLogAttachment, ModelSchema, ReminderOut, Schema, SchemaMixin
 
 
 class CaseLogIn(Schema):
@@ -13,8 +13,8 @@ class CaseLogIn(Schema):
 
 
 class CaseLogUpdate(Schema):
-    case_id: Optional[int] = None
-    content: Optional[str] = None
+    case_id: int | None = None
+    content: str | None = None
 
 
 class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
@@ -41,8 +41,8 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
 class CaseLogActorOut(Schema):
     id: int
     username: str
-    real_name: Optional[str] = None
-    phone: Optional[str] = None
+    real_name: str | None = None
+    phone: str | None = None
 
     @classmethod
     def from_model(cls, lawyer: Any) -> CaseLogActorOut:
@@ -103,7 +103,7 @@ class CaseLogAttachmentIn(Schema):
 
 
 class CaseLogAttachmentUpdate(Schema):
-    log_id: Optional[int] = None
+    log_id: int | None = None
 
 
 class CaseLogVersionOut(Schema):
@@ -119,8 +119,8 @@ class CaseLogAttachmentCreate(Schema):
 
 class CaseLogCreate(Schema):
     content: str
-    reminder_type: Optional[str] = None
-    reminder_time: Optional[str] = None
+    reminder_type: str | None = None
+    reminder_time: str | None = None
 
 
 __all__: list[str] = [

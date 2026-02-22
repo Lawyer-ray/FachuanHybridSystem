@@ -519,8 +519,8 @@ class LLMConfig:
                 )
         return configs
 
-    @staticmethod
-    def _parse_bool(value: Any, default: bool) -> bool:
+    @classmethod
+    def _parse_bool(cls, value: Any, default: bool) -> bool:
         if isinstance(value, bool):
             return value
         if not value:
@@ -532,8 +532,8 @@ class LLMConfig:
             return False
         return default
 
-    @staticmethod
-    def _parse_int(value: Any, default: int) -> int:
+    @classmethod
+    def _parse_int(cls, value: Any, default: int) -> int:
         if value is None or value == "":
             return default
         try:

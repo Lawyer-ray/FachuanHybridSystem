@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.request_context import extract_request_context
@@ -23,7 +24,7 @@ def _get_caselog_service() -> CaseLogService:
 
 
 @router.get("/logs", response=list[CaseLogOut])
-def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
+def list_logs(request: HttpRequest, case_id: int | None = None) -> list[CaseLogOut]:
     """获取日志列表"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
@@ -40,7 +41,7 @@ def list_logs(request: Any, case_id: int | None = None) -> list[CaseLogOut]:
 
 
 @router.post("/logs", response=CaseLogOut)
-def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
+def create_log(request: HttpRequest, payload: CaseLogIn) -> CaseLogOut:
     """创建日志"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
@@ -60,7 +61,7 @@ def create_log(request: Any, payload: CaseLogIn) -> CaseLogOut:
 
 
 @router.get("/logs/{log_id}", response=CaseLogOut)
-def get_log(request: Any, log_id: int) -> CaseLogOut:
+def get_log(request: HttpRequest, log_id: int) -> CaseLogOut:
     """获取单个日志"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
@@ -77,7 +78,7 @@ def get_log(request: Any, log_id: int) -> CaseLogOut:
 
 
 @router.put("/logs/{log_id}", response=CaseLogOut)
-def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
+def update_log(request: HttpRequest, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
     """更新日志"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
@@ -100,7 +101,7 @@ def update_log(request: Any, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
 
 
 @router.delete("/logs/{log_id}")
-def delete_log(request: Any, log_id: int) -> Any:
+def delete_log(request: HttpRequest, log_id: int) -> Any:
     """删除日志"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
@@ -114,7 +115,7 @@ def delete_log(request: Any, log_id: int) -> Any:
 
 
 @router.post("/logs/{log_id}/attachments")
-def upload_log_attachments(request: Any, log_id: int) -> Any:
+def upload_log_attachments(request: HttpRequest, log_id: int) -> Any:
     """上传日志附件"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)

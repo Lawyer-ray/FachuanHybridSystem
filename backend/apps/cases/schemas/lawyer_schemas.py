@@ -1,18 +1,20 @@
 """API schemas and serializers."""
 
-from typing import Any, Optional
+from __future__ import annotations
 
-from .base import Optional, Schema
+from typing import Any
+
+from .base import Schema
 
 
 class LawyerOutFromDTO(Schema):
     id: int
     username: str
-    real_name: Optional[str] = None
-    phone: Optional[str] = None
+    real_name: str | None = None
+    phone: str | None = None
 
     @classmethod
-    def from_model(cls, lawyer: Any) -> "LawyerOutFromDTO":
+    def from_model(cls, lawyer: Any) -> LawyerOutFromDTO:
         return cls(
             id=lawyer.id,
             username=lawyer.username,

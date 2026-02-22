@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.request_context import extract_request_context
@@ -24,14 +25,14 @@ def _get_case_party_service() -> Any:
 
 
 @router.get("/parties", response=list[CasePartyOut])
-def list_parties(request: Any, case_id: int | None = None) -> list[CasePartyOut]:
+def list_parties(request: HttpRequest, case_id: int | None = None) -> list[CasePartyOut]:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     return cast(list[CasePartyOut], service.list_parties(case_id=case_id, user=ctx.user))
 
 
 @router.post("/parties", response=CasePartyOut)
-def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
+def create_party(request: HttpRequest, payload: CasePartyIn) -> CasePartyOut:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     return cast(
@@ -43,14 +44,14 @@ def create_party(request: Any, payload: CasePartyIn) -> CasePartyOut:
 
 
 @router.get("/parties/{party_id}", response=CasePartyOut)
-def get_party(request: Any, party_id: int) -> CasePartyOut:
+def get_party(request: HttpRequest, party_id: int) -> CasePartyOut:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     return cast(CasePartyOut, service.get_party(party_id=party_id, user=ctx.user))
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
-def update_party(request: Any, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:
+def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
@@ -58,7 +59,7 @@ def update_party(request: Any, party_id: int, payload: CasePartyUpdate) -> CaseP
 
 
 @router.delete("/parties/{party_id}")
-def delete_party(request: Any, party_id: int) -> Any:
+def delete_party(request: HttpRequest, party_id: int) -> Any:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     return service.delete_party(party_id=party_id, user=ctx.user)

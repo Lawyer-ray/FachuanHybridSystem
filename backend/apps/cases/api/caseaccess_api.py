@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.request_context import extract_request_context
@@ -35,7 +36,9 @@ def _get_case_access_service() -> Any:
 
 
 @router.get("/grants", response=list[CaseAccessGrantOut])
-def list_grants(request: Any, case_id: int | None = None, grantee_id: int | None = None) -> list[CaseAccessGrantOut]:
+def list_grants(
+    request: HttpRequest, case_id: int | None = None, grantee_id: int | None = None
+) -> list[CaseAccessGrantOut]:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
@@ -52,7 +55,7 @@ def list_grants(request: Any, case_id: int | None = None, grantee_id: int | None
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
-def create_grant(request: Any, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:
+def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
@@ -67,7 +70,7 @@ def create_grant(request: Any, payload: CaseAccessGrantIn) -> CaseAccessGrantOut
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
-def get_grant(request: Any, grant_id: int) -> CaseAccessGrantOut:
+def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
@@ -83,7 +86,7 @@ def get_grant(request: Any, grant_id: int) -> CaseAccessGrantOut:
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
-def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
+def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
     data = payload.dict(exclude_unset=True)
@@ -101,7 +104,7 @@ def update_grant(request: Any, grant_id: int, payload: CaseAccessGrantUpdate) ->
 
 
 @router.delete("/grants/{grant_id}")
-def delete_grant(request: Any, grant_id: int) -> Any:
+def delete_grant(request: HttpRequest, grant_id: int) -> Any:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 

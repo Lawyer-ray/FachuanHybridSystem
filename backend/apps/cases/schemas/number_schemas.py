@@ -1,14 +1,16 @@
 """API schemas and serializers."""
 
-from typing import ClassVar, Optional
+from __future__ import annotations
 
-from .base import CaseNumber, ModelSchema, Optional, Schema, SchemaMixin
+from typing import ClassVar
+
+from .base import CaseNumber, ModelSchema, Schema, SchemaMixin
 
 
 class CaseNumberIn(Schema):
     case_id: int
     number: str
-    remarks: Optional[str] = None
+    remarks: str | None = None
 
 
 class CaseNumberOut(ModelSchema, SchemaMixin):
@@ -27,8 +29,8 @@ class CaseNumberOut(ModelSchema, SchemaMixin):
 
 
 class CaseNumberUpdate(Schema):
-    number: Optional[str] = None
-    remarks: Optional[str] = None
+    number: str | None = None
+    remarks: str | None = None
 
 
 __all__: list[str] = ["CaseNumberIn", "CaseNumberOut", "CaseNumberUpdate"]

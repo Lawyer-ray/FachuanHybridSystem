@@ -1,7 +1,3 @@
-"""API endpoints."""
-
-from __future__ import annotations
-
 """
 案由和法院数据 API
 
@@ -13,8 +9,11 @@ API 层职责:
 不包含:业务逻辑、权限检查、异常处理(依赖全局异常处理器)
 """
 
+from __future__ import annotations
+
 from typing import Any
 
+from django.http import HttpRequest
 from ninja import Router, Schema
 
 from apps.core.exceptions import NotFoundError
@@ -63,7 +62,9 @@ def _get_cause_court_data_service() -> Any:
 
 
 @router.get("/causes-data", response=list[CauseSchema])
-def get_causes(request: Any, search: str | None = None, case_type: str | None = None, limit: int | None = 50) -> Any:
+def get_causes(
+    request: HttpRequest, search: str | None = None, case_type: str | None = None, limit: int | None = 50
+) -> Any:
     """
     获取案由列表
 
@@ -75,15 +76,13 @@ def get_causes(request: Any, search: str | None = None, case_type: str | None = 
     service = _get_cause_court_data_service()
 
     if search:
-        # 如果提供了搜索关键词,使用搜索功能
         return service.search_causes(query=search, case_type=case_type, limit=limit)
     else:
-        # 如果没有搜索关键词,返回空列表(避免返回大量数据)
         return []
 
 
 @router.get("/causes-tree", response=list[CauseTreeNodeSchema])
-def get_causes_tree(request: Any, parent_id: int | None = None) -> Any:
+def get_causes_tree(request: HttpRequest, parent_id: int | None = None) -> Any:
     """
     获取案由树形数据(按层级展开)
 
@@ -95,7 +94,7 @@ def get_causes_tree(request: Any, parent_id: int | None = None) -> Any:
 
 
 @router.get("/cause/{cause_id}")
-def get_cause_by_id(request: Any, cause_id: int) -> Any:
+def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:
     """
     根据ID获取案由信息(用于生成昵称)
 
@@ -110,7 +109,7 @@ def get_cause_by_id(request: Any, cause_id: int) -> Any:
 
 
 @router.get("/courts-data", response=list[CourtSchema])
-def get_courts(request: Any, search: str | None = None, limit: int | None = 50) -> Any:
+def get_courts(request: HttpRequest, search: str | None = None, limit: int | None = 50) -> Any:
     """
     获取法院列表
 
@@ -121,8 +120,6 @@ def get_courts(request: Any, search: str | None = None, limit: int | None = 50) 
     service = _get_cause_court_data_service()
 
     if search:
-        # 如果提供了搜索关键词,使用搜索功能
         return service.search_courts(query=search, limit=limit)
     else:
-        # 如果没有搜索关键词,返回空列表(避免返回所有法院数据)
         return []

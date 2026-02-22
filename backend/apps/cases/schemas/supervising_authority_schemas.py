@@ -1,13 +1,15 @@
 """API schemas and serializers."""
 
-from typing import Any, ClassVar, Optional
+from __future__ import annotations
 
-from .base import ModelSchema, Optional, Schema, SchemaMixin, SupervisingAuthority
+from typing import Any, ClassVar
+
+from .base import ModelSchema, Schema, SchemaMixin, SupervisingAuthority
 
 
 class SupervisingAuthorityIn(Schema):
-    name: Optional[str] = None
-    authority_type: Optional[str] = None
+    name: str | None = None
+    authority_type: str | None = None
 
 
 class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
@@ -27,8 +29,8 @@ class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
 
 
 class SupervisingAuthorityUpdate(Schema):
-    name: Optional[str] = None
-    authority_type: Optional[str] = None
+    name: str | None = None
+    authority_type: str | None = None
 
 
 __all__: list[str] = [

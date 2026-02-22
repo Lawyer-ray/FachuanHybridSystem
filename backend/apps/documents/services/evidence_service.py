@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from apps.documents.models import EvidenceItem, EvidenceList
+
+logger = logging.getLogger(__name__)
 from apps.documents.services.evidence import (
     EvidenceFileService,
     EvidenceMutationService,
@@ -118,3 +121,62 @@ class EvidenceService:
 
     def update_subsequent_lists_pages(self, case_id: int, start_order: int) -> None:
         self.page_range_calculator.update_subsequent_lists_pages(case_id=case_id, start_order=start_order)
+
+    def calculate_start_order(self, evidence_list: EvidenceList) -> int:
+        """
+        计算证据清单的起始序号（从前置清单链推导）。
+
+        遍历 previous_list 链表，累加每个前置清单的 items 数量。
+        包含循环检测，检测到循环时返回默认值 1。
+        """
+        if not evidence_list.previous_list_id:
+            return 1
+
+        visited: set[int] = {evidence_list.pk}
+        current: EvidenceList | None = evidence_list.previous_list
+        total_items: int = 0
+
+        while current is not None:
+            if current.pk in visited:
+                logger.info(
+                    "calculate_start_order: 检测到循环引用, evidence_list_id=%s",
+                    evidence_list.pk,
+                )
+                return 1
+            visited.add(current.pk)
+            total_items += current.items.count()
+            if not current.previous_list_id:
+                break
+            current = current.previous_list
+
+        return total_items + 1
+
+    def calculate_start_page(self, evidence_list: EvidenceList) -> int:
+        """
+        计算证据清单的起始页码（从前置清单链推导）。
+
+        遍历 previous_list 链表，累加每个前置清单的 total_pages。
+        包含循环检测，检测到循环时返回默认值 1。
+        """
+        if not evidence_list.previous_list_id:
+            return 1
+
+        visited: set[int] = {evidence_list.pk}
+        current: EvidenceList | None = evidence_list.previous_list
+        total_pages: int = 0
+
+        while current is not None:
+            if current.pk in visited:
+                logger.info(
+                    "calculate_start_page: 检测到循环引用, evidence_list_id=%s",
+                    evidence_list.pk,
+                )
+                return 1
+            visited.add(current.pk)
+            total_pages += current.total_pages
+            if not current.previous_list_id:
+                break
+            current = current.previous_list
+
+        return total_pages + 1
+

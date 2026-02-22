@@ -1,8 +1,10 @@
 """API schemas and serializers."""
 
-from typing import Any, ClassVar, Optional
+from __future__ import annotations
 
-from .base import CaseAccessGrant, ModelSchema, Optional, Schema, SchemaMixin
+from typing import Any, ClassVar
+
+from .base import CaseAccessGrant, ModelSchema, Schema, SchemaMixin
 
 
 class CaseAccessGrantIn(Schema):
@@ -21,8 +23,8 @@ class CaseAccessGrantOut(ModelSchema, SchemaMixin):
 
 
 class CaseAccessGrantUpdate(Schema):
-    case_id: Optional[int] = None
-    grantee_id: Optional[int] = None
+    case_id: int | None = None
+    grantee_id: int | None = None
 
 
 __all__: list[str] = ["CaseAccessGrantIn", "CaseAccessGrantOut", "CaseAccessGrantUpdate"]

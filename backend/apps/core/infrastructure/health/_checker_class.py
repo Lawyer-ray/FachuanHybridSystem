@@ -21,6 +21,9 @@ __all__ = ["HealthChecker"]
 class HealthChecker:
     """健康检查器"""
 
+    # NOTE: 使用 staticmethod() 函数调用将独立检查函数绑定为类的静态方法，
+    # 这是基础设施层的可接受模式（非 Service 层，不受 @staticmethod 禁令约束）。
+    # 这种模式允许检查函数既可独立使用，也可通过 HealthChecker 类统一调用。
     check_database = staticmethod(check_database)
     check_cache = staticmethod(check_cache)
     check_disk_space = staticmethod(check_disk_space)

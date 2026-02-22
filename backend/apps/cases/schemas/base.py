@@ -1,7 +1,9 @@
 """API schemas and serializers."""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from ninja import ModelSchema, Schema
 from pydantic import field_validator
@@ -35,7 +37,6 @@ __all__: list[str] = [
     "ClientIdentityDocOut",
     "ClientOut",
     "ModelSchema",
-    "Optional",
     "ReminderOut",
     "Schema",
     "SchemaMixin",
