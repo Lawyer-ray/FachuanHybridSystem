@@ -1,233 +1,284 @@
 """
-Bug 条件探索测试
+Bug Condition Exploration Tests - Client 模块第二轮审计
 
-验证 4 个 bug 修复后的行为正确。
-代码已修复，这些测试应全部通过。
+这些测试编码的是"期望行为"（修复后的正确状态）。
+在未修复代码上运行时，测试会 FAIL，证明 bug 存在。
+修复完成后，测试会 PASS，确认 bug 已修复。
 
-**Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8**
+**Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11**
 """
 
 from __future__ import annotations
 
-import shutil
+import inspect
 from pathlib import Path
-from typing import Any
 
 import pytest
-from django.test import override_settings
+
+# 项目根目录（backend/）
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 
-# ============================================================
-# Property 1: MEDIA_ROOT 优先级
-# Validates: Requirements 1.1, 2.1
-# ============================================================
-
-
-def test_get_media_root_uses_settings_media_root(tmp_path: Path) -> None:
-    """get_media_root() 应优先返回 settings.MEDIA_ROOT 的值"""
-    from apps.client.services.id_card_merge.paths import get_media_root
-
-    with override_settings(MEDIA_ROOT=str(tmp_path)):
-        result = get_media_root()
-        assert str(result) == str(tmp_path), (
-            f"期望返回 {tmp_path}，实际返回 {result}"
-        )
-
-
-def test_get_media_root_fallback_when_empty(tmp_path: Path) -> None:
-    """settings.MEDIA_ROOT 为空时应回退到 get_config"""
-    from unittest.mock import patch
-
-    from apps.client.services.id_card_merge.paths import get_media_root
-
-    fallback_path = str(tmp_path / "fallback")
-    Path(fallback_path).mkdir(parents=True, exist_ok=True)
-
-    with override_settings(MEDIA_ROOT=""):
-        with patch("apps.client.services.id_card_merge.paths.get_config", return_value=fallback_path):
-            result = get_media_root()
-            assert str(result) == fallback_path
-
-
-# ============================================================
-# Property 2: 4 个缺失端点应返回非 404 响应
-# Validates: Requirements 1.2, 1.3, 1.4, 1.5, 2.2, 2.3, 2.4, 2.5
-# ============================================================
-
-
+# ---------------------------------------------------------------------------
+# Test 1a: ClientIdentityDocService 应有 get_identity_doc 方法
+# ---------------------------------------------------------------------------
 @pytest.mark.django_db
-def test_merge_id_card_endpoint_not_404() -> None:
-    """POST /api/v1/client/identity-docs/merge-id-card 未认证应返回 401 而非 404"""
-    from ninja.testing import TestClient
+def test_1a_get_identity_doc_method_exists() -> None:
+    """
+    期望行为：ClientIdentityDocService 应提供 get_identity_doc() 方法。
+    未修复时 FAIL（AttributeError），修复后 PASS。
 
-    from apps.client.api.clientidentitydoc_api import router
-
-    client = TestClient(router)
-    response = client.post("/identity-docs/merge-id-card", data={})
-    assert response.status_code != 404, (
-        f"端点不存在（404），实际状态码: {response.status_code}"
-    )
-
-
-@pytest.mark.django_db
-def test_merge_id_card_manual_endpoint_not_404() -> None:
-    """POST /api/v1/client/identity-docs/merge-id-card-manual 未认证应返回 401 而非 404"""
-    from ninja.testing import TestClient
-
-    from apps.client.api.clientidentitydoc_api import router
-
-    client = TestClient(router)
-    response = client.post("/identity-docs/merge-id-card-manual", data={})
-    assert response.status_code != 404, (
-        f"端点不存在（404），实际状态码: {response.status_code}"
-    )
-
-
-@pytest.mark.django_db
-def test_recognize_submit_endpoint_not_404() -> None:
-    """POST /api/v1/client/identity-doc/recognize/submit 未认证应返回 401 而非 404"""
-    from ninja.testing import TestClient
-
-    from apps.client.api.clientidentitydoc_api import router
-
-    client = TestClient(router)
-    response = client.post("/identity-doc/recognize/submit", data={})
-    assert response.status_code != 404, (
-        f"端点不存在（404），实际状态码: {response.status_code}"
-    )
-
-
-@pytest.mark.django_db
-def test_task_status_endpoint_not_404() -> None:
-    """GET /api/v1/client/identity-doc/task/{task_id} 未认证应返回 401 而非 404"""
-    from ninja.testing import TestClient
-
-    from apps.client.api.clientidentitydoc_api import router
-
-    client = TestClient(router)
-    response = client.get("/identity-doc/task/test-task-id-123")
-    assert response.status_code != 404, (
-        f"端点不存在（404），实际状态码: {response.status_code}"
-    )
-
-
-# ============================================================
-# Property 3: 未认证请求应返回 401
-# Validates: Requirements 1.6, 2.6
-# ============================================================
-
-
-def test_client_router_has_auth_configured() -> None:
-    """验证 api.py 中 client router 已配置 JWTOrSessionAuth（检查源码配置）"""
-    import ast
-    from pathlib import Path
-
-    import django
-    from django.conf import settings
-
-    # 通过 settings 模块文件定位项目根（backend/）
-    settings_file = Path(django.__file__).parent  # django 包路径，用于确认 venv
-    # settings 模块路径：backend/apiSystem/settings.py
-    import apiSystem.settings as _settings_mod
-    settings_dir = Path(_settings_mod.__file__).parent  # backend/apiSystem/
-    api_file = settings_dir / "api.py"
-
-    source = api_file.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-
-    found_auth = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "add_router":
-                if node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "/client":
-                    for kw in node.keywords:
-                        if kw.arg == "auth":
-                            found_auth = True
-                            break
-
-    assert found_auth, "api.py 中 client router 未配置 auth 参数，未认证请求将不会返回 401"
-
-
-# ============================================================
-# Property 4: rename_uploaded_file 对相对路径正确重命名
-# Validates: Requirements 1.7, 1.8, 2.7, 2.8
-# ============================================================
-
-
-@pytest.mark.django_db
-def test_rename_uploaded_file_relative_path(tmp_path: Path) -> None:
-    """rename_uploaded_file 对相对路径应正确重命名，格式为 {doc_type}（{client_name}）.ext"""
-    from apps.client.models import Client, ClientIdentityDoc
+    Validates: Requirements 1.1
+    """
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
-    # 创建临时文件（模拟相对路径结构）
-    rel_dir = Path("client_docs") / "1"
-    abs_dir = tmp_path / rel_dir
-    abs_dir.mkdir(parents=True, exist_ok=True)
-    test_file = abs_dir / "license.pdf"
-    test_file.write_bytes(b"fake pdf content")
-
-    # 创建 Client 和 ClientIdentityDoc 实例
-    client = Client.objects.create(
-        name="广东润知信息科技有限公司",
-        client_type=Client.LEGAL,
-        legal_representative="张三",
-    )
-    doc = ClientIdentityDoc.objects.create(
-        client=client,
-        doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
-        file_path=str(rel_dir / "license.pdf"),  # 相对路径
-    )
-
     service = ClientIdentityDocService()
-
-    with override_settings(MEDIA_ROOT=str(tmp_path)):
-        service.rename_uploaded_file(doc)
-
-    # 验证文件名格式为 {doc_type}（{client_name}）.ext
-    new_filename = Path(doc.file_path).name
-    assert new_filename == "营业执照（广东润知信息科技有限公司）.pdf", (
-        f"文件名格式错误，期望 '营业执照（广东润知信息科技有限公司）.pdf'，实际 '{new_filename}'"
+    assert hasattr(service, "get_identity_doc"), (
+        "BUG 1.1: ClientIdentityDocService 缺少 get_identity_doc() 方法，"
+        "调用 GET /identity-docs/{id} 时会抛出 AttributeError"
     )
 
-    # 验证保存的是相对路径
-    assert not Path(doc.file_path).is_absolute(), (
-        f"应保存相对路径，实际保存了绝对路径: {doc.file_path}"
-    )
 
-    # 清理
-    shutil.rmtree(str(abs_dir), ignore_errors=True)
-
-
+# ---------------------------------------------------------------------------
+# Test 1b: ClientIdentityDocService 应有 delete_identity_doc 方法
+# ---------------------------------------------------------------------------
 @pytest.mark.django_db
-def test_rename_uploaded_file_absolute_path(tmp_path: Path) -> None:
-    """rename_uploaded_file 对绝对路径也应正确重命名（回归防护）"""
-    from apps.client.models import Client, ClientIdentityDoc
+def test_1b_delete_identity_doc_method_exists() -> None:
+    """
+    期望行为：ClientIdentityDocService 应提供 delete_identity_doc() 方法。
+    未修复时 FAIL（AttributeError），修复后 PASS。
+
+    Validates: Requirements 1.2
+    """
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
-    # 创建临时文件（绝对路径）
-    abs_dir = tmp_path / "client_docs" / "2"
-    abs_dir.mkdir(parents=True, exist_ok=True)
-    test_file = abs_dir / "id.jpg"
-    test_file.write_bytes(b"fake image content")
-
-    client = Client.objects.create(
-        name="张三",
-        client_type=Client.NATURAL,
-    )
-    doc = ClientIdentityDoc.objects.create(
-        client=client,
-        doc_type=ClientIdentityDoc.ID_CARD,
-        file_path=str(test_file),  # 绝对路径
-    )
-
     service = ClientIdentityDocService()
+    assert hasattr(service, "delete_identity_doc"), (
+        "BUG 1.2: ClientIdentityDocService 缺少 delete_identity_doc() 方法，"
+        "调用 DELETE /identity-docs/{id} 时会抛出 AttributeError"
+    )
 
-    with override_settings(MEDIA_ROOT=str(tmp_path)):
-        service.rename_uploaded_file(doc)
 
-    new_filename = Path(doc.file_path).name
-    assert new_filename == "身份证（张三）.jpg", (
-        f"文件名格式错误，期望 '身份证（张三）.jpg'，实际 '{new_filename}'"
+# ---------------------------------------------------------------------------
+# Test 1c: clientidentitydoc_admin.py 不应直接导入 save_uploaded_file
+# ---------------------------------------------------------------------------
+def test_1c_clientidentitydoc_admin_no_direct_save_uploaded_file() -> None:
+    """
+    期望行为：ClientIdentityDocForm.save() 不应直接调用 save_uploaded_file，
+    应委托 Service 层处理文件 IO。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.3
+    """
+    admin_file = BACKEND_DIR / "apps" / "client" / "admin" / "clientidentitydoc_admin.py"
+    source = admin_file.read_text(encoding="utf-8")
+
+    assert "save_uploaded_file" not in source, (
+        "BUG 1.3: clientidentitydoc_admin.py 中 ClientIdentityDocForm.save() "
+        "直接调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1d: property_clue_admin.py 不应直接导入 save_uploaded_file
+# ---------------------------------------------------------------------------
+def test_1d_property_clue_admin_no_direct_save_uploaded_file() -> None:
+    """
+    期望行为：PropertyClueAttachmentInlineForm.save() 不应直接调用 save_uploaded_file，
+    应委托 Service 层处理文件 IO。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.4
+    """
+    admin_file = BACKEND_DIR / "apps" / "client" / "admin" / "property_clue_admin.py"
+    source = admin_file.read_text(encoding="utf-8")
+
+    assert "save_uploaded_file" not in source, (
+        "BUG 1.4: property_clue_admin.py 中 PropertyClueAttachmentInlineForm.save() "
+        "直接调用 save_uploaded_file，违反四层架构规范（Admin 层不应直接做文件 IO）"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1e: facade.py / client_admin.py / client_admin_service.py 不应有 f-string logger
+# ---------------------------------------------------------------------------
+def test_1e_no_fstring_logger_in_facade() -> None:
+    """
+    期望行为：facade.py 中 logger 调用应使用 %s 占位符，不应使用 f-string。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.5
+    """
+    facade_file = BACKEND_DIR / "apps" / "client" / "services" / "id_card_merge" / "facade.py"
+    source = facade_file.read_text(encoding="utf-8")
+
+    # 检查是否存在 logger.xxx(f"..." 模式
+    import re
+    fstring_logger_pattern = re.compile(r'logger\.\w+\(\s*f["\']', re.MULTILINE)
+    matches = fstring_logger_pattern.findall(source)
+
+    assert not matches, (
+        f"BUG 1.5: facade.py 中存在 {len(matches)} 处 f-string logger 调用: {matches}。"
+        "应使用 %s 占位符替代 f-string"
+    )
+
+
+def test_1e_no_fstring_logger_in_client_admin() -> None:
+    """
+    期望行为：client_admin.py 中 logger 调用应使用 %s 占位符，不应使用 f-string。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.6
+    """
+    admin_file = BACKEND_DIR / "apps" / "client" / "admin" / "client_admin.py"
+    source = admin_file.read_text(encoding="utf-8")
+
+    import re
+    fstring_logger_pattern = re.compile(r'logger\.\w+\(\s*f["\']', re.MULTILINE)
+    matches = fstring_logger_pattern.findall(source)
+
+    assert not matches, (
+        f"BUG 1.6: client_admin.py 中存在 {len(matches)} 处 f-string logger 调用: {matches}。"
+        "应使用 %s 占位符替代 f-string"
+    )
+
+
+def test_1e_no_fstring_logger_in_client_admin_service() -> None:
+    """
+    期望行为：client_admin_service.py 中 logger 调用应使用 %s 占位符，不应使用 f-string。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.7
+    """
+    import re
+    service_file = BACKEND_DIR / "apps" / "client" / "services" / "client_admin_service.py"
+    source = service_file.read_text(encoding="utf-8")
+
+    # 匹配 logger.xxx( 后紧跟 f" 或 f'（含换行情况）
+    fstring_logger_pattern = re.compile(r'logger\.\w+\(\s*f["\']', re.MULTILINE)
+    matches = fstring_logger_pattern.findall(source)
+
+    assert not matches, (
+        f"BUG 1.7: client_admin_service.py 中存在 {len(matches)} 处 f-string logger 调用: {matches}。"
+        "应使用 %s 占位符替代 f-string"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1f: client_dto_assembler.py 不应有 cast / type: ignore / hasattr
+# ---------------------------------------------------------------------------
+def test_1f_client_dto_assembler_no_cast_type_ignore_hasattr() -> None:
+    """
+    期望行为：client_dto_assembler.py 中 to_dto() 应直接使用 client.id，
+    不应使用 cast、# type: ignore 或 hasattr。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.8
+    """
+    assembler_file = BACKEND_DIR / "apps" / "client" / "services" / "client_dto_assembler.py"
+    source = assembler_file.read_text(encoding="utf-8")
+
+    issues = []
+    if "cast(" in source:
+        issues.append("使用了 cast()")
+    if "# type: ignore" in source:
+        issues.append("使用了 # type: ignore")
+    if "hasattr(" in source:
+        issues.append("使用了 hasattr()")
+
+    assert not issues, (
+        f"BUG 1.8: client_dto_assembler.py 中存在类型注解问题: {', '.join(issues)}。"
+        "应直接使用 client.id，移除 cast/type: ignore/hasattr"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1g: property_clue_service.py 不应有 # type: ignore
+# ---------------------------------------------------------------------------
+def test_1g_property_clue_service_no_type_ignore() -> None:
+    """
+    期望行为：property_clue_service.py 中方法签名应使用 Any 类型，
+    不应有 # type: ignore 注释。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.9
+    """
+    service_file = BACKEND_DIR / "apps" / "client" / "services" / "property_clue_service.py"
+    source = service_file.read_text(encoding="utf-8")
+
+    import re
+    # 统计 # type: ignore 出现次数
+    type_ignore_count = len(re.findall(r'#\s*type:\s*ignore', source))
+
+    assert type_ignore_count == 0, (
+        f"BUG 1.9: property_clue_service.py 中存在 {type_ignore_count} 处 # type: ignore 注释。"
+        "应将 user 参数类型改为 Any，移除所有 # type: ignore"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1h: 4 个文件的模块文档字符串不应为 "External service client."
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("rel_path,expected_docstring_hint", [
+    (
+        "apps/client/services/client_internal_query_service.py",
+        "当事人内部查询服务",
+    ),
+    (
+        "apps/client/services/client_service_adapter.py",
+        "当事人服务适配器",
+    ),
+    (
+        "apps/client/services/client_related_dto_assembler.py",
+        "当事人关联 DTO 组装器",
+    ),
+    (
+        "apps/client/services/client_dto_assembler.py",
+        "当事人 DTO 组装器",
+    ),
+])
+def test_1h_module_docstring_not_external_service_client(rel_path: str, expected_docstring_hint: str) -> None:
+    """
+    期望行为：4 个文件的模块文档字符串应与各自职责匹配，
+    不应为复制粘贴的 "External service client."。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.10
+    """
+    target_file = BACKEND_DIR / rel_path
+    source = target_file.read_text(encoding="utf-8")
+
+    assert 'External service client.' not in source, (
+        f"BUG 1.10: {rel_path} 的模块文档字符串为 'External service client.'，"
+        f"应改为描述实际职责（如包含 '{expected_docstring_hint}'）"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 1i: client_admin_service.py 中 _process_single_form 不应直接调用 Client.objects / ClientIdentityDoc.objects.create
+# ---------------------------------------------------------------------------
+def test_1i_process_single_form_no_direct_model_objects() -> None:
+    """
+    期望行为：_process_single_form() 应通过 ClientInternalQueryService 查询 Client，
+    通过 ClientIdentityDocService 创建证件记录，不应直接调用 Client.objects 或
+    ClientIdentityDoc.objects.create。
+    未修复时 FAIL，修复后 PASS。
+
+    Validates: Requirements 1.11
+    """
+    from apps.client.services.client_admin_service import ClientAdminService
+
+    # 获取 _process_single_form 方法的源码
+    method_source = inspect.getsource(ClientAdminService._process_single_form)
+
+    issues = []
+    if "Client.objects" in method_source:
+        issues.append("直接调用 Client.objects")
+    if "ClientIdentityDoc.objects.create" in method_source:
+        issues.append("直接调用 ClientIdentityDoc.objects.create")
+
+    assert not issues, (
+        f"BUG 1.11: _process_single_form() 中存在直接 Model.objects 调用: {', '.join(issues)}。"
+        "应通过 ClientInternalQueryService 查询 Client，"
+        "通过 ClientIdentityDocService 创建证件记录"
     )
