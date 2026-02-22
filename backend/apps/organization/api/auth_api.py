@@ -19,9 +19,9 @@ _auth_service = AuthService()
 
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def login_view(request: HttpRequest, payload: LoginIn) -> dict[str, object]:
+def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
     user = _auth_service.login(request, payload.username, payload.password)
-    return {"success": True, "user": user}
+    return LoginOut(success=True, user=user)  # type: ignore[arg-type]
 
 
 @router.post("/logout", auth=None)
