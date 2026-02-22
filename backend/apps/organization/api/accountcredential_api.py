@@ -6,7 +6,7 @@ from ninja import Router
 
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
 from apps.organization.services import AccountCredentialService
-from apps.organization.dtos import AccountCredentialUpdateDTO
+from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 
 router = Router()
 
@@ -33,14 +33,14 @@ def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
 
 @router.post("/credentials", response=AccountCredentialOut)
 def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
-    return _credential_service.create_credential(
+    dto = AccountCredentialCreateDTO(
         lawyer_id=payload.lawyer_id,
         site_name=payload.site_name,
         account=payload.account,
         password=payload.password,
         url=payload.url,
-        user=get_request_user(request),
     )
+    return _credential_service.create_credential(data=dto, user=get_request_user(request))
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
