@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
+
 from .base import CaseFolderBinding, Schema, SchemaMixin, field_validator
 
 
@@ -14,7 +16,7 @@ class CaseFolderBindingCreateSchema(Schema):
     @classmethod
     def validate_folder_path(cls, v: Any) -> Any:
         if not v or not v.strip():
-            raise ValueError("文件夹路径不能为空")
+            raise ValueError(str(_("文件夹路径不能为空")))
         return v.strip()
 
 

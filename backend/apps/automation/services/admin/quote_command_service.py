@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Q

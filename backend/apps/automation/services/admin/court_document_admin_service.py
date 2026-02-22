@@ -6,7 +6,7 @@
 from django.utils.translation import gettext_lazy as _
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from django.conf import settings
 from django.db import transaction

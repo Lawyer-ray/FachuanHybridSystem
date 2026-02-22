@@ -8,7 +8,7 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.exceptions import MessageSendException
+from apps.core.exceptions import MessageSendException
 from apps.core.enums import ChatPlatform
 
 from .provider_facade import ChatProviderFacade

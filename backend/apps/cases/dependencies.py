@@ -17,13 +17,6 @@ def create_message_content(*, title: str, text: str, file_path: str | None = Non
     return MessageContent(title=title, text=text, file_path=file_path)
 
 
-def get_chat_result_class() -> type:
-    """获取 ChatResult 类(用于类型判断)"""
-    from apps.automation.services.chat.base import ChatResult
-
-    return ChatResult
-
-
 def get_enhanced_context_builder() -> Any:
     """获取增强上下文构建器实例"""
     from apps.documents.services.placeholders import EnhancedContextBuilder
