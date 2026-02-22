@@ -1,5 +1,7 @@
 """Module for validators."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable
 
 from apps.core.enums import CaseStage, CaseType
@@ -10,15 +12,23 @@ __all__: list[str] = [
     "normalize_stages",
 ]
 
-APPLICABLE_TYPES: set[str] = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE, CaseType.LABOR, CaseType.INTL}
+APPLICABLE_TYPES: set[str] = {
+    str(CaseType.CIVIL),
+    str(CaseType.CRIMINAL),
+    str(CaseType.ADMINISTRATIVE),
+    str(CaseType.LABOR),
+    str(CaseType.INTL),
+}
 
 
 def is_applicable(case_type: str | None) -> bool:
+    """检查案件类型是否适用阶段管理。"""
     return bool(case_type) and case_type in APPLICABLE_TYPES
 
 
 def _allowed() -> set[str]:
-    return {c[0] for c in CaseStage.choices}
+    """获取所有允许的案件阶段值。"""
+    return {str(c[0]) for c in CaseStage.choices}
 
 
 def normalize_stages(
@@ -27,6 +37,7 @@ def normalize_stages(
     current_stage: str | None,
     strict: bool = False,
 ) -> tuple[list[str], str | None]:
+    """规范化案件阶段数据。"""
     if not is_applicable(case_type):
         if strict and (representation_stages or current_stage):
             raise ValueError("stages_not_applicable")

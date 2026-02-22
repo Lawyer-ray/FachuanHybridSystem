@@ -5,6 +5,8 @@
 本文件保留向后兼容的导入，新代码请直接从 apps.core.exceptions 导入
 """
 
+from __future__ import annotations
+
 # 向后兼容：从 core.exceptions 重新导出群聊相关异常
 from apps.core.exceptions import (
     ChatCreationException,
