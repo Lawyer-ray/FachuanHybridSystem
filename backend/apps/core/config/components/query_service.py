@@ -49,10 +49,10 @@ class ConfigQueryService:
             suggestions = self._m._schema.get_suggestions(key) if self._m._schema else []
             raise ConfigNotFoundError(key, suggestions)
 
-    def get_typed(self, key: str, type_: type[T], default: T | None = None) -> T:
+    def get_typed(self, key: str, type_: type[T], default: T | None = None) -> T | None:
         value = self.get(key, default)
         if value is None:
-            return cast(T, value)
+            return None
         if isinstance(value, type_):
             return value
         try:

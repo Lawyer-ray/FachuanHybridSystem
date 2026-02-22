@@ -16,8 +16,6 @@ router = Router()
 
 def _get_auth_service() -> AuthService:
     """工厂函数：创建 AuthService 实例"""
-    from apps.organization.services import AuthService
-
     return AuthService()
 
 

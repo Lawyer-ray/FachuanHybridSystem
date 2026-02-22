@@ -27,7 +27,7 @@ class ContractDTO:
 
     @classmethod
     def from_model(cls, contract: Contract) -> ContractDTO:
-        primary_lawyer = contract.primary_lawyer
+        primary_lawyer = contract.primary_lawyer  # type: ignore[attr-defined]
 
         stages = contract.representation_stages
         representation_stages: list[str] = stages if isinstance(stages, list) else []

@@ -85,5 +85,8 @@ class CauseCourtRepository:
     def update_or_create_court(self, code: str, defaults: dict[str, Any]) -> tuple[Court, bool]:
         return Court.objects.update_or_create(code=code, defaults=defaults)
 
+    def get_non_deprecated_causes_excluding_codes(self, codes: list[str]) -> QuerySet[CauseOfAction]:
+        return CauseOfAction.objects.filter(is_deprecated=False).exclude(code__in=codes)
+
     def get_courts_excluding_codes(self, codes: list[str]) -> QuerySet[Court]:
         return Court.objects.exclude(code__in=codes)

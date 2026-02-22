@@ -49,7 +49,7 @@ def build_case_assignment_service_with_deps(
 ) -> ICaseAssignmentService:
     from apps.cases.services import CaseAssignmentService
 
-    return CaseAssignmentService(  # type: ignore[return-value, call-arg]
+    return CaseAssignmentService(  # type: ignore
         case_service=case_service,
         contract_assignment_query_service=contract_assignment_query_service,
     )
@@ -94,4 +94,4 @@ def build_case_search_service() -> ICaseSearchService:
 def build_case_log_service() -> "ICaseLogService":
     from apps.cases.services.log.caselog_service_adapter import CaseLogServiceAdapter
 
-    return CaseLogServiceAdapter()  # type: ignore[return-value]
+    return CaseLogServiceAdapter()

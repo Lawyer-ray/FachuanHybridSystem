@@ -165,10 +165,10 @@ class ConfigManager:
                     return self._raw_config[partial_key]
         return None
 
-    def get_typed(self, key: str, type_: type[T], default: T | None = None) -> T:
+    def get_typed(self, key: str, type_: type[T], default: T | None = None) -> T | None:
         value = self.get(key, default)
         if value is None:
-            return cast(T, value)
+            return None
         if isinstance(value, type_):
             return value
         try:

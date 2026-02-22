@@ -75,7 +75,7 @@ def get_queryset(manager: Manager[T]) -> QuerySet[T, T]:
         >>> from apps.cases.models import Case
         >>> qs = get_queryset(Case.objects)  # QuerySet[Case, Case]
     """
-    return cast(QuerySet[T, T], manager.all())
+    return manager.all()
 
 
 def get_related_manager(instance: Model, field_name: str) -> Manager[Any]:

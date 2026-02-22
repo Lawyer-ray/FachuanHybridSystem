@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
-    def save_model(self, request, obj, form, change) -> None:
+    def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
         from django.contrib import messages
 
         if not change:
@@ -61,7 +61,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
 
         super().save_model(request, obj, form, change)
 
-    def save_formset(self, request, form, formset, change) -> None:
+    def save_formset(self, request: Any, form: Any, formset: Any, change: Any) -> None:
         import traceback
 
         from django.contrib import messages
@@ -88,7 +88,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
             raise
 
     @staticmethod
-    def _report_formset_errors(request, form, formset, messages) -> None:
+    def _report_formset_errors(request: Any, form: Any, formset: Any, messages: Any) -> None:
         if formset.errors:
             for i, err in enumerate(formset.errors):
                 if err:
@@ -96,7 +96,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
-    def _save_instances(self, instances, max_order, items_need_page_count, request, messages, traceback) -> Any:
+    def _save_instances(self, instances: Any, max_order: int, items_need_page_count: list[Any], request: Any, messages: Any, traceback: Any) -> Any:
         for obj in instances:
             if isinstance(obj, EvidenceItem):
                 self._prepare_evidence_item(obj, max_order, items_need_page_count)
@@ -110,7 +110,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         return max_order
 
     @staticmethod
-    def _delete_removed_objects(formset, request, messages) -> None:
+    def _delete_removed_objects(formset: Any, request: Any, messages: Any) -> None:
         for obj in formset.deleted_objects:
             try:
                 obj.delete()
@@ -119,7 +119,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 messages.error(request, f"删除失败: {e}")
 
     @staticmethod
-    def _prepare_evidence_item(obj, max_order, items_need_page_count) -> None:
+    def _prepare_evidence_item(obj: Any, max_order: int, items_need_page_count: list[Any]) -> None:
         """准备证据项:设置排序、文件信息、页数"""
         from pathlib import Path
 
@@ -143,7 +143,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
             obj.page_count = 1
 
     @staticmethod
-    def _count_pdf_pages(items, request, messages) -> None:
+    def _count_pdf_pages(items: list[Any], request: Any, messages: Any) -> None:
         """识别 PDF 页数"""
         for obj in items:
             try:
@@ -166,7 +166,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 )
                 messages.warning(request, f"文件 {obj.file_name} 页数识别失败: {e}")
 
-    def _handle_file_cleared(self, formset) -> None:
+    def _handle_file_cleared(self, formset: Any) -> None:
         for form in formset.forms:
             if form.instance.pk and not form.cleaned_data.get("DELETE", False):
                 instance = form.instance
@@ -180,14 +180,14 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                     instance.page_end = None
                     instance.save(update_fields=["page_count", "file_name", "file_size", "page_start", "page_end"])
 
-    def _reorder_items_after_delete(self, evidence_list) -> None:
+    def _reorder_items_after_delete(self, evidence_list: EvidenceList) -> None:
         items = evidence_list.items.order_by("order")
         for index, item in enumerate(items, start=1):
             if item.order != index:
                 item.order = index
                 item.save(update_fields=["order"])
 
-    def _recalculate_list_pages(self, evidence_list) -> None:
+    def _recalculate_list_pages(self, evidence_list: EvidenceList) -> None:
         evidence_list.refresh_from_db()
         items = evidence_list.items.all()
         total_pages = sum(item.page_count or 0 for item in items)

@@ -30,7 +30,7 @@ def build_organization_service() -> IOrganizationService:
 def build_reminder_service() -> IReminderService:
     from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
 
-    return ReminderServiceAdapter(service=build_reminder_api_service())
+    return ReminderServiceAdapter()
 
 def build_reminder_api_service() -> ReminderService:
     """组装 API 层使用的 ReminderService。"""

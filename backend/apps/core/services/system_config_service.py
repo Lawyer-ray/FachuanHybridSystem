@@ -6,7 +6,7 @@
 
 from django.utils.translation import gettext_lazy as _
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any
 
 from django.core.cache import cache
 from django.db import transaction
@@ -79,7 +79,7 @@ class SystemConfigService:
         # 清除缓存
         self._clear_cache(key)
 
-        return cast(SystemConfig, config)
+        return config
 
     @transaction.atomic
     def update_config(
@@ -133,7 +133,7 @@ class SystemConfigService:
         # 清除缓存
         self._clear_cache(config.key)
 
-        return cast(SystemConfig, config)
+        return config
 
     @transaction.atomic
     def delete_config(self, config_id: int) -> bool:
@@ -179,7 +179,7 @@ class SystemConfigService:
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             )
-        return cast(SystemConfig, config)
+        return config
 
     def get_config_by_key(self, key: str) -> SystemConfig | None:
         """
@@ -223,7 +223,7 @@ class SystemConfigService:
             if codec.is_encrypted(value):
                 value = codec.decrypt(value)
         cache.set(cache_key, value, timeout=self._cache_timeout)
-        return cast(str, value)
+        return value
 
     def list_configs(
         self,

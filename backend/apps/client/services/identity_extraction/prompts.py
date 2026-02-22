@@ -223,7 +223,7 @@ def get_prompt_for_doc_type(doc_type: str, raw_text: str = "") -> str:
         raise ValidationException(
             message=_("不支持的证件类型"),
             code="UNSUPPORTED_DOC_TYPE",
-            errors={"doc_type": f"不支持: {doc_type},支持: {supported_types}"},
+            errors={"doc_type": str(_("不支持: %(t)s，支持: %(s)s") % {"t": doc_type, "s": supported_types})},
         )
 
     return PROMPT_MAPPING[doc_type]

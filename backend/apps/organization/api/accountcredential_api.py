@@ -12,8 +12,6 @@ router = Router()
 
 def _get_credential_service() -> AccountCredentialService:
     """工厂函数：创建 AccountCredentialService 实例"""
-    from apps.organization.services import AccountCredentialService
-
     return AccountCredentialService()
 
 
