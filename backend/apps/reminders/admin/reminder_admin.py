@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 
 from apps.reminders.models import Reminder
 
@@ -33,7 +34,10 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
         if isinstance(value, dict):
             return value
         if isinstance(value, str):
-            return json.loads(value)
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                raise forms.ValidationError(_("请输入合法的 JSON 格式"))
         return value
 
 
