@@ -12,7 +12,6 @@ from apps.core.interfaces import AccountCredentialDTO, IOrganizationService, Law
 from apps.organization.dtos import LawyerListFiltersDTO
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 from apps.organization.services.lawfirm_service import LawFirmService
-from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
 from apps.organization.services.lawyer.facade import LawyerService
 from apps.organization.services.team_service import TeamService
 
@@ -102,6 +101,5 @@ class OrganizationServiceAdapter(IOrganizationService):
         return _assembler.to_dto(lawyer)
 
     def get_default_lawyer_id_internal(self) -> int | None:
-        adapter = LawyerServiceAdapter(service=self.lawyer_service)
-        admin_dto = adapter.get_admin_lawyer_internal()
-        return admin_dto.id if admin_dto else None
+        admin = self.lawyer_service.get_lawyer_queryset().filter(is_admin=True).first()
+        return admin.id if admin is not None else None
