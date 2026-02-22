@@ -48,10 +48,10 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
 
         if self.cleaned_data.get("file_upload"):
             uploaded_file = self.cleaned_data["file_upload"]
-            from apps.client.services.storage import save_uploaded_file
-
-            rel_path, _ = save_uploaded_file(uploaded_file, rel_dir="client_identity_docs")
-            instance.file_path = rel_path
+            service = _get_identity_doc_service()
+            instance.file_path = service.save_uploaded_file_to_dir(
+                uploaded_file, rel_dir="client_identity_docs"
+            )
 
         if commit:
             instance.save()

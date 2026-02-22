@@ -11,6 +11,13 @@ from django.utils.translation import gettext_lazy as _
 from apps.client.models import PropertyClue, PropertyClueAttachment
 
 
+def _get_property_clue_service() -> Any:
+    """工厂函数：获取财产线索服务"""
+    from apps.client.services.property_clue_service import PropertyClueService
+
+    return PropertyClueService()
+
+
 class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
     """财产线索附件内联表单"""
 
@@ -25,9 +32,10 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
 
         if self.cleaned_data.get("file_upload"):
             uploaded_file = self.cleaned_data["file_upload"]
-            from apps.client.services.storage import save_uploaded_file
-
-            rel_path, _ = save_uploaded_file(uploaded_file, rel_dir="property_clue_attachments")
+            service = _get_property_clue_service()
+            rel_path, _ = service.save_uploaded_file_to_dir(
+                uploaded_file, rel_dir="property_clue_attachments"
+            )
             instance.file_path = rel_path
             instance.file_name = uploaded_file.name
 
