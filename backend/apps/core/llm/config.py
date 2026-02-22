@@ -258,18 +258,6 @@ class LLMConfig:
         return v or cls.DEFAULT_BASE_URL
 
     @classmethod
-    def get_available_models(cls) -> list[str]:
-        """
-        获取可用模型列表(仅供参考)
-
-        注意:此列表仅作为参考,实际可以使用任何 SiliconFlow 支持的模型.
-
-        Returns:
-            可用模型名称列表
-        """
-        return cls.DEFAULT_AVAILABLE_MODELS.copy()
-
-    @classmethod
     def get_timeout(cls) -> int:
         """
         获取超时时间(秒)
@@ -290,17 +278,6 @@ class LLMConfig:
             return int(timeout_str)
         except (ValueError, TypeError):
             return cls.DEFAULT_TIMEOUT
-
-    @classmethod
-    def is_tracking_enabled(cls) -> bool:
-        """
-        是否启用调用追踪
-
-        Returns:
-            True 表示启用,False 表示禁用(默认禁用)
-        """
-        tracking_str = cls._get_system_config("SILICONFLOW_ENABLE_TRACKING", "false")
-        return tracking_str.lower() in ("true", "1", "yes", "on")
 
     @classmethod
     def get_temperature(cls) -> float:

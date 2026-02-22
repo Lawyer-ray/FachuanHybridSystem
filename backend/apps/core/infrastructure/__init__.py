@@ -9,7 +9,7 @@ from .cache import (
     invalidate_user_access_context,
     invalidate_users_access_context,
 )
-from .monitoring import PerformanceMonitor, monitor_api, monitor_operation
+from .monitoring import PerformanceMonitor
 from .resource_monitor import resource_monitor, get_resource_usage
 from .throttling import rate_limit, rate_limit_from_settings
 
@@ -22,8 +22,6 @@ __all__ = [
     "invalidate_user_access_context",
     "invalidate_users_access_context",
     "PerformanceMonitor",
-    "monitor_api",
-    "monitor_operation",
     "resource_monitor",
     "get_resource_usage",
     "rate_limit",
