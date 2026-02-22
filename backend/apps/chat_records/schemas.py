@@ -35,11 +35,11 @@ class ProjectOut(ModelSchema, SchemaMixin):
         fields: ClassVar = ["id", "name", "description", "created_by", "created_at", "updated_at"]
 
     @staticmethod
-    def resolve_created_at(obj: ChatRecordProject) -> Any:
+    def resolve_created_at(obj: ChatRecordProject) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: ChatRecordProject) -> Any:
+    def resolve_updated_at(obj: ChatRecordProject) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))
 
 
@@ -76,7 +76,7 @@ class ScreenshotOut(ModelSchema, SchemaMixin):
             return ""
 
     @staticmethod
-    def resolve_created_at(obj: ChatRecordScreenshot) -> Any:
+    def resolve_created_at(obj: ChatRecordScreenshot) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))
 
 
@@ -145,19 +145,19 @@ class RecordingOut(ModelSchema, SchemaMixin):
         return SchemaMixin._get_display(obj, "extract_status") or ""
 
     @staticmethod
-    def resolve_created_at(obj: ChatRecordRecording) -> Any:
+    def resolve_created_at(obj: ChatRecordRecording) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: ChatRecordRecording) -> Any:
+    def resolve_updated_at(obj: ChatRecordRecording) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))
 
     @staticmethod
-    def resolve_extract_started_at(obj: ChatRecordRecording) -> Any:
+    def resolve_extract_started_at(obj: ChatRecordRecording) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "extract_started_at", None))
 
     @staticmethod
-    def resolve_extract_finished_at(obj: ChatRecordRecording) -> Any:
+    def resolve_extract_finished_at(obj: ChatRecordRecording) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "extract_finished_at", None))
 
 
@@ -203,23 +203,23 @@ class ExportTaskOut(ModelSchema, SchemaMixin):
         return SchemaMixin._get_display(obj, "export_type") or ""
 
     @staticmethod
-    def resolve_started_at(obj: ChatRecordExportTask) -> Any:
+    def resolve_started_at(obj: ChatRecordExportTask) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "started_at", None))
 
     @staticmethod
-    def resolve_finished_at(obj: ChatRecordExportTask) -> Any:
+    def resolve_finished_at(obj: ChatRecordExportTask) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "finished_at", None))
 
     @staticmethod
-    def resolve_created_at(obj: ChatRecordExportTask) -> Any:
+    def resolve_created_at(obj: ChatRecordExportTask) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: ChatRecordExportTask) -> Any:
+    def resolve_updated_at(obj: ChatRecordExportTask) -> str | None:
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))
 
     @staticmethod
-    def resolve_download_url(obj: ChatRecordExportTask) -> Any:
+    def resolve_download_url(obj: ChatRecordExportTask) -> str | None:
         if not getattr(obj, "output_file", None):
             return None
         return f"/api/v1/chat-records/exports/{obj.id}/download"
