@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""身份证合并服务门面。"""
 
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ class IdCardMergeService:
         return detection.detect_id_card_corners(image, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
     def _perspective_transform(self, image: NDArray[np.uint8], corners: NDArray[np.float32]) -> NDArray[np.uint8]:
-        return validation_np_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
+        return apply_perspective_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
     def _generate_pdf(self, front_image: NDArray[np.uint8], back_image: NDArray[np.uint8]) -> str:
         media_root = get_media_root()
@@ -194,7 +194,7 @@ class IdCardMergeService:
         return image_io.save_temp_image(image, prefix=prefix, temp_dir=temp_dir, logger=logger)
 
 
-def validation_np_transform(
+def apply_perspective_transform(
     image: NDArray[np.uint8], corners: NDArray[np.float32], *, id_card_aspect_ratio: float, logger: Any
 ) -> NDArray[np.uint8]:
     from .transform import perspective_transform

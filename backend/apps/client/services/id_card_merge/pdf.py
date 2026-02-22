@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""PDF 生成。"""
 
 import logging
 import uuid

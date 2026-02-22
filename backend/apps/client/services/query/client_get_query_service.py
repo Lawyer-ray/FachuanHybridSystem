@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人单条查询服务。"""
 
 from django.utils.translation import gettext_lazy as _
 from typing import Any

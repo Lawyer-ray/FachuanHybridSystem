@@ -5,7 +5,7 @@ Client App Schemas
 
 from datetime import datetime
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
 
@@ -133,6 +133,31 @@ class PropertyClueOut(Schema):
     attachments: list[PropertyClueAttachmentOut]
     created_at: datetime
     updated_at: datetime
+
+    @staticmethod
+    def resolve_clue_type_label(obj: Any) -> str:
+        """解析线索类型显示名。"""
+        if hasattr(obj, "get_clue_type_display"):
+            result: str = obj.get_clue_type_display()
+            return result
+        return str(getattr(obj, "clue_type", ""))
+
+    @staticmethod
+    def resolve_attachments(obj: Any) -> list[dict[str, Any]]:
+        """解析财产线索附件列表。"""
+        if not hasattr(obj, "attachments"):
+            return []
+        items = obj.attachments.all()
+        return [
+            {
+                "id": item.id,
+                "file_path": item.file_path,
+                "file_name": item.file_name,
+                "uploaded_at": item.uploaded_at,
+                "media_url": item.media_url() if hasattr(item, "media_url") else None,
+            }
+            for item in items
+        ]
 
 
 class ContentTemplateOut(Schema):

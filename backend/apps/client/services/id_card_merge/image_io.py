@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""图片读写工具。"""
 
 from __future__ import annotations
 

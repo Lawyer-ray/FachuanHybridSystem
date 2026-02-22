@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""身份证边缘检测。"""
 
 import logging
 from typing import Any, cast

@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""图片与坐标校验。"""
 
 from pathlib import Path
 from typing import Any

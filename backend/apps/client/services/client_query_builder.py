@@ -1,4 +1,4 @@
-"""External service client."""
+"""当事人查询条件构建器。"""
 
 from django.db.models import Q, QuerySet
 

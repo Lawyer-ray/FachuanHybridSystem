@@ -1,10 +1,5 @@
-"""Business logic services."""
+"""身份证合并服务重导出。"""
 
-from .id_card_merge import IdCardMergeService as _IdCardMergeService
-
-
-class IdCardMergeService(_IdCardMergeService):
-    pass
-
+from .id_card_merge import IdCardMergeService
 
 __all__: list[str] = ["IdCardMergeService"]
