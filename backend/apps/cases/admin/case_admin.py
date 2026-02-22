@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-import contextlib
-from typing import Any, ClassVar
+from typing import ClassVar
 
-from django.contrib import admin, messages
-from django.db.models import QuerySet
-from django.forms import ModelForm
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
+from django.contrib import admin
 
 from apps.cases.admin.base import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
 from apps.cases.admin.case_forms_admin import CaseAdminForm
-from apps.cases.exceptions import ChatProviderException
 from apps.cases.models import (
     Case,
     CaseAssignment,
@@ -24,8 +17,7 @@ from apps.cases.models import (
     CaseStage,
     SupervisingAuthority,
 )
-from apps.cases.admin.mixins import CaseAdminServiceMixin, CaseAdminViewsMixin
-from apps.core.enums import ChatPlatform
+from apps.cases.admin.mixins import CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminServiceMixin, CaseAdminViewsMixin
 
 
 class CasePartyInline(BaseTabularInline):
@@ -81,7 +73,7 @@ class CaseLogInline(BaseStackedInline):
 
 
 @admin.register(Case)
-class CaseAdmin(CaseAdminServiceMixin, CaseAdminViewsMixin, BaseModelAdmin):
+class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, CaseAdminServiceMixin, BaseModelAdmin):
     form = CaseAdminForm
     list_display = ("id", "name", "status", "start_date", "effective_date", "is_archived")
     list_filter = ("status", "is_archived")
@@ -103,62 +95,4 @@ class CaseAdmin(CaseAdminServiceMixin, CaseAdminViewsMixin, BaseModelAdmin):
         CaseChatInline,
     ]
 
-    def response_change(self, request: HttpRequest, obj: Case) -> HttpResponse:
-        """处理保存并复制按钮"""
-        if "_save_and_duplicate" in request.POST:
-            try:
-                service = self._get_case_admin_service()
-                new_case = service.duplicate_case(obj.pk)
-                messages.success(request, f"已复制案件，正在编辑新案件: {new_case.name}")
-                return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
-            except Exception as e:
-                messages.error(request, f"复制失败: {e!s}")
-                return HttpResponseRedirect(request.path)
-        return super().response_change(request, obj)
 
-    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
-        """为选中的案件创建飞书群聊"""
-        service = self._get_case_chat_service()
-        success_count = 0
-        error_count = 0
-
-        for case in queryset:
-            try:
-                existing_chat = case.chats.filter(platform=ChatPlatform.FEISHU, is_active=True).first()
-
-                if existing_chat:
-                    messages.warning(request, f"案件 {case.name} 已存在飞书群聊: {existing_chat.name}")
-                    continue
-
-                chat = service.create_chat_for_case(case.id, ChatPlatform.FEISHU)
-                success_count += 1
-
-                messages.success(request, f"成功为案件 {case.name} 创建飞书群聊: {chat.name}")
-
-            except ChatProviderException as e:
-                error_count += 1
-                messages.error(request, f"为案件 {case.name} 创建飞书群聊失败: {e!s}")
-            except Exception as e:
-                error_count += 1
-                messages.error(request, f"为案件 {case.name} 创建群聊时发生未知错误: {e!s}")
-
-        if success_count > 0:
-            messages.success(request, f"总计成功创建 {success_count} 个飞书群聊")
-
-        if error_count > 0:
-            messages.error(request, f"总计 {error_count} 个案件创建群聊失败")
-
-    create_feishu_chat_for_selected_cases.short_description = _("为选中案件创建飞书群聊")  # type: ignore[attr-defined]
-
-    def save_formset(self, request: HttpRequest, form: ModelForm[Case], formset: Any, change: bool) -> None:
-        instances = formset.save(commit=False)
-        for obj in instances:
-            if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
-                user_id = getattr(request.user, "id", None)
-                if user_id is not None:
-                    obj.actor_id = user_id
-            obj.save()
-        formset.save_m2m()
-        for obj in formset.deleted_objects:
-            with contextlib.suppress(Exception):
-                obj.delete()
