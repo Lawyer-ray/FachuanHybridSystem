@@ -21,9 +21,9 @@ class Client(models.Model):
     LEGAL = "legal"
     NON_LEGAL_ORG = "non_legal_org"
     CLIENT_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
-        (NATURAL, "自然人"),
-        (LEGAL, "法人"),
-        (NON_LEGAL_ORG, "非法人组织"),
+        (NATURAL, _("自然人")),
+        (LEGAL, _("法人")),
+        (NON_LEGAL_ORG, _("非法人组织")),
     ]
 
     name = models.CharField(max_length=255, verbose_name=_("名称"))
@@ -50,7 +50,7 @@ class Client(models.Model):
 
     def clean(self) -> None:
         if self.client_type == self.LEGAL and not self.legal_representative:
-            raise ValidationError({"legal_representative": "Required for legal organizations"})
+            raise ValidationError({"legal_representative": _("Required for legal organizations")})
 
     class Meta:
         verbose_name = _("当事人")

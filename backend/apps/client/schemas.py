@@ -65,7 +65,7 @@ class ClientOut(ModelSchema, SchemaMixin):
                 doc_type=item.doc_type,
                 file_path=item.file_path,
                 uploaded_at=item.uploaded_at,
-                media_url=item.media_url(),
+                media_url=item.media_url,
             )
             for item in items
         ]
@@ -110,8 +110,8 @@ class PropertyClueAttachmentOut(Schema):
     @staticmethod
     def resolve_media_url(obj: Any) -> str | None:
         """解析附件的媒体 URL。"""
-        if hasattr(obj, "media_url") and callable(obj.media_url):
-            result: str | None = obj.media_url()
+        if hasattr(obj, "media_url"):
+            result: str | None = obj.media_url
             return result
         return None
 
@@ -162,7 +162,7 @@ class PropertyClueOut(Schema):
                 "file_path": item.file_path,
                 "file_name": item.file_name,
                 "uploaded_at": item.uploaded_at,
-                "media_url": item.media_url() if hasattr(item, "media_url") else None,
+                "media_url": item.media_url if hasattr(item, "media_url") else None,
             }
             for item in items
         ]

@@ -9,11 +9,14 @@ from apps.client.services.storage import sanitize_upload_filename, save_uploaded
 
 if TYPE_CHECKING:
     from apps.client.models import ClientIdentityDoc
+    from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
 logger = logging.getLogger("apps.client")
 
 
 class ClientAdminFileMixin:
+    identity_doc_service: ClientIdentityDocService
+
     def _handle_file_storage(
         self, form_data: dict[str, Any], client_name: str = "", doc_type_display: str = ""
     ) -> str | None:
@@ -36,26 +39,20 @@ class ClientAdminFileMixin:
     def _update_identity_doc(self, doc_id: int, file_path: str, admin_user: str) -> None:
         from apps.client.models import ClientIdentityDoc
 
-        try:
-            doc = ClientIdentityDoc.objects.get(id=doc_id)
-            old_path = doc.file_path
-            doc.file_path = file_path
-            doc.save()
-            logger.info(
-                "证件文档文件路径更新成功",
-                extra={
-                    "doc_id": doc_id,
-                    "old_path": old_path,
-                    "new_path": file_path,
-                    "admin_user": admin_user,
-                    "action": "update_identity_doc",
-                },
-            )
-        except ClientIdentityDoc.DoesNotExist:
-            logger.warning(
-                "尝试更新不存在的证件文档",
-                extra={"doc_id": doc_id, "admin_user": admin_user, "action": "update_identity_doc"},
-            )
+        doc = ClientIdentityDoc.objects.get(id=doc_id)
+        old_path = doc.file_path
+        doc.file_path = file_path
+        doc.save()
+        logger.info(
+            "证件文档文件路径更新成功",
+            extra={
+                "doc_id": doc_id,
+                "old_path": old_path,
+                "new_path": file_path,
+                "admin_user": admin_user,
+                "action": "update_identity_doc",
+            },
+        )
 
     def save_and_rename_file(
         self, client_id: int, client_name: str, doc_id: int, doc_type: str, uploaded_file: Any
@@ -68,14 +65,7 @@ class ClientAdminFileMixin:
             ClientIdentityDoc.objects.filter(id=doc_id).update(file_path=file_path)
             doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
             if doc:
-                # 通过 self 访问 identity_doc_service（由 ClientAdminService 提供）
-                identity_doc_service = getattr(self, "identity_doc_service", None)
-                if identity_doc_service is not None:
-                    identity_doc_service.rename_uploaded_file(doc)
-                else:
-                    from .client_identity_doc_service import ClientIdentityDocService
-
-                    ClientIdentityDocService().rename_uploaded_file(doc)
+                self.identity_doc_service.rename_uploaded_file(doc)
             logger.info(
                 "证件文件保存成功",
                 extra={

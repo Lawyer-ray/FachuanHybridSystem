@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from apps.client.models import Client, ClientIdentityDoc, PropertyClue
+from typing import TYPE_CHECKING
+
 from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
 from apps.core.interfaces import ClientDTO
+
+if TYPE_CHECKING:
+    from apps.client.models import Client, ClientIdentityDoc, PropertyClue
 
 
 class ClientDtoAssembler:
@@ -43,7 +47,7 @@ class ClientRelatedDtoAssembler:
             client_id=doc.client_id,
             doc_type=doc.doc_type,
             doc_type_display=doc.get_doc_type_display(),
-            file_path=doc.media_url(),
+            file_path=doc.media_url,
             expiry_date=str(doc.expiry_date) if doc.expiry_date else None,
             is_valid=True,
         )
