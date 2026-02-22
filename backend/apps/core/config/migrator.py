@@ -100,6 +100,12 @@ class ConfigMigrator(ConfigMigratorRollbackMixin, ConfigMigratorSchemaMixin):
             MigrationStep("create_compatibility_layer", "创建兼容层"),
         ]
         self._migration_logs.append(self._current_migration)
+        # 初始化 tracker，使 get_migration_progress 可用
+        self._tracker.start_migration(
+            migration_id,
+            len(self._current_migration.steps),
+            self._current_migration.total_configs,
+        )
         return migration_id
 
     def execute_migration(self) -> bool:

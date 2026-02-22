@@ -83,7 +83,7 @@ class CourtSMSAdminTest(TestCase):
         self.assertIn("重新处理", retry_button)
         self.assertIn(f"/admin/automation/courtsms/{self.sms.id}/retry/", retry_button)
 
-    @patch("apps.automation.admin.sms.court_sms_actions._get_court_sms_service")
+    @patch("apps.automation.admin.sms.court_sms_admin_actions._get_court_sms_service")
     def test_retry_processing_action(self, mock_get_service):
         """测试重新处理操作"""
         # 模拟服务

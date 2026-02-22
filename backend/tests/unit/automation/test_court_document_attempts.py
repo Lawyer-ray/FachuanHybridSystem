@@ -26,6 +26,9 @@ def _make_scraper(tmp_path, direct_api=None, api_intercept=None, fallback=None):
                 raise ValueError("api_intercept_failed")
             return api_intercept
 
+        def _download_via_api_intercept_with_navigation(self, download_dir):
+            return self._download_via_api_intercept(download_dir)
+
         def _download_via_fallback(self, download_dir):
             if fallback is None:
                 raise ValueError("fallback_failed")

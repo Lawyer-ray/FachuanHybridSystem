@@ -5,43 +5,43 @@ rootdir: /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend
 configfile: pytest.ini
 plugins: anyio-4.12.1, hypothesis-6.150.2, Faker-40.4.0, django-4.11.1, asyncio-1.3.0, langsmith-0.7.5, cov-7.0.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 1565 items / 1 skipped
+collected 1563 items / 1 skipped
 
 tests/unit/automation/test_account_selection_strategy.py ........        [  0%]
 tests/unit/automation/test_auto_token_acquisition_service.py ........... [  1%]
                                                                          [  1%]
 tests/unit/automation/test_court_document_service.py ............        [  1%]
 tests/unit/automation/test_court_insurance_client.py F....F............  [  3%]
-tests/unit/automation/test_court_sms_admin.py ....F...                   [  3%]
+tests/unit/automation/test_court_sms_admin.py ........                   [  3%]
 tests/unit/automation/test_court_sms_repository.py ..................    [  4%]
 tests/unit/automation/test_court_token_store_service.py ............     [  5%]
 tests/unit/automation/test_list_quotes_query_optimization.py ..          [  5%]
-tests/unit/automation/test_preservation_quote_admin.py ........F..       [  6%]
-tests/unit/automation/test_preservation_quote_schemas_integration.py ..F [  6%]
+tests/unit/automation/test_preservation_quote_admin.py ...........       [  6%]
+tests/unit/automation/test_preservation_quote_schemas_integration.py ... [  6%]
 ..                                                                       [  6%]
-tests/unit/automation/test_preservation_quote_service.py ...........FF   [  7%]
-tests/unit/automation/test_setup_document_delivery_schedule_command.py F [  7%]
-F                                                                        [  7%]
-tests/unit/automation/test_sms_parser_service.py ....................F.. [  9%]
+tests/unit/automation/test_preservation_quote_service.py .............   [  7%]
+tests/unit/automation/test_setup_document_delivery_schedule_command.py . [  7%]
+.                                                                        [  7%]
+tests/unit/automation/test_sms_parser_service.py ....................... [  9%]
 ....                                                                     [  9%]
-tests/unit/automation/test_token_acquisition_history_scrub.py F          [  9%]
+tests/unit/automation/test_token_acquisition_history_scrub.py .          [  9%]
 tests/unit/automation/test_token_service.py .........                    [ 10%]
 tests/unit/cases/admin/test_case_admin_autocomplete_widgets.py ..        [ 10%]
 tests/unit/cases/services/number/test_case_filing_number_service.py .    [ 10%]
 tests/unit/cases/services/template/test_case_template_binding_service.py . [ 10%]
 ...                                                                      [ 10%]
-tests/unit/cases/services/template/test_template_binding_api_schema.py F [ 10%]
+tests/unit/cases/services/template/test_template_binding_api_schema.py . [ 10%]
                                                                          [ 10%]
 tests/unit/cases/test_case_filing_number_service.py ..                   [ 10%]
 tests/unit/cases/test_case_material_service.py ....                      [ 10%]
-tests/unit/cases/test_case_service.py ................F................. [ 13%]
+tests/unit/cases/test_case_service.py .................................. [ 13%]
                                                                          [ 13%]
 tests/unit/cases/test_litigation_fee_api.py .........                    [ 13%]
 tests/unit/chat_records/test_chat_records_access_policy.py ..            [ 13%]
-tests/unit/client/test_client_admin_service.py ...                       [ 13%]
+tests/unit/client/test_client_admin_service.py ...                       [ 14%]
 tests/unit/client/test_client_identity_doc_model.py .......              [ 14%]
 tests/unit/client/test_client_identity_doc_rename_service.py .           [ 14%]
-tests/unit/client/test_client_service.py ...................             [ 15%]
+tests/unit/client/test_client_service.py .......FFFFFFFFFFFF             [ 15%]
 tests/unit/client/test_client_storage_security.py .....                  [ 16%]
 tests/unit/contracts/admin/workflows/test_contract_admin_workflows.py .. [ 16%]
 ..                                                                       [ 16%]
@@ -60,7 +60,7 @@ tests/unit/core/test_access_policy_mixins.py .....                       [ 22%]
 tests/unit/core/test_api_performance_gates.py .                          [ 22%]
 tests/unit/core/test_base_folder_binding_service.py ..                   [ 22%]
 tests/unit/core/test_cache_infrastructure.py .....                       [ 23%]
-tests/unit/core/test_case_assignment_service_locator_wiring.py F         [ 23%]
+tests/unit/core/test_case_assignment_service_locator_wiring.py .         [ 23%]
 tests/unit/core/test_cause_court_models.py ...........                   [ 23%]
 tests/unit/core/test_cause_court_query_service.py ..                     [ 24%]
 tests/unit/core/test_jwt_or_session_auth_csrf.py ..                      [ 24%]
@@ -69,34 +69,35 @@ tests/unit/core/test_service_locator_get_or_create.py .                  [ 24%]
 tests/unit/core/test_services.py ...............                         [ 25%]
 tests/unit/core/test_system_config_secret_at_rest.py .                   [ 25%]
 tests/unit/core/test_validators.py ...........................           [ 27%]
-tests/unit/documents/test_context_builder.py ...F....                    [ 28%]
-tests/unit/documents/test_contract_generation_service.py ..............  [ 28%]
-tests/unit/documents/test_contract_template_binding_service.py F         [ 29%]
+tests/unit/documents/test_context_builder.py ........                    [ 28%]
+tests/unit/documents/test_contract_generation_service.py ............... [ 29%]
+                                                                         [ 29%]
+tests/unit/documents/test_contract_template_binding_service.py .         [ 29%]
 tests/unit/documents/test_document_template_service_facade.py .          [ 29%]
-tests/unit/documents/test_enhanced_opposing_party_service.py FFF         [ 29%]
+tests/unit/documents/test_enhanced_opposing_party_service.py ...         [ 29%]
 tests/unit/documents/test_evidence_admin_service_recount_pages.py .      [ 29%]
 tests/unit/documents/test_folder_service.py .....................        [ 30%]
 tests/unit/documents/test_generation_service.py ......................   [ 32%]
-tests/unit/documents/test_litigation_generation_service.py F             [ 32%]
+tests/unit/documents/test_litigation_generation_service.py .             [ 32%]
 tests/unit/documents/test_placeholder_service.py ..........              [ 32%]
-tests/unit/documents/test_template_matching_cache.py ..                  [ 32%]
+tests/unit/documents/test_template_matching_cache.py ..                  [ 33%]
 tests/unit/documents/test_template_service.py ...............            [ 33%]
 tests/unit/litigation_ai/test_conversation_flow_service.py ...           [ 34%]
 tests/unit/litigation_ai/test_conversation_service_recommended_types.py . [ 34%]
 ..                                                                       [ 34%]
-tests/unit/litigation_ai/test_conversation_session_service.py ..EFE.E.E. [ 34%]
-.E.E.E.E.E.E.EF....EFE..E.EFE                                            [ 35%]
+tests/unit/litigation_ai/test_conversation_session_service.py .......... [ 34%]
+.............                                                            [ 35%]
 tests/unit/litigation_ai/test_delete_session_fk_cleanup.py .             [ 35%]
 tests/unit/litigation_ai/test_evidence_digest_service.py .               [ 35%]
-tests/unit/litigation_ai/test_evidence_rag_service.py .                  [ 35%]
-tests/unit/litigation_ai/test_placeholder_context_service.py .           [ 35%]
+tests/unit/litigation_ai/test_evidence_rag_service.py .                  [ 36%]
+tests/unit/litigation_ai/test_placeholder_context_service.py .           [ 36%]
 tests/unit/litigation_ai/test_session_lifecycle_service.py ............. [ 36%]
 ............                                                             [ 37%]
 tests/unit/litigation_ai/test_session_message_service.py ............... [ 38%]
 ..............                                                           [ 39%]
 tests/unit/onboarding/test_wizard_view.py .......                        [ 39%]
 tests/unit/organization/test_auth_service_bootstrap.py ...               [ 40%]
-tests/unit/organization/test_lawfirm_service.py .............            [ 40%]
+tests/unit/organization/test_lawfirm_service.py .............            [ 41%]
 tests/unit/organization/test_lawyer_service.py ...............           [ 41%]
 tests/unit/test_refactoring_imports.py ......F                           [ 42%]
 tests/unit/test_setup.py ....                                            [ 42%]
@@ -107,37 +108,36 @@ tests/unit/client/test_client_deletion_workflow.py .                     [ 43%]
 tests/unit/documents/evidence/test_evidence_file_service.py ....         [ 43%]
 tests/unit/documents/test_evidence_merge_usecase_progress_visibility.py . [ 43%]
                                                                          [ 43%]
-tests/unit/automation/scraper/sites/test_court_zxfw_login_flow.py ..     [ 43%]
+tests/unit/automation/scraper/sites/test_court_zxfw_login_flow.py ..     [ 44%]
 tests/unit/automation/scraper/sites/test_court_zxfw_token_extractors.py . [ 44%]
 ...                                                                      [ 44%]
 tests/unit/automation/scraper/test_security_service_key_requirements.py . [ 44%]
 .                                                                        [ 44%]
-tests/unit/automation/sms/test_case_number_extractor_service.py FF       [ 44%]
-tests/unit/automation/test_auto_login_service.py .F                      [ 44%]
+tests/unit/automation/sms/test_case_number_extractor_service.py ..       [ 44%]
+tests/unit/automation/test_auto_login_service.py ..                      [ 44%]
 tests/unit/automation/test_auto_rename_service.py ...................... [ 46%]
 .........................                                                [ 47%]
-tests/unit/automation/test_browser_config.py ..............              [ 48%]
+tests/unit/automation/test_browser_config.py F.............              [ 48%]
 tests/unit/automation/test_browser_manager.py .....                      [ 48%]
 tests/unit/automation/test_captcha_recognizer.py ........                [ 49%]
 tests/unit/automation/test_chat_provider_factory.py ................     [ 50%]
 tests/unit/automation/test_clear_token_cache_command.py ...              [ 50%]
-tests/unit/automation/test_cookie_management.py ......                   [ 50%]
-tests/unit/automation/test_court_document.py .F                          [ 51%]
+tests/unit/automation/test_cookie_management.py ......                   [ 51%]
 tests/unit/automation/test_court_document_attempts.py FF                 [ 51%]
-tests/unit/automation/test_court_sms_service_init.py F                   [ 51%]
-tests/unit/automation/test_court_sms_task_wrappers.py FF                 [ 51%]
+tests/unit/automation/test_court_sms_service_init.py .                   [ 51%]
+tests/unit/automation/test_court_sms_task_wrappers.py ..                 [ 51%]
 tests/unit/automation/test_court_zxfw_di.py ........                     [ 51%]
 tests/unit/automation/test_court_zxfw_login.py .                         [ 51%]
 tests/unit/automation/test_document_attachment_service.py .              [ 52%]
 tests/unit/automation/test_document_classifier.py .................      [ 53%]
 tests/unit/automation/test_document_delivery_schedule_locking.py ...     [ 53%]
 tests/unit/automation/test_document_download_service_facade.py .         [ 53%]
-tests/unit/automation/test_document_renamer.py ..F.........FF            [ 54%]
+tests/unit/automation/test_document_renamer.py ..............            [ 54%]
 tests/unit/automation/test_error_messages.py .......                     [ 54%]
 tests/unit/automation/test_image_rotation_export.py ..................   [ 55%]
 tests/unit/automation/test_info_extractor.py ........................... [ 57%]
 ....                                                                     [ 57%]
-tests/unit/automation/test_insurance_client.py FFFFFFFFFF                [ 58%]
+tests/unit/automation/test_insurance_client.py ..........                [ 58%]
 tests/unit/automation/test_main_api_config_endpoint.py .F                [ 58%]
 tests/unit/automation/test_preservation_quote_factory.py .......         [ 59%]
 tests/unit/automation/test_preservation_quote_schemas.py .............   [ 59%]
@@ -162,8 +162,8 @@ tests/unit/client/test_id_card_merge_service.py ........................ [ 67%]
 ...............                                                          [ 68%]
 tests/unit/client/test_identity_doc_api.py ...........                   [ 69%]
 tests/unit/client/test_identity_extraction_service.py ...........        [ 70%]
-tests/unit/contracts/service/test_contract_display_service.py FF.....    [ 70%]
-tests/unit/contracts/service/test_contract_validator.py .....            [ 70%]
+tests/unit/contracts/service/test_contract_display_service.py .......    [ 70%]
+tests/unit/contracts/service/test_contract_validator.py .....            [ 71%]
 tests/unit/contracts/test_contract_details_assembler.py .                [ 71%]
 tests/unit/contracts/test_folder_binding_service.py ...........          [ 71%]
 tests/unit/contracts/test_folder_browse_service.py ...                   [ 71%]
@@ -171,843 +171,6 @@ tests/unit/core/config/test_business_rules_schema.py .....               [ 72%]
 tests/unit/core/config/test_compatible_settings_has_setting.py ..        [ 72%]
 tests/unit/core/config/test_django_runtime_cors_csrf.py ....             [ 72%]
 tests/unit/core/config/test_django_runtime_security_config.py ......     [ 73%]
-tests/unit/core/config/test_manager_characterization.py ..F              [ 73%]
+tests/unit/core/config/test_manager_characterization.py ...              [ 73%]
 tests/unit/core/config/test_manager_provider_priority.py ..              [ 73%]
-tests/unit/core/config/test_migration_integration.py FFs..F..s           [ 73%]
-tests/unit/core/config/test_perm_open_access.py ...                      [ 74%]
-tests/unit/core/config/test_safe_expression_evaluator.py ..............  [ 75%]
-tests/unit/core/filesystem/test_safe_zip_extract.py ..                   [ 75%]
-tests/unit/core/infrastructure/test_throttling_rate_limit.py .F......... [ 75%]
-..                                                                       [ 75%]
-tests/unit/core/test_asgi_lifespan.py F                                  [ 76%]
-tests/unit/core/test_business_config.py ..............                   [ 76%]
-tests/unit/core/test_court_api_client.py ............                    [ 77%]
-tests/unit/core/test_di_wiring_standardization.py ..                     [ 77%]
-tests/unit/core/test_encrypted_text_field_rotation.py .                  [ 77%]
-tests/unit/core/test_error_presentation.py ...                           [ 78%]
-tests/unit/core/test_exception_handlers.py ......................        [ 79%]
-tests/unit/core/test_exception_simplification.py ...........             [ 80%]
-tests/unit/core/test_exceptions.py ..................................... [ 82%]
-.................                                                        [ 83%]
-tests/unit/core/test_file_upload_service.py ............................ [ 85%]
-..................                                                       [ 86%]
-tests/unit/core/test_json_formatter_timestamp.py .                       [ 86%]
-tests/unit/core/test_llm_backend_configs.py ..                           [ 86%]
-tests/unit/core/test_llm_config_moonshot.py ..                           [ 86%]
-tests/unit/core/test_llm_config_normalization.py ...                     [ 87%]
-tests/unit/core/test_llm_http_error_summary.py ..                        [ 87%]
-tests/unit/core/test_llm_service_routing.py .F                           [ 87%]
-tests/unit/core/test_metrics.py ...                                      [ 87%]
-tests/unit/core/test_ollama_protocol.py ..                               [ 87%]
-tests/unit/core/test_request_context.py ..                               [ 87%]
-tests/unit/core/test_request_id_middleware.py .......                    [ 88%]
-tests/unit/core/test_request_metrics_middleware.py ...                   [ 88%]
-tests/unit/core/test_secret_codec.py ...                                 [ 88%]
-tests/unit/core/test_security_headers_middleware.py ...                  [ 88%]
-tests/unit/core/test_sensitive_data_filter.py ..                         [ 88%]
-tests/unit/core/test_service_locator_comprehensive.py .................. [ 90%]
-                                                                         [ 90%]
-tests/unit/core/test_steering_config_provider.py .                       [ 90%]
-tests/unit/core/test_steering_dependency_graph.py .....                  [ 90%]
-tests/unit/core/test_subprocess_runner.py ....                           [ 90%]
-tests/unit/core/test_system_config_service_cache_policy.py ..            [ 90%]
-tests/unit/core/test_telemetry.py ..                                     [ 90%]
-tests/unit/core/test_uploaded_file_validation.py ....                    [ 91%]
-tests/unit/documents/placeholders/test_fee_terms_fix.py ....             [ 91%]
-tests/unit/documents/placeholders/test_lawyer_names_placeholder.py ..... [ 91%]
-                                                                         [ 91%]
-tests/unit/documents/test_advisor_fee_terms_service.py ...F........      [ 92%]
-tests/unit/documents/test_code_placeholder_catalog_service.py ...        [ 92%]
-tests/unit/documents/test_contract_generation_service.py F               [ 92%]
-tests/unit/documents/test_default_folder_templates.py .                  [ 92%]
-tests/unit/documents/test_document_processing_service.py ............... [ 93%]
-..............                                                           [ 94%]
-tests/unit/documents/test_fee_terms_fix.py ....                          [ 95%]
-tests/unit/documents/test_folder_generation_service.py ............      [ 95%]
-tests/unit/documents/test_folder_template_service_facade.py .            [ 95%]
-tests/unit/documents/test_folder_template_structure_rules.py ..          [ 95%]
-tests/unit/documents/test_generation_pipeline_naming.py ..               [ 96%]
-tests/unit/documents/test_lawyer_names_placeholder.py ........           [ 96%]
-tests/unit/documents/test_litigation_generation_service.py ..            [ 96%]
-tests/unit/documents/test_pdf_utils_page_count.py ....                   [ 96%]
-tests/unit/documents/test_pdf_utils_read_source_bytes.py ..              [ 97%]
-tests/unit/documents/test_placeholder_registry.py .                      [ 97%]
-tests/unit/documents/test_prompt_template_factory.py ........            [ 97%]
-tests/unit/documents/test_supplementary_agreement_services.py FFFF...... [ 98%]
-....                                                                     [ 98%]
-tests/unit/documents/test_template_service.py ...                        [ 98%]
-tests/unit/litigation_ai/test_litigation_draft_chain.py FF               [ 98%]
-tests/unit/litigation_ai/test_llm_fallback_chains.py FFF                 [ 99%]
-tests/unit/litigation_ai/test_placeholder_render_service.py ..           [ 99%]
-tests/unit/organization/test_organization_access_policy.py .........     [ 99%]
-tests/unit/test_setup.py ...                                             [100%]
-
-==================================== ERRORS ====================================
-_ ERROR at teardown of TestLitigationConversationSessionService.test_create_session_delegates_to_lifecycle _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_get_session_delegates_to_lifecycle _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_update_session_status_delegates_to_lifecycle _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_list_sessions_delegates_to_lifecycle _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_add_message_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_get_messages_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_get_message_count_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_save_conversation_summary_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:54] INFO - 保存对话摘要
-_ ERROR at teardown of TestLitigationConversationSessionService.test_get_conversation_summary_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:54] INFO - 保存对话摘要
-_ ERROR at teardown of TestLitigationConversationSessionService.test_add_messages_batch_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionService.test_get_messages_batch_delegates_to_messages _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionServiceBackwardCompatibility.test_to_session_dto_backward_compatibility _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionServiceBackwardCompatibility.test_to_message_dto_backward_compatibility _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionServiceIntegration.test_multiple_sessions_isolation _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionServiceIntegration.test_batch_operations _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
-_ ERROR at teardown of TestLitigationConversationSessionServiceIntegration.test_session_lifecycle_with_metadata _
-E   django.db.utils.IntegrityError: The row in table 'documents_litigationsession' with primary key '1' has an invalid foreign key: documents_litigationsession.user_id contains a value '100' that does not have a corresponding value in organization_lawyer.id.
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:54] INFO - 保存对话摘要
-=================================== FAILURES ===================================
-E   assert False
-     +  where False = isinstance(<apps.automation.services.scraper.core.token_service.TokenServiceAdapter object at 0x161d05850>, TokenService)
-     +    where <apps.automation.services.scraper.core.token_service.TokenServiceAdapter object at 0x161d05850> = <apps.automation.services.insurance.court_insurance_client.CourtInsuranceClient object at 0x161d06990>.token_service
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:31] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:01:31] INFO - ✅ httpx 客户端已初始化
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_court_insurance_client.py:35: assert False
-E   httpx.HTTPStatusError: HTTP 500: Internal Server Error
-
-The above exception was the direct cause of the following exception:
-E   apps.core.exceptions.external.NetworkError: INSURANCE_LIST_SERVER_ERROR: 获取保险公司列表失败: HTTP 500
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:31] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:01:31] INFO - ✅ httpx 客户端已初始化
-[2026-02-22 10:01:31] INFO - 开始获取保险公司列表
-[2026-02-22 10:01:31] INFO - 保险公司列表 API 响应
-[2026-02-22 10:01:31] ERROR - 获取保险公司列表失败
-[2026-02-22 10:01:31] WARNING - 服务器错误（可重试）: 获取保险公司列表失败: HTTP 500
-[2026-02-22 10:01:31] ERROR - 获取保险公司列表失败，已达最大重试次数 1
------------------------------ Captured stderr call -----------------------------
-[2026-02-22 10:01:31] ERROR - 获取保险公司列表失败
-[2026-02-22 10:01:31] ERROR - 获取保险公司列表失败，已达最大重试次数 1
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/court_insurance_client.py:354: apps.core.exceptions.external.NetworkError: INSURANCE_LIST_SERVER_ERROR: 获取保险公司列表失败: HTTP 500
-E   AssertionError: Expected 'retry_processing' to be called once. Called 0 times.
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:39] INFO - 重置短信状态成功: SMS ID=1, 重试次数=1
-[2026-02-22 10:01:39] INFO - 重新提交处理任务: SMS ID=1, Task ID=cc9432bbcebe4098a8f786e994fea7bc
-[2026-02-22 10:01:39] INFO - 管理员重新处理短信: SMS ID=1, User=admin
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py:960: AssertionError: Expected 'retry_processing' to be called once. Called 0 times.
-E   assert '1,000.00' in '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;"><thead><tr style="background-color: #f5f5f5;...lign: center; border: 1px solid #ddd;"><span style="color: #28a745;">✅ 成功</span></td></tr>&lt;/tbody&gt;&lt;/table&gt;'
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:42] INFO - ✅ 询价任务 #1 已自动提交到队列，Task ID: 4372877e23dc4f08b6b1dab16d152dfc
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_preservation_quote_admin.py:185: assert '1,000.00' in '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;"><thead><tr style="background-color: #f5f5f5;...lign: center; border: 1px solid #ddd;"><span style="color: #28a745;">✅ 成功</span></td></tr>&lt;/tbody&gt;&lt;/table&gt;'
-E   AssertionError: assert 0 == 2
-     +  where 0 = len([])
-     +    where [] = PreservationQuoteSchema(id=1, preserve_amount=Decimal('100000.00'), corp_id='440100', category_id='1', credential_id=1...me.datetime(2026, 2, 22, 2, 1, 42, 812249, tzinfo=datetime.timezone.utc), started_at=None, finished_at=None, quotes=[]).quotes
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_preservation_quote_schemas_integration.py:109: AssertionError: assert 0 == 2
-E   apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-    操作步骤：
-    1. 访问 /admin/automation/testcourt/ 测试登录
-    2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-    3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-E   apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-    操作步骤：
-    1. 访问 /admin/automation/testcourt/ 测试登录
-    2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-    3. 登录成功后重新执行询价
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:43] INFO - 创建询价任务
-[2026-02-22 10:01:43] INFO - ✅ 询价任务 #2 已自动提交到队列，Task ID: 292664a2afac43bc9e246a94f0c21420
-[2026-02-22 10:01:43] INFO - ✅ 询价任务创建成功
-[2026-02-22 10:01:43] INFO - 开始执行询价任务
-[2026-02-22 10:01:43] INFO - 开始获取 Token
-[2026-02-22 10:01:43] WARNING - 凭证 2 获取失败: You cannot call this from an async context - use a thread or sync_to_async.，将自动选择账号
-[2026-02-22 10:01:43] WARNING - ⚠️ 未找到有效 Token: court_zxfw，需要手动登录获取
-[2026-02-22 10:01:43] ERROR - ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-[2026-02-22 10:01:43] ERROR - ❌ 询价任务执行失败: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
-    raise exc_info[1]
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/preservation_quote_service.py", line 221, in execute_quote
-    token = await self._get_valid_token(quote.credential_id)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 131, in _get_valid_token
-    raise TokenError(msg) from e
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
------------------------------ Captured stderr call -----------------------------
-[2026-02-22 10:01:43] ERROR - ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-[2026-02-22 10:01:43] ERROR - ❌ 询价任务执行失败: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
-    raise exc_info[1]
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/preservation_quote_service.py", line 221, in execute_quote
-    token = await self._get_valid_token(quote.credential_id)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 131, in _get_valid_token
-    raise TokenError(msg) from e
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py:131: apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-E   apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-    操作步骤：
-    1. 访问 /admin/automation/testcourt/ 测试登录
-    2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-    3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-E   apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-    操作步骤：
-    1. 访问 /admin/automation/testcourt/ 测试登录
-    2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-    3. 登录成功后重新执行询价
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:43] INFO - 创建询价任务
-[2026-02-22 10:01:43] INFO - ✅ 询价任务 #3 已自动提交到队列，Task ID: 5e7b0406bb1c475ca09bde6670381936
-[2026-02-22 10:01:43] INFO - ✅ 询价任务创建成功
-[2026-02-22 10:01:43] INFO - 开始执行询价任务
-[2026-02-22 10:01:43] INFO - 开始获取 Token
-[2026-02-22 10:01:43] WARNING - 凭证 3 获取失败: You cannot call this from an async context - use a thread or sync_to_async.，将自动选择账号
-[2026-02-22 10:01:43] WARNING - ⚠️ 未找到有效 Token: court_zxfw，需要手动登录获取
-[2026-02-22 10:01:43] ERROR - ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-[2026-02-22 10:01:43] ERROR - ❌ 询价任务执行失败: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
-    raise exc_info[1]
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/preservation_quote_service.py", line 221, in execute_quote
-    token = await self._get_valid_token(quote.credential_id)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 131, in _get_valid_token
-    raise TokenError(msg) from e
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
------------------------------ Captured stderr call -----------------------------
-[2026-02-22 10:01:43] ERROR - ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-[2026-02-22 10:01:43] ERROR - ❌ 询价任务执行失败: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 108, in _get_valid_token
-    raise TokenError(msg)
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
-    raise exc_info[1]
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/preservation_quote_service.py", line 221, in execute_quote
-    token = await self._get_valid_token(quote.credential_id)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py", line 131, in _get_valid_token
-    raise TokenError(msg) from e
-apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-操作步骤：
-1. 访问 /admin/automation/testcourt/ 测试登录
-2. 或访问 /admin/automation/courttoken/ 查看 Token 状态
-3. 登录成功后重新执行询价
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/automation/services/insurance/_quote_execution_mixin.py:131: apps.automation.services.insurance.exceptions.TokenError: TOKEN_ERROR: ❌ Token获取失败: TOKEN_ERROR: Token 不存在或已过期，请先手动登录获取 Token。
-E   AssertionError: assert 0 == 1
-     +  where 0 = count()
-     +    where count = <QuerySet []>.count
-     +      where <QuerySet []> = filter(name='document_delivery_periodic_check')
-     +        where filter = <django.db.models.manager.Manager object at 0x161a61340>.filter
-     +          where <django.db.models.manager.Manager object at 0x161a61340> = <class 'django_q.models.Schedule'>.objects
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_setup_document_delivery_schedule_command.py:26: AssertionError: assert 0 == 1
-E   AssertionError: assert 0 == 1
-     +  where 0 = count()
-     +    where count = <QuerySet []>.count
-     +      where <QuerySet []> = filter(name='document_delivery_periodic_check')
-     +        where filter = <django.db.models.manager.Manager object at 0x161a61340>.filter
-     +          where <django.db.models.manager.Manager object at 0x161a61340> = <class 'django_q.models.Schedule'>.objects
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_setup_document_delivery_schedule_command.py:49: AssertionError: assert 0 == 1
-E   assert 0 == 1
-     +  where 0 = len([])
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:43] INFO - 未找到有效下载链接
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_sms_parser_service.py:326: assert 0 == 1
-E   AssertionError: assert 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.VERYLONGTOKENVALUE' is None
-     +  where 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.VERYLONGTOKENVALUE' = <TokenAcquisitionHistory: court_zxfw - test_account - 失败>.token_preview
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_token_acquisition_history_scrub.py:33: AssertionError: assert 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.VERYLONGTOKENVALUE' is None
-E   NameError: name 'DocumentTemplateDTO' is not defined
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/document_service_adapter.py:324: NameError: name 'DocumentTemplateDTO' is not defined
-E   assert 0 == 1
-     +  where 0 = count()
-     +    where count = <QuerySet []>.count
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/cases/test_case_service.py:497: assert 0 == 1
-E   AssertionError: Expected 'extractall' to have been called once. Called 0 times.
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:51] INFO - 文件夹绑定成功
-[2026-02-22 10:01:51] INFO - ZIP解压到绑定文件夹成功
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py:928: AssertionError: Expected 'extractall' to have been called once. Called 0 times.
-E   TypeError: CaseAssignmentService.__init__() got an unexpected keyword argument 'contract_assignment_query_service'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/dependencies/business_case.py:52: TypeError: CaseAssignmentService.__init__() got an unexpected keyword argument 'contract_assignment_query_service'
-E   AssertionError: '' != '2024年01月15日'
-    + 2024年01月15日
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:52] WARNING - 格式化日期失败: 'str' object has no attribute 'strftime'
-[2026-02-22 10:01:52] WARNING - 格式化日期失败: 'str' object has no attribute 'strftime'
-[2026-02-22 10:01:52] WARNING - 格式化日期失败: 'str' object has no attribute 'strftime'
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:715: AssertionError: '' != '2024年01月15日'
-E   AssertionError: assert None == ''
-     +  where '' = <DocumentTemplateFolderBinding: 测试模板0 → 合同文件夹模板/node2>.folder_node_path
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_contract_template_binding_service.py:43: AssertionError: assert None == ''
-E   AssertionError: assert '' == '对方公司买卖合同纠纷一案'
-      
-      - 对方公司买卖合同纠纷一案
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:52] WARNING - 格式化有案件情况失败: 'EnhancedOpposingPartyService' object has no attribute '_get_contract_party_ids'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_enhanced_opposing_party_service.py:26: AssertionError: assert '' == '对方公司买卖合同纠纷一案'
-E   AssertionError: assert '对方公司买卖合同纠纷' in ''
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:52] WARNING - 格式化有案件情况失败: 'EnhancedOpposingPartyService' object has no attribute '_get_contract_party_ids'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_enhanced_opposing_party_service.py:53: AssertionError: assert '对方公司买卖合同纠纷' in ''
-E   AssertionError: assert '' == '第三方合同纠纷一案'
-      
-      - 第三方合同纠纷一案
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:52] WARNING - 格式化有案件情况失败: 'EnhancedOpposingPartyService' object has no attribute '_get_contract_party_ids'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_enhanced_opposing_party_service.py:79: AssertionError: assert '' == '第三方合同纠纷一案'
-E   AssertionError: assert <MagicMock na...='6031641728'> == ComplaintOutp..., evidence=[])
-      
-      Use -v to get more diff
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:52] INFO - 开始生成起诉状
-[2026-02-22 10:01:52] INFO - 起诉状生成成功
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_litigation_generation_service.py:81: AssertionError: assert <MagicMock na...='6031641728'> == ComplaintOutp..., evidence=[])
-E   apps.core.exceptions.common.NotFoundError: SESSION_NOT_FOUND: 会话不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/litigation_ai/services/session_lifecycle_service.py:51: apps.core.exceptions.common.NotFoundError: SESSION_NOT_FOUND: 会话不存在
-E   AttributeError: <module 'apps.litigation_ai.services.session_lifecycle_service' from '/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/litigation_ai/services/session_lifecycle_service.py'> does not have the attribute 'get_court_pleading_signals_service'
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py:1437: AttributeError: <module 'apps.litigation_ai.services.session_lifecycle_service' from '/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/litigation_ai/services/session_lifecycle_service.py'> does not have the attribute 'get_court_pleading_signals_service'
-E   ModuleNotFoundError: No module named 'apps.conversation_history'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/litigation_ai/test_conversation_session_service.py:257: ModuleNotFoundError: No module named 'apps.conversation_history'
-E   apps.core.exceptions.common.NotFoundError: SESSION_NOT_FOUND: 会话不存在
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:01:54] INFO - 保存对话摘要
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/litigation_ai/services/session_lifecycle_service.py:51: apps.core.exceptions.common.NotFoundError: SESSION_NOT_FOUND: 会话不存在
-E   assert 2 >= 5
-     +  where 2 = len([<warnings.WarningMessage object at 0x1679c68a0>, <warnings.WarningMessage object at 0x1679c7890>])
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/test_refactoring_imports.py:167: assert 2 >= 5
-E   TypeError: CaseNumberExtractorService.__init__() got an unexpected keyword argument 'extraction_provider'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/sms/test_case_number_extractor_service.py:21: TypeError: CaseNumberExtractorService.__init__() got an unexpected keyword argument 'extraction_provider'
-E   TypeError: CaseNumberExtractorService.__init__() got an unexpected keyword argument 'extraction_provider'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/sms/test_case_number_extractor_service.py:29: TypeError: CaseNumberExtractorService.__init__() got an unexpected keyword argument 'extraction_provider'
-E   TypeError: AutoLoginService.__init__() got an unexpected keyword argument 'usecase'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_auto_login_service.py:45: TypeError: AutoLoginService.__init__() got an unexpected keyword argument 'usecase'
-E   django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
------------------------------ Captured stdout call -----------------------------
-
-======================================================================
-  测试 sd.gdems.com 文书下载
-======================================================================
-🔗 URL: https://sd.gdems.com/v3/dzsd/B0MBNG
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py:24: django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-E   AttributeError: 'DummyScraper' object has no attribute '_download_zxfw_court'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_court_document_attempts.py:39: AttributeError: 'DummyScraper' object has no attribute '_download_zxfw_court'
-E   AttributeError: 'DummyScraper' object has no attribute '_download_zxfw_court'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_court_document_attempts.py:54: AttributeError: 'DummyScraper' object has no attribute '_download_zxfw_court'
-E   TypeError: CourtSMSService.__init__() got an unexpected keyword argument 'document_processing_service'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_court_sms_service_init.py:7: TypeError: CourtSMSService.__init__() got an unexpected keyword argument 'document_processing_service'
-E   django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py:24: django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-E   django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py:24: django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-E   AssertionError: assert 30 > 30
-     +  where 30 = len('这是一个非常长的案件名称超过了六十个字符的限制应该被截断处理')
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_document_renamer.py:75: AssertionError: assert 30 > 30
-E   AssertionError: assert '裁定书（测试案件）_20251214收(1).pdf' in '/var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/tmpuy1udmqt/裁定书（测试案件）_20251214收1.pdf'
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:02:32] INFO - 文书重命名成功: /var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/tmpuy1udmqt/original.pdf -> /var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/tmpuy1udmqt/裁定书（测试案件）_20251214收1.pdf
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_document_renamer.py:216: AssertionError: assert '裁定书（测试案件）_20251214收(1).pdf' in '/var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/tmpuy1udmqt/裁定书（测试案件）_20251214收1.pdf'
-E   AssertionError: assert '原始文书名称（测试案件）_20251214收.pdf' in '/var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/司法文书（测试案件）_20251214收.pdf'
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:02:32] WARNING - 重命名失败，使用降级方案: 重命名失败
-[2026-02-22 10:02:32] INFO - 使用降级方案重命名成功: /var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/tmpbrsil8m1.pdf -> /var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/司法文书（测试案件）_20251214收.pdf
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_document_renamer.py:232: AssertionError: assert '原始文书名称（测试案件）_20251214收.pdf' in '/var/folders/bj/x9vgswqj75g5c3n9jb167j840000gn/T/司法文书（测试案件）_20251214收.pdf'
-E   RuntimeError: Cannot run the event loop while another loop is running
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:32] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:32] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:32] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:32] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:32] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:32] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:32] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:32] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:32] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:32] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:33] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:33] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:33] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:33] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:33] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:33] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:33] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:33] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
----------------------------- Captured stdout setup -----------------------------
-[2026-02-22 10:02:33] WARNING - h2 包未安装，HTTP/2 已禁用。建议安装: uv add httpx[http2]
-[2026-02-22 10:02:33] INFO - ✅ httpx 客户端已初始化
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   AssertionError: assert {'moonshot', 'ollama'} == {'court_sms',...ng', 'feishu'}
-      
-      Extra items in the left set:
-      'moonshot'
-      'ollama'
-      Extra items in the right set:
-      'feishu'
-      'court_sms'
-      'document_processing'
-      Use -v to get more diff
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:02:33] WARNING - [LLMConfig] SystemConfigService 读取失败
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/llm/config.py", line 143, in _get_system_config
-    raw_value = config_service.get_value(key, default="")
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/services/system_config_service.py", line 213, in get_value
-    config = self._model.objects.get(key=key, is_active=True)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
-    return getattr(self.get_queryset(), name)(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 635, in get
-    num = len(clone)
-          ^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 372, in __len__
-    self._fetch_all()
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 2000, in _fetch_all
-    self._result_cache = list(self._iterable_class(self))
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 95, in __iter__
-    results = compiler.execute_sql(
-              ^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1622, in execute_sql
-    cursor = self.connection.cursor()
-             ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 24, in inner
-    raise SynchronousOnlyOperation(message)
-django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-[2026-02-22 10:02:33] WARNING - [LLMConfig] SystemConfigService 读取失败
-Traceback (most recent call last):
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/llm/config.py", line 143, in _get_system_config
-    raw_value = config_service.get_value(key, default="")
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/services/system_config_service.py", line 213, in get_value
-    config = self._model.objects.get(key=key, is_active=True)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
-    return getattr(self.get_queryset(), name)(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 635, in get
-    num = len(clone)
-          ^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 372, in __len__
-    self._fetch_all()
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 2000, in _fetch_all
-    self._result_cache = list(self._iterable_class(self))
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 95, in __iter__
-    results = compiler.execute_sql(
-              ^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1622, in execute_sql
-    cursor = self.connection.cursor()
-             ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 24, in inner
-    raise SynchronousOnlyOperation(message)
-django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/automation/test_main_api_config_endpoint.py:53: AssertionError: assert {'moonshot', 'ollama'} == {'court_sms',...ng', 'feishu'}
-E   KeyError: 1
------------------------------ Captured stdout call -----------------------------
-[2026-02-22 10:02:34] INFO - 批量获取 3 个合同的模板信息完成,涉及 2 种案件类型
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/contracts/service/test_contract_display_service.py:113: KeyError: 1
-E   AssertionError: '模板A(类型1)、模板B' != '模板A（类型1）、模板B'
-    - 模板A(类型1)、模板B
-    ?    ^   ^
-    + 模板A（类型1）、模板B
-    ?    ^   ^
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:715: AssertionError: '模板A(类型1)、模板B' != '模板A（类型1）、模板B'
-E   apps.core.config.exceptions.ConfigNotFoundError: CONFIG_NOT_FOUND: 配置项 'django.debug' 不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/core/config/manager.py:148: apps.core.config.exceptions.ConfigNotFoundError: CONFIG_NOT_FOUND: 配置项 'django.debug' 不存在
-E   AssertionError: 'django-insecure-dev-only-do-not-use-in-production' != 'test-secret-key'
-    - django-insecure-dev-only-do-not-use-in-production
-    + test-secret-key
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:715: AssertionError: 'django-insecure-dev-only-do-not-use-in-production' != 'test-secret-key'
-E   AssertionError: 'django-insecure-dev-only-do-not-use-in-production' != 'mock-secret-key'
-    - django-insecure-dev-only-do-not-use-in-production
-    + mock-secret-key
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:715: AssertionError: 'django-insecure-dev-only-do-not-use-in-production' != 'mock-secret-key'
-E   AssertionError: unexpectedly None
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:715: AssertionError: unexpectedly None
-E   RuntimeError: Cannot run the event loop while another loop is running
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   AssertionError: assert '¥50000.00元' in '甲方向乙方支付法律顾问费¥50000.0元（大写：人民币伍万元整）'
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/unit/documents/test_advisor_fee_terms_service.py:80: AssertionError: assert '¥50000.00元' in '甲方向乙方支付法律顾问费¥50000.0元（大写：人民币伍万元整）'
-E   django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/utils/asyncio.py:24: django.core.exceptions.SynchronousOnlyOperation: You cannot call this from an async context - use a thread or sync_to_async.
-E   apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/registry.py:95: apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-E   apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/registry.py:95: apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-E   apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/registry.py:95: apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-E   apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/services/placeholders/registry.py:95: apps.core.exceptions.common.NotFoundError: PLACEHOLDER_SERVICE_NOT_FOUND: 占位符服务不存在
-E   RuntimeError: Runner is closed
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-E   RuntimeError: Cannot run the event loop while another loop is running
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py:628: RuntimeError: Cannot run the event loop while another loop is running
-E   RuntimeError: Runner is closed
-/opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py:133: RuntimeError: Runner is closed
-=============================== warnings summary ===============================
-tests/unit/automation/test_court_document.py::test_zxfw_court
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/db/models/fields/__init__.py:1670: RuntimeWarning: DateTimeField ScraperTask.started_at received a naive datetime (2026-02-22 10:02:28.836352) while time zone support is active.
-    warnings.warn(
-
-tests/unit/automation/test_court_document.py::test_zxfw_court
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/unit/automation/test_court_document.py::test_zxfw_court returned <class 'bool'>.
-  Did you mean to use `assert` instead of `return`?
-  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
-    warnings.warn(
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_insurance_companies_incomplete_data[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:2304: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    self._exceptions.append(exc)
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_insurance_companies_incomplete_data[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:2304: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    self._exceptions.append(exc)
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_timeout[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/_code/code.py:603: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    @property
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_timeout[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/_code/code.py:603: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    @property
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_all_premiums_empty_list[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/reports.py:396: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    keywords = {x: 1 for x in item.keywords}
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_all_premiums_empty_list[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/reports.py:396: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    keywords = {x: 1 for x in item.keywords}
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/cases/test_cause_court_data_service.py::TestCauseCourtDataService::test_search_courts_basic
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/cases/services/data/cause_court_data_service.py:93: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    self.flatten_tree(child, result)
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/cases/test_cause_court_data_service.py::TestCauseCourtDataService::test_search_courts_basic
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/cases/services/data/cause_court_data_service.py:93: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    self.flatten_tree(child, result)
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/core/infrastructure/test_throttling_rate_limit.py::test_get_client_ip_does_not_trust_xff_without_trusted_proxy_in_production
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/dispatch/dispatcher.py:466: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    receivers.append((receiver, sender_ref, is_async))
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/core/infrastructure/test_throttling_rate_limit.py::test_get_client_ip_does_not_trust_xff_without_trusted_proxy_in_production
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/django/dispatch/dispatcher.py:466: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    receivers.append((receiver, sender_ref, is_async))
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/core/test_metrics.py::test_record_request_updates_snapshot
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/fixtures.py:1132: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    def __init__(self, request: FixtureRequest) -> None:
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/core/test_metrics.py::test_record_request_updates_snapshot
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/fixtures.py:1132: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    def __init__(self, request: FixtureRequest) -> None:
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/litigation_ai/test_llm_fallback_chains.py::test_document_type_parse_chain_fallback_without_api_key[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/_code/code.py:196: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    def __init__(
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/litigation_ai/test_llm_fallback_chains.py::test_document_type_parse_chain_fallback_without_api_key[asyncio]
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/_code/code.py:196: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    def __init__(
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/organization/test_organization_access_policy.py::TestOrganizationAccessPolicy::test_can_create_requires_admin_or_superuser
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/mark/structures.py:620: RuntimeWarning: coroutine 'TestRunner._call_in_runner_task' was never awaited
-    def __getitem__(self, key: str) -> Any:
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/unit/organization/test_organization_access_policy.py::TestOrganizationAccessPolicy::test_can_create_requires_admin_or_superuser
-  /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.venv/lib/python3.12/site-packages/_pytest/mark/structures.py:620: RuntimeWarning: coroutine 'BaseEventLoop.shutdown_asyncgens' was never awaited
-    def __getitem__(self, key: str) -> Any:
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED tests/unit/automation/test_court_insurance_client.py::TestCourtInsuranceClientInit::test_init_without_token_service
-FAILED tests/unit/automation/test_court_insurance_client.py::TestFetchInsuranceCompanies::test_fetch_insurance_companies_http_error[asyncio]
-FAILED tests/unit/automation/test_court_sms_admin.py::CourtSMSAdminTest::test_retry_processing_action
-FAILED tests/unit/automation/test_preservation_quote_admin.py::TestPreservationQuoteAdmin::test_quotes_summary_with_data
-FAILED tests/unit/automation/test_preservation_quote_schemas_integration.py::TestSchemaModelIntegration::test_preservation_quote_with_related_quotes
-FAILED tests/unit/automation/test_preservation_quote_service.py::TestPreservationQuoteService::test_execute_quote_success[asyncio]
-FAILED tests/unit/automation/test_preservation_quote_service.py::TestPreservationQuoteService::test_execute_quote_partial_success[asyncio]
-FAILED tests/unit/automation/test_setup_document_delivery_schedule_command.py::test_setup_document_delivery_schedule_dry_run_does_not_delete_existing_schedule
-FAILED tests/unit/automation/test_setup_document_delivery_schedule_command.py::test_setup_document_delivery_schedule_remove_dry_run_does_not_delete_existing_schedule
-FAILED tests/unit/automation/test_sms_parser_service.py::TestSMSParserServiceEdgeCases::test_extract_download_links_case_insensitive
-FAILED tests/unit/automation/test_token_acquisition_history_scrub.py::test_token_acquisition_history_scrubs_preview_and_error_details_on_save
-FAILED tests/unit/cases/services/template/test_template_binding_api_schema.py::test_template_bindings_response_matches_ninja_schema
-FAILED tests/unit/cases/test_case_service.py::TestCaseServiceSearch::test_search_by_case_number_normalize
-FAILED tests/unit/contracts/test_folder_binding_service.py::TestFolderBindingService::test_extract_zip_to_bound_folder_success
-FAILED tests/unit/core/test_case_assignment_service_locator_wiring.py::test_case_assignment_service_locator_builds_with_deps
-FAILED tests/unit/documents/test_context_builder.py::ContextBuilderTest::test_build_contract_context_success
-FAILED tests/unit/documents/test_contract_template_binding_service.py::test_get_contract_subdir_path_internal_returns_folder_node_path
-FAILED tests/unit/documents/test_enhanced_opposing_party_service.py::test_enhanced_opposing_party_uses_contract_opposing_party_ids
-FAILED tests/unit/documents/test_enhanced_opposing_party_service.py::test_enhanced_opposing_party_multiple_cases_formats_count
-FAILED tests/unit/documents/test_enhanced_opposing_party_service.py::test_enhanced_opposing_party_falls_back_to_non_our_clients_when_contract_has_no_opposing
-FAILED tests/unit/documents/test_litigation_generation_service.py::test_litigation_llm_generator_uses_llm_service_structured_llm
-FAILED tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_session_delegates_to_lifecycle
-FAILED tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_recommended_document_types_delegates_to_lifecycle
-FAILED tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceBackwardCompatibility::test_to_message_dto_backward_compatibility
-FAILED tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceIntegration::test_session_lifecycle_with_metadata
-FAILED tests/unit/test_refactoring_imports.py::TestRefactoringImports::test_core_legacy_imports_still_work
-FAILED tests/unit/automation/sms/test_case_number_extractor_service.py::test_extract_from_content_parses_json_and_deduplicates
-FAILED tests/unit/automation/sms/test_case_number_extractor_service.py::test_extract_from_content_falls_back_when_non_json
-FAILED tests/unit/automation/test_auto_login_service.py::test_auto_login_service_delegates_to_usecase[asyncio]
-FAILED tests/unit/automation/test_court_document.py::test_gdems - django.core...
-FAILED tests/unit/automation/test_court_document_attempts.py::test_attempts_direct_api_success
-FAILED tests/unit/automation/test_court_document_attempts.py::test_attempts_fallback_success_after_failures
-FAILED tests/unit/automation/test_court_sms_service_init.py::test_court_sms_service_init_builds_default_case_number_extractor
-FAILED tests/unit/automation/test_court_sms_task_wrappers.py::test_process_sms_async_delegates_to_workers
-FAILED tests/unit/automation/test_court_sms_task_wrappers.py::test_retry_download_task_delegates_to_workers
-FAILED tests/unit/automation/test_document_renamer.py::TestDocumentRenamer::test_generate_filename_with_long_names
-FAILED tests/unit/automation/test_document_renamer.py::TestDocumentRenamer::test_rename_with_conflict
-FAILED tests/unit/automation/test_document_renamer.py::TestDocumentRenamer::test_rename_with_fallback_success
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_insurance_companies_success[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_insurance_companies_empty_list[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_insurance_companies_incomplete_data[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_success[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_no_premium_in_response[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_http_error[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_premium_timeout[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_all_premiums_success[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_all_premiums_partial_failure[asyncio]
-FAILED tests/unit/automation/test_insurance_client.py::TestCourtInsuranceClient::test_fetch_all_premiums_empty_list[asyncio]
-FAILED tests/unit/automation/test_main_api_config_endpoint.py::test_automation_config_returns_sanitized_config
-FAILED tests/unit/contracts/service/test_contract_display_service.py::TestContractDisplayService::test_batch_get_template_info
-FAILED tests/unit/contracts/service/test_contract_display_service.py::TestContractDisplayService::test_get_matched_document_template_from_cache
-FAILED tests/unit/core/config/test_manager_characterization.py::TestConfigManagerCharacterization::test_config_manager_set_and_get_roundtrip
-FAILED tests/unit/core/config/test_migration_integration.py::TestMigrationIntegration::test_compatibility_layer
-FAILED tests/unit/core/config/test_migration_integration.py::TestMigrationIntegration::test_django_settings_compatibility
-FAILED tests/unit/core/config/test_migration_integration.py::TestMigrationIntegration::test_migration_tracker_integration
-FAILED tests/unit/core/infrastructure/test_throttling_rate_limit.py::test_rate_limit_async_raises_429_on_overflow[asyncio]
-FAILED tests/unit/core/test_asgi_lifespan.py::test_lifespan_calls_shutdown_hook[asyncio]
-FAILED tests/unit/core/test_llm_service_routing.py::test_llm_service_uses_default_backend_for_async[asyncio]
-FAILED tests/unit/documents/test_advisor_fee_terms_service.py::TestAdvisorFeeTermsService::test_generate_fixed_fee_terms
-FAILED tests/unit/documents/test_contract_generation_service.py::TestContractGenerationService::test_generate_contract_document_contract_not_found
-FAILED tests/unit/documents/test_supplementary_agreement_services.py::TestSupplementaryAgreementServiceRegistration::test_basic_service_registered
-FAILED tests/unit/documents/test_supplementary_agreement_services.py::TestSupplementaryAgreementServiceRegistration::test_principal_service_registered
-FAILED tests/unit/documents/test_supplementary_agreement_services.py::TestSupplementaryAgreementServiceRegistration::test_opposing_service_registered
-FAILED tests/unit/documents/test_supplementary_agreement_services.py::TestSupplementaryAgreementServiceRegistration::test_signature_service_registered
-FAILED tests/unit/litigation_ai/test_litigation_draft_chain.py::test_litigation_draft_chain_returns_structured_draft[asyncio]
-FAILED tests/unit/litigation_ai/test_litigation_draft_chain.py::test_litigation_draft_chain_defense[asyncio]
-FAILED tests/unit/litigation_ai/test_llm_fallback_chains.py::test_document_type_parse_chain_fallback_without_api_key[asyncio]
-FAILED tests/unit/litigation_ai/test_llm_fallback_chains.py::test_user_choice_parse_chain_fallback_all[asyncio]
-FAILED tests/unit/litigation_ai/test_llm_fallback_chains.py::test_goal_intake_chain_fallback_clarifies_when_too_short[asyncio]
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_create_session_delegates_to_lifecycle
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_session_delegates_to_lifecycle
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_update_session_status_delegates_to_lifecycle
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_list_sessions_delegates_to_lifecycle
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_add_message_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_messages_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_message_count_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_save_conversation_summary_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_conversation_summary_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_add_messages_batch_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionService::test_get_messages_batch_delegates_to_messages
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceBackwardCompatibility::test_to_session_dto_backward_compatibility
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceBackwardCompatibility::test_to_message_dto_backward_compatibility
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceIntegration::test_multiple_sessions_isolation
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceIntegration::test_batch_operations
-ERROR tests/unit/litigation_ai/test_conversation_session_service.py::TestLitigationConversationSessionServiceIntegration::test_session_lifecycle_with_metadata
-= 69 failed, 1494 passed, 3 skipped, 18 warnings, 16 errors in 72.87s (0:01:12) =
+tests/unit/core/config/test_migration_integration.py ..s

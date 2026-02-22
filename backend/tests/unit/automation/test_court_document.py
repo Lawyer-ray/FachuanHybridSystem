@@ -16,6 +16,9 @@ import os
 import sys
 
 import django
+import pytest
+
+pytestmark = pytest.mark.skip(reason="集成脚本，不作为单元测试运行")
 
 # 设置 Django 环境
 # 注意：从 tests 目录运行时，需要正确设置路径
@@ -64,6 +67,7 @@ def print_result(result: dict):
             print(f"  {key}: {value}")
 
 
+@pytest.mark.django_db
 def test_zxfw_court(url=None, interactive=False):
     """测试 zxfw.court.gov.cn 链接"""
     print_separator("测试 zxfw.court.gov.cn 文书下载")
@@ -125,6 +129,7 @@ def test_zxfw_court(url=None, interactive=False):
         return False
 
 
+@pytest.mark.django_db
 def test_gdems(url=None, interactive=False):
     """测试 sd.gdems.com 链接"""
     print_separator("测试 sd.gdems.com 文书下载")
@@ -133,11 +138,6 @@ def test_gdems(url=None, interactive=False):
         url = "https://sd.gdems.com/v3/dzsd/B0MBNG"  # 修正 URL
 
     print(f"🔗 URL: {url}")
-
-    # 关闭数据库连接，避免异步上下文问题
-    from django.db import connection
-
-    connection.close()
 
     # 创建测试任务
     task = ScraperTask.objects.create(task_type=ScraperTaskType.COURT_DOCUMENT, url=url, priority=5, config={})

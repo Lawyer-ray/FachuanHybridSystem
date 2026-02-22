@@ -63,8 +63,11 @@ class Command(BaseCommand):
         existing_schedules = Schedule.objects.filter(name=schedule_name)
         if existing_schedules.exists():
             count = existing_schedules.count()
-            existing_schedules.delete()
-            self.stdout.write(self.style.WARNING(f"已移除 {count} 个现有的调度任务: {schedule_name}"))
+            if is_dry_run:
+                self.stdout.write(self.style.WARNING(f"[DRY RUN] 将移除 {count} 个现有的调度任务: {schedule_name}"))
+            else:
+                existing_schedules.delete()
+                self.stdout.write(self.style.WARNING(f"已移除 {count} 个现有的调度任务: {schedule_name}"))
 
         if options["remove"]:
             if not is_dry_run:

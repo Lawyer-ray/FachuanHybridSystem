@@ -385,8 +385,15 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
             else:
                 status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
 
-            if quote.min_amount:
-                amount_str = f"{quote.min_amount:,.2f}"
+            if quote.premium is not None:
+                amount_val: Any = quote.premium
+            elif quote.min_amount is not None:
+                amount_val = quote.min_amount
+            else:
+                amount_val = None
+
+            if amount_val is not None:
+                amount_str = f"{amount_val:,.2f}"
                 if rank == 1:
                     premium_cell = format_html(
                         '<span style="color: #28a745; font-weight: bold; font-size: 16px;">¥{}</span> 🏆',
@@ -421,11 +428,14 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
         table_close = format_html("{}", "</tbody></table>")
 
-        successful_quotes = [q for q in quotes if q.min_amount is not None]
+        def _get_amount(q: Any) -> Any:
+            return q.premium if q.premium is not None else q.min_amount
+
+        successful_quotes = [q for q in quotes if _get_amount(q) is not None]
         if successful_quotes:
-            min_premium: Decimal = min(q.min_amount for q in successful_quotes)
-            max_premium: Decimal = max(q.min_amount for q in successful_quotes)
-            avg_premium: float = float(sum(q.min_amount for q in successful_quotes)) / len(successful_quotes)
+            min_premium: Decimal = min(_get_amount(q) for q in successful_quotes)
+            max_premium: Decimal = max(_get_amount(q) for q in successful_quotes)
+            avg_premium: float = float(sum(_get_amount(q) for q in successful_quotes)) / len(successful_quotes)
 
             stats_html = format_html(
                 '<div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">'

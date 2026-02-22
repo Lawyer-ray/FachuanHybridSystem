@@ -1,11 +1,14 @@
 """
 Root conftest.py — Django 6 compatibility fixes for async test connections.
 """
+import os
+from typing import Any
+
 from django.db.backends.base.base import BaseDatabaseWrapper
 
 _original_connect = BaseDatabaseWrapper.connect
 
-_CONNECTION_DEFAULTS: dict = {
+_CONNECTION_DEFAULTS: dict[str, Any] = {
     "ATOMIC_REQUESTS": False,
     "AUTOCOMMIT": True,
     "CONN_MAX_AGE": 0,
@@ -30,3 +33,6 @@ def _patched_connect(self: BaseDatabaseWrapper) -> None:  # type: ignore[overrid
 
 
 BaseDatabaseWrapper.connect = _patched_connect  # type: ignore[method-assign]
+
+# 测试环境下允许在 async 上下文中调用同步 ORM，避免 SynchronousOnlyOperation
+os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")

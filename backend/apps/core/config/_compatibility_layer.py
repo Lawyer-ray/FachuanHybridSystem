@@ -56,7 +56,8 @@ class DjangoSettingsCompatibilityLayer:
                 return self.config_manager.get(config_key, default)
             except Exception:
                 pass
-        return getattr(django_settings, django_key, default)
+        import apps.core.config.django_settings_compatibility as _compat_mod
+        return getattr(_compat_mod.django_settings, django_key, default)
 
     def has_config(self, django_key: str) -> bool:
         if django_key in self._django_to_config_mapping:
