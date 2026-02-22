@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from ninja import File, Router
 from ninja.files import UploadedFile
+from django.http import HttpRequest
 
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
@@ -23,7 +22,7 @@ def _get_lawyer_service() -> LawyerService:
 
 
 @router.get("/lawyers", response=list[LawyerOut])
-def list_lawyers(request: Any) -> Any:
+def list_lawyers(request: HttpRequest) -> list[LawyerOut]:
     """列表查询律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -32,7 +31,7 @@ def list_lawyers(request: Any) -> Any:
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
-def get_lawyer(request: Any, lawyer_id: int) -> Any:
+def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:
     """获取律师详情"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -42,10 +41,10 @@ def get_lawyer(request: Any, lawyer_id: int) -> Any:
 
 @router.post("/lawyers", response=LawyerOut)
 def create_lawyer(
-    request: Any,
+    request: HttpRequest,
     payload: LawyerCreateIn,
     license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
-) -> Any:
+) -> LawyerOut:
     """创建律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -67,11 +66,11 @@ def create_lawyer(
 
 @router.put("/lawyers/{lawyer_id}", response=LawyerOut)
 def update_lawyer(
-    request: Any,
+    request: HttpRequest,
     lawyer_id: int,
     payload: LawyerUpdateIn,
     license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
-) -> Any:
+) -> LawyerOut:
     """更新律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -96,7 +95,7 @@ def update_lawyer(
 
 
 @router.delete("/lawyers/{lawyer_id}")
-def delete_lawyer(request: Any, lawyer_id: int) -> dict[str, bool]:
+def delete_lawyer(request: HttpRequest, lawyer_id: int) -> dict[str, bool]:
     """删除律师"""
     service = _get_lawyer_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)

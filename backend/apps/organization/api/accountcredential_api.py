@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
@@ -17,10 +16,10 @@ def _get_credential_service() -> AccountCredentialService:
 
 @router.get("/credentials", response=list[AccountCredentialOut])
 def list_credentials(
-    request: Any,
+    request: HttpRequest,
     lawyer_id: int | None = None,
     lawyer_name: str | None = None,
-) -> Any:
+) -> list[AccountCredentialOut]:
     """
     获取账号凭证列表
 
@@ -38,7 +37,7 @@ def list_credentials(
 
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
-def get_credential(request: Any, cred_id: int) -> Any:
+def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
     """获取单个凭证"""
     service = _get_credential_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -46,7 +45,7 @@ def get_credential(request: Any, cred_id: int) -> Any:
 
 
 @router.post("/credentials", response=AccountCredentialOut)
-def create_credential(request: Any, payload: AccountCredentialIn) -> Any:
+def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
     """创建凭证"""
     service = _get_credential_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -61,7 +60,7 @@ def create_credential(request: Any, payload: AccountCredentialIn) -> Any:
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
-def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpdateIn) -> Any:
+def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
     """更新凭证"""
     service = _get_credential_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -73,7 +72,7 @@ def update_credential(request: Any, cred_id: int, payload: AccountCredentialUpda
 
 
 @router.delete("/credentials/{cred_id}")
-def delete_credential(request: Any, cred_id: int) -> dict[str, bool]:
+def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:
     """删除凭证"""
     service = _get_credential_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)

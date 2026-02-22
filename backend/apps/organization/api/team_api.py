@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
+from django.http import HttpRequest
 from ninja import Router
 
 from apps.organization.dtos import TeamUpsertDTO
@@ -22,7 +21,7 @@ def _get_team_service() -> TeamService:
 
 
 @router.get("/teams", response=list[TeamOut])
-def list_teams(request: Any, law_firm_id: int | None = None, team_type: str | None = None) -> Any:
+def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None) -> list[TeamOut]:
     """列表查询团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -30,7 +29,7 @@ def list_teams(request: Any, law_firm_id: int | None = None, team_type: str | No
 
 
 @router.post("/teams", response=TeamOut)
-def create_team(request: Any, payload: TeamIn) -> Any:
+def create_team(request: HttpRequest, payload: TeamIn) -> TeamOut:
     """创建团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -39,7 +38,7 @@ def create_team(request: Any, payload: TeamIn) -> Any:
 
 
 @router.get("/teams/{team_id}", response=TeamOut)
-def get_team(request: Any, team_id: int) -> Any:
+def get_team(request: HttpRequest, team_id: int) -> TeamOut:
     """获取团队详情"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -47,7 +46,7 @@ def get_team(request: Any, team_id: int) -> Any:
 
 
 @router.put("/teams/{team_id}", response=TeamOut)
-def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
+def update_team(request: HttpRequest, team_id: int, payload: TeamIn) -> TeamOut:
     """更新团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -56,7 +55,7 @@ def update_team(request: Any, team_id: int, payload: TeamIn) -> Any:
 
 
 @router.delete("/teams/{team_id}")
-def delete_team(request: Any, team_id: int) -> dict[str, bool]:
+def delete_team(request: HttpRequest, team_id: int) -> dict[str, bool]:
     """删除团队"""
     service = _get_team_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)

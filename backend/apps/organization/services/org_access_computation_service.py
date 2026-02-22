@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from apps.core.interfaces import ICaseService
+from apps.organization.models import Lawyer
 
 
 class OrgAccessComputationService:
     def __init__(self, *, case_service: ICaseService) -> None:
         self._case_service = case_service
 
-    def compute(self, user: Any) -> dict[str, Any]:
+    def compute(self, user: Lawyer) -> dict[str, object]:
         lawyers: set[int] = set()
         team_ids: set[int] = set()
 
@@ -22,11 +21,9 @@ class OrgAccessComputationService:
                 lawyers.add(member.id)
 
         if not lawyers:
-            user_id = getattr(user, "id", None)
-            if user_id:
-                lawyers.add(user_id)
+            lawyers.add(user.id)
 
-        extra_cases = self.get_user_extra_case_access(getattr(user, "id", None))
+        extra_cases = self.get_user_extra_case_access(user.id)
 
         return {
             "lawyers": lawyers,
@@ -34,7 +31,7 @@ class OrgAccessComputationService:
             "extra_cases": extra_cases,
         }
 
-    def get_user_extra_case_access(self, user_id: Any) -> set[int]:
+    def get_user_extra_case_access(self, user_id: int) -> set[int]:
         if not user_id:
             return set()
 
