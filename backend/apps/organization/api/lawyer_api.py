@@ -10,7 +10,7 @@ from ninja.files import UploadedFile
 from django.http import HttpRequest
 from apps.organization.api._utils import get_request_user
 
-from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
+from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
 from apps.organization.services import LawyerService
 
@@ -20,9 +20,13 @@ _lawyer_service = LawyerService()
 
 
 @router.get("/lawyers", response=list[LawyerOut])
-def list_lawyers(request: HttpRequest) -> list[LawyerOut]:
-    """列表查询律师"""
-    return list(_lawyer_service.list_lawyers(user=get_request_user(request)))
+def list_lawyers(
+    request: HttpRequest,
+    search: str | None = None,
+    law_firm_id: int | None = None,
+) -> list[LawyerOut]:
+    filters = LawyerListFiltersDTO(search=search, law_firm_id=law_firm_id)
+    return list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request)))
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)

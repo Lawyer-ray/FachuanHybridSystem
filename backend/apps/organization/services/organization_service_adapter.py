@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import AccountCredentialDTO, IOrganizationService, LawFirmDTO, TeamDTO
+from apps.organization.dtos import LawyerListFiltersDTO
 from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 from apps.organization.services.lawfirm_service import LawFirmService
 from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
@@ -70,7 +71,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         return TeamDTO.from_model(team)
 
     def get_lawyers_in_organization(self, organization_id: int) -> list[LawyerDTO]:
-        lawyers = self.lawyer_service.list_lawyers(filters={"law_firm_id": organization_id})
+        lawyers = self.lawyer_service.list_lawyers(filters=LawyerListFiltersDTO(law_firm_id=organization_id))
         return [_assembler.to_dto(lawyer) for lawyer in lawyers]
 
     def get_all_credentials_internal(self) -> list[AccountCredentialDTO]:
