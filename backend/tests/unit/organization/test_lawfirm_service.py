@@ -69,7 +69,7 @@ class TestLawFirmService:
         user = LawyerFactory(law_firm=lawfirm)
 
         # 执行测试
-        result = self.service.get_lawfirm(lawfirm.id, user)  # type: ignore[attr-defined]
+        result = self.service.get_lawfirm(lawfirm.id, user)  # type: ignore
 
         # 断言结果
         assert result.id == lawfirm.id  # type: ignore[attr-defined]
@@ -92,7 +92,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.get_lawfirm(lawfirm2.id, user)  # type: ignore[attr-defined]
+            self.service.get_lawfirm(lawfirm2.id, user)  # type: ignore
 
     def test_list_lawfirms_superuser(self):
         """测试超级管理员列表查询"""
@@ -129,7 +129,7 @@ class TestLawFirmService:
         data = LawFirmUpdateIn(name="新名称")
 
         # 执行测试
-        result = self.service.update_lawfirm(lawfirm.id, data, admin_user)  # type: ignore[attr-defined]
+        result = self.service.update_lawfirm(lawfirm.id, data, admin_user)  # type: ignore
 
         # 断言结果
         assert result.name == "新名称"
@@ -147,7 +147,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.update_lawfirm(lawfirm.id, data, normal_user)  # type: ignore[attr-defined]
+            self.service.update_lawfirm(lawfirm.id, data, normal_user)  # type: ignore
 
     def test_delete_lawfirm_success(self):
         """测试删除律所成功"""
@@ -156,7 +156,7 @@ class TestLawFirmService:
         superuser = LawyerFactory(is_superuser=True)
 
         # 执行测试
-        self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore[attr-defined]
+        self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore
 
         # 验证律所已删除
         from apps.organization.models import LawFirm
@@ -172,7 +172,7 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(ConflictError) as exc_info:
-            self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore[attr-defined]
+            self.service.delete_lawfirm(lawfirm.id, superuser)  # type: ignore
 
         assert "律师" in exc_info.value.message  # type: ignore[operator]
 
@@ -184,4 +184,4 @@ class TestLawFirmService:
 
         # 断言抛出异常
         with pytest.raises(PermissionDenied):
-            self.service.delete_lawfirm(lawfirm.id, admin_user)  # type: ignore[attr-defined]
+            self.service.delete_lawfirm(lawfirm.id, admin_user)  # type: ignore

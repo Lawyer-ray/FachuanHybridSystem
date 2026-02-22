@@ -339,3 +339,10 @@ class CaseCommandService(PermissionMixin):
             "logs": logs,
             "supervising_authorities": supervising_authorities,
         }
+
+    # ------------------------------------------------------------------
+    # Internal (cross-module) mutations
+    # ------------------------------------------------------------------
+
+    def unbind_cases_from_contract_internal(self, contract_id: int) -> int:
+        return int(Case.objects.filter(contract_id=contract_id).update(contract=None))

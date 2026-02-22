@@ -82,7 +82,7 @@ def contract_create_data(draw):
                 unique=True,
             )
         ),
-        "lawyer_ids": [lawyer.id],  # 通过 lawyer_ids 指派律师（create_contract 会 pop 此字段）  # type: ignore[attr-defined]
+        "lawyer_ids": [lawyer.id],  # type: ignore
     }
 
     # 根据收费模式添加必要字段
