@@ -1,7 +1,4 @@
-"""
-合同服务层
-处理合同相关的业务逻辑
-"""
+"""合同服务层。"""
 
 from __future__ import annotations
 
@@ -32,16 +29,7 @@ if TYPE_CHECKING:
 
 
 class ContractService(ContractServiceQueryMixin):
-    """
-    合同服务
-
-    职责:
-    1. 封装合同相关的所有业务逻辑
-    2. 管理数据库事务
-    3. 执行权限检查
-    4. 协调多个 Model 操作
-    5. 优化数据库查询
-    """
+    """合同服务 — 封装合同相关的所有业务逻辑。"""
 
     def __init__(
         self,
@@ -55,16 +43,6 @@ class ContractService(ContractServiceQueryMixin):
         query_facade: ContractQueryFacade | None = None,
         supplementary_agreement_query_service: SupplementaryAgreementQueryService | None = None,
     ) -> None:
-        """
-        初始化服务(依赖注入)
-
-        Args:
-            config: 业务配置对象(可选,有默认值)
-            case_service: 案件服务接口(可选,延迟获取)
-            lawyer_assignment_service: 律师指派服务(可选,延迟获取)
-            payment_service: 收款服务(可选,延迟获取)
-            supplementary_agreement_service: 补充协议服务(可选,延迟获取)
-        """
         self.config = config or business_config
         self._case_service = case_service
         self._lawyer_assignment_service = lawyer_assignment_service
@@ -136,24 +114,14 @@ class ContractService(ContractServiceQueryMixin):
 
     @property
     def case_service(self) -> ICaseService:
-        """
-        延迟获取案件服务
-
-        Returns:
-            ICaseService 实例
-        """
+        """延迟获取案件服务。"""
         if self._case_service is None:
             raise RuntimeError("ContractService.case_service 未注入")
         return self._case_service
 
     @property
     def lawyer_assignment_service(self) -> LawyerAssignmentService:
-        """
-        延迟获取律师指派服务
-
-        Returns:
-            LawyerAssignmentService 实例
-        """
+        """延迟获取律师指派服务。"""
         if self._lawyer_assignment_service is None:
             raise RuntimeError("ContractService.lawyer_assignment_service 未注入")
         return self._lawyer_assignment_service
