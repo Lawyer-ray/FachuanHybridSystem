@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django.contrib import admin, messages
 from django.db.models import QuerySet
@@ -10,19 +10,10 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
+from apps.cases.admin.base import BaseTabularInline
 from apps.cases.exceptions import ChatProviderException
 from apps.cases.models import CaseChat
 from apps.cases.services.case_chat_service import CaseChatService
-
-if TYPE_CHECKING:
-    BaseTabularInline = admin.TabularInline
-else:
-    try:
-        import nested_admin
-
-        BaseTabularInline = nested_admin.NestedTabularInline
-    except Exception:
-        BaseTabularInline = admin.TabularInline
 
 
 def _get_case_chat_service() -> CaseChatService:

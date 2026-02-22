@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django.contrib import admin, messages
 from django.db.models import QuerySet
@@ -11,6 +11,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+from apps.cases.admin.base import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
 from apps.cases.admin.case_forms_admin import CaseAdminForm
 from apps.cases.exceptions import ChatProviderException
@@ -27,22 +28,6 @@ from apps.cases.models import (
 from apps.cases.services.case_chat_service import CaseChatService
 from apps.cases.admin.mixins import CaseAdminViewsMixin
 from apps.core.enums import ChatPlatform
-
-if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin
-    BaseStackedInline = admin.StackedInline
-    BaseTabularInline = admin.TabularInline
-else:
-    try:
-        import nested_admin
-
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-        BaseStackedInline = nested_admin.NestedStackedInline
-        BaseTabularInline = nested_admin.NestedTabularInline
-    except Exception:
-        BaseModelAdmin = admin.ModelAdmin
-        BaseStackedInline = admin.StackedInline
-        BaseTabularInline = admin.TabularInline
 
 
 def _get_case_chat_service() -> CaseChatService:
