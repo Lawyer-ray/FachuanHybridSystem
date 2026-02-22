@@ -1,6 +1,8 @@
 """Business logic services."""
 
-from typing import TYPE_CHECKING, Any, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from django.db.models import Q, QuerySet
 
@@ -30,7 +32,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
-        contract: Optional["Contract"] = None,
+        contract: Contract | None = None,
     ) -> bool:
         if perm_open_access:
             return True
@@ -64,7 +66,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool = False,
-        contract: Optional["Contract"] = None,
+        contract: Contract | None = None,
         message: str = "无权限访问该合同",
     ) -> None:
         if self.has_access(
@@ -105,7 +107,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             Q(assignments__lawyer_id__in=list(allowed_lawyers)) | Q(cases__assignments__lawyer_id=user_id)
         ).distinct()
 
-    def has_access_ctx(self, *, contract_id: int, ctx: "AccessContext", contract: Optional["Contract"] = None) -> bool:
+    def has_access_ctx(self, *, contract_id: int, ctx: "AccessContext", contract: Contract | None = None) -> bool:
         return self.has_access(
             contract_id=contract_id,
             user=ctx.user,
@@ -119,7 +121,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         *,
         contract_id: int,
         ctx: "AccessContext",
-        contract: Optional["Contract"] = None,
+        contract: Contract | None = None,
         message: str = "无权限访问该合同",
     ) -> None:
         return self.ensure_access(

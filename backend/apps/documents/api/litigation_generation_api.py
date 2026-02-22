@@ -83,7 +83,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
 
 
 @router.post("/litigation/defense/generate")
-def generate_(request: Any, data: DefenseRequest) -> Any:
+def generate_defense(request: Any, data: DefenseRequest) -> Any:
     """
     生成答辩状
 

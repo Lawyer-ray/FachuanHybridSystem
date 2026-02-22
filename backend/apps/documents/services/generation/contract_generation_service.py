@@ -271,14 +271,14 @@ class ContractGenerationService:
             )
         except Exception as e:
             logger.warning(
-                f"保存到绑定文件夹失败: {e}",
+                "保存到绑定文件夹失败: %s", e,
                 extra={"contract_id": contract_id, "file_name": file_name, "error": str(e)},
             )
             return None
 
         if saved_path:
             logger.info(
-                f"文件已保存到绑定文件夹: {saved_path}",
+                "文件已保存到绑定文件夹: %s", saved_path,
                 extra={"contract_id": contract_id, "file_name": file_name, "saved_path": saved_path},
             )
         return saved_path

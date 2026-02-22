@@ -99,7 +99,7 @@ class ContextBuilder:
                     return cast(dict[str, Any], context)
             except Exception as e:
                 logger.warning(
-                    f"EnhancedContextBuilder 构建失败,回退到直接构建模式: {e}",
+                    "EnhancedContextBuilder 构建失败,回退到直接构建模式: %s", e,
                     extra={"contract_id": contract_id},
                 )
 

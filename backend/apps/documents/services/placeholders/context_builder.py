@@ -60,7 +60,7 @@ class EnhancedContextBuilder:
                     logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(service_result))
             except Exception as e:
                 logger.error(
-                    f"占位符服务执行失败: {service.name}",
+                    "占位符服务执行失败: %s", service.name,
                     extra={
                         "service_name": service.name,
                         "error": str(e),
