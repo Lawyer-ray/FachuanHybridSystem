@@ -17,6 +17,7 @@ from apps.core.exceptions import ValidationException
 from apps.core.request_context import extract_request_context
 
 from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
+from apps.client.services.text_parser import parse_client_text as _parse_client, parse_multiple_clients_text as _parse_multi
 
 
 class ParseTextRequest(BaseModel):
@@ -67,13 +68,11 @@ def list_clients(
 @router.post("/clients/parse-text")
 def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:
     """解析客户文本信息"""
-    from apps.client.services.text_parser import parse_client_text as _parse, parse_multiple_clients_text as _parse_multi
-
     if payload.parse_multiple:
         results = [c for c in _parse_multi(payload.text) if c.get("name")]
         return {"success": True, "clients": results}
     else:
-        result = _parse(payload.text)
+        result = _parse_client(payload.text)
         if result.get("name"):
             return {"success": True, "client": result}
         else:
@@ -83,9 +82,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 @router.get("/parse-text")
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
-    from apps.client.services.text_parser import parse_client_text as _parse
-
-    return _parse(text)
+    return _parse_client(text)
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
