@@ -62,6 +62,16 @@ class AuthService:
         """
         logout(request)
 
+    def is_first_user(self) -> bool:
+        """
+        判断当前是否为首个用户注册
+
+        Returns:
+            bool: 如果系统中尚无用户则返回 True
+        """
+        return not Lawyer.objects.exists()
+
+
     def register(
         self,
         username: str,
