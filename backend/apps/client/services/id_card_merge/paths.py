@@ -12,7 +12,7 @@ def get_media_root() -> Path:
         media_root = get_config("django.media_root", None)
     if not media_root:
         raise RuntimeError("MEDIA_ROOT 未配置")
-    return Path(str(media_root))
+    return Path(media_root)
 
 
 def ensure_output_dir(media_root: Path) -> Path:

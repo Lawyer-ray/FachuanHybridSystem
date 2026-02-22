@@ -74,7 +74,7 @@ def to_media_abs(file_path: str) -> Path:
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
-    root = Path(str(media_root)).resolve()
+    root = Path(media_root).resolve()
     p = Path(file_path)
     if not p.is_absolute():
         p = root / file_path
@@ -108,7 +108,7 @@ def normalize_to_media_rel(file_path: str) -> str:
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
-    root = Path(str(media_root)).resolve()
+    root = Path(media_root).resolve()
     p = Path(file_path)
     try:
         abs_path = p.resolve()
@@ -154,7 +154,7 @@ def save_uploaded_file(
         raise ValidationException(
             message=_("MEDIA_ROOT 未配置"), code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
-    base_dir = Path(str(media_root)) / rel_dir
+    base_dir = Path(media_root) / rel_dir
 
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -194,7 +194,7 @@ def delete_media_file(file_path: str) -> bool:
     media_root = _get_media_root()
     if not media_root:
         return False
-    root = Path(str(media_root)).resolve()
+    root = Path(media_root).resolve()
     p = Path(file_path)
     if not p.is_absolute():
         p = root / file_path
