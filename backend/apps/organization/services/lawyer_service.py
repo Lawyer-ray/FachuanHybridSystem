@@ -12,6 +12,7 @@ from django.db.models import Q, QuerySet
 
 from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ILawyerService, LawyerDTO
+from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 
@@ -411,18 +412,11 @@ class LawyerServiceAdapter(ILawyerService):
     def __init__(self, service: LawyerService | None = None):
         """初始化适配器"""
         self.service = service or LawyerService()
+        self._assembler = LawyerDtoAssembler()
 
     def _to_dto(self, lawyer: Lawyer) -> LawyerDTO:
         """将 Model 转换为 DTO"""
-        return LawyerDTO(
-            id=lawyer.id,
-            username=lawyer.username,
-            real_name=lawyer.real_name,
-            phone=lawyer.phone,
-            is_admin=lawyer.is_admin,
-            law_firm_id=lawyer.law_firm_id,
-            law_firm_name=lawyer.law_firm.name if lawyer.law_firm else None,
-        )
+        return self._assembler.to_dto(lawyer)
 
     def get_lawyer(self, lawyer_id: int) -> LawyerDTO | None:
         """获取律师信息"""
