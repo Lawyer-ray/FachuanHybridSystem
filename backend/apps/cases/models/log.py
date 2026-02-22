@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
+from django.core.files.uploadedfile import UploadedFile
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -20,10 +22,10 @@ if TYPE_CHECKING:
 case_log_storage = KeepOriginalNameStorage()
 
 
-def validate_log_attachment(file: Any) -> None:
+def validate_log_attachment(file: UploadedFile) -> None:
     """验证日志附件"""
     name = str(getattr(file, "name", ""))
-    size: int = getattr(file, "size", 0)
+    size: int = int(getattr(file, "size", 0) or 0)
     ext = Path(name).suffix.lower()
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
         from django.core.exceptions import ValidationError
@@ -46,9 +48,11 @@ class CaseLog(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
 
     if TYPE_CHECKING:
+        from apps.reminders.models import Reminder
+
         attachments: RelatedManager[CaseLogAttachment]
         versions: RelatedManager[CaseLogVersion]
-        reminders: RelatedManager[Any]
+        reminders: RelatedManager[Reminder]
 
     class Meta:
         verbose_name = _("案件日志")
@@ -62,14 +66,21 @@ class CaseLog(models.Model):
         return f"{self.case_id}-{self.actor_id}-{self.created_at}"
 
     @property
-    def reminder_type(self) -> Any:
+    def reminder_type(self) -> str | None:
+        """获取最近的提醒类型。"""
         reminder = self.reminders.order_by("-due_at").first()
-        return getattr(reminder, "reminder_type", None) if reminder else None
+        if reminder is None:
+            return None
+        return str(getattr(reminder, "reminder_type", ""))
 
     @property
-    def reminder_time(self) -> Any:
+    def reminder_time(self) -> datetime | None:
+        """获取最近的提醒时间。"""
         reminder = self.reminders.order_by("-due_at").first()
-        return getattr(reminder, "due_at", None) if reminder else None
+        if reminder is None:
+            return None
+        due_at = getattr(reminder, "due_at", None)
+        return due_at if isinstance(due_at, datetime) else None
 
 
 class CaseLogAttachment(models.Model):

@@ -5,6 +5,8 @@ Cases 模块模型层
 所有旧的导入路径 `from apps.cases.models import X` 继续有效.
 """
 
+from __future__ import annotations
+
 # 从 core.enums 重新导出的枚举(向后兼容)
 from apps.core.enums import CaseStage, CaseStatus, CaseType, LegalStatus, SimpleCaseType
 

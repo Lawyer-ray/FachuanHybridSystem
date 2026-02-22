@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -153,8 +153,8 @@ class SupervisingAuthority(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     if TYPE_CHECKING:
-        materials: RelatedManager[Any]
-        material_group_orders: RelatedManager[Any]
+        materials: RelatedManager[CaseMaterial]
+        material_group_orders: RelatedManager[CaseMaterialGroupOrder]
 
     class Meta:
         verbose_name = _("主管机关")
