@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Payment Services - 收款与财务服务
 """

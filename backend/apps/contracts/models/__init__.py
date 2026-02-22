@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Contracts 模块模型层
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Contract Services - 合同核心服务
 """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Contracts App Admin模块主文件
 统一管理所有合同的Admin界面

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Contracts Services Module
 合同业务逻辑服务层
