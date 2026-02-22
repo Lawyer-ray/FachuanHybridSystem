@@ -19,8 +19,6 @@ router = Router()
 
 def _get_lawyer_service() -> LawyerService:
     """工厂函数：创建 LawyerService 实例"""
-    from apps.organization.services import LawyerService
-
     return LawyerService()
 
 

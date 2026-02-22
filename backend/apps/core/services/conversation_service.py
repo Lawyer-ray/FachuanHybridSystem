@@ -140,7 +140,7 @@ class ConversationService:
         if self._memory is None:
             return
 
-        history = self._repository.get_by_session(self.session_id, limit=20)
+        history = self._repository.get_by_session_id(self.session_id).order_by("created_at")[:20]
 
         for record in history:
             if record.role == "user":

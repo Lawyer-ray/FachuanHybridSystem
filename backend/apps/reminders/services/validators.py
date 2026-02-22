@@ -50,15 +50,18 @@ def normalize_reminder_type(reminder_type: str) -> str:
     return value
 
 
-_CONTENT_MAX_LENGTH = 255
+def _get_content_max_length() -> int:
+    from apps.reminders.models import Reminder
+    return Reminder._meta.get_field("content").max_length or 255  # type: ignore[return-value]
 
 
 def normalize_content(content: str) -> str:
     value = str(content).strip()
     if not value:
         raise ValidationException(_("提醒事项不能为空"))
-    if len(value) > _CONTENT_MAX_LENGTH:
-        raise ValidationException(_("提醒事项不能超过 %(max)d 个字符") % {"max": _CONTENT_MAX_LENGTH})
+    max_len = _get_content_max_length()
+    if len(value) > max_len:
+        raise ValidationException(_("提醒事项不能超过 %(max)d 个字符") % {"max": max_len})
     return value
 
 

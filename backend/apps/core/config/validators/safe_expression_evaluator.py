@@ -98,7 +98,7 @@ class SafeExpressionEvaluator:
                 )
             ),
         }
-        handler = _DISPATCH.get(type(node))  # type: ignore[arg-type]
+        handler = _DISPATCH.get(type(node))
         if handler is None:
             raise ValueError(f"不支持的表达式类型: {type(node).__name__}")
         return handler(node)  # type: ignore[operator]

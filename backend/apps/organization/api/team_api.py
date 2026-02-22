@@ -17,8 +17,6 @@ router = Router()
 
 def _get_team_service() -> TeamService:
     """工厂函数：创建 TeamService 实例"""
-    from apps.organization.services import TeamService
-
     return TeamService()
 
 

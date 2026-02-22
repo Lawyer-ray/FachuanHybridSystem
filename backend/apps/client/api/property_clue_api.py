@@ -41,7 +41,7 @@ def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) 
     service = _get_property_clue_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
-    clue = service.create_clue(client_id=client_id, data=payload.dict(), user=user)
+    clue = service.create_clue(client_id=client_id, data=payload.model_dump(), user=user)
 
     return clue
 
@@ -119,7 +119,7 @@ def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdate
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
     # 只传递非空字段
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     clue = service.update_clue(clue_id=clue_id, data=data, user=user)
 

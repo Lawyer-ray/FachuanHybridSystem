@@ -75,7 +75,7 @@ class ClientAdminService(ClientAdminFileMixin):
             raise ValidationException(
                 message=_("客户不存在"),
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
+                errors={"client_id": str(_("ID 为 %(id)s 的客户不存在") % {"id": client_id})},
             )
 
         processed_files = []

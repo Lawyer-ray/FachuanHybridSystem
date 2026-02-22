@@ -26,7 +26,7 @@ class EvidenceListAdminServiceMixin:
 
 
 class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None) -> Any:
+    def changeform_view(self, request: Any, object_id: Any = None, form_url: str = "", extra_context: Any = None) -> Any:
         if request.method == "POST":
             logger.info(
                 "EvidenceListAdmin changeform POST",
@@ -45,7 +45,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return response
 
-    def total_pages_display(self, obj) -> Any:
+    def total_pages_display(self, obj: Any) -> Any:
         if not obj.total_pages:
             return ""
         return obj.total_pages
@@ -53,7 +53,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
     total_pages_display.short_description = _("总页数")
     total_pages_display.admin_order_field = "total_pages"
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs) -> Any:
+    def formfield_for_foreignkey(self, db_field: Any, request: Any, **kwargs: Any) -> Any:
         if db_field.name == "export_template":
             from apps.documents.models import DocumentTemplate
 
@@ -64,7 +64,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_form(self, request, obj=None, **kwargs) -> Any:
+    def get_form(self, request: Any, obj: Any = None, **kwargs: Any) -> Any:
         form = super().get_form(request, obj=obj, **kwargs)
         if "export_template" not in form.base_fields:
             return form
@@ -122,7 +122,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         ]
         return custom_urls + urls
 
-    def next_list_type_view(self, request, case_id) -> Any:
+    def next_list_type_view(self, request: Any, case_id: int) -> Any:
         from django.http import JsonResponse
 
         existing_types = set(EvidenceList.objects.filter(case_id=case_id).values_list("list_type", flat=True))
@@ -151,28 +151,28 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 }
             )
 
-    def case_display(self, obj) -> Any:
+    def case_display(self, obj: Any) -> Any:
         return obj.case.name
 
     case_display.short_description = _("案件")
 
-    def item_count_display(self, obj) -> Any:
+    def item_count_display(self, obj: Any) -> Any:
         count = obj.items.count()
         return count
 
     item_count_display.short_description = _("证据数量")
 
-    def page_range_display(self, obj) -> Any:
+    def page_range_display(self, obj: Any) -> Any:
         return obj.page_range_display
 
     page_range_display.short_description = _("页码范围")
 
-    def order_range_display(self, obj) -> Any:
+    def order_range_display(self, obj: Any) -> Any:
         return obj.order_range_display
 
     order_range_display.short_description = _("序号范围")
 
-    def has_merged_pdf_display(self, obj) -> Any:
+    def has_merged_pdf_display(self, obj: Any) -> Any:
         from apps.documents.models import MergeStatus
 
         if obj.merge_status == MergeStatus.PROCESSING:
@@ -195,7 +195,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     has_merged_pdf_display.short_description = _("合并状态")
 
-    def actions_display(self, obj) -> Any:
+    def actions_display(self, obj: Any) -> Any:
         merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
         export_list_url = reverse("admin:documents_evidencelist_export_list", args=[obj.pk])
         recount_url = reverse("admin:documents_evidencelist_recount_pages", args=[obj.pk])
@@ -216,7 +216,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     actions_display.short_description = _("操作")
 
-    def merge_view(self, request, pk) -> Any:
+    def merge_view(self, request: Any, pk: int) -> Any:
         from django.contrib import messages
         from django.http import JsonResponse
         from django.shortcuts import redirect
