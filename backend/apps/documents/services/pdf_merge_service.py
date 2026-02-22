@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
-
-"\nPDF 合并服务\n\n提供证据文件的 PDF 合并、格式转换和页码添加功能.\n\nRequirements: 6.1-6.8\n"
 import contextlib
 import io
 from pathlib import Path

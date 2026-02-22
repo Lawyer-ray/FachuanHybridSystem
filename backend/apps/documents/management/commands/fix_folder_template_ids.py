@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-
-"\n修复文件夹模板中的重复 ID 问题\n\n用法:python manage.py fix_folder_template_ids\n"
 from django.core.management.base import BaseCommand
 
 from apps.documents.models import FolderTemplate

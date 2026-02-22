@@ -4,14 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-"""
-文件夹模板服务
-
-提供文件夹模板的 CRUD 操作、结构验证和ID唯一性验证功能.
-
-Requirements: 1.2, 1.4, 1.7, 1.8
-"""
-
 import re
 
 from apps.documents.models import FolderTemplate

@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-"""
-文档模块 Django-Q 异步任务
-
-提供证据合并等耗时操作的异步执行.
-"""
-
 import logging
 from typing import Any
 

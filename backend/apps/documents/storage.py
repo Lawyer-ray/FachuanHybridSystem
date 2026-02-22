@@ -2,14 +2,6 @@
 
 from __future__ import annotations
 
-"""
-文书模板智能存储系统
-
-实现智能文件管理:
-1. 如果上传的文件已存在于docx_templates目录,直接引用(不复制)
-2. 如果是外部文件,保存到 0-用户自定义模板 目录统一管理
-"""
-
 from typing import Any
 
 from django.conf import settings

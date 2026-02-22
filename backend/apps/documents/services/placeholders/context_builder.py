@@ -3,12 +3,6 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-"""
-增强的上下文构建器
-
-自动发现并调用注册的占位符服务构建完整的替换词上下文.
-"""
-
 import logging
 from typing import Any
 

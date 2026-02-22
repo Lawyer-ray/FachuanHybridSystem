@@ -2,14 +2,6 @@
 
 from __future__ import annotations
 
-"""
-文件夹模板 Admin 服务
-
-处理Admin层的复杂业务逻辑
-
-Requirements: 3.1, 3.2, 3.3
-"""
-
 import logging
 from typing import Any
 

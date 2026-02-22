@@ -3,12 +3,6 @@
 from __future__ import annotations
 from django.utils.translation import gettext_lazy as _
 
-"""
-占位符服务注册表
-
-使用单例模式管理所有占位符服务的注册和查询.
-"""
-
 import logging
 from typing import Any, ClassVar, TypeVar
 
