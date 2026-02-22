@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from django.utils.translation import gettext_lazy as _
+
 from .contract_template_cache import ContractTemplateCache
 from .wiring import get_document_service
 
@@ -99,7 +101,7 @@ class ContractDisplayService:
 
             if not templates:
                 logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文书模板")
-                return "无匹配模板"
+                return _("无匹配模板")
 
             # 格式化显示文本
             template_displays = []
@@ -117,7 +119,7 @@ class ContractDisplayService:
 
         except Exception as e:
             logger.error(f"查询合同 {contract.pk} 的文书模板失败: {e!s}", exc_info=True)
-            return "查询失败"
+            return _("查询失败")
 
     def get_matched_folder_templates(self, contract: Contract) -> str:
         """获取匹配的文件夹模板名称"""
@@ -137,7 +139,7 @@ class ContractDisplayService:
 
             if not templates:
                 logger.debug(f"合同 {contract.pk} ({contract.case_type}) 无匹配的文件夹模板")
-                return "无匹配模板"
+                return _("无匹配模板")
 
             # 提取模板名称并用顿号连接
             template_names = [template.get("name", "") for template in templates]
@@ -148,7 +150,7 @@ class ContractDisplayService:
 
         except Exception as e:
             logger.error(f"查询合同 {contract.pk} 的文件夹模板失败: {e!s}", exc_info=True)
-            return "查询失败"
+            return _("查询失败")
 
     def has_matched_templates(self, contract: Contract) -> bool:
         """检查是否有匹配的模板"""
@@ -197,7 +199,7 @@ class ContractDisplayService:
             for contract in contracts:
                 result[contract.id] = template_cache.get(
                     contract.case_type,
-                    {"document_template": "查询失败", "folder_template": "查询失败", "has_templates": False},
+                    {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False},
                 )
 
             logger.info(f"批量获取 {len(contracts)} 个合同的模板信息完成,涉及 {len(case_types)} 种案件类型")
@@ -206,8 +208,8 @@ class ContractDisplayService:
             logger.error(f"批量获取模板信息失败: {e!s}", exc_info=True)
             for contract in contracts:
                 result[contract.id] = {
-                    "document_template": "查询失败",
-                    "folder_template": "查询失败",
+                    "document_template": _("查询失败"),
+                    "folder_template": _("查询失败"),
                     "has_templates": False,
                 }
 
@@ -240,11 +242,11 @@ class ContractDisplayService:
             }
         except Exception as e:
             logger.error(f"批量查询案件类型 {case_type} 的模板失败: {e!s}", exc_info=True)
-            return {"document_template": "查询失败", "folder_template": "查询失败", "has_templates": False}
+            return {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False}
 
     def _format_doc_templates(self, doc_templates: list[dict[str, Any]]) -> str:
         if not doc_templates:
-            return "无匹配模板"
+            return _("无匹配模板")
         displays = []
         for t in doc_templates:
             type_display = t.get("type_display", "")
@@ -254,5 +256,5 @@ class ContractDisplayService:
 
     def _format_folder_templates(self, folder_templates: list[dict[str, Any]]) -> str:
         if not folder_templates:
-            return "无匹配模板"
+            return _("无匹配模板")
         return "、".join(t.get("name", "") for t in folder_templates)
