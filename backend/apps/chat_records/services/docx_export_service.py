@@ -77,7 +77,7 @@ class DocxExportService:
                     progress_callback(processed, total, "生成中")
 
             if idx + images_per_page < len(screenshots):
-                document.add_page_break()
+                document.add_page_break()  # type: ignore[no-untyped-call]
 
         if inserted_images == 0:
             raise ValidationException("Word 导出失败:未插入任何图片")

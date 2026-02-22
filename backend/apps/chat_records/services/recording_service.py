@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 import contextlib
 import logging
 import mimetypes
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -32,9 +32,8 @@ class RecordingService:
 
     def get_recording(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
         try:
-            recording = cast(
-                ChatRecordRecording,
-                ChatRecordRecording.objects.select_related("project").get(id=recording_id),
+            recording: ChatRecordRecording = (
+                ChatRecordRecording.objects.select_related("project").get(id=recording_id)
             )
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
