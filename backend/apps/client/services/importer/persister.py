@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""当事人 JSON 导入持久化。"""
 
 from typing import Any
 

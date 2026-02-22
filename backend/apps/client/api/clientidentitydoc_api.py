@@ -1,5 +1,5 @@
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
@@ -19,13 +19,6 @@ def _get_identity_doc_service() -> Any:
     from apps.client.services import ClientIdentityDocService
 
     return ClientIdentityDocService()
-
-
-def _get_client_service() -> Any:
-    """工厂函数：创建 ClientService 实例"""
-    from apps.client.services import ClientService
-
-    return ClientService()
 
 
 def _get_identity_extraction_service() -> Any:
@@ -157,24 +150,6 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     service.delete_identity_doc(doc_id=doc_id, user=getattr(request, "user", None))
 
     return {"success": True, "message": _("证件文档删除成功")}
-
-
-@router.get("/parse-text")
-def parse_text(request: Any, text: str = "") -> dict[str, Any]:
-    """
-    解析客户文本
-
-    Args:
-        request: HTTP 请求
-        text: 待解析的文本（查询参数）
-
-    Returns:
-        解析后的客户数据
-    """
-    service = _get_client_service()
-    parsed_data = service.parse_client_text(text)
-
-    return cast(dict[str, Any], parsed_data)
 
 
 @router.post("/identity-doc/recognize/submit")

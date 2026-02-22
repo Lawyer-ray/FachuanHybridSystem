@@ -3,6 +3,8 @@ AccountCredentialAdminService - 账号凭证管理服务
 封装 Admin 层的业务逻辑，包括自动登录功能
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging

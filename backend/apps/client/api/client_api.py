@@ -88,6 +88,14 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
             return {"success": False, "error": str(_("未能解析出客户信息"))}
 
 
+@router.get("/parse-text")
+def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
+    """解析客户文本（GET 方式）。"""
+    service = _get_client_service()
+    parsed_data = service.parse_client_text(text)
+    return parsed_data
+
+
 @router.get("/clients/{client_id}", response=ClientOut)
 def get_client(request: Any, client_id: int) -> Any:
     """获取单个客户"""

@@ -86,7 +86,7 @@ class ContractAdmin(BaseModelAdmin):
             choices=CaseStage.choices,
             required=False,
             widget=forms.SelectMultiple,
-            label="代理阶段",
+            label=_("代理阶段"),
         )
 
         class Meta:

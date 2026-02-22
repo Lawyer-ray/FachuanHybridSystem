@@ -229,10 +229,6 @@ def test_1g_property_clue_service_no_type_ignore() -> None:
         "当事人服务适配器",
     ),
     (
-        "apps/client/services/client_related_dto_assembler.py",
-        "当事人关联 DTO 组装器",
-    ),
-    (
         "apps/client/services/client_dto_assembler.py",
         "当事人 DTO 组装器",
     ),

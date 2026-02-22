@@ -10,9 +10,8 @@ from apps.core.interfaces import ClientDTO, IClientService
 if TYPE_CHECKING:
     from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
 
-    from .client_dto_assembler import ClientDtoAssembler
+    from .client_dto_assembler import ClientDtoAssembler, ClientRelatedDtoAssembler
     from .client_internal_query_service import ClientInternalQueryService
-    from .client_related_dto_assembler import ClientRelatedDtoAssembler
     from .client_service import ClientService
 
 
@@ -52,7 +51,7 @@ class ClientServiceAdapter(IClientService):
     @property
     def related_dto_assembler(self) -> ClientRelatedDtoAssembler:
         if self._related_dto_assembler is None:
-            from .client_related_dto_assembler import ClientRelatedDtoAssembler
+            from .client_dto_assembler import ClientRelatedDtoAssembler
 
             self._related_dto_assembler = ClientRelatedDtoAssembler()
         return self._related_dto_assembler
@@ -61,10 +60,7 @@ class ClientServiceAdapter(IClientService):
         return self.dto_assembler.to_dto(client)
 
     def get_client(self, client_id: int) -> ClientDTO | None:
-        client = self.service._get_client_internal(client_id)
-        if client:
-            return self._to_dto(client)
-        return None
+        return self.get_client_internal(client_id)
 
     def get_client_internal(self, client_id: int) -> ClientDTO | None:
         client = self.service._get_client_internal(client_id)

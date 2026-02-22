@@ -1,3 +1,5 @@
+"""当事人文本解析器。"""
+
 import re
 from typing import Any
 

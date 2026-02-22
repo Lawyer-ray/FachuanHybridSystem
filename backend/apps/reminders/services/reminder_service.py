@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.reminders.models import Reminder
+from apps.reminders.models import Reminder, ReminderType
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ReminderService:
@@ -33,7 +37,7 @@ class ReminderService:
             reminder = Reminder.objects.select_related("contract", "case_log").get(id=reminder_id)
             return cast(Reminder, reminder)
         except Reminder.DoesNotExist:
-            raise NotFoundError(f"提醒记录 {reminder_id} 不存在") from None
+            raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id}) from None
 
     @transaction.atomic
     def create_reminder(
@@ -47,14 +51,16 @@ class ReminderService:
         metadata: dict[str, Any] | None = None,
     ) -> Reminder:
         if bool(contract_id) == bool(case_log_id):
-            raise ValidationException("必须且只能绑定合同或案件日志之一")
+            raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
 
         if not reminder_type or not reminder_type.strip():
-            raise ValidationException("提醒类型不能为空")
+            raise ValidationException(_("提醒类型不能为空"))
+        if reminder_type not in ReminderType.values:
+            raise ValidationException(_("无效的提醒类型"))
         if not content or not content.strip():
-            raise ValidationException("提醒事项不能为空")
+            raise ValidationException(_("提醒事项不能为空"))
         if not due_at:
-            raise ValidationException("到期时间不能为空")
+            raise ValidationException(_("到期时间不能为空"))
 
         if timezone.is_naive(due_at):
             due_at = timezone.make_aware(due_at)
@@ -78,7 +84,7 @@ class ReminderService:
         contract_id: int | None = data.get("contract_id", current_contract_id)
         case_log_id: int | None = data.get("case_log_id", current_case_log_id)
         if ("contract_id" in data or "case_log_id" in data) and bool(contract_id) == bool(case_log_id):
-            raise ValidationException("必须且只能绑定合同或案件日志之一")
+            raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
 
         if "contract_id" in data:
             reminder.contract_id = data["contract_id"]
@@ -93,7 +99,7 @@ class ReminderService:
         if "due_at" in data and data["due_at"] is not None:
             due_at = data["due_at"]
             if not isinstance(due_at, datetime):
-                raise ValidationException("到期时间格式不正确")
+                raise ValidationException(_("到期时间格式不正确"))
             if timezone.is_naive(due_at):
                 due_at = timezone.make_aware(due_at)
             reminder.due_at = due_at

@@ -3,6 +3,8 @@
 提供用户登录和登出接口
 """
 
+from __future__ import annotations
+
 from typing import Any
 from ninja import Router
 from apps.organization.schemas import LoginIn, LoginOut

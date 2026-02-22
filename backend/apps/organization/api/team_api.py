@@ -3,6 +3,8 @@
 负责请求/响应处理，所有业务逻辑委托给 TeamService
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from ninja import Router

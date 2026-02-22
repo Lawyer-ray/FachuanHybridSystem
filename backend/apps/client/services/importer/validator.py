@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""当事人 JSON 导入校验器。"""
 
 from django.utils.translation import gettext_lazy as _
 from typing import Any

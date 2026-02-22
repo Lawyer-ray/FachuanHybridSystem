@@ -20,8 +20,8 @@ class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreeme
     model = SupplementaryAgreementParty
     extra = 1
     autocomplete_fields: ClassVar = ["client"]
-    verbose_name = "当事人"
-    verbose_name_plural = "当事人"
+    verbose_name = _("当事人")
+    verbose_name_plural = _("当事人")
 
 
 @admin.register(SupplementaryAgreement)

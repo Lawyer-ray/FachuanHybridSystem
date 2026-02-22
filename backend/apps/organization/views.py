@@ -2,6 +2,8 @@
 用户注册视图
 """
 
+from __future__ import annotations
+
 from django.contrib import messages
 from django.contrib.auth import login
 from django.http import HttpRequest, HttpResponse

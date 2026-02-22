@@ -3,6 +3,8 @@
 处理律所相关的业务逻辑
 """
 
+from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
@@ -14,6 +16,7 @@ from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied,
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 
 from apps.organization.models import LawFirm, Lawyer
+from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
 
 logger = logging.getLogger("apps.organization")
 
@@ -305,25 +308,16 @@ class LawFirmServiceAdapter(ILawFirmService):
             lawfirm_service: 律所服务实例（可选，默认创建新实例）
         """
         self.service = lawfirm_service or LawFirmService()
-
-    def _to_dto(self, lawfirm: LawFirm) -> LawFirmDTO:
-        """将 Model 转换为 DTO"""
-        return LawFirmDTO(
-            id=lawfirm.id,
-            name=lawfirm.name,
-            address=lawfirm.address,
-            phone=lawfirm.phone,
-            social_credit_code=lawfirm.social_credit_code,
-        )
+        self._assembler = LawFirmDtoAssembler()
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
         """获取律所信息"""
         lawfirm = self.service._get_lawfirm_internal(lawfirm_id)
         if not lawfirm:
             return None
-        return self._to_dto(lawfirm)
+        return self._assembler.to_dto(lawfirm)
 
     def get_lawfirms_by_ids(self, lawfirm_ids: list[int]) -> list[LawFirmDTO]:
         """批量获取律所信息"""
         lawfirms = LawFirm.objects.filter(id__in=lawfirm_ids)
-        return [self._to_dto(lf) for lf in lawfirms]
+        return [self._assembler.to_dto(lf) for lf in lawfirms]

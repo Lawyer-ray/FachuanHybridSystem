@@ -3,6 +3,8 @@
 实现IOrganizationService接口，提供跨模块调用的统一入口
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from django.db import models

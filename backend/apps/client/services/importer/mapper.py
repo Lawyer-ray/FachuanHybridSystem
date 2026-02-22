@@ -1,4 +1,4 @@
-"""Business logic services."""
+"""当事人 JSON 导入映射器。"""
 
 from dataclasses import dataclass
 from typing import Any

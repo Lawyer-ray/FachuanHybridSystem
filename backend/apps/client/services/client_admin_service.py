@@ -14,7 +14,6 @@ from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin
 
 if TYPE_CHECKING:
-    from .client_service import ClientService
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
     from .client_mutation_service import ClientMutationService
@@ -47,24 +46,13 @@ class ClientAdminService(ClientAdminFileMixin):
 
     def __init__(
         self,
-        client_service: "ClientService | None" = None,
         identity_doc_service: "ClientIdentityDocService | None" = None,
         internal_query_service: "ClientInternalQueryService | None" = None,
         mutation_service: "ClientMutationService | None" = None,
     ) -> None:
-        self._client_service = client_service
         self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
         self._mutation_service = mutation_service
-
-    @property
-    def client_service(self) -> "ClientService":
-        """延迟获取 ClientService"""
-        if self._client_service is None:
-            from .client_service import ClientService
-
-            self._client_service = ClientService()
-        return self._client_service
 
     @property
     def identity_doc_service(self) -> "ClientIdentityDocService":

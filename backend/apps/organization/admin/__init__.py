@@ -3,6 +3,8 @@ Organization App Admin模块主文件
 统一管理所有组织的Admin界面
 """
 
+from __future__ import annotations
+
 from .lawfirm_admin import LawFirmAdmin
 from .lawyer_admin import LawyerAdmin, LawyerAdminForm, AccountCredentialInline, AccountCredentialInlineForm
 from .team_admin import TeamAdmin

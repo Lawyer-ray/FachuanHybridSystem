@@ -2,6 +2,8 @@
 组织访问控制中间件
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from django.conf import settings
@@ -10,7 +12,7 @@ from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
 
 from apps.core.cache import CacheKeys, CacheTimeout
-from apps.core.interfaces import ServiceLocator
+from .services.wiring import build_org_access_computation_service
 
 
 class OrgAccessMiddleware(MiddlewareMixin):
@@ -39,33 +41,10 @@ class OrgAccessMiddleware(MiddlewareMixin):
     def _compute_org_access(self, user: Any) -> dict[str, Any]:
         """
         计算用户的组织访问权限
-        使用 prefetch_related 优化 N+1 查询
+        委托给 OrgAccessComputationService 处理
         """
-        lawyers: set[int] = set()
-        team_ids: set[int] = set()
-
-        # 使用 prefetch_related 一次性加载团队和成员
-        # 避免 N+1 查询
-        teams = user.lawyer_teams.prefetch_related("lawyers").all()
-
-        for team in teams:
-            team_ids.add(team.id)
-            # lawyers 已经被 prefetch，不会产生额外查询
-            for member in team.lawyers.all():
-                lawyers.add(member.id)
-
-        if not lawyers:
-            lawyers.add(user.id)
-
-        # 通过 ICaseService 接口获取额外的案件访问授权
-        case_service = ServiceLocator.get_case_service()
-        extra_cases = set(case_service.get_user_extra_case_access(user.id))
-
-        return {
-            "lawyers": lawyers,
-            "team_ids": team_ids,
-            "extra_cases": extra_cases,
-        }
+        service = build_org_access_computation_service()
+        return service.compute(user)
 
 
 class ApiTrailingSlashMiddleware(MiddlewareMixin):
