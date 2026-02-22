@@ -4,42 +4,18 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from django.core.files.base import ContentFile
 
-    from .docx_export_service import DocxExportService
-    from .pdf_export_service import PdfExportService
-
 from apps.chat_records.models import ChatRecordProject, ChatRecordScreenshot
-from apps.core.exceptions import ValidationException
+
+from .docx_export_service import DocxExportService
+from .export_types import ExportLayout
+from .pdf_export_service import PdfExportService
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class ExportLayout:
-    images_per_page: int
-    show_page_number: bool
-    header_text: str
-
-    @classmethod
-    def from_payload(cls, export_type: str, payload: dict[str, Any]) -> ExportLayout:
-        data = payload or {}
-        images_per_page = int(data.get("images_per_page") or 2)
-        show_page_number = bool(data.get("show_page_number", True))
-        header_text = str(data.get("header_text") or "").strip()
-
-        if images_per_page not in (1, 2):
-            raise ValidationException("仅支持 1 张/页 或 2 张/页")
-
-        return cls(
-            images_per_page=images_per_page,
-            show_page_number=show_page_number,
-            header_text=header_text,
-        )
 
 
 class ExportService:
@@ -89,13 +65,7 @@ class ExportService:
         )
 
 
-# 延迟导入避免循环引用 —— 放在模块末尾
-from .docx_export_service import DocxExportService  # noqa: E402
-from .pdf_export_service import PdfExportService  # noqa: E402
-
 __all__ = [
-    "DocxExportService",
     "ExportLayout",
     "ExportService",
-    "PdfExportService",
 ]
