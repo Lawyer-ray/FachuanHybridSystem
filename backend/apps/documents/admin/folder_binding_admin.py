@@ -13,6 +13,7 @@ from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import NotFoundError
 from apps.documents.models import DocumentTemplateFolderBinding, FolderTemplate
 
 
@@ -46,7 +47,7 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
         super().__init__(*args, **kwargs)
 
         # 如果已选择文件夹模板,加载其节点选项
-        folder_template_id = None
+        folder_template_id: int | str | None = None
         if self.instance and self.instance.pk:
             folder_template_id = self.instance.folder_template_id
         elif self.data.get("folder_template"):
@@ -54,10 +55,11 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
 
         if folder_template_id:
             try:
-                folder_template = FolderTemplate.objects.get(pk=folder_template_id)
+                service = _get_folder_template_admin_service()
+                folder_template: FolderTemplate = service.get_folder_template_by_pk(folder_template_id)
                 choices = self._get_folder_choices(folder_template)
                 self.fields["folder_node_id"].choices = choices  # type: ignore[attr-defined]
-            except FolderTemplate.DoesNotExist:
+            except NotFoundError:
                 pass
 
     def _get_folder_choices(self, folder_template: FolderTemplate) -> list[tuple[str, str]]:
