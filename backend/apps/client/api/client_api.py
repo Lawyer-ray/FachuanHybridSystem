@@ -76,7 +76,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
         if result.get("name"):
             return {"success": True, "client": result}
         else:
-            return {"success": False, "error": str(_("未能解析出客户信息"))}
+            return {"success": False, "error": _("未能解析出客户信息")}
 
 
 @router.get("/parse-text")
@@ -113,7 +113,7 @@ def create_client_with_docs(
         raise ValidationException(
             message=_("证件类型数量与文件数量不一致"),
             code="DOC_FILES_MISMATCH",
-            errors={"doc_types": str(_("doc_types 与 files 长度必须一致"))},
+            errors={"doc_types": _("doc_types 与 files 长度必须一致")},
         )
 
     mutation_service = _get_mutation_service()

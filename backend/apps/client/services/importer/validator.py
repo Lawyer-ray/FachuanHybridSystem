@@ -36,14 +36,14 @@ class ClientJsonImportValidator:
         doc_errors = []
         for i, doc in enumerate(docs_data):
             if not isinstance(doc, dict):
-                doc_errors.append(str(_("第 %(n)s 个证件文档数据格式错误") % {"n": i + 1}))
+                doc_errors.append(_("第 %(n)s 个证件文档数据格式错误") % {"n": i + 1})
                 continue
 
             if not doc.get("doc_type"):
-                doc_errors.append(str(_("第 %(n)s 个证件文档缺少 doc_type") % {"n": i + 1}))
+                doc_errors.append(_("第 %(n)s 个证件文档缺少 doc_type") % {"n": i + 1})
 
             if not doc.get("file_path"):
-                doc_errors.append(str(_("第 %(n)s 个证件文档缺少 file_path") % {"n": i + 1}))
+                doc_errors.append(_("第 %(n)s 个证件文档缺少 file_path") % {"n": i + 1})
 
         if doc_errors:
             errors["identity_docs"] = doc_errors
