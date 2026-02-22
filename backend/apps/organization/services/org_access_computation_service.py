@@ -13,11 +13,11 @@ class OrgAccessComputationService:
     def compute(self, user: Lawyer) -> dict[str, object]:
         team_ids: set[int] = set(user.lawyer_teams.values_list("id", flat=True))
 
-        from apps.organization.models import Lawyer as _Lawyer  # avoid circular at module level
-
-        lawyers: set[int] = set(
-            _Lawyer.objects.filter(lawyer_teams__id__in=team_ids).values_list("id", flat=True).distinct()
-        ) if team_ids else set()
+        lawyers: set[int] = (
+            set(Lawyer.objects.filter(lawyer_teams__id__in=team_ids).values_list("id", flat=True).distinct())
+            if team_ids
+            else set()
+        )
 
         if not lawyers:
             lawyers.add(user.id)
