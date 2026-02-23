@@ -32,18 +32,21 @@ def _require_contract_access(request: Any, contract_id: int) -> None:
 
 def _get_folder_generation_service() -> Any:
     """工厂函数:通过 ServiceLocator 获取 FolderGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_folder_generation_service()
 
 
 def _get_supplementary_agreement_service() -> Any:
     """工厂函数:通过 ServiceLocator 获取 SupplementaryAgreementGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_supplementary_agreement_generation_service()
 
 
 def _get_contract_generation_service() -> Any:
     """工厂函数:通过 ServiceLocator 获取 ContractGenerationService 实例"""
+    from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_contract_generation_service()
 
