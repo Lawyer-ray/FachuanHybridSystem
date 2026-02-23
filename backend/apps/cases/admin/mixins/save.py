@@ -80,11 +80,13 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
     ) -> None:
         old_case_type: str | None = None
         old_current_stage: str | None = None
+        old_contract_id: int | None = None
         if change and obj.pk:
             try:
                 old_obj = Case.objects.get(pk=obj.pk)
                 old_case_type = old_obj.case_type
                 old_current_stage = old_obj.current_stage
+                old_contract_id = getattr(old_obj, "contract_id", None)
             except Case.DoesNotExist:
                 pass
 
@@ -142,22 +144,25 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 )
                 messages.warning(request, _("同步模板绑定失败: %s") % str(e))
 
-        try:
-            assignment_service = self._get_case_assignment_service()
-            assignment_service.sync_assignments_from_contract(
-                case_id=obj.id,
-                user=getattr(request, "user", None),
-                perm_open_access=True,
-            )
-        except Exception as e:
-            logger.error(
-                "同步案件 %s 的律师指派失败: %s",
-                cast(int, obj.id),
-                e,
-                extra={"case_id": obj.id},
-                exc_info=True,
-            )
-            messages.error(request, _("同步律师指派失败: %s") % str(e))
+        new_contract_id = getattr(obj, "contract_id", None)
+        contract_changed = not change or (old_contract_id != new_contract_id)
+        if contract_changed:
+            try:
+                assignment_service = self._get_case_assignment_service()
+                assignment_service.sync_assignments_from_contract(
+                    case_id=obj.id,
+                    user=getattr(request, "user", None),
+                    perm_open_access=True,
+                )
+            except Exception as e:
+                logger.error(
+                    "同步案件 %s 的律师指派失败: %s",
+                    cast(int, obj.id),
+                    e,
+                    extra={"case_id": obj.id},
+                    exc_info=True,
+                )
+                messages.error(request, _("同步律师指派失败: %s") % str(e))
 
     def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:
         instances = formset.save(commit=False)
