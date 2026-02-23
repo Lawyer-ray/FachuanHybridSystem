@@ -31,6 +31,9 @@ class TestCourtAdmin(admin.ModelAdmin):
     提供测试功能的入口，支持 Token 捕获
     """
 
+    def has_module_perms(self, request) -> bool:  # type: ignore[override]
+        return False
+
     # 自定义列表页
     def changelist_view(self, request, extra_context=None):
         """自定义列表页 - 显示测试选项"""
