@@ -622,7 +622,7 @@ class AnalysisService:
             f"## 输出要求\n"
             f"请返回一个 JSON 数组，每个元素包含以下字段：\n"
             f"- position_locator: 位置定位器（直接使用结构 JSON 中的 position_locator）\n"
-            f"- semantic_label: 语义标签（中文描述该位置应填写的内容，如"被申请人姓名"、"住所地"）\n"
+            f"- semantic_label: 语义标签（中文描述该位置应填写的内容，如'被申请人姓名'、'住所地'）\n"
             f"- fill_type: 填充类型（text / checkbox / delete_inapplicable）\n\n"
             f"仅返回 JSON 数组，不要包含其他文字说明。"
         )
