@@ -86,7 +86,7 @@ class FolderGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return cast("FolderTemplate" | None, TemplateMatcher().match_folder_template(case_type))
+        return cast("FolderTemplate | None", TemplateMatcher().match_folder_template(case_type))
 
     def format_root_folder_name(self, contract: Any) -> str:
         """
