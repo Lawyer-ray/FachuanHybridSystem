@@ -32,7 +32,7 @@ def _get_download_service() -> Any:
     return get_invoice_download_service()
 
 
-@router.post("/{task_id}/upload/")
+@router.post("/{task_id}/upload")
 def upload_invoices(
     request: Any,
     task_id: int,
@@ -64,7 +64,7 @@ def upload_invoices(
     return {"success": True, "count": len(records), "records": record_list}
 
 
-@router.get("/{task_id}/status/")
+@router.get("/{task_id}/status")
 def get_task_status(
     request: Any,
     task_id: int,
@@ -98,7 +98,7 @@ def get_task_status(
     return serialized
 
 
-@router.get("/{task_id}/download/")
+@router.get("/{task_id}/download")
 def download_invoices(
     request: Any,
     task_id: int,
