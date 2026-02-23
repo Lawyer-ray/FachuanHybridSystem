@@ -1,0 +1,420 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'documents/css/external_template.css' %}">
+<style>
+.fill-container { max-width: 960px; margin: 0 auto; padding: 20px; }
+.fill-step { margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+.fill-step h3 { margin: 0 0 12px; font-size: 1rem; color: #333; }
+.fill-step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.fill-step-header h3 { margin: 0; }
+.step-badge { background: #417690; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; margin-right: 6px; }
+
+/* Case input */
+.case-input-row { display: flex; gap: 10px; align-items: center; }
+.case-input-row input { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.875rem; }
+.case-input-row button { padding: 8px 16px; }
+
+/* Party checkboxes */
+.party-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.party-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+.party-item:hover { background: #f0f4f8; }
+.party-item.selected { background: #e8f0fe; border-color: #417690; }
+.party-item input[type="checkbox"] { margin: 0; }
+
+/* Custom fields */
+.custom-field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.custom-field-row label { min-width: 160px; font-weight: 600; font-size: 0.875rem; }
+.custom-field-row input, .custom-field-row select { flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.875rem; }
+
+/* Preview table */
+.preview-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.preview-table th, .preview-table td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+.preview-table th { background: #f5f5f5; font-weight: 600; }
+.et-empty-value { background: #fff0f0 !important; }
+
+/* Buttons */
+.fill-actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn-primary { background: #417690; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
+.btn-primary:hover { background: #205067; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: #f5f5f5; color: #333; border: 1px solid #ccc; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
+.btn-secondary:hover { background: #e8e8e8; }
+
+/* Results */
+.result-success { color: #28a745; font-weight: 600; }
+.result-error { color: #dc3545; font-weight: 600; }
+.result-item { padding: 8px 0; border-bottom: 1px solid #eee; }
+.result-item:last-child { border-bottom: none; }
+
+/* Loading */
+.loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #417690; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Back link */
+.back-link { display: inline-block; margin-bottom: 16px; color: #417690; text-decoration: none; font-size: 0.875rem; }
+.back-link:hover { text-decoration: underline; }
+
+/* Select all */
+.select-all-row { margin-bottom: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fill-container" x-data="fillAction()" x-cloak>
+  {% csrf_token %}
+
+  <a class="back-link" href="{% url 'admin:documents_externaltemplate_change' template_obj.pk %}">
+    ← {% translate "返回模板详情" %}
+  </a>
+
+  <!-- Step 1: Case selection -->
+  <div class="fill-step">
+    <div class="fill-step-header">
+      <h3><span class="step-badge">1</span>{% translate "选择案件" %}</h3>
+    </div>
+    <div class="case-input-row">
+      <input type="number"
+             x-model="caseId"
+             placeholder="{% translate '请输入案件 ID' %}"
+             @keydown.enter.prevent="loadParties()">
+      <button class="btn-primary" @click="loadParties()" :disabled="!caseId || loadingParties">
+        <span x-show="loadingParties" class="loading-spinner"></span>
+        {% translate "加载当事人" %}
+      </button>
+    </div>
+    <template x-if="partyError">
+      <p class="result-error" x-text="partyError" style="margin-top:8px;"></p>
+    </template>
+  </div>
+
+  <!-- Step 2: Party selection -->
+  <div class="fill-step" x-show="parties.length > 0">
+    <div class="fill-step-header">
+      <h3><span class="step-badge">2</span>{% translate "选择当事人" %}</h3>
+    </div>
+    <div class="select-all-row">
+      <label style="cursor:pointer;">
+        <input type="checkbox" @change="toggleAllParties($event.target.checked)">
+        {% translate "全选" %}
+      </label>
+    </div>
+    <div class="party-list">
+      <template x-for="p in parties" :key="p.id">
+        <label class="party-item" :class="{ 'selected': selectedPartyIds.includes(p.id) }">
+          <input type="checkbox" :value="p.id"
+                 :checked="selectedPartyIds.includes(p.id)"
+                 @change="toggleParty(p.id)">
+          <span x-text="p.name"></span>
+          <small x-text="p.role ? '(' + p.role + ')' : ''" style="color:#888;"></small>
+        </label>
+      </template>
+    </div>
+  </div>
+
+  <!-- Step 3: Custom fields -->
+  <div class="fill-step" x-show="customFields.length > 0 && selectedPartyIds.length > 0">
+    <div class="fill-step-header">
+      <h3><span class="step-badge">3</span>{% translate "自定义字段" %}</h3>
+    </div>
+    <p style="color:#666;font-size:0.8rem;margin-bottom:12px;">{% translate "以下字段无法自动填充，请手动输入值" %}</p>
+    <template x-for="field in customFields" :key="field.mapping_id">
+      <div class="custom-field-row">
+        <label x-text="field.semantic_label"></label>
+        <template x-if="field.fill_type === 'text'">
+          <input type="text" x-model="customValues[field.mapping_id]"
+                 :placeholder="field.semantic_label">
+        </template>
+        <template x-if="field.fill_type === 'checkbox'">
+          <select x-model="customValues[field.mapping_id]">
+            <option value="">-- {% translate "请选择" %} --</option>
+            <option value="true">{% translate "勾选" %}</option>
+            <option value="false">{% translate "不勾选" %}</option>
+          </select>
+        </template>
+        <template x-if="field.fill_type === 'delete_inapplicable'">
+          <select x-model="customValues[field.mapping_id]">
+            <option value="">-- {% translate "请选择" %} --</option>
+            <template x-for="opt in (field.options || [])" :key="opt">
+              <option :value="opt" x-text="opt"></option>
+            </template>
+          </select>
+        </template>
+      </div>
+    </template>
+  </div>
+
+  <!-- Step 4: Preview -->
+  <div class="fill-step" x-show="step === 'preview'">
+    <div class="fill-step-header">
+      <h3><span class="step-badge">4</span>{% translate "填充预览" %}</h3>
+    </div>
+    <template x-if="loadingPreview">
+      <p><span class="loading-spinner"></span>{% translate "加载预览中..." %}</p>
+    </template>
+    <template x-if="!loadingPreview && previewItems.length > 0">
+      <div style="overflow-x:auto;">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>{% translate "位置" %}</th>
+              <th>{% translate "字段名称" %}</th>
+              <th>{% translate "填充值" %}</th>
+              <th>{% translate "来源" %}</th>
+              <th>{% translate "类型" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="item in previewItems" :key="item.mapping_id">
+              <tr :class="{ 'et-empty-value': !item.fill_value }">
+                <td x-text="item.position_description"></td>
+                <td x-text="item.semantic_label"></td>
+                <td x-text="item.fill_value || '—'"></td>
+                <td>
+                  <span x-show="item.value_source === 'auto'">{% translate "自动" %}</span>
+                  <span x-show="item.value_source === 'manual'">{% translate "手动" %}</span>
+                  <span x-show="item.value_source === 'empty'" style="color:#dc3545;">{% translate "为空" %}</span>
+                </td>
+                <td x-text="item.fill_type"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+  </div>
+
+  <!-- Step 5: Actions -->
+  <div class="fill-step" x-show="selectedPartyIds.length > 0">
+    <div class="fill-actions">
+      <template x-if="step !== 'preview'">
+        <button class="btn-primary" @click="loadPreview()" :disabled="loadingPreview || selectedPartyIds.length === 0">
+          <span x-show="loadingPreview" class="loading-spinner"></span>
+          {% translate "预览填充" %}
+        </button>
+      </template>
+      <template x-if="step === 'preview'">
+        <button class="btn-primary" @click="confirmFill()" :disabled="filling">
+          <span x-show="filling" class="loading-spinner"></span>
+          {% translate "确认生成" %}
+        </button>
+      </template>
+      <template x-if="step === 'preview'">
+        <button class="btn-secondary" @click="step = 'input'">
+          {% translate "返回修改" %}
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Step 6: Results -->
+  <div class="fill-step" x-show="step === 'result'">
+    <div class="fill-step-header">
+      <h3><span class="step-badge">✓</span>{% translate "填充结果" %}</h3>
+    </div>
+    <template x-if="results.success">
+      <div>
+        <p class="result-success">{% translate "填充完成" %}</p>
+        <template x-if="results.zip_file_path">
+          <p>
+            <a :href="'/media/' + results.zip_file_path" class="btn-primary"
+               style="display:inline-block;text-decoration:none;margin-top:8px;">
+              {% translate "下载 ZIP 文件" %}
+            </a>
+          </p>
+        </template>
+        <template x-if="results.records && results.records.length > 0">
+          <div style="margin-top:12px;">
+            <template x-for="rec in results.records" :key="rec.id">
+              <div class="result-item">
+                <span x-text="rec.filename"></span>
+                <a :href="'/media/' + rec.file_path" style="margin-left:10px;color:#417690;">{% translate "下载" %}</a>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="results.summary">
+          <div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:0.8rem;">
+            <p>{% translate "总计" %}: <span x-text="results.summary.total || 0"></span></p>
+            <p>{% translate "成功" %}: <span x-text="results.summary.success || 0"></span></p>
+            <p>{% translate "失败" %}: <span x-text="results.summary.failed || 0"></span></p>
+          </div>
+        </template>
+      </div>
+    </template>
+    <template x-if="results.error">
+      <p class="result-error" x-text="results.error"></p>
+    </template>
+  </div>
+</div>
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script>
+function fillAction() {
+  const templateId = {{ template_obj.pk }};
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+  const serverCustomFields = {{ custom_fields|safe }};
+
+  return {
+    // State
+    caseId: '',
+    parties: [],
+    selectedPartyIds: [],
+    customFields: serverCustomFields || [],
+    customValues: {},
+    previewItems: [],
+    results: {},
+    step: 'input',  // 'input' | 'preview' | 'result'
+
+    // Loading states
+    loadingParties: false,
+    loadingPreview: false,
+    filling: false,
+    partyError: '',
+
+    // Initialize custom values with empty strings
+    init() {
+      this.customFields.forEach(f => {
+        this.customValues[f.mapping_id] = '';
+      });
+    },
+
+    // Step 1: Load parties for the selected case
+    async loadParties() {
+      if (!this.caseId) return;
+      this.loadingParties = true;
+      this.partyError = '';
+      this.parties = [];
+      this.selectedPartyIds = [];
+      this.step = 'input';
+
+      try {
+        const resp = await fetch(`/api/v1/cases/${this.caseId}/parties/`, {
+          headers: { 'X-CSRFToken': csrfToken }
+        });
+        if (!resp.ok) {
+          this.partyError = '{% translate "加载当事人失败，请检查案件 ID" %}';
+          return;
+        }
+        const data = await resp.json();
+        this.parties = data.parties || data.results || data || [];
+      } catch (e) {
+        this.partyError = '{% translate "网络错误，请重试" %}';
+      } finally {
+        this.loadingParties = false;
+      }
+    },
+
+    // Step 2: Toggle party selection
+    toggleParty(partyId) {
+      const idx = this.selectedPartyIds.indexOf(partyId);
+      if (idx === -1) {
+        this.selectedPartyIds.push(partyId);
+      } else {
+        this.selectedPartyIds.splice(idx, 1);
+      }
+      this.step = 'input';
+    },
+
+    toggleAllParties(checked) {
+      if (checked) {
+        this.selectedPartyIds = this.parties.map(p => p.id);
+      } else {
+        this.selectedPartyIds = [];
+      }
+      this.step = 'input';
+    },
+
+    // Step 4: Load preview for the first selected party
+    async loadPreview() {
+      if (!this.caseId || this.selectedPartyIds.length === 0) return;
+      this.loadingPreview = true;
+      this.previewItems = [];
+
+      try {
+        const partyId = this.selectedPartyIds[0];
+        let url = `/api/v1/documents/external-templates/${templateId}/preview/?case_id=${this.caseId}`;
+        if (partyId) url += `&party_id=${partyId}`;
+
+        const resp = await fetch(url, {
+          headers: { 'X-CSRFToken': csrfToken }
+        });
+        if (!resp.ok) {
+          this.partyError = '{% translate "加载预览失败" %}';
+          return;
+        }
+        const data = await resp.json();
+        this.previewItems = data.fields || [];
+
+        // Merge custom values into preview
+        this.previewItems.forEach(item => {
+          if (this.customValues[item.mapping_id]) {
+            item.fill_value = this.customValues[item.mapping_id];
+            item.value_source = 'manual';
+          }
+        });
+
+        this.step = 'preview';
+      } catch (e) {
+        this.partyError = '{% translate "网络错误，请重试" %}';
+      } finally {
+        this.loadingPreview = false;
+      }
+    },
+
+    // Step 5: Confirm and generate
+    async confirmFill() {
+      if (!this.caseId || this.selectedPartyIds.length === 0) return;
+      this.filling = true;
+      this.results = {};
+
+      try {
+        const body = {
+          template_ids: [templateId],
+          case_id: parseInt(this.caseId),
+          party_ids: this.selectedPartyIds,
+          custom_values: {}
+        };
+
+        // Build custom_values keyed by template_id
+        const cv = {};
+        Object.keys(this.customValues).forEach(k => {
+          if (this.customValues[k]) {
+            cv[k] = this.customValues[k];
+          }
+        });
+        if (Object.keys(cv).length > 0) {
+          body.custom_values[templateId] = cv;
+        }
+
+        const resp = await fetch('/api/v1/documents/external-templates/fill/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify(body),
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          this.results = { success: true, ...data };
+        } else {
+          this.results = { error: data.message || '{% translate "填充失败" %}' };
+        }
+        this.step = 'result';
+      } catch (e) {
+        this.results = { error: '{% translate "网络错误，请重试" %}' };
+        this.step = 'result';
+      } finally {
+        this.filling = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}
