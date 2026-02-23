@@ -674,7 +674,16 @@
     
     // 初始化时检查是否已有合同
     if (contractSelect.value) {
-      handleContractChange();
+      // 已有案件（INITIAL_FORMS > 0）时，只更新选项过滤，不自动填充
+      var initialForms = document.querySelector('input[name$="-INITIAL_FORMS"]');
+      var hasExistingParties = initialForms && parseInt(initialForms.value, 10) > 0;
+      if (hasExistingParties) {
+        // 仅更新选项，不填充
+        contractSelect.dataset.previousValue = contractSelect.value;
+        fetchContractPartiesAndFill(contractSelect.value, false);
+      } else {
+        handleContractChange();
+      }
     }
   }
 
