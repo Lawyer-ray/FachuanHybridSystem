@@ -57,7 +57,6 @@ class AnalysisService:
         file: UploadedFile,
         name: str,
         category: str,
-        source_type: str,
         court_id: int | None,
         organization_name: str,
         uploaded_by: Any,
@@ -94,14 +93,12 @@ class AnalysisService:
                 law_firm_id=law_firm_id,
                 court_id=court_id,
                 category=category,
-                source_type=source_type,
                 organization_name=organization_name,
             )
 
             template: ExternalTemplate = ExternalTemplate.objects.create(
                 name=name,
                 category=category,
-                source_type=source_type,
                 court_id=court_id,
                 organization_name=organization_name,
                 file_path=rel_path,
@@ -189,7 +186,6 @@ class AnalysisService:
         law_firm_id: int,
         court_id: int | None,
         category: str,
-        source_type: str,
         organization_name: str,
     ) -> tuple[int, int]:
         """

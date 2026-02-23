@@ -139,34 +139,6 @@ class MatchingService:
         return self._group_by_category(templates)
 
     # ------------------------------------------------------------------
-    # 按来源类型匹配
-    # ------------------------------------------------------------------
-
-    def match_by_source_type(
-        self, source_type: str, law_firm_id: int
-    ) -> dict[str, list[Any]]:
-        """
-        按来源类型筛选模板。
-
-        Requirements: 13.5, 13.6
-        """
-        from apps.documents.models.external_template import ExternalTemplate
-
-        templates: QuerySet[ExternalTemplate] = ExternalTemplate.objects.filter(
-            source_type=source_type,
-            law_firm_id=law_firm_id,
-            is_active=True,
-        )
-
-        logger.info(
-            "来源类型匹配: source_type=%s, law_firm_id=%d, count=%d",
-            source_type,
-            law_firm_id,
-            templates.count(),
-        )
-        return self._group_by_category(templates)
-
-    # ------------------------------------------------------------------
     # 模板统计
     # ------------------------------------------------------------------
 
