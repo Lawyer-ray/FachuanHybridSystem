@@ -99,7 +99,7 @@ class AutoRenameService:
 
         # 构建 prompt
         prompt = EXTRACTION_PROMPT.format(ocr_text=ocr_text)
-        messages: list[Any] = []
+        messages: list[Any] = [{"role": "user", "content": prompt}]
         try:
             if self._llm_client is not None:
                 llm_resp = self._llm_client.complete(prompt)
