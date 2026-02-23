@@ -172,6 +172,6 @@ class IdentityRecognizeOut(Schema):
 
     success: bool
     doc_type: str
-    extracted_data: dict[str, str]
+    extracted_data: dict[str, str | None]
     confidence: float
     error: str | None = None
