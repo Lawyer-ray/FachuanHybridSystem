@@ -6,6 +6,7 @@ from django import forms
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
@@ -60,8 +61,17 @@ class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
     model = Invoice
     form = InvoiceAdminForm
     extra = 1
-    fields: ClassVar = ("file", "original_filename", "uploaded_at", "remark")
-    readonly_fields: ClassVar = ("original_filename", "uploaded_at")
+    fields: ClassVar = ("file", "file_link", "original_filename", "uploaded_at", "remark")
+    readonly_fields: ClassVar = ("file_link", "original_filename", "uploaded_at")
+
+    @admin.display(description=_("查看文件"))
+    def file_link(self, obj: Invoice) -> str:
+        if not obj.pk or not obj.file_path:
+            return "-"
+        from django.conf import settings
+
+        url = f"{settings.MEDIA_URL}{obj.file_path}"
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename or _("查看"))
 
     def delete_model(self, request: HttpRequest, obj: Invoice) -> None:
         from apps.contracts.admin.wiring_admin import get_invoice_upload_service
