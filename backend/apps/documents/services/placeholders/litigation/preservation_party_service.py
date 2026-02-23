@@ -28,7 +28,7 @@ class PreservationPartyService(BasePlaceholderService):
         "财产保全申请书当事人信息": {
             "display_name": "财产保全申请书当事人信息",
             "description": "申请人和被申请人的详细信息,原告替换为申请人,被告替换为被申请人,不包含第三人",
-            "example_value": "申请人:张三,男,1980年01月01日出生\n地址:北京市朝阳区\n身份证号码:110101198001011234",
+            "example_value": "申请人：张三,男,1980年01月01日出生\n地址：北京市朝阳区\n身份证号码：110101198001011234",
         }
     }
 

@@ -94,7 +94,7 @@ class LawyerInfoService(BasePlaceholderService):
             is_primary = hasattr(assignment, "is_primary") and assignment.is_primary
 
             logger.info(
-                "处理律师分配 - ID: %s, 姓名: %s, 是否主办: %s",
+                "处理律师分配 - ID: %s, 姓名： %s, 是否主办: %s",
                 getattr(assignment, 'id', 'N/A'),
                 lawyer_name or '(空)',
                 is_primary,

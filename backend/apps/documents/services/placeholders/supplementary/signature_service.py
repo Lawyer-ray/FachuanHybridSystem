@@ -90,7 +90,7 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
         根据委托人数量和类型生成不同格式:
         - 单个自然人:甲方(签名+指模):name\n指定日期
         - 单个法人/非法人组织:甲方(盖章):name\n代表:\n指定日期
-        - 多个委托人:甲方一(签名+指模):name\n指定日期\n\n甲方二(盖章):name\n代表:\n指定日期
+        - 多个委托人：甲方一(签名+指模):name\n指定日期\n\n甲方二(盖章):name\n代表:\n指定日期
 
         Args:
             principals: 委托人列表
