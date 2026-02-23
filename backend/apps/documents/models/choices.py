@@ -193,5 +193,4 @@ class TemplateStatus(models.TextChoices):
     UPLOADED = "uploaded", _("已上传")
     ANALYZING = "analyzing", _("分析中")
     ANALYSIS_FAILED = "analysis_failed", _("分析失败")
-    MAPPED = "mapped", _("已映射")
-    CONFIRMED = "confirmed", _("已确认")
+    READY = "ready", _("可填充")  # 分析完成，可以直接填充

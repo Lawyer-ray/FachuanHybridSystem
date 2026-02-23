@@ -161,27 +161,11 @@ class ExternalTemplateFieldMapping(models.Model):
         max_length=255,
         verbose_name=_("语义标签"),
     )
-    placeholder_key = models.CharField(
-        max_length=100,
-        blank=True,
-        default="",
-        verbose_name=_("占位符键"),
-    )
     fill_type = models.CharField(
         max_length=30,
         choices=FillType.choices,
         default=FillType.TEXT,
         verbose_name=_("填充类型"),
-    )
-    options = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name=_("选项列表"),
-        help_text=_("delete_inapplicable 类型的可选项"),
-    )
-    is_confirmed = models.BooleanField(
-        default=False,
-        verbose_name=_("是否已确认"),
     )
     sort_order = models.PositiveIntegerField(
         default=0,

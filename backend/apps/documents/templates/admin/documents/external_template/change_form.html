@@ -15,78 +15,20 @@
 {% block after_related_objects %}
 {{ block.super }}
 {% if original %}
-<div class="module" x-data="externalTemplateForm()" x-init="init()">
+<div class="module" x-data="{ status: '{{ original.status|default:"" }}' }">
     <h2>{% translate "模板操作" %}</h2>
     <div class="et-action-buttons">
         <a class="button et-btn"
-           :class="{ 'disabled': !canAnalyze }"
+           :class="{ 'disabled': status !== 'uploaded' && status !== 'analysis_failed' }"
            href="{% url 'admin:documents_externaltemplate_analyze' original.pk %}">
             🔍 {% translate "分析模板" %}
         </a>
         <a class="button et-btn"
-           :class="{ 'disabled': !canConfirm }"
-           href="{% url 'admin:documents_externaltemplate_confirm' original.pk %}">
-            ✅ {% translate "确认映射" %}
-        </a>
-        <a class="button et-btn"
-           :class="{ 'disabled': !canFill }"
+           :class="{ 'disabled': status !== 'ready' }"
            href="{% url 'admin:documents_externaltemplate_fill_action' original.pk %}">
             📝 {% translate "填充操作" %}
         </a>
     </div>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block extrajs %}
-{{ block.super }}
-<script>
-function externalTemplateForm() {
-    return {
-        status: '{{ original.status|default:"" }}',
-        get canAnalyze() { return this.status === 'uploaded' || this.status === 'analysis_failed'; },
-        get canConfirm() { return this.status === 'mapped'; },
-        get canFill() { return this.status === 'confirmed'; },
-
-        init() {
-            this.setupPlaceholderDropdowns();
-        },
-
-        setupPlaceholderDropdowns() {
-            {% if original %}
-            const templateId = {{ original.pk }};
-            fetch(`/api/v1/documents/external-templates/${templateId}/custom-fields/`)
-                .then(resp => resp.json())
-                .then(data => {
-                    const keys = (data.fields || []).map(f => f.placeholder_key).filter(Boolean);
-                    this.convertToDropdowns(keys);
-                })
-                .catch(err => console.error('{% translate "加载占位符列表失败" %}', err));
-            {% endif %}
-        },
-
-        convertToDropdowns(keys) {
-            document.querySelectorAll('.dynamic-field_mappings input[id$="-placeholder_key"]').forEach(input => {
-                const currentVal = input.value;
-                const select = document.createElement('select');
-                select.name = input.name;
-                select.id = input.id;
-                select.className = input.className;
-                const emptyOpt = document.createElement('option');
-                emptyOpt.value = '';
-                emptyOpt.textContent = '-- {% translate "手动填写" %} --';
-                select.appendChild(emptyOpt);
-                keys.forEach(key => {
-                    const opt = document.createElement('option');
-                    opt.value = key;
-                    opt.textContent = key;
-                    if (key === currentVal) opt.selected = true;
-                    select.appendChild(opt);
-                });
-                input.parentNode.replaceChild(select, input);
-            });
-        }
-    };
-}
-</script>
 {% endblock %}
