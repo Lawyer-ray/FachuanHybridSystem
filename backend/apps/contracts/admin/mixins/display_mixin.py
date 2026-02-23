@@ -175,6 +175,8 @@ class ContractDisplayMixin:
                 "payment_progress": ctx_data["payment_progress"],
                 "invoice_summary": ctx_data["invoice_summary"],
                 "related_cases": ctx_data["related_cases"],
+                "finalized_materials": ctx_data["finalized_materials"],
+                "finalized_materials_grouped": ctx_data["finalized_materials_grouped"],
             }
         )
 
