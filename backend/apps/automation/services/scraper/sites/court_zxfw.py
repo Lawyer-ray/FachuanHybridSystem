@@ -240,7 +240,7 @@ class CourtZxfwService:
 
             self._fill_login_form(account, password, save_debug)
 
-            if not self._try_captcha_login(max_captcha_retries=max_captcha_retries, save_debug=save_debug):
+            if not self._try_captcha_login(max_captcha_retries=max_captcha_retries, save_debug=save_debug, captured_token=captured_token):
                 raise ValueError("登录失败")
 
             # 登录成功后保存 Cookie
@@ -268,7 +268,7 @@ class CourtZxfwService:
         self._cookie_service.save(self.context, cookie_path)
         logger.info("Cookie 已保存", extra={"account": account, "path": cookie_path})
 
-    def _try_captcha_login(self, max_captcha_retries: int, save_debug: bool) -> bool:
+    def _try_captcha_login(self, max_captcha_retries: int, save_debug: bool, captured_token: dict[str, Any] | None = None) -> bool:
         """
         带重试的验证码识别和登录
 
@@ -309,6 +309,12 @@ class CourtZxfwService:
                 login_button.wait_for(state="visible", timeout=10000)
                 login_button.click()
                 self._random_wait(3, 5)
+
+                # 优先检查是否已捕获到 Token（比 URL 检查更可靠）
+                if captured_token and captured_token.get("value"):
+                    logger.info("已捕获到 Token，登录成功")
+                    self.is_logged_in = True
+                    return True
 
                 if save_debug:
                     self._save_screenshot(f"05_after_login_attempt_{attempt}")
