@@ -75,16 +75,35 @@
     <div class="fill-step-header">
       <h3><span class="step-badge">1</span>{% translate "选择案件" %}</h3>
     </div>
-    <div class="case-input-row">
-      <input type="number"
-             x-model="caseId"
-             placeholder="{% translate '请输入案件 ID' %}"
-             @keydown.enter.prevent="loadParties()">
-      <button class="btn-primary" @click="loadParties()" :disabled="!caseId || loadingParties">
-        <span x-show="loadingParties" class="loading-spinner"></span>
-        {% translate "加载当事人" %}
-      </button>
+    <div class="case-input-row" style="position:relative;">
+      <input type="text"
+             x-model="caseQuery"
+             placeholder="{% translate '输入案件名称搜索...' %}"
+             @input.debounce.300ms="searchCases()"
+             @focus="showDropdown = caseResults.length > 0"
+             @keydown.escape="showDropdown = false"
+             autocomplete="off">
+      <template x-if="selectedCase">
+        <span style="font-size:0.8rem;color:#417690;white-space:nowrap;" x-text="'已选: ' + selectedCase.name"></span>
+      </template>
+      <!-- Dropdown -->
+      <div x-show="showDropdown && caseResults.length > 0"
+           @click.outside="showDropdown = false"
+           style="position:absolute;top:100%;left:0;right:0;z-index:100;background:#fff;border:1px solid #ccc;border-radius:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);margin-top:2px;">
+        <template x-for="c in caseResults" :key="c.id">
+          <div @click="selectCase(c)"
+               style="padding:8px 12px;cursor:pointer;font-size:0.875rem;border-bottom:1px solid #eee;"
+               @mouseenter="$el.style.background='#f0f4f8'"
+               @mouseleave="$el.style.background='#fff'">
+            <span x-text="c.name" style="font-weight:600;"></span>
+            <small x-text="c.cause_of_action ? ' · ' + c.cause_of_action : ''" style="color:#888;"></small>
+          </div>
+        </template>
+      </div>
     </div>
+    <template x-if="searchingCases">
+      <p style="margin-top:6px;font-size:0.8rem;color:#888;"><span class="loading-spinner"></span>{% translate "搜索中..." %}</p>
+    </template>
     <template x-if="partyError">
       <p class="result-error" x-text="partyError" style="margin-top:8px;"></p>
     </template>
@@ -262,51 +281,65 @@ function fillAction() {
   return {
     // State
     caseId: '',
+    caseQuery: '',
+    caseResults: [],
+    selectedCase: null,
+    showDropdown: false,
+    searchingCases: false,
     parties: [],
     selectedPartyIds: [],
     customFields: serverCustomFields || [],
     customValues: {},
     previewItems: [],
     results: {},
-    step: 'input',  // 'input' | 'preview' | 'result'
+    step: 'input',
 
     // Loading states
-    loadingParties: false,
     loadingPreview: false,
     filling: false,
     partyError: '',
 
-    // Initialize custom values with empty strings
     init() {
       this.customFields.forEach(f => {
         this.customValues[f.mapping_id] = '';
       });
     },
 
-    // Step 1: Load parties for the selected case
-    async loadParties() {
-      if (!this.caseId) return;
-      this.loadingParties = true;
-      this.partyError = '';
-      this.parties = [];
-      this.selectedPartyIds = [];
-      this.step = 'input';
-
+    // Search cases
+    async searchCases() {
+      const q = this.caseQuery.trim();
+      if (q.length < 1) { this.caseResults = []; this.showDropdown = false; return; }
+      this.searchingCases = true;
       try {
-        const resp = await fetch(`/api/v1/cases/${this.caseId}/parties/`, {
+        const resp = await fetch(`/api/v1/cases/search?q=${encodeURIComponent(q)}&limit=10`, {
           headers: { 'X-CSRFToken': csrfToken }
         });
-        if (!resp.ok) {
-          this.partyError = '{% translate "加载当事人失败，请检查案件 ID" %}';
-          return;
+        if (resp.ok) {
+          this.caseResults = await resp.json();
+          this.showDropdown = this.caseResults.length > 0;
         }
-        const data = await resp.json();
-        this.parties = data.parties || data.results || data || [];
       } catch (e) {
-        this.partyError = '{% translate "网络错误，请重试" %}';
+        this.caseResults = [];
       } finally {
-        this.loadingParties = false;
+        this.searchingCases = false;
       }
+    },
+
+    // Select a case from dropdown
+    selectCase(c) {
+      this.selectedCase = c;
+      this.caseId = c.id;
+      this.caseQuery = c.name;
+      this.showDropdown = false;
+      this.partyError = '';
+      this.step = 'input';
+      // Parties come from the search response
+      this.parties = (c.parties || []).map(p => ({
+        id: p.id,
+        name: p.client_detail?.name || `当事人${p.id}`,
+        role: p.legal_status || '',
+      }));
+      this.selectedPartyIds = [];
     },
 
     // Step 2: Toggle party selection

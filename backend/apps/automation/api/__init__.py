@@ -13,6 +13,7 @@ from .court_sms_api import router as court_sms_router
 from .document_delivery_api import router as document_delivery_router
 from .court_document_recognition_api import router as court_document_recognition_router
 from .invoice_recognition_api import router as invoice_recognition_router
+from .image_rotation_api import router as image_rotation_router
 
 # 创建模块路由器
 router = Router()
@@ -27,5 +28,6 @@ router.add_router("", document_delivery_router)  # 文书送达自动下载 API
 router.add_router("", court_document_recognition_router)  # 法院文书智能识别 API
 router.add_router("", main_router, tags=["AI工具"])
 router.add_router("/invoice-recognition", invoice_recognition_router)  # 发票识别 API
+router.add_router("/image-rotation", image_rotation_router)  # 图片旋转 API
 
 __all__ = ["router"]
