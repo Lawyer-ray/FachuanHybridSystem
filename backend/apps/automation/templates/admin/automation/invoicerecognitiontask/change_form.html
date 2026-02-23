@@ -403,12 +403,12 @@ function invoiceApp() {
         },
 
         removeKeyFromGroup(mgIdx, kIdx) {
-            const key = this.mergedGroups[mgIdx].keys.splice(kIdx, 1)[0];
-            if (this.mergedGroups[mgIdx].keys.length === 0) {
-                this.mergedGroups.splice(mgIdx, 1);
-            }
+            const groups = JSON.parse(JSON.stringify(this.mergedGroups));
+            const key = groups[mgIdx].keys.splice(kIdx, 1)[0];
+            if (groups[mgIdx].keys.length === 0) groups.splice(mgIdx, 1);
             const g = this.groups.find(g => g.key === key);
-            this.mergedGroups.push({ id: key, name: g ? g.label : key, keys: [key] });
+            groups.push({ id: key, name: g ? g.label : key, keys: [key] });
+            this.mergedGroups = groups;
         },
 
         dragStart(mgIdx, kIdx) {
@@ -418,18 +418,19 @@ function invoiceApp() {
         dropToMergeGroup(targetMgIdx) {
             if (!this.dragSrc) return;
             const { mgIdx, kIdx } = this.dragSrc;
-            if (mgIdx === targetMgIdx) return;
+            if (mgIdx === targetMgIdx) { this.dragSrc = null; this.dragOverMergeGroup = null; return; }
 
-            const key = this.mergedGroups[mgIdx].keys.splice(kIdx, 1)[0];
+            const groups = JSON.parse(JSON.stringify(this.mergedGroups));
+            const key = groups[mgIdx].keys.splice(kIdx, 1)[0];
 
-            // 修正 targetMgIdx：如果源组在目标组前面且源组被删除，index 会偏移
             let adjustedTarget = targetMgIdx;
-            if (this.mergedGroups[mgIdx].keys.length === 0) {
-                this.mergedGroups.splice(mgIdx, 1);
+            if (groups[mgIdx].keys.length === 0) {
+                groups.splice(mgIdx, 1);
                 if (mgIdx < targetMgIdx) adjustedTarget--;
             }
+            groups[adjustedTarget].keys.push(key);
+            this.mergedGroups = groups;
 
-            this.mergedGroups[adjustedTarget].keys.push(key);
             this.dragSrc = null;
             this.dragOverMergeGroup = null;
         },
