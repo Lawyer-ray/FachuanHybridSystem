@@ -52,21 +52,63 @@
     <!-- 识别结果区域 -->
     <template x-if="groups.length > 0 || duplicates.length > 0">
         <div>
-            <div class="ir-section-title">{% trans "识别结果" %}</div>
+            <div class="ir-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>{% trans "识别结果" %}</span>
+                <button type="button" class="btn-merge-toggle" @click="showMergePanel = !showMergePanel" x-show="mergedGroups.length > 1">
+                    ⚙️ {% trans "合并分组" %}
+                </button>
+            </div>
 
-            <template x-for="(group, gIdx) in groups" :key="group.category">
+            <!-- 合并分组面板 -->
+            <div class="ir-merge-panel" x-show="showMergePanel" x-transition>
+                <div class="ir-merge-hint">将多个项目名称拖入同一合并组，统计时将合并计算。</div>
+                <div class="ir-merge-groups">
+                    <template x-for="(mg, mgIdx) in mergedGroups" :key="mgIdx">
+                        <div class="ir-merge-group"
+                             @dragover.prevent="dragOverMergeGroup = mgIdx"
+                             @drop.prevent="dropToMergeGroup(mgIdx)"
+                             :class="{ 'drag-over': dragOverMergeGroup === mgIdx }">
+                            <div class="ir-merge-group-header">
+                                <input type="text" class="ir-merge-group-name" x-model="mg.name" placeholder="合并组名称">
+                                <button type="button" class="ir-merge-remove-btn" @click="removeMergeGroup(mgIdx)" x-show="mergedGroups.length > 1">✕</button>
+                            </div>
+                            <div class="ir-merge-tags">
+                                <template x-for="(key, kIdx) in mg.keys" :key="key">
+                                    <span class="ir-merge-tag"
+                                          draggable="true"
+                                          @dragstart="dragStart(mgIdx, kIdx)"
+                                          x-text="key">
+                                        <span class="ir-merge-tag-remove" @click.stop="removeKeyFromGroup(mgIdx, kIdx)">×</span>
+                                    </span>
+                                </template>
+                                <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">拖入项目名称</span>
+                            </div>
+                            <div class="ir-merge-group-total">
+                                合计：¥<span x-text="getMergeGroupTotal(mgIdx).toFixed(2)"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <button type="button" class="ir-merge-add-btn" @click="addMergeGroup()">+ 新增合并组</button>
+                </div>
+            </div>
+
+            <!-- 分组列表 -->
+            <template x-for="(group, gIdx) in displayGroups" :key="group.key">
                 <div class="ir-category-group">
-                    <div class="ir-category-header" @click="toggleGroup(gIdx)">
+                    <div class="ir-category-header" @click="toggleGroup(group.key)">
                         <div class="category-title">
-                            <span x-text="group.label || group.category"></span>
+                            <span x-text="group.label"></span>
+                            <template x-if="group.mergedKeys && group.mergedKeys.length > 1">
+                                <span class="ir-merged-badge" :title="group.mergedKeys.join(' + ')">合并</span>
+                            </template>
                         </div>
                         <div class="category-stats">
                             <span><span x-text="group.records.length"></span> {% trans "张" %}</span>
                             <span class="category-subtotal">¥<span x-text="group.subtotal.toFixed(2)"></span></span>
-                            <span class="toggle-icon" :class="{ open: openGroups[gIdx] }">▼</span>
+                            <span class="toggle-icon" :class="{ open: openGroups[group.key] }">▼</span>
                         </div>
                     </div>
-                    <div x-show="openGroups[gIdx]" x-transition>
+                    <div x-show="openGroups[group.key]" x-transition>
                         <table class="ir-invoice-table">
                             <thead>
                                 <tr>
@@ -174,7 +216,7 @@ function invoiceApp() {
         uploadProgress: 0,
         taskStatus: '{{ invoice_task.status }}',
         records: [],
-        groups: [],
+        groups: [],        // 原始按project_name分组
         duplicates: [],
         total: '{{ invoice_grouped_data.total|default:"0" }}',
         dragging: false,
@@ -182,6 +224,34 @@ function invoiceApp() {
         uploadMessage: '',
         uploadMessageType: 'success',
         pollingTimer: null,
+        // 合并分组
+        showMergePanel: false,
+        mergedGroups: [],   // [{name, keys:[projectName,...]}]
+        dragOverMergeGroup: null,
+        dragSrc: null,      // {mgIdx, kIdx}
+
+        get displayGroups() {
+            if (!this.mergedGroups.length) return this.groups;
+            // 构建 key->mergeGroupIdx 映射
+            const keyToMg = {};
+            this.mergedGroups.forEach((mg, i) => mg.keys.forEach(k => keyToMg[k] = i));
+            const merged = {};
+            for (const g of this.groups) {
+                const mgIdx = keyToMg[g.key];
+                if (mgIdx !== undefined) {
+                    const mg = this.mergedGroups[mgIdx];
+                    const mKey = `__mg_${mgIdx}`;
+                    if (!merged[mKey]) {
+                        merged[mKey] = { key: mKey, label: mg.name || mg.keys.join(' + '), category: g.category, records: [], subtotal: 0, mergedKeys: [...mg.keys] };
+                    }
+                    merged[mKey].records.push(...g.records);
+                    merged[mKey].subtotal += g.subtotal;
+                } else {
+                    merged[g.key] = g;
+                }
+            }
+            return Object.values(merged);
+        },
 
         init() {
             this.loadStatus();
@@ -209,8 +279,8 @@ function invoiceApp() {
             return labels[status] || status;
         },
 
-        toggleGroup(idx) {
-            this.openGroups[idx] = !this.openGroups[idx];
+        toggleGroup(key) {
+            this.openGroups[key] = !this.openGroups[key];
         },
 
         getCsrfToken() {
@@ -290,10 +360,10 @@ function invoiceApp() {
             this.duplicates = [];
             for (const r of this.records) {
                 if (r.is_duplicate) { this.duplicates.push(r); continue; }
-                // 优先按项目名称分组，无项目名称则按发票类目
                 const key = r.project_name || r.category || 'other';
                 if (!groupMap[key]) {
                     groupMap[key] = {
+                        key,
                         category: r.category,
                         label: r.project_name || r.category_label || key,
                         records: [],
@@ -304,10 +374,62 @@ function invoiceApp() {
                 groupMap[key].subtotal += parseFloat(r.total_amount || 0);
             }
             this.groups = Object.values(groupMap);
-            this.groups.forEach((_, idx) => {
-                if (this.openGroups[idx] === undefined) this.openGroups[idx] = true;
+            // 初始化 openGroups
+            this.groups.forEach(g => {
+                if (this.openGroups[g.key] === undefined) this.openGroups[g.key] = true;
             });
+            // 初始化 mergedGroups：每个 project_name 一个独立组
+            if (!this.mergedGroups.length) {
+                this.mergedGroups = this.groups.map(g => ({ name: g.label, keys: [g.key] }));
+            }
             this.total = this.groups.reduce((s, g) => s + g.subtotal, 0).toFixed(2);
+        },
+
+        // 合并分组操作
+        addMergeGroup() {
+            this.mergedGroups.push({ name: '新分组', keys: [] });
+        },
+
+        removeMergeGroup(mgIdx) {
+            const mg = this.mergedGroups[mgIdx];
+            // 把该组的 keys 分散回各自独立组
+            for (const key of mg.keys) {
+                const g = this.groups.find(g => g.key === key);
+                if (g) this.mergedGroups.push({ name: g.label, keys: [key] });
+            }
+            this.mergedGroups.splice(mgIdx, 1);
+        },
+
+        removeKeyFromGroup(mgIdx, kIdx) {
+            const key = this.mergedGroups[mgIdx].keys[kIdx];
+            this.mergedGroups[mgIdx].keys.splice(kIdx, 1);
+            const g = this.groups.find(g => g.key === key);
+            if (g) this.mergedGroups.push({ name: g.label, keys: [key] });
+        },
+
+        dragStart(mgIdx, kIdx) {
+            this.dragSrc = { mgIdx, kIdx };
+        },
+
+        dropToMergeGroup(targetMgIdx) {
+            if (!this.dragSrc) return;
+            const { mgIdx, kIdx } = this.dragSrc;
+            if (mgIdx === targetMgIdx) return;
+            const key = this.mergedGroups[mgIdx].keys.splice(kIdx, 1)[0];
+            this.mergedGroups[targetMgIdx].keys.push(key);
+            // 清空空组
+            if (this.mergedGroups[mgIdx].keys.length === 0) {
+                this.mergedGroups.splice(mgIdx, 1);
+            }
+            this.dragSrc = null;
+            this.dragOverMergeGroup = null;
+        },
+
+        getMergeGroupTotal(mgIdx) {
+            const keys = new Set(this.mergedGroups[mgIdx].keys);
+            return this.groups
+                .filter(g => keys.has(g.key))
+                .reduce((s, g) => s + g.subtotal, 0);
         },
 
         downloadSingle(invoiceId) {
