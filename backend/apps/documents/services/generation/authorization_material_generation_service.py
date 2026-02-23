@@ -131,7 +131,6 @@ class AuthorizationMaterialGenerationService:
         return content, filename
 
     def generate_full_authorization_package(self, case_id: int) -> tuple[bytes, str]:
-        from apps.core.config import get_config
 
         case = self._get_case(case_id)
 
@@ -151,10 +150,8 @@ class AuthorizationMaterialGenerationService:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             self._zip_add_generated_docs(zf, case=case, our_parties=our_parties)
-            media_root = get_config("django.media_root", None)
-            if not media_root:
-                from django.conf import settings as django_settings
-                media_root = str(django_settings.MEDIA_ROOT)
+            from django.conf import settings as django_settings
+            media_root = str(django_settings.MEDIA_ROOT)
             self._zip_add_client_identity_docs(
                 zf, our_parties=our_parties, media_root=str(media_root), missing_lines=missing_lines
             )
