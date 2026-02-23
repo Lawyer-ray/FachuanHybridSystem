@@ -26,6 +26,15 @@ from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 # Token Management
 from .token import CourtToken, TokenAcquisitionHistory, TokenAcquisitionStatus
 
+# Invoice Recognition
+from .invoice_recognition import (
+    InvoiceCategory,
+    InvoiceRecord,
+    InvoiceRecognitionTask,
+    InvoiceRecognitionTaskStatus,
+    InvoiceRecordStatus,
+)
+
 __all__ = [
     # Base
     "AutomationTool",
@@ -60,4 +69,10 @@ __all__ = [
     "CourtSMSStatus",
     "CourtSMSType",
     "CourtSMS",
+    # Invoice Recognition
+    "InvoiceCategory",
+    "InvoiceRecognitionTaskStatus",
+    "InvoiceRecordStatus",
+    "InvoiceRecognitionTask",
+    "InvoiceRecord",
 ]
