@@ -71,7 +71,7 @@
                             <thead>
                                 <tr>
                                     <th>{% trans "原始文件名" %}</th>
-                                    <th>{% trans "发票代码" %}</th>
+                                    <th>{% trans "项目名称" %}</th>
                                     <th>{% trans "发票号码" %}</th>
                                     <th>{% trans "开票日期" %}</th>
                                     <th>{% trans "价税合计" %}</th>
@@ -83,7 +83,7 @@
                                 <template x-for="record in group.records" :key="record.id">
                                     <tr>
                                         <td x-text="record.original_filename"></td>
-                                        <td x-text="record.invoice_code || '-'"></td>
+                                        <td x-text="record.project_name || '-'"></td>
                                         <td x-text="record.invoice_number || '-'"></td>
                                         <td x-text="record.invoice_date || '-'"></td>
                                         <td>
@@ -118,7 +118,7 @@
                     <thead>
                         <tr>
                             <th>{% trans "原始文件名" %}</th>
-                            <th>{% trans "发票代码" %}</th>
+                            <th>{% trans "项目名称" %}</th>
                             <th>{% trans "发票号码" %}</th>
                             <th>{% trans "开票日期" %}</th>
                             <th>{% trans "价税合计" %}</th>
@@ -129,7 +129,7 @@
                         <template x-for="record in duplicates" :key="record.id">
                             <tr class="ir-duplicate-row">
                                 <td x-text="record.original_filename"></td>
-                                <td x-text="record.invoice_code || '-'"></td>
+                                <td x-text="record.project_name || '-'"></td>
                                 <td x-text="record.invoice_number || '-'"></td>
                                 <td x-text="record.invoice_date || '-'"></td>
                                 <td>

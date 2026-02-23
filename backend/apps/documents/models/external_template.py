@@ -13,7 +13,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .choices import SourceType, TemplateCategory, TemplateStatus
+from .choices import FillType, SourceType, TemplateCategory, TemplateStatus
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -147,3 +147,81 @@ class ExternalTemplate(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class ExternalTemplateFieldMapping(models.Model):
+    """
+    外部模板字段映射
+
+    存储 LLM 分析生成的字段映射关系, 将模板中的可填充位置
+    映射到现有占位符体系中的 placeholder_key.
+
+    Requirements: 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.5, 12.1
+    """
+
+    id: int
+    template = models.ForeignKey(
+        ExternalTemplate,
+        on_delete=models.CASCADE,
+        related_name="field_mappings",
+        verbose_name=_("关联模板"),
+    )
+    position_locator = models.JSONField(
+        verbose_name=_("位置定位器"),
+    )
+    position_description = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name=_("位置描述"),
+    )
+    semantic_label = models.CharField(
+        max_length=255,
+        verbose_name=_("语义标签"),
+    )
+    placeholder_key = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name=_("占位符键"),
+    )
+    fill_type = models.CharField(
+        max_length=30,
+        choices=FillType.choices,
+        default=FillType.TEXT,
+        verbose_name=_("填充类型"),
+    )
+    options = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("选项列表"),
+        help_text=_("delete_inapplicable 类型的可选项"),
+    )
+    is_confirmed = models.BooleanField(
+        default=False,
+        verbose_name=_("是否已确认"),
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("排序"),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("创建时间"),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("更新时间"),
+    )
+
+    class Meta:
+        app_label = "documents"
+        verbose_name = _("字段映射")
+        verbose_name_plural = _("字段映射")
+        ordering: ClassVar = ["sort_order", "id"]
+        indexes: ClassVar = [
+            models.Index(fields=["template", "sort_order"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.template.name} - {self.semantic_label}"

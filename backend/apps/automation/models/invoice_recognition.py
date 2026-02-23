@@ -102,6 +102,7 @@ class InvoiceRecord(models.Model):
     )
     buyer_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("购买方名称"))
     seller_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("销售方名称"))
+    project_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("项目名称"))
     category = models.CharField(
         max_length=32,
         choices=InvoiceCategory.choices,

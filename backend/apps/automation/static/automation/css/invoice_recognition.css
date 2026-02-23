@@ -1,167 +1,126 @@
 /* Invoice Recognition Admin Styles */
 
 .ir-container {
-    max-width: 1200px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 0 16px;
-}
-
-/* Task Header */
-.ir-task-header {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.ir-task-header h2 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: #333;
-}
-
-.ir-task-meta {
-    color: #666;
-    font-size: 0.875rem;
-}
-
-/* Status Badge */
-.ir-status-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.ir-status-badge.pending {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.ir-status-badge.processing {
-    background: #cce5ff;
-    color: #004085;
-}
-
-.ir-status-badge.completed {
-    background: #d4edda;
-    color: #155724;
-}
-
-.ir-status-badge.failed {
-    background: #f8d7da;
-    color: #721c24;
+    padding: 0 4px;
 }
 
 /* Upload Zone */
 .ir-upload-zone {
-    border: 2px dashed #adb5bd;
-    border-radius: 8px;
-    padding: 40px 20px;
+    border: 2px dashed #c5d5e0;
+    border-radius: 10px;
+    padding: 36px 20px;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
-    background: #fafafa;
-    margin-bottom: 20px;
+    background: #f8fbfd;
+    margin-bottom: 24px;
 }
 
 .ir-upload-zone:hover {
     border-color: #417690;
-    background: #f0f4f8;
+    background: #eef4f8;
 }
 
 .ir-upload-zone.dragging {
     border-color: #417690;
-    background: #e8f0f7;
+    background: #e3eef5;
     border-style: solid;
 }
 
 .ir-upload-zone .upload-icon {
-    font-size: 2.5rem;
-    color: #adb5bd;
-    margin-bottom: 8px;
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
 }
 
 .ir-upload-zone p {
-    margin: 6px 0;
-    color: #666;
+    margin: 4px 0;
+    color: #555;
+    font-size: 0.95rem;
 }
 
 .ir-upload-zone .upload-hint {
     font-size: 0.8rem;
-    color: #999;
+    color: #aaa;
+    margin-top: 6px;
 }
 
 /* Progress Bar */
 .ir-progress-bar {
     background: #e9ecef;
     border-radius: 4px;
-    height: 8px;
+    height: 6px;
     overflow: hidden;
-    margin: 12px 0;
+    margin: 10px 0 16px;
 }
 
 .ir-progress-fill {
     height: 100%;
-    background: #417690;
+    background: linear-gradient(90deg, #417690, #5a9ab5);
     border-radius: 4px;
     transition: width 0.3s ease;
 }
 
+/* Section title */
+.ir-section-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #417690;
+    margin: 24px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #d0e4ed;
+    letter-spacing: 0.02em;
+}
+
 /* Category Group */
 .ir-category-group {
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    margin-bottom: 12px;
+    border: 1px solid #dde8ee;
+    border-radius: 8px;
+    margin-bottom: 10px;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .ir-category-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    background: #f8f9fa;
+    padding: 11px 16px;
+    background: #f0f6fa;
     cursor: pointer;
     user-select: none;
     transition: background 0.15s;
 }
 
 .ir-category-header:hover {
-    background: #e9ecef;
+    background: #e4eff6;
 }
 
 .ir-category-header .category-title {
     font-weight: 600;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: #2c5f78;
+    font-size: 0.9rem;
 }
 
 .ir-category-header .category-stats {
     display: flex;
     align-items: center;
-    gap: 16px;
-    font-size: 0.875rem;
-    color: #555;
+    gap: 14px;
+    font-size: 0.85rem;
+    color: #666;
 }
 
 .ir-category-header .category-subtotal {
-    font-weight: 600;
-    color: #417690;
+    font-weight: 700;
+    color: #2c7a4b;
+    font-size: 0.95rem;
 }
 
 .ir-category-header .toggle-icon {
-    color: #666;
+    color: #999;
+    font-size: 0.75rem;
     transition: transform 0.2s;
 }
 
@@ -173,22 +132,25 @@
 .ir-invoice-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
 }
 
 .ir-invoice-table th {
-    background: #f1f3f5;
+    background: #f7fafb;
     padding: 8px 12px;
     text-align: left;
     font-weight: 600;
-    color: #555;
-    border-bottom: 1px solid #dee2e6;
+    color: #666;
+    border-bottom: 1px solid #e5edf2;
     white-space: nowrap;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 .ir-invoice-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    padding: 9px 12px;
+    border-bottom: 1px solid #f2f5f7;
     color: #333;
     vertical-align: middle;
 }
@@ -198,92 +160,113 @@
 }
 
 .ir-invoice-table tr:hover td {
-    background: #f8f9fa;
+    background: #f5f9fb;
 }
 
 /* Category Download Buttons */
 .ir-category-download {
-    padding: 8px 16px;
-    background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
+    padding: 8px 14px;
+    background: #f7fafb;
+    border-top: 1px solid #e5edf2;
     display: flex;
     gap: 8px;
     justify-content: flex-end;
 }
 
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 14px;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+}
+
+.btn-pdf {
+    background: #fff0f0;
+    color: #c0392b;
+    border-color: #f5c6c6;
+}
+
+.btn-pdf:hover {
+    background: #fde0e0;
+    border-color: #e8a0a0;
+}
+
+.btn-zip {
+    background: #eef4f8;
+    color: #2c5f78;
+    border-color: #c5d8e4;
+}
+
+.btn-zip:hover {
+    background: #ddeaf3;
+    border-color: #a8c5d6;
+}
+
 /* Duplicate Section */
 .ir-duplicate-section {
-    background: #f5f5f5;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    margin-bottom: 20px;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 16px;
     overflow: hidden;
 }
 
-.ir-duplicate-section .ir-duplicate-header {
-    padding: 12px 16px;
-    background: #e8e8e8;
+.ir-duplicate-header {
+    padding: 10px 16px;
+    background: #f2f2f2;
     font-weight: 600;
-    color: #666;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: #888;
+    font-size: 0.875rem;
 }
 
 .ir-duplicate-row td {
-    background: #f5f5f5 !important;
-    color: #999 !important;
+    background: #fafafa !important;
+    color: #bbb !important;
     text-decoration: line-through;
-}
-
-.ir-duplicate-row:hover td {
-    background: #eeeeee !important;
 }
 
 /* Total Section */
 .ir-total-section {
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
+    background: linear-gradient(135deg, #f0f8f4, #e8f4f0);
+    border: 1px solid #b8dece;
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin: 16px 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .ir-total-section .total-label {
-    font-size: 1rem;
-    color: #555;
+    font-size: 0.9rem;
+    color: #4a7a5e;
     font-weight: 500;
 }
 
 .ir-total-section .total-amount {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: #417690;
+    color: #1a6b3c;
+    letter-spacing: -0.02em;
 }
 
-/* Download Buttons */
+/* Download Buttons (全部下载) */
 .ir-download-btns {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-    padding: 16px 0;
+    padding: 12px 0 20px;
 }
 
 .ir-download-btns .btn-download {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 4px;
+    padding: 8px 20px;
     font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    border: 1px solid transparent;
-    text-decoration: none;
-    transition: background 0.15s, border-color 0.15s;
 }
 
 .ir-download-btns .btn-pdf {
@@ -294,7 +277,6 @@
 
 .ir-download-btns .btn-pdf:hover {
     background: #c82333;
-    border-color: #bd2130;
 }
 
 .ir-download-btns .btn-zip {
@@ -305,7 +287,6 @@
 
 .ir-download-btns .btn-zip:hover {
     background: #2d5a6e;
-    border-color: #2d5a6e;
 }
 
 /* Record Status Badge */
@@ -335,8 +316,8 @@
 /* Upload status message */
 .ir-upload-message {
     padding: 10px 14px;
-    border-radius: 4px;
-    margin-bottom: 12px;
+    border-radius: 6px;
+    margin-bottom: 14px;
     font-size: 0.875rem;
 }
 
@@ -352,20 +333,26 @@
     border: 1px solid #f5c6cb;
 }
 
-/* Section title */
-.ir-section-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #333;
-    margin: 20px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid #417690;
-}
-
 /* Empty state */
 .ir-empty-state {
     text-align: center;
-    padding: 40px 20px;
-    color: #999;
+    padding: 48px 20px;
+    color: #bbb;
     font-size: 0.9rem;
+}
+
+/* Download button in table */
+.ir-invoice-table .button {
+    padding: 3px 10px;
+    font-size: 0.78rem;
+    background: #eef4f8;
+    color: #2c5f78;
+    border: 1px solid #c5d8e4;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.ir-invoice-table .button:hover {
+    background: #ddeaf3;
 }
