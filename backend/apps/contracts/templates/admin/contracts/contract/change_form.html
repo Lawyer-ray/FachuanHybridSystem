@@ -1,6 +1,13 @@
 {% extends "admin/change_form.html" %}
 {% load i18n admin_urls %}
 
+{% block extrahead %}
+{{ block.super }}
+<style>
+.inline-group .tabular td { font-size: 0.8125rem; }
+</style>
+{% endblock %}
+
 {% block submit_buttons_bottom %}
 {{ block.super }}
 <script>
