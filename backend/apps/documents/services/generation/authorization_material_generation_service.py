@@ -178,15 +178,21 @@ class AuthorizationMaterialGenerationService:
         # 检查案件绑定的模板中是否有所函
         has_authority_letter = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_AUTHORITY_LETTER)
         if has_authority_letter:
-            authority_bytes, authority_filename = self.generate_authority_letter_document(int(case_id))
-            zf.writestr(self._safe_arcname(f"所函/{authority_filename}"), authority_bytes)
+            try:
+                authority_bytes, authority_filename = self.generate_authority_letter_document(int(case_id))
+                zf.writestr(self._safe_arcname(f"所函/{authority_filename}"), authority_bytes)
+            except ValidationException as e:
+                logger.warning("跳过所函生成: %s", e.message, extra={"case_id": case_id})
 
         # 检查案件绑定的模板中是否有授权委托书
         has_power_of_attorney = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_POWER_OF_ATTORNEY)
         if has_power_of_attorney:
             client_ids = [int(p.client_id) for p in our_parties if getattr(p, "client_id", None)]
-            poa_bytes, poa_filename = self.generate_power_of_attorney_combined_document(int(case_id), client_ids)
-            zf.writestr(self._safe_arcname(f"授权委托书/{poa_filename}"), poa_bytes)
+            try:
+                poa_bytes, poa_filename = self.generate_power_of_attorney_combined_document(int(case_id), client_ids)
+                zf.writestr(self._safe_arcname(f"授权委托书/{poa_filename}"), poa_bytes)
+            except ValidationException as e:
+                logger.warning("跳过授权委托书生成: %s", e.message, extra={"case_id": case_id})
 
         # 检查案件绑定的模板中是否有法定代表人身份证明书
         has_legal_rep_cert = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_LEGAL_REP_CERT)
@@ -200,8 +206,11 @@ class AuthorizationMaterialGenerationService:
                 client_id = getattr(party, "client_id", None)
                 if not client_id:
                     continue
-                content, filename = self.generate_legal_rep_certificate_document(int(case_id), int(client_id))
-                zf.writestr(self._safe_arcname(f"法定代表人身份证明书/{filename}"), content)
+                try:
+                    content, filename = self.generate_legal_rep_certificate_document(int(case_id), int(client_id))
+                    zf.writestr(self._safe_arcname(f"法定代表人身份证明书/{filename}"), content)
+                except ValidationException as e:
+                    logger.warning("跳过法定代表人身份证明书生成: %s", e.message, extra={"case_id": case_id, "client_id": client_id})
 
     # 证件类型标签映射
     _DOC_TYPE_LABELS: ClassVar[dict[str, str]] = {
