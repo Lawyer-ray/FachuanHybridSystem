@@ -129,7 +129,11 @@
 {% block form_top %}
     {% if not original %}
     <!-- 文本解析区域 - Alpine.js 版本 -->
-    <div class="text-parser-section" x-data="textParserApp()" x-init="init()">
+    <div class="text-parser-section" x-data="textParserApp()" x-init="init()"
+         @dragover.prevent="isDragOver = true"
+         @dragleave.prevent="isDragOver = false"
+         @drop.prevent="handleDrop($event)"
+         :style="isDragOver ? 'border-color:#007cba;background:#e8f4ff;' : ''"
         <h3>🚀 快速填充当事人信息
             <span class="format-badge"
                   :class="detectedFormat"
@@ -142,16 +146,7 @@
                   @input="detectFormat()"
                   @paste="handlePaste($event)"
                   class="text-parser-textarea"
-                  placeholder="支持粘贴文本或JSON，自动识别格式：
-
-文本格式：
-原告：广东XXX公司
-被告：徐X，男，汉族，1977年9月10日出生
-地址：广东省XXX
-电话：0XXX53
-
-JSON格式：
-{&quot;name&quot;: &quot;广东XX有限公司&quot;, &quot;client_type&quot;: &quot;legal&quot;, ...}"></textarea>
+                  :placeholder="isDragOver ? '松开鼠标上传图片...' : '支持粘贴文本/JSON/图片，或拖拽图片到此处\n\n文本格式：\n原告：广东XXX公司\n被告：徐X，男，汉族，1977年9月10日出生\n地址：广东省XXX\n电话：0XXX53'"></textarea>
         <div class="text-parser-controls">
             <button type="button"
                     class="parse-btn"
@@ -159,17 +154,11 @@ JSON格式：
                     :disabled="isParsing"
                     x-text="isParsing ? '解析中...' : '解析并填充'">
             </button>
-            <!-- 图片 OCR 上传 -->
-            <label style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#007cba; border:1px solid #007cba; padding:6px 12px; border-radius:4px; background:#fff;"
-                   :style="isParsing ? 'opacity:.5;pointer-events:none;' : ''">
-                📷 上传图片识别
-                <input type="file" x-ref="ocrFileInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none;" @change="handleOcrUpload($event)">
-            </label>
             <label style="font-size: 12px; color: #6c757d;">
                 <input type="checkbox" x-model="autoParse"> 粘贴时自动解析
             </label>
         </div>
-        <div class="format-hint">💡 自动识别 JSON 或文本格式，直接粘贴即可；或上传图片/PDF 自动 OCR 识别</div>
+        <div class="format-hint">💡 支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析</div>
 
         <!-- 消息提示 -->
         <div x-show="message"
@@ -190,6 +179,7 @@ JSON格式：
             parseText: '',
             autoParse: true,
             isParsing: false,
+            isDragOver: false,
             detectedFormat: null,
             message: '',
             messageType: 'info',
@@ -224,12 +214,37 @@ JSON格式：
 
             // ========== 粘贴处理 ==========
             handlePaste(event) {
+                // 检测是否粘贴了图片
+                const items = event.clipboardData && event.clipboardData.items;
+                if (items) {
+                    for (const item of items) {
+                        if (item.type.startsWith('image/')) {
+                            event.preventDefault();
+                            const file = item.getAsFile();
+                            if (file) this.handleOcrFile(file);
+                            return;
+                        }
+                    }
+                }
                 setTimeout(() => {
                     this.detectFormat();
                     if (this.autoParse && this.parseText.trim()) {
                         this.smartParse();
                     }
                 }, 100);
+            },
+
+            // ========== 拖拽处理 ==========
+            handleDrop(event) {
+                this.isDragOver = false;
+                const files = event.dataTransfer && event.dataTransfer.files;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+                        this.handleOcrFile(file);
+                        return;
+                    }
+                }
             },
 
             // ========== 智能解析 ==========
@@ -261,12 +276,8 @@ JSON格式：
                 }
             },
 
-            // ========== 图片 OCR 上传 ==========
-            async handleOcrUpload(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                // 重置 input，允许重复上传同一文件
-                event.target.value = '';
+            // ========== 图片 OCR ==========
+            async handleOcrFile(file) {
 
                 this.isParsing = true;
                 this.showMessage('正在 OCR 识别图片...', 'info');
