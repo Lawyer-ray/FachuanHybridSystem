@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import logging
 import uuid
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree as ET
 
 from django.conf import settings
+from django.db.models import QuerySet
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
@@ -645,3 +648,344 @@ class FillingService:
             filename = f"[{_('未确认')}]{filename}"
 
         return filename
+
+    # ------------------------------------------------------------------
+    # 批量填充
+    # ------------------------------------------------------------------
+
+    def batch_fill(
+        self,
+        case_id: int,
+        template_ids: list[int],
+        party_ids: list[int] | None = None,
+        custom_values: dict[str, dict[str, str]] | None = None,
+        filled_by: Any = None,
+    ) -> Any:
+        """
+        批量填充：
+        1. 创建 BatchFillTask
+        2. 遍历 template_ids × party_ids 组合
+        3. 逐一调用 fill_template
+        4. 失败的模板跳过，记录错误
+        5. 所有文件打包 ZIP
+        6. 生成汇总报告
+        7. 更新 BatchFillTask
+
+        Requirements: 5.8, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6,
+                      15.1, 15.2, 15.5, 16.5
+        """
+        from apps.documents.models.fill_record import BatchFillTask
+
+        # 1. 创建 BatchFillTask
+        batch_task: BatchFillTask = BatchFillTask.objects.create(
+            case_id=case_id,
+            initiated_by=filled_by,
+        )
+        batch_task.templates.set(template_ids)
+
+        # 2. 遍历 template_ids × party_ids 组合
+        effective_party_ids: list[int | None] = (
+            list(party_ids) if party_ids else [None]
+        )
+        records: list[Any] = []
+        summary_results: list[dict[str, Any]] = []
+
+        for template_id in template_ids:
+            # 获取该模板的自定义值
+            tpl_custom: dict[str, str] = {}
+            if custom_values and str(template_id) in custom_values:
+                tpl_custom = custom_values[str(template_id)]
+            elif custom_values and template_id in custom_values:  # type: ignore[operator]
+                tpl_custom = custom_values[template_id]  # type: ignore[index]
+
+            for party_id in effective_party_ids:
+                try:
+                    record = self.fill_template(
+                        template_id=template_id,
+                        case_id=case_id,
+                        party_id=party_id,
+                        custom_values=tpl_custom,
+                        filled_by=filled_by,
+                    )
+                    # 关联到 batch_task
+                    record.batch_task = batch_task
+                    record.save(update_fields=["batch_task"])
+                    records.append(record)
+                    summary_results.append({
+                        "template_id": template_id,
+                        "party_id": party_id,
+                        "status": "success",
+                        "record_id": record.id,
+                        "filled_count": record.report_json.get("filled_count", 0),
+                        "skipped_count": record.report_json.get("skipped_count", 0),
+                    })
+                except Exception:
+                    logger.exception(
+                        "批量填充失败: template_id=%d, party_id=%s, case_id=%d",
+                        template_id,
+                        party_id,
+                        case_id,
+                    )
+                    summary_results.append({
+                        "template_id": template_id,
+                        "party_id": party_id,
+                        "status": "failed",
+                        "error": str(
+                            _("模板 %(tid)s 填充失败") % {"tid": template_id}
+                        ),
+                    })
+
+        # 5. 打包 ZIP
+        zip_path: str = ""
+        if records:
+            zip_path = self._pack_to_zip(records)
+
+        # 6. 汇总报告
+        success_count: int = sum(
+            1 for r in summary_results if r["status"] == "success"
+        )
+        failed_count: int = sum(
+            1 for r in summary_results if r["status"] == "failed"
+        )
+        summary: dict[str, Any] = {
+            "total": len(summary_results),
+            "success": success_count,
+            "failed": failed_count,
+            "details": summary_results,
+        }
+
+        # 7. 更新 BatchFillTask
+        batch_task.finished_at = timezone.now()
+        batch_task.zip_file_path = zip_path
+        batch_task.summary_json = summary
+        batch_task.save(update_fields=["finished_at", "zip_file_path", "summary_json"])
+
+        logger.info(
+            "批量填充完成: batch_task_id=%d, case_id=%d, "
+            "success=%d, failed=%d",
+            batch_task.id,
+            case_id,
+            success_count,
+            failed_count,
+        )
+        return batch_task
+
+    def _pack_to_zip(self, records: list[Any]) -> str:
+        """
+        将多个填充文件打包为 ZIP，返回 ZIP 文件相对路径。
+
+        Requirements: 14.3
+        """
+        if not records:
+            return ""
+
+        first_record = records[0]
+        case_id: int = first_record.case_id
+        batch_task_id: int = first_record.batch_task_id
+
+        zip_dir: Path = (
+            Path(settings.MEDIA_ROOT)
+            / "documents"
+            / "external_filled"
+            / str(case_id)
+        )
+        zip_dir.mkdir(parents=True, exist_ok=True)
+
+        zip_filename: str = f"batch_{batch_task_id}.zip"
+        zip_abs: Path = zip_dir / zip_filename
+
+        with zipfile.ZipFile(str(zip_abs), "w", zipfile.ZIP_DEFLATED) as zf:
+            for record in records:
+                file_abs: Path = Path(settings.MEDIA_ROOT) / record.file_path
+                if file_abs.exists():
+                    zf.write(str(file_abs), record.original_output_name)
+                else:
+                    logger.warning(
+                        "打包 ZIP 时文件不存在: record_id=%d, path=%s",
+                        record.id,
+                        record.file_path,
+                    )
+
+        zip_relative: str = str(
+            Path("documents")
+            / "external_filled"
+            / str(case_id)
+            / zip_filename
+        )
+
+        logger.info(
+            "ZIP 打包完成: path=%s, files=%d",
+            zip_relative,
+            len(records),
+        )
+        return zip_relative
+
+    # ------------------------------------------------------------------
+    # 历史查询
+    # ------------------------------------------------------------------
+
+    def get_fill_history_by_case(self, case_id: int) -> QuerySet[Any]:
+        """
+        按案件查询填充历史。
+
+        Requirements: 18.3
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        return (
+            FillRecord.objects.filter(case_id=case_id)
+            .select_related("template", "party", "filled_by", "batch_task")
+            .order_by("-filled_at")
+        )
+
+    def get_fill_history_by_template(self, template_id: int) -> QuerySet[Any]:
+        """
+        按模板查询填充历史。
+
+        Requirements: 18.4
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        return (
+            FillRecord.objects.filter(template_id=template_id)
+            .select_related("case", "party", "filled_by", "batch_task")
+            .order_by("-filled_at")
+        )
+
+    # ------------------------------------------------------------------
+    # 重新填充
+    # ------------------------------------------------------------------
+
+    def re_fill(self, record_id: int, filled_by: Any = None) -> Any:
+        """
+        基于历史记录重新填充（相同案件+模板+当事人组合）。
+
+        Requirements: 18.6
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        old_record: FillRecord = FillRecord.objects.get(id=record_id)
+
+        new_record = self.fill_template(
+            template_id=old_record.template_id,
+            case_id=old_record.case_id,
+            party_id=old_record.party_id,
+            custom_values=old_record.custom_values or {},
+            filled_by=filled_by,
+        )
+
+        logger.info(
+            "重新填充完成: old_record_id=%d, new_record_id=%d",
+            record_id,
+            new_record.id,
+        )
+        return new_record
+
+    # ------------------------------------------------------------------
+    # 文件可用性检查
+    # ------------------------------------------------------------------
+
+    def check_file_availability(self, record_id: int) -> bool:
+        """
+        检查历史填充文件是否可用，并更新 file_available 字段。
+
+        Requirements: 18.7
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        record: FillRecord = FillRecord.objects.get(id=record_id)
+        file_abs: Path = Path(settings.MEDIA_ROOT) / record.file_path
+        available: bool = file_abs.exists()
+
+        if record.file_available != available:
+            record.file_available = available
+            record.save(update_fields=["file_available"])
+            logger.info(
+                "文件可用性更新: record_id=%d, available=%s",
+                record_id,
+                available,
+            )
+
+        return available
+
+    # ------------------------------------------------------------------
+    # 自定义值缓存
+    # ------------------------------------------------------------------
+
+    def save_custom_values(
+        self,
+        case_id: int,
+        template_id: int,
+        custom_values: dict[str, str],
+    ) -> None:
+        """
+        保存自定义值作为案件+模板组合的默认值。
+
+        将自定义值保存到最新的 FillRecord 中，若无记录则创建占位记录。
+
+        Requirements: 16.5
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        record = (
+            FillRecord.objects.filter(
+                case_id=case_id,
+                template_id=template_id,
+            )
+            .order_by("-filled_at")
+            .first()
+        )
+
+        if record is not None:
+            record.custom_values = custom_values
+            record.save(update_fields=["custom_values"])
+        else:
+            # 创建占位记录
+            FillRecord.objects.create(
+                case_id=case_id,
+                template_id=template_id,
+                file_path="",
+                original_output_name="",
+                custom_values=custom_values,
+                file_available=False,
+            )
+
+        logger.info(
+            "自定义值保存: case_id=%d, template_id=%d, keys=%d",
+            case_id,
+            template_id,
+            len(custom_values),
+        )
+
+    def load_custom_values(
+        self,
+        case_id: int,
+        template_id: int,
+    ) -> dict[str, str]:
+        """
+        加载案件+模板组合的已保存自定义值。
+
+        Requirements: 16.5
+        """
+        from apps.documents.models.fill_record import FillRecord
+
+        record = (
+            FillRecord.objects.filter(
+                case_id=case_id,
+                template_id=template_id,
+            )
+            .order_by("-filled_at")
+            .first()
+        )
+
+        if record is not None and record.custom_values:
+            result: dict[str, str] = dict(record.custom_values)
+            logger.info(
+                "自定义值加载: case_id=%d, template_id=%d, keys=%d",
+                case_id,
+                template_id,
+                len(result),
+            )
+            return result
+
+        return {}
