@@ -81,7 +81,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:
         """发票数量"""
-        return int(obj.records.count())  # type: ignore[attr-defined]
+        return int(obj.records.count())
 
     record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
