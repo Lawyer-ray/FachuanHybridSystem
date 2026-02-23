@@ -85,7 +85,8 @@ class CaseLogInline(BaseStackedInline):
 @admin.register(Case)
 class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, CaseAdminServiceMixin, BaseModelAdmin):
     form = CaseAdminForm
-    list_display = ("id", "name", "status", "start_date", "effective_date", "is_archived")
+    list_display = ("id", "name_link", "status", "start_date", "effective_date", "is_archived")
+    list_display_links = None
     list_filter = ("status", "is_archived")
     search_fields = ("name",)
     change_form_template = "admin/cases/case/change_form.html"
@@ -94,7 +95,11 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
     actions = ["create_feishu_chat_for_selected_cases"]
 
     class Media:
-        js = ("cases/admin_case_form.js",)
+        js = (
+            "cases/admin_case_form.js",
+            "cases/js/autocomplete.js",
+            "cases/js/autocomplete_init.js",
+        )
 
     inlines = [
         CasePartyInline,
