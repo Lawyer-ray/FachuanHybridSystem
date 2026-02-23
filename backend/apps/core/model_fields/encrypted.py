@@ -18,7 +18,6 @@ class EncryptedTextField(models.TextField[str, str]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._ciphers: list[Fernet] | None = None
 
     def _resolve_keys(self) -> list[bytes]:
         primary = getattr(settings, "CREDENTIAL_ENCRYPTION_KEY", None) or getattr(
@@ -37,13 +36,10 @@ class EncryptedTextField(models.TextField[str, str]):
         return keys
 
     def _get_ciphers(self) -> list[Fernet]:
-        if self._ciphers is not None:
-            return self._ciphers
         keys = self._resolve_keys()
         if not keys:
             raise RuntimeError("missing encryption key")
-        self._ciphers = [Fernet(k) for k in keys]
-        return self._ciphers
+        return [Fernet(k) for k in keys]
 
     def _encrypt(self, plain_text: str) -> str:
         cipher = self._get_ciphers()[0]
