@@ -16,35 +16,15 @@ from apps.contracts.schemas import (
     ContractUpdate,
     UpdateLawyersIn,
 )
-from apps.contracts.services.contract.contract_service import ContractService
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
 
-def _get_contract_service() -> ContractService:
-    """
-    工厂函数：创建 ContractService 实例并注入依赖
+def _get_contract_service() -> Any:
+    from apps.core.interfaces import ServiceLocator
 
-    Requirements: 1.5
-    """
-    from apps.cases.services import CaseServiceAdapter
-    from apps.client.services import ClientServiceAdapter
-
-    from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
-    from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
-
-    case_service = CaseServiceAdapter()
-    payment_service = ContractPaymentService()
-    supplementary_agreement_service = SupplementaryAgreementService(
-        client_service=ClientServiceAdapter()  # type: ignore[abstract]
-    )
-
-    return ContractService(
-        case_service=case_service,  # type: ignore[arg-type]
-        payment_service=payment_service,
-        supplementary_agreement_service=supplementary_agreement_service,
-    )
+    return ServiceLocator.get_contract_service()
 
 
 @router.get("/contracts", response=list[ContractOut])
