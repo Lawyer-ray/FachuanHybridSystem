@@ -15,6 +15,7 @@ from apps.contracts.models import (
     Contract,
     ContractAssignment,
     ContractParty,
+    FinalizedMaterial,
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
@@ -38,6 +39,47 @@ else:
         BaseModelAdmin = admin.ModelAdmin
         BaseStackedInline = admin.StackedInline
         BaseTabularInline = admin.TabularInline
+
+
+class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
+    file = forms.FileField(
+        required=False,
+        label=_("上传文件"),
+        help_text=_("仅支持 PDF，最大 20MB"),
+    )
+
+    class Meta:
+        model = FinalizedMaterial
+        fields = ("file", "category", "remark", "original_filename", "uploaded_at")
+
+    def save(self, commit: bool = True) -> FinalizedMaterial:
+        instance = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("file")
+        if uploaded_file:
+            from apps.contracts.admin.wiring_admin import get_material_service
+
+            svc = get_material_service()
+            contract_id: int = instance.contract_id or self.instance.contract_id
+            rel_path, original_name = svc.save_material_file(uploaded_file, contract_id)
+            instance.file_path = rel_path
+            instance.original_filename = original_name
+        if commit:
+            instance.save()
+        return instance
+
+
+class FinalizedMaterialInline(BaseTabularInline):
+    model = FinalizedMaterial
+    form = FinalizedMaterialAdminForm
+    extra = 1
+    fields: ClassVar = ("file", "category", "remark", "original_filename", "uploaded_at")
+    readonly_fields: ClassVar = ("original_filename", "uploaded_at")
+
+    def delete_model(self, request: HttpRequest, obj: FinalizedMaterial) -> None:
+        from apps.contracts.admin.wiring_admin import get_material_service
+
+        get_material_service().delete_material_file(obj.file_path)
+        obj.delete()
 
 
 class ContractPartyInline(BaseTabularInline):
@@ -134,6 +176,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
         ContractPartyInline,
         ContractAssignmentInline,
         SupplementaryAgreementInline,
+        FinalizedMaterialInline,
     ]
 
     class Media:

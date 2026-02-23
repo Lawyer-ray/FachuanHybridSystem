@@ -208,6 +208,11 @@ class ContractAdminService:
 
         related_cases = self.query_service.get_related_cases(contract.pk)
 
+        finalized_materials = contract.finalized_materials.all()
+        finalized_materials_grouped: dict[str, list[Any]] = {}
+        for material in finalized_materials:
+            finalized_materials_grouped.setdefault(material.category, []).append(material)
+
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,
@@ -223,6 +228,8 @@ class ContractAdminService:
             "payment_progress": payment_progress,
             "invoice_summary": invoice_summary,
             "related_cases": related_cases,
+            "finalized_materials": finalized_materials,
+            "finalized_materials_grouped": finalized_materials_grouped,
         }
 
     def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:

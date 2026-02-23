@@ -108,96 +108,97 @@
     {% endif %}
 
     <!-- 当事人详情抽屉 -->
-    <template x-if="drawerType === 'party' && drawerOpen">
-        <div>
-            <div class="drawer-overlay" @click="closeDrawer()"></div>
-            <div class="drawer-panel">
-                <div class="drawer-header">
-                    <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentParty.name)" x-text="currentParty.name"></h3>
-                    <button class="drawer-close" @click="closeDrawer()">×</button>
+    <div x-show="drawerType === 'party' && drawerOpen" x-cloak>
+        <div class="drawer-overlay" @click="closeDrawer()"></div>
+        <div class="drawer-panel" x-show="drawerType === 'party' && drawerOpen"
+             x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start" x-transition:enter-end="drawer-enter-end"
+             x-transition:leave="drawer-leave" x-transition:leave-start="drawer-leave-start" x-transition:leave-end="drawer-leave-end">
+            <div class="drawer-header">
+                <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentParty.name)" x-text="currentParty.name"></h3>
+                <button class="drawer-close" @click="closeDrawer()">×</button>
+            </div>
+            <div class="drawer-body">
+                <!-- 基本信息 -->
+                <div class="detail-section">
+                    <div class="detail-label">主体类型</div>
+                    <div class="detail-value" x-text="currentParty.clientTypeDisplay"></div>
                 </div>
-                <div class="drawer-body">
-                    <!-- 基本信息 -->
-                    <div class="detail-section">
-                        <div class="detail-label">主体类型</div>
-                        <div class="detail-value" x-text="currentParty.clientTypeDisplay"></div>
-                    </div>
-                    <div class="detail-section">
-                        <div class="detail-label">当事人角色</div>
-                        <div class="detail-value" x-text="currentParty.role"></div>
-                    </div>
-                    <div class="detail-section">
-                        <div class="detail-label">当事人类型</div>
-                        <div class="detail-value" x-text="currentParty.isOurClient ? '我方当事人' : '对方当事人'"></div>
-                    </div>
-
-                    <!-- 自然人：身份证号码 -->
-                    <template x-if="currentParty.clientType === 'natural' && currentParty.idNumber">
-                        <div class="detail-section">
-                            <div class="detail-label">身份证号码</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
-                        </div>
-                    </template>
-
-                    <!-- 法人/非法人组织：统一社会信用代码 -->
-                    <template x-if="currentParty.clientType !== 'natural' && currentParty.idNumber">
-                        <div class="detail-section">
-                            <div class="detail-label">统一社会信用代码</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
-                        </div>
-                    </template>
-
-                    <!-- 联系电话 -->
-                    <template x-if="currentParty.phone">
-                        <div class="detail-section">
-                            <div class="detail-label">联系电话</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.phone)" x-text="currentParty.phone"></div>
-                        </div>
-                    </template>
-
-                    <!-- 住所地 -->
-                    <template x-if="currentParty.address">
-                        <div class="detail-section">
-                            <div class="detail-label">住所地</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.address)" x-text="currentParty.address"></div>
-                        </div>
-                    </template>
-
-                    <!-- 法人/非法人组织：法定代表人信息 -->
-                    <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
-                        <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                            <div class="detail-label" style="font-weight: 600; color: #374151;">
-                                <span x-text="currentParty.clientType === 'legal' ? '法定代表人信息' : '负责人信息'"></span>
-                            </div>
-                        </div>
-                    </template>
-                    <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
-                        <div class="detail-section">
-                            <div class="detail-label">姓名</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.legalRepName)" x-text="currentParty.legalRepName"></div>
-                        </div>
-                    </template>
-                    <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepIdNumber">
-                        <div class="detail-section">
-                            <div class="detail-label">身份证号码</div>
-                            <div class="detail-value copyable" @click="copyText(currentParty.legalRepIdNumber)" x-text="currentParty.legalRepIdNumber"></div>
-                        </div>
-                    </template>
+                <div class="detail-section">
+                    <div class="detail-label">当事人角色</div>
+                    <div class="detail-value" x-text="currentParty.role"></div>
                 </div>
+                <div class="detail-section">
+                    <div class="detail-label">当事人类型</div>
+                    <div class="detail-value" x-text="currentParty.isOurClient ? '我方当事人' : '对方当事人'"></div>
+                </div>
+
+                <!-- 自然人：身份证号码 -->
+                <template x-if="currentParty.clientType === 'natural' && currentParty.idNumber">
+                    <div class="detail-section">
+                        <div class="detail-label">身份证号码</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
+                    </div>
+                </template>
+
+                <!-- 法人/非法人组织：统一社会信用代码 -->
+                <template x-if="currentParty.clientType !== 'natural' && currentParty.idNumber">
+                    <div class="detail-section">
+                        <div class="detail-label">统一社会信用代码</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
+                    </div>
+                </template>
+
+                <!-- 联系电话 -->
+                <template x-if="currentParty.phone">
+                    <div class="detail-section">
+                        <div class="detail-label">联系电话</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.phone)" x-text="currentParty.phone"></div>
+                    </div>
+                </template>
+
+                <!-- 住所地 -->
+                <template x-if="currentParty.address">
+                    <div class="detail-section">
+                        <div class="detail-label">住所地</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.address)" x-text="currentParty.address"></div>
+                    </div>
+                </template>
+
+                <!-- 法人/非法人组织：法定代表人信息 -->
+                <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
+                    <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                        <div class="detail-label" style="font-weight: 600; color: #374151;">
+                            <span x-text="currentParty.clientType === 'legal' ? '法定代表人信息' : '负责人信息'"></span>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
+                    <div class="detail-section">
+                        <div class="detail-label">姓名</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.legalRepName)" x-text="currentParty.legalRepName"></div>
+                    </div>
+                </template>
+                <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepIdNumber">
+                    <div class="detail-section">
+                        <div class="detail-label">身份证号码</div>
+                        <div class="detail-value copyable" @click="copyText(currentParty.legalRepIdNumber)" x-text="currentParty.legalRepIdNumber"></div>
+                    </div>
+                </template>
             </div>
         </div>
-    </template>
+    </div>
 
     <!-- 律师详情抽屉 -->
-    <template x-if="drawerType === 'lawyer' && drawerOpen">
-        <div>
-            <div class="drawer-overlay" @click="closeDrawer()"></div>
-            <div class="drawer-panel">
-                <div class="drawer-header">
-                    <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentLawyer.name)" x-text="currentLawyer.name"></h3>
-                    <button class="drawer-close" @click="closeDrawer()">×</button>
-                </div>
-                <div class="drawer-body">
+    <div x-show="drawerType === 'lawyer' && drawerOpen" x-cloak>
+        <div class="drawer-overlay" @click="closeDrawer()"></div>
+        <div class="drawer-panel" x-show="drawerType === 'lawyer' && drawerOpen"
+             x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start" x-transition:enter-end="drawer-enter-end"
+             x-transition:leave="drawer-leave" x-transition:leave-start="drawer-leave-start" x-transition:leave-end="drawer-leave-end">
+            <div class="drawer-header">
+                <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentLawyer.name)" x-text="currentLawyer.name"></h3>
+                <button class="drawer-close" @click="closeDrawer()">×</button>
+            </div>
+            <div class="drawer-body">
                     <div class="detail-section">
                         <div class="detail-label">姓名</div>
                         <div class="detail-value copyable" @click="copyText(currentLawyer.name)" x-text="currentLawyer.name"></div>
@@ -247,7 +248,7 @@
                 </div>
             </div>
         </div>
-    </template>
+    </div>
 </div>
 
 <script>

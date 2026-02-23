@@ -77,3 +77,15 @@ def get_contract_assignment_query_service() -> Any:
         "contracts.contract_assignment_query_service",
         lambda: ContractAssignmentQueryService(),
     )
+
+
+def get_material_service() -> Any:
+    from apps.contracts.services.contract.material_service import MaterialService
+
+    if ServiceLocator._scope.get() is None:
+        return MaterialService()
+
+    return ServiceLocator.get_or_create(
+        "contracts.material_service",
+        lambda: MaterialService(),
+    )
