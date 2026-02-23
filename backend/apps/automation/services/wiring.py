@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from apps.core.interfaces import ServiceLocator
+
+if TYPE_CHECKING:
+    from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
+    from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
 
 
 def get_case_service() -> Any:
@@ -113,3 +117,22 @@ def get_security_service() -> Any:
 
 def get_monitor_service() -> Any:
     return ServiceLocator.get_monitor_service()
+
+
+def get_invoice_recognition_service() -> "InvoiceRecognitionService":
+    from apps.automation.services.ocr.invoice_parser import InvoiceParser
+    from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
+    from apps.automation.services.ocr.ocr_service import OCRService
+    from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+
+    return InvoiceRecognitionService(
+        ocr_service=OCRService(),
+        pdf_extractor=PDFTextExtractor(),
+        parser=InvoiceParser(),
+    )
+
+
+def get_invoice_download_service() -> "InvoiceDownloadService":
+    from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
+
+    return InvoiceDownloadService()
