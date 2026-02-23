@@ -678,9 +678,8 @@
       var initialForms = document.querySelector('input[name="parties-INITIAL_FORMS"]');
       var hasExistingParties = initialForms && parseInt(initialForms.value, 10) > 0;
       if (hasExistingParties) {
-        // 仅更新选项，不填充
+        // 已有当事人，只设置 previousValue，不做任何选项过滤
         contractSelect.dataset.previousValue = contractSelect.value;
-        fetchContractPartiesAndFill(contractSelect.value, false);
       } else {
         handleContractChange();
       }
