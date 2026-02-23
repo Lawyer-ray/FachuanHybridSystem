@@ -43,9 +43,16 @@ def _create_pdf_from_images(images: list[tuple[bytes, int]]) -> Any:
         for image_bytes, rotation in images:
             rotated_image_bytes = apply_rotation_for_pdf(image_bytes, rotation)
             img = Image.open(io.BytesIO(rotated_image_bytes))
-            width, height = img.size
-            page = pdf_doc.new_page(width=width, height=height)
-            rect = fitz.Rect(0, 0, width, height)
+            img_w, img_h = img.size
+            # 使用 A4 点数 (595×842)，保持图片宽高比居中
+            page_w, page_h = 595, 842
+            scale = min(page_w / img_w, page_h / img_h)
+            draw_w = img_w * scale
+            draw_h = img_h * scale
+            x0 = (page_w - draw_w) / 2
+            y0 = (page_h - draw_h) / 2
+            page = pdf_doc.new_page(width=page_w, height=page_h)
+            rect = fitz.Rect(x0, y0, x0 + draw_w, y0 + draw_h)
             page.insert_image(rect, stream=rotated_image_bytes)
         return pdf_doc.tobytes()
     finally:
