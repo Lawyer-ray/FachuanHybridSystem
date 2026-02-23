@@ -101,8 +101,8 @@
                 </div>
 
                 <div class="action-item">
-                    <button type="button" class="btn-action {% if not has_folder_template or not has_contract_template %}btn-disabled{% endif %}"
-                            {% if has_folder_template and has_contract_template %}@click="generateFolder()"{% else %}disabled title="{% if not has_folder_template %}无匹配的文件夹模板{% else %}无匹配的文书模板{% endif %}"{% endif %}
+                    <button type="button" class="btn-action {% if not has_folder_template %}btn-disabled{% endif %}"
+                            {% if has_folder_template %}@click="generateFolder()"{% else %}disabled title="无匹配的文件夹模板"{% endif %}
                             :disabled="generating">
                         <span class="action-icon">📁</span>
                         <span class="action-text">生成文件夹</span>

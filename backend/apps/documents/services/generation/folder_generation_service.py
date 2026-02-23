@@ -294,12 +294,6 @@ class FolderGenerationService:
 
         # 3. 获取文书放置配置(检查是否有匹配的文书模板)
         document_placements = self.get_document_placements(contract, folder_template)
-        if not document_placements:
-            raise ValidationException(
-                message=_("请先添加合同模板"),
-                code="NO_DOCUMENT_TEMPLATE",
-                errors={"case_type": f"合同类型 {contract.case_type} 没有匹配的文书模板"},
-            )
 
         # 4. 生成根目录名称
         root_name = self.format_root_folder_name(contract)
