@@ -31,10 +31,22 @@ def remove_exif_orientation(image: Image.Image, *, exif_orientation_tag: int) ->
 
 def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int) -> bytes:
     img: Image.Image = Image.open(io.BytesIO(image_data))
+
+    # 检查是否有需要处理的 EXIF 方向
+    fmt = (img_format or "jpeg").upper()
+    if fmt == "JPEG":
+        try:
+            exif = img.getexif()
+            orientation = exif.get(exif_orientation_tag, 1) if exif else 1
+        except Exception:
+            orientation = 1
+        # 无 EXIF 旋转且模式正常，直接返回原始字节，避免二次压缩
+        if orientation in (1, None) and img.mode == "RGB":
+            return image_data
+
     img = remove_exif_orientation(img, exif_orientation_tag=exif_orientation_tag)
 
     output = io.BytesIO()
-    fmt = (img_format or "jpeg").upper()
 
     if fmt == "JPEG":
         if img.mode in ("RGBA", "P"):
@@ -46,7 +58,7 @@ def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int
             img = background
         elif img.mode != "RGB":
             img = img.convert("RGB")
-        img.save(output, format="JPEG", quality=95, optimize=True)
+        img.save(output, format="JPEG", quality=85, optimize=True)
     else:
         img.save(output, format=fmt)
 
@@ -85,7 +97,7 @@ def resize_to_paper_size(
     background.paste(img, (x, y))
 
     output = io.BytesIO()
-    background.save(output, format="JPEG", quality=95)
+    background.save(output, format="JPEG", quality=85)
     return output.getvalue()
 
 
@@ -111,7 +123,7 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
             img = background
         elif img.mode != "RGB":
             img = img.convert("RGB")
-        img.save(output, format="JPEG", quality=95, optimize=True)
+        img.save(output, format="JPEG", quality=85, optimize=True)
     else:
         img.save(output, format=fmt)
 
