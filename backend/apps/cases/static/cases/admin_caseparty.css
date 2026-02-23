@@ -57,6 +57,7 @@ option[data-source="supplementary"]::after {
     content: " [补充协议]";
 }
 
-/* 隐藏案件当事人和主管机关 inline 行里的 __str__ 文字 */
+/* 隐藏案件当事人、案件指派和主管机关 inline 行里的 __str__ 文字 */
 #parties-group td.original p,
+#assignments-group td.original p,
 #supervising_authorities-group td.original p { display: none; }
