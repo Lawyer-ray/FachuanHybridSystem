@@ -13,6 +13,7 @@ from typing import Any
 
 from django.db.models import QuerySet
 
+from apps.documents.models import Placeholder
 from apps.documents.services.code_placeholder_registry import CodePlaceholderDefinition
 
 logger = logging.getLogger("apps.documents")
