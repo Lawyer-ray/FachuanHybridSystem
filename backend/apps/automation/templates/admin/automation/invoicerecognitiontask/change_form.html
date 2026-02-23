@@ -84,7 +84,7 @@
                                 <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">拖入项目名称</span>
                             </div>
                             <div class="ir-merge-group-total">
-                                合计：¥<span x-text="getMergeGroupTotal(mgIdx).toFixed(2)"></span>
+                                合计：¥<span x-text="getMergeGroupTotal(mg).toFixed(2)"></span>
                             </div>
                         </div>
                     </template>
@@ -425,8 +425,9 @@ function invoiceApp() {
             this.dragOverMergeGroup = null;
         },
 
-        getMergeGroupTotal(mgIdx) {
-            const keys = new Set(this.mergedGroups[mgIdx].keys);
+        getMergeGroupTotal(mg) {
+            if (!mg || !mg.keys) return 0;
+            const keys = new Set(mg.keys);
             return this.groups
                 .filter(g => keys.has(g.key))
                 .reduce((s, g) => s + g.subtotal, 0);
