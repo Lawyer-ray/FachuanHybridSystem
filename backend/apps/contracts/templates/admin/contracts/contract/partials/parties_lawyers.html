@@ -2,79 +2,40 @@
 <!-- 当事人与律师标签页 -->
 <div x-show="activeTab === 'parties'" x-cloak x-data="partiesDrawer()">
     <div class="info-grid two-columns">
-        <!-- 左列：合同当事人 + 补充协议当事人 -->
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-            <!-- 合同当事人卡片 -->
-            <div class="info-card">
-                <div class="card-header">
-                    <span class="card-icon">👥</span>
-                    <h3 class="card-title">合同当事人</h3>
-                </div>
-                {% if contract_parties %}
-                <div class="party-list">
-                    {% for party in contract_parties %}
-                    <div class="party-item clickable"
-                         @click="openPartyDrawer({
-                             name: '{{ party.client.name|escapejs }}',
-                             role: '{{ party.get_role_display|escapejs }}',
-                             clientType: '{{ party.client.client_type|escapejs }}',
-                             clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
-                             idNumber: '{{ party.client.id_number|default:""|escapejs }}',
-                             phone: '{{ party.client.phone|default:""|escapejs }}',
-                             address: '{{ party.client.address|default:""|escapejs }}',
-                             legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
-                             legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
-                             isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
-                         })">
-                        <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
-                        <span class="party-name">{{ party.client.name }}</span>
-                        <span class="view-detail-icon">→</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="empty-state">暂无当事人信息</p>
-                {% endif %}
+        <!-- 合同当事人卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">👥</span>
+                <h3 class="card-title">合同当事人</h3>
             </div>
-
-            <!-- 补充协议当事人卡片 -->
-            {% for agreement in supplementary_agreements %}
-            <div class="info-card">
-                <div class="card-header">
-                    <span class="card-icon">📝</span>
-                    <h3 class="card-title">{{ agreement.name|default:"未命名补充协议" }}</h3>
-                    <span class="card-date" style="margin-left: auto; font-size: 13px; color: #6b7280;">{{ agreement.created_at|date:"Y-m-d" }}</span>
+            {% if contract_parties %}
+            <div class="party-list">
+                {% for party in contract_parties %}
+                <div class="party-item clickable"
+                     @click="openPartyDrawer({
+                         name: '{{ party.client.name|escapejs }}',
+                         role: '{{ party.get_role_display|escapejs }}',
+                         clientType: '{{ party.client.client_type|escapejs }}',
+                         clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
+                         idNumber: '{{ party.client.id_number|default:""|escapejs }}',
+                         phone: '{{ party.client.phone|default:""|escapejs }}',
+                         address: '{{ party.client.address|default:""|escapejs }}',
+                         legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
+                         legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
+                         isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
+                     })">
+                    <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
+                    <span class="party-name">{{ party.client.name }}</span>
+                    <span class="view-detail-icon">→</span>
                 </div>
-                {% if agreement.parties.all %}
-                <div class="party-list">
-                    {% for party in agreement.parties.all %}
-                    <div class="party-item clickable"
-                         @click="openPartyDrawer({
-                             name: '{{ party.client.name|escapejs }}',
-                             role: '{{ party.get_role_display|escapejs }}',
-                             clientType: '{{ party.client.client_type|escapejs }}',
-                             clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
-                             idNumber: '{{ party.client.id_number|default:""|escapejs }}',
-                             phone: '{{ party.client.phone|default:""|escapejs }}',
-                             address: '{{ party.client.address|default:""|escapejs }}',
-                             legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
-                             legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
-                             isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
-                         })">
-                        <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
-                        <span class="party-name">{{ party.client.name }}</span>
-                        <span class="view-detail-icon">→</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="empty-state">暂无当事人信息</p>
-                {% endif %}
+                {% endfor %}
             </div>
-            {% endfor %}
+            {% else %}
+            <p class="empty-state">暂无当事人信息</p>
+            {% endif %}
         </div>
 
-        <!-- 右列：律师指派卡片 -->
+        <!-- 律师指派卡片 -->
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">⚖️</span>
@@ -105,6 +66,46 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- 补充协议当事人 -->
+    {% if supplementary_agreements %}
+    <div class="info-grid two-columns" style="margin-top: 16px;">
+        {% for agreement in supplementary_agreements %}
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">📝</span>
+                <h3 class="card-title">{{ agreement.name|default:"未命名补充协议" }}当事人</h3>
+                <span class="card-date" style="margin-left: auto; font-size: 13px; color: #6b7280;">{{ agreement.created_at|date:"Y-m-d" }}</span>
+            </div>
+            {% if agreement.parties.all %}
+            <div class="party-list">
+                {% for party in agreement.parties.all %}
+                <div class="party-item clickable"
+                     @click="openPartyDrawer({
+                         name: '{{ party.client.name|escapejs }}',
+                         role: '{{ party.get_role_display|escapejs }}',
+                         clientType: '{{ party.client.client_type|escapejs }}',
+                         clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
+                         idNumber: '{{ party.client.id_number|default:""|escapejs }}',
+                         phone: '{{ party.client.phone|default:""|escapejs }}',
+                         address: '{{ party.client.address|default:""|escapejs }}',
+                         legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
+                         legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
+                         isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
+                     })">
+                    <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
+                    <span class="party-name">{{ party.client.name }}</span>
+                    <span class="view-detail-icon">→</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">暂无当事人信息</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <!-- 当事人详情抽屉 -->
     <template x-if="drawerType === 'party' && drawerOpen">
