@@ -308,7 +308,12 @@ class CourtZxfwService:
                 login_button = self.page.locator(f"xpath={login_button_xpath}")
                 login_button.wait_for(state="visible", timeout=10000)
                 login_button.click()
-                self._random_wait(3, 5)
+
+                # 等待 Token 捕获（最多 10 秒），比固定等待更可靠
+                for _ in range(20):
+                    time.sleep(0.5)
+                    if captured_token and captured_token.get("value"):
+                        break
 
                 # 优先检查是否已捕获到 Token（比 URL 检查更可靠）
                 if captured_token and captured_token.get("value"):
