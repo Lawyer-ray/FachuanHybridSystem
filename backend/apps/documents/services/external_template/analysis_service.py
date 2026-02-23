@@ -9,6 +9,7 @@ Requirements: 1.1, 1.2, 1.3, 1.6, 1.7, 1.8, 9.1, 9.2, 9.3, 9.4
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import uuid
@@ -483,3 +484,378 @@ class AnalysisService:
             return None
 
         return options
+
+    # ------------------------------------------------------------------
+    # LLM 分析 (Requirements: 3.3, 3.4, 3.5, 4.1–4.8, 5.6, 5.7, 11.2, 11.6)
+    # ------------------------------------------------------------------
+
+    def analyze_template(
+        self, template_id: int
+    ) -> list[Any]:
+        """
+        分析模板并生成字段映射：
+        1. 提取结构 → 计算指纹
+        2. 指纹匹配 → 命中则复用映射（标注 mapping_source）
+        3. 未命中 → 构建 LLM 提示词 → 调用 LLM → 解析结果
+        4. 校验 placeholder_key 有效性
+        5. 创建 FieldMapping 记录（is_confirmed=False）
+        6. 更新模板状态为 mapped
+        """
+        from apps.documents.models.choices import TemplateStatus
+        from apps.documents.models.external_template import (
+            ExternalTemplate,
+            ExternalTemplateFieldMapping,
+        )
+
+        template: ExternalTemplate = ExternalTemplate.objects.get(pk=template_id)
+
+        # 更新状态为 analyzing
+        template.status = TemplateStatus.ANALYZING
+        template.save(update_fields=["status", "status_changed_at", "updated_at"])
+
+        try:
+            # 1. 提取结构
+            structure_json: dict[str, Any] = self.extract_structure(template_id)
+
+            # 2. 计算指纹
+            abs_path = Path(settings.MEDIA_ROOT) / template.file_path
+            fingerprint: str = self._fingerprint_service.compute_fingerprint(abs_path)
+            template.structure_fingerprint = fingerprint
+            template.save(update_fields=["structure_fingerprint", "updated_at"])
+
+            # 3. 查找匹配模板
+            matched: ExternalTemplate | None = (
+                self._fingerprint_service.find_matching_template(
+                    fingerprint, template.law_firm_id
+                )
+            )
+
+            # 排除自身
+            if matched is not None and matched.pk == template.pk:
+                matched = None
+
+            created_mappings: list[ExternalTemplateFieldMapping]
+
+            if matched is not None:
+                # 复用已有映射
+                created_mappings = self._copy_mappings_from(
+                    source_template=matched,
+                    target_template=template,
+                )
+                template.mapping_source = matched
+                logger.info(
+                    "复用映射: template_id=%d, source_id=%d, count=%d",
+                    template_id,
+                    matched.pk,
+                    len(created_mappings),
+                )
+            else:
+                # LLM 分析
+                prompt: str = self._build_llm_prompt(
+                    structure_json, template.category
+                )
+                response = self._llm_service.complete(
+                    prompt=prompt,
+                    system_prompt=(
+                        "你是一个法律文书模板分析专家。请分析模板结构并返回字段映射的 JSON 数组。"
+                    ),
+                    temperature=0.1,
+                    max_tokens=4096,
+                )
+                raw_mappings: list[dict[str, Any]] = self._parse_llm_response(
+                    response.content
+                )
+                validated_mappings: list[dict[str, Any]] = (
+                    self._validate_placeholder_keys(raw_mappings)
+                )
+                created_mappings = self._create_field_mappings(
+                    template, validated_mappings
+                )
+                logger.info(
+                    "LLM 分析完成: template_id=%d, mappings=%d",
+                    template_id,
+                    len(created_mappings),
+                )
+
+            # 更新状态为 mapped
+            template.status = TemplateStatus.MAPPED
+            template.save(
+                update_fields=[
+                    "status",
+                    "mapping_source",
+                    "status_changed_at",
+                    "updated_at",
+                ]
+            )
+
+            return created_mappings
+
+        except Exception:
+            # 分析失败：设置状态并重新抛出
+            logger.exception(
+                "模板分析失败: template_id=%d", template_id
+            )
+            template.refresh_from_db()
+            template.status = TemplateStatus.ANALYSIS_FAILED
+            template.save(
+                update_fields=["status", "status_changed_at", "updated_at"]
+            )
+            raise
+
+    def _copy_mappings_from(
+        self,
+        source_template: Any,
+        target_template: Any,
+    ) -> list[Any]:
+        """从源模板复制映射到目标模板"""
+        from apps.documents.models.external_template import (
+            ExternalTemplateFieldMapping,
+        )
+
+        source_mappings = ExternalTemplateFieldMapping.objects.filter(
+            template=source_template
+        )
+        created: list[ExternalTemplateFieldMapping] = []
+        for m in source_mappings:
+            new_mapping = ExternalTemplateFieldMapping.objects.create(
+                template=target_template,
+                position_locator=m.position_locator,
+                position_description=m.position_description,
+                semantic_label=m.semantic_label,
+                placeholder_key=m.placeholder_key,
+                fill_type=m.fill_type,
+                options=m.options,
+                is_confirmed=False,
+                sort_order=m.sort_order,
+            )
+            created.append(new_mapping)
+        return created
+
+    def _build_llm_prompt(
+        self, structure_json: dict[str, Any], category: str
+    ) -> str:
+        """
+        构建 LLM 提示词：结构 JSON + 占位符列表 + 类别信息 + fill_type 说明
+        """
+        from apps.documents.models.choices import FillType
+
+        # 获取所有可用占位符
+        services_info: dict[str, dict[str, Any]] = (
+            self._placeholder_registry.list_registered_services()
+        )
+        placeholder_lines: list[str] = []
+        for _name, info in services_info.items():
+            display_name: str = str(info.get("display_name", ""))
+            keys: list[str] = info.get("placeholder_keys", [])
+            metadata: dict[str, dict[str, Any]] = info.get(
+                "placeholder_metadata", {}
+            )
+            for key in keys:
+                meta = metadata.get(key, {})
+                desc: str = str(meta.get("display_name", key))
+                placeholder_lines.append(f"  - {key}: {desc}")
+
+        placeholders_text: str = "\n".join(placeholder_lines)
+
+        # fill_type 说明
+        fill_type_desc: str = (
+            "- text: 文本替换（替换段落或单元格中的文本）\n"
+            "- checkbox: 勾选复选框\n"
+            "- delete_inapplicable: 删除不适用项（保留匹配项，删除其余选项）"
+        )
+
+        structure_text: str = json.dumps(
+            structure_json, ensure_ascii=False, indent=2
+        )
+
+        prompt: str = (
+            f"请分析以下法律文书模板的结构，识别所有可填充位置，"
+            f"并将每个位置映射到合适的占位符键。\n\n"
+            f"## 模板类别\n{category}\n\n"
+            f"## 文档结构 JSON\n```json\n{structure_text}\n```\n\n"
+            f"## 可用的占位符键\n{placeholders_text}\n\n"
+            f"## 填充类型说明\n{fill_type_desc}\n\n"
+            f"## 输出要求\n"
+            f"请返回一个 JSON 数组，每个元素包含以下字段：\n"
+            f"- position_locator: 位置定位器（直接使用结构 JSON 中的 position_locator）\n"
+            f"- semantic_label: 语义标签（中文描述该位置应填写的内容）\n"
+            f"- placeholder_key: 映射的占位符键（从可用列表中选择，无法映射则留空字符串）\n"
+            f"- fill_type: 填充类型（text / checkbox / delete_inapplicable）\n"
+            f"- options: 选项列表（仅 delete_inapplicable 类型需要，其他类型为空数组）\n\n"
+            f"仅返回 JSON 数组，不要包含其他文字说明。"
+        )
+        return prompt
+
+    def _parse_llm_response(self, response: str) -> list[dict[str, Any]]:
+        """
+        解析 LLM 返回的 JSON 映射结果。
+        处理 markdown 代码块包裹的情况。
+        """
+        text: str = response.strip()
+
+        # 去除 markdown 代码块
+        if text.startswith("```"):
+            # 去除首行 ```json 或 ```
+            lines: list[str] = text.split("\n")
+            # 找到第一个 ``` 之后的内容
+            start_idx = 1
+            end_idx = len(lines)
+            for i in range(len(lines) - 1, 0, -1):
+                if lines[i].strip().startswith("```"):
+                    end_idx = i
+                    break
+            text = "\n".join(lines[start_idx:end_idx])
+
+        try:
+            parsed: Any = json.loads(text)
+        except json.JSONDecodeError:
+            logger.error("LLM 返回的 JSON 解析失败: %s", text[:500])
+            raise
+
+        if not isinstance(parsed, list):
+            logger.error("LLM 返回的不是 JSON 数组: type=%s", type(parsed).__name__)
+            raise ValueError(_("LLM 返回格式异常，期望 JSON 数组"))
+
+        result: list[dict[str, Any]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            result.append({
+                "position_locator": item.get("position_locator", {}),
+                "semantic_label": str(item.get("semantic_label", "")),
+                "placeholder_key": str(item.get("placeholder_key", "")),
+                "fill_type": str(item.get("fill_type", "text")),
+                "options": item.get("options", []),
+            })
+
+        return result
+
+    def _validate_placeholder_keys(
+        self, mappings: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        校验 placeholder_key 是否存在于占位符体系中。
+        无效键置空并记录警告。
+        """
+        # 收集所有有效的 placeholder_key
+        services_info: dict[str, dict[str, Any]] = (
+            self._placeholder_registry.list_registered_services()
+        )
+        valid_keys: set[str] = set()
+        for _name, info in services_info.items():
+            keys: list[str] = info.get("placeholder_keys", [])
+            valid_keys.update(keys)
+
+        validated: list[dict[str, Any]] = []
+        for mapping in mappings:
+            key: str = mapping.get("placeholder_key", "")
+            if key and key not in valid_keys:
+                logger.warning(
+                    "无效的 placeholder_key: %s, semantic_label=%s",
+                    key,
+                    mapping.get("semantic_label", ""),
+                )
+                mapping["placeholder_key"] = ""
+            validated.append(mapping)
+
+        return validated
+
+    def _create_field_mappings(
+        self,
+        template: Any,
+        mappings: list[dict[str, Any]],
+    ) -> list[Any]:
+        """根据解析后的映射数据创建 FieldMapping 记录"""
+        from apps.documents.models.choices import FillType
+        from apps.documents.models.external_template import (
+            ExternalTemplateFieldMapping,
+        )
+
+        valid_fill_types: set[str] = {ft.value for ft in FillType}
+        created: list[ExternalTemplateFieldMapping] = []
+
+        for idx, m in enumerate(mappings):
+            fill_type: str = m.get("fill_type", FillType.TEXT)
+            if fill_type not in valid_fill_types:
+                fill_type = FillType.TEXT
+
+            position_locator: dict[str, Any] = m.get("position_locator", {})
+            # 生成位置描述
+            pos_type: str = str(position_locator.get("type", ""))
+            position_description: str = ""
+            if pos_type == "paragraph":
+                p_idx = position_locator.get("paragraph_index", "")
+                position_description = f"段落 {p_idx}"
+            elif pos_type == "table_cell":
+                t_idx = position_locator.get("table_index", "")
+                row = position_locator.get("row", "")
+                col = position_locator.get("col", "")
+                position_description = f"表格{t_idx} 行{row} 列{col}"
+            elif pos_type == "checkbox":
+                cb_idx = position_locator.get("checkbox_index", "")
+                position_description = f"复选框 {cb_idx}"
+            elif pos_type == "delete_inapplicable":
+                position_description = "删除不适用项"
+
+            new_mapping = ExternalTemplateFieldMapping.objects.create(
+                template=template,
+                position_locator=position_locator,
+                position_description=position_description,
+                semantic_label=m.get("semantic_label", ""),
+                placeholder_key=m.get("placeholder_key", ""),
+                fill_type=fill_type,
+                options=m.get("options", []),
+                is_confirmed=False,
+                sort_order=idx,
+            )
+            created.append(new_mapping)
+
+        return created
+
+    # ------------------------------------------------------------------
+    # 重新分析 & 确认映射
+    # ------------------------------------------------------------------
+
+    def retry_analysis(
+        self, template_id: int
+    ) -> list[Any]:
+        """
+        重新触发 LLM 分析：删除旧映射后重新分析。
+        """
+        from apps.documents.models.external_template import (
+            ExternalTemplateFieldMapping,
+        )
+
+        deleted_count, _ = ExternalTemplateFieldMapping.objects.filter(
+            template_id=template_id
+        ).delete()
+        logger.info(
+            "重新分析: template_id=%d, 已删除旧映射 %d 条",
+            template_id,
+            deleted_count,
+        )
+        return self.analyze_template(template_id)
+
+    def confirm_mappings(self, template_id: int) -> None:
+        """
+        确认所有映射：is_confirmed=True，模板状态变为 confirmed。
+        """
+        from apps.documents.models.choices import TemplateStatus
+        from apps.documents.models.external_template import (
+            ExternalTemplate,
+            ExternalTemplateFieldMapping,
+        )
+
+        updated_count: int = ExternalTemplateFieldMapping.objects.filter(
+            template_id=template_id
+        ).update(is_confirmed=True)
+
+        template: ExternalTemplate = ExternalTemplate.objects.get(pk=template_id)
+        template.status = TemplateStatus.CONFIRMED
+        template.save(update_fields=["status", "status_changed_at", "updated_at"])
+
+        logger.info(
+            "映射已确认: template_id=%d, confirmed=%d",
+            template_id,
+            updated_count,
+        )
