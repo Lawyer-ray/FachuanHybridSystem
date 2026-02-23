@@ -59,7 +59,7 @@ class EncryptedTextField(models.TextField[str, str]):
                 decrypted: bytes = cipher.decrypt(token)
                 return decrypted.decode()
             except Exception as e:
-                logger.exception("操作失败")
+                logger.debug("解密尝试失败，继续下一个密钥: %s", e)
                 last_error = e
                 continue
         if last_error:
