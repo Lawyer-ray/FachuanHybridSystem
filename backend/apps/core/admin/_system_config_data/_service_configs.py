@@ -115,21 +115,6 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "value": "http://localhost:11434",
             "is_secret": False,
         },
-        {"key": "MOONSHOT_API_KEY", "category": "ai", "description": "Moonshot AI API Key", "is_secret": True},
-        {
-            "key": "MOONSHOT_BASE_URL",
-            "category": "ai",
-            "description": "Moonshot AI API 地址",
-            "value": "https://api.moonshot.cn/v1",
-            "is_secret": False,
-        },
-        {
-            "key": "MOONSHOT_MODEL",
-            "category": "ai",
-            "description": "Moonshot 模型名称",
-            "value": "moonshot-v1-8k",
-            "is_secret": False,
-        },
         {"key": "OPENAI_API_KEY", "category": "ai", "description": "OpenAI API Key", "is_secret": True},
         {
             "key": "OPENAI_BASE_URL",
