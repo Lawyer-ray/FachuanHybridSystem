@@ -226,7 +226,7 @@ function invoiceApp() {
         pollingTimer: null,
         // 合并分组
         showMergePanel: false,
-        mergedGroups: [],   // [{name, keys:[projectName,...]}]
+        mergedGroups: {{ invoice_task.merge_config|default:"[]"|safe }},
         dragOverMergeGroup: null,
         dragSrc: null,      // {mgIdx, kIdx}
 
@@ -378,9 +378,12 @@ function invoiceApp() {
             this.groups.forEach(g => {
                 if (this.openGroups[g.key] === undefined) this.openGroups[g.key] = true;
             });
-            // 初始化 mergedGroups：每个 project_name 一个独立组
-            if (!this.mergedGroups.length) {
-                this.mergedGroups = this.groups.map(g => ({ name: g.label, keys: [g.key] }));
+            // 初始化 mergedGroups：已有保存配置则保留，只补充新 key
+            const existingKeys = new Set(this.mergedGroups.flatMap(mg => mg.keys));
+            const newKeys = this.groups.map(g => g.key).filter(k => !existingKeys.has(k));
+            for (const k of newKeys) {
+                const g = this.groups.find(g => g.key === k);
+                this.mergedGroups.push({ name: g ? g.label : k, keys: [k] });
             }
             this.total = this.groups.reduce((s, g) => s + g.subtotal, 0).toFixed(2);
         },
@@ -446,6 +449,19 @@ function invoiceApp() {
         }
     };
 }
+</script>
+
+<input type="hidden" name="merge_config" id="merge_config_input">
+<script>
+document.addEventListener('submit', function() {
+    const el = document.querySelector('[x-data="invoiceApp()"]') || document.querySelector('[x-data]');
+    if (el && el._x_dataStack) {
+        const app = el._x_dataStack[0];
+        if (app && app.mergedGroups) {
+            document.getElementById('merge_config_input').value = JSON.stringify(app.mergedGroups);
+        }
+    }
+}, true);
 </script>
 {% endif %}
 {% endblock %}

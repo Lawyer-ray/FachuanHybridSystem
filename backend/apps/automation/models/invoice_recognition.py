@@ -62,6 +62,7 @@ class InvoiceRecognitionTask(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    merge_config = models.JSONField(default=list, blank=True, verbose_name=_("分组合并配置"))
 
     class Meta:
         app_label = "automation"
