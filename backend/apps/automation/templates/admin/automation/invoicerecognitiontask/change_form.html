@@ -54,9 +54,14 @@
         <div>
             <div class="ir-section-title" style="display:flex;align-items:center;justify-content:space-between;">
                 <span>{% trans "识别结果" %}</span>
-                <button type="button" class="btn-merge-toggle" @click="showMergePanel = !showMergePanel" x-show="mergedGroups.length > 1">
-                    ⚙️ {% trans "合并分组" %}
-                </button>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn-merge-toggle btn-jtn" @click="applyJtnGzGroups()" x-show="groups.length > 0">
+                        🏢 JTN_GZ分组
+                    </button>
+                    <button type="button" class="btn-merge-toggle" @click="showMergePanel = !showMergePanel" x-show="mergedGroups.length > 1">
+                        ⚙️ {% trans "合并分组" %}
+                    </button>
+                </div>
             </div>
 
             <!-- 合并分组面板 -->
@@ -154,7 +159,7 @@
 
             <div class="ir-duplicate-section" x-show="duplicates.length > 0">
                 <div class="ir-duplicate-header">
-                    ⚠️ {% trans "重复发票" %}（<span x-text="duplicates.length"></span>{% trans "张" %}）
+                    ⚠️ {% trans "重复发票" %}（<span x-text="duplicates.length"></span>{% trans "张" %}，合计 ¥<span x-text="duplicateTotal.toFixed(2)"></span>）
                 </div>
                 <table class="ir-invoice-table">
                     <thead>
@@ -164,7 +169,7 @@
                             <th>{% trans "发票号码" %}</th>
                             <th>{% trans "开票日期" %}</th>
                             <th>{% trans "价税合计" %}</th>
-                            <th>{% trans "状态" %}</th>
+                            <th>{% trans "重复原因" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -180,9 +185,7 @@
                                     </template>
                                     <template x-if="!record.total_amount"><span>-</span></template>
                                 </td>
-                                <td>
-                                    <span class="ir-record-status" :class="record.status" x-text="recordStatusLabel(record.status)"></span>
-                                </td>
+                                <td x-text="getDuplicateReason(record)" style="color:#c0392b;font-size:0.8rem;"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -229,6 +232,10 @@ function invoiceApp() {
         mergedGroups: {{ invoice_task.merge_config|default:"[]"|safe }},
         dragOverMergeGroup: null,
         dragSrc: null,      // {mgIdx, kIdx}
+
+        get duplicateTotal() {
+            return this.duplicates.reduce((s, r) => s + parseFloat(r.total_amount || 0), 0);
+        },
 
         get displayGroups() {
             if (!this.mergedGroups.length) return this.groups;
@@ -441,6 +448,44 @@ function invoiceApp() {
             return this.groups
                 .filter(g => keys.has(g.key))
                 .reduce((s, g) => s + g.subtotal, 0);
+        },
+
+        getDuplicateReason(record) {
+            if (!record.duplicate_of_id) return '重复';
+            const orig = this.records.find(r => r.id === record.duplicate_of_id);
+            if (orig) {
+                return `与「${orig.project_name || orig.original_filename}」重复（¥${parseFloat(orig.total_amount||0).toFixed(2)}）`;
+            }
+            return `与记录#${record.duplicate_of_id}重复`;
+        },
+
+        applyJtnGzGroups() {
+            const rules = [
+                { name: '差旅费', keywords: ['房费','住宿费','团费','代订机票','旅游服务费','代订房费','车费','代租车费','旅游费'] },
+                { name: '餐饮费', keywords: ['餐饮服务','餐费'] },
+                { name: '汽油费', keywords: ['汽油','柴油','油费','加油'] },
+            ];
+            const groups = JSON.parse(JSON.stringify(this.mergedGroups));
+            for (const rule of rules) {
+                // 找所有匹配的 key
+                const matchedIdxs = [];
+                groups.forEach((mg, i) => {
+                    const matched = mg.keys.some(k => rule.keywords.some(kw => k.includes(kw)));
+                    if (matched) matchedIdxs.push(i);
+                });
+                if (matchedIdxs.length === 0) continue;
+                // 合并到第一个匹配组，重命名
+                const targetIdx = matchedIdxs[0];
+                groups[targetIdx].name = rule.name;
+                // 把其他匹配组的 keys 合并进来，从后往前删
+                for (let i = matchedIdxs.length - 1; i >= 1; i--) {
+                    const srcIdx = matchedIdxs[i];
+                    groups[targetIdx].keys.push(...groups[srcIdx].keys);
+                    groups.splice(srcIdx, 1);
+                }
+            }
+            this.mergedGroups = groups;
+            this.showMergePanel = true;
         },
 
         downloadSingle(invoiceId) {

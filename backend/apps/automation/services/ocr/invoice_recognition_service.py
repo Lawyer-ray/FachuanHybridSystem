@@ -97,27 +97,37 @@ class InvoiceRecognitionService:
         """图片处理：直接调用 OCRService"""
         return self._ocr.recognize(str(file_path))
 
-    def _check_duplicate(self, record: InvoiceRecord) -> bool:
-        """跨任务 + 任务内重复检测"""
-        if not record.invoice_code or not record.invoice_number:
-            return False
+    def _check_duplicate(self, record: InvoiceRecord) -> tuple[bool, int | None]:
+        """跨任务 + 任务内重复检测，返回 (is_duplicate, original_record_id)"""
+        if record.invoice_number:
+            # 任务内重复
+            orig = InvoiceRecord.objects.filter(
+                task_id=record.task_id,
+                invoice_number=record.invoice_number,
+                id__lt=record.id,
+            ).first()
+            if orig:
+                return True, orig.id
+            # 跨任务重复
+            orig = InvoiceRecord.objects.filter(
+                invoice_number=record.invoice_number,
+            ).exclude(task_id=record.task_id).first()
+            if orig:
+                return True, orig.id
 
-        # 跨任务重复：其他任务中存在相同 code + number
-        cross_task = InvoiceRecord.objects.filter(
-            invoice_code=record.invoice_code,
-            invoice_number=record.invoice_number,
-        ).exclude(task_id=record.task_id).exists()
-        if cross_task:
-            return True
+        # 无发票号码时按 total_amount+invoice_date+original_filename 检测
+        if record.total_amount and record.invoice_date:
+            orig = InvoiceRecord.objects.filter(
+                task_id=record.task_id,
+                total_amount=record.total_amount,
+                invoice_date=record.invoice_date,
+                original_filename=record.original_filename,
+                id__lt=record.id,
+            ).first()
+            if orig:
+                return True, orig.id
 
-        # 任务内重复：同任务中更早创建（id < record.id）的相同记录
-        same_task = InvoiceRecord.objects.filter(
-            task_id=record.task_id,
-            invoice_code=record.invoice_code,
-            invoice_number=record.invoice_number,
-            id__lt=record.id,
-        ).exists()
-        return same_task
+        return False, None
 
     # ------------------------------------------------------------------ #
     # 主流程
@@ -192,8 +202,10 @@ class InvoiceRecognitionService:
 
                 # 7. 重复检测（先 save 获取 id，再检测）
                 record.save()
-                record.is_duplicate = self._check_duplicate(record)
-                record.save(update_fields=["is_duplicate"])
+                is_dup, dup_of_id = self._check_duplicate(record)
+                record.is_duplicate = is_dup
+                record.duplicate_of_id = dup_of_id
+                record.save(update_fields=["is_duplicate", "duplicate_of_id"])
 
             except Exception as exc:
                 logger.error(
@@ -252,6 +264,7 @@ class InvoiceRecognitionService:
                     "category": r.category,
                     "raw_text": r.raw_text,
                     "is_duplicate": r.is_duplicate,
+                    "duplicate_of_id": r.duplicate_of_id,
                     "status": r.status,
                     "created_at": r.created_at,
                 }
