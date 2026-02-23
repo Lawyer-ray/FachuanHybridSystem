@@ -15,7 +15,7 @@
 {% block after_related_objects %}
 {{ block.super }}
 {% if original %}
-<div class="module" x-data="{ status: '{{ original.status|default:"" }}' }">
+<div class="module" x-data="{ status: '{{ original.status|default:&quot;&quot; }}' }">
     <h2>{% translate "模板操作" %}</h2>
     <div class="et-action-buttons">
         <a class="button et-btn"
@@ -24,7 +24,7 @@
             🔍 {% translate "分析模板" %}
         </a>
         <a class="button et-btn"
-           :class="{ 'disabled': status !== 'ready' }"
+           :class="{ 'disabled': status !== 'confirmed' }"
            href="{% url 'admin:documents_externaltemplate_fill_action' original.pk %}">
             📝 {% translate "填充操作" %}
         </a>
