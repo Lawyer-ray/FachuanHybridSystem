@@ -120,6 +120,22 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         }
         return render(request, "admin/automation/invoice_recognition/detail.html", context)
 
+    def change_view(
+        self,
+        request: HttpRequest,
+        object_id: str,
+        form_url: str = "",
+        extra_context: dict[str, Any] | None = None,
+    ) -> HttpResponse:
+        from django.urls import reverse
+
+        extra: dict[str, Any] = extra_context or {}
+        extra["detail_url"] = reverse(
+            "admin:automation_invoicerecognitiontask_detail",
+            args=[object_id],
+        )
+        return super().change_view(request, object_id, form_url, extra_context=extra)
+
     def _get_service(self) -> Any:
         from apps.automation.services.wiring import get_invoice_recognition_service
 

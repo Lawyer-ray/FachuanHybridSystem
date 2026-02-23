@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
-if TYPE_CHECKING:
-    from apps.core.protocols import (
-        IContractFolderBindingService,
-        IContractGenerationService,
-        IContractService,
-        IGenerationTaskService,
-        ISupplementaryAgreementGenerationService,
-    )
+from apps.core.protocols import (
+    IContractFolderBindingService,
+    IContractGenerationService,
+    IContractService,
+    IGenerationTaskService,
+    ISupplementaryAgreementGenerationService,
+)
 
 
 def build_generation_task_service() -> IGenerationTaskService:

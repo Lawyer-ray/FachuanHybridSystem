@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+{% if detail_url %}
+<li>
+    <a href="{{ detail_url }}" class="historylink">{% trans "上传发票 / 查看详情" %}</a>
+</li>
+{% endif %}
+{{ block.super }}
+{% endblock %}
