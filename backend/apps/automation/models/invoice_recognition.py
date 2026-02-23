@@ -112,6 +112,7 @@ class InvoiceRecord(models.Model):
     )
     raw_text = models.TextField(blank=True, default="", verbose_name=_("OCR 原始文本"))
     is_duplicate = models.BooleanField(default=False, verbose_name=_("是否重复"))
+    duplicate_of_id = models.IntegerField(null=True, blank=True, verbose_name=_("重复的原始记录ID"))
     status = models.CharField(
         max_length=32,
         choices=InvoiceRecordStatus.choices,

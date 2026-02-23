@@ -506,3 +506,10 @@
     margin-left: 6px;
     vertical-align: middle;
 }
+
+.btn-jtn {
+    background: #eef7ee;
+    border-color: #a8d5a8;
+    color: #2d6a2d;
+}
+.btn-jtn:hover { background: #ddf0dd; }
