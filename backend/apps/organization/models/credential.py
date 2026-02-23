@@ -5,8 +5,6 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.model_fields.encrypted import EncryptedTextField
-
 from .lawyer import Lawyer
 
 
@@ -19,7 +17,7 @@ class AccountCredential(models.Model):
     site_name = models.CharField(max_length=255, verbose_name=_("网站名称"))
     url = models.URLField(blank=True, verbose_name=_("URL"))
     account = models.CharField(max_length=255, verbose_name=_("账号"))
-    password = EncryptedTextField(verbose_name=_("密码"))
+    password = models.CharField(max_length=255, verbose_name=_("密码"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
