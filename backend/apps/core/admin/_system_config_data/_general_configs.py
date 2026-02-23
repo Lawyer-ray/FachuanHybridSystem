@@ -58,30 +58,6 @@ def get_general_configs() -> list[dict[str, Any]]:
             "value": "Asia/Shanghai",
             "is_secret": False,
         },
-        # ============ Telegram 配置 ============
-        {"key": "TELEGRAM_BOT_TOKEN", "category": "general", "description": "Telegram Bot Token", "is_secret": True},
-        {
-            "key": "TELEGRAM_TIMEOUT",
-            "category": "general",
-            "description": "Telegram API 超时时间（秒）",
-            "value": "30",
-            "is_secret": False,
-        },
-        # ============ Slack 配置 ============
-        {"key": "SLACK_BOT_TOKEN", "category": "general", "description": "Slack Bot Token", "is_secret": True},
-        {
-            "key": "SLACK_SIGNING_SECRET",
-            "category": "general",
-            "description": "Slack Signing Secret",
-            "is_secret": True,
-        },
-        {
-            "key": "SLACK_TIMEOUT",
-            "category": "general",
-            "description": "Slack API 超时时间（秒）",
-            "value": "30",
-            "is_secret": False,
-        },
         # ============ CORS 配置 ============
         {
             "key": "CORS_ALLOWED_ORIGINS",
