@@ -22,14 +22,20 @@ from .choices import (
     DocumentContractSubType,
     DocumentContractType,
     DocumentTemplateType,
+    FillType,
     FolderTemplateType,
     LegalStatusMatchMode,
     PlaceholderCategory,
     PlaceholderFormatType,
+    SourceType,
     TemplateAuditAction,
+    TemplateCategory,
+    TemplateStatus,
 )
 from .document_template import DocumentTemplate, DocumentTemplateFolderBinding
 from .evidence import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType, MergeStatus
+from .external_template import ExternalTemplate, ExternalTemplateFieldMapping
+from .fill_record import BatchFillTask, FillRecord
 
 # 导入所有模型类
 from .folder_template import FolderTemplate
@@ -75,6 +81,16 @@ __all__ = [
     "ProxyMatterRule",
     # 诉讼地位匹配
     "LegalStatusMatchMode",
+    # 外部模板枚举
+    "TemplateCategory",
+    "SourceType",
+    "FillType",
+    "TemplateStatus",
+    # 外部模板模型
+    "ExternalTemplate",
+    "ExternalTemplateFieldMapping",
+    "BatchFillTask",
+    "FillRecord",
 ]
 
 GenerationTaskStatus = GenerationStatus
