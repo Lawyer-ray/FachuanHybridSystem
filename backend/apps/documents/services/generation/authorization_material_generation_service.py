@@ -279,18 +279,19 @@ class AuthorizationMaterialGenerationService:
         arc_name = self._safe_arcname(f"{arc_dir}/{StdPath(abs_path).name}")
         zf.write(abs_path, arcname=arc_name)
 
-        def _check_missing_required_docs(
-            identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
-        ) -> None:
-            doc_types = {doc.doc_type for doc in identity_docs}
-            if getattr(client, "client_type", "") == "natural":
-                if "id_card" not in doc_types:
-                    missing_lines.append(f"缺少{client_name}的身份证")
-            else:
-                if "business_license" not in doc_types:
-                    missing_lines.append(f"缺少{client_name}的营业执照")
-                if "legal_rep_id_card" not in doc_types:
-                    missing_lines.append(f"缺少{client_name}的法定代表人身份证")
+    def _check_missing_required_docs(
+        self,
+        identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
+    ) -> None:
+        doc_types = {doc.doc_type for doc in identity_docs}
+        if getattr(client, "client_type", "") == "natural":
+            if "id_card" not in doc_types:
+                missing_lines.append(f"缺少{client_name}的身份证")
+        else:
+            if "business_license" not in doc_types:
+                missing_lines.append(f"缺少{client_name}的营业执照")
+            if "legal_rep_id_card" not in doc_types:
+                missing_lines.append(f"缺少{client_name}的法定代表人身份证")
 
     def _zip_add_lawyer_licenses(
         self,
