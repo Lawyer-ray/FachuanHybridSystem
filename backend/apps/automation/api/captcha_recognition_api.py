@@ -73,10 +73,14 @@ def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecog
     service = _get_captcha_service()
     result = service.recognize_from_base64(payload.image_base64)
 
-    # 记录请求结果（不记录图片数据）
     if result.success:
         logger.info(f"验证码识别成功: text={result.text}, processing_time={result.processing_time:.3f}s")
     else:
         logger.warning(f"验证码识别失败: error={result.error}, processing_time={result.processing_time:.3f}s")
 
-    return result  # type: ignore[no-any-return]
+    return CaptchaRecognizeOut(
+        success=result.success,
+        text=result.text,
+        processing_time=result.processing_time,
+        error=result.error,
+    )
