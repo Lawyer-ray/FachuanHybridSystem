@@ -2,76 +2,42 @@
 <!-- 当事人与律师标签页 -->
 <div x-show="activeTab === 'parties'" x-cloak x-data="partiesDrawer()">
     <div class="info-grid two-columns">
-        <!-- 合同当事人卡片 -->
-        <div class="info-card">
-            <div class="card-header">
-                <span class="card-icon">👥</span>
-                <h3 class="card-title">合同当事人</h3>
-            </div>
-            {% if contract_parties %}
-            <div class="party-list">
-                {% for party in contract_parties %}
-                <div class="party-item clickable"
-                     @click="openPartyDrawer({
-                         name: '{{ party.client.name|escapejs }}',
-                         role: '{{ party.get_role_display|escapejs }}',
-                         clientType: '{{ party.client.client_type|escapejs }}',
-                         clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
-                         idNumber: '{{ party.client.id_number|default:""|escapejs }}',
-                         phone: '{{ party.client.phone|default:""|escapejs }}',
-                         address: '{{ party.client.address|default:""|escapejs }}',
-                         legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
-                         legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
-                         isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
-                     })">
-                    <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
-                    <span class="party-name">{{ party.client.name }}</span>
-                    <span class="view-detail-icon">→</span>
+        <!-- 左列：合同当事人 + 补充协议当事人 -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- 合同当事人卡片 -->
+            <div class="info-card">
+                <div class="card-header">
+                    <span class="card-icon">👥</span>
+                    <h3 class="card-title">合同当事人</h3>
                 </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="empty-state">暂无当事人信息</p>
-            {% endif %}
-        </div>
-
-        <!-- 律师指派卡片 -->
-        <div class="info-card">
-            <div class="card-header">
-                <span class="card-icon">⚖️</span>
-                <h3 class="card-title">律师指派</h3>
-            </div>
-            {% if assignments %}
-            <div class="lawyer-list">
-                {% for assignment in assignments %}
-                <div class="lawyer-item clickable"
-                     @click="openLawyerDrawer({
-                         name: '{{ assignment.lawyer.real_name|default:assignment.lawyer.username|escapejs }}',
-                         username: '{{ assignment.lawyer.username|escapejs }}',
-                         phone: '{{ assignment.lawyer.phone|default:""|escapejs }}',
-                         email: '{{ assignment.lawyer.email|default:""|escapejs }}',
-                         licenseNo: '{{ assignment.lawyer.license_no|default:""|escapejs }}',
-                         idCard: '{{ assignment.lawyer.id_card|default:""|escapejs }}',
-                         lawFirm: '{{ assignment.lawyer.law_firm.name|default:""|escapejs }}',
-                         isPrimary: {{ assignment.is_primary|yesno:"true,false" }}
-                     })">
-                    <span class="lawyer-name">{{ assignment.lawyer.real_name|default:assignment.lawyer.username }}</span>
-                    {% if assignment.is_primary %}<span class="primary-badge">主办</span>{% endif %}
-                    <span class="view-detail-icon">→</span>
+                {% if contract_parties %}
+                <div class="party-list">
+                    {% for party in contract_parties %}
+                    <div class="party-item clickable"
+                         @click="openPartyDrawer({
+                             name: '{{ party.client.name|escapejs }}',
+                             role: '{{ party.get_role_display|escapejs }}',
+                             clientType: '{{ party.client.client_type|escapejs }}',
+                             clientTypeDisplay: '{{ party.client.get_client_type_display|escapejs }}',
+                             idNumber: '{{ party.client.id_number|default:""|escapejs }}',
+                             phone: '{{ party.client.phone|default:""|escapejs }}',
+                             address: '{{ party.client.address|default:""|escapejs }}',
+                             legalRepName: '{{ party.client.legal_representative|default:""|escapejs }}',
+                             legalRepIdNumber: '{{ party.client.legal_representative_id_number|default:""|escapejs }}',
+                             isOurClient: {{ party.client.is_our_client|yesno:"true,false" }}
+                         })">
+                        <span class="party-role role-{{ party.role|lower }}">{{ party.get_role_display }}</span>
+                        <span class="party-name">{{ party.client.name }}</span>
+                        <span class="view-detail-icon">→</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                {% else %}
+                <p class="empty-state">暂无当事人信息</p>
+                {% endif %}
             </div>
-            {% else %}
-            <p class="empty-state">暂无律师指派</p>
-            {% endif %}
-        </div>
-    </div>
 
-    <!-- 补充协议当事人卡片 -->
-    {% if supplementary_agreements %}
-    <div class="supplementary-agreements-section" style="margin-top: 24px;">
-        <h2 class="section-title" style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px;">补充协议当事人</h2>
-        <div class="info-grid two-columns">
+            <!-- 补充协议当事人卡片 -->
             {% for agreement in supplementary_agreements %}
             <div class="info-card">
                 <div class="card-header">
@@ -107,8 +73,38 @@
             </div>
             {% endfor %}
         </div>
+
+        <!-- 右列：律师指派卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">⚖️</span>
+                <h3 class="card-title">律师指派</h3>
+            </div>
+            {% if assignments %}
+            <div class="lawyer-list">
+                {% for assignment in assignments %}
+                <div class="lawyer-item clickable"
+                     @click="openLawyerDrawer({
+                         name: '{{ assignment.lawyer.real_name|default:assignment.lawyer.username|escapejs }}',
+                         username: '{{ assignment.lawyer.username|escapejs }}',
+                         phone: '{{ assignment.lawyer.phone|default:""|escapejs }}',
+                         email: '{{ assignment.lawyer.email|default:""|escapejs }}',
+                         licenseNo: '{{ assignment.lawyer.license_no|default:""|escapejs }}',
+                         idCard: '{{ assignment.lawyer.id_card|default:""|escapejs }}',
+                         lawFirm: '{{ assignment.lawyer.law_firm.name|default:""|escapejs }}',
+                         isPrimary: {{ assignment.is_primary|yesno:"true,false" }}
+                     })">
+                    <span class="lawyer-name">{{ assignment.lawyer.real_name|default:assignment.lawyer.username }}</span>
+                    {% if assignment.is_primary %}<span class="primary-badge">主办</span>{% endif %}
+                    <span class="view-detail-icon">→</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">暂无律师指派</p>
+            {% endif %}
+        </div>
     </div>
-    {% endif %}
 
     <!-- 当事人详情抽屉 -->
     <template x-if="drawerType === 'party' && drawerOpen">
