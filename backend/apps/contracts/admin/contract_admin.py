@@ -115,7 +115,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     form = ContractAdminForm
     list_display = (
         "id",
-        "name",
+        "name_link",
         "case_type",
         "status",
         "start_date",
