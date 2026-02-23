@@ -1,11 +1,322 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
+{% load static i18n %}
 
-{% block object-tools-items %}
-{% if detail_url %}
-<li>
-    <a href="{{ detail_url }}" class="historylink">{% trans "上传发票 / 查看详情" %}</a>
-</li>
-{% endif %}
+{% block extrastyle %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'automation/css/invoice_recognition.css' %}">
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+{% if invoice_task %}
+<div class="ir-container" x-data="invoiceApp()" x-init="init()">
+
+    <!-- 上传消息 -->
+    <template x-if="uploadMessage">
+        <div class="ir-upload-message" :class="uploadMessageType" x-text="uploadMessage"></div>
+    </template>
+
+    <!-- 文件上传区域 -->
+    <div class="ir-section-title">{% trans "上传发票文件" %}</div>
+    <div
+        class="ir-upload-zone"
+        :class="{ dragging: dragging }"
+        @dragover.prevent="dragging = true"
+        @dragleave.prevent="dragging = false"
+        @drop.prevent="handleDrop($event)"
+        @click="$refs.fileInput.click()"
+    >
+        <div class="upload-icon">📄</div>
+        <p>{% trans "拖拽文件到此处，或点击选择文件" %}</p>
+        <p class="upload-hint">{% trans "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选" %}</p>
+        <input
+            type="file"
+            x-ref="fileInput"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png"
+            style="display: none;"
+            @change="handleFileSelect($event)"
+        >
+    </div>
+
+    <!-- 上传进度条 -->
+    <div x-show="uploading" style="margin-bottom: 16px;">
+        <div style="font-size: 0.875rem; color: #555; margin-bottom: 4px;">
+            {% trans "上传中" %}... <span x-text="uploadProgress + '%'"></span>
+        </div>
+        <div class="ir-progress-bar">
+            <div class="ir-progress-fill" :style="'width: ' + uploadProgress + '%'"></div>
+        </div>
+    </div>
+
+    <!-- 识别结果区域 -->
+    <template x-if="groups.length > 0 || duplicates.length > 0">
+        <div>
+            <div class="ir-section-title">{% trans "识别结果" %}</div>
+
+            <template x-for="(group, gIdx) in groups" :key="group.category">
+                <div class="ir-category-group">
+                    <div class="ir-category-header" @click="toggleGroup(gIdx)">
+                        <div class="category-title">
+                            <span x-text="group.label || group.category"></span>
+                        </div>
+                        <div class="category-stats">
+                            <span><span x-text="group.records.length"></span> {% trans "张" %}</span>
+                            <span class="category-subtotal">¥<span x-text="group.subtotal.toFixed(2)"></span></span>
+                            <span class="toggle-icon" :class="{ open: openGroups[gIdx] }">▼</span>
+                        </div>
+                    </div>
+                    <div x-show="openGroups[gIdx]" x-transition>
+                        <table class="ir-invoice-table">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "原始文件名" %}</th>
+                                    <th>{% trans "发票代码" %}</th>
+                                    <th>{% trans "发票号码" %}</th>
+                                    <th>{% trans "开票日期" %}</th>
+                                    <th>{% trans "价税合计" %}</th>
+                                    <th>{% trans "状态" %}</th>
+                                    <th>{% trans "操作" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="record in group.records" :key="record.id">
+                                    <tr>
+                                        <td x-text="record.original_filename"></td>
+                                        <td x-text="record.invoice_code || '-'"></td>
+                                        <td x-text="record.invoice_number || '-'"></td>
+                                        <td x-text="record.invoice_date || '-'"></td>
+                                        <td>
+                                            <template x-if="record.total_amount">
+                                                <span>¥<span x-text="parseFloat(record.total_amount).toFixed(2)"></span></span>
+                                            </template>
+                                            <template x-if="!record.total_amount"><span>-</span></template>
+                                        </td>
+                                        <td>
+                                            <span class="ir-record-status" :class="record.status" x-text="recordStatusLabel(record.status)"></span>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="button" style="padding: 3px 10px; font-size: 0.8rem;" @click.stop="downloadSingle(record.id)">{% trans "下载" %}</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div class="ir-category-download">
+                            <button type="button" class="btn-download btn-pdf" @click.stop="downloadCategory(group.category, 'pdf')">📄 {% trans "下载 PDF" %}</button>
+                            <button type="button" class="btn-download btn-zip" @click.stop="downloadCategory(group.category, 'zip')">🗜 {% trans "下载 ZIP" %}</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <div class="ir-duplicate-section" x-show="duplicates.length > 0">
+                <div class="ir-duplicate-header">
+                    ⚠️ {% trans "重复发票" %}（<span x-text="duplicates.length"></span>{% trans "张" %}）
+                </div>
+                <table class="ir-invoice-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "原始文件名" %}</th>
+                            <th>{% trans "发票代码" %}</th>
+                            <th>{% trans "发票号码" %}</th>
+                            <th>{% trans "开票日期" %}</th>
+                            <th>{% trans "价税合计" %}</th>
+                            <th>{% trans "状态" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="record in duplicates" :key="record.id">
+                            <tr class="ir-duplicate-row">
+                                <td x-text="record.original_filename"></td>
+                                <td x-text="record.invoice_code || '-'"></td>
+                                <td x-text="record.invoice_number || '-'"></td>
+                                <td x-text="record.invoice_date || '-'"></td>
+                                <td>
+                                    <template x-if="record.total_amount">
+                                        <span>¥<span x-text="parseFloat(record.total_amount).toFixed(2)"></span></span>
+                                    </template>
+                                    <template x-if="!record.total_amount"><span>-</span></template>
+                                </td>
+                                <td>
+                                    <span class="ir-record-status" :class="record.status" x-text="recordStatusLabel(record.status)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ir-total-section">
+                <span class="total-label">{% trans "非重复发票总金额" %}</span>
+                <span class="total-amount">¥<span x-text="parseFloat(total || 0).toFixed(2)"></span></span>
+            </div>
+
+            <div class="ir-section-title">{% trans "下载全部发票" %}</div>
+            <div class="ir-download-btns">
+                <button type="button" class="btn-download btn-pdf" @click="downloadAll('pdf')">📄 {% trans "下载全部 PDF" %}</button>
+                <button type="button" class="btn-download btn-zip" @click="downloadAll('zip')">🗜 {% trans "下载全部 ZIP" %}</button>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="groups.length === 0 && duplicates.length === 0 && !uploading">
+        <div class="ir-empty-state">{% trans "暂无发票记录，请上传发票文件开始识别" %}</div>
+    </template>
+
+</div>
+
+<script>
+function invoiceApp() {
+    return {
+        taskId: {{ invoice_task.id }},
+        uploading: false,
+        uploadProgress: 0,
+        taskStatus: '{{ invoice_task.status }}',
+        records: [],
+        groups: [],
+        duplicates: [],
+        total: '{{ invoice_grouped_data.total|default:"0" }}',
+        dragging: false,
+        openGroups: {},
+        uploadMessage: '',
+        uploadMessageType: 'success',
+        pollingTimer: null,
+
+        init() {
+            this.loadStatus();
+            if (this.taskStatus === 'processing' || this.taskStatus === 'pending') {
+                this.startPolling();
+            }
+        },
+
+        statusLabel() {
+            const labels = {
+                'pending': '{% trans "待处理" %}',
+                'processing': '{% trans "处理中" %}',
+                'completed': '{% trans "已完成" %}',
+                'failed': '{% trans "失败" %}',
+            };
+            return labels[this.taskStatus] || this.taskStatus;
+        },
+
+        recordStatusLabel(status) {
+            const labels = {
+                'pending': '{% trans "待识别" %}',
+                'success': '{% trans "识别成功" %}',
+                'failed': '{% trans "识别失败" %}',
+            };
+            return labels[status] || status;
+        },
+
+        toggleGroup(idx) {
+            this.openGroups[idx] = !this.openGroups[idx];
+        },
+
+        getCsrfToken() {
+            const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+            return c ? c.split('=')[1].trim() : '';
+        },
+
+        handleDrop(e) {
+            this.dragging = false;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) this.uploadFiles(files);
+        },
+
+        handleFileSelect(e) {
+            if (e.target.files.length > 0) {
+                this.uploadFiles(e.target.files);
+                e.target.value = '';
+            }
+        },
+
+        async uploadFiles(files) {
+            this.uploading = true;
+            this.uploadProgress = 10;
+            this.uploadMessage = '';
+            const formData = new FormData();
+            for (const f of files) formData.append('files', f);
+            try {
+                this.uploadProgress = 40;
+                const resp = await fetch(`/api/v1/automation/invoice-recognition/${this.taskId}/upload/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': this.getCsrfToken() }
+                });
+                const data = await resp.json();
+                this.uploadProgress = 90;
+                if (!resp.ok) throw new Error(data.detail || '{% trans "上传失败" %}');
+                this.uploadProgress = 100;
+                this.uploadMessage = '{% trans "上传成功，正在识别..." %}';
+                this.uploadMessageType = 'success';
+                await this.loadStatus();
+                this.startPolling();
+            } catch(e) {
+                this.uploadMessage = '{% trans "上传失败" %}: ' + e.message;
+                this.uploadMessageType = 'error';
+            } finally {
+                this.uploading = false;
+            }
+        },
+
+        startPolling() {
+            if (this.pollingTimer) return;
+            this.pollingTimer = setInterval(async () => {
+                await this.loadStatus();
+                if (this.taskStatus !== 'processing' && this.taskStatus !== 'pending') {
+                    clearInterval(this.pollingTimer);
+                    this.pollingTimer = null;
+                }
+            }, 3000);
+        },
+
+        async loadStatus() {
+            try {
+                const resp = await fetch(`/api/v1/automation/invoice-recognition/${this.taskId}/status/`);
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.taskStatus = data.task.status;
+                    this.records = data.records || [];
+                    this.rebuildGroups();
+                }
+            } catch(e) {
+                console.error('{% trans "加载状态失败" %}', e);
+            }
+        },
+
+        rebuildGroups() {
+            const groupMap = {};
+            this.duplicates = [];
+            for (const r of this.records) {
+                if (r.is_duplicate) { this.duplicates.push(r); continue; }
+                const key = r.category || 'other';
+                if (!groupMap[key]) {
+                    groupMap[key] = { category: key, label: r.category_label || key, records: [], subtotal: 0 };
+                }
+                groupMap[key].records.push(r);
+                groupMap[key].subtotal += parseFloat(r.total_amount || 0);
+            }
+            this.groups = Object.values(groupMap);
+            this.groups.forEach((_, idx) => {
+                if (this.openGroups[idx] === undefined) this.openGroups[idx] = true;
+            });
+            this.total = this.groups.reduce((s, g) => s + g.subtotal, 0).toFixed(2);
+        },
+
+        downloadSingle(invoiceId) {
+            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download/?scope=single&invoice_id=${invoiceId}`;
+        },
+
+        downloadCategory(category, fmt) {
+            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download/?scope=category&category=${encodeURIComponent(category)}&fmt=${fmt}`;
+        },
+
+        downloadAll(fmt) {
+            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download/?scope=all&fmt=${fmt}`;
+        }
+    };
+}
+</script>
+{% endif %}
 {% endblock %}
