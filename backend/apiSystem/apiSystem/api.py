@@ -65,6 +65,7 @@ def _register_app_routers() -> None:
     from apps.documents.api import (
         authorization_material_router,
         document_router,
+        external_template_router,
         folder_template_router,
         generation_router,
         litigation_generation_router,
@@ -93,6 +94,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", litigation_generation_router, tags=["诉讼文书生成"])
     api_v1.add_router("/documents", authorization_material_router, tags=["授权委托材料生成"])
     api_v1.add_router("/documents", preservation_materials_router, tags=["财产保全材料生成"])
+    api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
 
 

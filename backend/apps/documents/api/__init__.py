@@ -6,6 +6,7 @@ Documents API 模块
 
 from .authorization_material_api import router as authorization_material_router
 from .document_api import router as document_router
+from .external_template_api import router as external_template_router
 from .folder_template_api import router as folder_template_router
 from .generation_api import router as generation_router
 from .litigation_generation_api import router as litigation_generation_router
@@ -15,6 +16,7 @@ from .preservation_materials_api import router as preservation_materials_router
 __all__ = [
     "authorization_material_router",
     "document_router",
+    "external_template_router",
     "folder_template_router",
     "generation_router",
     "litigation_generation_router",
