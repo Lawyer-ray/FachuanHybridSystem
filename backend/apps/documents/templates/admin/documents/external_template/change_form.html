@@ -1,0 +1,137 @@
+{% extends "admin/change_form.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'documents/css/external_template.css' %}">
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+{% if original %}
+<div class="module" x-data="externalTemplateForm()">
+    <h2>{% translate "模板操作" %}</h2>
+    <div class="et-action-buttons">
+        <a class="button et-btn"
+           :class="{ 'disabled': !canAnalyze }"
+           href="{% url 'admin:documents_externaltemplate_analyze' original.pk %}">
+            🔍 {% translate "分析模板" %}
+        </a>
+        <a class="button et-btn"
+           :class="{ 'disabled': !canConfirm }"
+           href="{% url 'admin:documents_externaltemplate_confirm' original.pk %}">
+            ✅ {% translate "确认映射" %}
+        </a>
+        <a class="button et-btn"
+           :class="{ 'disabled': !canFill }"
+           href="{% url 'admin:documents_externaltemplate_fill_action' original.pk %}">
+            📝 {% translate "填充操作" %}
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script>
+function externalTemplateForm() {
+    return {
+        status: '{{ original.status|default:"" }}',
+        sourceType: '',
+        courtField: null,
+        orgField: null,
+
+        get canAnalyze() {
+            return this.status === 'uploaded' || this.status === 'analysis_failed';
+        },
+        get canConfirm() {
+            return this.status === 'mapped';
+        },
+        get canFill() {
+            return this.status === 'confirmed';
+        },
+
+        init() {
+            this.setupSourceTypeToggle();
+            this.setupPlaceholderDropdowns();
+        },
+
+        setupSourceTypeToggle() {
+            const sourceSelect = document.getElementById('id_source_type');
+            if (!sourceSelect) return;
+
+            // Find the court and organization_name field rows
+            this.courtField = document.querySelector('.field-court');
+            this.orgField = document.querySelector('.field-organization_name');
+
+            this.sourceType = sourceSelect.value;
+            this.toggleSourceFields();
+
+            sourceSelect.addEventListener('change', () => {
+                this.sourceType = sourceSelect.value;
+                this.toggleSourceFields();
+            });
+        },
+
+        toggleSourceFields() {
+            if (!this.courtField || !this.orgField) return;
+            if (this.sourceType === 'court') {
+                this.courtField.style.display = '';
+                this.orgField.style.display = 'none';
+            } else {
+                this.courtField.style.display = 'none';
+                this.orgField.style.display = '';
+            }
+        },
+
+        setupPlaceholderDropdowns() {
+            {% if original %}
+            const templateId = {{ original.pk }};
+            const inlineRows = document.querySelectorAll('.dynamic-field_mappings .form-row:not(.empty-form)');
+            if (inlineRows.length === 0) return;
+
+            fetch(`/api/v1/documents/external-templates/${templateId}/custom-fields/`)
+                .then(resp => resp.json())
+                .then(data => {
+                    // Collect available placeholder keys from the response
+                    const keys = (data.fields || []).map(f => f.placeholder_key).filter(Boolean);
+                    this.convertToDropdowns(keys);
+                })
+                .catch(err => {
+                    console.error('{% translate "加载占位符列表失败" %}', err);
+                });
+            {% endif %}
+        },
+
+        convertToDropdowns(keys) {
+            const inputs = document.querySelectorAll(
+                '.dynamic-field_mappings input[id$="-placeholder_key"]'
+            );
+            inputs.forEach(input => {
+                const currentVal = input.value;
+                const select = document.createElement('select');
+                select.name = input.name;
+                select.id = input.id;
+                select.className = input.className;
+
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.textContent = '-- {% translate "手动填写" %} --';
+                select.appendChild(emptyOpt);
+
+                keys.forEach(key => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = key;
+                    if (key === currentVal) opt.selected = true;
+                    select.appendChild(opt);
+                });
+
+                input.parentNode.replaceChild(select, input);
+            });
+        }
+    };
+}
+</script>
+{% endblock %}
