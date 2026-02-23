@@ -55,6 +55,13 @@ class ContractDisplayMixin:
                 return lawyer.real_name or lawyer.username
         return "-"
 
+    def _get_primary_lawyer_obj(self, obj: Any) -> Any:
+        """返回主办律师对象（供详情页模板使用）"""
+        for assignment in obj.assignments.all():
+            if assignment.is_primary:
+                return assignment.lawyer
+        return None
+
     @admin.display(description=_("主办律师"))
     def get_primary_lawyer_display(self, obj) -> Any:
         """详情页显示主办律师(只读)"""
@@ -150,7 +157,7 @@ class ContractDisplayMixin:
                 "has_change_permission": self.has_change_permission(request, contract),
                 "has_view_permission": self.has_view_permission(request, contract),
                 # 传递模板需要的额外数据
-                "primary_lawyer": self.get_primary_lawyer(contract),
+                "primary_lawyer": self._get_primary_lawyer_obj(contract),
                 "contract_parties": contract.contract_parties.all(),
                 "assignments": contract.assignments.all(),
                 "payments": ctx_data["payments"],
