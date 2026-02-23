@@ -11,7 +11,7 @@ from typing import Any
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions import NotFoundError
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.storage import _get_media_root, delete_media_file, sanitize_upload_filename, save_uploaded_file
 
@@ -70,15 +70,15 @@ class ClientIdentityDocService:
 
         ext = abs_path.suffix
         client_name = sanitize_upload_filename(doc_instance.client.name)
-        doc_type_display = doc_instance.get_doc_type_display()
-        new_filename = f"{doc_type_display}（{client_name}）{ext}"
+        doc_type_display = sanitize_upload_filename(str(doc_instance.get_doc_type_display()))
+        new_filename = f"{doc_type_display}_{client_name}{ext}"
 
         old_dir = abs_path.parent
         new_abs_path = old_dir / new_filename
 
         if new_abs_path.exists() and abs_path.resolve() != new_abs_path.resolve():
             counter = 1
-            name_without_ext = f"{doc_type_display}（{client_name}）"
+            name_without_ext = f"{doc_type_display}_{client_name}"
             while new_abs_path.exists():
                 new_filename = f"{name_without_ext}_{counter}{ext}"
                 new_abs_path = old_dir / new_filename
@@ -95,12 +95,8 @@ class ClientIdentityDocService:
                     doc_instance.file_path = str(new_abs_path)
                 doc_instance.save(update_fields=["file_path"])
                 logger.info("文件重命名成功: %s -> %s", raw_path, doc_instance.file_path)
-            except Exception as e:
-                raise ValidationException(
-                    message=_("文件重命名失败"),
-                    code="FILE_RENAME_ERROR",
-                    errors={"file": str(e)},
-                ) from e
+            except Exception:
+                logger.exception("文件重命名失败", extra={"raw_path": raw_path, "new_path": str(new_abs_path)})
 
     def get_identity_doc(self, doc_id: int) -> ClientIdentityDoc:
         """获取证件文档，不存在则抛出 NotFoundError"""
