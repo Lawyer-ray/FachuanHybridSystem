@@ -288,11 +288,12 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             template_id
         )
 
+        import json as _json
         context: dict[str, Any] = {
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
             "template_obj": template_obj,
-            "custom_fields": custom_fields,
+            "custom_fields_json": _json.dumps(custom_fields, ensure_ascii=False),
             "title": gettext("填充操作 - %(name)s") % {"name": template_obj.name},
         }
         return TemplateResponse(
