@@ -309,9 +309,10 @@ class CourtZxfwService:
                 login_button.wait_for(state="visible", timeout=10000)
                 login_button.click()
 
-                # 等待 Token 捕获（最多 10 秒），比固定等待更可靠
+                # 等待 Token 捕获（最多 10 秒）
+                # 必须用 page.wait_for_timeout 而非 time.sleep，否则 Playwright 事件回调不会触发
                 for _ in range(20):
-                    time.sleep(0.5)
+                    self.page.wait_for_timeout(500)
                     if captured_token and captured_token.get("value"):
                         break
 
