@@ -136,7 +136,7 @@ class ExternalTemplateFieldMapping(models.Model):
     外部模板字段映射
 
     存储 LLM 分析生成的字段映射关系, 将模板中的可填充位置
-    映射到现有占位符体系中的 placeholder_key.
+    通过语义标签(semantic_label)标识, 填充时由 LLM 根据案件数据自动取值。
 
     Requirements: 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.5, 12.1
     """
