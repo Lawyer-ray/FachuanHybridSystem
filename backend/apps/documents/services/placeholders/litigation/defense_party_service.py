@@ -10,6 +10,7 @@ from typing import Any, ClassVar
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
+from apps.core.enums import LegalStatus
 
 logger = logging.getLogger(__name__)
 
