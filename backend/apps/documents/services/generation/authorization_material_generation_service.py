@@ -387,13 +387,7 @@ class AuthorizationMaterialGenerationService:
         return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders) # type: ignore[no-any-return]
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
-        proxy_matters = (context.get("授权委托书_代理事项") or "").strip()
-        if not proxy_matters:
-            raise ValidationException(
-                message=_("未匹配到代理事项规则"),
-                code="PROXY_MATTER_RULE_NOT_MATCHED",
-                errors={"placeholder": "授权委托书_代理事项"},
-            )
+        pass  # 代理事项为空时允许生成，占位符留空
 
     def _get_power_of_attorney_template_from_db(self) -> Any:
         """从数据库查找授权委托书模板(后备方案)"""
