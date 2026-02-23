@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.contrib import admin
 
@@ -31,6 +31,9 @@ class CasePartyInline(BaseTabularInline):
     extra = 1
     fields = ("client", "legal_status")
     classes = ["contract-party-inline"]
+
+    def has_view_or_change_permission(self, request: Any, obj: Any = None) -> bool:
+        return False
 
     class Media:
         js = (
