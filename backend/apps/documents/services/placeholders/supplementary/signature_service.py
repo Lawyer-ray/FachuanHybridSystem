@@ -112,7 +112,7 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
             # 单个委托人
             client = principals[0]
             signature_format = self._get_signature_format(client)
-            lines.append(f"甲方{signature_format}:{client.name}")
+            lines.append(f"甲方{signature_format}：{client.name}")
 
             # 根据客户类型决定是否添加"代表:"
             if not self._is_natural_person(client):
@@ -127,7 +127,7 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
 
                 number = chinese_numbers[i] if i < len(chinese_numbers) else str(i + 1)
                 signature_format = self._get_signature_format(client)
-                lines.append(f"甲方{number}{signature_format}:{client.name}")
+                lines.append(f"甲方{number}{signature_format}：{client.name}")
 
                 # 根据客户类型决定是否添加"代表:"
                 if not self._is_natural_person(client):
