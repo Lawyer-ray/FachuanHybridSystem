@@ -62,6 +62,22 @@
 </style>
 {% endblock %}
 
+{% block extrabody %}
+{{ block.super }}
+<script>
+window.FILL_ACTION_CONFIG = {
+    templateId: {{ template_obj.pk }},
+    customFields: {{ custom_fields_json|safe }}
+};
+window.FILL_ACTION_I18N = {
+    previewFailed: '{% translate "加载预览失败" %}',
+    fillFailed: '{% translate "填充失败" %}',
+    networkError: '{% translate "网络错误，请重试" %}'
+};
+</script>
+<script src="{% static 'documents/js/fill_action.js' %}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="fill-container" x-data="fillAction()" x-cloak>
   {% csrf_token %}
@@ -268,186 +284,4 @@
     </template>
   </div>
 </div>
-{% endblock %}
-
-{% block extrajs %}
-{{ block.super }}
-<script>
-function fillAction() {
-  const templateId = {{ template_obj.pk }};
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
-  const serverCustomFields = {{ custom_fields_json }};
-
-  return {
-    // State
-    caseId: '',
-    caseQuery: '',
-    caseResults: [],
-    selectedCase: null,
-    showDropdown: false,
-    searchingCases: false,
-    parties: [],
-    selectedPartyIds: [],
-    customFields: serverCustomFields || [],
-    customValues: {},
-    previewItems: [],
-    results: {},
-    step: 'input',
-
-    // Loading states
-    loadingPreview: false,
-    filling: false,
-    partyError: '',
-
-    init() {
-      this.customFields.forEach(f => {
-        this.customValues[f.mapping_id] = '';
-      });
-    },
-
-    // Search cases
-    async searchCases() {
-      const q = this.caseQuery.trim();
-      if (q.length < 1) { this.caseResults = []; this.showDropdown = false; return; }
-      this.searchingCases = true;
-      try {
-        const resp = await fetch(`/api/v1/cases/search?q=${encodeURIComponent(q)}&limit=10`, {
-          headers: { 'X-CSRFToken': csrfToken }
-        });
-        if (resp.ok) {
-          this.caseResults = await resp.json();
-          this.showDropdown = this.caseResults.length > 0;
-        }
-      } catch (e) {
-        this.caseResults = [];
-      } finally {
-        this.searchingCases = false;
-      }
-    },
-
-    // Select a case from dropdown
-    selectCase(c) {
-      this.selectedCase = c;
-      this.caseId = c.id;
-      this.caseQuery = c.name;
-      this.showDropdown = false;
-      this.partyError = '';
-      this.step = 'input';
-      // Parties come from the search response
-      this.parties = (c.parties || []).map(p => ({
-        id: p.id,
-        name: p.client_detail?.name || `当事人${p.id}`,
-        role: p.legal_status || '',
-      }));
-      this.selectedPartyIds = [];
-    },
-
-    // Step 2: Toggle party selection
-    toggleParty(partyId) {
-      const idx = this.selectedPartyIds.indexOf(partyId);
-      if (idx === -1) {
-        this.selectedPartyIds.push(partyId);
-      } else {
-        this.selectedPartyIds.splice(idx, 1);
-      }
-      this.step = 'input';
-    },
-
-    toggleAllParties(checked) {
-      if (checked) {
-        this.selectedPartyIds = this.parties.map(p => p.id);
-      } else {
-        this.selectedPartyIds = [];
-      }
-      this.step = 'input';
-    },
-
-    // Step 4: Load preview for the first selected party
-    async loadPreview() {
-      if (!this.caseId || this.selectedPartyIds.length === 0) return;
-      this.loadingPreview = true;
-      this.previewItems = [];
-
-      try {
-        const partyId = this.selectedPartyIds[0];
-        let url = `/api/v1/documents/external-templates/${templateId}/preview/?case_id=${this.caseId}`;
-        if (partyId) url += `&party_id=${partyId}`;
-
-        const resp = await fetch(url, {
-          headers: { 'X-CSRFToken': csrfToken }
-        });
-        if (!resp.ok) {
-          this.partyError = '{% translate "加载预览失败" %}';
-          return;
-        }
-        const data = await resp.json();
-        this.previewItems = data.fields || [];
-
-        // Merge custom values into preview
-        this.previewItems.forEach(item => {
-          if (this.customValues[item.mapping_id]) {
-            item.fill_value = this.customValues[item.mapping_id];
-            item.value_source = 'manual';
-          }
-        });
-
-        this.step = 'preview';
-      } catch (e) {
-        this.partyError = '{% translate "网络错误，请重试" %}';
-      } finally {
-        this.loadingPreview = false;
-      }
-    },
-
-    // Step 5: Confirm and generate
-    async confirmFill() {
-      if (!this.caseId || this.selectedPartyIds.length === 0) return;
-      this.filling = true;
-      this.results = {};
-
-      try {
-        const body = {
-          template_ids: [templateId],
-          case_id: parseInt(this.caseId),
-          party_ids: this.selectedPartyIds,
-          custom_values: {}
-        };
-
-        // Build custom_values keyed by template_id
-        const cv = {};
-        Object.keys(this.customValues).forEach(k => {
-          if (this.customValues[k]) {
-            cv[k] = this.customValues[k];
-          }
-        });
-        if (Object.keys(cv).length > 0) {
-          body.custom_values[templateId] = cv;
-        }
-
-        const resp = await fetch('/api/v1/documents/external-templates/fill/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-          },
-          body: JSON.stringify(body),
-        });
-
-        const data = await resp.json();
-        if (resp.ok && data.success) {
-          this.results = { success: true, ...data };
-        } else {
-          this.results = { error: data.message || '{% translate "填充失败" %}' };
-        }
-        this.step = 'result';
-      } catch (e) {
-        this.results = { error: '{% translate "网络错误，请重试" %}' };
-        this.step = 'result';
-      } finally {
-        this.filling = false;
-      }
-    },
-  };
-}
-</script>
 {% endblock %}
