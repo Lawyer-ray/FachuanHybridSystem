@@ -94,10 +94,10 @@ class FillingService:
             fill_value: str = ""
             value_source: str = "empty"
 
-            if mapping.placeholder_key and mapping.placeholder_key in placeholder_values:
-                fill_value = str(placeholder_values[mapping.placeholder_key])
+            if mapping.semantic_label in placeholder_values:
+                fill_value = str(placeholder_values[mapping.semantic_label])
                 value_source = "auto"
-            elif not mapping.placeholder_key and mapping.semantic_label in merged_custom:
+            elif mapping.semantic_label in merged_custom:
                 fill_value = merged_custom[mapping.semantic_label]
                 value_source = "manual"
 
@@ -121,14 +121,13 @@ class FillingService:
         return preview_items
 
     def get_custom_fields(self, template_id: int) -> list[dict[str, Any]]:
-        """获取需要手动输入的自定义字段列表（placeholder_key 为空的映射）"""
+        """获取所有字段映射列表（供填充页面展示）"""
         from apps.documents.models.external_template import (
             ExternalTemplateFieldMapping,
         )
 
         mappings = ExternalTemplateFieldMapping.objects.filter(
             template_id=template_id,
-            placeholder_key="",
         ).order_by("sort_order", "id")
 
         fields: list[dict[str, Any]] = []
@@ -137,12 +136,11 @@ class FillingService:
                 "mapping_id": mapping.id,
                 "semantic_label": mapping.semantic_label,
                 "fill_type": mapping.fill_type,
-                "options": mapping.options,
                 "position_description": mapping.position_description,
             })
 
         logger.info(
-            "自定义字段获取: template_id=%d, count=%d",
+            "字段列表获取: template_id=%d, count=%d",
             template_id,
             len(fields),
         )
@@ -245,28 +243,18 @@ class FillingService:
 
         for mapping in mappings:
             value: str = ""
-            # 确定值来源
-            if mapping.placeholder_key and mapping.placeholder_key in placeholder_values:
-                value = placeholder_values[mapping.placeholder_key]
-            elif not mapping.placeholder_key and mapping.semantic_label in merged_custom:
+            # 确定值来源：优先占位符体系，其次自定义值
+            if mapping.semantic_label in placeholder_values:
+                value = placeholder_values[mapping.semantic_label]
+            elif mapping.semantic_label in merged_custom:
                 value = merged_custom[mapping.semantic_label]
-            elif not mapping.placeholder_key:
-                # 无占位符键且用户未提供自定义值 → 跳过
+            else:
                 manual_needed.append(mapping.semantic_label)
                 skipped_count += 1
                 logger.info(
-                    "跳过需手动填写字段: template_id=%d, label=%s",
+                    "跳过无值字段: template_id=%d, label=%s",
                     template_id,
                     mapping.semantic_label,
-                )
-                continue
-            elif mapping.placeholder_key not in placeholder_values:
-                # 有占位符键但无对应值 → 跳过
-                skipped_count += 1
-                logger.info(
-                    "占位符值缺失: template_id=%d, key=%s",
-                    template_id,
-                    mapping.placeholder_key,
                 )
                 continue
 
@@ -279,7 +267,7 @@ class FillingService:
                     success = self._write_checkbox(doc, mapping.position_locator, value)
                 elif mapping.fill_type == "delete_inapplicable":
                     success = self._write_delete_inapplicable(
-                        doc, mapping.position_locator, value, mapping.options
+                        doc, mapping.position_locator, value
                     )
                 else:
                     logger.warning(
@@ -330,11 +318,9 @@ class FillingService:
             except Exception:
                 logger.warning("获取当事人名称失败: party_id=%d", party_id)
 
-        is_confirmed: bool = all(m.is_confirmed for m in mappings)
         output_name: str = self._generate_output_filename(
-            template.name, party_name, is_confirmed
+            template.name, party_name
         )
-
         # 6. 构建填充报告
         report: dict[str, Any] = {
             "total_fields": len(list(mappings)),
@@ -534,12 +520,9 @@ class FillingService:
         doc: Any,
         locator: dict[str, Any],
         value: str,
-        options: list[str],
     ) -> bool:
         """
-        删除不适用项：保留匹配项，删除其余选项及分隔符（/）。
-
-        Requirements: 6.2, 6.10
+        删除不适用项：value 为要保留的选项文本，直接替换整个位置内容。
         """
         try:
             locator_type: str = locator.get("type", "")
@@ -548,11 +531,6 @@ class FillingService:
             if locator_type == "paragraph":
                 para_index: int = locator.get("paragraph_index", 0)
                 if para_index >= len(doc.paragraphs):
-                    logger.warning(
-                        "段落索引越界: index=%d, total=%d",
-                        para_index,
-                        len(doc.paragraphs),
-                    )
                     return False
                 paragraph = doc.paragraphs[para_index]
 
@@ -563,17 +541,14 @@ class FillingService:
 
                 if table_index >= len(doc.tables):
                     return False
-
                 table = doc.tables[table_index]
                 if row >= len(table.rows) or col >= len(table.columns):
                     return False
-
                 cell = table.cell(row, col)
                 if cell.paragraphs:
                     paragraph = cell.paragraphs[0]
 
             elif locator_type == "delete_inapplicable":
-                # 兼容直接使用 paragraph_index 的定位器
                 para_index = locator.get("paragraph_index", 0)
                 if para_index < len(doc.paragraphs):
                     paragraph = doc.paragraphs[para_index]
@@ -582,35 +557,14 @@ class FillingService:
                 logger.warning("无法定位删除不适用项段落: locator=%s", locator)
                 return False
 
-            # 获取当前文本
-            current_text: str = paragraph.text
-
-            # 在选项中找到匹配项
-            matched_option: str = value
-            if not matched_option and options:
-                matched_option = options[0]
-
-            # 构建新文本：用匹配项替换 "选项A/选项B/选项C" 格式
-            for option in options:
-                if option != matched_option:
-                    # 删除不匹配的选项及其前后的分隔符
-                    current_text = current_text.replace(f"/{option}", "")
-                    current_text = current_text.replace(f"{option}/", "")
-                    current_text = current_text.replace(option, "")
-
-            # 清理多余的分隔符
-            while "//" in current_text:
-                current_text = current_text.replace("//", "/")
-            current_text = current_text.strip("/").strip()
-
-            # 写回段落，保留格式
+            # 直接用保留项替换
             runs = paragraph.runs
             if runs:
-                runs[0].text = current_text
+                runs[0].text = value
                 for run in runs[1:]:
                     run.text = ""
             else:
-                paragraph.add_run(current_text)
+                paragraph.add_run(value)
 
             return True
 
@@ -626,28 +580,15 @@ class FillingService:
         self,
         template_name: str,
         party_name: str | None = None,
-        is_confirmed: bool = True,
     ) -> str:
         """
         生成输出文件名。
-
-        格式：
-        - 有当事人: "{template_name}_{party_name}.docx"
-        - 无当事人: "{template_name}.docx"
-        - 未确认映射: "[未确认]{template_name}_{party_name}.docx"
-
-        Requirements: 5.8, 15.4
+        格式：有当事人 "{template_name}_{party_name}.docx"，无当事人 "{template_name}.docx"
         """
         base_name: str = template_name
         if party_name:
             base_name = f"{template_name}_{party_name}"
-
-        filename: str = f"{base_name}.docx"
-
-        if not is_confirmed:
-            filename = f"[{_('未确认')}]{filename}"
-
-        return filename
+        return f"{base_name}.docx"
 
     # ------------------------------------------------------------------
     # 批量填充
