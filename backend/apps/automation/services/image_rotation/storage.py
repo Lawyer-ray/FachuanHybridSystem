@@ -4,14 +4,14 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from apps.core.config import get_config
 from apps.core.path import Path
 
 
 def ensure_output_dir() -> Any:
-    media_root = get_config("django.media_root", None)
+    from django.conf import settings
+    media_root = getattr(settings, "MEDIA_ROOT", None)
     if not media_root:
-        raise RuntimeError("django.media_root 未配置")
+        raise RuntimeError("MEDIA_ROOT 未配置")
     output_dir = Path(str(media_root)) / "image_rotation"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
