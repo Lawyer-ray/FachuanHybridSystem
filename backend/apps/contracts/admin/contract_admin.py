@@ -50,7 +50,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
 
     class Meta:
         model = FinalizedMaterial
-        fields = ("file", "category", "remark", "original_filename", "uploaded_at")
+        fields = ("file", "category", "remark", "original_filename")
 
     def save(self, commit: bool = True) -> FinalizedMaterial:
         instance = super().save(commit=False)
@@ -68,7 +68,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseTabularInline):
+class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
@@ -82,21 +82,21 @@ class FinalizedMaterialInline(BaseTabularInline):
         obj.delete()
 
 
-class ContractPartyInline(BaseTabularInline):
+class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
     model = ContractParty
     extra = 1
     fields = ("client", "role")
     show_change_link = True
 
 
-class ContractAssignmentInline(BaseTabularInline):
+class ContractAssignmentInline(BaseTabularInline):  # type: ignore[type-arg]
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
 
 
-class SupplementaryAgreementPartyInline(BaseTabularInline):
+class SupplementaryAgreementPartyInline(BaseTabularInline):  # type: ignore[type-arg]
     """补充协议当事人内联（嵌套在补充协议中）"""
 
     model = SupplementaryAgreementParty
@@ -105,7 +105,7 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):
     autocomplete_fields: ClassVar = ["client"]
 
 
-class SupplementaryAgreementInline(BaseStackedInline):
+class SupplementaryAgreementInline(BaseStackedInline):  # type: ignore[type-arg]
     """补充协议内联（在合同中）"""
 
     model = SupplementaryAgreement
@@ -120,7 +120,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 
 @admin.register(Contract)
-class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, BaseModelAdmin):  # type: ignore[misc]
+class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, BaseModelAdmin):  # type: ignore[type-arg]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
