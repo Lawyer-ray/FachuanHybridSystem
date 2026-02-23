@@ -39,20 +39,12 @@ class ExternalTemplate(models.Model):
         max_length=50,
         verbose_name=_("模板类别"),
     )
-    court = models.ForeignKey(
-        "core.Court",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("关联法院"),
-        help_text=_("来源类型为法院时关联的法院"),
-    )
-    organization_name = models.CharField(
+    source_name = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        verbose_name=_("机构名称"),
-        help_text=_("破产管理人、仲裁委员会等机构名称"),
+        verbose_name=_("来源机构"),
+        help_text=_("法院名称或其他机构名称"),
     )
     file_path = models.CharField(
         max_length=500,
@@ -133,7 +125,7 @@ class ExternalTemplate(models.Model):
         verbose_name_plural = _("外部模板")
         ordering: ClassVar = ["-updated_at"]
         indexes: ClassVar = [
-            models.Index(fields=["law_firm", "court", "category"]),
+            models.Index(fields=["law_firm", "source_name", "category"]),
             models.Index(fields=["law_firm", "is_active"]),
             models.Index(fields=["structure_fingerprint"]),
             models.Index(fields=["status"]),

@@ -8,17 +8,8 @@
 
 {% block extrahead %}
 {{ block.super }}
-{# 编辑页：把当前法院名称注入到隐藏字段的 data 属性，供 JS 回填搜索框 #}
-{% if original and original.court %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const courtInput = document.getElementById('id_court');
-    if (courtInput) {
-        courtInput.dataset.courtName = '{{ original.court.name|escapejs }}';
-    }
-});
-</script>
-{% endif %}
+<script src="{% static 'cases/js/autocomplete.js' %}"></script>
+<script src="{% static 'cases/js/autocomplete_init.js' %}"></script>
 {% endblock %}
 
 {% block after_related_objects %}
@@ -44,235 +35,47 @@ document.addEventListener('DOMContentLoaded', function() {
         </a>
     </div>
 </div>
-{% else %}
-{# 新增页：只需初始化法院搜索和 source_type 切换 #}
-<div x-data="externalTemplateForm()" x-init="init()" style="display:none;"></div>
 {% endif %}
 {% endblock %}
 
 {% block extrajs %}
 {{ block.super }}
-<style>
-.et-court-autocomplete { position: relative; }
-.et-court-autocomplete .et-court-dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 9999;
-    background: #fff; border: 1px solid #ccc; border-top: none;
-    max-height: 240px; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,.12);
-}
-.et-court-autocomplete .et-court-item {
-    padding: 8px 12px; cursor: pointer; font-size: 0.875rem;
-}
-.et-court-autocomplete .et-court-item:hover,
-.et-court-autocomplete .et-court-item.highlighted { background: #e8f0fe; }
-.et-court-autocomplete .et-court-item.disabled { color: #aaa; cursor: default; }
-.et-court-autocomplete input.et-court-input {
-    width: 100%; box-sizing: border-box;
-}
-</style>
 <script>
-function courtAutocomplete(config) {
-    return {
-        query: config.initialName || '',
-        selectedId: config.initialId || '',
-        results: [],
-        isOpen: false,
-        highlighted: -1,
-        loading: false,
-        timer: null,
-
-        init() {
-            // 隐藏原始 select，用隐藏 input 代替提交 ID
-            const origSelect = document.getElementById('id_court');
-            if (origSelect) {
-                origSelect.style.display = 'none';
-                // 同步选中值到原始 select（Django 表单提交用）
-                this.$watch('selectedId', val => {
-                    origSelect.value = val;
-                });
-                // 初始化时同步
-                if (this.selectedId) origSelect.value = this.selectedId;
-            }
-            document.addEventListener('click', e => {
-                if (!this.$el.contains(e.target)) this.close();
-            });
-        },
-
-        onInput(e) {
-            this.query = e.target.value;
-            if (!this.query.trim()) {
-                this.selectedId = '';
-                this.close();
-                return;
-            }
-            clearTimeout(this.timer);
-            this.timer = setTimeout(() => this.search(this.query), 300);
-        },
-
-        async search(q) {
-            this.loading = true;
-            try {
-                const url = `/api/v1/cases/courts-data?search=${encodeURIComponent(q)}&limit=20`;
-                const resp = await fetch(url, { credentials: 'same-origin' });
-                const data = await resp.json();
-                this.results = Array.isArray(data) ? data : [];
-                this.highlighted = -1;
-                this.isOpen = true;
-                if (!this.results.length) {
-                    this.results = [{ id: null, name: '{% translate "无匹配结果" %}', disabled: true }];
-                }
-            } catch(err) {
-                this.results = [{ id: null, name: '{% translate "搜索失败" %}', disabled: true }];
-                this.isOpen = true;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        select(item) {
-            if (item.disabled) return;
-            this.query = item.name;
-            this.selectedId = item.id;
-            this.close();
-        },
-
-        handleKeydown(e) {
-            const valid = this.results.filter(r => !r.disabled);
-            if (e.key === 'ArrowDown') { e.preventDefault(); this.highlighted = Math.min(this.highlighted + 1, valid.length - 1); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); this.highlighted = Math.max(this.highlighted - 1, -1); }
-            else if (e.key === 'Enter') { e.preventDefault(); if (this.highlighted >= 0) this.select(valid[this.highlighted]); }
-            else if (e.key === 'Escape') this.close();
-        },
-
-        close() { this.isOpen = false; this.highlighted = -1; },
-
-        isHighlighted(item) {
-            const valid = this.results.filter(r => !r.disabled);
-            return valid.indexOf(item) === this.highlighted;
-        }
-    };
-}
-
 function externalTemplateForm() {
     return {
         status: '{{ original.status|default:"" }}',
-        sourceType: '',
-        courtFieldRow: null,
-        orgField: null,
-
-        get canAnalyze() {
-            return this.status === 'uploaded' || this.status === 'analysis_failed';
-        },
-        get canConfirm() {
-            return this.status === 'mapped';
-        },
-        get canFill() {
-            return this.status === 'confirmed';
-        },
+        get canAnalyze() { return this.status === 'uploaded' || this.status === 'analysis_failed'; },
+        get canConfirm() { return this.status === 'mapped'; },
+        get canFill() { return this.status === 'confirmed'; },
 
         init() {
-            this.setupSourceTypeToggle();
-            this.setupCourtAutocomplete();
             this.setupPlaceholderDropdowns();
-        },
-
-        setupSourceTypeToggle() {
-            const sourceSelect = document.getElementById('id_source_type');
-            if (!sourceSelect) return;
-            this.courtFieldRow = document.querySelector('.field-court');
-            this.orgField = document.querySelector('.field-organization_name');
-            this.sourceType = sourceSelect.value;
-            this.toggleSourceFields();
-            sourceSelect.addEventListener('change', () => {
-                this.sourceType = sourceSelect.value;
-                this.toggleSourceFields();
-            });
-        },
-
-        toggleSourceFields() {
-            if (!this.courtFieldRow || !this.orgField) return;
-            if (this.sourceType === 'court') {
-                this.courtFieldRow.style.display = '';
-                this.orgField.style.display = 'none';
-            } else {
-                this.courtFieldRow.style.display = 'none';
-                this.orgField.style.display = '';
-            }
-        },
-
-        setupCourtAutocomplete() {
-            // court 字段现在是 HiddenInput，直接在其后插入搜索框
-            const hiddenInput = document.getElementById('id_court');
-            if (!hiddenInput) return;
-
-            // 读取当前值（编辑页回填）
-            const initialId = hiddenInput.value || '';
-            // 尝试从 data 属性获取初始名称（编辑页由模板注入）
-            const initialName = hiddenInput.dataset.courtName || '';
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'et-court-autocomplete';
-            wrapper.setAttribute('x-data', `courtAutocomplete({ initialId: '${initialId}', initialName: '${initialName.replace(/'/g, "\\'")}' })`);
-            wrapper.setAttribute('x-init', 'init()');
-            wrapper.innerHTML = `
-                <input
-                    class="vTextField et-court-input"
-                    type="text"
-                    placeholder="{% translate '请输入法院名称...' %}"
-                    autocomplete="off"
-                    x-model="query"
-                    @input="onInput($event)"
-                    @keydown="handleKeydown($event)"
-                    @focus="query && query.trim() && !isOpen && search(query)"
-                >
-                <div class="et-court-dropdown" x-show="isOpen" x-cloak>
-                    <template x-for="(item, idx) in results" :key="idx">
-                        <div
-                            class="et-court-item"
-                            :class="{ disabled: item.disabled, highlighted: isHighlighted(item) }"
-                            @mousedown.prevent="select(item)"
-                            x-text="item.name"
-                        ></div>
-                    </template>
-                </div>
-            `;
-            // 插入到 hiddenInput 之后
-            hiddenInput.parentNode.insertBefore(wrapper, hiddenInput.nextSibling);
         },
 
         setupPlaceholderDropdowns() {
             {% if original %}
             const templateId = {{ original.pk }};
-            const inlineRows = document.querySelectorAll('.dynamic-field_mappings .form-row:not(.empty-form)');
-            if (inlineRows.length === 0) return;
-
             fetch(`/api/v1/documents/external-templates/${templateId}/custom-fields/`)
                 .then(resp => resp.json())
                 .then(data => {
                     const keys = (data.fields || []).map(f => f.placeholder_key).filter(Boolean);
                     this.convertToDropdowns(keys);
                 })
-                .catch(err => {
-                    console.error('{% translate "加载占位符列表失败" %}', err);
-                });
+                .catch(err => console.error('{% translate "加载占位符列表失败" %}', err));
             {% endif %}
         },
 
         convertToDropdowns(keys) {
-            const inputs = document.querySelectorAll(
-                '.dynamic-field_mappings input[id$="-placeholder_key"]'
-            );
-            inputs.forEach(input => {
+            document.querySelectorAll('.dynamic-field_mappings input[id$="-placeholder_key"]').forEach(input => {
                 const currentVal = input.value;
                 const select = document.createElement('select');
                 select.name = input.name;
                 select.id = input.id;
                 select.className = input.className;
-
                 const emptyOpt = document.createElement('option');
                 emptyOpt.value = '';
                 emptyOpt.textContent = '-- {% translate "手动填写" %} --';
                 select.appendChild(emptyOpt);
-
                 keys.forEach(key => {
                     const opt = document.createElement('option');
                     opt.value = key;
@@ -280,7 +83,6 @@ function externalTemplateForm() {
                     if (key === currentVal) opt.selected = true;
                     select.appendChild(opt);
                 });
-
                 input.parentNode.replaceChild(select, input);
             });
         }
