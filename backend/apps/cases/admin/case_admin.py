@@ -32,9 +32,6 @@ class CasePartyInline(BaseTabularInline):
     fields = ("client", "legal_status")
     classes = ["contract-party-inline"]
 
-    def has_view_or_change_permission(self, request: Any, obj: Any = None) -> bool:
-        return False
-
     class Media:
         js = (
             "cases/admin_caseparty.js",
@@ -46,9 +43,6 @@ class CasePartyInline(BaseTabularInline):
 class CaseAssignmentInline(BaseTabularInline):
     model = CaseAssignment
     extra = 1
-
-    def has_view_or_change_permission(self, request: Any, obj: Any = None) -> bool:
-        return False
 
 
 class SupervisingAuthorityInline(BaseTabularInline):
