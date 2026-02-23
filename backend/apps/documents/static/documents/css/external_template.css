@@ -22,3 +22,8 @@
     pointer-events: none;
     cursor: not-allowed;
 }
+
+/* 填充预览 - 空值红色背景 */
+.et-empty-value {
+    background: #fff0f0 !important;
+}
