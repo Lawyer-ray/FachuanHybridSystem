@@ -13,7 +13,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .choices import FillType, SourceType, TemplateCategory, TemplateStatus
+from .choices import FillType, TemplateCategory, TemplateStatus
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -37,13 +37,7 @@ class ExternalTemplate(models.Model):
     )
     category = models.CharField(
         max_length=50,
-        choices=TemplateCategory.choices,
         verbose_name=_("模板类别"),
-    )
-    source_type = models.CharField(
-        max_length=20,
-        choices=SourceType.choices,
-        verbose_name=_("来源类型"),
     )
     court = models.ForeignKey(
         "core.Court",

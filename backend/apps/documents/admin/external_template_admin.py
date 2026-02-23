@@ -26,6 +26,31 @@ from apps.documents.models import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+from django.utils.html import mark_safe
+
+
+class CategoryDatalistWidget(forms.TextInput):
+    """支持 datalist 的文本输入框：既可选已有类别，也可自由输入"""
+
+    def __init__(self, attrs: dict[str, Any] | None = None) -> None:
+        super().__init__(attrs={**(attrs or {}), "list": "category-datalist"})
+
+    def render(self, name: str, value: Any, attrs: Any = None, renderer: Any = None) -> str:
+        from apps.documents.models import ExternalTemplate
+        from apps.documents.models.choices import TemplateCategory
+
+        html: str = super().render(name, value, attrs, renderer)
+        existing: list[str] = list(
+            ExternalTemplate.objects.values_list("category", flat=True)
+            .distinct()
+            .order_by("category")
+        )
+        presets: list[str] = [c.label for c in TemplateCategory]
+        all_options: list[str] = sorted(set(existing) | set(presets))
+        options = "".join(f'<option value="{o}">' for o in all_options if o)
+        return mark_safe(html + f'<datalist id="category-datalist">{options}</datalist>')  # noqa: S308
+
+
 class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
     """新增外部模板表单：包含文件上传字段，court 用隐藏字段 + JS 搜索替代"""
 
@@ -37,10 +62,10 @@ class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "source_type", "court", "organization_name")
+        fields = ("name", "category", "court", "organization_name")
         widgets: ClassVar[dict[str, Any]] = {
-            # 隐藏原始 select，由 change_form.html 中的 Alpine.js 组件接管
             "court": forms.HiddenInput(),
+            "category": CategoryDatalistWidget(),
         }
 
 
@@ -49,9 +74,10 @@ class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "source_type", "court", "organization_name", "is_active")
+        fields = ("name", "category", "court", "organization_name", "is_active")
         widgets: ClassVar[dict[str, Any]] = {
             "court": forms.HiddenInput(),
+            "category": CategoryDatalistWidget(),
         }
 
 
@@ -107,7 +133,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     list_filter: ClassVar[list[str]] = [
         "status",
         "category",
-        "source_type",
         "is_active",
     ]
     search_fields: ClassVar[list[str]] = [
@@ -123,7 +148,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     add_fields: ClassVar[tuple[str, ...]] = (
         "name",
         "category",
-        "source_type",
         "court",
         "organization_name",
         "docx_file",
@@ -133,7 +157,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     change_fields: ClassVar[tuple[str, ...]] = (
         "name",
         "category",
-        "source_type",
         "court",
         "organization_name",
         "status",
@@ -223,7 +246,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
                     file=docx_file,
                     name=form.cleaned_data["name"],
                     category=form.cleaned_data["category"],
-                    source_type=form.cleaned_data["source_type"],
                     court_id=form.cleaned_data["court"].pk if form.cleaned_data.get("court") else None,
                     organization_name=form.cleaned_data.get("organization_name", ""),
                     uploaded_by=request.user,
@@ -262,7 +284,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     @admin.display(description=_("来源"))
     def source_display(self, obj: ExternalTemplate) -> str:
         """来源显示: 法院名称或机构名称"""
-        if obj.source_type == "court" and obj.court:
+        if obj.court:
             return str(obj.court.name)
         if obj.organization_name:
             return obj.organization_name
