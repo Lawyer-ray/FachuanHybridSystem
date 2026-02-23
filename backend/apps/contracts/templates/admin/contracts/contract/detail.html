@@ -55,6 +55,7 @@
             <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">当事人与律师</button>
             <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">收费与财务</button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">文档与提醒</button>
+            <button type="button" @click="activeTab = 'finalized'" :class="{ active: activeTab === 'finalized' }">{% translate "定稿材料" %}</button>
         </nav>
 
         <div class="tab-content">
@@ -62,6 +63,7 @@
             {% include "admin/contracts/contract/partials/parties_lawyers.html" %}
             {% include "admin/contracts/contract/partials/finance.html" %}
             {% include "admin/contracts/contract/partials/documents.html" %}
+            {% include "admin/contracts/contract/partials/finalized_materials.html" %}
         </div>
     </div>
 

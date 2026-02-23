@@ -177,6 +177,7 @@ class ContractDisplayMixin:
                 "related_cases": ctx_data["related_cases"],
                 "finalized_materials": ctx_data["finalized_materials"],
                 "finalized_materials_grouped": ctx_data["finalized_materials_grouped"],
+                "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
 
