@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from apps.documents.models.choices import LegalStatusMatchMode, DocumentCaseStage, DocumentTemplateType, FolderTemplateType
+from apps.documents.models.folder_template import FolderTemplate
 from django.utils.translation import gettext_lazy as _
 
 import logging
