@@ -23,6 +23,9 @@ class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreeme
     verbose_name = _("当事人")
     verbose_name_plural = _("当事人")
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreementParty, SupplementaryAgreementParty]:
+        return super().get_queryset(request).exclude(role="PRINCIPAL")
+
     class Media:
         js = ("contracts/js/party_role_auto.js",)
 
