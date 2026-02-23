@@ -1,9 +1,9 @@
 {% load i18n %}
 <!-- 收费与财务标签页 -->
 <div x-show="activeTab === 'finance'" x-cloak>
-    <div class="info-grid two-columns" style="align-items: stretch;">
+    <div class="info-grid two-columns">
         <!-- 收费条款卡片 -->
-        <div class="info-card" style="margin-bottom: 0;">
+        <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">💰</span>
                 <h3 class="card-title">收费条款</h3>
@@ -35,7 +35,7 @@
         </div>
 
         <!-- 履行进度卡片 -->
-        <div class="info-card" style="margin-bottom: 0;">
+        <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📈</span>
                 <h3 class="card-title">履行进度</h3>
@@ -76,11 +76,9 @@
             </div>
             {% endif %}
         </div>
-    </div>
 
-    <div class="info-grid two-columns" style="align-items: stretch; margin-top: 20px;">
         <!-- 收款记录卡片 -->
-        <div class="info-card" style="margin-bottom: 0;">
+        <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📊</span>
                 <h3 class="card-title">收款记录</h3>
@@ -112,7 +110,7 @@
         </div>
 
         <!-- 开票汇总卡片 -->
-        <div class="info-card" style="margin-bottom: 0;">
+        <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">🧾</span>
                 <h3 class="card-title">开票汇总</h3>
