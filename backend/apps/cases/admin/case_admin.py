@@ -86,7 +86,7 @@ class CaseLogInline(BaseStackedInline):
 @admin.register(Case)
 class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, CaseAdminServiceMixin, BaseModelAdmin):
     form = CaseAdminForm
-    list_display = ("id", "name_link", "status", "start_date", "effective_date", "is_archived")
+    list_display = ("id_link", "name_link", "status", "start_date", "effective_date", "is_archived")
     list_display_links = None
     list_filter = ("status", "is_archived")
     search_fields = ("name",)

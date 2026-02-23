@@ -61,6 +61,13 @@ def _log_inline_formset(inline_formset: Any, logger: logging.Logger) -> None:
 
 
 class CaseAdminViewsMixin:
+    def id_link(self, obj: Case) -> str:
+        change_url = reverse("admin:cases_case_change", args=[obj.pk])
+        return format_html('<a href="{}">{}</a>', change_url, obj.pk)
+
+    id_link.short_description = "ID"  # type: ignore[attr-defined]
+    id_link.admin_order_field = "id"  # type: ignore[attr-defined]
+
     def name_link(self, obj: Case) -> str:
         detail_url = reverse("admin:cases_case_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', detail_url, obj.name)
