@@ -213,6 +213,10 @@ class ContractAdminService:
         for material in finalized_materials:
             finalized_materials_grouped.setdefault(material.category, []).append(material)
 
+        from apps.contracts.services.contract.invoice_upload_service import InvoiceUploadService
+
+        invoices_by_payment = InvoiceUploadService().list_invoices_by_contract(contract.pk)
+
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,

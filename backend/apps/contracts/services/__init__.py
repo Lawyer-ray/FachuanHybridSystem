@@ -9,6 +9,7 @@ Contracts Services Module
 
 # 新版服务（从子包导入）
 from .contract.contract_admin_service import ContractAdminService
+from .contract.invoice_upload_service import InvoiceUploadService
 from .contract.contract_display_service import ContractDisplayService
 from .contract.contract_progress_service import ContractProgressService
 from .contract.contract_service import ContractService

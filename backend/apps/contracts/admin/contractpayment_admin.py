@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
+from django import forms
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
-from apps.contracts.models import ContractPayment, InvoiceStatus
+from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
@@ -21,6 +22,56 @@ else:
     except ImportError:
         BaseModelAdmin = admin.ModelAdmin
         BaseTabularInline = admin.TabularInline
+
+
+class InvoiceAdminForm(forms.ModelForm[Invoice]):
+    file = forms.FileField(
+        required=False,
+        label=_("上传发票"),
+        help_text=_("支持 PDF、JPG、JPEG、PNG，最大 20MB"),
+    )
+
+    class Meta:
+        model = Invoice
+        fields = ("file", "remark", "original_filename")
+        widgets = {
+            "remark": forms.Textarea(attrs={"rows": 2, "cols": 20, "style": "width:160px;resize:vertical;"}),
+        }
+
+    def save(self, commit: bool = True) -> Invoice:
+        instance = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("file")
+        if uploaded_file:
+            from apps.contracts.admin.wiring_admin import get_invoice_upload_service
+
+            svc = get_invoice_upload_service()
+            payment_id: int = instance.payment_id or self.instance.payment_id
+            saved = svc.save_invoice_file(uploaded_file, payment_id)
+            instance.file_path = saved.file_path
+            instance.original_filename = saved.original_filename
+            # 文件已由 service 创建记录，直接返回
+            return saved
+        if commit:
+            instance.save()
+        return instance
+
+
+class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
+    model = Invoice
+    form = InvoiceAdminForm
+    extra = 1
+    fields: ClassVar = ("file", "original_filename", "uploaded_at", "remark")
+    readonly_fields: ClassVar = ("original_filename", "uploaded_at")
+
+    def delete_model(self, request: HttpRequest, obj: Invoice) -> None:
+        from apps.contracts.admin.wiring_admin import get_invoice_upload_service
+
+        svc = get_invoice_upload_service()
+        try:
+            svc.delete_invoice(obj.pk)
+        except Exception:
+            # 即使 service 抛出，也确保 Admin 不崩溃
+            obj.delete()
 
 
 class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment]):
@@ -56,11 +107,12 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
 
 
 @admin.register(ContractPayment)
-class ContractPaymentAdmin(admin.ModelAdmin[ContractPayment]):
+class ContractPaymentAdmin(BaseModelAdmin[ContractPayment]):  # type: ignore[type-arg]
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")
     list_filter = ("invoice_status", "received_at")
     search_fields = ("contract__name",)
     autocomplete_fields = ("contract",)
+    inlines: ClassVar = [InvoiceInline]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[ContractPayment, ContractPayment]:
         return super().get_queryset(request).select_related("contract")
