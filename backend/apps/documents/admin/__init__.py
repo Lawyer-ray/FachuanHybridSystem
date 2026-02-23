@@ -7,6 +7,7 @@ Documents Admin 模块
 from .audit_log_admin import TemplateAuditLogAdmin
 from .document_template_admin import DocumentTemplateAdmin
 from .evidence_admin import EvidenceListAdmin
+from .external_template_admin import ExternalTemplateAdmin
 from .folder_binding_admin import DocumentTemplateFolderBindingAdmin
 from .folder_template_admin import FolderTemplateAdmin
 from .placeholder_admin import PlaceholderAdmin
@@ -25,4 +26,6 @@ __all__ = [
     "PromptVersionAdmin",
     # 授权委托书
     "ProxyMatterRuleAdmin",
+    # 外部模板
+    "ExternalTemplateAdmin",
 ]
