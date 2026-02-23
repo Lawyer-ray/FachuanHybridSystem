@@ -57,8 +57,7 @@ class AnalysisService:
         file: UploadedFile,
         name: str,
         category: str,
-        court_id: int | None,
-        organization_name: str,
+        source_name: str,
         uploaded_by: Any,
     ) -> ExternalTemplate:
         """
@@ -66,7 +65,7 @@ class AnalysisService:
         1. 校验 .docx 格式、文件大小 ≤ 20MB
         2. 保存文件（UUID 重命名）
         3. 验证 python-docx 可解析
-        4. 处理版本管理（同法院/机构 + 类别组合自增版本号）
+        4. 处理版本管理（同机构 + 类别组合自增版本号）
         5. 创建 ExternalTemplate 记录
         """
         from apps.documents.models.external_template import ExternalTemplate
@@ -91,16 +90,14 @@ class AnalysisService:
         with transaction.atomic():
             version, deactivated = self._handle_versioning(
                 law_firm_id=law_firm_id,
-                court_id=court_id,
+                source_name=source_name,
                 category=category,
-                organization_name=organization_name,
             )
 
             template: ExternalTemplate = ExternalTemplate.objects.create(
                 name=name,
                 category=category,
-                court_id=court_id,
-                organization_name=organization_name,
+                source_name=source_name,
                 file_path=rel_path,
                 original_filename=original_filename,
                 file_size=file_size,
@@ -184,9 +181,8 @@ class AnalysisService:
         self,
         *,
         law_firm_id: int,
-        court_id: int | None,
+        source_name: str,
         category: str,
-        organization_name: str,
     ) -> tuple[int, int]:
         """
         处理版本管理：同一来源 + 类别组合自增版本号，旧版本 is_active=False
@@ -199,15 +195,8 @@ class AnalysisService:
         existing = ExternalTemplate.objects.filter(
             law_firm_id=law_firm_id,
             category=category,
+            source_name=source_name,
         )
-
-        if court_id is not None:
-            existing = existing.filter(court_id=court_id)
-        else:
-            existing = existing.filter(
-                court__isnull=True,
-                organization_name=organization_name,
-            )
 
         max_version: int | None = existing.order_by("-version").values_list(
             "version", flat=True

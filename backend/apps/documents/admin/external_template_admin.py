@@ -52,7 +52,7 @@ class CategoryDatalistWidget(forms.TextInput):
 
 
 class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
-    """新增外部模板表单：包含文件上传字段，court 用隐藏字段 + JS 搜索替代"""
+    """新增外部模板表单"""
 
     docx_file = forms.FileField(
         label=_("模板文件 (.docx)"),
@@ -62,22 +62,34 @@ class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "court", "organization_name")
+        fields = ("name", "category", "source_name")
         widgets: ClassVar[dict[str, Any]] = {
-            "court": forms.HiddenInput(),
             "category": CategoryDatalistWidget(),
+            "source_name": forms.TextInput(
+                attrs={
+                    "class": "vTextField js-court-autocomplete",
+                    "placeholder": _("请输入法院或机构名称..."),
+                    "autocomplete": "off",
+                }
+            ),
         }
 
 
 class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
-    """编辑外部模板表单：court 同样用隐藏字段 + JS 搜索"""
+    """编辑外部模板表单"""
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "court", "organization_name", "is_active")
+        fields = ("name", "category", "source_name", "is_active")
         widgets: ClassVar[dict[str, Any]] = {
-            "court": forms.HiddenInput(),
             "category": CategoryDatalistWidget(),
+            "source_name": forms.TextInput(
+                attrs={
+                    "class": "vTextField js-court-autocomplete",
+                    "placeholder": _("请输入法院或机构名称..."),
+                    "autocomplete": "off",
+                }
+            ),
         }
 
 
@@ -124,7 +136,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     list_display: ClassVar[list[str]] = [
         "name",
         "category",
-        "source_display",
+        "source_name",
         "status",
         "version",
         "is_active",
@@ -137,8 +149,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     ]
     search_fields: ClassVar[list[str]] = [
         "name",
-        "organization_name",
-        "court__name",
+        "source_name",
     ]
     inlines: ClassVar[list[type[admin.TabularInline]]] = [  # type: ignore[type-arg]
         ExternalTemplateFieldMappingInline,
@@ -148,8 +159,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     add_fields: ClassVar[tuple[str, ...]] = (
         "name",
         "category",
-        "court",
-        "organization_name",
+        "source_name",
         "docx_file",
     )
 
@@ -157,8 +167,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     change_fields: ClassVar[tuple[str, ...]] = (
         "name",
         "category",
-        "court",
-        "organization_name",
+        "source_name",
         "status",
         "version",
         "is_active",
@@ -246,8 +255,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
                     file=docx_file,
                     name=form.cleaned_data["name"],
                     category=form.cleaned_data["category"],
-                    court_id=form.cleaned_data["court"].pk if form.cleaned_data.get("court") else None,
-                    organization_name=form.cleaned_data.get("organization_name", ""),
+                    source_name=form.cleaned_data.get("source_name", ""),
                     uploaded_by=request.user,
                 )
                 # 用 service 创建的对象替换 obj，避免重复 save
@@ -280,15 +288,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             ),
         ]
         return custom_urls + urls
-
-    @admin.display(description=_("来源"))
-    def source_display(self, obj: ExternalTemplate) -> str:
-        """来源显示: 法院名称或机构名称"""
-        if obj.court:
-            return str(obj.court.name)
-        if obj.organization_name:
-            return obj.organization_name
-        return "-"
 
     def analyze_view(
         self, request: HttpRequest, template_id: int

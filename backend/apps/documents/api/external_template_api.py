@@ -153,8 +153,7 @@ def preview_fill(
 def match_templates(
     request: HttpRequest,
     case_id: int | None = None,
-    court_id: int | None = None,
-    organization_name: str | None = None,
+    source_name: str | None = None,
 ) -> dict[str, Any]:
     """模板匹配推荐"""
     service = _get_matching_service()
@@ -166,14 +165,12 @@ def match_templates(
 
     if case_id is not None:
         results = service.match_by_case(case_id=case_id, law_firm_id=law_firm_id)
-    elif court_id is not None:
-        results = service.match_by_court(court_id=court_id, law_firm_id=law_firm_id)
-    elif organization_name is not None:
-        results = service.match_by_organization(
-            organization_name=organization_name, law_firm_id=law_firm_id,
+    elif source_name is not None:
+        results = service.match_by_source_name(
+            source_name=source_name, law_firm_id=law_firm_id,
         )
     else:
-        return {"success": False, "message": str(_("请提供 case_id、court_id 或 organization_name 参数"))}
+        return {"success": False, "message": str(_("请提供 case_id 或 source_name 参数"))}
 
     return {
         "success": True,
