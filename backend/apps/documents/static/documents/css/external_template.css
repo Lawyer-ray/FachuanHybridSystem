@@ -23,7 +23,60 @@
     cursor: not-allowed;
 }
 
+/* 映射编辑表格 */
+.et-mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.et-mapping-table th,
+.et-mapping-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.et-mapping-table th {
+    background: #f8f8f8;
+    font-weight: 600;
+}
+
+/* 填充预览表格 */
+.et-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.et-preview-table th,
+.et-preview-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.et-preview-table th {
+    background: #f8f8f8;
+    font-weight: 600;
+}
+
 /* 填充预览 - 空值红色背景 */
 .et-empty-value {
     background: #fff0f0 !important;
+}
+
+/* 来源类型切换动画 */
+.et-source-toggle {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    max-height: 200px;
+    opacity: 1;
+}
+
+.et-source-toggle[x-cloak],
+.et-source-toggle.hidden {
+    max-height: 0;
+    opacity: 0;
 }
