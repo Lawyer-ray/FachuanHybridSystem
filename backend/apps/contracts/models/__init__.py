@@ -25,6 +25,9 @@ from .payment import ContractPayment, InvoiceStatus
 # supplementary.py - 补充协议相关模型
 from .supplementary import SupplementaryAgreement, SupplementaryAgreementParty
 
+# finalized_material.py - 结案材料相关模型和枚举
+from .finalized_material import FinalizedMaterial, MaterialCategory
+
 __all__ = [
     # contract.py
     "Contract",
@@ -44,4 +47,7 @@ __all__ = [
     "SupplementaryAgreementParty",
     # folder_binding.py
     "ContractFolderBinding",
+    # finalized_material.py
+    "FinalizedMaterial",
+    "MaterialCategory",
 ]
