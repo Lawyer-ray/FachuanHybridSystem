@@ -8,8 +8,6 @@ from typing import Any
 
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
-from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
@@ -46,7 +44,9 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return True
 
-    def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
+    def has_change_permission(
+        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
+    ) -> bool:
         return True
 
     def get_fields(  # type: ignore[override]
@@ -56,8 +56,38 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
             return ["name"]
         return ["name", "status", "created_by", "created_at", "finished_at"]
 
-    def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
+    def has_delete_permission(
+        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
+    ) -> bool:
         return True
+
+    def save_model(
+        self,
+        request: HttpRequest,
+        obj: InvoiceRecognitionTask,
+        form: Any,
+        change: bool,
+    ) -> None:
+        if not change and obj.created_by_id is None:
+            obj.created_by = request.user  # type: ignore[assignment]
+        super().save_model(request, obj, form, change)
+
+    def change_view(
+        self,
+        request: HttpRequest,
+        object_id: str,
+        form_url: str = "",
+        extra_context: dict[str, Any] | None = None,
+    ) -> HttpResponse:
+        extra: dict[str, Any] = extra_context or {}
+        try:
+            task = InvoiceRecognitionTask.objects.get(pk=object_id)
+            grouped_data: dict[str, Any] = self._get_service().get_grouped_records(task.id)
+            extra["invoice_task"] = task
+            extra["invoice_grouped_data"] = grouped_data
+        except InvoiceRecognitionTask.DoesNotExist:
+            pass
+        return super().change_view(request, object_id, form_url, extra_context=extra)
 
     def status_display(self, obj: InvoiceRecognitionTask) -> SafeString:
         """状态显示（带颜色）"""
@@ -75,7 +105,9 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         }
         color = color_map.get(obj.status, "gray")
         label = label_map.get(obj.status, obj.status)
-        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, label)
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>', color, label
+        )
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
@@ -95,46 +127,6 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
             return "-"
 
     total_amount_display.short_description = _("非重复总金额")  # type: ignore[attr-defined]
-
-    def get_urls(self) -> list[Any]:
-        urls = super().get_urls()
-        custom_urls = [
-            path(
-                "<int:task_id>/detail/",
-                self.admin_site.admin_view(self.detail_view),
-                name="automation_invoicerecognitiontask_detail",
-            ),
-        ]
-        return custom_urls + urls
-
-    def detail_view(self, request: HttpRequest, task_id: int) -> HttpResponse:
-        """任务详情页"""
-        task = get_object_or_404(InvoiceRecognitionTask, pk=task_id)
-        grouped_data: dict[str, Any] = self._get_service().get_grouped_records(task_id)
-        context: dict[str, Any] = {
-            **self.admin_site.each_context(request),
-            "task": task,
-            "grouped_data": grouped_data,
-            "opts": self.model._meta,
-            "title": str(_("发票识别任务详情")),
-        }
-        return render(request, "admin/automation/invoice_recognition/detail.html", context)
-
-    def change_view(
-        self,
-        request: HttpRequest,
-        object_id: str,
-        form_url: str = "",
-        extra_context: dict[str, Any] | None = None,
-    ) -> HttpResponse:
-        from django.urls import reverse
-
-        extra: dict[str, Any] = extra_context or {}
-        extra["detail_url"] = reverse(
-            "admin:automation_invoicerecognitiontask_detail",
-            args=[object_id],
-        )
-        return super().change_view(request, object_id, form_url, extra_context=extra)
 
     def _get_service(self) -> Any:
         from apps.automation.services.wiring import get_invoice_recognition_service
