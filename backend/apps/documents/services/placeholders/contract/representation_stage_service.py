@@ -19,7 +19,7 @@ class RepresentationStageService(BasePlaceholderService):
 
     name: str = "representation_stage_service"
     display_name: str = "代理阶段服务"
-    description: str = "格式化代理阶段,第二个及以后加(如有)"
+    description: str = "格式化代理阶段,第二个及以后加（如有）"
     category: str = "contract"
     placeholder_keys: ClassVar = ["代理阶段"]
 
@@ -66,9 +66,9 @@ class RepresentationStageService(BasePlaceholderService):
 
             # 如果有2个及以上的代理阶段,在后面的阶段中加入(如有)
             if len(stage_names) >= 2:
-                formatted_stages = [stage_names[0]]  # 第一个阶段不加(如有)
+                formatted_stages = [stage_names[0]]  # 第一个阶段不加（如有）
                 for stage in stage_names[1:]:
-                    formatted_stages.append(f"{stage}(如有)")
+                    formatted_stages.append(f"{stage}（如有）")
                 return "、".join(formatted_stages)
             else:
                 return "、".join(stage_names)

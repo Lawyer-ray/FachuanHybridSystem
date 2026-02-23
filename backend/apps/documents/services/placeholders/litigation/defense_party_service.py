@@ -178,9 +178,9 @@ class DefensePartyService(BasePlaceholderService):
                 original_index = original_parties.index(party_dict)
                 original_total = len(original_parties)
                 original_label = self.formatter.get_role_label(chinese_role, original_index, original_total)
-                role_with_original = f"{respondent_label}({original_label})"
+                role_with_original = f"{respondent_label}（{original_label}）"
             else:
-                role_with_original = f"{respondent_label}({chinese_role})"
+                role_with_original = f"{respondent_label}（{chinese_role}）"
 
             result_parts.append(self._format_party_block(role_with_original, party_dict))
 
@@ -193,9 +193,9 @@ class DefensePartyService(BasePlaceholderService):
             plaintiff_label = self._numbered_label("被答辩人", index, total)
             if total > 1:
                 num = chinese_numbers[index] if index < len(chinese_numbers) else str(index + 1)
-                role_with_original = f"{plaintiff_label}(原告{num})"
+                role_with_original = f"{plaintiff_label}（原告{num}）"
             else:
-                role_with_original = f"{plaintiff_label}(原告)"
+                role_with_original = f"{plaintiff_label}（原告）"
 
             result_parts.append(self._format_party_block(role_with_original, party_dict))
 
@@ -229,7 +229,7 @@ class DefensePartyService(BasePlaceholderService):
             f"地址：{address}\n"
             f"统一社会信用代码：{credit_code}\n"
             f"法定代表人：{legal_rep}\n"
-            f"{'电话' if role_label.startswith('被答辩人') else '联系电话'}：:{phone}"
+            f"{'电话' if role_label.startswith('被答辩人') else '联系电话'}：{phone}"
         )
 
     def _numbered_label(self, base: str, index: int, total: int) -> str:

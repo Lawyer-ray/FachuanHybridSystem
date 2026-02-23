@@ -25,8 +25,8 @@ class BeneficiaryIdService(BasePlaceholderService):
     placeholder_metadata: ClassVar = {
         "受益人_证件号码": {
             "display_name": "受益人证件号码",
-            "description": "受益人的名称和证件号码,格式:XXX(身份证号码：123352342).如无受益人则使用委托人信息",
-            "example_value": "张三(身份证号码：110101199001011234)、李四(身份证号码：110101199002022345)",
+            "description": "受益人的名称和证件号码,格式:XXX（身份证号码：123352342）.如无受益人则使用委托人信息",
+            "example_value": "张三（身份证号码：110101199001011234）、李四（身份证号码：110101199002022345）",
         }
     }
 
@@ -107,7 +107,7 @@ class BeneficiaryIdService(BasePlaceholderService):
             client: Client 实例
 
         Returns:
-            格式化的字符串,如 "张三(身份证号码：110101199001011234)"
+            格式化的字符串,如 "张三（身份证号码：110101199001011234）"
         """
         try:
             name = getattr(client, "name", None) or ""
@@ -117,7 +117,7 @@ class BeneficiaryIdService(BasePlaceholderService):
                 return ""
 
             if id_number:
-                return f"{name}(身份证号码：{id_number})"
+                return f"{name}（身份证号码：{id_number}）"
             else:
                 return name
 
