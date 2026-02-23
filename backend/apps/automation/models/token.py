@@ -7,8 +7,6 @@ from typing import Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.model_fields.encrypted import EncryptedTextField
-
 
 class CourtToken(models.Model):
     """法院系统 Token 存储"""
@@ -16,7 +14,7 @@ class CourtToken(models.Model):
     id: int
     site_name = models.CharField(max_length=128, verbose_name=_("网站名称"), help_text=_("如:court_zxfw"))
     account = models.CharField(max_length=128, verbose_name=_("账号"))
-    token = EncryptedTextField(verbose_name=_("Token"), help_text=_("JWT Token 或其他认证令牌"))
+    token = models.TextField(verbose_name=_("Token"), help_text=_("JWT Token 或其他认证令牌"))
     token_type = models.CharField(
         max_length=32, default="Bearer", verbose_name=_("Token 类型"), help_text=_("如:Bearer, JWT")
     )
