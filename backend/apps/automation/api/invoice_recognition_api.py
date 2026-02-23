@@ -36,7 +36,7 @@ def _get_download_service() -> Any:
 def upload_invoices(
     request: Any,
     task_id: int,
-    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
     """多文件上传 + 自动识别"""
     from django.core.exceptions import ObjectDoesNotExist, ValidationError

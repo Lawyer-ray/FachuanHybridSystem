@@ -229,6 +229,16 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // 隐藏 inline 行里的 __str__ 显示文字（td.original > p）
+  (function () {
+    const style = document.createElement("style");
+    style.textContent =
+      "#contract_parties-group td.original p," +
+      "#assignments-group td.original p," +
+      "#supplementary_agreements-group td.original p { display:none; }";
+    document.head.appendChild(style);
+  })();
+
   document.addEventListener("DOMContentLoaded", function () {
     init();
     setTimeout(function () {
