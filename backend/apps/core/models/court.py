@@ -32,6 +32,8 @@ class Court(models.Model):
     level = models.IntegerField(default=1, verbose_name=_("层级"))
     province = models.CharField(max_length=50, blank=True, verbose_name=_("省份"))
     is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("法院")
