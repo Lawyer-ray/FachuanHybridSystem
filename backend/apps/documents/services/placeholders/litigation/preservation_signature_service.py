@@ -27,7 +27,7 @@ class PreservationSignatureService(BasePlaceholderService):
         "财产保全申请书签名盖章信息": {
             "display_name": "财产保全申请书签名盖章信息",
             "description": "申请人的签名盖章信息,原告替换为申请人,只包含我方当事人",
-            "example_value": "申请人(签名+指模):张三\n日期:2025年01月27日",
+            "example_value": "申请人（签名+指模）:张三\n日期:2025年01月27日",
         }
     }
 
@@ -118,12 +118,12 @@ class PreservationSignatureService(BasePlaceholderService):
             if self.formatter.is_natural_person_from_dict(party_dict):
                 # 自然人签名格式
                 name = party_dict.get("client_name") or ""
-                signature_block = f"{role}(签名+指模)：{name}\n日期：{date_str}"
+                signature_block = f"{role}（签名+指模）：{name}\n日期：{date_str}"
             else:
                 # 法人签名格式
                 company_name = party_dict.get("client_name") or ""
                 legal_rep = party_dict.get("legal_representative") or ""
-                signature_block = f"{role}(盖章)：{company_name}\n法定代表人(签名)：{legal_rep}\n日期：{date_str}"
+                signature_block = f"{role}（盖章）：{company_name}\n法定代表人（签名）：{legal_rep}\n日期：{date_str}"
 
             signature_blocks.append(signature_block)
 

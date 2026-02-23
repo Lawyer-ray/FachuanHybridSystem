@@ -47,8 +47,8 @@ class PrincipalSignatureService(BasePlaceholderService):
         格式化委托人签名盖章信息
 
         根据委托人类型生成不同格式:
-        - 自然人:甲方(签名+指模):姓名
-        - 非自然人:甲方(盖章):公司名称
+        - 自然人:甲方（签名+指模）:姓名
+        - 非自然人:甲方（盖章）:公司名称
 
         Args:
             contract: Contract 实例
@@ -149,9 +149,9 @@ class PrincipalSignatureService(BasePlaceholderService):
             client: Client 实例
 
         Returns:
-            签名格式字符串:自然人返回"(签名+指模)",非自然人返回"(盖章)"
+            签名格式字符串:自然人返回"（签名+指模）",非自然人返回"（盖章）"
         """
         if self._is_natural_person(client):
-            return "(签名+指模)"
+            return "（签名+指模）"
         else:
-            return "(盖章)"
+            return "（盖章）"

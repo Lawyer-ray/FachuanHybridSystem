@@ -88,9 +88,9 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
         格式化签名盖章信息
 
         根据委托人数量和类型生成不同格式:
-        - 单个自然人:甲方(签名+指模):name\n指定日期
-        - 单个法人/非法人组织:甲方(盖章):name\n代表:\n指定日期
-        - 多个委托人：甲方一(签名+指模):name\n指定日期\n\n甲方二(盖章):name\n代表:\n指定日期
+        - 单个自然人:甲方（签名+指模）:name\n指定日期
+        - 单个法人/非法人组织:甲方（盖章）:name\n代表:\n指定日期
+        - 多个委托人：甲方一（签名+指模）:name\n指定日期\n\n甲方二（盖章）:name\n代表:\n指定日期
 
         Args:
             principals: 委托人列表
@@ -181,9 +181,9 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
             client: Client 实例
 
         Returns:
-            签名格式字符串:自然人返回"(签名+指模)",非自然人返回"(盖章)"
+            签名格式字符串:自然人返回"（签名+指模）",非自然人返回"（盖章）"
         """
         if self._is_natural_person(client):
-            return "(签名+指模)"
+            return "（签名+指模）"
         else:
-            return "(盖章)"
+            return "（盖章）"
