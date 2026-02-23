@@ -67,16 +67,21 @@ def detect_orientation(request: HttpRequest) -> dict[str, Any]:
     images: list[dict[str, Any]] = payload.get("images", [])
     if not images:
         return {"success": False, "results": []}
-    service = _get_pdf_service()
+    pdf_service = _get_pdf_service()
     results = []
     for img in images:
         try:
-            result: dict[str, Any] = service.detect_single_page_orientation(img.get("data", ""))
+            data: str = img.get("data", "")
+            if "," in data:
+                data = data.split(",", 1)[1]
+            import base64 as _b64
+            image_bytes = _b64.b64decode(data)
+            result: dict[str, Any] = pdf_service.orientation_service.detect_orientation_with_text(image_bytes)
             result["filename"] = img.get("filename", "")
             results.append(result)
         except Exception as exc:
             logger.error("detect_orientation 失败: %s", exc, exc_info=True)
-            results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0})
+            results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": ""})
     return {"success": True, "results": results}
 
 
