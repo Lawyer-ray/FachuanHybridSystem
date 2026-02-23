@@ -6,7 +6,7 @@ from django.contrib import admin
 
 from apps.cases.admin.base import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
-from apps.cases.admin.case_forms_admin import CaseAdminForm
+from apps.cases.admin.case_forms_admin import CaseAdminForm, SupervisingAuthorityInlineForm
 from apps.cases.models import (
     Case,
     CaseAssignment,
@@ -55,6 +55,7 @@ class SupervisingAuthorityInline(BaseTabularInline):
     """主管机关内联"""
 
     model = SupervisingAuthority
+    form = SupervisingAuthorityInlineForm
     extra = 1
     fields = ("name", "authority_type")
 
