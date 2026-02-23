@@ -254,5 +254,5 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         name = getattr(client, "name", "") or ""
         legal_rep = getattr(client, "legal_representative", "") or ""
         if client_type == "natural":
-            return [f"委托人(签名+指模):{name}", f"日期:{specified_date_text}"]
-        return [f"委托人(盖章):{name}", f"法定代表人(签名):{legal_rep}", f"日期:{specified_date_text}"]
+            return [f"委托人(签名+指模)：{name}", f"日期：{specified_date_text}"]
+        return [f"委托人(盖章)：{name}", f"法定代表人(签名)：{legal_rep}", f"日期：{specified_date_text}"]

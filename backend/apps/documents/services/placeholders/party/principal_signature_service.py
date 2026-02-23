@@ -81,11 +81,11 @@ class PrincipalSignatureService(BasePlaceholderService):
                 # 单个委托人
                 client = principals[0]
                 signature_format = self._get_signature_format(client)
-                lines.append(f"甲方{signature_format}:{client.name}")
+                lines.append(f"甲方{signature_format}：{client.name}")
 
                 # 非自然人需要代表行
                 if not self._is_natural_person(client):
-                    lines.append("代表:")
+                    lines.append("代表：")
 
                 lines.append(specified_date)
             else:
@@ -98,11 +98,11 @@ class PrincipalSignatureService(BasePlaceholderService):
                     client_lines: list[Any] = []
 
                     signature_format = self._get_signature_format(client)
-                    client_lines.append(f"甲方{number}{signature_format}:{client.name}")
+                    client_lines.append(f"甲方{number}{signature_format}：{client.name}")
 
                     # 非自然人需要代表行
                     if not self._is_natural_person(client):
-                        client_lines.append("代表:")
+                        client_lines.append("代表：")
 
                     client_lines.append(specified_date)
                     client_sections.append("\n".join(client_lines))
