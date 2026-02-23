@@ -10,8 +10,15 @@ Requirements: 16.1, 16.2, 17.1, 17.2, 17.3
 from __future__ import annotations
 
 import logging
+import shutil
+import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from xml.etree import ElementTree as ET
+
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
     from apps.documents.services.placeholders.registry import PlaceholderRegistry

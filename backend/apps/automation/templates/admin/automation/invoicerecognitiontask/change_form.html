@@ -290,9 +290,15 @@ function invoiceApp() {
             this.duplicates = [];
             for (const r of this.records) {
                 if (r.is_duplicate) { this.duplicates.push(r); continue; }
-                const key = r.category || 'other';
+                // 优先按项目名称分组，无项目名称则按发票类目
+                const key = r.project_name || r.category || 'other';
                 if (!groupMap[key]) {
-                    groupMap[key] = { category: key, label: r.category_label || key, records: [], subtotal: 0 };
+                    groupMap[key] = {
+                        category: r.category,
+                        label: r.project_name || r.category_label || key,
+                        records: [],
+                        subtotal: 0
+                    };
                 }
                 groupMap[key].records.push(r);
                 groupMap[key].subtotal += parseFloat(r.total_amount || 0);
