@@ -7,6 +7,8 @@ from typing import Any
 
 # 关键字列表，用于智能分割无换行文本
 _FIELD_KEYWORDS: list[str] = [
+    "名称",
+    "类型",
     "法定代表人",
     "法人代表",
     "负责人",
@@ -146,6 +148,9 @@ _SMART_NAME_PATTERN = re.compile(
     re.DOTALL,
 )
 
+# 支持 "名称: xxx" / "名称：xxx" 格式
+_NAME_FIELD_PATTERN = re.compile(r"(?:^|\n)\s*名称\s*[:：]\s*([^\n]+)", re.IGNORECASE)
+
 
 def _extract_name_smart(text: str) -> str | None:
     """智能提取名称"""
@@ -153,9 +158,16 @@ def _extract_name_smart(text: str) -> str | None:
     if name:
         return name
 
-    match = _SMART_NAME_PATTERN.search(text)
+    # 支持 "名称: xxx" 格式
+    match = _NAME_FIELD_PATTERN.search(text)
     if match:
-        name = _WHITESPACE_PATTERN.sub("", match.group(1).strip())
+        name = match.group(1).strip()
+        if name:
+            return name
+
+    match2 = _SMART_NAME_PATTERN.search(text)
+    if match2:
+        name = _WHITESPACE_PATTERN.sub("", match2.group(1).strip())
         if name:
             return name
 
@@ -294,7 +306,7 @@ def _extract_address(text: str) -> str | None:
     match = _ADDRESS_PATTERN.search(text)
     if not match:
         return None
-    address = _PAREN_CLEANUP_PATTERN.sub("", match.group(1).strip()).strip()
+    address = match.group(1).strip()
     return address or None
 
 
