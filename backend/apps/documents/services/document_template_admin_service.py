@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.core.path import Path
-from apps.documents.models.choices import LegalStatusMatchMode
+from apps.documents.models.choices import DocumentTemplateType, LegalStatusMatchMode
 
 logger = logging.getLogger(__name__)
 
