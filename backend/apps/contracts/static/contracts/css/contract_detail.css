@@ -132,7 +132,6 @@
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    box-sizing: border-box;
 }
 
 .tab-nav {
@@ -173,8 +172,6 @@
 
 .tab-content {
     padding: 24px;
-    box-sizing: border-box;
-    overflow: hidden;
 }
 
 [x-cloak] {
@@ -185,16 +182,11 @@
 .info-grid {
     display: grid;
     gap: 20px;
-    min-width: 0;
 }
 
 .info-grid.two-columns {
     grid-template-columns: repeat(2, 1fr);
     align-items: stretch;
-}
-
-.info-grid.two-columns > * {
-    min-width: 0;
 }
 
 .info-grid.two-columns > .info-card {
