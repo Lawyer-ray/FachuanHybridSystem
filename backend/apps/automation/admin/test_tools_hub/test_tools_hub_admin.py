@@ -69,13 +69,6 @@ class TestToolsHubAdmin(admin.ModelAdmin):
                 "color": "primary",
             },
             {
-                "name": "测试法院系统",
-                "description": "测试法院系统登录、Token 获取等功能",
-                "url": "automation_testcourt_changelist",
-                "icon": icon_court,
-                "color": "secondary",
-            },
-            {
                 "name": "财产保全日期识别",
                 "description": "从法院文书中识别财产保全措施的到期时间",
                 "url": "automation_preservationdatetest_changelist",
