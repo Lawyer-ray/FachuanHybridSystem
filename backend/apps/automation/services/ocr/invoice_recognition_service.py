@@ -185,6 +185,7 @@ class InvoiceRecognitionService:
                 record.total_amount = parsed.total_amount
                 record.buyer_name = parsed.buyer_name
                 record.seller_name = parsed.seller_name
+                record.project_name = parsed.project_name
                 record.category = parsed.category
                 record.raw_text = raw_text
                 record.status = InvoiceRecordStatus.SUCCESS
@@ -247,6 +248,7 @@ class InvoiceRecognitionService:
                     "total_amount": r.total_amount,
                     "buyer_name": r.buyer_name,
                     "seller_name": r.seller_name,
+                    "project_name": r.project_name,
                     "category": r.category,
                     "raw_text": r.raw_text,
                     "is_duplicate": r.is_duplicate,

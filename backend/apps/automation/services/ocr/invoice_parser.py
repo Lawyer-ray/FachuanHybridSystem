@@ -19,6 +19,7 @@ class ParsedInvoice:
     total_amount: Decimal | None = field(default=None)
     buyer_name: str = field(default="")
     seller_name: str = field(default="")
+    project_name: str = field(default="")
     category: str = field(default="other")
 
 
@@ -29,9 +30,13 @@ class InvoiceParser:
     _CODE_PATTERN: re.Pattern[str] = re.compile(
         r"(?:发票代码|No\.)[^\d]*(\d{10,12})"
     )
-    # 发票号码：8 位数字，前面有关键词
+    # 发票号码：8位（旧版）或20位（新版电子发票），前面有关键词
     _NUMBER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:发票号码|No\.)[^\d]*(\d{8})(?!\d)"
+        r"(?:发票号码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)"
+    )
+    # 项目名称：*类目*具体名称 格式，截止到空格/换行
+    _PROJECT_PATTERN: re.Pattern[str] = re.compile(
+        r"\*[^*]+\*([^\s\n\r]{2,50})"
     )
     # 日期：YYYY年MM月DD日 或 YYYY-MM-DD
     _DATE_CN_PATTERN: re.Pattern[str] = re.compile(
@@ -87,6 +92,7 @@ class InvoiceParser:
         total_amount = self._extract_total_amount(raw_text)
         buyer_name = self._extract_buyer_name(raw_text)
         seller_name = self._extract_seller_name(raw_text)
+        project_name = self._extract_project_name(raw_text)
         category = self.detect_category(raw_text)
 
         logger.info(
@@ -105,6 +111,7 @@ class InvoiceParser:
             total_amount=total_amount,
             buyer_name=buyer_name,
             seller_name=seller_name,
+            project_name=project_name,
             category=category,
         )
 
@@ -201,4 +208,8 @@ class InvoiceParser:
         m = re.search(
             r"(?:销售方名称|销方名称|销售方)[：:]\s*([^\n\r]{2,50})", text
         )
+        return m.group(1).strip() if m else ""
+
+    def _extract_project_name(self, text: str) -> str:
+        m = self._PROJECT_PATTERN.search(text)
         return m.group(1).strip() if m else ""

@@ -149,3 +149,49 @@ class LegalStatusMatchMode(models.TextChoices):
     ANY = "any", _("任意匹配")
     ALL = "all", _("全部包含")
     EXACT = "exact", _("完全一致")
+
+
+# ============================================================
+# 外部模板选项
+# ============================================================
+
+
+class TemplateCategory(models.TextChoices):
+    """外部模板类别"""
+
+    PROPERTY_DECLARATION = "property_declaration", _("财产申报表")
+    SERVICE_ADDRESS = "service_address", _("送达地址确认书")
+    CREDITOR_DECLARATION = "creditor_declaration", _("债权申报表")
+    ELEMENT_COMPLAINT = "element_complaint", _("要素式诉状")
+    POWER_OF_ATTORNEY = "power_of_attorney", _("授权委托书")
+    LEGAL_AID = "legal_aid", _("法律援助申请表")
+    PRESERVATION_APPLICATION = "preservation_application", _("财产保全申请书")
+    OTHER = "other", _("其他")
+
+
+class SourceType(models.TextChoices):
+    """模板来源类型"""
+
+    COURT = "court", _("法院")
+    ADMINISTRATOR = "administrator", _("破产管理人")
+    ARBITRATION = "arbitration", _("仲裁委员会")
+    ADMINISTRATIVE = "administrative", _("行政机关")
+    OTHER = "other", _("其他")
+
+
+class FillType(models.TextChoices):
+    """字段填充类型"""
+
+    TEXT = "text", _("文本替换")
+    CHECKBOX = "checkbox", _("勾选复选框")
+    DELETE_INAPPLICABLE = "delete_inapplicable", _("删除不适用项")
+
+
+class TemplateStatus(models.TextChoices):
+    """外部模板状态"""
+
+    UPLOADED = "uploaded", _("已上传")
+    ANALYZING = "analyzing", _("分析中")
+    ANALYSIS_FAILED = "analysis_failed", _("分析失败")
+    MAPPED = "mapped", _("已映射")
+    CONFIRMED = "confirmed", _("已确认")
