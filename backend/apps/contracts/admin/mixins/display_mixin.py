@@ -8,17 +8,21 @@ Contract Admin - Display Mixin
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
-from django.http import Http404
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.urls import path, reverse
+from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, NotFoundError
+
+if TYPE_CHECKING:
+    from django.contrib.admin import ModelAdmin
+    from django.db.models import Model
 
 logger = logging.getLogger("apps.contracts")
 
@@ -40,14 +44,21 @@ def _get_contract_display_service() -> Any:
 class ContractDisplayMixin:
     """合同 Admin 显示相关方法的 Mixin"""
 
+    if TYPE_CHECKING:
+        admin_site: Any
+        model: type[Model]
+
+        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
+        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
+
     @admin.display(description=_("合同名称"), ordering="name")
-    def name_link(self, obj) -> Any:
+    def name_link(self, obj: Any) -> Any:
         """生成指向详情页的合同名称链接"""
         url = reverse("admin:contracts_contract_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', url, obj.name)
 
     @admin.display(description=_("主办律师"))
-    def get_primary_lawyer(self, obj) -> Any:
+    def get_primary_lawyer(self, obj: Any) -> Any:
         """显示主办律师（使用 prefetch_related 数据避免 N+1）"""
         for assignment in obj.assignments.all():
             if assignment.is_primary:
@@ -63,7 +74,7 @@ class ContractDisplayMixin:
         return None
 
     @admin.display(description=_("主办律师"))
-    def get_primary_lawyer_display(self, obj) -> Any:
+    def get_primary_lawyer_display(self, obj: Any) -> Any:
         """详情页显示主办律师(只读)"""
         from apps.contracts.admin.wiring_admin import get_contract_assignment_query_service
 
@@ -76,7 +87,7 @@ class ContractDisplayMixin:
         return _("无")
 
     @admin.display(description=_("建档编号"))
-    def filing_number_display(self, obj) -> Any:
+    def filing_number_display(self, obj: Any) -> Any:
         """显示建档编号(只读)
 
         如果合同已有建档编号,显示编号;否则显示"未生成".
@@ -88,7 +99,7 @@ class ContractDisplayMixin:
         return _("未生成")
 
     @admin.display(description=_("匹配的合同模板"))
-    def get_matched_template_display(self, obj) -> Any:
+    def get_matched_template_display(self, obj: Any) -> Any:
         """显示匹配的合同模板
 
         Requirements: 1.4
@@ -104,7 +115,7 @@ class ContractDisplayMixin:
             return _("查询失败")
 
     @admin.display(description=_("匹配的文件夹模板"))
-    def get_matched_folder_templates_display(self, obj) -> Any:
+    def get_matched_folder_templates_display(self, obj: Any) -> Any:
         """显示匹配的文件夹模板
 
         Requirements: 7.1
@@ -121,7 +132,7 @@ class ContractDisplayMixin:
 
     def get_urls(self) -> Any:
         """添加自定义 URL 路由"""
-        urls = super().get_urls()
+        urls: list[URLPattern] = super().get_urls()  # type: ignore[misc]
         custom_urls = [
             path(
                 "<int:object_id>/detail/",
@@ -131,7 +142,7 @@ class ContractDisplayMixin:
         ]
         return custom_urls + urls
 
-    def detail_view(self, request, object_id) -> Any:
+    def detail_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
         """合同详情页视图"""
         # 权限检查
         if not self.has_view_permission(request):
@@ -183,7 +194,7 @@ class ContractDisplayMixin:
 
         return render(request, "admin/contracts/contract/detail.html", context)
 
-    def _check_contract_template(self, contract) -> Any:
+    def _check_contract_template(self, contract: Any) -> Any:
         """
         检查是否有匹配的合同模板
 
@@ -200,7 +211,7 @@ class ContractDisplayMixin:
             logger.error("检查合同 %s 的文书模板失败: %s", contract.id, e, exc_info=True)
             return False
 
-    def _check_folder_template(self, contract) -> Any:
+    def _check_folder_template(self, contract: Any) -> Any:
         """
         检查是否有匹配的文件夹模板
 
