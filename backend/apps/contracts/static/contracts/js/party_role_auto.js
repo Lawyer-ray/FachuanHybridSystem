@@ -1,13 +1,13 @@
 /**
  * 当事人身份自动填充：选择非我方当事人时，自动将身份设为"对方当事人"
+ * 支持普通 select 和 select2 autocomplete 两种场景
  */
 (function () {
   "use strict";
 
   const OPPOSING_VALUE = "OPPOSING";
 
-  function handleClientChange(clientSelect) {
-    const clientId = clientSelect.value;
+  function checkAndSetRole(clientSelect, clientId) {
     if (!clientId) return;
     const row = clientSelect.closest("tr");
     if (!row) return;
@@ -29,14 +29,25 @@
   function bindClientSelect(select) {
     if (select.dataset.partyRoleBound) return;
     select.dataset.partyRoleBound = "1";
+
+    // 普通 select
     select.addEventListener("change", function () {
-      handleClientChange(this);
+      checkAndSetRole(this, this.value);
     });
+
+    // select2 autocomplete：从事件 params 取 id，避免时序问题
+    const $ = window.django && window.django.jQuery;
+    if ($ && select.classList.contains("admin-autocomplete")) {
+      $(select).on("select2:select", function (e) {
+        const id = e.params && e.params.data && e.params.data.id;
+        checkAndSetRole(select, id || select.value);
+      });
+    }
   }
 
   function bindAll() {
     document.querySelectorAll('select[name*="-client"]').forEach(function (sel) {
-      // 只处理当事人 inline 中的 client（同行有 role select）
+      if (sel.dataset.partyRoleBound) return;
       const row = sel.closest("tr");
       if (row && row.querySelector('select[name*="-role"]')) {
         bindClientSelect(sel);
@@ -44,10 +55,14 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function init() {
     bindAll();
-    // 监听动态新增行
     const observer = new MutationObserver(bindAll);
     observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    init();
+    setTimeout(bindAll, 300);
   });
 })();
