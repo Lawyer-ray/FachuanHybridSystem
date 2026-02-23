@@ -1,0 +1,24 @@
+/* 外部模板 Admin 样式 */
+
+/* 操作按钮区域 */
+.et-action-buttons {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    flex-wrap: wrap;
+}
+
+.et-btn {
+    padding: 8px 16px !important;
+    text-decoration: none !important;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.et-btn.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+}

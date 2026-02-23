@@ -62,6 +62,8 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     通过工厂函数获取 Service, 不直接实例化.
     """
 
+    change_form_template: str = "admin/documents/external_template/change_form.html"
+
     list_display: ClassVar[list[str]] = [
         "name",
         "category",
