@@ -495,6 +495,45 @@ class CourtZxfwService:
 
         return str(filepath)
 
+    def fetch_baoquan_token(self, save_debug: bool = False) -> dict[str, Any]:
+        """登录后导航到保全系统页面，捕获 HS512 Token"""
+        if not self.is_logged_in:
+            raise ValueError("请先登录")
+
+        baoquan_url = "https://baoquan.court.gov.cn/wsbq"
+        captured: dict[str, Any] = {"value": None}
+
+        def _handle(response: Any) -> None:
+            try:
+                if response.status != 200:
+                    return
+                url = response.url.lower()
+                if "baoquan" not in url or "/api/" not in url:
+                    return
+                auth = response.request.headers.get("authorization", "") or response.request.headers.get("token", "")
+                token = auth.replace("Bearer ", "") if auth.startswith("Bearer ") else auth
+                if token and token.startswith("eyJhbGciOiJIUzUxMiJ9"):
+                    captured["value"] = token
+                    logger.info(f"捕获到保全 Token: {token[:30]}... (长度: {len(token)})")
+            except Exception as e:
+                logger.debug(f"保全响应处理失败: {e}")
+
+        self.page.on("response", _handle)
+        try:
+            self.page.goto(baoquan_url, timeout=30000, wait_until="networkidle")
+            # 等待 token 捕获
+            for _ in range(20):
+                self.page.wait_for_timeout(500)
+                if captured.get("value"):
+                    break
+
+            if captured.get("value"):
+                return {"success": True, "token": captured["value"]}
+            return {"success": False, "message": "未能从保全系统捕获 HS512 Token"}
+        except Exception as e:
+            logger.error(f"获取保全 Token 失败: {e}")
+            return {"success": False, "message": str(e)}
+
     # ==================== 其他功能（待实现） ====================
 
     def file_case(self, case_data: dict[str, Any]) -> dict[str, Any]:
