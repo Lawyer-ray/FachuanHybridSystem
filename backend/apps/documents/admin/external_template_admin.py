@@ -27,7 +27,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
-    """新增外部模板表单：包含文件上传字段"""
+    """新增外部模板表单：包含文件上传字段，court 用隐藏字段 + JS 搜索替代"""
 
     docx_file = forms.FileField(
         label=_("模板文件 (.docx)"),
@@ -38,6 +38,21 @@ class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
     class Meta:
         model = ExternalTemplate
         fields = ("name", "category", "source_type", "court", "organization_name")
+        widgets: ClassVar[dict[str, Any]] = {
+            # 隐藏原始 select，由 change_form.html 中的 Alpine.js 组件接管
+            "court": forms.HiddenInput(),
+        }
+
+
+class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
+    """编辑外部模板表单：court 同样用隐藏字段 + JS 搜索"""
+
+    class Meta:
+        model = ExternalTemplate
+        fields = ("name", "category", "source_type", "court", "organization_name", "is_active")
+        widgets: ClassVar[dict[str, Any]] = {
+            "court": forms.HiddenInput(),
+        }
 
 
 def _get_analysis_service() -> Any:
@@ -147,6 +162,8 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     ) -> type[forms.ModelForm[ExternalTemplate]]:
         if obj is None:
             kwargs["form"] = ExternalTemplateAddForm
+        else:
+            kwargs["form"] = ExternalTemplateChangeForm
         return super().get_form(request, obj, change, **kwargs)  # type: ignore[return-value]
 
     def get_fields(

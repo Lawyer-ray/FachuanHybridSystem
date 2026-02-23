@@ -6,6 +6,21 @@
 <link rel="stylesheet" href="{% static 'documents/css/external_template.css' %}">
 {% endblock %}
 
+{% block extrahead %}
+{{ block.super }}
+{# 编辑页：把当前法院名称注入到隐藏字段的 data 属性，供 JS 回填搜索框 #}
+{% if original and original.court %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const courtInput = document.getElementById('id_court');
+    if (courtInput) {
+        courtInput.dataset.courtName = '{{ original.court.name|escapejs }}';
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
+
 {% block after_related_objects %}
 {{ block.super }}
 {% if original %}
@@ -185,15 +200,15 @@ function externalTemplateForm() {
         },
 
         setupCourtAutocomplete() {
-            const origSelect = document.getElementById('id_court');
-            if (!origSelect) return;
+            // court 字段现在是 HiddenInput，直接在其后插入搜索框
+            const hiddenInput = document.getElementById('id_court');
+            if (!hiddenInput) return;
 
-            // 读取当前选中的法院名称和 ID
-            const selectedOpt = origSelect.options[origSelect.selectedIndex];
-            const initialId = origSelect.value || '';
-            const initialName = (selectedOpt && selectedOpt.text && origSelect.value) ? selectedOpt.text : '';
+            // 读取当前值（编辑页回填）
+            const initialId = hiddenInput.value || '';
+            // 尝试从 data 属性获取初始名称（编辑页由模板注入）
+            const initialName = hiddenInput.dataset.courtName || '';
 
-            // 在 select 旁边插入 Alpine 组件
             const wrapper = document.createElement('div');
             wrapper.className = 'et-court-autocomplete';
             wrapper.setAttribute('x-data', `courtAutocomplete({ initialId: '${initialId}', initialName: '${initialName.replace(/'/g, "\\'")}' })`);
@@ -207,6 +222,7 @@ function externalTemplateForm() {
                     x-model="query"
                     @input="onInput($event)"
                     @keydown="handleKeydown($event)"
+                    @focus="query && query.trim() && !isOpen && search(query)"
                 >
                 <div class="et-court-dropdown" x-show="isOpen" x-cloak>
                     <template x-for="(item, idx) in results" :key="idx">
@@ -219,7 +235,8 @@ function externalTemplateForm() {
                     </template>
                 </div>
             `;
-            origSelect.parentNode.insertBefore(wrapper, origSelect.nextSibling);
+            // 插入到 hiddenInput 之后
+            hiddenInput.parentNode.insertBefore(wrapper, hiddenInput.nextSibling);
         },
 
         setupPlaceholderDropdowns() {
