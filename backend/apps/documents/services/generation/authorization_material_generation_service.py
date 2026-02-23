@@ -153,7 +153,8 @@ class AuthorizationMaterialGenerationService:
             self._zip_add_generated_docs(zf, case=case, our_parties=our_parties)
             media_root = get_config("django.media_root", None)
             if not media_root:
-                raise RuntimeError("django.media_root 未配置")
+                from django.conf import settings as django_settings
+                media_root = str(django_settings.MEDIA_ROOT)
             self._zip_add_client_identity_docs(
                 zf, our_parties=our_parties, media_root=str(media_root), missing_lines=missing_lines
             )
