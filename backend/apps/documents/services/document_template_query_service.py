@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from apps.documents.models import DocumentTemplate, DocumentTemplateType
+
 if TYPE_CHECKING:
     from .document_template_dto_assembler import DocumentTemplateDtoAssembler
 logger = logging.getLogger(__name__)
@@ -78,7 +80,6 @@ class DocumentTemplateQueryService:
         return result
 
     def list_case_templates_internal(self, is_active: bool = True) -> list[Any]:
-
         queryset = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CASE)
         if is_active:
             queryset = queryset.filter(is_active=True)
