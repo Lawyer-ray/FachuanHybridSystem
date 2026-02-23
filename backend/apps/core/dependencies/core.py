@@ -31,12 +31,9 @@ def build_llm_service() -> "ILLMService":
     from apps.core.llm.config import LLMConfig
     from apps.core.llm.service import LLMService
 
-    return cast(
-        ILLMService,
-        LLMService(
-            backend_configs=LLMConfig.get_backend_configs(),
-            default_backend=LLMConfig.get_default_backend(),
-        ),
+    return LLMService(  # type: ignore[return-value]
+        backend_configs=LLMConfig.get_backend_configs(),
+        default_backend=LLMConfig.get_default_backend(),
     )
 
 
