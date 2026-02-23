@@ -1020,9 +1020,13 @@ function imageRotationApp() {
                         format: 'jpeg'
                     });
 
-                    // 如果有智能重命名的建议，添加到映射
+                    // 如果有智能重命名的建议，添加到映射（确保建议文件名有扩展名）
                     if (img.suggestedFilename) {
-                        renameMap[filename] = img.suggestedFilename;
+                        let suggested = img.suggestedFilename;
+                        if (!suggested.match(/\.(jpg|jpeg|png)$/i)) {
+                            suggested = suggested + '.jpg';
+                        }
+                        renameMap[filename] = suggested;
                     }
                 }
 
