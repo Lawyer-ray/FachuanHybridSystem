@@ -16,7 +16,7 @@
 function autocompleteComponent(config) {
     return {
         // 数据属性
-        query: '',
+        query: config.initialValue || '',
         results: [],
         isOpen: false,
         highlightedIndex: -1,
@@ -38,6 +38,12 @@ function autocompleteComponent(config) {
          * 组件初始化
          */
         init() {
+            // 从原始 input 恢复初始值
+            if (this.$refs.input && this.$refs.input.value) {
+                this.query = this.$refs.input.value;
+            } else if (config.initialValue) {
+                this.query = config.initialValue;
+            }
             // 监听案件类型变化（仅案由字段需要）
             if (this.caseTypeField) {
                 this.watchCaseTypeChange();
@@ -344,7 +350,7 @@ function initCourtAutocomplete(inputSelector) {
 function createAutocompleteContainer(originalInput, config) {
     const container = document.createElement('div');
     container.className = 'autocomplete-container';
-    container.setAttribute('x-data', `autocompleteComponent(${JSON.stringify(config)})`);
+    container.setAttribute('x-data', `autocompleteComponent(${JSON.stringify({...config, initialValue: originalInput.value || ''})})`);
     container.setAttribute('x-init', 'init()');
 
     // 复制原输入框的属性
