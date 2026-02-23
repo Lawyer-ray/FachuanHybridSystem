@@ -87,14 +87,14 @@ class PartyFormatter:
         if id_info.gender and id_info.birth_date:
             lines = [
                 f"{role}:{name},{id_info.gender},{id_info.birth_date}出生",
-                f"地址:{address}",
-                f"身份证号码:{id_number}",
+                f"地址：{address}",
+                f"身份证号码：{id_number}",
             ]
         else:
             lines = [
                 f"{role}:{name}",
-                f"地址:{address}",
-                f"身份证号码:{id_number}",
+                f"地址：{address}",
+                f"身份证号码：{id_number}",
             ]
 
         return "\n".join(lines)
@@ -110,10 +110,10 @@ class PartyFormatter:
     ) -> str:
         lines = [
             f"{role}:{company_name}",
-            f"地址:{address}",
-            f"统一社会信用代码:{unified_social_credit_code}",
-            f"法定代表人:{legal_representative}",
-            f"联系电话:{contact_phone}",
+            f"地址：{address}",
+            f"统一社会信用代码：{unified_social_credit_code}",
+            f"法定代表人：{legal_representative}",
+            f"联系电话：{contact_phone}",
         ]
         return "\n".join(lines)
 

@@ -76,11 +76,11 @@ class CaseDetailService(BasePlaceholderService):
                 if cp.role == "OPPOSING":
                     opposing_parties.append(cp.client)
             opposing_names = "、".join([c.name for c in opposing_parties if hasattr(c, "name") and c.name])
-            lines = [f"对方当事人名称:{opposing_names}", "案由:", "审理机关:", "案件金额:"]
+            lines = [f"对方当事人名称：{opposing_names}", "案由：", "审理机关：", "案件金额："]
             return "\n".join(lines)
         except Exception as e:
             logger.warning("格式化无案件详情失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
-            return "对方当事人名称:\n案由:\n审理机关:\n案件金额:"
+            return "对方当事人名称：\n案由：\n审理机关：\n案件金额："
 
     def _format_with_cases(self, cases: list[Any]) -> str:
         """
@@ -125,10 +125,10 @@ class CaseDetailService(BasePlaceholderService):
             amount = self._format_target_amount(case)
             lines = [
                 title,
-                f"\u3000\u3000\u3000\u3000对方当事人名称:{opposing_names}",
-                f"\u3000\u3000\u3000\u3000案由:{cause}",
-                f"\u3000\u3000\u3000\u3000审理机关:{authority}",
-                f"\u3000\u3000\u3000\u3000案件金额:{amount}",
+                f"\u3000\u3000\u3000\u3000对方当事人名称：{opposing_names}",
+                f"\u3000\u3000\u3000\u3000案由：{cause}",
+                f"\u3000\u3000\u3000\u3000审理机关：{authority}",
+                f"\u3000\u3000\u3000\u3000案件金额：{amount}",
             ]
             return "\n".join(lines)
         except Exception as e:

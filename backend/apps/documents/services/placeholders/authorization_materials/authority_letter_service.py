@@ -24,8 +24,8 @@ class AuthorityLetterPlaceholderService(BasePlaceholderService):
         },
         "律师姓名及联系方式": {
             "display_name": "律师姓名及联系方式",
-            "description": "主办律师在前,其余在后:AA律师:136...;BB律师:123....",
-            "example_value": "张三律师:13678789505;李四律师:123849506.",
+            "description": "主办律师在前,其余在后:AA律师：136...;BB律师：123....",
+            "example_value": "张三律师：13678789505;李四律师：123849506.",
         },
     }
 

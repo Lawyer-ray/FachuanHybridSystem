@@ -29,16 +29,16 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             "display_name": "授权委托书_委托人信息",
             "description": "按我方当事人生成,区分自然人/法人,多人用空行分隔",
             "example_value": (
-                "委托人名称:XX公司\n统一社会信用代码:...\n法定代表人:...\n地址:...\n\n"
-                "委托人姓名:张三\n身份证号码:...\n地址:..."
+                "委托人名称：XX公司\n统一社会信用代码：...\n法定代表人：...\n地址：...\n\n"
+                "委托人姓名：张三\n身份证号码：...\n地址：..."
             ),
         },
         "授权委托书_受托人信息": {
             "display_name": "授权委托书_受托人信息",
             "description": "按案件律师生成,主办在前;只有 1 个律师时补一段空白",
             "example_value": (
-                "受托人姓名:主办律师A\n工作单位:律所名称\n联系电话:...\n联系地址:...\n\n"
-                "受托人姓名:\n工作单位:\n联系电话:\n联系地址:"
+                "受托人姓名：主办律师A\n工作单位：律所名称\n联系电话：...\n联系地址：...\n\n"
+                "受托人姓名：\n工作单位：\n联系电话：\n联系地址："
             ),
         },
         "授权委托书_代理事项": {
@@ -117,8 +117,8 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         address = getattr(client, "address", "") or ""
         legal_rep = getattr(client, "legal_representative", "") or ""
         if client_type == "natural":
-            return [f"委托人姓名:{name}", f"身份证号码:{id_number}", f"地址:{address}"]
-        return [f"委托人名称:{name}", f"统一社会信用代码:{id_number}", f"法定代表人:{legal_rep}", f"地址:{address}"]
+            return [f"委托人姓名：{name}", f"身份证号码：{id_number}", f"地址：{address}"]
+        return [f"委托人名称：{name}", f"统一社会信用代码：{id_number}", f"法定代表人：{legal_rep}", f"地址：{address}"]
 
     def _format_lawyers(self, case: Any) -> str:
         if not case:
@@ -138,14 +138,14 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
 
     def _format_one_lawyer_block(self, lawyer: Any | None) -> str:
         if not lawyer:
-            return "\n".join(["受托人姓名:", "工作单位:", "联系电话:", "联系地址:"])
+            return "\n".join(["受托人姓名：", "工作单位：", "联系电话：", "联系地址："])
         name = getattr(lawyer, "real_name", None) or getattr(lawyer, "username", "") or ""
         phone = getattr(lawyer, "phone", "") or ""
         law_firm = getattr(lawyer, "law_firm", None)
         firm_name = getattr(law_firm, "name", "") or ""
         firm_address = getattr(law_firm, "address", "") or ""
         return "\n".join(
-            [f"受托人姓名:{name}", f"工作单位:{firm_name}", f"联系电话:{phone}", f"联系地址:{firm_address}"]
+            [f"受托人姓名：{name}", f"工作单位：{firm_name}", f"联系电话：{phone}", f"联系地址：{firm_address}"]
         )
 
     def _format_proxy_matters(self, context_data: dict[str, Any], *, case: Any, selected_clients: list[Any]) -> str:
