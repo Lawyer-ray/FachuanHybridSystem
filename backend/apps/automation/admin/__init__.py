@@ -47,6 +47,9 @@ from .preservation_date import PreservationDateTestAdmin
 # 图片自动旋转 Admin
 from .image_rotation import ImageRotationAdmin
 
+# 发票识别 Admin
+from .invoice_recognition import InvoiceRecognitionTaskAdmin
+
 __all__ = [
     # 文档处理
     "DocumentProcessorAdmin",
@@ -73,4 +76,5 @@ __all__ = [
     "FeeNoticeTestAdmin",
     "PreservationDateTestAdmin",
     "ImageRotationAdmin",
+    "InvoiceRecognitionTaskAdmin",
 ]
