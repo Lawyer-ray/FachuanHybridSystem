@@ -454,11 +454,15 @@ function invoiceApp() {
 <input type="hidden" name="merge_config" id="merge_config_input">
 <script>
 document.addEventListener('submit', function() {
-    const el = document.querySelector('[x-data="invoiceApp()"]') || document.querySelector('[x-data]');
-    if (el && el._x_dataStack) {
-        const app = el._x_dataStack[0];
-        if (app && app.mergedGroups) {
-            document.getElementById('merge_config_input').value = JSON.stringify(app.mergedGroups);
+    const els = document.querySelectorAll('[x-data]');
+    for (const el of els) {
+        const stack = el._x_dataStack;
+        if (!stack) continue;
+        for (const data of stack) {
+            if (data && typeof data.mergedGroups !== 'undefined') {
+                document.getElementById('merge_config_input').value = JSON.stringify(data.mergedGroups);
+                return;
+            }
         }
     }
 }, true);
