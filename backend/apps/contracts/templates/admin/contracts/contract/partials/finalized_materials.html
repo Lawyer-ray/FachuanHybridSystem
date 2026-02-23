@@ -1,0 +1,49 @@
+{% load i18n %}
+<!-- 定稿材料标签页 -->
+<div x-show="activeTab === 'finalized'" x-cloak>
+    <div class="info-grid">
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <span class="card-icon">📎</span>
+                <h3 class="card-title">{% translate "定稿材料" %}</h3>
+            </div>
+
+            {% if finalized_materials %}
+                {% for category, materials in finalized_materials_grouped.items %}
+                <div class="finalized-group" style="margin-bottom: 20px;">
+                    <h4 style="font-size: 13px; color: #666; margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid #eee;">
+                        {% for material in materials %}{% if forloop.first %}{{ material.get_category_display }}{% endif %}{% endfor %}
+                    </h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8f8f8;">
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "文件名" %}</th>
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "上传时间" %}</th>
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "备注" %}</th>
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "操作" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for material in materials %}
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 8px 12px;">{{ material.original_filename }}</td>
+                                <td style="padding: 8px 12px; color: #888;">{{ material.uploaded_at|date:"Y-m-d H:i" }}</td>
+                                <td style="padding: 8px 12px; color: #666;">{{ material.remark|default:"—" }}</td>
+                                <td style="padding: 8px 12px;">
+                                    <a href="{{ media_url }}{{ material.file_path }}" target="_blank" download="{{ material.original_filename }}"
+                                       style="color: #417690; text-decoration: none; font-size: 12px;">
+                                        ⬇ {% translate "下载" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty-state">{% translate "暂无定稿材料" %}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
