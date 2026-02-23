@@ -77,7 +77,7 @@ class CaseLogInline(BaseStackedInline):
     show_change_link = True
 
     if BaseModelAdmin is not admin.ModelAdmin:
-        inlines = [CaseLogAttachmentInline]
+        pass
 
 
 @admin.register(Case)
