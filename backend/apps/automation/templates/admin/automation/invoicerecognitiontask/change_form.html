@@ -63,7 +63,7 @@
             <div class="ir-merge-panel" x-show="showMergePanel" x-transition>
                 <div class="ir-merge-hint">将多个项目名称拖入同一合并组，统计时将合并计算。</div>
                 <div class="ir-merge-groups">
-                    <template x-for="(mg, mgIdx) in mergedGroups" :key="mgIdx">
+                    <template x-for="(mg, mgIdx) in mergedGroups" :key="mg.id || mgIdx">
                         <div class="ir-merge-group"
                              @dragover.prevent="dragOverMergeGroup = mgIdx"
                              @drop.prevent="dropToMergeGroup(mgIdx)"
@@ -383,31 +383,32 @@ function invoiceApp() {
             const newKeys = this.groups.map(g => g.key).filter(k => !existingKeys.has(k));
             for (const k of newKeys) {
                 const g = this.groups.find(g => g.key === k);
-                this.mergedGroups.push({ name: g ? g.label : k, keys: [k] });
+                this.mergedGroups.push({ id: k, name: g ? g.label : k, keys: [k] });
             }
             this.total = this.groups.reduce((s, g) => s + g.subtotal, 0).toFixed(2);
         },
 
         // 合并分组操作
         addMergeGroup() {
-            this.mergedGroups.push({ name: '新分组', keys: [] });
+            this.mergedGroups.push({ id: '__new_' + Date.now(), name: '新分组', keys: [] });
         },
 
         removeMergeGroup(mgIdx) {
             const mg = this.mergedGroups[mgIdx];
-            // 把该组的 keys 分散回各自独立组
             for (const key of mg.keys) {
                 const g = this.groups.find(g => g.key === key);
-                if (g) this.mergedGroups.push({ name: g.label, keys: [key] });
+                this.mergedGroups.push({ id: key, name: g ? g.label : key, keys: [key] });
             }
             this.mergedGroups.splice(mgIdx, 1);
         },
 
         removeKeyFromGroup(mgIdx, kIdx) {
-            const key = this.mergedGroups[mgIdx].keys[kIdx];
-            this.mergedGroups[mgIdx].keys.splice(kIdx, 1);
+            const key = this.mergedGroups[mgIdx].keys.splice(kIdx, 1)[0];
+            if (this.mergedGroups[mgIdx].keys.length === 0) {
+                this.mergedGroups.splice(mgIdx, 1);
+            }
             const g = this.groups.find(g => g.key === key);
-            if (g) this.mergedGroups.push({ name: g.label, keys: [key] });
+            this.mergedGroups.push({ id: key, name: g ? g.label : key, keys: [key] });
         },
 
         dragStart(mgIdx, kIdx) {
@@ -418,12 +419,17 @@ function invoiceApp() {
             if (!this.dragSrc) return;
             const { mgIdx, kIdx } = this.dragSrc;
             if (mgIdx === targetMgIdx) return;
+
             const key = this.mergedGroups[mgIdx].keys.splice(kIdx, 1)[0];
-            this.mergedGroups[targetMgIdx].keys.push(key);
-            // 清空空组
+
+            // 修正 targetMgIdx：如果源组在目标组前面且源组被删除，index 会偏移
+            let adjustedTarget = targetMgIdx;
             if (this.mergedGroups[mgIdx].keys.length === 0) {
                 this.mergedGroups.splice(mgIdx, 1);
+                if (mgIdx < targetMgIdx) adjustedTarget--;
             }
+
+            this.mergedGroups[adjustedTarget].keys.push(key);
             this.dragSrc = null;
             this.dragOverMergeGroup = null;
         },

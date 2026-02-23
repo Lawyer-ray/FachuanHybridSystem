@@ -53,3 +53,28 @@ def get_evidence_list_placeholder_service() -> Any:
 
 def get_llm_service() -> Any:
     return ServiceLocator.get_llm_service()
+
+
+def get_analysis_service() -> Any:
+    from apps.documents.services.external_template.analysis_service import AnalysisService
+    from apps.documents.services.external_template.fingerprint_service import FingerprintService
+    from apps.documents.services.placeholders.registry import PlaceholderRegistry
+
+    return AnalysisService(
+        fingerprint_service=FingerprintService(),
+        llm_service=get_llm_service(),
+        placeholder_registry=PlaceholderRegistry(),
+    )
+
+
+def get_filling_service() -> Any:
+    from apps.documents.services.external_template.filling_service import FillingService
+    from apps.documents.services.placeholders.registry import PlaceholderRegistry
+
+    return FillingService(placeholder_registry=PlaceholderRegistry())
+
+
+def get_matching_service() -> Any:
+    from apps.documents.services.external_template.matching_service import MatchingService
+
+    return MatchingService()
