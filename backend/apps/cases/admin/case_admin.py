@@ -100,7 +100,6 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
         CasePartyInline,
         CaseAssignmentInline,
         SupervisingAuthorityInline,
-        CaseNumberInline,
         CaseLogInline,
         CaseChatInline,
     ]
