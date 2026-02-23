@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.db.models import Sum
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.enums import CaseStage
