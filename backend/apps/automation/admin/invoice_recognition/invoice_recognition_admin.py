@@ -37,7 +37,6 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
     search_fields = ["name"]
     ordering = ["-created_at"]
     readonly_fields = [
-        "name",
         "status",
         "created_by",
         "created_at",
@@ -48,7 +47,14 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         return True
 
     def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
-        return False
+        return True
+
+    def get_fields(  # type: ignore[override]
+        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
+    ) -> list[str]:
+        if obj is None:
+            return ["name"]
+        return ["name", "status", "created_by", "created_at", "finished_at"]
 
     def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
         return True
@@ -75,7 +81,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:
         """发票数量"""
-        return obj.records.count()
+        return int(obj.records.count())  # type: ignore[attr-defined]
 
     record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
