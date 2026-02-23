@@ -89,3 +89,15 @@ def get_material_service() -> Any:
         "contracts.material_service",
         lambda: MaterialService(),
     )
+
+
+def get_invoice_upload_service() -> Any:
+    from apps.contracts.services.contract.invoice_upload_service import InvoiceUploadService
+
+    if ServiceLocator._scope.get() is None:
+        return InvoiceUploadService()
+
+    return ServiceLocator.get_or_create(
+        "contracts.invoice_upload_service",
+        lambda: InvoiceUploadService(),
+    )
