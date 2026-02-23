@@ -28,7 +28,7 @@ class ImageRotationService:
         "letter": (216, 279),
     }
 
-    DEFAULT_DPI = 300
+    DEFAULT_DPI = 150
 
     def export_images(
         self,
