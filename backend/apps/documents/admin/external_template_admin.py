@@ -78,7 +78,7 @@ def _get_filling_service() -> Any:
 
 
 class ExternalTemplateFieldMappingInline(admin.TabularInline):  # type: ignore[type-arg]
-    """字段映射 Inline"""
+    """字段映射 Inline（只读展示，由 LLM 分析自动生成）"""
 
     model = ExternalTemplateFieldMapping
     extra: int = 0
@@ -86,9 +86,12 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):  # type: ignore[t
         "sort_order",
         "position_description",
         "semantic_label",
-        "placeholder_key",
         "fill_type",
-        "is_confirmed",
+    )
+    readonly_fields: tuple[str, ...] = (
+        "position_description",
+        "semantic_label",
+        "fill_type",
     )
 
 
@@ -231,7 +234,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         super().save_model(request, obj, form, change)
 
     def get_urls(self) -> list[Any]:
-        """注册自定义 URL: 分析、确认、填充操作页面"""
+        """注册自定义 URL: 分析、填充操作页面"""
         from django.urls import path
 
         urls = super().get_urls()
@@ -240,11 +243,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
                 "analyze/<int:template_id>/",
                 self.admin_site.admin_view(self.analyze_view),
                 name="documents_externaltemplate_analyze",
-            ),
-            path(
-                "confirm/<int:template_id>/",
-                self.admin_site.admin_view(self.confirm_view),
-                name="documents_externaltemplate_confirm",
             ),
             path(
                 "fill-action/<int:template_id>/",
@@ -267,27 +265,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             self.message_user(
                 request,
                 gettext("模板分析失败，请查看日志"),
-                level="error",
-            )
-        change_url = reverse(
-            "admin:documents_externaltemplate_change",
-            args=[template_id],
-        )
-        return HttpResponseRedirect(change_url)
-
-    def confirm_view(
-        self, request: HttpRequest, template_id: int
-    ) -> HttpResponse:
-        """确认映射并重定向回详情页"""
-        service = _get_analysis_service()
-        try:
-            service.confirm_mappings(template_id)
-            self.message_user(request, gettext("映射已确认"))
-        except Exception:
-            logger.exception("映射确认失败: template_id=%s", template_id)
-            self.message_user(
-                request,
-                gettext("映射确认失败，请查看日志"),
                 level="error",
             )
         change_url = reverse(
