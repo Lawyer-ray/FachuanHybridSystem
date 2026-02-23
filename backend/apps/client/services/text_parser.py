@@ -30,6 +30,7 @@ _FIELD_KEYWORDS: list[str] = [
 
 # 角色标签模式（用于分割多当事人文本）
 # 带括号注释的模式优先（更具体），无括号的作为回退
+# 支持 甲方一、甲方二 等带序号格式
 _ROLE_SPLIT_STRS: list[str] = [
     r"甲方\s*（[^）]*）\s*[:：]",
     r"乙方\s*（[^）]*）\s*[:：]",
@@ -47,15 +48,17 @@ _ROLE_SPLIT_STRS: list[str] = [
     r"被申请人\s*[:：]",
     r"答辩人\s*[:：]",
     r"被答辩人\s*[:：]",
-    r"甲方\s*[:：]",
-    r"乙方\s*[:：]",
+    r"甲方\s*[一二三四五六七八九十\d]?\s*[:：]",
+    r"乙方\s*[一二三四五六七八九十\d]?\s*[:：]",
+    r"丙方\s*[一二三四五六七八九十\d]?\s*[:：]",
 ]
 
 _ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
 
 # 角色标签 + 名称捕获模式（用于提取名称）
+# 捕获到下一个换行为止，不用单字排除（避免截断含"电"等字的公司名）
 _ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n法统地住电]+)"), re.IGNORECASE)
+    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n]+)"), re.IGNORECASE)
     for p in _ROLE_SPLIT_STRS
 ]
 
@@ -311,8 +314,6 @@ def _extract_legal_representative(text: str) -> str | None:
         return None
     legal_rep = match.group(1).strip()
     return legal_rep or None
-
-    return None
 
 
 def _determine_client_type(name: str, text: str) -> str:
