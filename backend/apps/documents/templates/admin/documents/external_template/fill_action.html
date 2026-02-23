@@ -276,7 +276,7 @@
 function fillAction() {
   const templateId = {{ template_obj.pk }};
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
-  const serverCustomFields = {{ custom_fields|safe }};
+  const serverCustomFields = {{ custom_fields_json }};
 
   return {
     // State
