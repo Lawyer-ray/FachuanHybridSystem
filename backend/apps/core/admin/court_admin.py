@@ -155,15 +155,22 @@ class CourtAdmin(admin.ModelAdmin[Court]):
 
     def initialize_courts_view(self, request: HttpRequest) -> HttpResponseRedirect:
         """初始化法院数据视图"""
+        import concurrent.futures
+
         try:
             service = _get_initialization_service()
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(service.initialize_courts())
-            finally:
-                loop.close()
+            def run_async_init() -> Any:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(service.initialize_courts())
+                finally:
+                    loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_async_init)
+                result = future.result(timeout=300)
 
             if result.success:
                 msg = f"法院数据初始化成功!新增 {result.created} 条,更新 {result.updated} 条,删除 {result.deleted} 条."
