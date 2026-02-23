@@ -26,29 +26,13 @@ from apps.documents.models import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-from django.utils.html import mark_safe
-
-
-class CategoryDatalistWidget(forms.TextInput):
-    """支持 datalist 的文本输入框：既可选已有类别，也可自由输入"""
-
-    def __init__(self, attrs: dict[str, Any] | None = None) -> None:
-        super().__init__(attrs={**(attrs or {}), "list": "category-datalist"})
-
-    def render(self, name: str, value: Any, attrs: Any = None, renderer: Any = None) -> str:
-        from apps.documents.models import ExternalTemplate
-        from apps.documents.models.choices import TemplateCategory
-
-        html: str = super().render(name, value, attrs, renderer)
-        existing: list[str] = list(
-            ExternalTemplate.objects.values_list("category", flat=True)
-            .distinct()
-            .order_by("category")
-        )
-        presets: list[str] = [c.label for c in TemplateCategory]
-        all_options: list[str] = sorted(set(existing) | set(presets))
-        options = "".join(f'<option value="{o}">' for o in all_options if o)
-        return mark_safe(html + f'<datalist id="category-datalist">{options}</datalist>')  # noqa: S308
+_SOURCE_NAME_WIDGET = forms.TextInput(
+    attrs={
+        "class": "vTextField js-court-autocomplete",
+        "placeholder": _("请输入法院或机构名称..."),
+        "autocomplete": "off",
+    }
+)
 
 
 class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
@@ -62,16 +46,9 @@ class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "source_name")
+        fields = ("name", "source_name")
         widgets: ClassVar[dict[str, Any]] = {
-            "category": CategoryDatalistWidget(),
-            "source_name": forms.TextInput(
-                attrs={
-                    "class": "vTextField js-court-autocomplete",
-                    "placeholder": _("请输入法院或机构名称..."),
-                    "autocomplete": "off",
-                }
-            ),
+            "source_name": _SOURCE_NAME_WIDGET,
         }
 
 
@@ -80,16 +57,9 @@ class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
 
     class Meta:
         model = ExternalTemplate
-        fields = ("name", "category", "source_name", "is_active")
+        fields = ("name", "source_name", "is_active")
         widgets: ClassVar[dict[str, Any]] = {
-            "category": CategoryDatalistWidget(),
-            "source_name": forms.TextInput(
-                attrs={
-                    "class": "vTextField js-court-autocomplete",
-                    "placeholder": _("请输入法院或机构名称..."),
-                    "autocomplete": "off",
-                }
-            ),
+            "source_name": _SOURCE_NAME_WIDGET,
         }
 
 
@@ -135,7 +105,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
 
     list_display: ClassVar[list[str]] = [
         "name",
-        "category",
         "source_name",
         "status",
         "version",
@@ -144,7 +113,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     ]
     list_filter: ClassVar[list[str]] = [
         "status",
-        "category",
         "is_active",
     ]
     search_fields: ClassVar[list[str]] = [
@@ -158,7 +126,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     # 新增时显示的字段（含文件上传）
     add_fields: ClassVar[tuple[str, ...]] = (
         "name",
-        "category",
         "source_name",
         "docx_file",
     )
@@ -166,7 +133,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
     # 编辑时显示的字段
     change_fields: ClassVar[tuple[str, ...]] = (
         "name",
-        "category",
         "source_name",
         "status",
         "version",
@@ -254,7 +220,6 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
                 template = service.upload_template(
                     file=docx_file,
                     name=form.cleaned_data["name"],
-                    category=form.cleaned_data["category"],
                     source_name=form.cleaned_data.get("source_name", ""),
                     uploaded_by=request.user,
                 )

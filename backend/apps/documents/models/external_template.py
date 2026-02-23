@@ -13,7 +13,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .choices import FillType, TemplateCategory, TemplateStatus
+from .choices import FillType, TemplateStatus
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -34,10 +34,6 @@ class ExternalTemplate(models.Model):
     name = models.CharField(
         max_length=255,
         verbose_name=_("模板名称"),
-    )
-    category = models.CharField(
-        max_length=50,
-        verbose_name=_("模板类别"),
     )
     source_name = models.CharField(
         max_length=255,
@@ -125,7 +121,7 @@ class ExternalTemplate(models.Model):
         verbose_name_plural = _("外部模板")
         ordering: ClassVar = ["-updated_at"]
         indexes: ClassVar = [
-            models.Index(fields=["law_firm", "source_name", "category"]),
+            models.Index(fields=["law_firm", "source_name"]),
             models.Index(fields=["law_firm", "is_active"]),
             models.Index(fields=["structure_fingerprint"]),
             models.Index(fields=["status"]),

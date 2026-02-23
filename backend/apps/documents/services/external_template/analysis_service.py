@@ -56,7 +56,6 @@ class AnalysisService:
         self,
         file: UploadedFile,
         name: str,
-        category: str,
         source_name: str,
         uploaded_by: Any,
     ) -> ExternalTemplate:
@@ -91,12 +90,10 @@ class AnalysisService:
             version, deactivated = self._handle_versioning(
                 law_firm_id=law_firm_id,
                 source_name=source_name,
-                category=category,
             )
 
             template: ExternalTemplate = ExternalTemplate.objects.create(
                 name=name,
-                category=category,
                 source_name=source_name,
                 file_path=rel_path,
                 original_filename=original_filename,
@@ -182,10 +179,9 @@ class AnalysisService:
         *,
         law_firm_id: int,
         source_name: str,
-        category: str,
     ) -> tuple[int, int]:
         """
-        处理版本管理：同一来源 + 类别组合自增版本号，旧版本 is_active=False
+        处理版本管理：同一来源自增版本号，旧版本 is_active=False
 
         Returns:
             (新版本号, 被停用的旧版本数量)
@@ -194,7 +190,6 @@ class AnalysisService:
 
         existing = ExternalTemplate.objects.filter(
             law_firm_id=law_firm_id,
-            category=category,
             source_name=source_name,
         )
 
@@ -536,9 +531,7 @@ class AnalysisService:
                 )
             else:
                 # LLM 分析
-                prompt: str = self._build_llm_prompt(
-                    structure_json, template.category
-                )
+                prompt: str = self._build_llm_prompt(structure_json)
                 response = self._llm_service.complete(
                     prompt=prompt,
                     system_prompt=(
@@ -617,10 +610,10 @@ class AnalysisService:
         return created
 
     def _build_llm_prompt(
-        self, structure_json: dict[str, Any], category: str
+        self, structure_json: dict[str, Any]
     ) -> str:
         """
-        构建 LLM 提示词：结构 JSON + 占位符列表 + 类别信息 + fill_type 说明
+        构建 LLM 提示词：结构 JSON + 占位符列表 + fill_type 说明
         """
         from apps.documents.models.choices import FillType
 
@@ -656,7 +649,6 @@ class AnalysisService:
         prompt: str = (
             f"请分析以下法律文书模板的结构，识别所有可填充位置，"
             f"并将每个位置映射到合适的占位符键。\n\n"
-            f"## 模板类别\n{category}\n\n"
             f"## 文档结构 JSON\n```json\n{structure_text}\n```\n\n"
             f"## 可用的占位符键\n{placeholders_text}\n\n"
             f"## 填充类型说明\n{fill_type_desc}\n\n"

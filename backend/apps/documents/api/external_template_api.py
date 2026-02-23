@@ -174,13 +174,10 @@ def match_templates(
 
     return {
         "success": True,
-        "results": {
-            category: [
-                {"id": t.id, "name": t.name, "status": t.status, "version": t.version}
-                for t in templates
-            ]
-            for category, templates in results.items()
-        },
+        "results": [
+            {"id": t.id, "name": t.name, "status": t.status, "version": t.version}
+            for t in results
+        ],
     }
 
 
