@@ -356,3 +356,153 @@
 .ir-invoice-table .button:hover {
     background: #ddeaf3;
 }
+
+/* Merge Panel */
+.btn-merge-toggle {
+    background: none;
+    border: 1px solid #c5d8e4;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    color: #417690;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-merge-toggle:hover { background: #eef4f8; }
+
+.ir-merge-panel {
+    background: #f8fbfd;
+    border: 1px solid #d0e4ed;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.ir-merge-hint {
+    font-size: 0.82rem;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.ir-merge-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.ir-merge-group {
+    background: #fff;
+    border: 2px dashed #c5d8e4;
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-width: 160px;
+    max-width: 240px;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.ir-merge-group.drag-over {
+    border-color: #417690;
+    background: #eef4f8;
+}
+
+.ir-merge-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.ir-merge-group-name {
+    flex: 1;
+    border: none;
+    border-bottom: 1px solid #ddd;
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+    padding: 2px 4px;
+    outline: none;
+}
+.ir-merge-group-name:focus { border-bottom-color: #417690; }
+
+.ir-merge-remove-btn {
+    background: none;
+    border: none;
+    color: #bbb;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 2px;
+    line-height: 1;
+}
+.ir-merge-remove-btn:hover { color: #e74c3c; }
+
+.ir-merge-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: 28px;
+}
+
+.ir-merge-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e3eef5;
+    color: #2c5f78;
+    border-radius: 12px;
+    padding: 3px 8px;
+    font-size: 0.78rem;
+    cursor: grab;
+    user-select: none;
+}
+.ir-merge-tag:active { cursor: grabbing; }
+
+.ir-merge-tag-remove {
+    cursor: pointer;
+    color: #999;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+.ir-merge-tag-remove:hover { color: #e74c3c; }
+
+.ir-merge-drop-hint {
+    font-size: 0.78rem;
+    color: #bbb;
+    font-style: italic;
+}
+
+.ir-merge-group-total {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    color: #2c7a4b;
+    font-weight: 600;
+    text-align: right;
+}
+
+.ir-merge-add-btn {
+    background: none;
+    border: 2px dashed #c5d8e4;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: #999;
+    cursor: pointer;
+    font-size: 0.85rem;
+    align-self: stretch;
+    min-width: 100px;
+    transition: border-color 0.15s, color 0.15s;
+}
+.ir-merge-add-btn:hover { border-color: #417690; color: #417690; }
+
+/* Merged badge */
+.ir-merged-badge {
+    display: inline-block;
+    background: #e3eef5;
+    color: #417690;
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-left: 6px;
+    vertical-align: middle;
+}
