@@ -71,7 +71,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseStackedInline):  # type: ignore[type-arg]
+class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
@@ -83,6 +83,9 @@ class FinalizedMaterialInline(BaseStackedInline):  # type: ignore[type-arg]
 
         get_material_service().delete_material_file(obj.file_path)
         obj.delete()
+
+    class Media:
+        css = {"all": ("contracts/css/finalized_material_inline.css",)}
 
 
 class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
