@@ -23,6 +23,9 @@ class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreeme
     verbose_name = _("当事人")
     verbose_name_plural = _("当事人")
 
+    class Media:
+        js = ("contracts/js/party_role_auto.js",)
+
 
 @admin.register(SupplementaryAgreement)
 class SupplementaryAgreementAdmin(admin.ModelAdmin[SupplementaryAgreement]):

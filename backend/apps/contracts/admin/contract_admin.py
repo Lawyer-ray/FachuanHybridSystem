@@ -94,6 +94,9 @@ class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
     fields = ("client", "role")
     show_change_link = True
 
+    class Media:
+        js = ("contracts/js/party_role_auto.js",)
+
 
 class ContractAssignmentInline(BaseTabularInline):  # type: ignore[type-arg]
     model = ContractAssignment
