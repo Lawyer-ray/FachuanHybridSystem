@@ -51,6 +51,9 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
     class Meta:
         model = FinalizedMaterial
         fields = ("file", "category", "remark", "original_filename")
+        widgets = {
+            "remark": forms.Textarea(attrs={"rows": 2, "cols": 20, "style": "width:160px;resize:vertical;"}),
+        }
 
     def save(self, commit: bool = True) -> FinalizedMaterial:
         instance = super().save(commit=False)
@@ -68,7 +71,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
+class FinalizedMaterialInline(BaseStackedInline):  # type: ignore[type-arg]
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
