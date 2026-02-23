@@ -82,6 +82,9 @@ class EncryptedTextField(models.TextField[str, str]):
         try:
             return self._decrypt(value)
         except (InvalidToken, ValueError):
+            if getattr(settings, "DEBUG", False):
+                logger.warning("解密失败，返回原始加密值（DEBUG 模式）: %s...", value[:20])
+                return value
             raise
 
     def from_db_value(self, value: Any, expression: Any, connection: Any) -> Any:

@@ -234,6 +234,7 @@ class ContractAdminService:
             "related_cases": related_cases,
             "finalized_materials": finalized_materials,
             "finalized_materials_grouped": finalized_materials_grouped,
+            "invoices_by_payment": invoices_by_payment,
         }
 
     def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
