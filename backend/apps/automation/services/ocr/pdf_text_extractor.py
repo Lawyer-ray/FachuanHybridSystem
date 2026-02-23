@@ -41,7 +41,7 @@ class PDFTextExtractor:
         使用 PyMuPDF (fitz) 渲染，dpi=150。
         """
         try:
-            import fitz  # type: ignore[import-untyped]
+            import fitz
 
             doc = fitz.open(str(pdf_path))
             image_paths: list[Path] = []
