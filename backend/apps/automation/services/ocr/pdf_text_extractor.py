@@ -18,7 +18,7 @@ class PDFTextExtractor:
         若总字符数 <= MIN_TEXT_THRESHOLD 返回 None（表示需要 OCR 兜底）。
         """
         try:
-            import pdfplumber  # type: ignore[import-untyped]
+            import pdfplumber
 
             with pdfplumber.open(pdf_path) as pdf:
                 pages_text: list[str] = []
