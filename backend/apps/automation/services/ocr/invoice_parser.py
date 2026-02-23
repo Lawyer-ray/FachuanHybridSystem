@@ -30,7 +30,7 @@ class InvoiceParser:
     _CODE_PATTERN: re.Pattern[str] = re.compile(
         r"(?:发票代码|No\.)[^\d]*(\d{10,12})"
     )
-    # 发票号码：8位（旧版）或20位（新版电子发票），前面有关键词
+    # 发票号码：20位（新版电子）或8位（旧版），前面有关键词
     _NUMBER_PATTERN: re.Pattern[str] = re.compile(
         r"(?:发票号码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)"
     )
@@ -45,23 +45,25 @@ class InvoiceParser:
     _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(
         r"(\d{4})-(\d{2})-(\d{2})"
     )
-    # 金额：支持带逗号格式，如 1,234.56
+    # 金额（不含税）：合计行中 ¥xxx.xx 第一个
     _AMOUNT_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:合计金额|金额)[^\d\-]*?([\d,]+\.\d{2})"
+        r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})"
     )
-    _TAX_PATTERN: re.Pattern[str] = re.compile(
-        r"税额[^\d\-]*?([\d,]+\.\d{2})"
-    )
+    # 税额：合计行中 ¥xxx.xx 第二个（见上）
+    # 价税合计：小写金额
     _TOTAL_PATTERN: re.Pattern[str] = re.compile(
-        r"价税合计[^\d\-]*?([\d,]+\.\d{2})"
+        r"[（(]小写[）)]\s*[¥￥]([\d,]+\.\d{2})"
     )
-    # 购买方名称
+    # 购买方名称：取"名称：xxx"中第一个，截止到空格或"销"字
     _BUYER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:购买方名称|购方名称|购买方|名称)[：:]\s*([^\n\r]{2,50})"
+        r"(?:购买方名称|购方名称)[：:]\s*([^\n\r]{2,50})"
+        r"|(?:购\s*名称|买\s*名称)[：:]\s*([^销\n\r]{2,50})"
+        r"|名称[：:]\s*([^\n\r]{2,50})"
     )
     # 销售方名称
     _SELLER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:销售方名称|销方名称|销售方|名称)[：:]\s*([^\n\r]{2,50})"
+        r"(?:销售方名称|销方名称)[：:]\s*([^\n\r]{2,50})"
+        r"|销\s*名称[：:]\s*([^\n\r]{2,50})"
     )
 
     # 类目关键词映射（顺序重要，长关键词优先）
@@ -188,27 +190,44 @@ class InvoiceParser:
             return None
 
     def _extract_amount(self, text: str) -> Decimal | None:
+        # 合计行：¥金额 ¥税额
         m = self._AMOUNT_PATTERN.search(text)
         return self._parse_decimal(m.group(1)) if m else None
 
     def _extract_tax_amount(self, text: str) -> Decimal | None:
-        m = self._TAX_PATTERN.search(text)
-        return self._parse_decimal(m.group(1)) if m else None
+        # 合计行：¥金额 ¥税额（第二个）
+        m = self._AMOUNT_PATTERN.search(text)
+        return self._parse_decimal(m.group(2)) if m else None
 
     def _extract_total_amount(self, text: str) -> Decimal | None:
         m = self._TOTAL_PATTERN.search(text)
         return self._parse_decimal(m.group(1)) if m else None
 
     def _extract_buyer_name(self, text: str) -> str:
-        m = self._BUYER_PATTERN.search(text)
-        return m.group(1).strip() if m else ""
+        # 优先匹配明确的购买方标签
+        for pattern in [
+            r"购买方名称[：:]\s*([^\n\r]{2,50})",
+            r"购方名称[：:]\s*([^\n\r]{2,50})",
+            # 双列布局：购 名称：xxx 销 名称：yyy，取第一个
+            r"(?:购\s*名称|买\s*名称)[：:]\s*([^\n\r销]{2,40})",
+            # 通用名称，取第一个出现
+            r"名称[：:]\s*([^\n\r]{2,50})",
+        ]:
+            m = re.search(pattern, text)
+            if m:
+                return m.group(1).strip()
+        return ""
 
     def _extract_seller_name(self, text: str) -> str:
-        # 先找销售方，避免与购买方混淆
-        m = re.search(
-            r"(?:销售方名称|销方名称|销售方)[：:]\s*([^\n\r]{2,50})", text
-        )
-        return m.group(1).strip() if m else ""
+        for pattern in [
+            r"销售方名称[：:]\s*([^\n\r]{2,50})",
+            r"销方名称[：:]\s*([^\n\r]{2,50})",
+            r"销\s*名称[：:]\s*([^\n\r]{2,50})",
+        ]:
+            m = re.search(pattern, text)
+            if m:
+                return m.group(1).strip()
+        return ""
 
     def _extract_project_name(self, text: str) -> str:
         m = self._PROJECT_PATTERN.search(text)
