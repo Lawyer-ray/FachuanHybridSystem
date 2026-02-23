@@ -1,11 +1,14 @@
 /**
- * 当事人身份自动填充：选择非我方当事人时，自动将身份设为"对方当事人"
- * 支持普通 select 和 select2 autocomplete 两种场景
+ * 合同/补充协议当事人辅助功能：
+ * 1. 选择非我方当事人时，自动将身份设为"对方当事人"
+ * 2. 新增补充协议时，提供"填充合同当事人"或"填充上一份补充协议当事人"按钮
  */
 (function () {
   "use strict";
 
   const OPPOSING_VALUE = "OPPOSING";
+
+  // ─── 功能一：自动设置身份 ───────────────────────────────────────────
 
   function checkAndSetRole(clientSelect, clientId) {
     if (!clientId) return;
@@ -30,12 +33,10 @@
     if (select.dataset.partyRoleBound) return;
     select.dataset.partyRoleBound = "1";
 
-    // 普通 select
     select.addEventListener("change", function () {
       checkAndSetRole(this, this.value);
     });
 
-    // select2 autocomplete：从事件 params 取 id，避免时序问题
     const $ = window.django && window.django.jQuery;
     if ($ && select.classList.contains("admin-autocomplete")) {
       $(select).on("select2:select", function (e) {
@@ -45,7 +46,7 @@
     }
   }
 
-  function bindAll() {
+  function bindAllClientSelects() {
     document.querySelectorAll('select[name*="-client"]').forEach(function (sel) {
       if (sel.dataset.partyRoleBound) return;
       const row = sel.closest("tr");
@@ -55,14 +56,184 @@
     });
   }
 
+  // ─── 功能二：填充当事人按钮 ─────────────────────────────────────────
+
+  /**
+   * 读取来源当事人列表
+   * @param {number} suppIndex - 当前补充协议的 index（0=第一个）
+   * @returns {Array<{id: string, text: string, role: string}>}
+   */
+  function getSourceParties(suppIndex) {
+    const parties = [];
+    const $ = window.django && window.django.jQuery;
+
+    if (suppIndex === 0) {
+      // 从合同当事人读取（普通 select，有完整 option text）
+      document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]').forEach(function (sel) {
+        if (sel.name.includes("__prefix__") || !sel.value) return;
+        const row = sel.closest("tr");
+        const roleSelect = row && row.querySelector('select[name*="-role"]');
+        const selectedOption = sel.options[sel.selectedIndex];
+        parties.push({
+          id: sel.value,
+          text: selectedOption ? selectedOption.text : sel.value,
+          role: roleSelect ? roleSelect.value : "PRINCIPAL",
+        });
+      });
+    } else {
+      // 从上一份补充协议当事人读取（select2，用 select2('data') 取 text）
+      const prevIndex = suppIndex - 1;
+      const prefix = "supplementary_agreements-" + prevIndex + "-parties-";
+      document.querySelectorAll('select[name^="' + prefix + '"][name$="-client"]').forEach(function (sel) {
+        if (sel.name.includes("__prefix__") || !sel.value) return;
+        const row = sel.closest("tr");
+        const roleSelect = row && row.querySelector('select[name*="-role"]');
+        let text = sel.value;
+        if ($ && sel.classList.contains("admin-autocomplete")) {
+          const data = $(sel).select2("data");
+          if (data && data[0]) text = data[0].text;
+        } else {
+          const opt = sel.options[sel.selectedIndex];
+          if (opt) text = opt.text;
+        }
+        parties.push({
+          id: sel.value,
+          text: text,
+          role: roleSelect ? roleSelect.value : "PRINCIPAL",
+        });
+      });
+    }
+    return parties;
+  }
+
+  /**
+   * 向目标 parties-group 填充当事人
+   * @param {string} groupId - 如 "supplementary_agreements-1-parties-group"
+   * @param {Array} parties
+   */
+  function fillParties(groupId, parties) {
+    if (!parties.length) return;
+    const $ = window.django && window.django.jQuery;
+    const group = document.getElementById(groupId);
+    if (!group) return;
+
+    // 解析 prefix，如 "supplementary_agreements-1-parties"
+    const prefix = groupId.replace("-group", "");
+
+    // 获取当前已有的空行（TOTAL_FORMS - INITIAL_FORMS 个）
+    // 需要点击"添加"按钮来创建足够的行
+    const addBtn = group.querySelector(".djn-add-item a");
+    if (!addBtn) return;
+
+    // 当前已有的行（非 empty-form、非 __prefix__）
+    function getExistingRows() {
+      return Array.from(
+        group.querySelectorAll('select[name^="' + prefix + '-"][name$="-client"]:not([name*="__prefix__"])')
+      );
+    }
+
+    const existingRows = getExistingRows();
+    // 需要的行数
+    const needed = parties.length;
+    // 已有行数（包括空行）
+    let current = existingRows.length;
+
+    // 点击添加按钮补足行数
+    function addRowsAndFill(remaining) {
+      if (remaining <= 0) {
+        doFill();
+        return;
+      }
+      addBtn.click();
+      // 等 nested_admin 渲染新行
+      setTimeout(function () {
+        addRowsAndFill(remaining - 1);
+      }, 50);
+    }
+
+    function doFill() {
+      const rows = getExistingRows();
+      parties.forEach(function (party, i) {
+        const sel = rows[i];
+        if (!sel) return;
+        const row = sel.closest("tr");
+        const roleSelect = row && row.querySelector('select[name*="-role"]');
+
+        // 设置 select2 值
+        if ($ && sel.classList.contains("admin-autocomplete")) {
+          const option = new Option(party.text, party.id, true, true);
+          $(sel).append(option).trigger("change");
+        } else {
+          sel.value = party.id;
+        }
+
+        // 设置 role
+        if (roleSelect) roleSelect.value = party.role;
+      });
+    }
+
+    addRowsAndFill(Math.max(0, needed - current));
+  }
+
+  /**
+   * 在 parties-group 的 add-item 旁插入填充按钮
+   * @param {HTMLElement} group
+   */
+  function insertFillButton(group) {
+    if (group.dataset.fillBtnAdded) return;
+    group.dataset.fillBtnAdded = "1";
+
+    // 解析 index：supplementary_agreements-N-parties-group
+    const match = group.id.match(/supplementary_agreements-(\d+)-parties-group/);
+    if (!match) return;
+    const suppIndex = parseInt(match[1], 10);
+
+    const label = suppIndex === 0 ? "填充合同当事人" : "填充上一份补充协议当事人";
+
+    const btn = document.createElement("a");
+    btn.href = "javascript://";
+    btn.textContent = label;
+    btn.style.cssText = "margin-left:12px;color:#417690;cursor:pointer;font-size:13px;";
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      const parties = getSourceParties(suppIndex);
+      if (!parties.length) {
+        alert(suppIndex === 0 ? "合同当事人为空" : "上一份补充协议当事人为空");
+        return;
+      }
+      fillParties(group.id, parties);
+    });
+
+    const addItem = group.querySelector(".djn-add-item");
+    if (addItem) addItem.appendChild(btn);
+  }
+
+  function bindAllFillButtons() {
+    document.querySelectorAll('[id*="supplementary_agreements-"][id$="-parties-group"]').forEach(function (group) {
+      // 排除 empty template
+      if (group.id.includes("-empty-")) return;
+      insertFillButton(group);
+    });
+  }
+
+  // ─── 初始化 ──────────────────────────────────────────────────────────
+
   function init() {
-    bindAll();
-    const observer = new MutationObserver(bindAll);
+    bindAllClientSelects();
+    bindAllFillButtons();
+
+    const observer = new MutationObserver(function () {
+      bindAllClientSelects();
+      bindAllFillButtons();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     init();
-    setTimeout(bindAll, 300);
+    setTimeout(function () {
+      bindAllClientSelects();
+      bindAllFillButtons();
+    }, 300);
   });
 })();
