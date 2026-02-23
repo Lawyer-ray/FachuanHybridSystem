@@ -70,6 +70,14 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
     ) -> None:
         if not change and obj.created_by_id is None:
             obj.created_by = request.user  # type: ignore[assignment]
+        # 保存合并分组配置
+        merge_config_raw = request.POST.get("merge_config", "")
+        if merge_config_raw:
+            import json
+            try:
+                obj.merge_config = json.loads(merge_config_raw)
+            except (ValueError, TypeError):
+                pass
         super().save_model(request, obj, form, change)
 
     def change_view(
