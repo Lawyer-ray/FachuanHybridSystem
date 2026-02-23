@@ -49,7 +49,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         "授权委托书_委托人签名盖章信息": {
             "display_name": "授权委托书_委托人签名盖章信息",
             "description": "按我方当事人生成签名盖章区块,日期使用指定日期(为空默认今天)",
-            "example_value": "委托人(盖章):AAA公司\n法定代表人(签名):A小线\n日期:2026年01月22日",
+            "example_value": "委托人（盖章）:AAA公司\n法定代表人（签名）:A小线\n日期:2026年01月22日",
         },
     }
 
@@ -254,5 +254,5 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         name = getattr(client, "name", "") or ""
         legal_rep = getattr(client, "legal_representative", "") or ""
         if client_type == "natural":
-            return [f"委托人(签名+指模)：{name}", f"日期：{specified_date_text}"]
-        return [f"委托人(盖章)：{name}", f"法定代表人(签名)：{legal_rep}", f"日期：{specified_date_text}"]
+            return [f"委托人（签名+指模）：{name}", f"日期：{specified_date_text}"]
+        return [f"委托人（盖章）：{name}", f"法定代表人（签名）：{legal_rep}", f"日期：{specified_date_text}"]
