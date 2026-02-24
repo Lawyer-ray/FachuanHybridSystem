@@ -3,31 +3,11 @@
     
     $(document).ready(function() {
         var contractField = $('#id_contract');
-        var casesFromBox = $('#id_cases_from');
-        var casesToBox = $('#id_cases_to');
+        var caseField = $('#id_case');
         
-        if (!contractField.length || !casesFromBox.length) {
+        if (!contractField.length || !caseField.length) {
             return;
         }
-        
-        // 保存所有案件选项（包括 contract_id 信息）
-        var allCasesData = {};
-        
-        // 从页面加载时获取所有案件及其合同关系
-        function loadAllCases() {
-            casesFromBox.find('option').each(function() {
-                var caseId = $(this).val();
-                var caseName = $(this).text();
-                // 从 option 的 text 中提取合同信息（如果有的话）
-                // 或者通过 AJAX 获取
-                allCasesData[caseId] = {
-                    id: caseId,
-                    name: caseName
-                };
-            });
-        }
-        
-        loadAllCases();
         
         // 当合同改变时，通过 AJAX 重新加载案件列表
         contractField.on('change', function() {
@@ -35,10 +15,13 @@
             
             if (!contractId) {
                 // 清空案件选择
-                casesFromBox.find('option').remove();
-                casesToBox.find('option').remove();
+                caseField.find('option').remove();
+                caseField.append($('<option></option>').attr('value', '').text('---------'));
                 return;
             }
+            
+            // 保存当前选中的案件
+            var selectedCase = caseField.val();
             
             // 通过 AJAX 获取该合同的案件
             $.ajax({
@@ -46,15 +29,11 @@
                 method: 'GET',
                 data: { contract_id: contractId },
                 success: function(response) {
-                    // 保存当前已选择的案件
-                    var selectedCases = [];
-                    casesToBox.find('option').each(function() {
-                        selectedCases.push($(this).val());
-                    });
+                    // 清空下拉框
+                    caseField.find('option').remove();
                     
-                    // 清空两个选择框
-                    casesFromBox.find('option').remove();
-                    casesToBox.find('option').remove();
+                    // 添加空选项
+                    caseField.append($('<option></option>').attr('value', '').text('---------'));
                     
                     // 添加新的案件选项
                     if (response.cases && response.cases.length > 0) {
@@ -63,12 +42,12 @@
                                 .attr('value', caseItem.id)
                                 .text(caseItem.name);
                             
-                            // 如果之前已选择，放到右边
-                            if (selectedCases.indexOf(String(caseItem.id)) !== -1) {
-                                casesToBox.append(option);
-                            } else {
-                                casesFromBox.append(option);
+                            // 如果之前已选择且仍在列表中，保持选中
+                            if (String(caseItem.id) === String(selectedCase)) {
+                                option.attr('selected', 'selected');
                             }
+                            
+                            caseField.append(option);
                         });
                     }
                 },
