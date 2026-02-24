@@ -35,15 +35,30 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        # 动态过滤案件选项：只显示所选合同的案件
-        if self.instance and self.instance.contract_id:
+        
+        # 如果是编辑模式，根据已有的 contract_id 过滤案件
+        if self.instance and self.instance.pk and self.instance.contract_id:
             from apps.cases.models import Case
 
             self.fields["cases"].queryset = Case.objects.filter(contract_id=self.instance.contract_id)
-        else:
+        # 如果是新建模式，但通过 URL 参数传入了 contract_id
+        elif "initial" in kwargs and "contract" in kwargs["initial"]:
             from apps.cases.models import Case
 
-            self.fields["cases"].queryset = Case.objects.none()
+            contract_id = kwargs["initial"]["contract"]
+            self.fields["cases"].queryset = Case.objects.filter(contract_id=contract_id)
+        # 如果是新建模式且有 GET 参数 contract
+        elif hasattr(self, "data") and self.data and "contract" in self.data:
+            from apps.cases.models import Case
+
+            contract_id = self.data.get("contract")
+            if contract_id:
+                self.fields["cases"].queryset = Case.objects.filter(contract_id=contract_id)
+        else:
+            # 默认显示所有案件（用户选择合同后会通过 JS 过滤）
+            from apps.cases.models import Case
+
+            self.fields["cases"].queryset = Case.objects.all()
 
     def clean(self) -> dict[str, Any]:
         cleaned_data = super().clean()
@@ -152,6 +167,33 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
         """优化查询"""
         return super().get_queryset(request).select_related("contract").prefetch_related("cases")
 
+    def get_urls(self) -> list[Any]:
+        """添加自定义 URL"""
+        from django.urls import path
+
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "get-cases-by-contract/",
+                self.admin_site.admin_view(self.get_cases_by_contract_view),
+                name="contracts_clientpaymentrecord_get_cases",
+            ),
+        ]
+        return custom_urls + urls
+
+    def get_cases_by_contract_view(self, request: HttpRequest) -> Any:
+        """AJAX 端点：根据合同 ID 获取案件列表"""
+        from django.http import JsonResponse
+
+        from apps.cases.models import Case
+
+        contract_id = request.GET.get("contract_id")
+        if not contract_id:
+            return JsonResponse({"cases": []})
+
+        cases = Case.objects.filter(contract_id=contract_id).values("id", "name")
+        return JsonResponse({"cases": list(cases)})
+
     def save_model(self, request: HttpRequest, obj: ClientPaymentRecord, form: Any, change: bool) -> None:
         """保存模型时调用 Service 层验证"""
         from apps.contracts.services.client_payment import ClientPaymentRecordService
@@ -196,4 +238,4 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
             service.delete_payment_record(obj.id)
 
     class Media:
-        js = ("admin/js/jquery.init.js",)
+        js = ("admin/js/jquery.init.js", "contracts/js/client_payment_admin.js")
