@@ -31,11 +31,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         "lawyer",
         "site_name",
         "account",
-        "login_statistics_display",
-        "success_rate_display",
-        "last_login_display",
         "is_preferred",
-        "auto_login_button",
         "created_at",
     ]
 
