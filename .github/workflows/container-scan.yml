@@ -36,7 +36,7 @@ jobs:
             backend
 
       - name: Scan image (os + library)
-        uses: aquasecurity/trivy-action@0.26.0
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           image-ref: "fachuan-backend:ci"
           format: "table"
