@@ -18,59 +18,10 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "is_secret": False,
         },
         {
-            "key": "FEISHU_WEBHOOK_URL",
-            "category": "feishu",
-            "description": "飞书 Webhook URL（可选，用于传统通知）",
-            "is_secret": False,
-        },
-        {
             "key": "FEISHU_TIMEOUT",
             "category": "feishu",
             "description": "飞书 API 超时时间（秒）",
             "value": "30",
-            "is_secret": False,
-        },
-        # ============ 飞书群聊配置 ============
-        {
-            "key": "FEISHU_CHAT_CASE_GROUP",
-            "category": "feishu",
-            "description": "案件通知群名称",
-            "value": "案件通知群",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_CHAT_DOCUMENT_GROUP",
-            "category": "feishu",
-            "description": "文书通知群名称",
-            "value": "法院文书通知群",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_CHAT_SMS_GROUP",
-            "category": "feishu",
-            "description": "短信通知群名称",
-            "value": "法院短信通知群",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_CHAT_ALERT_GROUP",
-            "category": "feishu",
-            "description": "系统告警群名称",
-            "value": "系统告警群",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_CHAT_CONTRACT_GROUP",
-            "category": "feishu",
-            "description": "合同通知群名称",
-            "value": "合同通知群",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_CHAT_FINANCE_GROUP",
-            "category": "feishu",
-            "description": "财务通知群名称",
-            "value": "财务通知群",
             "is_secret": False,
         },
         # ============ 群聊名称模板配置 ============
@@ -97,50 +48,6 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "value": "60",
             "is_secret": False,
         },
-        # ============ 飞书高级配置 ============
-        {
-            "key": "FEISHU_TEST_MODE",
-            "category": "feishu",
-            "description": "飞书测试模式（启用后不会真正发送消息）",
-            "value": "false",
-            "is_secret": False,
-        },
-        {"key": "FEISHU_TEST_OWNER_ID", "category": "feishu", "description": "飞书测试群主 ID", "is_secret": False},
-        {
-            "key": "FEISHU_OWNER_VALIDATION_ENABLED",
-            "category": "feishu",
-            "description": "启用群主验证",
-            "value": "true",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_OWNER_RETRY_ENABLED",
-            "category": "feishu",
-            "description": "启用群主重试",
-            "value": "true",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_OWNER_MAX_RETRIES",
-            "category": "feishu",
-            "description": "群主设置最大重试次数",
-            "value": "3",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_MESSAGE_BATCH_SIZE",
-            "category": "feishu",
-            "description": "飞书消息批量发送数量",
-            "value": "10",
-            "is_secret": False,
-        },
-        {
-            "key": "FEISHU_FILE_UPLOAD_MAX_SIZE",
-            "category": "feishu",
-            "description": "飞书文件上传最大大小（MB）",
-            "value": "30",
-            "is_secret": False,
-        },
     ]
 
 
@@ -160,20 +67,6 @@ def get_dingtalk_configs() -> list[dict[str, Any]]:
             "category": "dingtalk",
             "description": "钉钉 API 超时时间（秒）",
             "value": "30",
-            "is_secret": False,
-        },
-        {
-            "key": "DINGTALK_CHAT_CASE_GROUP",
-            "category": "dingtalk",
-            "description": "钉钉案件通知群名称",
-            "value": "案件通知群",
-            "is_secret": False,
-        },
-        {
-            "key": "DINGTALK_CHAT_ALERT_GROUP",
-            "category": "dingtalk",
-            "description": "钉钉系统告警群名称",
-            "value": "系统告警群",
             "is_secret": False,
         },
     ]
@@ -205,13 +98,6 @@ def get_wechat_work_configs() -> list[dict[str, Any]]:
             "category": "wechat_work",
             "description": "企业微信 API 超时时间（秒）",
             "value": "30",
-            "is_secret": False,
-        },
-        {
-            "key": "WECHAT_WORK_CHAT_CASE_GROUP",
-            "category": "wechat_work",
-            "description": "企业微信案件通知群名称",
-            "value": "案件通知群",
             "is_secret": False,
         },
     ]
