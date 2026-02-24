@@ -75,7 +75,9 @@
     <template x-if="drawerType === 'party' && drawerOpen">
         <div>
             <div class="drawer-overlay" @click="closeDrawer()"></div>
-            <div class="drawer-panel">
+            <div class="drawer-panel" x-show="drawerType === 'party' && drawerOpen"
+                 x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start" x-transition:enter-end="drawer-enter-end"
+                 x-transition:leave="drawer-leave" x-transition:leave-start="drawer-leave-start" x-transition:leave-end="drawer-leave-end">
                 <div class="drawer-header">
                     <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentParty.name)" x-text="currentParty.name"></h3>
                     <button class="drawer-close" @click="closeDrawer()">×</button>
@@ -167,7 +169,9 @@
     <template x-if="drawerType === 'lawyer' && drawerOpen">
         <div>
             <div class="drawer-overlay" @click="closeDrawer()"></div>
-            <div class="drawer-panel">
+            <div class="drawer-panel" x-show="drawerType === 'lawyer' && drawerOpen"
+                 x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start" x-transition:enter-end="drawer-enter-end"
+                 x-transition:leave="drawer-leave" x-transition:leave-start="drawer-leave-start" x-transition:leave-end="drawer-leave-end">
                 <div class="drawer-header">
                     <h3 class="drawer-title copyable" style="cursor:pointer;" @click="copyText(currentLawyer.name)" x-text="currentLawyer.name"></h3>
                     <button class="drawer-close" @click="closeDrawer()">×</button>
