@@ -2,6 +2,11 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.2.1] - 2026-02-24
+
+### 修复
+- 删除 ContractFinanceLog Admin 后台入口（http://127.0.0.1:8002/admin/contracts/contractfinancelog/）
+
 ## [26.2.0] - 2026-02-24
 
 ### 新增功能
