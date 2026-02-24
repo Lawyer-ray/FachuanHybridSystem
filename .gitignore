@@ -114,6 +114,9 @@ backend/scripts/
 backend/tests/screenshots/
 backend/tests/
 
+# ONNX models (large files, not needed in Git)
+backend/apps/automation/services/ocr/models/*.onnx
+
 # macOS paths (user-specific)
 /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/MacOS_FC/
 /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/frontend/
@@ -127,4 +130,3 @@ backend/apps/documents/docx_templates/
 
 *.mo
 .dmypy.json
-*.bak
