@@ -31,7 +31,7 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "description": (
                 "案件群聊名称模板，支持占位符：{stage}（案件阶段）、{case_name}（案件名称）、{case_type}（案件类型）"
             ),
-            "value": "【{stage}】{case_name}",
+            "value": "[{stage}]{case_name}",
             "is_secret": False,
         },
         {
