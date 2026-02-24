@@ -118,12 +118,12 @@ backend/tests/
 backend/apps/automation/services/ocr/models/*.onnx
 
 # macOS paths (user-specific)
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/MacOS_FC/
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/frontend/
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/deploy/
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.dockerignore
-/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.secrets.baseline
+MacOS_FC/
+frontend/
+backend/deploy/
+backend/tests/
+backend/.dockerignore
+backend/.secrets.baseline
 
 # Document templates
 backend/apps/documents/docx_templates/
