@@ -34,7 +34,7 @@ class ClientPaymentRecordService:
         self,
         contract_id: int,
         amount: Decimal,
-        case_ids: list[int] | None = None,
+        case_id: int | None = None,
         note: str = "",
     ) -> ClientPaymentRecord:
         """
@@ -43,7 +43,7 @@ class ClientPaymentRecordService:
         Args:
             contract_id: 合同 ID
             amount: 回款金额
-            case_ids: 关联案件 ID 列表
+            case_id: 关联案件 ID
             note: 备注
 
         Returns:
@@ -67,20 +67,17 @@ class ClientPaymentRecordService:
             raise ValidationException(_("回款金额不能超过 14 位数字（含 2 位小数）"))
 
         # 验证案件归属
-        if case_ids:
-            if not self.validate_cases_belong_to_contract(contract_id, case_ids):
+        if case_id:
+            if not self.validate_case_belongs_to_contract(contract_id, case_id):
                 raise ValidationException(_("所选案件不属于该合同"))
 
         # 创建回款记录
         record = ClientPaymentRecord.objects.create(
             contract=contract,
+            case_id=case_id,
             amount=amount,
             note=note,
         )
-
-        # 关联案件
-        if case_ids:
-            record.cases.set(case_ids)
 
         logger.info(
             "创建客户回款记录: contract_id=%s, amount=%s, record_id=%s",
@@ -96,7 +93,7 @@ class ClientPaymentRecordService:
         self,
         record_id: int,
         amount: Decimal | None = None,
-        case_ids: list[int] | None = None,
+        case_id: int | None = None,
         note: str | None = None,
     ) -> ClientPaymentRecord:
         """
@@ -105,7 +102,7 @@ class ClientPaymentRecordService:
         Args:
             record_id: 回款记录 ID
             amount: 回款金额
-            case_ids: 关联案件 ID 列表
+            case_id: 关联案件 ID
             note: 备注
 
         Returns:
@@ -132,10 +129,10 @@ class ClientPaymentRecordService:
             record.amount = amount
 
         # 更新案件关联
-        if case_ids is not None:
-            if case_ids and not self.validate_cases_belong_to_contract(record.contract_id, case_ids):
+        if case_id is not None:
+            if case_id and not self.validate_case_belongs_to_contract(record.contract_id, case_id):
                 raise ValidationException(_("所选案件不属于该合同"))
-            record.cases.set(case_ids)
+            record.case_id = case_id
 
         # 更新备注
         if note is not None:
@@ -184,7 +181,7 @@ class ClientPaymentRecordService:
         Returns:
             回款记录查询集
         """
-        return ClientPaymentRecord.objects.filter(contract_id=contract_id).prefetch_related("cases").order_by("-created_at")
+        return ClientPaymentRecord.objects.filter(contract_id=contract_id).select_related("case").order_by("-created_at")
 
     def calculate_total_amount(self, contract_id: int) -> Decimal:
         """
@@ -199,21 +196,17 @@ class ClientPaymentRecordService:
         result = ClientPaymentRecord.objects.filter(contract_id=contract_id).aggregate(total=Sum("amount"))["total"]
         return result if result is not None else Decimal("0")
 
-    def validate_cases_belong_to_contract(self, contract_id: int, case_ids: list[int]) -> bool:
+    def validate_case_belongs_to_contract(self, contract_id: int, case_id: int) -> bool:
         """
         验证案件是否属于指定合同
 
         Args:
             contract_id: 合同 ID
-            case_ids: 案件 ID 列表
+            case_id: 案件 ID
 
         Returns:
-            是否全部属于该合同
+            是否属于该合同
         """
         from apps.cases.models import Case
 
-        # 查询这些案件中属于该合同的数量
-        valid_count = Case.objects.filter(id__in=case_ids, contract_id=contract_id).count()
-
-        # 如果数量匹配，说明所有案件都属于该合同
-        return valid_count == len(case_ids)
+        return Case.objects.filter(id=case_id, contract_id=contract_id).exists()
