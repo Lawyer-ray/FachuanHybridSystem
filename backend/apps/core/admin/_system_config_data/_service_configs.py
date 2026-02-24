@@ -97,8 +97,8 @@ def get_ai_configs() -> list[dict[str, Any]]:
         {
             "key": "AI_PROVIDER",
             "category": "ai",
-            "description": "AI 服务提供商（ollama/moonshot/openai）",
-            "value": "ollama",
+            "description": "AI 服务提供商（ollama/siliconflow）",
+            "value": "siliconflow",
             "is_secret": False,
         },
         {
@@ -115,19 +115,24 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "value": "http://localhost:11434",
             "is_secret": False,
         },
-        {"key": "OPENAI_API_KEY", "category": "ai", "description": "OpenAI API Key", "is_secret": True},
         {
-            "key": "OPENAI_BASE_URL",
+            "key": "SILICONFLOW_API_KEY",
             "category": "ai",
-            "description": "OpenAI API 地址（可用于代理）",
-            "value": "https://api.openai.com/v1",
+            "description": "硅基流动 API Key",
+            "is_secret": True,
+        },
+        {
+            "key": "SILICONFLOW_BASE_URL",
+            "category": "ai",
+            "description": "硅基流动 API 地址",
+            "value": "https://api.siliconflow.cn/v1",
             "is_secret": False,
         },
         {
-            "key": "OPENAI_MODEL",
+            "key": "SILICONFLOW_MODEL",
             "category": "ai",
-            "description": "OpenAI 模型名称",
-            "value": "gpt-3.5-turbo",
+            "description": "硅基流动模型名称",
+            "value": "Pro/Qwen/Qwen3-0.6B",
             "is_secret": False,
         },
         {
