@@ -6,5 +6,12 @@ OCR 服务模块
 
 from .adapter import OCRServiceAdapter
 from .ocr_service import OCRService, OCRTextResult, get_ocr_engine
+from .recognition_result import RecognitionResult
 
-__all__ = ["OCRService", "OCRServiceAdapter", "OCRTextResult", "get_ocr_engine"]
+__all__ = [
+    "OCRService",
+    "OCRServiceAdapter",
+    "OCRTextResult",
+    "RecognitionResult",
+    "get_ocr_engine",
+]

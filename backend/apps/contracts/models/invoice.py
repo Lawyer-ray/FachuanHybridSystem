@@ -25,6 +25,36 @@ class Invoice(models.Model):
     original_filename = models.CharField(max_length=255, verbose_name=_("原始文件名"))
     remark = models.TextField(blank=True, default="", verbose_name=_("备注"))
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
+    
+    # 发票识别结果字段（可选）
+    invoice_code = models.CharField(
+        max_length=20, blank=True, default="", verbose_name=_("发票代码")
+    )
+    invoice_number = models.CharField(
+        max_length=20, blank=True, default="", verbose_name=_("发票号码")
+    )
+    invoice_date = models.DateField(null=True, blank=True, verbose_name=_("开票日期"))
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("金额"),
+    )
+    tax_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("税额"),
+    )
+    total_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("价税合计"),
+    )
 
     class Meta:
         ordering: ClassVar = ["-uploaded_at"]
@@ -35,4 +65,4 @@ class Invoice(models.Model):
         ]
 
     def __str__(self) -> str:
-        return self.original_filename
+        return self.original_filename or f"发票 #{self.id}"
