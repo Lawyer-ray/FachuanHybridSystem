@@ -31,6 +31,9 @@ from .finalized_material import FinalizedMaterial, MaterialCategory
 # invoice.py - 发票相关模型
 from .invoice import Invoice
 
+# client_payment.py - 客户回款相关模型
+from .client_payment import ClientPaymentRecord
+
 __all__ = [
     # contract.py
     "Contract",
@@ -55,4 +58,6 @@ __all__ = [
     "MaterialCategory",
     # invoice.py
     "Invoice",
+    # client_payment.py
+    "ClientPaymentRecord",
 ]

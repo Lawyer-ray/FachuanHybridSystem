@@ -217,6 +217,13 @@ class ContractAdminService:
 
         invoices_by_payment = InvoiceUploadService().list_invoices_by_contract(contract.pk)
 
+        # 获取客户回款记录
+        from apps.contracts.services.client_payment import ClientPaymentRecordService
+
+        client_payment_service = ClientPaymentRecordService()
+        client_payments = client_payment_service.get_contract_payment_records(contract.pk)
+        total_client_payment = client_payment_service.calculate_total_amount(contract.pk)
+
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,
@@ -235,6 +242,8 @@ class ContractAdminService:
             "finalized_materials": finalized_materials,
             "finalized_materials_grouped": finalized_materials_grouped,
             "invoices_by_payment": invoices_by_payment,
+            "client_payments": client_payments,
+            "total_client_payment": total_client_payment,
         }
 
     def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
