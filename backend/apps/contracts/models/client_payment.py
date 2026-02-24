@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -26,8 +26,10 @@ class ClientPaymentRecord(models.Model):
         related_name="client_payment_records",
         verbose_name=_("关联合同"),
     )
-    cases: models.ManyToManyField[Case, RelatedManager[Case]] = models.ManyToManyField(
+    case: models.ForeignKey[Any | None, Any] = models.ForeignKey(
         "cases.Case",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name="client_payment_records",
         verbose_name=_("关联案件"),
@@ -52,9 +54,6 @@ class ClientPaymentRecord(models.Model):
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
-
-    if TYPE_CHECKING:
-        cases: RelatedManager[Case]
 
     class Meta:
         verbose_name = _("客户回款")
