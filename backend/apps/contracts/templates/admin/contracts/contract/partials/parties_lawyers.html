@@ -184,6 +184,17 @@
                         <div class="detail-value copyable" @click="copyText(currentParty.legalRepIdNumber)" x-text="currentParty.legalRepIdNumber"></div>
                     </div>
                 </template>
+
+                <!-- 复制全部按钮 -->
+                <div class="drawer-footer" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                    <button class="btn-copy-all" @click="copyAllPartyInfo()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        复制全部
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -245,6 +256,17 @@
                             <div class="detail-value" x-text="currentLawyer.lawFirm"></div>
                         </div>
                     </template>
+
+                    <!-- 复制全部按钮 -->
+                    <div class="drawer-footer" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <button class="btn-copy-all" @click="copyAllLawyerInfo()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            复制全部
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
