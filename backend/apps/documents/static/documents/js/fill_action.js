@@ -14,13 +14,16 @@
             caseResults: [],
             selectedCase: null,
             showDropdown: false,
+            showActiveCases: false,
+            activeCases: [],
+            loadingActiveCases: false,
             searchingCases: false,
             parties: [],
             selectedPartyIds: [],
             customFields: serverCustomFields,
             customValues: {},
             previewItems: [],
-            results: {},
+            fillResult: null,
             step: 'input',
             loadingPreview: false,
             filling: false,
@@ -30,6 +33,14 @@
                 var self = this;
                 this.customFields.forEach(function (f) {
                     self.customValues[f.mapping_id] = '';
+                });
+                // 点击外部关闭在办案件下拉
+                document.addEventListener('click', function (e) {
+                    var btn = document.getElementById('active-cases-btn');
+                    var panel = document.getElementById('active-cases-panel');
+                    if (btn && panel && !btn.contains(e.target) && !panel.contains(e.target)) {
+                        self.showActiveCases = false;
+                    }
                 });
             },
 
@@ -54,6 +65,29 @@
                     this.caseResults = [];
                 } finally {
                     this.searchingCases = false;
+                }
+            },
+
+            toggleActiveCases: async function () {
+                this.showActiveCases = !this.showActiveCases;
+                if (this.showActiveCases && this.activeCases.length === 0) {
+                    await this.loadActiveCases();
+                }
+            },
+
+            loadActiveCases: async function () {
+                this.loadingActiveCases = true;
+                try {
+                    var resp = await fetch('/api/v1/cases?status=active&limit=100', {
+                        headers: { 'X-CSRFToken': this.getCsrf() }
+                    });
+                    if (resp.ok) {
+                        this.activeCases = await resp.json();
+                    }
+                } catch (e) {
+                    this.activeCases = [];
+                } finally {
+                    this.loadingActiveCases = false;
                 }
             },
 
@@ -116,7 +150,7 @@
             confirmFill: async function () {
                 if (!this.caseId || this.selectedPartyIds.length === 0) return;
                 this.filling = true;
-                this.results = {};
+                this.fillResult = null;
                 try {
                     var cv = {};
                     var self = this;
@@ -136,12 +170,12 @@
                         body: JSON.stringify(body)
                     });
                     var data = await resp.json();
-                    this.results = (resp.ok && data.success)
+                    this.fillResult = (resp.ok && data.success)
                         ? Object.assign({ success: true }, data)
                         : { error: data.message || (window.FILL_ACTION_I18N && window.FILL_ACTION_I18N.fillFailed) || '填充失败' };
                     this.step = 'result';
                 } catch (e) {
-                    this.results = { error: (window.FILL_ACTION_I18N && window.FILL_ACTION_I18N.networkError) || '网络错误，请重试' };
+                    this.fillResult = { error: (window.FILL_ACTION_I18N && window.FILL_ACTION_I18N.networkError) || '网络错误，请重试' };
                     this.step = 'result';
                 } finally {
                     this.filling = false;

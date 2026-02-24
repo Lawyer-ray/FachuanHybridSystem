@@ -75,7 +75,7 @@ window.FILL_ACTION_I18N = {
     networkError: '{% translate "网络错误，请重试" %}'
 };
 </script>
-<script src="{% static 'documents/js/fill_action.js' %}"></script>
+<script src="{% static 'documents/js/fill_action.js' %}?v=2"></script>
 {% endblock %}
 
 {% block content %}
@@ -91,23 +91,35 @@ window.FILL_ACTION_I18N = {
     <div class="fill-step-header">
       <h3><span class="step-badge">1</span>{% translate "选择案件" %}</h3>
     </div>
-    <div class="case-input-row" style="position:relative;">
-      <input type="text"
-             x-model="caseQuery"
-             placeholder="{% translate '输入案件名称搜索...' %}"
-             @input.debounce.300ms="searchCases()"
-             @focus="showDropdown = caseResults.length > 0"
-             @keydown.escape="showDropdown = false"
-             autocomplete="off">
-      <template x-if="selectedCase">
-        <span style="font-size:0.8rem;color:#417690;white-space:nowrap;" x-text="'已选: ' + selectedCase.name"></span>
-      </template>
-      <!-- Dropdown -->
+    <div style="position:relative;">
+      <div class="case-input-row">
+        <input type="text"
+               x-model="caseQuery"
+               placeholder="{% translate '输入案件名称搜索...' %}"
+               @input.debounce.300ms="searchCases()"
+               @focus="showDropdown = caseResults.length > 0"
+               @keydown.escape="showDropdown = false"
+               autocomplete="off">
+        <!-- 在办案件下拉按钮 -->
+        <button id="active-cases-btn"
+                type="button"
+                class="btn-secondary"
+                @click="toggleActiveCases()"
+                style="white-space:nowrap;display:flex;align-items:center;gap:4px;">
+          {% translate "在办案件" %}
+          <span x-text="showActiveCases ? '▲' : '▼'" style="font-size:0.7rem;"></span>
+        </button>
+        <template x-if="selectedCase">
+          <span style="font-size:0.8rem;color:#417690;white-space:nowrap;" x-text="'{% translate "已选" %}: ' + selectedCase.name"></span>
+        </template>
+      </div>
+
+      <!-- 搜索结果下拉 -->
       <div x-show="showDropdown && caseResults.length > 0"
            @click.outside="showDropdown = false"
-           style="position:absolute;top:100%;left:0;right:0;z-index:100;background:#fff;border:1px solid #ccc;border-radius:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);margin-top:2px;">
+           style="position:absolute;top:100%;left:0;width:calc(100% - 120px);z-index:200;background:#fff;border:1px solid #ccc;border-radius:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);margin-top:2px;">
         <template x-for="c in caseResults" :key="c.id">
-          <div @click="selectCase(c)"
+          <div @click="selectCase(c); showDropdown = false;"
                style="padding:8px 12px;cursor:pointer;font-size:0.875rem;border-bottom:1px solid #eee;"
                @mouseenter="$el.style.background='#f0f4f8'"
                @mouseleave="$el.style.background='#fff'">
@@ -116,7 +128,44 @@ window.FILL_ACTION_I18N = {
           </div>
         </template>
       </div>
+
+      <!-- 在办案件面板 -->
+      <div id="active-cases-panel"
+           x-show="showActiveCases"
+           style="position:absolute;top:100%;right:0;width:360px;z-index:200;background:#fff;border:1px solid #ccc;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);margin-top:2px;">
+        <div style="padding:8px 12px;border-bottom:1px solid #eee;font-size:0.8rem;color:#666;font-weight:600;">
+          {% translate "在办案件" %}
+        </div>
+        <!-- 加载中 -->
+        <template x-if="loadingActiveCases">
+          <div style="padding:16px;text-align:center;font-size:0.875rem;color:#888;">
+            <span class="loading-spinner"></span>{% translate "加载中..." %}
+          </div>
+        </template>
+        <!-- 空列表 -->
+        <template x-if="!loadingActiveCases && activeCases.length === 0">
+          <div style="padding:16px;text-align:center;font-size:0.875rem;color:#aaa;">
+            {% translate "暂无在办案件" %}
+          </div>
+        </template>
+        <!-- 案件列表 -->
+        <div style="max-height:300px;overflow-y:auto;">
+          <template x-for="c in activeCases" :key="c.id">
+            <div @click="selectCase(c); showActiveCases = false;"
+                 style="padding:10px 12px;cursor:pointer;font-size:0.875rem;border-bottom:1px solid #f0f0f0;"
+                 @mouseenter="$el.style.background='#f0f4f8'"
+                 @mouseleave="$el.style.background='#fff'">
+              <div x-text="c.name" style="font-weight:600;color:#333;"></div>
+              <div style="font-size:0.75rem;color:#888;margin-top:2px;">
+                <span x-text="c.cause_of_action || ''"></span>
+                <span x-show="c.case_number" x-text="' · ' + c.case_number" style="margin-left:4px;"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
+
     <template x-if="searchingCases">
       <p style="margin-top:6px;font-size:0.8rem;color:#888;"><span class="loading-spinner"></span>{% translate "搜索中..." %}</p>
     </template>
@@ -249,39 +298,34 @@ window.FILL_ACTION_I18N = {
     <div class="fill-step-header">
       <h3><span class="step-badge">✓</span>{% translate "填充结果" %}</h3>
     </div>
-    <template x-if="results.success">
-      <div>
-        <p class="result-success">{% translate "填充完成" %}</p>
-        <template x-if="results.zip_file_path">
-          <p>
-            <a :href="'/media/' + results.zip_file_path" class="btn-primary"
-               style="display:inline-block;text-decoration:none;margin-top:8px;">
-              {% translate "下载 ZIP 文件" %}
-            </a>
-          </p>
-        </template>
-        <template x-if="results.records && results.records.length > 0">
-          <div style="margin-top:12px;">
-            <template x-for="rec in results.records" :key="rec.id">
-              <div class="result-item">
-                <span x-text="rec.filename"></span>
-                <a :href="'/media/' + rec.file_path" style="margin-left:10px;color:#417690;">{% translate "下载" %}</a>
-              </div>
-            </template>
-          </div>
-        </template>
-        <template x-if="results.summary">
-          <div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:0.8rem;">
-            <p>{% translate "总计" %}: <span x-text="results.summary.total || 0"></span></p>
-            <p>{% translate "成功" %}: <span x-text="results.summary.success || 0"></span></p>
-            <p>{% translate "失败" %}: <span x-text="results.summary.failed || 0"></span></p>
+    <div x-show="fillResult && fillResult.success">
+      <p class="result-success">{% translate "填充完成" %}</p>
+      <div x-show="fillResult && fillResult.zip_file_path">
+        <p>
+          <a :href="fillResult && fillResult.zip_file_path ? '/media/' + fillResult.zip_file_path : '#'"
+             class="btn-primary"
+             style="display:inline-block;text-decoration:none;margin-top:8px;">
+            {% translate "下载 ZIP 文件" %}
+          </a>
+        </p>
+      </div>
+      <div x-show="fillResult && fillResult.records && fillResult.records.length > 0" style="margin-top:12px;">
+        <template x-for="rec in (fillResult && fillResult.records ? fillResult.records : [])" :key="rec.id">
+          <div class="result-item">
+            <span x-text="rec.filename"></span>
+            <a :href="'/media/' + rec.file_path" style="margin-left:10px;color:#417690;">{% translate "下载" %}</a>
           </div>
         </template>
       </div>
-    </template>
-    <template x-if="results.error">
-      <p class="result-error" x-text="results.error"></p>
-    </template>
+      <div x-show="fillResult && fillResult.summary" style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:0.8rem;">
+        <p>{% translate "总计" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.total || 0 : 0"></span></p>
+        <p>{% translate "成功" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.success || 0 : 0"></span></p>
+        <p>{% translate "失败" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.failed || 0 : 0"></span></p>
+      </div>
+    </div>
+    <div x-show="fillResult && fillResult.error">
+      <p class="result-error" x-text="fillResult ? fillResult.error : ''"></p>
+    </div>
   </div>
 </div>
 {% endblock %}
