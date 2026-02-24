@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-20 14:20+0800\n"
+"POT-Creation-Date: 2026-02-24 17:29+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: apiSystem/settings.py:238
+#: apiSystem/settings.py:240
 msgid "简体中文"
 msgstr "Simplified Chinese"
 
-#: apiSystem/settings.py:239
+#: apiSystem/settings.py:241
 msgid "English"
 msgstr "English"
 
@@ -37,47 +37,3 @@ msgstr "Django administration"
 #: templates/admin/base_site.html:249
 msgid "我要立案"
 msgstr "File a Case"
-
-#: templates/admin/base_site.html:250
-msgid "关于法穿"
-msgstr "About Fachuan"
-
-#: apps/client/api/client_api.py
-msgid "未能解析出客户信息"
-msgstr "Failed to parse client information"
-
-#: apps/documents/api/document_api.py
-msgid "文件模板已删除"
-msgstr "Document template deleted"
-
-#: apps/chat_records/api/chat_records_api.py
-msgid "导出文件尚未生成"
-msgstr "Export file not yet generated"
-
-#: apps/client/api/clientidentitydoc_api.py
-msgid "证件文档添加成功"
-msgstr "Identity document added successfully"
-
-#: apps/client/api/clientidentitydoc_api.py
-msgid "证件文档删除成功"
-msgstr "Identity document deleted successfully"
-
-#: apps/documents/api/placeholder_api.py
-msgid "替换词已删除"
-msgstr "Placeholder deleted"
-
-#: apps/automation/api/auto_namer_api.py
-msgid "文件不存在: %(path)s"
-msgstr "File not found: %(path)s"
-
-#: apps/automation/api/auto_namer_api.py
-msgid "文档中没有提取到文字内容，无法生成命名"
-msgstr "No text content extracted from document, cannot generate name"
-
-#: apps/automation/api/preservation_quote_api.py
-msgid "询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个"
-msgstr "Quote task completed, %(success)d succeeded, %(failed)d failed"
-
-#: apps/automation/api/preservation_quote_api.py
-msgid "重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个"
-msgstr "Retry quote task completed, %(success)d succeeded, %(failed)d failed"

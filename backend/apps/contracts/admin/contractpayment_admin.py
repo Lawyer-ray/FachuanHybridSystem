@@ -34,7 +34,17 @@ class InvoiceAdminForm(forms.ModelForm[Invoice]):
 
     class Meta:
         model = Invoice
-        fields = ("file", "remark", "original_filename")
+        fields = (
+            "file",
+            "original_filename",
+            "invoice_code",
+            "invoice_number",
+            "invoice_date",
+            "amount",
+            "tax_amount",
+            "total_amount",
+            "remark",
+        )
         widgets = {
             "remark": forms.Textarea(attrs={"rows": 2, "cols": 20, "style": "width:160px;resize:vertical;"}),
         }
@@ -61,8 +71,16 @@ class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
     model = Invoice
     form = InvoiceAdminForm
     extra = 1
-    fields: ClassVar = ("file", "file_link", "original_filename", "uploaded_at", "remark")
-    readonly_fields: ClassVar = ("file_link", "original_filename", "uploaded_at")
+    fields: ClassVar = (
+        "file",
+        "file_link",
+        "total_amount",
+    )
+    readonly_fields: ClassVar = ("file_link",)
+    
+    # 隐藏 verbose_name_plural，避免显示识别结果
+    verbose_name = _("发票")
+    verbose_name_plural = _("发票")
 
     @admin.display(description=_("查看文件"))
     def file_link(self, obj: Invoice) -> str:
@@ -70,6 +88,10 @@ class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
             return "-"
         from django.conf import settings
 
+        # 确保 file_path 不为空字符串
+        if not obj.file_path.strip():
+            return "-"
+            
         url = f"{settings.MEDIA_URL}{obj.file_path}"
         return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename or _("查看"))
 
@@ -118,11 +140,16 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
 
 @admin.register(ContractPayment)
 class ContractPaymentAdmin(BaseModelAdmin[ContractPayment]):  # type: ignore[type-arg]
+    change_form_template = "admin/contracts/contractpayment/change_form.html"
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")
     list_filter = ("invoice_status", "received_at")
     search_fields = ("contract__name",)
     autocomplete_fields = ("contract",)
     inlines: ClassVar = [InvoiceInline]
+
+    class Media:
+        css = {"all": ("contracts/css/invoice_recognition.css",)}
+        js = ("contracts/js/invoice_recognition.js",)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[ContractPayment, ContractPayment]:
         return super().get_queryset(request).select_related("contract")
