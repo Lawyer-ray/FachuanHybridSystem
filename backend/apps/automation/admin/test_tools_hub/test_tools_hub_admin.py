@@ -110,3 +110,7 @@ class TestToolsHubAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None) -> None:
         """禁用修改功能"""
         return False
+
+    def has_module_permission(self, request) -> bool:
+        """隐藏在 Admin 菜单中"""
+        return False
