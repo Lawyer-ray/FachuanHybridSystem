@@ -34,6 +34,10 @@ class TestCourtAdmin(admin.ModelAdmin):
     def has_module_perms(self, request) -> bool:  # type: ignore[override]
         return False
 
+    def get_model_perms(self, request):
+        """返回空字典，隐藏所有权限"""
+        return {}
+
     # 自定义列表页
     def changelist_view(self, request, extra_context=None):
         """自定义列表页 - 显示测试选项"""
