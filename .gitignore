@@ -113,5 +113,18 @@ docker-volumes/
 backend/scripts/
 backend/tests/screenshots/
 backend/tests/
+
+# macOS paths (user-specific)
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/MacOS_FC/
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/frontend/
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/deploy/
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/tests/
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.dockerignore
+/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/.secrets.baseline
+
+# Document templates
+backend/apps/documents/docx_templates/
+
 *.mo
 .dmypy.json
+*.bak
