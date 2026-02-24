@@ -8,24 +8,6 @@ __all__ = ["get_env_mappings"]
 def get_env_mappings() -> dict[str, dict[str, Any]]:
     """获取环境变量到配置的映射"""
     return {
-        "DJANGO_SECRET_KEY": {
-            "key": "DJANGO_SECRET_KEY",
-            "category": "general",
-            "description": "Django 密钥",
-            "is_secret": True,
-        },
-        "DJANGO_DEBUG": {
-            "key": "DJANGO_DEBUG",
-            "category": "general",
-            "description": "Django 调试模式",
-            "is_secret": False,
-        },
-        "DJANGO_ALLOWED_HOSTS": {
-            "key": "DJANGO_ALLOWED_HOSTS",
-            "category": "general",
-            "description": "允许的主机列表",
-            "is_secret": False,
-        },
         "FEISHU_APP_ID": {
             "key": "FEISHU_APP_ID",
             "category": "feishu",
@@ -182,28 +164,10 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Moonshot AI API 地址",
             "is_secret": False,
         },
-        "SCRAPER_ENCRYPTION_KEY": {
-            "key": "SCRAPER_ENCRYPTION_KEY",
-            "category": "scraper",
-            "description": "爬虫加密密钥",
-            "is_secret": True,
-        },
         "SCRAPER_HEADLESS": {
             "key": "SCRAPER_HEADLESS",
             "category": "scraper",
             "description": "爬虫无头模式",
-            "is_secret": False,
-        },
-        "CORS_ALLOWED_ORIGINS": {
-            "key": "CORS_ALLOWED_ORIGINS",
-            "category": "general",
-            "description": "CORS 允许的来源",
-            "is_secret": False,
-        },
-        "CSRF_TRUSTED_ORIGINS": {
-            "key": "CSRF_TRUSTED_ORIGINS",
-            "category": "general",
-            "description": "CSRF 信任的来源",
             "is_secret": False,
         },
     }
