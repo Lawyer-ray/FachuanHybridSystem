@@ -145,6 +145,59 @@ function partiesDrawer() {
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 2000);
             });
+        },
+
+        copyAllPartyInfo() {
+            const party = this.currentParty;
+            let lines = [];
+
+            if (party.clientType === 'natural') {
+                if (party.name) lines.push('姓名：' + party.name);
+                if (party.idNumber) lines.push('身份证号码：' + party.idNumber);
+                if (party.address) lines.push('地址：' + party.address);
+                if (party.phone) lines.push('联系电话：' + party.phone);
+            } else {
+                if (party.name) lines.push('名称：' + party.name);
+                if (party.idNumber) lines.push('统一社会信用代码：' + party.idNumber);
+                if (party.legalRepName) lines.push('法定代表人：' + party.legalRepName);
+                if (party.address) lines.push('地址：' + party.address);
+                if (party.phone) lines.push('联系电话：' + party.phone);
+            }
+
+            const text = lines.join('\n');
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const toast = document.createElement('div');
+                    toast.textContent = '✓ 已复制全部信息';
+                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:#dcfce7;color:#15803d;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                });
+            }
+        },
+
+        copyAllLawyerInfo() {
+            const lawyer = this.currentLawyer;
+            let lines = [];
+
+            if (lawyer.name) lines.push('姓名：' + lawyer.name);
+            if (lawyer.username && lawyer.username !== lawyer.name) lines.push('用户名：' + lawyer.username);
+            if (lawyer.phone) lines.push('联系电话：' + lawyer.phone);
+            if (lawyer.email) lines.push('邮箱：' + lawyer.email);
+            if (lawyer.idCard) lines.push('身份证号码：' + lawyer.idCard);
+            if (lawyer.licenseNo) lines.push('执业证号：' + lawyer.licenseNo);
+            if (lawyer.lawFirm) lines.push('所属律所：' + lawyer.lawFirm);
+
+            const text = lines.join('\n');
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const toast = document.createElement('div');
+                    toast.textContent = '✓ 已复制全部信息';
+                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:#dcfce7;color:#15803d;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                });
+            }
         }
     }
 }
