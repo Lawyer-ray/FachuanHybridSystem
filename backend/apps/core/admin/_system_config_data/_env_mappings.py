@@ -14,6 +14,24 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "飞书应用 App ID",
             "is_secret": False,
         },
+        "FEISHU_APP_SECRET": {
+            "key": "FEISHU_APP_SECRET",
+            "category": "feishu",
+            "description": "飞书应用 App Secret",
+            "is_secret": True,
+        },
+        "FEISHU_DEFAULT_OWNER_ID": {
+            "key": "FEISHU_DEFAULT_OWNER_ID",
+            "category": "feishu",
+            "description": "飞书群聊默认群主 ID",
+            "is_secret": False,
+        },
+        "FEISHU_TIMEOUT": {
+            "key": "FEISHU_TIMEOUT",
+            "category": "feishu",
+            "description": "飞书 API 超时时间",
+            "is_secret": False,
+        },
         "CASE_CHAT_NAME_TEMPLATE": {
             "key": "CASE_CHAT_NAME_TEMPLATE",
             "category": "feishu",
@@ -30,30 +48,6 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "key": "CASE_CHAT_NAME_MAX_LENGTH",
             "category": "feishu",
             "description": "群聊名称最大长度",
-            "is_secret": False,
-        },
-        "FEISHU_APP_SECRET": {
-            "key": "FEISHU_APP_SECRET",
-            "category": "feishu",
-            "description": "飞书应用 App Secret",
-            "is_secret": True,
-        },
-        "FEISHU_DEFAULT_OWNER_ID": {
-            "key": "FEISHU_DEFAULT_OWNER_ID",
-            "category": "feishu",
-            "description": "飞书群聊默认群主 ID",
-            "is_secret": False,
-        },
-        "FEISHU_WEBHOOK_URL": {
-            "key": "FEISHU_WEBHOOK_URL",
-            "category": "feishu",
-            "description": "飞书 Webhook URL",
-            "is_secret": False,
-        },
-        "FEISHU_TIMEOUT": {
-            "key": "FEISHU_TIMEOUT",
-            "category": "feishu",
-            "description": "飞书 API 超时时间",
             "is_secret": False,
         },
         "DINGTALK_APP_KEY": {
@@ -104,40 +98,22 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "企业微信 API 超时时间",
             "is_secret": False,
         },
-        "TELEGRAM_BOT_TOKEN": {
-            "key": "TELEGRAM_BOT_TOKEN",
-            "category": "general",
-            "description": "Telegram Bot Token",
+        "SILICONFLOW_API_KEY": {
+            "key": "SILICONFLOW_API_KEY",
+            "category": "ai",
+            "description": "硅基流动 API Key",
             "is_secret": True,
         },
-        "SLACK_BOT_TOKEN": {
-            "key": "SLACK_BOT_TOKEN",
-            "category": "general",
-            "description": "Slack Bot Token",
-            "is_secret": True,
-        },
-        "SLACK_SIGNING_SECRET": {
-            "key": "SLACK_SIGNING_SECRET",
-            "category": "general",
-            "description": "Slack Signing Secret",
-            "is_secret": True,
-        },
-        "COURT_SMS_MAX_RETRIES": {
-            "key": "COURT_SMS_MAX_RETRIES",
-            "category": "court_sms",
-            "description": "法院短信最大重试次数",
+        "SILICONFLOW_BASE_URL": {
+            "key": "SILICONFLOW_BASE_URL",
+            "category": "ai",
+            "description": "硅基流动 API 地址",
             "is_secret": False,
         },
-        "COURT_SMS_RETRY_DELAY": {
-            "key": "COURT_SMS_RETRY_DELAY",
-            "category": "court_sms",
-            "description": "法院短信重试延迟",
-            "is_secret": False,
-        },
-        "COURT_SMS_AUTO_RECOVERY": {
-            "key": "COURT_SMS_AUTO_RECOVERY",
-            "category": "court_sms",
-            "description": "法院短信自动恢复",
+        "SILICONFLOW_MODEL": {
+            "key": "SILICONFLOW_MODEL",
+            "category": "ai",
+            "description": "硅基流动模型名称",
             "is_secret": False,
         },
         "OLLAMA_MODEL": {
@@ -152,22 +128,22 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Ollama API 地址",
             "is_secret": False,
         },
-        "MOONSHOT_API_KEY": {
-            "key": "MOONSHOT_API_KEY",
-            "category": "ai",
-            "description": "Moonshot AI API Key",
+        "SCRAPER_ENCRYPTION_KEY": {
+            "key": "SCRAPER_ENCRYPTION_KEY",
+            "category": "scraper",
+            "description": "爬虫加密密钥",
             "is_secret": True,
-        },
-        "MOONSHOT_BASE_URL": {
-            "key": "MOONSHOT_BASE_URL",
-            "category": "ai",
-            "description": "Moonshot AI API 地址",
-            "is_secret": False,
         },
         "SCRAPER_HEADLESS": {
             "key": "SCRAPER_HEADLESS",
             "category": "scraper",
             "description": "爬虫无头模式",
+            "is_secret": False,
+        },
+        "SCRAPER_TIMEOUT": {
+            "key": "SCRAPER_TIMEOUT",
+            "category": "scraper",
+            "description": "爬虫超时时间",
             "is_secret": False,
         },
     }
