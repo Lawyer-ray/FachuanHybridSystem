@@ -150,4 +150,47 @@
         {% endif %}
     </div>
 
+    <!-- 客户回款卡片 -->
+    <div class="info-card" style="margin-top: 20px;">
+        <div class="card-header">
+            <span class="card-icon">💵</span>
+            <h3 class="card-title">{% trans "客户回款" %}</h3>
+            {% if client_payments %}
+            <span style="margin-left: auto; font-size: 12px; color: #6b7280;">
+                {{ client_payments|length }} {% trans "笔" %} · 
+                {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
+            </span>
+            {% endif %}
+        </div>
+        {% if client_payments %}
+        <div class="payment-list">
+            {% for payment in client_payments %}
+            <div class="payment-item">
+                <span class="payment-date">{{ payment.created_at|date:"Y-m-d" }}</span>
+                <span class="payment-amount">¥{{ payment.amount|floatformat:2 }}</span>
+                {% if payment.cases.exists %}
+                <span class="payment-cases" style="font-size: 12px; color: #6b7280;">
+                    {% for case in payment.cases.all %}
+                        {{ case.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </span>
+                {% endif %}
+                {% if payment.note %}
+                <span class="payment-note">{{ payment.note }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">{% trans "暂无客户回款记录" %}</p>
+        {% endif %}
+        
+        {% if perms.contracts.add_clientpaymentrecord %}
+        <div style="margin-top: 12px;">
+            <a href="{% url 'admin:contracts_clientpaymentrecord_add' %}?contract={{ contract.id }}" 
+               class="button" style="display: inline-block; padding: 6px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">{% trans "添加回款" %}</a>
+        </div>
+        {% endif %}
+    </div>
+
 </div>

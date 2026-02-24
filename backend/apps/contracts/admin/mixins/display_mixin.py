@@ -189,6 +189,8 @@ class ContractDisplayMixin:
                 "finalized_materials": ctx_data["finalized_materials"],
                 "finalized_materials_grouped": ctx_data["finalized_materials_grouped"],
                 "invoices_by_payment": ctx_data["invoices_by_payment"],
+                "client_payments": ctx_data["client_payments"],
+                "total_client_payment": ctx_data["total_client_payment"],
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
