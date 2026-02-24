@@ -190,7 +190,7 @@ def get_scraper_configs() -> list[dict[str, Any]]:
         {
             "key": "SCRAPER_DOWNLOAD_DIR",
             "category": "scraper",
-            "description": "爬虫下载目录",
+            "description": "��虫下载目录",
             "value": "/tmp/scraper_downloads",  # nosec B108
             "is_secret": False,
         },
