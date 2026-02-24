@@ -1,0 +1,110 @@
+{% extends "admin/change_form.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'contracts/css/invoice_recognition.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'contracts/js/invoice_recognition.js' %}"></script>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<div class="module invoice-recognition-module" x-data="invoiceRecognition()">
+    <h2>{% translate "发票识别" %}</h2>
+    
+    <!-- 上传消息 -->
+    <template x-if="uploadMessage">
+        <div class="ir-message" :class="messageType" x-text="uploadMessage"></div>
+    </template>
+    
+    <!-- 文件上传区域 -->
+    <div class="ir-upload-section">
+        <div class="ir-upload-zone"
+             :class="{ 'dragging': dragging }"
+             @dragover.prevent="dragging = true"
+             @dragleave.prevent="dragging = false"
+             @drop.prevent="handleDrop($event)"
+             @click="$refs.fileInput.click()">
+            <div class="upload-icon">📄</div>
+            <p class="upload-text">{% translate "拖拽文件到此处，或点击选择文件" %}</p>
+            <p class="upload-hint">{% translate "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选" %}</p>
+            <input type="file"
+                   x-ref="fileInput"
+                   multiple
+                   accept=".pdf,.jpg,.jpeg,.png"
+                   style="display: none;"
+                   @change="handleFileSelect($event)">
+        </div>
+        
+        <button type="button"
+                class="button ir-upload-btn"
+                @click="$refs.fileInput.click()"
+                :disabled="uploading">
+            <span x-show="!uploading">📤 {% translate "上传发票" %}</span>
+            <span x-show="uploading">⏳ {% translate "上传中..." %}</span>
+        </button>
+    </div>
+    
+    <!-- 上传进度条 -->
+    <div x-show="uploading" class="ir-progress-section">
+        <div class="ir-progress-label">
+            {% translate "识别中" %}... <span x-text="progress + '%'"></span>
+        </div>
+        <div class="ir-progress-bar">
+            <div class="ir-progress-fill" :style="'width: ' + progress + '%'"></div>
+        </div>
+    </div>
+    
+    <!-- 识别结果预览 -->
+    <template x-if="results.length > 0">
+        <div class="ir-results-section">
+            <h3>{% translate "识别结果" %}</h3>
+            <table class="ir-results-table">
+                <thead>
+                    <tr>
+                        <th>{% translate "文件名" %}</th>
+                        <th>{% translate "发票号码" %}</th>
+                        <th>{% translate "开票日期" %}</th>
+                        <th>{% translate "金额" %}</th>
+                        <th>{% translate "状态" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="result in results" :key="result.filename">
+                        <tr :class="{ 'error': !result.success }">
+                            <td x-text="result.filename"></td>
+                            <template x-if="result.success">
+                                <td x-text="result.data.invoice_number || '-'"></td>
+                                <td x-text="result.data.invoice_date || '-'"></td>
+                                <td>¥<span x-text="parseFloat(result.data.total_amount || 0).toFixed(2)"></span></td>
+                                <td class="success">✓ {% translate "成功" %}</td>
+                            </template>
+                            <template x-if="!result.success">
+                                <td colspan="3" x-text="result.error" class="error-message"></td>
+                                <td class="error">✗ {% translate "失败" %}</td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            
+            <div class="ir-summary">
+                <span class="summary-label">{% translate "识别成功" %}:</span>
+                <span class="summary-value" x-text="successCount"></span>
+                <span class="summary-label">{% translate "识别失败" %}:</span>
+                <span class="summary-value" x-text="failureCount"></span>
+                <span class="summary-label">{% translate "累计金额" %}:</span>
+                <span class="summary-amount">¥<span x-text="totalAmount.toFixed(2)"></span></span>
+            </div>
+            
+            <div class="ir-hint">
+                <p>{% translate "提示：识别结果已自动填充到下方的发票列表中，请检查后点击保存按钮保存数据。" %}</p>
+            </div>
+        </div>
+    </template>
+</div>
+{% endblock %}

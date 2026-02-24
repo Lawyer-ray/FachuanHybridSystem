@@ -9,6 +9,7 @@ from apps.core.interfaces import ServiceLocator
 if TYPE_CHECKING:
     from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
     from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
+    from apps.automation.services.ocr.quick_recognition_service import QuickRecognitionService
 
 
 def get_case_service() -> Any:
@@ -136,3 +137,16 @@ def get_invoice_download_service() -> "InvoiceDownloadService":
     from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
 
     return InvoiceDownloadService()
+
+
+def get_quick_recognition_service() -> "QuickRecognitionService":
+    from apps.automation.services.ocr.invoice_parser import InvoiceParser
+    from apps.automation.services.ocr.ocr_service import OCRService
+    from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+    from apps.automation.services.ocr.quick_recognition_service import QuickRecognitionService
+
+    return QuickRecognitionService(
+        ocr_service=OCRService(),
+        pdf_extractor=PDFTextExtractor(),
+        parser=InvoiceParser(),
+    )
