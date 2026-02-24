@@ -8,46 +8,10 @@ __all__ = ["get_court_sms_configs", "get_ai_configs", "get_scraper_configs"]
 def get_court_sms_configs() -> list[dict[str, Any]]:
     """获取法院短信与文书送达配置项"""
     return [
-        # ============ 法院短信配置 ============
         {
             "key": "COURT_SMS_ENABLED",
             "category": "court_sms",
             "description": "启用法院短信处理功能",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_MAX_RETRIES",
-            "category": "court_sms",
-            "description": "法院短信处理最大重试次数",
-            "value": "3",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_RETRY_DELAY",
-            "category": "court_sms",
-            "description": "法院短信处理重试延迟（秒）",
-            "value": "60",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_AUTO_RECOVERY",
-            "category": "court_sms",
-            "description": "法院短信自动恢复",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_NOTIFY_ON_SUCCESS",
-            "category": "court_sms",
-            "description": "短信处理成功时发送通知",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_NOTIFY_ON_FAILURE",
-            "category": "court_sms",
-            "description": "短信处理失败时发送通知",
             "value": "True",
             "is_secret": False,
         },
@@ -59,32 +23,10 @@ def get_court_sms_configs() -> list[dict[str, Any]]:
             "is_secret": False,
         },
         {
-            "key": "COURT_SMS_DOWNLOAD_TIMEOUT",
-            "category": "court_sms",
-            "description": "文书下载超时时间（秒）",
-            "value": "120",
-            "is_secret": False,
-        },
-        # ============ 文书送达配置 ============
-        {
             "key": "DOCUMENT_DELIVERY_ENABLED",
             "category": "court_sms",
             "description": "启用文书送达自动处理",
             "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "DOCUMENT_DELIVERY_SCHEDULE",
-            "category": "court_sms",
-            "description": "文书送达检查时间（cron 格式）",
-            "value": "0 9,14,18 * * *",
-            "is_secret": False,
-        },
-        {
-            "key": "DOCUMENT_DELIVERY_BATCH_SIZE",
-            "category": "court_sms",
-            "description": "文书送达批量处理数量",
-            "value": "10",
             "is_secret": False,
         },
     ]
