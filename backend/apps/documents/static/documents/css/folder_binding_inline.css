@@ -3,7 +3,7 @@
  */
 
 /* 隐藏inline中已有的绑定记录行（只显示空的新增行） */
-#documenttemplatefolderbinding_set-group .tabular tbody tr.has_original {
+#folder_bindings-group .tabular tbody tr.has_original {
     display: none !important;
 }
 
