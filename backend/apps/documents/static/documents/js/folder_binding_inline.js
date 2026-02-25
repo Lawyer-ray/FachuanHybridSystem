@@ -100,7 +100,11 @@
         $btn.on('click', function(e) {
             e.preventDefault();
             console.log('[FolderBinding] 点击选择按钮');
-            var tid = $templateSelect.val();
+            // 重新获取当前行的模板选择器值（处理动态变化）
+            var $currentRow = $(this).closest('tr, .form-row, .inline-related');
+            var $currentTemplateSelect = $currentRow.find('select[name*="folder_template"], select[id*="folder_template"]');
+            var tid = $currentTemplateSelect.val();
+            console.log('[FolderBinding] 当前模板ID:', tid);
             if (!tid) {
                 alert('请先选择文件夹模板');
                 return;
@@ -111,7 +115,7 @@
         });
 
         $templateSelect.on('change', function() {
-            console.log('[FolderBinding] 模板选择器变更');
+            console.log('[FolderBinding] 模板选择器变更，当前值:', $(this).val());
             $nodeInput.val('');
             $display.html('<em style="color:#999;">请选择</em>');
             $popup.hide().empty();
