@@ -99,11 +99,19 @@ document.addEventListener('alpine:init', () => {
             // 防止重复点击
             if (this.loading) return;
             
-            // 更新当前列的选中状态
+            // 检查是否已经选中
+            if (this.columns[columnIndex].selectedIndex === entryIndex) {
+                return;
+            }
+            
+            // 更新选中状态
             this.columns[columnIndex].selectedIndex = entryIndex;
             
-            // 移除后续的列
-            this.columns = this.columns.slice(0, columnIndex + 1);
+            // 移除后续的列（使用 splice 避免创建新数组）
+            const newLength = columnIndex + 1;
+            if (this.columns.length > newLength) {
+                this.columns.splice(newLength);
+            }
             
             // 加载子文件夹
             await this.loadSubfolders(entry.path);
