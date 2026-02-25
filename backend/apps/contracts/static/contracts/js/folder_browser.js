@@ -24,7 +24,8 @@ document.addEventListener('alpine:init', () => {
                 const response = await fetch(`/api/v1/contracts/${this.contractId}/folder-binding`, {
                     headers: {
                         'X-CSRFToken': this.getCsrfToken()
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
                 
                 if (response.ok) {
@@ -32,7 +33,10 @@ document.addEventListener('alpine:init', () => {
                     if (data) {
                         this.binding = data;
                     }
-                } else if (response.status !== 404) {
+                } else if (response.status === 404) {
+                    // 未绑定，正常情况
+                    this.binding = null;
+                } else {
                     console.error('加载绑定失败:', response.status);
                 }
             } catch (error) {
@@ -63,7 +67,8 @@ document.addEventListener('alpine:init', () => {
                 const response = await fetch('/api/v1/contracts/folder-browse', {
                     headers: {
                         'X-CSRFToken': this.getCsrfToken()
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) {
@@ -112,7 +117,8 @@ document.addEventListener('alpine:init', () => {
                 const response = await fetch(`/api/v1/contracts/folder-browse?path=${encodeURIComponent(path)}`, {
                     headers: {
                         'X-CSRFToken': this.getCsrfToken()
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) {
@@ -165,6 +171,7 @@ document.addEventListener('alpine:init', () => {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': this.getCsrfToken()
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ folder_path: path })
                 });
 
@@ -218,7 +225,8 @@ document.addEventListener('alpine:init', () => {
                     method: 'DELETE',
                     headers: {
                         'X-CSRFToken': this.getCsrfToken()
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) {
