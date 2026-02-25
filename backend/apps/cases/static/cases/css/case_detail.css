@@ -684,6 +684,7 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     z-index: 1000;
+    transition: opacity 0.3s ease;
 }
 
 .drawer-panel {
@@ -698,7 +699,13 @@
     z-index: 1001;
     display: flex;
     flex-direction: column;
+    transition: transform 0.3s ease;
 }
+
+/* 抽屉动画 */
+.drawer-enter, .drawer-leave { transition: transform 0.3s ease; }
+.drawer-enter-start, .drawer-leave-end { transform: translateX(100%); }
+.drawer-enter-end, .drawer-leave-start { transform: translateX(0); }
 
 .drawer-header {
     display: flex;

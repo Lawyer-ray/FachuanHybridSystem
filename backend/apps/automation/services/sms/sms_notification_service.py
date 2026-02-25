@@ -64,7 +64,7 @@ class SMSNotificationService:
             self._case_chat_service = ServiceLocator.get_case_chat_service()
         return self._case_chat_service
 
-    def send_case_chat_notification(self, sms: CourtSMS, document_paths: list[str] | None = None) -> bool:
+    def send_case_chat_notification(self, sms: CourtSMS, document_paths: list[str] | None = None) -> tuple[bool, str | None]:
         """发送案件群聊通知
 
         根据 Requirements 3.2, 3.3, 3.4 实现：
@@ -78,13 +78,14 @@ class SMSNotificationService:
             document_paths: 文书文件路径列表（可选）
 
         Returns:
-            bool: 是否发送成功
+            tuple[bool, str | None]: (是否发送成功, 错误信息)
 
         Requirements: 3.2, 3.3, 3.4
         """
         if not sms.case:
-            logger.warning(f"短信未绑定案件，无法发送群聊通知: SMS ID={sms.id}")
-            return False
+            error_msg = "短信未绑定案件，无法发送群聊通知"
+            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            return False, error_msg
 
         try:
             # 获取案件群聊服务
@@ -105,8 +106,9 @@ class SMSNotificationService:
 
             except Exception as e:
                 # Requirements 3.4: 自动创建群聊失败时记录错误日志，返回 False
-                logger.error(f"获取或创建群聊失败: SMS ID={sms.id}, Case ID={sms.case.id}, 错误: {e!s}")
-                return False
+                error_msg = f"获取或创建群聊失败: {e!s}"
+                logger.error(f"{error_msg}: SMS ID={sms.id}, Case ID={sms.case.id}")
+                return False, error_msg
 
             # Requirements 3.3: 将文书内容和短信内容推送到群聊
             try:
@@ -120,26 +122,28 @@ class SMSNotificationService:
 
                 if result.success:
                     logger.info(f"案件群聊通知发送成功: SMS ID={sms.id}, Chat ID={chat.chat_id}")
-                    return True
+                    return True, None
                 else:
-                    logger.warning(
-                        f"案件群聊通知发送失败: SMS ID={sms.id}, Chat ID={chat.chat_id}, 错误: {result.message}"
-                    )
-                    return False
+                    error_msg = f"消息发送失败: {result.message}"
+                    logger.warning(f"{error_msg}: SMS ID={sms.id}, Chat ID={chat.chat_id}")
+                    return False, error_msg
 
             except Exception as e:
                 # Requirements 3.4: 消息发送失败时记录错误日志，返回 False
-                logger.error(f"发送案件群聊通知失败: SMS ID={sms.id}, Chat ID={chat.chat_id}, 错误: {e!s}")
-                return False
+                error_msg = f"发送案件群聊通知异常: {e!s}"
+                logger.error(f"{error_msg}: SMS ID={sms.id}, Chat ID={chat.chat_id}")
+                return False, error_msg
 
         except ImportError as e:
             # Requirements 3.4: 导入错误时记录日志，返回 False
-            logger.error(f"无法导入 CaseChatService: {e!s}")
-            return False
+            error_msg = f"无法导入 CaseChatService: {e!s}"
+            logger.error(error_msg)
+            return False, error_msg
         except Exception as e:
             # Requirements 3.4: 其他异常时记录日志，返回 False
-            logger.error(f"案件群聊通知处理失败: SMS ID={sms.id}, 错误: {e!s}")
-            return False
+            error_msg = f"案件群聊通知处理失败: {e!s}"
+            logger.error(f"{error_msg}: SMS ID={sms.id}")
+            return False, error_msg
 
     def _get_or_create_chat(self, case_id: int, platform: ChatPlatform) -> Any:
         """获取或创建群聊

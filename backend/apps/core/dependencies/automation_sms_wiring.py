@@ -19,46 +19,35 @@ def build_court_sms_service_with_deps(
     caselog_service: Any,
     reminder_service: Any,
 ) -> ICourtSMSService:
-    from apps.automation.services.fee_notice import FeeNoticeCheckService
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
-    from apps.automation.services.sms.coordinator.court_sms_orchestrator import CourtSMSOrchestrator
-    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
     from apps.automation.services.sms.court_sms_service import CourtSMSService
     from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
     from apps.automation.services.sms.matching import DocumentParserService, PartyMatchingService
-    from apps.automation.services.sms.processing.stage_processor import CourtSMSStageProcessor
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
     from apps.automation.services.sms.sms_parser_service import SMSParserService
-    from apps.automation.services.sms.sms_processing_workflow import CourtSMSProcessingWorkflow
-    from apps.automation.services.sms.stages import (
-        SMSDownloadingStage,
-        SMSMatchingStage,
-        SMSNotifyingStage,
-        SMSParsingStage,
-        SMSRenamingStage,
-    )
-    from apps.automation.services.sms.submission.sms_submission_service import SMSSubmissionService
-    from apps.automation.services.sms.task_queue import DjangoQTaskQueue
-    from apps.automation.tasks import execute_scraper_task
-
-    task_queue = DjangoQTaskQueue()
-    repo = CourtSMSRepository()
 
     party_matching_service = PartyMatchingService(
         client_service=client_service,
         lawyer_service=lawyer_service,
     )
+    
     document_parser_service = DocumentParserService(
         client_service=client_service,
         lawyer_service=lawyer_service,
     )
-    parser = SMSParserService(party_matching_service=party_matching_service)
+    
+    parser = SMSParserService(
+        client_service=client_service,
+        party_matching_service=party_matching_service,
+    )
+    
     matcher = CaseMatcher(
         case_service=case_service,
         document_parser_service=document_parser_service,
         party_matching_service=party_matching_service,
     )
+    
     case_number_extractor = CaseNumberExtractorService(
         document_processing_service=document_processing_service,
         case_service=case_service,
@@ -66,42 +55,9 @@ def build_court_sms_service_with_deps(
     )
 
     document_attachment = DocumentAttachmentService(case_service=case_service)
+    
     notification = SMSNotificationService(
         case_chat_service=case_chat_service,
-    )
-
-    parsing_stage = SMSParsingStage(parser=parser)
-    downloading_stage = SMSDownloadingStage(task_queue=task_queue, execute_scraper_task=execute_scraper_task)
-    matching_stage = SMSMatchingStage(
-        matcher=matcher,
-        case_number_extractor=case_number_extractor,
-        case_service=case_service,
-        lawyer_service=lawyer_service,
-    )
-    renaming_stage = SMSRenamingStage(
-        document_attachment=document_attachment,
-        case_number_extractor=case_number_extractor,
-        matcher=matcher,
-        lawyer_service=lawyer_service,
-    )
-    notifying_stage = SMSNotifyingStage(
-        notification_service=notification,
-        document_attachment_service=document_attachment,
-    )
-
-    processor = CourtSMSStageProcessor(
-        parsing_stage=parsing_stage,
-        downloading_stage=downloading_stage,
-        matching_stage=matching_stage,
-        renaming_stage=renaming_stage,
-        notifying_stage=notifying_stage,
-    )
-    workflow = CourtSMSProcessingWorkflow(repo=repo, processor=processor)
-    orchestrator = CourtSMSOrchestrator(workflow=workflow, repo=repo)
-
-    submission_service = SMSSubmissionService(
-        case_service=case_service,
-        lawyer_service=lawyer_service,
     )
 
     return CourtSMSService(  # type: ignore[return-value]
@@ -114,6 +70,8 @@ def build_court_sms_service_with_deps(
         client_service=client_service,
         lawyer_service=lawyer_service,
         case_chat_service=case_chat_service,
+        document_processing_service=document_processing_service,
+        case_number_service=case_number_service,
     )
 
 
