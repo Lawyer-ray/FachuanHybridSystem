@@ -37,61 +37,66 @@
         </button>
     </div>
     
-    <!-- 文件夹浏览器模态框 -->
+    <!-- Finder 风格文件夹浏览器模态框 -->
     <div x-show="showBrowser" x-cloak class="folder-browser-modal" @click.self="closeBrowser()">
         <div class="folder-browser-content">
-            <div class="folder-browser-header">
+            <div class="folder-browser-header" style="position: relative;">
                 <h2>选择文件夹</h2>
                 <button type="button" class="folder-browser-close" @click="closeBrowser()">×</button>
-            </div>
-            
-            <div class="folder-browser-body">
-                <!-- 当前路径 -->
-                <div x-show="currentPath" class="folder-browser-path" x-text="currentPath || '根目录'"></div>
                 
-                <!-- 导航按钮 -->
-                <div class="folder-browser-nav">
-                    <button type="button" class="btn-folder" @click="browseFolder(parentPath)" x-show="parentPath" :disabled="loading">
-                        ← 返回上级
-                    </button>
-                    <button type="button" class="btn-folder" @click="browseFolder(null)" :disabled="loading">
-                        🏠 根目录
-                    </button>
-                    <button type="button" class="btn-folder select" @click="selectFolder(currentPath)" x-show="currentPath" :disabled="loading">
-                        ✓ 选择当前文件夹
+                <!-- 手动输入路径 -->
+                <div class="manual-path-input">
+                    <input 
+                        type="text" 
+                        x-model="manualPath" 
+                        placeholder="输入文件夹路径，例如：/Users/username/Documents"
+                        @keydown.enter="bindManualPath()"
+                    >
+                    <button type="button" class="btn-folder primary" @click="bindManualPath()" :disabled="loading">
+                        确认
                     </button>
                 </div>
                 
                 <!-- 错误信息 -->
                 <div x-show="error" class="folder-browser-error" x-text="error"></div>
-                
-                <!-- 加载中 -->
-                <div x-show="loading" class="folder-browser-loading">
-                    加载中...
-                </div>
-                
-                <!-- 文件夹列表 -->
-                <div x-show="!loading && entries.length > 0" class="folder-list">
-                    <template x-for="entry in entries" :key="entry.path">
-                        <div class="folder-item">
-                            <span class="folder-item-icon">📁</span>
-                            <span class="folder-item-name" x-text="entry.name"></span>
-                            <div class="folder-item-actions">
-                                <button type="button" class="folder-item-btn" @click="browseFolder(entry.path)">
-                                    打开
-                                </button>
-                                <button type="button" class="folder-item-btn select" @click="selectFolder(entry.path)">
-                                    选择
-                                </button>
+            </div>
+            
+            <!-- Finder 分栏浏览器 -->
+            <div x-show="!loading" class="finder-columns">
+                <template x-for="(column, columnIndex) in columns" :key="columnIndex">
+                    <div class="finder-column">
+                        <template x-if="column.entries.length > 0">
+                            <div>
+                                <template x-for="(entry, entryIndex) in column.entries" :key="entry.path">
+                                    <div 
+                                        class="finder-item"
+                                        :class="{ 'selected': column.selectedIndex === entryIndex }"
+                                        @click="selectFolder(columnIndex, entryIndex, entry)"
+                                    >
+                                        <span class="finder-item-icon">📁</span>
+                                        <span class="finder-item-name" x-text="entry.name"></span>
+                                    </div>
+                                </template>
                             </div>
-                        </div>
-                    </template>
-                </div>
-                
-                <!-- 空状态 -->
-                <div x-show="!loading && entries.length === 0 && !error" class="folder-browser-empty">
-                    此文件夹为空
-                </div>
+                        </template>
+                        <template x-if="column.entries.length === 0">
+                            <div class="finder-empty">此文件夹为空</div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- 加载中 -->
+            <div x-show="loading" class="folder-browser-loading">
+                加载中...
+            </div>
+            
+            <!-- 底部操作栏 -->
+            <div class="folder-browser-footer">
+                <div class="selected-path-display" x-text="getCurrentPath() || '请选择文件夹'"></div>
+                <button type="button" class="btn-folder primary" @click="bindCurrentPath()" :disabled="loading || !getCurrentPath()">
+                    选择此文件夹
+                </button>
             </div>
         </div>
     </div>
