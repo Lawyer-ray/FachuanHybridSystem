@@ -2,11 +2,6 @@
  * 文书模板文件夹绑定 - 树形选择器样式
  */
 
-/* 隐藏已有的绑定记录行（只保留空的新增行） */
-#documenttemplatefolderbinding_set-group .tabular tbody tr:not(.add-row):not(.empty-form) {
-    display: none !important;
-}
-
 /* 选择器容器 */
 .folder-selector-container {
     position: relative;
