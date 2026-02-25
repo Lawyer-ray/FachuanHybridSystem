@@ -191,7 +191,7 @@ class PreservationPropertyClueService(BasePlaceholderService):
                 type_display = self.CLUE_TYPE_DISPLAY.get(clue_type, clue_type)
 
                 # 二级:阿拉伯数字 + 线索类型
-                type_header = f"{clue_type_index}.{type_display}:"
+                type_header = f"{clue_type_index}。{type_display}："
                 clue_parts.append(type_header)
 
                 # 三级:带括号数字 + 具体内容

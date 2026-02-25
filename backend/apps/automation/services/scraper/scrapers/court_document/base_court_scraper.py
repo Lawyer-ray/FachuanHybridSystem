@@ -211,11 +211,12 @@ class BaseCourtDocumentScraper(BaseScraper):
             下载目录路径
         """
         # 如果任务关联了案件,使用案件 ID 作为目录名
-        if self.cast(int, self.task.case_id): # type: ignore
+        case_id = self.task.case_id
+        if case_id is not None:
             download_dir = (
                 Path(settings.MEDIA_ROOT)
                 / "case_logs"
-                / str(cast(int, self.cast(int, self.task.case_id))) # type: ignore
+                / str(case_id)
                 / "documents"
             )
         else:

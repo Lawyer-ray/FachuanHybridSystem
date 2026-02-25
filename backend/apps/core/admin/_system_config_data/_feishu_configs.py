@@ -48,13 +48,6 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "is_secret": False,
         },
         {
-            "key": "CASE_CHAT_DEFAULT_STAGE",
-            "category": "feishu",
-            "description": "案件阶段为空时的默认显示文本",
-            "value": "待定",
-            "is_secret": False,
-        },
-        {
             "key": "CASE_CHAT_NAME_MAX_LENGTH",
             "category": "feishu",
             "description": "群聊名称最大长度（飞书限制为60）",

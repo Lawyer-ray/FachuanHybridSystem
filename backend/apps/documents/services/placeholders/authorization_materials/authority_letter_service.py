@@ -71,7 +71,7 @@ class AuthorityLetterPlaceholderService(BasePlaceholderService):
                 name = f"{name}律师"
             contact = getattr(lawyer, "phone", None) or ""
             if contact:
-                parts.append(f"{name}:{contact}")
+                parts.append(f"{name}：{contact}")
             else:
                 parts.append(name)
 

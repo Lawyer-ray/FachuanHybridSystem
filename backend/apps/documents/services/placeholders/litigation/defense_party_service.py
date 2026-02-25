@@ -211,7 +211,7 @@ class DefensePartyService(BasePlaceholderService):
             name = party_dict.get("client_name") or ""
             id_number = party_dict.get("id_number") or ""
             address = party_dict.get("address") or ""
-            return f"{role_label}：:{name}\n身份证号码：{id_number}\n地址：{address}"
+            return f"{role_label}：{name}\n身份证号码：{id_number}\n地址：{address}"
 
         company_name = party_dict.get("client_name") or ""
         address = party_dict.get("address") or ""
@@ -222,10 +222,10 @@ class DefensePartyService(BasePlaceholderService):
         # 答辩人格式:信用代码在前;被答辩人/其他格式:地址在前
         if role_label.startswith("答辩人"):
             return (
-                f"{role_label}：:{company_name}\n统一社会信用代码：{credit_code}\n法定代表人：{legal_rep}\n地址：{address}"
+                f"{role_label}：{company_name}\n统一社会信用代码：{credit_code}\n法定代表人：{legal_rep}\n地址：{address}"
             )
         return (
-            f"{role_label}：:{company_name}\n"
+            f"{role_label}：{company_name}\n"
             f"地址：{address}\n"
             f"统一社会信用代码：{credit_code}\n"
             f"法定代表人：{legal_rep}\n"

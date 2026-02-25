@@ -18,10 +18,13 @@ class ZxfwFallbackMixin:
     page: Page
 
     def _save_page_state(self, name: str) -> dict[str, Any]:
-        raise NotImplementedError
+        if hasattr(super(), '_save_page_state'):
+            return super()._save_page_state(name)
+        return {}
 
     def random_wait(self, min_s: float, max_s: float) -> None:
-        raise NotImplementedError
+        if hasattr(super(), 'random_wait'):
+            super().random_wait(min_s, max_s)
 
     def _find_pdf_iframe(self) -> Any | None:
         """查找页面中的 PDF viewer iframe"""
