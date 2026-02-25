@@ -188,6 +188,7 @@
     border-radius: 4px;
     overflow: hidden;
     background: white;
+    transition: opacity 0.15s ease;
 }
 
 .finder-column {
@@ -196,6 +197,7 @@
     border-right: 1px solid #e5e7eb;
     overflow-y: auto;
     background: white;
+    transition: all 0.15s ease;
 }
 
 .finder-column:last-child {
@@ -208,8 +210,9 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.1s ease;
     border-bottom: 1px solid #f3f4f6;
+    user-select: none;
 }
 
 .finder-item:hover {
@@ -219,6 +222,7 @@
 .finder-item.selected {
     background: #3b82f6;
     color: white;
+    transition: background 0.1s ease;
 }
 
 .finder-item-icon {
