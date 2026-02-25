@@ -41,13 +41,28 @@
         $(selectors.join(', ')).each(function() {
             var $nodeInput = $(this);
             var fieldName = $nodeInput.attr('name') || $nodeInput.attr('id') || 'unknown';
+            
+            // 跳过模板行（__prefix__）
+            if (fieldName.indexOf('__prefix__') !== -1) {
+                return;
+            }
+            
             console.log('[FolderBinding] 找到字段:', fieldName);
 
-            // 检查是否已经有选择器UI（而不是data标记）
+            // 检查是否已经有选择器UI，并且该UI的input与当前input是同一个
             var $parent = $nodeInput.parent();
-            if ($parent.find('.folder-selector-box').length > 0) {
-                console.log('[FolderBinding] 选择器UI已存在，跳过');
-                return;
+            var $existingBox = $parent.find('.folder-selector-box');
+            if ($existingBox.length > 0) {
+                // 检查这个box前面的input是否就是当前input
+                var $boxPrevInput = $existingBox.prev('input[type="text"]');
+                if ($boxPrevInput.length > 0 && $boxPrevInput[0] === $nodeInput[0]) {
+                    console.log('[FolderBinding] 选择器UI已正确绑定，跳过');
+                    return;
+                } else {
+                    // UI存在但不是为当前input创建的，删除旧UI
+                    console.log('[FolderBinding] 发现旧UI，删除后重新创建');
+                    $existingBox.remove();
+                }
             }
 
             // 查找同一行的文件夹模板选择器
