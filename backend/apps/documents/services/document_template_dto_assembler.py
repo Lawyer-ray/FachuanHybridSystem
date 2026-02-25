@@ -13,7 +13,7 @@ class DocumentTemplateDtoAssembler:
         return DocumentTemplateDTO(
             id=template.id,
             name=template.name,
-            function_code=template.function_code or "",
+            function_code="",  # 字段已删除,保留空字符串以兼容DTO
             file_path=template.get_file_location() if hasattr(template, "get_file_location") else template.file_path,
             template_type=getattr(template, "template_type", None),
             case_sub_type=getattr(template, "case_sub_type", None),
