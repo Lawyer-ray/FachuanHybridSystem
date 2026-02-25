@@ -11,11 +11,5 @@ __all__ = ["get_default_configs", "get_env_mappings"]
 
 
 def get_default_configs() -> list[dict[str, Any]]:
-    """获取默认配置项列表"""
-    return (
-        get_general_configs()
-        + get_feishu_configs()
-        + get_court_sms_configs()
-        + get_ai_configs()
-        + get_scraper_configs()
-    )
+    """获取默认配置项列表 - 包含核心必需配置"""
+    return get_feishu_configs() + get_ai_configs() + get_court_sms_configs()

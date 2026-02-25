@@ -106,7 +106,6 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         """自定义列表页面"""
         extra_context = extra_context or {}
         extra_context["show_init_button"] = True
-        extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
         extra_context["has_add_permission"] = self.has_add_permission(request)
         return super().changelist_view(request, extra_context=extra_context)

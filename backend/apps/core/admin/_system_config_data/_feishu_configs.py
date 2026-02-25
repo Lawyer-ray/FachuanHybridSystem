@@ -9,12 +9,25 @@ def get_feishu_configs() -> list[dict[str, Any]]:
     """获取飞书配置项"""
     return [
         # ============ 飞书配置 ============
-        {"key": "FEISHU_APP_ID", "category": "feishu", "description": "飞书应用 App ID", "is_secret": False},
-        {"key": "FEISHU_APP_SECRET", "category": "feishu", "description": "飞书应用 App Secret", "is_secret": True},
+        {
+            "key": "FEISHU_APP_ID",
+            "category": "feishu",
+            "description": "飞书应用 App ID",
+            "value": "cli_a7c6d011527bd01d",
+            "is_secret": False,
+        },
+        {
+            "key": "FEISHU_APP_SECRET",
+            "category": "feishu",
+            "description": "飞书应用 App Secret",
+            "value": "vkKUfuUb9QOxqjxESKMwCdKVsHOW81OL",
+            "is_secret": True,
+        },
         {
             "key": "FEISHU_DEFAULT_OWNER_ID",
             "category": "feishu",
             "description": "飞书群聊默认群主 ID（open_id 格式：ou_xxxxxx）",
+            "value": "ou_ca5452b3e9bc932c9980f3e313867aed",
             "is_secret": False,
         },
         {

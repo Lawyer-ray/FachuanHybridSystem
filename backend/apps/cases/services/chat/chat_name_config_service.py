@@ -12,10 +12,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _get_system_config_service() -> ISystemConfigService:
+def _get_system_config_service() -> "ISystemConfigService":
     from .wiring import get_system_config_service
 
-    return cast(ISystemConfigService, get_system_config_service())
+    return cast("ISystemConfigService", get_system_config_service())
 
 
 class ChatNameConfigService:
@@ -51,11 +51,11 @@ class ChatNameConfigService:
         logger.debug("ChatNameConfigService 初始化完成")
 
     @property
-    def _config_service(self) -> ISystemConfigService:
+    def _config_service(self) -> "ISystemConfigService":
         """延迟加载系统配置服务"""
         if self._system_config_service is None:
             self._system_config_service = _get_system_config_service()
-        return cast(ISystemConfigService, self._system_config_service)
+        return cast("ISystemConfigService", self._system_config_service)
 
     def get_template(self) -> str:
         """获取群名模板
