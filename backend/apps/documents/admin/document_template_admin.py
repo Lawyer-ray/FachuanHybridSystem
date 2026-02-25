@@ -147,7 +147,6 @@ class DocumentTemplateForm(forms.ModelForm):
             "template_type",
             "contract_sub_type",
             "case_sub_type",
-            "function_code",
             "file",
             "file_path",
             "is_active",
@@ -316,7 +315,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
     )
 
     fieldsets: ClassVar[tuple[Any, ...]] = (
-        (None, {"fields": ("name", "description", "function_code")}),
+        (None, {"fields": ("name", "description")}),
         (
             _("模板类型"),
             {
