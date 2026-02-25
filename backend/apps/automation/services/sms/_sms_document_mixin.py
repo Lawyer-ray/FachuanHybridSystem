@@ -29,9 +29,6 @@ class SMSDocumentMixin:
     def matcher(self) -> "CaseMatcher":
         raise NotImplementedError
 
-    def _create_case_binding(self, sms: CourtSMS) -> bool:
-        raise NotImplementedError
-
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:
         """从文书中提取案号和当事人，并回写到 CourtSMS 记录"""
         if not sms.scraper_task:

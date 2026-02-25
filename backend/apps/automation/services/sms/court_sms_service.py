@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
+class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     """法院短信处理服务"""
 
     def __init__(

@@ -26,23 +26,30 @@ class SMSCaseBindingMixin:
     def _create_case_binding(self, sms: CourtSMS) -> bool:
         """创建案件绑定和日志"""
         if not sms.case:
+            logger.error(f"SMS {sms.id} 没有关联案件，无法创建绑定")
             return False
 
         try:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_log_service
 
             case_log_service = build_sms_case_log_service()
+            logger.info(f"获取 case_log_service 成功: SMS ID={sms.id}")
 
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
             if not admin_lawyer_dto:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
+            
+            logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
             system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id) # type: ignore
+            logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:
+                logger.info(f"开始添加案号到案件: SMS ID={sms.id}, 案号={sms.case_numbers}")
                 self._add_case_numbers_to_case(sms)
 
+            logger.info(f"开始创建案件日志: SMS ID={sms.id}, Case ID={sms.case.id}")
             case_log = case_log_service.create_log(
                 case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
@@ -56,7 +63,7 @@ class SMSCaseBindingMixin:
             return True
 
         except Exception as e:
-            logger.error(f"创建案件绑定失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.exception(f"创建案件绑定失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
 
     def _add_case_numbers_to_case(self, sms: CourtSMS) -> None:
