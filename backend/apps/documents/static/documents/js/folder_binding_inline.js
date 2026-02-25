@@ -97,8 +97,10 @@
             loadPath($templateSelect.val(), $nodeInput.val(), $display);
         }
 
-        $btn.on('click', function(e) {
+        // 使用事件委托处理按钮点击（支持动态添加的行）
+        $btn.off('click').on('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             console.log('[FolderBinding] 点击选择按钮');
             // 重新获取当前行的模板选择器值（处理动态变化）
             var $currentRow = $(this).closest('tr, .form-row, .inline-related');
@@ -114,7 +116,7 @@
             $popup.show();
         });
 
-        $templateSelect.on('change', function() {
+        $templateSelect.off('change').on('change', function() {
             console.log('[FolderBinding] 模板选择器变更，当前值:', $(this).val());
             $nodeInput.val('');
             $display.html('<em style="color:#999;">请选择</em>');
