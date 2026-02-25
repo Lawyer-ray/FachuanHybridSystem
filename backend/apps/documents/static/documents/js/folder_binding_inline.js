@@ -43,11 +43,12 @@
             var fieldName = $nodeInput.attr('name') || $nodeInput.attr('id') || 'unknown';
             console.log('[FolderBinding] 找到字段:', fieldName);
 
-            if ($nodeInput.data('tree-init')) {
-                console.log('[FolderBinding] 字段已初始化，跳过');
+            // 检查是否已经有选择器UI（而不是data标记）
+            var $parent = $nodeInput.parent();
+            if ($parent.find('.folder-selector-box').length > 0) {
+                console.log('[FolderBinding] 选择器UI已存在，跳过');
                 return;
             }
-            $nodeInput.data('tree-init', true);
 
             // 查找同一行的文件夹模板选择器
             var $row = $nodeInput.closest('tr, .form-row, .inline-related');
