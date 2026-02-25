@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
+class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     """法院短信处理服务"""
 
     def __init__(
@@ -412,26 +412,29 @@ class CourtSMSService(SMSDocumentMixin, SMSDownloadMixin, SMSCaseBindingMixin):
             logger.info(f"准备发送 {len(document_paths)} 个文件到群聊: SMS ID={sms.id}")
 
             case_chat_success = False
+            error_detail = None
+            
             if sms.case:
-                case_chat_success = self.notification.send_case_chat_notification(sms, document_paths)
+                case_chat_success, error_detail = self.notification.send_case_chat_notification(sms, document_paths)
 
                 if case_chat_success:
                     sms.feishu_sent_at = timezone.now()
                     sms.feishu_error = None
                     logger.info(f"案件群聊通知成功: SMS ID={sms.id}")
                 else:
-                    sms.feishu_error = "案件群聊通知失败"
-                    logger.error(f"案件群聊通知失败: SMS ID={sms.id}")
+                    sms.feishu_error = error_detail or "案件群聊通知失败"
+                    logger.error(f"案件群聊通知失败: SMS ID={sms.id}, 原因: {error_detail}")
             else:
-                logger.warning(f"短信未绑定案件，无法发送群聊通知: SMS ID={sms.id}")
-                sms.feishu_error = "短信未绑定案件，无法发送群聊通知"
+                error_detail = "短信未绑定案件，无法发送群聊通知"
+                logger.warning(f"{error_detail}: SMS ID={sms.id}")
+                sms.feishu_error = error_detail
 
             if case_chat_success:
                 sms.status = CourtSMSStatus.COMPLETED
                 logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = str(_("案件群聊通知发送失败"))
+                sms.error_message = f"案件群聊通知发送失败: {error_detail or '未知错误'}"
                 logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
             sms.save()

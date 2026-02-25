@@ -214,14 +214,14 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:
         """案号显示"""
         if obj.case_numbers:
-            return format_html_join("<br>", "{}", ((n,) for n in obj.case_numbers))
+            return format_html_join("<br>", "{0}", ((n,) for n in obj.case_numbers))
         return "-"
 
     @admin.display(description=_("提取的当事人"))
     def party_names_display(self, obj: CourtSMS) -> SafeString | str:
         """当事人显示"""
         if obj.party_names:
-            return format_html_join("<br>", "{}", ((n,) for n in obj.party_names))
+            return format_html_join("<br>", "{0}", ((n,) for n in obj.party_names))
         return "-"
 
     @admin.display(description=_("下载链接"))

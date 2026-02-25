@@ -112,3 +112,115 @@ class CaseChatServiceAdapter(ICaseChatService):
         except Exception as e:
             logger.exception("get_case_chat_id_failed", extra={"action": "get_case_chat_id", "case_id": case_id})
             raise BusinessException(message=_("获取案件群聊ID时发生系统错误"), code="SYSTEM_ERROR") from e
+
+    def get_or_create_chat(self, case_id: int, platform: Any = None) -> Any:
+        """
+        获取或创建案件群聊
+
+            case_id: 案件 ID
+            platform: 群聊平台（可选，默认飞书）
+
+            群聊对象
+
+            NotFoundError: 案件不存在
+            BusinessException: 群聊创建失败
+        """
+        try:
+            from apps.core.enums import ChatPlatform
+
+            if platform is None:
+                platform = ChatPlatform.FEISHU
+
+            chat = self.service.get_or_create_chat(
+                case_id=case_id, platform=platform, perm_open_access=True
+            )
+
+            logger.info(
+                "获取或创建群聊成功",
+                extra={
+                    "action": "get_or_create_chat",
+                    "case_id": case_id,
+                    "chat_id": chat.chat_id if chat else None,
+                },
+            )
+            return chat
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(
+                "获取或创建群聊失败: %s",
+                e,
+                extra={"action": "get_or_create_chat", "case_id": case_id, "error": str(e)},
+            )
+            raise BusinessException(message=_("获取或创建群聊时发生系统错误"), code="SYSTEM_ERROR") from e
+
+    def send_document_notification(
+        self,
+        case_id: int,
+        sms_content: str,
+        document_paths: list[str] | None = None,
+        platform: Any = None,
+        title: str = "📋 法院文书通知",
+    ) -> Any:
+        """
+        发送文书通知到案件群聊
+
+            case_id: 案件 ID
+            sms_content: 短信内容（作为消息正文）
+            document_paths: 文书文件路径列表（可选）
+            platform: 群聊平台（可选，默认飞书）
+            title: 消息标题
+
+            消息发送结果
+
+            NotFoundError: 案件不存在或未配置群聊
+            BusinessException: 消息发送失败
+        """
+        try:
+            from apps.core.enums import ChatPlatform
+
+            if platform is None:
+                platform = ChatPlatform.FEISHU
+
+            result = self.service.send_document_notification(
+                case_id=case_id,
+                sms_content=sms_content,
+                document_paths=document_paths or [],
+                platform=platform,
+                title=title,
+                perm_open_access=True,
+            )
+
+            if result.success:
+                logger.info(
+                    "发送文书通知成功",
+                    extra={
+                        "action": "send_document_notification",
+                        "case_id": case_id,
+                        "file_count": len(document_paths) if document_paths else 0,
+                    },
+                )
+            else:
+                logger.error(
+                    "发送文书通知失败: %s",
+                    result.message,
+                    extra={
+                        "action": "send_document_notification",
+                        "case_id": case_id,
+                        "error": result.message,
+                        "error_code": result.error_code,
+                    },
+                )
+
+            return result
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(
+                "发送文书通知时发生未预期错误: %s",
+                e,
+                extra={"action": "send_document_notification", "case_id": case_id, "error": str(e)},
+            )
+            raise BusinessException(message=_("发送文书通知时发生系统错误"), code="SYSTEM_ERROR") from e

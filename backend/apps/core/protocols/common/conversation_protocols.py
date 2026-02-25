@@ -47,6 +47,15 @@ class ICaseChatService(Protocol):
 
     def get_case_chat_id(self, case_id: int) -> str | None: ...
 
+    def send_document_notification(
+        self,
+        case_id: int,
+        sms_content: str,
+        document_paths: list[str] | None = None,
+        platform: Any = None,
+        title: str = "📋 法院文书通知",
+    ) -> Any: ...
+
 
 class IEvidenceListPlaceholderService(Protocol):
     def get_evidence_list_context(self, evidence_list_id: int) -> dict[str, Any]: ...

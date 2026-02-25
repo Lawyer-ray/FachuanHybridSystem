@@ -62,16 +62,18 @@ class CaseLogAttachmentInline(BaseTabularInline):
 class CaseNumberInline(BaseTabularInline):
     model = CaseNumber
     extra = 1
-    fields = ("number", "remarks")
+    fields = ("number", "is_active", "remarks")
 
 
 class CaseLogInline(BaseStackedInline):
     model = CaseLog
     extra = 0
-    fields = ("content", "reminder_type", "reminder_time")
+    fields = ("content", "created_at")
     exclude = ("actor",)
-    readonly_fields = ("reminder_type", "reminder_time")
+    readonly_fields = ("created_at",)
     show_change_link = True
+    verbose_name = ""
+    verbose_name_plural = "案件日志"
 
     if BaseModelAdmin is not admin.ModelAdmin:
         pass
@@ -94,7 +96,12 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
             "cases/admin_case_form.js",
             "cases/js/autocomplete.js",
             "cases/js/autocomplete_init.js",
+            "cases/js/case_log_sort.js",
+            "cases/js/litigation_fee.js",
         )
+        css = {
+            "all": ("cases/css/case_log_admin.css",)
+        }
 
     inlines = [
         CasePartyInline,

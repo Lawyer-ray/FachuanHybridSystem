@@ -122,6 +122,7 @@ class CaseNumber(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name=_("案件"))
     number = models.CharField(max_length=128, verbose_name=_("案号"))
+    is_active = models.BooleanField(default=False, verbose_name=_("是否已生效"))
     remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
