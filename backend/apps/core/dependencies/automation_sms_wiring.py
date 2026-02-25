@@ -37,7 +37,10 @@ def build_court_sms_service_with_deps(
         lawyer_service=lawyer_service,
     )
     
-    parser = SMSParserService(party_matching_service=party_matching_service)
+    parser = SMSParserService(
+        client_service=client_service,
+        party_matching_service=party_matching_service,
+    )
     
     matcher = CaseMatcher(
         case_service=case_service,

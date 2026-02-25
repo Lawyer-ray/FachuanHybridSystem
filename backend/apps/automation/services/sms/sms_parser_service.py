@@ -95,6 +95,14 @@ class SMSParserService:
         self._party_candidate_extractor = party_candidate_extractor
 
     @property
+    def client_service(self) -> Optional["IClientService"]:
+        """获取客户服务实例"""
+        if self._client_service is None:
+            from apps.core.service_locator import ServiceLocator
+            self._client_service = ServiceLocator.get_client_service()
+        return self._client_service
+
+    @property
     def client_service(self) -> "IClientService":
         """延迟加载客户服务"""
         if self._client_service is None:
@@ -239,8 +247,7 @@ class SMSParserService:
         """
         提取当事人名称
 
-        优先使用注入的 party_matching_service；
-        否则在现有客户数据中查找匹配。
+        直接在现有客户数据中查找匹配（最可靠的方式）
 
         Args:
             content: 短信内容
@@ -248,18 +255,15 @@ class SMSParserService:
         Returns:
             List[str]: 当事人名称列表
         """
-        # 优先使用注入的 party_matching_service
-        if self._party_matching_service is not None:
-            extractor = self._party_candidate_extractor
-            if extractor is None:
-                from apps.automation.services.sms.parsing import PartyCandidateExtractor
-                extractor = PartyCandidateExtractor()
-            candidates = extractor.extract(content)  # type: ignore[union-attr]
-            matched = self._party_matching_service.extract_and_match_parties_from_sms(candidates)  # type: ignore[union-attr]
-            return [c.name for c in matched]
-
-        # 只在现有客户数据中查找匹配
+        # 直接在现有客户数据中查找匹配
         existing_parties = self._find_existing_clients_in_sms(content)
+
+        if existing_parties:
+            logger.info(f"在短信中找到现有客户: {existing_parties}")
+            return existing_parties
+
+        logger.info("在短信中未找到现有客户，返回空列表")
+        return []
 
         if existing_parties:
             logger.info(f"在短信中找到现有客户: {existing_parties}")
