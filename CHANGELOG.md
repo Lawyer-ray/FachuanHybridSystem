@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.4.3] - 2026-02-25 17:58
+
+### 修复
+- 修复 SMS 依赖注入错误（移除不存在的模块导入）
+- 修复 SMS 当事人提取逻辑（简化提取流程，移除有问题的 PartyCandidateExtractor）
+- 修复 SMS 案件绑定 MRO 问题（调整 Mixin 继承顺序）
+- 修复 `_create_case_binding` 方法的 NotImplementedError 错误
+- 修复 LawyerDTO 属性访问错误（name → real_name）
+
 ## [26.4.2] - 2026-02-25 15:30
 
 ### 新增功能
