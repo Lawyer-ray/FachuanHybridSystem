@@ -62,7 +62,7 @@ class CaseLogAttachmentInline(BaseTabularInline):
 class CaseNumberInline(BaseTabularInline):
     model = CaseNumber
     extra = 1
-    fields = ("number", "remarks")
+    fields = ("number", "is_active", "remarks")
 
 
 class CaseLogInline(BaseStackedInline):
