@@ -74,6 +74,32 @@ class ContractDisplayService:
         """清除所有模板缓存"""
         self.template_cache.clear_all_cache()
 
+    def get_matched_document_templates_list(self, contract: Contract) -> list[dict[str, Any]]:
+        """获取匹配的文书模板列表（包含ID和名称）"""
+        try:
+            templates = self.template_cache.get_document_templates(contract.case_type)
+            if templates is None:
+                templates = self.document_service.find_matching_contract_templates(contract.case_type)
+                self.template_cache.set_document_templates(contract.case_type, templates)
+            return templates
+        except Exception as e:
+            logger.error("查询合同 %s 的文书模板列表失败: %s", contract.pk, e, exc_info=True)
+            return []
+
+    def get_matched_folder_templates_list(self, contract: Contract) -> list[dict[str, Any]]:
+        """获取匹配的文件夹模板列表（包含ID和名称）"""
+        try:
+            templates = self.template_cache.get_folder_templates(contract.case_type)
+            if templates is None:
+                templates = self.document_service.find_matching_folder_templates(
+                    template_type="contract", case_type=contract.case_type
+                )
+                self.template_cache.set_folder_templates(contract.case_type, templates)
+            return templates
+        except Exception as e:
+            logger.error("查询合同 %s 的文件夹模板列表失败: %s", contract.pk, e, exc_info=True)
+            return []
+
     def get_matched_document_template(self, contract: Contract) -> str:
         """获取匹配的文书模板名称"""
         try:

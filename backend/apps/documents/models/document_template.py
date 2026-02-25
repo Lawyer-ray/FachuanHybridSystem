@@ -100,14 +100,6 @@ class DocumentTemplate(models.Model):
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
-    function_code = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name=_("功能标识"),
-        help_text=_("用于程序识别特定功能的模板,如 preservation_application、delay_delivery_application"),
-        db_index=True,
-    )
     is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))

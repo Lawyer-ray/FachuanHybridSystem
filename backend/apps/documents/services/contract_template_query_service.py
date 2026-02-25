@@ -12,13 +12,9 @@ if TYPE_CHECKING:
 
 class ContractTemplateQueryService:
     def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:
-        from apps.documents.models import DocumentContractSubType, DocumentTemplate, DocumentTemplateType
+        from apps.documents.models import DocumentTemplate, DocumentTemplateType
 
-        templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CONTRACT, is_active=True).filter(
-            Q(contract_sub_type__isnull=True)
-            | Q(contract_sub_type="")
-            | Q(contract_sub_type=DocumentContractSubType.CONTRACT)
-        )
+        templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CONTRACT, is_active=True)
 
         matched_templates: list[DocumentTemplate] = []
         for template in templates:

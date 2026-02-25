@@ -95,7 +95,7 @@ class SupplementaryAgreementGenerationService:
         except Exception as e:
             logger.exception("渲染补充协议模板失败")
             return (None, None, f"生成补充协议失败: {e!s}")
-        filename = self.generate_filename(contract, agreement)
+        filename = self.generate_filename(contract, agreement, contract_id)
         self._last_saved_path = self._save_to_bound_folder_if_exists(
             contract_id, content, filename, "supplementary_agreements"
         )
@@ -142,16 +142,19 @@ class SupplementaryAgreementGenerationService:
             agreement_opposing=self._get_agreement_opposing(agreement),
         )
 
-    def generate_filename(self, contract: Any, agreement: Any) -> str:
+    def generate_filename(self, contract: Any, agreement: Any, contract_id: int | None = None) -> str:
         """
         生成输出文件名
 
         格式:补充协议name(合同name)V1_日期.docx
         例如:补充协议一(王小三、大小武案件)V1_20260102.docx
 
+        如果文件已存在,自动递增版本号(V1 -> V2 -> V3)
+
         Args:
             contract: Contract 实例
             agreement: SupplementaryAgreement 实例
+            contract_id: 合同 ID (用于检查绑定文件夹中的已有文件)
 
         Returns:
             格式化的文件名
@@ -160,14 +163,81 @@ class SupplementaryAgreementGenerationService:
 
         agreement_name = agreement.name or "补充协议"
         contract_name = contract.name or "未命名合同"
+        
+        # 确定版本号
+        version = self._get_next_version(contract_id, agreement_name, contract_name, "supplementary_agreements")
+        
         filename = supplementary_agreement_docx_filename(
-            agreement_name=agreement_name, contract_name=contract_name, version="V1"
+            agreement_name=agreement_name, contract_name=contract_name, version=version
         )
         logger.info(
             "生成补充协议文件名",
-            extra={"agreement": agreement_name, "contract": contract_name, "doc_filename": filename},
+            extra={"agreement": agreement_name, "contract": contract_name, "version": version, "doc_filename": filename},
         )
         return filename
+
+    def _get_next_version(
+        self, contract_id: int | None, agreement_name: str, contract_name: str, subdir_key: str
+    ) -> str:
+        """
+        获取下一个可用的版本号
+
+        检查绑定文件夹中已存在的文件,返回下一个版本号
+
+        Args:
+            contract_id: 合同 ID
+            agreement_name: 补充协议名称
+            contract_name: 合同名称
+            subdir_key: 子目录键名
+
+        Returns:
+            版本号字符串 (如 "V1", "V2", "V3")
+        """
+        import re
+        from datetime import date
+
+        if not contract_id or not self.folder_binding_service:
+            return "V1"
+
+        try:
+            # 获取绑定信息
+            binding = self.folder_binding_service.get_binding(owner_id=contract_id)
+            if not binding or not binding.folder_path:
+                return "V1"
+
+            # 构建子目录路径
+            subdir_path = self.folder_binding_service._resolve_subdir_path(
+                owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
+                subdir_key=subdir_key,
+            )
+            if not subdir_path:
+                return "V1"
+
+            folder_path = Path(binding.folder_path) / subdir_path
+            if not folder_path.exists():
+                return "V1"
+
+            # 构建文件名模式（不包含版本号和日期）
+            today_str = date.today().strftime("%Y%m%d")
+            # 匹配格式: 补充协议名称(合同名称)V数字_日期.docx
+            pattern = re.compile(
+                rf"^{re.escape(agreement_name)}\({re.escape(contract_name)}\)V(\d+)_{today_str}\.docx$"
+            )
+
+            # 查找已存在的版本号
+            max_version = 0
+            for file_path in folder_path.iterdir():
+                if file_path.is_file():
+                    match = pattern.match(file_path.name)
+                    if match:
+                        version_num = int(match.group(1))
+                        max_version = max(max_version, version_num)
+
+            return f"V{max_version + 1}"
+
+        except Exception as e:
+            logger.warning("获取版本号失败,使用默认版本 V1: %s", e)
+            return "V1"
 
     def _get_agreement_principals(self, agreement: Any) -> Any:
         """
@@ -218,7 +288,7 @@ class SupplementaryAgreementGenerationService:
             return None
         try:
             saved_path = self.folder_binding_service.save_file_to_bound_folder(
-                contract_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key
+                owner_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key
             )
             if saved_path:
                 logger.info(

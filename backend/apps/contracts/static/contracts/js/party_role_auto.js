@@ -22,24 +22,33 @@
     })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        if (data && data.is_our_client === false) {
-          roleSelect.value = OPPOSING_VALUE;
+        if (data) {
+          // 非我方当事人（is_our_client 为 false 或 null）自动设为对方当事人
+          if (data.is_our_client === false || data.is_our_client === null) {
+            roleSelect.value = OPPOSING_VALUE;
+          }
         }
       })
       .catch(function () {});
   }
 
   function bindClientSelect(select) {
-    if (select.dataset.partyRoleBound) return;
-    select.dataset.partyRoleBound = "1";
-
-    select.addEventListener("change", function () {
-      checkAndSetRole(this, this.value);
-    });
-
     const $ = window.django && window.django.jQuery;
+    
+    // 普通 change 事件（只绑定一次）
+    if (!select.dataset.partyRoleBound) {
+      select.dataset.partyRoleBound = "1";
+      select.addEventListener("change", function () {
+        checkAndSetRole(this, this.value);
+      });
+    }
+
+    // select2 事件（每次都重新绑定，因为 select2 可能被重新初始化）
     if ($ && select.classList.contains("admin-autocomplete")) {
-      $(select).on("select2:select", function (e) {
+      // 先解绑旧事件，避免重复绑定
+      $(select).off("select2:select.partyRole");
+      // 重新绑定，使用命名空间避免冲突
+      $(select).on("select2:select.partyRole", function (e) {
         const id = e.params && e.params.data && e.params.data.id;
         checkAndSetRole(select, id || select.value);
       });
@@ -48,7 +57,8 @@
 
   function bindAllClientSelects() {
     document.querySelectorAll('select[name*="-client"]').forEach(function (sel) {
-      if (sel.dataset.partyRoleBound) return;
+      // 跳过模板行
+      if (sel.name.includes("__prefix__")) return;
       const row = sel.closest("tr");
       if (row && row.querySelector('select[name*="-role"]')) {
         bindClientSelect(sel);

@@ -425,7 +425,8 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
             return _("暂无结构")
 
         html = self._render_structure_tree(obj.structure)
-        return format_html('<div class="folder-structure-preview">{}</div>', html)
+        from django.utils.safestring import mark_safe
+        return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
 
     def _render_structure_tree(self, structure: Any, level: int = 0) -> Any:
         """递归渲染文件夹树"""

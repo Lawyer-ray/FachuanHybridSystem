@@ -41,13 +41,29 @@
         $(selectors.join(', ')).each(function() {
             var $nodeInput = $(this);
             var fieldName = $nodeInput.attr('name') || $nodeInput.attr('id') || 'unknown';
-            console.log('[FolderBinding] 找到字段:', fieldName);
-
-            if ($nodeInput.data('tree-init')) {
-                console.log('[FolderBinding] 字段已初始化，跳过');
+            
+            // 跳过模板行（__prefix__）
+            if (fieldName.indexOf('__prefix__') !== -1) {
                 return;
             }
-            $nodeInput.data('tree-init', true);
+            
+            console.log('[FolderBinding] 找到字段:', fieldName);
+
+            // 检查是否已经有选择器UI，并且该UI的input与当前input是同一个
+            var $parent = $nodeInput.parent();
+            var $existingBox = $parent.find('.folder-selector-box');
+            if ($existingBox.length > 0) {
+                // 检查这个box前面的input是否就是当前input
+                var $boxPrevInput = $existingBox.prev('input[type="text"]');
+                if ($boxPrevInput.length > 0 && $boxPrevInput[0] === $nodeInput[0]) {
+                    console.log('[FolderBinding] 选择器UI已正确绑定，跳过');
+                    return;
+                } else {
+                    // UI存在但不是为当前input创建的，删除旧UI
+                    console.log('[FolderBinding] 发现旧UI，删除后重新创建');
+                    $existingBox.remove();
+                }
+            }
 
             // 查找同一行的文件夹模板选择器
             var $row = $nodeInput.closest('tr, .form-row, .inline-related');
@@ -97,10 +113,16 @@
             loadPath($templateSelect.val(), $nodeInput.val(), $display);
         }
 
-        $btn.on('click', function(e) {
+        // 使用事件委托处理按钮点击（支持动态添加的行）
+        $btn.off('click').on('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             console.log('[FolderBinding] 点击选择按钮');
-            var tid = $templateSelect.val();
+            // 重新获取当前行的模板选择器值（处理动态变化）
+            var $currentRow = $(this).closest('tr, .form-row, .inline-related');
+            var $currentTemplateSelect = $currentRow.find('select[name*="folder_template"], select[id*="folder_template"]');
+            var tid = $currentTemplateSelect.val();
+            console.log('[FolderBinding] 当前模板ID:', tid);
             if (!tid) {
                 alert('请先选择文件夹模板');
                 return;
@@ -110,8 +132,8 @@
             $popup.show();
         });
 
-        $templateSelect.on('change', function() {
-            console.log('[FolderBinding] 模板选择器变更');
+        $templateSelect.off('change').on('change', function() {
+            console.log('[FolderBinding] 模板选择器变更，当前值:', $(this).val());
             $nodeInput.val('');
             $display.html('<em style="color:#999;">请选择</em>');
             $popup.hide().empty();
