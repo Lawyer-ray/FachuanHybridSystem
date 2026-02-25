@@ -356,7 +356,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         ),
     )
 
-    inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
+    # 隐藏文件夹绑定inline，用户不需要手动管理
+    # inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
 
     actions: ClassVar[list[str]] = [
         "activate_templates",
