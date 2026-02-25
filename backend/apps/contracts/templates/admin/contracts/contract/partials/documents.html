@@ -2,6 +2,47 @@
 <!-- 文档与提醒标签页 -->
 <div x-show="activeTab === 'documents'" x-cloak>
     <div class="info-grid two-columns">
+        <!-- 匹配的模板卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">📋</span>
+                <h3 class="card-title">{% trans "匹配的模板" %}</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- 文件模板 -->
+                <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                    <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <span style="margin-right: 6px;">📄</span>{% trans "文件模板" %}
+                    </div>
+                    <div style="font-size: 14px; color: #1f2937;">
+                        {% if contract_templates_list %}
+                            {% for template in contract_templates_list %}
+                                <a href="{% url 'admin:documents_documenttemplate_change' template.id %}" target="_blank" style="color: #2563eb; text-decoration: none; border-bottom: 1px solid #93c5fd; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span style="color: #9ca3af;">{{ contract_template_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 文件夹模板 -->
+                <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #10b981;">
+                    <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <span style="margin-right: 6px;">📁</span>{% trans "文件夹模板" %}
+                    </div>
+                    <div style="font-size: 14px; color: #1f2937;">
+                        {% if folder_templates_list %}
+                            {% for template in folder_templates_list %}
+                                <a href="{% url 'admin:documents_foldertemplate_change' template.id %}" target="_blank" style="color: #059669; text-decoration: none; border-bottom: 1px solid #6ee7b7; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span style="color: #9ca3af;">{{ folder_template_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 补充协议卡片 -->
         <div class="info-card">
             <div class="card-header">
