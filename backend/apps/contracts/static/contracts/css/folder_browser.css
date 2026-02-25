@@ -1,4 +1,4 @@
-/* 文件夹浏览器样式 */
+/* 文件夹浏览器样式 - Finder 风格 */
 
 .folder-binding-widget {
     margin: 20px 0;
@@ -98,7 +98,7 @@
     cursor: not-allowed;
 }
 
-/* 浏览器模态框 */
+/* Finder 风格浏览器模态框 */
 .folder-browser-modal {
     position: fixed;
     top: 0;
@@ -116,7 +116,7 @@
     background: white;
     border-radius: 8px;
     width: 90%;
-    max-width: 600px;
+    max-width: 900px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
@@ -126,19 +126,19 @@
 .folder-browser-header {
     padding: 20px;
     border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
 .folder-browser-header h2 {
-    margin: 0;
+    margin: 0 0 15px 0;
     font-size: 18px;
     font-weight: 600;
     color: #111827;
 }
 
 .folder-browser-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
     background: none;
     border: none;
     font-size: 24px;
@@ -158,28 +158,97 @@
     color: #111827;
 }
 
-.folder-browser-body {
-    padding: 20px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.folder-browser-path {
-    padding: 10px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 13px;
-    color: #374151;
-    margin-bottom: 15px;
-    word-break: break-all;
-}
-
-.folder-browser-nav {
+/* 手动输入路径 */
+.manual-path-input {
     display: flex;
     gap: 10px;
     margin-bottom: 15px;
+}
+
+.manual-path-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.manual-path-input input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Finder 分栏容器 */
+.finder-columns {
+    display: flex;
+    height: 400px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    background: white;
+}
+
+.finder-column {
+    flex: 1;
+    min-width: 200px;
+    border-right: 1px solid #e5e7eb;
+    overflow-y: auto;
+    background: white;
+}
+
+.finder-column:last-child {
+    border-right: none;
+}
+
+.finder-item {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.finder-item:hover {
+    background: #f9fafb;
+}
+
+.finder-item.selected {
+    background: #3b82f6;
+    color: white;
+}
+
+.finder-item-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.finder-item-name {
+    flex: 1;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.finder-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+/* 底部操作栏 */
+.folder-browser-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f9fafb;
 }
 
 .folder-browser-error {
@@ -192,79 +261,18 @@
     margin-bottom: 15px;
 }
 
-.folder-list {
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.folder-item {
-    padding: 12px 15px;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.folder-item:last-child {
-    border-bottom: none;
-}
-
-.folder-item:hover {
-    background: #f9fafb;
-}
-
-.folder-item-icon {
-    font-size: 18px;
-}
-
-.folder-item-name {
-    flex: 1;
-    font-size: 14px;
-    color: #374151;
-}
-
-.folder-item-actions {
-    display: flex;
-    gap: 5px;
-}
-
-.folder-item-btn {
-    padding: 4px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    background: white;
-    color: #374151;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.folder-item-btn:hover {
-    background: #f3f4f6;
-}
-
-.folder-item-btn.select {
-    background: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
-}
-
-.folder-item-btn.select:hover {
-    background: #2563eb;
-}
-
 .folder-browser-loading {
     text-align: center;
     padding: 40px;
     color: #6b7280;
 }
 
-.folder-browser-empty {
-    text-align: center;
-    padding: 40px;
-    color: #9ca3af;
-    font-size: 14px;
+.selected-path-display {
+    font-family: monospace;
+    font-size: 12px;
+    color: #6b7280;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

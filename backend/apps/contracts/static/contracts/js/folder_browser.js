@@ -1,5 +1,5 @@
 /**
- * 文件夹浏览器组件
+ * 文件夹浏览器组件 - Finder 风格
  * 用于在合同编辑页绑定文件夹
  */
 
@@ -8,11 +8,10 @@ document.addEventListener('alpine:init', () => {
         contractId: contractId,
         showBrowser: false,
         loading: false,
-        currentPath: null,
-        parentPath: null,
-        entries: [],
+        columns: [], // 分栏数据 [{path, entries, selectedIndex}]
         binding: null,
         error: null,
+        manualPath: '', // 手动输入的路径
 
         init() {
             this.loadBinding();
@@ -29,7 +28,12 @@ document.addEventListener('alpine:init', () => {
                 });
                 
                 if (response.ok) {
-                    this.binding = await response.json();
+                    const data = await response.json();
+                    if (data) {
+                        this.binding = data;
+                    }
+                } else if (response.status !== 404) {
+                    console.error('加载绑定失败:', response.status);
                 }
             } catch (error) {
                 console.error('加载绑定失败:', error);
@@ -39,34 +43,77 @@ document.addEventListener('alpine:init', () => {
         async openBrowser() {
             this.showBrowser = true;
             this.error = null;
-            await this.browseFolder(null);
+            this.columns = [];
+            this.manualPath = this.binding?.folder_path || '';
+            await this.loadRoots();
         },
 
         closeBrowser() {
             this.showBrowser = false;
-            this.currentPath = null;
-            this.parentPath = null;
-            this.entries = [];
+            this.columns = [];
             this.error = null;
+            this.manualPath = '';
         },
 
-        async browseFolder(path) {
+        async loadRoots() {
             this.loading = true;
             this.error = null;
 
             try {
-                const url = path 
-                    ? `/api/v1/contracts/folder-browse?path=${encodeURIComponent(path)}`
-                    : '/api/v1/contracts/folder-browse';
-                
-                const response = await fetch(url, {
+                const response = await fetch('/api/v1/contracts/folder-browse', {
                     headers: {
                         'X-CSRFToken': this.getCsrfToken()
                     }
                 });
 
                 if (!response.ok) {
-                    throw new Error('浏览文件夹失败');
+                    throw new Error('加载根目录失败');
+                }
+
+                const data = await response.json();
+                
+                if (!data.browsable) {
+                    this.error = data.message || '无法访问根目录';
+                    return;
+                }
+
+                this.columns = [{
+                    path: null,
+                    entries: data.entries || [],
+                    selectedIndex: -1
+                }];
+            } catch (error) {
+                console.error('加载根目录失败:', error);
+                this.error = '加载根目录失败';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async selectFolder(columnIndex, entryIndex, entry) {
+            // 更新当前列的选中状态
+            this.columns[columnIndex].selectedIndex = entryIndex;
+            
+            // 移除后续的列
+            this.columns = this.columns.slice(0, columnIndex + 1);
+            
+            // 加载子文件夹
+            await this.loadSubfolders(entry.path);
+        },
+
+        async loadSubfolders(path) {
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await fetch(`/api/v1/contracts/folder-browse?path=${encodeURIComponent(path)}`, {
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('加载文件夹失败');
                 }
 
                 const data = await response.json();
@@ -76,18 +123,35 @@ document.addEventListener('alpine:init', () => {
                     return;
                 }
 
-                this.currentPath = data.path;
-                this.parentPath = data.parent_path;
-                this.entries = data.entries || [];
+                // 添加新列
+                if (data.entries && data.entries.length > 0) {
+                    this.columns.push({
+                        path: path,
+                        entries: data.entries,
+                        selectedIndex: -1
+                    });
+                }
+                
+                // 更新手动输入框
+                this.manualPath = path;
             } catch (error) {
-                console.error('浏览文件夹失败:', error);
+                console.error('加载文件夹失败:', error);
                 this.error = '加载文件夹失败';
             } finally {
                 this.loading = false;
             }
         },
 
-        async selectFolder(path) {
+        async bindManualPath() {
+            if (!this.manualPath || !this.manualPath.trim()) {
+                this.error = '请输入文件夹路径';
+                return;
+            }
+
+            await this.selectFolderPath(this.manualPath.trim());
+        },
+
+        async selectFolderPath(path) {
             this.loading = true;
             this.error = null;
 
@@ -117,6 +181,26 @@ document.addEventListener('alpine:init', () => {
             } finally {
                 this.loading = false;
             }
+        },
+
+        getCurrentPath() {
+            // 获取最后一个选中的路径
+            for (let i = this.columns.length - 1; i >= 0; i--) {
+                const col = this.columns[i];
+                if (col.selectedIndex >= 0 && col.entries[col.selectedIndex]) {
+                    return col.entries[col.selectedIndex].path;
+                }
+            }
+            return null;
+        },
+
+        async bindCurrentPath() {
+            const path = this.getCurrentPath();
+            if (!path) {
+                this.error = '请选择一个文件夹';
+                return;
+            }
+            await this.selectFolderPath(path);
         },
 
         async unbindFolder() {
