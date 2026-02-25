@@ -2,8 +2,8 @@
  * 文书模板文件夹绑定 - 树形选择器样式
  */
 
-/* 隐藏inline中已有绑定记录的文件模板列显示 */
-#documenttemplatefolderbinding_set-group .tabular tbody tr td:first-child p {
+/* 隐藏inline中已有的绑定记录行（只显示空的新增行） */
+#documenttemplatefolderbinding_set-group .tabular tbody tr.has_original {
     display: none !important;
 }
 
