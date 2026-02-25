@@ -8,75 +8,11 @@ from typing import Any
 def get_default_folder_templates() -> list[dict[str, Any]]:
     return [
         {
-            "name": "顾问项目合同",
+            "name": "合同文件夹",
             "template_type": "contract",
             "case_types": [],
             "case_stages": [],
-            "contract_types": ["advisor"],
-            "legal_statuses": [],
-            "legal_status_match_mode": "any",
-            "structure": {
-                "children": [
-                    {
-                        "id": "folder_1767249309369_v4s92peq",
-                        "name": "顾问案件",
-                        "children": [
-                            {
-                                "id": "folder_1767249309370_e5xzx2z7",
-                                "name": "1-律师资料",
-                                "children": [
-                                    {"id": "folder_1767249309370_5akk8wr4", "name": "1-合同", "children": []},
-                                    {"id": "folder_1767249309371_zsmzh1x7", "name": "2-补充协议", "children": []},
-                                    {"id": "folder_1767249309371_4hnxv1aq", "name": "3-发票", "children": []},
-                                    {"id": "folder_1767251370690_2ih4lkfuo", "name": "4-服务总结", "children": []},
-                                ],
-                            },
-                            {"id": "folder_1767249309371_t2c5nyjk", "name": "2-客户资料", "children": []},
-                        ],
-                    }
-                ]
-            },
-            "is_default": True,
-            "is_active": True,
-        },
-        {
-            "name": "非诉项目合同",
-            "template_type": "contract",
-            "case_types": [],
-            "case_stages": [],
-            "contract_types": ["special"],
-            "legal_statuses": [],
-            "legal_status_match_mode": "any",
-            "structure": {
-                "children": [
-                    {
-                        "id": "folder_1767252006536_uesnfwlh",
-                        "name": "非诉案件",
-                        "children": [
-                            {
-                                "id": "folder_1767252006536_7m4s5cxa",
-                                "name": "1-律师资料",
-                                "children": [
-                                    {"id": "folder_1767252006537_r9y2skvf", "name": "1-合同", "children": []},
-                                    {"id": "folder_1767252006537_mpbi1s3n", "name": "2-补充协议", "children": []},
-                                    {"id": "folder_1767252006537_3ad7wolb", "name": "3-发票", "children": []},
-                                    {"id": "folder_1767252006538_1rtjtbm3", "name": "4-服务总结", "children": []},
-                                ],
-                            },
-                            {"id": "folder_1767252006538_wxhnb2fe", "name": "2-客户资料", "children": []},
-                        ],
-                    }
-                ]
-            },
-            "is_default": True,
-            "is_active": True,
-        },
-        {
-            "name": "民商事案件合同",
-            "template_type": "contract",
-            "case_types": [],
-            "case_stages": [],
-            "contract_types": ["civil", "labor", "intl"],
+            "contract_types": ["all"],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
             "structure": {

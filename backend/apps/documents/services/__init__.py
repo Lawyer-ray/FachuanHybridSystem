@@ -9,6 +9,7 @@ from typing import Any
 
 __all__ = [
     "FolderTemplateService",
+    "FolderTemplateAdminService",
     "DocumentTemplateService",
     "PlaceholderService",
     "PlaceholderAdminService",
@@ -33,6 +34,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "EvidenceService": ("apps.documents.services.evidence_service", "EvidenceService"),
     "FolderTemplateService": ("apps.documents.services.folder_service", "FolderTemplateService"),
+    "FolderTemplateAdminService": (
+        "apps.documents.services.folder_template_admin_service",
+        "FolderTemplateAdminService",
+    ),
     "ContractGenerationService": (
         "apps.documents.services.generation.contract_generation_service",
         "ContractGenerationService",

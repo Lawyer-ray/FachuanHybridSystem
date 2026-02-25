@@ -162,8 +162,8 @@ class ContractGenerationService:
             logger.exception("渲染合同模板失败")
             return None, None, f"生成合同失败: {e!s}"
 
-        # 6. 生成文件名
-        filename = self.generate_filename(contract, template)
+        # 6. 生成文件名（传入 contract_id 以便检测版本号）
+        filename = self.generate_filename(contract, template, contract_id)
 
         # 7. 如果合同有绑定文件夹,保存到绑定文件夹
         self._last_saved_path = self._save_to_bound_folder_if_exists(
@@ -223,16 +223,19 @@ class ContractGenerationService:
 
         return context_builder.build_context(context_data) # type: ignore[no-any-return]
 
-    def generate_filename(self, contract: Any, template: "DocumentTemplate") -> str:
+    def generate_filename(self, contract: Any, template: "DocumentTemplate", contract_id: int | None = None) -> str:
         """
         生成输出文件名
 
         格式:模板名称(合同name)V1_日期.docx
         例如:民商事代理合同(王小三、大小武案件)V1_20260102.docx
 
+        如果文件已存在,自动递增版本号(V1 -> V2 -> V3)
+
         Args:
             contract: Contract 实例
             template: DocumentTemplate 实例
+            contract_id: 合同 ID (用于检查绑定文件夹中的已有文件)
 
         Returns:
             格式化的文件名
@@ -241,14 +244,82 @@ class ContractGenerationService:
 
         template_name = template.name or "合同"
         contract_name = getattr(contract, "name", None) or "未命名合同"
-        filename = contract_docx_filename(template_name=template_name, contract_name=contract_name, version="V1")
+        
+        # 确定版本号
+        version = self._get_next_version(contract_id, template_name, contract_name, "contract_documents")
+        
+        filename = contract_docx_filename(template_name=template_name, contract_name=contract_name, version=version)
 
         logger.info(
             "生成合同文件名",
-            extra={"template": template_name, "contract": contract_name, "doc_filename": filename},
+            extra={"template": template_name, "contract": contract_name, "version": version, "doc_filename": filename},
         )
 
         return filename
+
+    def _get_next_version(
+        self, contract_id: int | None, template_name: str, contract_name: str, subdir_key: str
+    ) -> str:
+        """
+        获取下一个可用的版本号
+
+        检查绑定文件夹中已存在的文件,返回下一个版本号
+
+        Args:
+            contract_id: 合同 ID
+            template_name: 模板名称
+            contract_name: 合同名称
+            subdir_key: 子目录键名
+
+        Returns:
+            版本号字符串 (如 "V1", "V2", "V3")
+        """
+        import re
+        from datetime import date
+
+        if not contract_id or not self.folder_binding_service:
+            return "V1"
+
+        try:
+            # 获取绑定信息
+            binding = self.folder_binding_service.get_binding(owner_id=contract_id)
+            if not binding or not binding.folder_path:
+                return "V1"
+
+            # 构建子目录路径
+            subdir_path = self.folder_binding_service._resolve_subdir_path(
+                owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
+                subdir_key=subdir_key,
+            )
+            if not subdir_path:
+                return "V1"
+
+            folder_path = Path(binding.folder_path) / subdir_path
+            if not folder_path.exists():
+                return "V1"
+
+            # 构建文件名模式（不包含版本号和日期）
+            template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
+            today_str = date.today().strftime("%Y%m%d")
+            # 匹配格式: 模板名称（合同名称）V数字_日期.docx
+            pattern = re.compile(
+                rf"^{re.escape(template_prefix)}（{re.escape(contract_name)}）V(\d+)_{today_str}\.docx$"
+            )
+
+            # 查找已存在的版本号
+            max_version = 0
+            for file_path in folder_path.iterdir():
+                if file_path.is_file():
+                    match = pattern.match(file_path.name)
+                    if match:
+                        version_num = int(match.group(1))
+                        max_version = max(max_version, version_num)
+
+            return f"V{max_version + 1}"
+
+        except Exception as e:
+            logger.warning("获取版本号失败,使用默认版本 V1: %s", e)
+            return "V1"
 
     def _save_to_bound_folder_if_exists(
         self, contract_id: int, file_content: bytes, file_name: str, subdir_key: str
@@ -266,7 +337,7 @@ class ContractGenerationService:
             return None
         try:
             saved_path = self.folder_binding_service.save_file_to_bound_folder(
-                contract_id=contract_id,
+                owner_id=contract_id,
                 file_content=file_content,
                 file_name=file_name,
                 subdir_key=subdir_key,

@@ -428,10 +428,18 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         init_service = DocumentTemplateInitService()
         result = init_service.initialize_default_templates()
 
-        messages.success(
-            request,
-            f"初始化完成！创建了 {result['created']} 个模板，跳过 {result['skipped']} 个已存在的模板。"
-        )
+        msg_parts = []
+        if result["folder_created"] > 0:
+            msg_parts.append(f"文件夹模板 {result['folder_created']} 个")
+        if result["doc_created"] > 0:
+            msg_parts.append(f"文件模板 {result['doc_created']} 个")
+        if result["binding_created"] > 0:
+            msg_parts.append(f"绑定关系 {result['binding_created']} 个")
+
+        if msg_parts:
+            messages.success(request, f"✅ 初始化成功！创建了：{' | '.join(msg_parts)}")
+        else:
+            messages.info(request, "ℹ️ 所有数据已存在，无需初始化")
 
         return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 

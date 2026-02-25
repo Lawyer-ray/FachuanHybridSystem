@@ -232,25 +232,39 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
         lines: list[Any] = []
 
         try:
-            # 使用 core.enums 中的枚举类型
-            from apps.core.enums import ClientType  # type: ignore[import-untyped]
-
             if hasattr(client, "client_type"):
-                if client.client_type == ClientType.NATURAL:
+                # 使用 Client 模型中定义的常量
+                if client.client_type == "natural":
                     # 自然人格式
-                    lines.append(f"身份证号码：{getattr(client, 'id_number', '') or ''}")
+                    id_number = getattr(client, "id_number", "") or ""
+                    if id_number:
+                        lines.append(f"身份证号码：{id_number}")
                 else:
                     # 法人或非法人组织格式
-                    lines.append(f"统一社会信用代码：{getattr(client, 'id_number', '') or ''}")
-                    lines.append(f"法定代表人：{getattr(client, 'legal_representative', '') or ''}")
+                    id_number = getattr(client, "id_number", "") or ""
+                    if id_number:
+                        lines.append(f"统一社会信用代码：{id_number}")
+                    
+                    legal_rep = getattr(client, "legal_representative", "") or ""
+                    if legal_rep:
+                        lines.append(f"法定代表人：{legal_rep}")
 
-            lines.append(f"地址：{getattr(client, 'address', '') or ''}")
-            lines.append(f"电话：{getattr(client, 'phone', '') or ''}")
+            address = getattr(client, "address", "") or ""
+            if address:
+                lines.append(f"地址：{address}")
+            
+            phone = getattr(client, "phone", "") or ""
+            if phone:
+                lines.append(f"电话：{phone}")
 
         except Exception as e:
             logger.warning("格式化客户详情失败: %s", e, extra={"client_id": getattr(client, "id", None)})
             # 提供基本格式
-            lines.append(f"地址：{getattr(client, 'address', '') or ''}")
-            lines.append(f"电话：{getattr(client, 'phone', '') or ''}")
+            address = getattr(client, "address", "") or ""
+            if address:
+                lines.append(f"地址：{address}")
+            phone = getattr(client, "phone", "") or ""
+            if phone:
+                lines.append(f"电话：{phone}")
 
         return lines

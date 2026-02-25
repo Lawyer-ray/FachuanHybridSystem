@@ -8,6 +8,7 @@ document.addEventListener('alpine:init', () => {
         contractId: contractId,
         showBrowser: false,
         loading: false,
+        loadingColumn: null, // 局部加载状态
         columns: [], // 分栏数据 [{path, entries, selectedIndex}]
         binding: null,
         error: null,
@@ -96,15 +97,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         async selectFolder(columnIndex, entryIndex, entry) {
-            // 防止重复点击
-            if (this.loading) return;
+            // 防止重复点击（检查局部加载状态）
+            if (this.loadingColumn) return;
             
             // 检查是否已经选中
             if (this.columns[columnIndex].selectedIndex === entryIndex) {
                 return;
             }
             
-            // 更新选中状态
+            // 更新选中状态（立即响应）
             this.columns[columnIndex].selectedIndex = entryIndex;
             
             // 移除后续的列（使用 splice 避免创建新数组）
@@ -113,12 +114,16 @@ document.addEventListener('alpine:init', () => {
                 this.columns.splice(newLength);
             }
             
+            // 设置局部加载状态
+            this.loadingColumn = entry.path;
+            
             // 加载子文件夹
             await this.loadSubfolders(entry.path);
         },
 
         async loadSubfolders(path) {
-            this.loading = true;
+            // 使用局部加载状态，不影响整个列表面板
+            this.loadingColumn = path;
             this.error = null;
 
             try {
@@ -155,7 +160,7 @@ document.addEventListener('alpine:init', () => {
                 console.error('加载文件夹失败:', error);
                 this.error = '加载文件夹失败';
             } finally {
-                this.loading = false;
+                this.loadingColumn = null;
             }
         },
 

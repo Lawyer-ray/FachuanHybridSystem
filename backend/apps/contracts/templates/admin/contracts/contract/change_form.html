@@ -63,9 +63,9 @@
             </div>
             
             <!-- Finder 分栏浏览器 -->
-            <div x-show="!loading" class="finder-columns">
+            <div x-show="!loading" class="finder-columns" :class="{ 'loading': loadingColumn }">
                 <template x-for="(column, columnIndex) in columns" :key="columnIndex">
-                    <div class="finder-column">
+                    <div class="finder-column" :class="{ 'loading': loadingColumn && columnIndex === columns.length - 1 }">
                         <template x-if="column.entries.length > 0">
                             <div>
                                 <template x-for="(entry, entryIndex) in column.entries" :key="entry.path">
