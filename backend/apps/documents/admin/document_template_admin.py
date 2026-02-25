@@ -380,7 +380,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         return queryset, use_distinct
 
     def get_urls(self) -> list[Any]:
-        """添加自定义下载URL"""
+        """添加自定义URL"""
         from django.urls import path
 
         urls = super().get_urls()
@@ -389,6 +389,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
                 "<int:pk>/download/",
                 self.admin_site.admin_view(self.download_view),
                 name="documents_documenttemplate_download",
+            ),
+            path(
+                "initialize-defaults/",
+                self.admin_site.admin_view(self.initialize_defaults_view),
+                name="documents_documenttemplate_initialize",
             ),
         ]
         return custom_urls + urls
@@ -411,6 +416,32 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
 
         response: Any = FileResponse(Path(file_path).open("rb"), as_attachment=True, filename=filename)
         return response
+
+    def initialize_defaults_view(self, request: Any) -> Any:
+        """初始化默认文件模板视图"""
+        from django.contrib import messages
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+
+        from apps.documents.services.document_template.init_service import DocumentTemplateInitService
+
+        init_service = DocumentTemplateInitService()
+        result = init_service.initialize_default_templates()
+
+        messages.success(
+            request,
+            f"初始化完成！创建了 {result['created']} 个模板，跳过 {result['skipped']} 个已存在的模板。"
+        )
+
+        return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
+        """重写changelist视图，添加初始化按钮"""
+        from django.urls import reverse
+
+        extra_context = extra_context or {}
+        extra_context['initialize_url'] = reverse('admin:documents_documenttemplate_initialize')
+        return super().changelist_view(request, extra_context=extra_context)
 
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: DocumentTemplate) -> str:
