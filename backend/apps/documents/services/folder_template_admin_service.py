@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
+from apps.documents.models import FolderTemplate
 
 import logging
 from typing import Any

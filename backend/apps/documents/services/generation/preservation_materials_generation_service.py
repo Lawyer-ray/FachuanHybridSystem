@@ -257,9 +257,7 @@ class PreservationMaterialsGenerationService:
                     return Path(template_dto.file_path)
         template_query = Q(is_active=True, template_type=DocumentTemplateType.CASE)
         if name_keyword:
-            template_query &= Q(function_code=function_code) | Q(name__contains=name_keyword)
-        else:
-            template_query &= Q(function_code=function_code)
+            template_query &= Q(name__contains=name_keyword)
         template = DocumentTemplate.objects.filter(template_query).first()
         if template:
             location = template.get_file_location()

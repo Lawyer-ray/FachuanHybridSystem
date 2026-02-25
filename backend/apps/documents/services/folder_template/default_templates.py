@@ -8,71 +8,13 @@ from typing import Any
 def get_default_folder_templates() -> list[dict[str, Any]]:
     return [
         {
-            "name": "顾问项目合同",
+            "name": "合同文件夹",
             "template_type": "contract",
             "case_types": [],
             "case_stages": [],
-            "contract_types": ["advisor"],
-            "structure": {
-                "children": [
-                    {
-                        "id": "folder_1767249309369_v4s92peq",
-                        "name": "顾问案件",
-                        "children": [
-                            {
-                                "id": "folder_1767249309370_e5xzx2z7",
-                                "name": "1-律师资料",
-                                "children": [
-                                    {"id": "folder_1767249309370_5akk8wr4", "name": "1-合同", "children": []},
-                                    {"id": "folder_1767249309371_zsmzh1x7", "name": "2-补充协议", "children": []},
-                                    {"id": "folder_1767249309371_4hnxv1aq", "name": "3-发票", "children": []},
-                                    {"id": "folder_1767251370690_2ih4lkfuo", "name": "4-服务总结", "children": []},
-                                ],
-                            },
-                            {"id": "folder_1767249309371_t2c5nyjk", "name": "2-客户资料", "children": []},
-                        ],
-                    }
-                ]
-            },
-            "is_default": True,
-            "is_active": True,
-        },
-        {
-            "name": "非诉项目合同",
-            "template_type": "contract",
-            "case_types": [],
-            "case_stages": [],
-            "contract_types": ["special"],
-            "structure": {
-                "children": [
-                    {
-                        "id": "folder_1767252006536_uesnfwlh",
-                        "name": "非诉案件",
-                        "children": [
-                            {
-                                "id": "folder_1767252006536_7m4s5cxa",
-                                "name": "1-律师资料",
-                                "children": [
-                                    {"id": "folder_1767252006537_r9y2skvf", "name": "1-合同", "children": []},
-                                    {"id": "folder_1767252006537_mpbi1s3n", "name": "2-补充协议", "children": []},
-                                    {"id": "folder_1767252006537_3ad7wolb", "name": "3-发票", "children": []},
-                                    {"id": "folder_1767252006538_1rtjtbm3", "name": "4-服务总结", "children": []},
-                                ],
-                            },
-                            {"id": "folder_1767252006538_wxhnb2fe", "name": "2-客户资料", "children": []},
-                        ],
-                    }
-                ]
-            },
-            "is_default": True,
-            "is_active": True,
-        },
-        {
-            "name": "民商事案件合同",
-            "template_type": "contract",
-            "case_types": [],
-            "case_stages": [],
-            "contract_types": ["civil", "labor", "intl"],
+            "contract_types": ["all"],
+            "legal_statuses": [],
+            "legal_status_match_mode": "any",
             "structure": {
                 "children": [
                     {
@@ -97,6 +39,8 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
             "case_types": ["civil"],
             "case_stages": ["first_trial"],
             "contract_types": [],
+            "legal_statuses": ["plaintiff"],
+            "legal_status_match_mode": "any",
             "structure": {
                 "children": [
                     {
@@ -109,7 +53,7 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                                 "children": [
                                     {
                                         "id": "folder_1767234083753_3tn5gbwkr",
-                                        "name": "1-起诉状和反诉答辩状(反诉答辩)",
+                                        "name": "1-起诉状和反诉答辩状",
                                         "children": [],
                                     },
                                     {
@@ -119,7 +63,7 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                                     },
                                     {
                                         "id": "folder_1767234105784_45wytn65d",
-                                        "name": "3-委托代理人委托手续和身份材料",
+                                        "name": "3-委托材料",
                                         "children": [],
                                     },
                                     {"id": "folder_1767234130228_ntijfdj3a", "name": "4-证据目录", "children": []},
@@ -190,6 +134,8 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
             "case_types": ["civil"],
             "case_stages": ["first_trial"],
             "contract_types": [],
+            "legal_statuses": ["defendant"],
+            "legal_status_match_mode": "any",
             "structure": {
                 "children": [
                     {
@@ -197,21 +143,8 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                         "name": "一审",
                         "children": [
                             {
-                                "id": "folder_1767240664617_xc1fuzle",
-                                "name": "1-对方起诉材料",
-                                "children": [
-                                    {
-                                        "id": "folder_1767240664617_nhgwr9g1",
-                                        "name": "1-起诉状和反诉答辩状(反诉答辩)",
-                                        "children": [],
-                                    },
-                                    {"id": "folder_1767240664618_vn8uig5k", "name": "2-证据目录及明细", "children": []},
-                                    {"id": "folder_1767240664619_awifm400", "name": "3-其他立案材料", "children": []},
-                                ],
-                            },
-                            {
                                 "id": "folder_1767240745584_tdw42vw1g",
-                                "name": "2-答辩材料",
+                                "name": "1-答辩材料",
                                 "children": [
                                     {
                                         "id": "folder_1767240769278_0krhuz3yz",
@@ -227,7 +160,7 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                                     },
                                     {
                                         "id": "folder_1767240877211_s0204ub4b",
-                                        "name": "5-委托代理人委托手续",
+                                        "name": "5-委托材料",
                                         "children": [],
                                     },
                                     {"id": "folder_1767240916751_587ozn5gn", "name": "6-其他答辩材料", "children": []},
@@ -235,7 +168,7 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                             },
                             {
                                 "id": "folder_1767240664620_qul256kc",
-                                "name": "3-庭审准备",
+                                "name": "2-庭审准备",
                                 "children": [
                                     {"id": "folder_1767240664620_fxxtqw07", "name": "1-问题清单", "children": []},
                                     {"id": "folder_1767240664620_hwz7zkcx", "name": "2-庭审提纲", "children": []},

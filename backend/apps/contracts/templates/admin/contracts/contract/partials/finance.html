@@ -185,13 +185,6 @@
         {% else %}
         <p class="empty-state">{% trans "暂无客户回款记录" %}</p>
         {% endif %}
-        
-        {% if perms.contracts.add_clientpaymentrecord %}
-        <div style="margin-top: 12px;">
-            <a href="{% url 'admin:contracts_clientpaymentrecord_add' %}?contract={{ contract.id }}" 
-               class="button" style="display: inline-block; padding: 6px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">{% trans "添加回款" %}</a>
-        </div>
-        {% endif %}
     </div>
 
 </div>
