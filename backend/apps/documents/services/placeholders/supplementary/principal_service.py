@@ -208,14 +208,14 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
         existing_parties_text = "、".join(existing_labels) if existing_labels else ""
 
         clause = (
-            f"为保障合同履行的完整性与一致性,维护各方合法权益,"
-            f"现新增{new_parties_text}作为本补充协议及原合同项下的共同甲方."
+            f"为保障合同履行的完整性与一致性，维护各方合法权益，"
+            f"现新增{new_parties_text}作为本补充协议及原合同项下的共同甲方。"
         )
 
         if existing_parties_text:
-            clause += f"新增甲方与{existing_parties_text}共同享有原合同及本补充协议约定的全部权利,并承担相应的义务."
+            clause += f"新增甲方与{existing_parties_text}共同享有原合同及本补充协议约定的全部权利，并承担相应的义务。"
         else:
-            clause += "新增甲方享有原合同及本补充协议约定的全部权利,并承担相应的义务."
+            clause += "新增甲方享有原合同及本补充协议约定的全部权利，并承担相应的义务。"
 
         return clause
 

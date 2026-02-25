@@ -86,13 +86,13 @@ class PartyFormatter:
 
         if id_info.gender and id_info.birth_date:
             lines = [
-                f"{role}:{name},{id_info.gender},{id_info.birth_date}出生",
+                f"{role}：{name}，{id_info.gender}，{id_info.birth_date}出生",
                 f"地址：{address}",
                 f"身份证号码：{id_number}",
             ]
         else:
             lines = [
-                f"{role}:{name}",
+                f"{role}：{name}",
                 f"地址：{address}",
                 f"身份证号码：{id_number}",
             ]
@@ -109,7 +109,7 @@ class PartyFormatter:
         contact_phone: str,
     ) -> str:
         lines = [
-            f"{role}:{company_name}",
+            f"{role}：{company_name}",
             f"地址：{address}",
             f"统一社会信用代码：{unified_social_credit_code}",
             f"法定代表人：{legal_representative}",
@@ -131,7 +131,7 @@ class PartyFormatter:
         Requirements: 2.4, 9.4, 9.6
         """
         if not party or not party.client:
-            return f"{role}:\n"
+            return f"{role}：\n"
 
         client = party.client
         return self._format_natural_person_info(
@@ -155,7 +155,7 @@ class PartyFormatter:
         Requirements: 2.5, 9.5, 9.6
         """
         if not party or not party.client:
-            return f"{role}:\n"
+            return f"{role}：\n"
 
         client = party.client
         return self._format_legal_entity_info(
@@ -181,7 +181,7 @@ class PartyFormatter:
         Requirements: 2.4, 3.1, 9.4, 9.6
         """
         if not party_dict:
-            return f"{role}:\n"
+            return f"{role}：\n"
 
         return self._format_natural_person_info(
             role=role,
@@ -204,7 +204,7 @@ class PartyFormatter:
         Requirements: 2.5, 3.1, 9.5, 9.6
         """
         if not party_dict:
-            return f"{role}:\n"
+            return f"{role}：\n"
 
         return self._format_legal_entity_info(
             role=role,

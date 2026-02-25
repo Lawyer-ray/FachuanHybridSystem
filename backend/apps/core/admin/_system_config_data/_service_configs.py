@@ -7,35 +7,12 @@ __all__ = ["get_court_sms_configs", "get_ai_configs", "get_scraper_configs"]
 
 def get_court_sms_configs() -> list[dict[str, Any]]:
     """获取法院短信与文书送达配置项"""
-    return [
-        {
-            "key": "COURT_SMS_ENABLED",
-            "category": "court_sms",
-            "description": "启用法院短信处理功能",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "COURT_SMS_AUTO_MATCH_CASE",
-            "category": "court_sms",
-            "description": "自动匹配案件",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "DOCUMENT_DELIVERY_ENABLED",
-            "category": "court_sms",
-            "description": "启用文书送达自动处理",
-            "value": "True",
-            "is_secret": False,
-        },
-    ]
+    return []
 
 
 def get_ai_configs() -> list[dict[str, Any]]:
     """获取 AI 配置项"""
     return [
-        {"key": "AI_ENABLED", "category": "ai", "description": "启用 AI 功能", "value": "True", "is_secret": False},
         {
             "key": "AI_PROVIDER",
             "category": "ai",
@@ -75,20 +52,6 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "category": "ai",
             "description": "硅基流动模型名称",
             "value": "Pro/Qwen/Qwen3-0.6B",
-            "is_secret": False,
-        },
-        {
-            "key": "AI_AUTO_NAMING_ENABLED",
-            "category": "ai",
-            "description": "启用 AI 自动命名功能",
-            "value": "True",
-            "is_secret": False,
-        },
-        {
-            "key": "AI_CASE_ANALYSIS_ENABLED",
-            "category": "ai",
-            "description": "启用 AI 案件分析功能",
-            "value": "False",
             "is_secret": False,
         },
     ]

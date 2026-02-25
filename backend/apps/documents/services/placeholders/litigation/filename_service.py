@@ -53,7 +53,7 @@ class FilenameService:
         date_str = self._format_date()
 
         # 生成文件名:起诉状(案件名称)V1_日期.docx
-        filename = f"起诉状({case_name})V1_{date_str}.docx"
+        filename = f"起诉状（{case_name}）V1_{date_str}.docx"
 
         logger.info("生成起诉状文件名: %s", filename)
 
@@ -87,7 +87,7 @@ class FilenameService:
         date_str = self._format_date()
 
         # 生成文件名:答辩状(案件名称)V1_日期.docx
-        filename = f"答辩状({case_name})V1_{date_str}.docx"
+        filename = f"答辩状（{case_name}）V1_{date_str}.docx"
 
         logger.info("生成答辩状文件名: %s", filename)
 

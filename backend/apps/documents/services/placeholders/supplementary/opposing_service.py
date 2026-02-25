@@ -133,10 +133,10 @@ class SupplementaryAgreementOpposingService(BasePlaceholderService):
 
                 if hasattr(client, "client_type") and client.client_type == "natural":
                     # 自然人格式:姓名:XXX,身份证号码:XXX(签名+指模)
-                    parts.append(f"姓名：{name},身份证号码：{id_number}（签名+指模）")
+                    parts.append(f"姓名：{name}，身份证号码：{id_number}（签名+指模）")
                 else:
                     # 法人或非法人组织格式:名称:XXX,统一社会信用代码XXX
-                    parts.append(f"名称：{name},统一社会信用代码{id_number}")
+                    parts.append(f"名称：{name}，统一社会信用代码{id_number}")
 
             except Exception as e:
                 logger.warning("格式化对方当事人信息失败: %s", e, extra={"client_id": getattr(client, "id", None)})
@@ -145,4 +145,4 @@ class SupplementaryAgreementOpposingService(BasePlaceholderService):
                 parts.append(f"名称：{name}")
 
         # 用分号连接,最后加句号
-        return "补充对方当事人信息:" + ";".join(parts) + "."
+        return "补充对方当事人信息：" + "；".join(parts) + "。"
