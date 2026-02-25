@@ -71,7 +71,7 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = service.create_binding(contract_id, data.folder_path)
+    binding = service.create_binding(owner_id=contract_id, folder_path=data.folder_path)
 
     display_path = service.format_path_for_display(binding.folder_path)
     is_accessible = service.check_folder_accessible(binding.folder_path)
@@ -111,7 +111,7 @@ def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:
     _require_contract_access(request, contract_id)
     service = _get_folder_binding_service()
 
-    binding = service.get_binding(contract_id)
+    binding = service.get_binding(owner_id=contract_id)
     if not binding:
         return None
 
@@ -142,7 +142,7 @@ def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:
     service = _get_folder_binding_service()
 
     ctx = get_request_access_context(request)
-    success = service.delete_binding(contract_id)
+    success = service.delete_binding(owner_id=contract_id)
 
     logger.info(
         "contract_folder_binding_delete",
