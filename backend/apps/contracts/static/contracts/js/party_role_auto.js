@@ -22,8 +22,11 @@
     })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        if (data && data.is_our_client === false) {
-          roleSelect.value = OPPOSING_VALUE;
+        if (data) {
+          // 非我方当事人（is_our_client 为 false 或 null）自动设为对方当事人
+          if (data.is_our_client === false || data.is_our_client === null) {
+            roleSelect.value = OPPOSING_VALUE;
+          }
         }
       })
       .catch(function () {});
