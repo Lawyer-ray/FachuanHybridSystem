@@ -13,6 +13,7 @@ import logging
 import zipfile
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.enums import CaseType
@@ -143,6 +144,8 @@ class FolderGenerationService:
     def get_document_placements(self, contract: Any, folder_template: "FolderTemplate") -> list[DocumentPlacement]:
         """
         获取文书放置配置
+        
+        查询所有绑定到该文件夹模板的文件模板，并根据合同类型进行匹配
 
         Args:
             contract: 合同数据(Contract 实例或 ContractDataWrapper)
@@ -151,46 +154,42 @@ class FolderGenerationService:
         Returns:
             文书放置配置列表
         """
-        from apps.documents.models import (
-            DocumentContractSubType,
-            DocumentTemplate,
-            DocumentTemplateFolderBinding,
-            DocumentTemplateType,
-        )
+        from apps.documents.models import DocumentTemplateFolderBinding
 
         placements: list[Any] = []
+        case_type = getattr(contract, "case_type", None)
 
-        # 查询与合同类型匹配的文书模板
-        document_templates = DocumentTemplate.objects.filter(
-            template_type=DocumentTemplateType.CONTRACT,
-            contract_sub_type=DocumentContractSubType.CONTRACT,
-            is_active=True,
-        )
+        # 查询所有绑定到该文件夹模板的文件模板
+        bindings = DocumentTemplateFolderBinding.objects.filter(
+            folder_template=folder_template, is_active=True
+        ).select_related("document_template")
 
-        matched_templates: list[Any] = []
-        for template in document_templates:
+        for binding in bindings:
+            template = binding.document_template
+            
+            # 检查模板是否启用
+            if not template.is_active:
+                continue
+
+            # 检查模板是否匹配合同类型
             contract_types = template.contract_types or []
-            case_type = getattr(contract, "case_type", None)
-            if case_type in contract_types or "all" in contract_types:
-                matched_templates.append(template)
+            if case_type not in contract_types and "all" not in contract_types:
+                continue
 
-        # 如果没有匹配的文书模板,返回空列表(调用方会抛出异常)
-        if not matched_templates:
-            return []
-
-        # 使用绑定配置确定文书放置位置
-        for template in matched_templates:
-            # 查询绑定配置
-            binding = DocumentTemplateFolderBinding.objects.filter(
-                document_template=template, folder_template=folder_template, is_active=True
-            ).first()
-
-            if binding:
-                # 有绑定配置,使用指定路径
-                folder_path = binding.folder_node_path or ""
-            else:
-                # 无绑定配置,尝试自动查找"1-合同"文件夹
-                folder_path = self._find_contract_folder_path(folder_template)
+            # 使用绑定配置的路径
+            folder_path = binding.folder_node_path or ""
+            
+            logger.info(
+                "找到绑定配置: 模板=%s, 节点ID=%s, 路径=%s",
+                template.name,
+                binding.folder_node_id,
+                folder_path,
+                extra={
+                    "template_name": template.name,
+                    "folder_node_id": binding.folder_node_id,
+                    "folder_path": folder_path,
+                },
+            )
 
             # 生成文件名
             file_name = self._generate_document_filename(contract, template)
@@ -302,31 +301,51 @@ class FolderGenerationService:
         folder_structure = self.generate_folder_structure(folder_template, root_name)
 
         # 6. 生成文书
-        contract_service = ContractGenerationService(
-            contract_service=self.contract_service,
-            folder_binding_service=self.folder_binding_service,
-        )
+        from .pipeline import DocxRenderer, PipelineContextBuilder
+
         documents: list[Any] = []
+        
+        # 获取合同数据用于构建上下文
+        contract_model = self.contract_service.get_contract_model_internal(contract_id)
+        if not contract_model:
+            raise NotFoundError("合同不存在")
 
         for placement in document_placements:
             try:
-                # 使用模板生成合同文书
-                content, _filename, error = contract_service.generate_contract_document(contract_id)
+                # 检查模板文件是否存在
+                file_location = placement.document_template.get_file_location()
+                if not file_location or not Path(file_location).exists():
+                    logger.warning(
+                        "模板文件不存在: %s", placement.document_template.name,
+                        extra={"template_name": placement.document_template.name},
+                    )
+                    continue
+
+                # 构建上下文
+                context = PipelineContextBuilder().build_contract_context(contract_model)
+
+                # 渲染模板
+                content = DocxRenderer().render(file_location, context)
 
                 if content:
                     documents.append((placement.folder_path, content, placement.file_name))
                     logger.info(
-                        "合同文书生成成功,放置路径: %s/%s", placement.folder_path, placement.file_name,
+                        "文书生成成功: %s, 放置路径: %s/%s",
+                        placement.document_template.name,
+                        placement.folder_path,
+                        placement.file_name,
                         extra={
                             "contract_id": contract_id,
+                            "template_name": placement.document_template.name,
                             "folder_path": placement.folder_path,
                             "file_name": placement.file_name,
                         },
                     )
-                elif error:
-                    logger.warning("生成文书失败: %s", error)
             except Exception as e:
-                logger.warning("生成文书异常: %s", e)
+                logger.warning(
+                    "生成文书异常: %s - %s", placement.document_template.name, e,
+                    extra={"template_name": placement.document_template.name, "error": str(e)},
+                )
 
         # 7. 创建ZIP包
         try:

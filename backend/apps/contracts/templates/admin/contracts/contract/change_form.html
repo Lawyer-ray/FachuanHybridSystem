@@ -1,15 +1,109 @@
 {% extends "admin/change_form.html" %}
-{% load i18n admin_urls %}
+{% load i18n admin_urls static %}
 
 {% block extrahead %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'contracts/css/folder_browser.css' %}">
+<script src="{% static 'contracts/js/folder_browser.js' %}"></script>
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
+[x-cloak] { display: none !important; }
 </style>
 {% endblock %}
 
 {% block submit_buttons_bottom %}
 {{ block.super }}
+
+{% if original %}
+<!-- 文件夹绑定组件 -->
+<div x-data="folderBrowser({{ original.pk }})" class="folder-binding-widget">
+    <h3>📁 文件夹绑定</h3>
+    
+    <!-- 绑定状态 -->
+    <div class="binding-status">
+        <span class="status-badge" :class="binding ? 'bound' : 'unbound'" x-text="binding ? '已绑定' : '未绑定'"></span>
+    </div>
+    
+    <!-- 绑定路径 -->
+    <div x-show="binding" class="binding-path" x-text="binding?.display_path || binding?.folder_path"></div>
+    
+    <!-- 操作按钮 -->
+    <div class="binding-actions">
+        <button type="button" class="btn-folder primary" @click="openBrowser()" :disabled="loading">
+            <span x-show="!loading">选择文件夹</span>
+            <span x-show="loading">加载中...</span>
+        </button>
+        <button type="button" class="btn-folder danger" @click="unbindFolder()" x-show="binding" :disabled="loading">
+            解除绑定
+        </button>
+    </div>
+    
+    <!-- Finder 风格文件夹浏览器模态框 -->
+    <div x-show="showBrowser" x-cloak class="folder-browser-modal" @click.self="closeBrowser()">
+        <div class="folder-browser-content">
+            <div class="folder-browser-header" style="position: relative;">
+                <h2>选择文件夹</h2>
+                <button type="button" class="folder-browser-close" @click="closeBrowser()">×</button>
+                
+                <!-- 手动输入路径 -->
+                <div class="manual-path-input">
+                    <input 
+                        type="text" 
+                        x-model="manualPath" 
+                        placeholder="输入文件夹路径，例如：/Users/username/Documents"
+                        @keydown.enter="bindManualPath()"
+                    >
+                    <button type="button" class="btn-folder primary" @click="bindManualPath()" :disabled="loading">
+                        确认
+                    </button>
+                </div>
+                
+                <!-- 错误信息 -->
+                <div x-show="error" class="folder-browser-error" x-text="error"></div>
+            </div>
+            
+            <!-- Finder 分栏浏览器 -->
+            <div x-show="!loading" class="finder-columns" :class="{ 'loading': loadingColumn }">
+                <template x-for="(column, columnIndex) in columns" :key="columnIndex">
+                    <div class="finder-column" :class="{ 'loading': loadingColumn && columnIndex === columns.length - 1 }">
+                        <template x-if="column.entries.length > 0">
+                            <div>
+                                <template x-for="(entry, entryIndex) in column.entries" :key="entry.path">
+                                    <div 
+                                        class="finder-item"
+                                        :class="{ 'selected': column.selectedIndex === entryIndex }"
+                                        @click="selectFolder(columnIndex, entryIndex, entry)"
+                                    >
+                                        <span class="finder-item-icon">📁</span>
+                                        <span class="finder-item-name" x-text="entry.name"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="column.entries.length === 0">
+                            <div class="finder-empty">此文件夹为空</div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- 加载中 -->
+            <div x-show="loading" class="folder-browser-loading">
+                加载中...
+            </div>
+            
+            <!-- 底部操作栏 -->
+            <div class="folder-browser-footer">
+                <div class="selected-path-display" x-text="getCurrentPath() || '请选择文件夹'"></div>
+                <button type="button" class="btn-folder primary" @click="bindCurrentPath()" :disabled="loading || !getCurrentPath()">
+                    选择此文件夹
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
 (function() {
     var submitRow = document.querySelector('.submit-row');
