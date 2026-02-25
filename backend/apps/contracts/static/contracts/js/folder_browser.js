@@ -91,6 +91,9 @@ document.addEventListener('alpine:init', () => {
         },
 
         async selectFolder(columnIndex, entryIndex, entry) {
+            // 防止重复点击
+            if (this.loading) return;
+            
             // 更新当前列的选中状态
             this.columns[columnIndex].selectedIndex = entryIndex;
             
