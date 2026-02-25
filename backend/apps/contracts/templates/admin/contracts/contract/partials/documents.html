@@ -2,6 +2,24 @@
 <!-- 文档与提醒标签页 -->
 <div x-show="activeTab === 'documents'" x-cloak>
     <div class="info-grid two-columns">
+        <!-- 匹配的模板卡片 -->
+        <div class="info-card">
+            <div class="card-header">
+                <span class="card-icon">📋</span>
+                <h3 class="card-title">{% trans "匹配的模板" %}</h3>
+            </div>
+            <dl class="info-list">
+                <div class="info-item">
+                    <dt>{% trans "合同文书模板" %}</dt>
+                    <dd>{{ contract_template_display }}</dd>
+                </div>
+                <div class="info-item">
+                    <dt>{% trans "文件夹模板" %}</dt>
+                    <dd>{{ folder_template_display }}</dd>
+                </div>
+            </dl>
+        </div>
+
         <!-- 补充协议卡片 -->
         <div class="info-card">
             <div class="card-header">

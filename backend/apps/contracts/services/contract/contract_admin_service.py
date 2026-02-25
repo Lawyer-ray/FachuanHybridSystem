@@ -195,6 +195,7 @@ class ContractAdminService:
         except Exception as exc:
             logger.error("检查合同 %s 的文书模板失败: %s", contract.pk, exc, exc_info=True)
             has_contract_template = False
+            contract_template_display = str(_("查询失败"))
 
         try:
             folder_template_display = self.display_service.get_matched_folder_templates(contract)
@@ -202,6 +203,7 @@ class ContractAdminService:
         except Exception as exc:
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.pk, exc, exc_info=True)
             has_folder_template = False
+            folder_template_display = str(_("查询失败"))
 
         payment_progress = self.progress_service.get_payment_progress(contract)
         invoice_summary = self.progress_service.get_invoice_summary(contract)
@@ -234,6 +236,8 @@ class ContractAdminService:
             "soon_due_date": soon_due_date,
             "has_contract_template": has_contract_template,
             "has_folder_template": has_folder_template,
+            "contract_template_display": contract_template_display,
+            "folder_template_display": folder_template_display,
             "supplementary_agreements": supplementary_agreements,
             "has_supplementary_agreements": has_supplementary_agreements,
             "payment_progress": payment_progress,
