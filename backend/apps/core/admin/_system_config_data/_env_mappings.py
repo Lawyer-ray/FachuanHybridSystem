@@ -38,12 +38,6 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "群聊名称模板",
             "is_secret": False,
         },
-        "CASE_CHAT_DEFAULT_STAGE": {
-            "key": "CASE_CHAT_DEFAULT_STAGE",
-            "category": "feishu",
-            "description": "默认阶段显示文本",
-            "is_secret": False,
-        },
         "CASE_CHAT_NAME_MAX_LENGTH": {
             "key": "CASE_CHAT_NAME_MAX_LENGTH",
             "category": "feishu",

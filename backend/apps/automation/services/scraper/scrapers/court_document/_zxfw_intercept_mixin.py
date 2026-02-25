@@ -19,16 +19,23 @@ class ZxfwInterceptMixin:
     page: Page
 
     def _debug_log(self, message: str, data: Any = None) -> None:
-        raise NotImplementedError
+        if hasattr(super(), '_debug_log'):
+            super()._debug_log(message, data)
+        elif hasattr(self, '_debug_log'):
+            self._debug_log(message, data)
 
     def navigate_to_url(self) -> None:
-        raise NotImplementedError
+        if hasattr(super(), 'navigate_to_url'):
+            super().navigate_to_url()
 
     def random_wait(self, min_s: float, max_s: float) -> None:
-        raise NotImplementedError
+        if hasattr(super(), 'random_wait'):
+            super().random_wait(min_s, max_s)
 
     def _save_page_state(self, name: str) -> dict[str, Any]:
-        raise NotImplementedError
+        if hasattr(super(), '_save_page_state'):
+            return super()._save_page_state(name)
+        return {}
 
     def _download_document_directly(
         self,
@@ -36,13 +43,17 @@ class ZxfwInterceptMixin:
         download_dir: Path,
         download_timeout: int,
     ) -> tuple[bool, str | None, str | None]:
-        raise NotImplementedError
+        if hasattr(super(), '_download_document_directly'):
+            return super()._download_document_directly(document_data, download_dir, download_timeout)
+        raise NotImplementedError("子类必须实现 _download_document_directly 方法")
 
     def _save_documents_batch(
         self,
         documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]],
     ) -> dict[str, Any]:
-        raise NotImplementedError
+        if hasattr(super(), '_save_documents_batch'):
+            return super()._save_documents_batch(documents_with_results)
+        return {}
 
     def _intercept_api_response_with_navigation(self, timeout: int = 30000) -> dict[str, Any] | None:
         """在导航前注册监听器，拦截 API 响应"""
