@@ -188,7 +188,22 @@
     border-radius: 4px;
     overflow: hidden;
     background: white;
-    transition: opacity 0.15s ease;
+    position: relative;
+}
+
+.finder-columns.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
 }
 
 .finder-column {
@@ -198,6 +213,32 @@
     overflow-y: auto;
     background: white;
     transition: all 0.15s ease;
+    position: relative;
+}
+
+.finder-column.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.finder-column.loading::before {
+    content: '加载中...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #6b7280;
+    font-size: 13px;
+    z-index: 6;
 }
 
 .finder-column:last-child {
