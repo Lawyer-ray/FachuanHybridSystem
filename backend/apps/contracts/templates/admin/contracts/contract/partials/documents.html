@@ -11,11 +11,27 @@
             <dl class="info-list">
                 <div class="info-item">
                     <dt>{% trans "合同文书模板" %}</dt>
-                    <dd>{{ contract_template_display }}</dd>
+                    <dd>
+                        {% if contract_templates_list %}
+                            {% for template in contract_templates_list %}
+                                <a href="{% url 'admin:documents_documenttemplate_change' template.id %}" target="_blank" style="color: #2563eb; text-decoration: underline; margin-right: 8px;">{{ template.name }}</a>{% if not forloop.last %}、{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            {{ contract_template_display }}
+                        {% endif %}
+                    </dd>
                 </div>
                 <div class="info-item">
                     <dt>{% trans "文件夹模板" %}</dt>
-                    <dd>{{ folder_template_display }}</dd>
+                    <dd>
+                        {% if folder_templates_list %}
+                            {% for template in folder_templates_list %}
+                                <a href="{% url 'admin:documents_foldertemplate_change' template.id %}" target="_blank" style="color: #2563eb; text-decoration: underline; margin-right: 8px;">{{ template.name }}</a>{% if not forloop.last %}、{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            {{ folder_template_display }}
+                        {% endif %}
+                    </dd>
                 </div>
             </dl>
         </div>
