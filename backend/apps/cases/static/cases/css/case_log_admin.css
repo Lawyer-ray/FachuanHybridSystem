@@ -1,0 +1,109 @@
+/**
+ * 案件日志 Admin Inline 样式优化
+ */
+
+/* 隐藏每个日志条目的标题文字，但保留删除按钮 */
+#logs-group .djn-inline-form > h3 {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+#logs-group .djn-inline-form > h3 > b,
+#logs-group .djn-inline-form > h3 > .inline_label {
+    display: none !important;
+}
+
+#logs-group .djn-inline-form > h3 > .delete {
+    display: block !important;
+    float: right;
+    margin-bottom: 8px;
+}
+
+/* 标题栏样式 - 添加排序按钮 */
+#logs-group > fieldset {
+    padding: 0;
+}
+
+#logs-group > fieldset > h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 15px;
+    background: #417690;
+    color: white;
+}
+
+/* 日志列表容器 */
+#logs-group .djn-items {
+    padding: 10px 15px;
+    background: #f5f5f5;
+}
+
+/* 优化日志条目布局 - 移除分割线，统一背景 */
+#logs-group .djn-inline-form fieldset.module {
+    border: none;
+    background: white;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    clear: both;
+}
+
+/* 日志内容和创建日期放在同一个区域 */
+#logs-group .djn-inline-form .form-row {
+    margin-bottom: 8px;
+    border: none;
+    padding: 0;
+}
+
+#logs-group .djn-inline-form .form-row label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+/* 创建日期样式 */
+#logs-group .djn-inline-form .field-created_at p {
+    color: #666;
+    font-size: 13px;
+    margin: 0;
+}
+
+/* 日志内容文本框 */
+#logs-group .djn-inline-form textarea {
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 8px;
+}
+
+/* 添加按钮区域 */
+#logs-group .djn-add-item {
+    padding: 10px 15px;
+    background: #f5f5f5;
+    margin: 0;
+}
+
+/* 排序按钮样式 - 白色链接样式 */
+.case-log-sort-btn {
+    display: inline-block;
+    padding: 0;
+    margin-left: 10px;
+    background: transparent;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: normal;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.case-log-sort-btn:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+

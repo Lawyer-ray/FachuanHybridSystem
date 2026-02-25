@@ -62,3 +62,35 @@ option[data-source="supplementary"]::after {
 #assignments-group td.original p,
 #supervising_authorities-group td.original p,
 #case_numbers-group td.original p { display: none; }
+
+/* 统一所有 inline 标题栏的 padding */
+#parties-group > .tabular > fieldset > h2,
+#assignments-group > .tabular > fieldset > h2,
+#supervising_authorities-group > .tabular > fieldset > h2,
+#case_numbers-group > .tabular > fieldset > h2,
+#logs-group > fieldset > h2,
+#chats-group > .tabular > fieldset > h2 {
+    padding: 10px 15px !important;
+    margin: 0 !important;
+}
+
+/* 统一所有 tabular inline 的表格 padding */
+#parties-group table,
+#assignments-group table,
+#supervising_authorities-group table,
+#case_numbers-group table,
+#chats-group table {
+    padding: 10px 15px !important;
+}
+
+/* 案件案号备注框自适应宽度 */
+#case_numbers-group textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* 隐藏案件日志 inline 每个条目的标题 */
+#logs-group .djn-inline-form > h3 {
+    display: none !important;
+}
