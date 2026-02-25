@@ -192,18 +192,22 @@ class ContractAdminService:
         try:
             contract_template_display = self.display_service.get_matched_document_template(contract)
             has_contract_template = contract_template_display not in [str(_("无匹配模板")), str(_("查询失败"))]
+            contract_templates_list = self.display_service.get_matched_document_templates_list(contract)
         except Exception as exc:
             logger.error("检查合同 %s 的文书模板失败: %s", contract.pk, exc, exc_info=True)
             has_contract_template = False
             contract_template_display = str(_("查询失败"))
+            contract_templates_list = []
 
         try:
             folder_template_display = self.display_service.get_matched_folder_templates(contract)
             has_folder_template = folder_template_display not in [str(_("无匹配模板")), str(_("查询失败"))]
+            folder_templates_list = self.display_service.get_matched_folder_templates_list(contract)
         except Exception as exc:
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.pk, exc, exc_info=True)
             has_folder_template = False
             folder_template_display = str(_("查询失败"))
+            folder_templates_list = []
 
         payment_progress = self.progress_service.get_payment_progress(contract)
         invoice_summary = self.progress_service.get_invoice_summary(contract)
@@ -238,6 +242,8 @@ class ContractAdminService:
             "has_folder_template": has_folder_template,
             "contract_template_display": contract_template_display,
             "folder_template_display": folder_template_display,
+            "contract_templates_list": contract_templates_list,
+            "folder_templates_list": folder_templates_list,
             "supplementary_agreements": supplementary_agreements,
             "has_supplementary_agreements": has_supplementary_agreements,
             "payment_progress": payment_progress,
