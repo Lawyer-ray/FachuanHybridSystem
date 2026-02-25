@@ -2,6 +2,11 @@
  * 文书模板文件夹绑定 - 树形选择器样式
  */
 
+/* 隐藏inline中已有绑定记录的文件模板列显示 */
+#documenttemplatefolderbinding_set-group .tabular tbody tr td:first-child p {
+    display: none !important;
+}
+
 /* 选择器容器 */
 .folder-selector-container {
     position: relative;
