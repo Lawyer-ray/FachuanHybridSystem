@@ -159,10 +159,10 @@ class CaseDetailService(BasePlaceholderService):
                 10: "十",
             }
             chinese_num = chinese_numbers.get(num, str(num))
-            return f"案件{chinese_num}:"
+            return f"案件{chinese_num}："
         except Exception as e:
             logger.warning("格式化案件序号失败: %s", e, extra={"num": num})
-            return "案件:"
+            return "案件："
 
     def _extract_opposing_parties_from_case(self, case: Any) -> list[str]:
         """
@@ -175,17 +175,16 @@ class CaseDetailService(BasePlaceholderService):
             对方当事人名称列表
         """
         try:
-            from apps.core.enums import LegalStatus
-
-            our_statuses = {
-                LegalStatus.PLAINTIFF,
-                LegalStatus.APPLICANT,
-                LegalStatus.APPELLANT,
-                LegalStatus.ORIGINAL_PLAINTIFF,
-            }
             opposing_names: list[Any] = []
             for party in case.parties.all():
-                if party.legal_status not in our_statuses and hasattr(party.client, "name") and party.client.name:
+                # 非我方当事人即为对方当事人
+                if (
+                    hasattr(party, "client")
+                    and hasattr(party.client, "is_our_client")
+                    and not party.client.is_our_client
+                    and hasattr(party.client, "name")
+                    and party.client.name
+                ):
                     opposing_names.append(party.client.name)
             return opposing_names
         except Exception:

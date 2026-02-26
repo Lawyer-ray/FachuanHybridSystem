@@ -65,14 +65,14 @@ class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
 
 def _get_analysis_service() -> Any:
     """工厂函数获取分析服务"""
-    from apps.documents.services.wiring import get_analysis_service
+    from apps.documents.services.infrastructure.wiring import get_analysis_service
 
     return get_analysis_service()
 
 
 def _get_filling_service() -> Any:
     """工厂函数获取填充服务"""
-    from apps.documents.services.wiring import get_filling_service
+    from apps.documents.services.infrastructure.wiring import get_filling_service
 
     return get_filling_service()
 
@@ -147,7 +147,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         "original_filename",
         "file_size_display",
         "uploaded_by_display",
-        "law_firm_display",
+        # "law_firm_display",  # 移除所属律所字段
         "version",
         "status",
         "created_at",

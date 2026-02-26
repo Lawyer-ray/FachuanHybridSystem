@@ -186,7 +186,8 @@
     height: 400px;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     background: white;
     position: relative;
 }
@@ -207,7 +208,7 @@
 }
 
 .finder-column {
-    flex: 1;
+    flex: 0 0 200px;
     min-width: 200px;
     border-right: 1px solid #e5e7eb;
     overflow-y: auto;

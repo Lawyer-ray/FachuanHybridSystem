@@ -25,19 +25,19 @@ router = Router(auth=JWTOrSessionAuth())
 
 
 def _get_analysis_service() -> Any:
-    from apps.documents.services.wiring import get_analysis_service
+    from apps.documents.services.infrastructure.wiring import get_analysis_service
 
     return get_analysis_service()
 
 
 def _get_filling_service() -> Any:
-    from apps.documents.services.wiring import get_filling_service
+    from apps.documents.services.infrastructure.wiring import get_filling_service
 
     return get_filling_service()
 
 
 def _get_matching_service() -> Any:
-    from apps.documents.services.wiring import get_matching_service
+    from apps.documents.services.infrastructure.wiring import get_matching_service
 
     return get_matching_service()
 

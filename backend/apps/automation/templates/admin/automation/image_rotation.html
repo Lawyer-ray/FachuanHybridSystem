@@ -940,18 +940,32 @@ function imageRotationApp() {
                 this.progress = 60;
                 this.loadingText = '正在生成 PDF 文件...';
 
-                // 调用后端API
+                // 使用 FormData 方式提交，避免请求体大小限制
+                const formData = new FormData();
+                formData.append('paper_size', this.paperSize);
+
+                for (let i = 0; i < pagesData.length; i++) {
+                    const pageData = pagesData[i];
+                    // 将 base64 转为 Blob
+                    const byteCharacters = atob(pageData.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let j = 0; j < byteCharacters.length; j++) {
+                        byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+                    formData.append(`page_${i}`, blob, pageData.filename);
+                    formData.append(`filename_${i}`, pageData.filename);
+                }
+
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
                 const response = await fetch('/api/v1/automation/image-rotation/export-pdf', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
                         'X-CSRFToken': csrfToken
                     },
-                    body: JSON.stringify({
-                        pages: pagesData,
-                        paper_size: this.paperSize
-                    })
+                    body: formData
                 });
 
                 this.progress = 90;
@@ -1033,19 +1047,36 @@ function imageRotationApp() {
                 this.progress = 60;
                 this.loadingText = '正在生成 ZIP 文件...';
 
-                // 调用后端API
+                // 使用 FormData 方式提交，避免请求体大小限制
+                const formData = new FormData();
+                formData.append('paper_size', this.paperSize);
+                if (Object.keys(renameMap).length > 0) {
+                    formData.append('rename_map', JSON.stringify(renameMap));
+                }
+
+                for (let i = 0; i < imagesData.length; i++) {
+                    const imgData = imagesData[i];
+                    // 将 base64 转为 Blob
+                    const byteCharacters = atob(imgData.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let j = 0; j < byteCharacters.length; j++) {
+                        byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+                    formData.append(`image_${i}`, blob, imgData.filename);
+                    formData.append(`filename_${i}`, imgData.filename);
+                    formData.append(`format_${i}`, imgData.format);
+                }
+
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
                 const response = await fetch('/api/v1/automation/image-rotation/export', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
                         'X-CSRFToken': csrfToken
                     },
-                    body: JSON.stringify({
-                        images: imagesData,
-                        paper_size: this.paperSize,
-                        rename_map: Object.keys(renameMap).length > 0 ? renameMap : null
-                    })
+                    body: formData
                 });
 
                 this.progress = 90;

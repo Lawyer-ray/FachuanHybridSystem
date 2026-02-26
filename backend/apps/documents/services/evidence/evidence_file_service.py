@@ -73,7 +73,7 @@ class EvidenceFileService:
 
     def _get_page_count(self, *, ext: str, file: Any) -> int:
         if ext == ".pdf":
-            from apps.documents.services.pdf_utils import get_pdf_page_count
+            from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count
 
             return get_pdf_page_count(file, default=1)
         return 1

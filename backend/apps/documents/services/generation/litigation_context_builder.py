@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from apps.core.enums import LegalStatus
 from apps.documents.services.placeholders import EnhancedContextBuilder
-from apps.documents.services.wiring import get_case_service
+from apps.documents.services.infrastructure.wiring import get_case_service
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger("apps.documents.generation")

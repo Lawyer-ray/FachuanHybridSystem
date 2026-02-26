@@ -334,7 +334,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ============================================================
 
 # 默认 2.5MB 太小，图片旋转工具需要上传大量 Base64 数据
-DATA_UPLOAD_MAX_MEMORY_SIZE_MB = int(os.environ.get("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "20"))
+# multipart/form-data 上传也会受到此限制
+DATA_UPLOAD_MAX_MEMORY_SIZE_MB = int(os.environ.get("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "100"))
 DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE_MB * 1024 * 1024
 
 CONTRACT_FOLDER_BROWSE_ROOTS = resolve_contract_folder_browse_roots()

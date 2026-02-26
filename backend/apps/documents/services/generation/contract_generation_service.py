@@ -113,7 +113,7 @@ class ContractGenerationService:
             IContractService 实例
         """
         if self._contract_service is None:
-            from apps.documents.services.wiring import get_contract_service
+            from apps.documents.services.infrastructure.wiring import get_contract_service
 
             self._contract_service = get_contract_service()
         return self._contract_service
@@ -188,7 +188,7 @@ class ContractGenerationService:
         Returns:
             匹配的 DocumentTemplate 列表
         """
-        from apps.documents.services.contract_template_query_service import ContractTemplateQueryService
+        from apps.documents.services.template.contract_template.query_service import ContractTemplateQueryService
 
         return ContractTemplateQueryService().find_matching_templates(case_type)
 
@@ -202,7 +202,7 @@ class ContractGenerationService:
         Returns:
             匹配的 DocumentTemplate 或 None
         """
-        from apps.documents.services.contract_template_query_service import ContractTemplateQueryService
+        from apps.documents.services.template.contract_template.query_service import ContractTemplateQueryService
 
         return ContractTemplateQueryService().find_matching_template(case_type)
 

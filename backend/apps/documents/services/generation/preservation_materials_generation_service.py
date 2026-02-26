@@ -18,7 +18,7 @@ from docxtpl import DocxTemplate
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.path import Path
 from apps.documents.services.placeholders import EnhancedContextBuilder
-from apps.documents.services.wiring import get_case_service, get_document_service
+from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"

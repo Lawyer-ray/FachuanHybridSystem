@@ -121,9 +121,13 @@ backend/apps/automation/services/ocr/models/*.onnx
 MacOS_FC/
 frontend/
 backend/deploy/
+backend/logs/
 backend/tests/
 backend/.dockerignore
 backend/.secrets.baseline
+
+# Cookies (sensitive data)
+backend/apiSystem/cookies/
 
 # Document templates
 backend/apps/documents/docx_templates/

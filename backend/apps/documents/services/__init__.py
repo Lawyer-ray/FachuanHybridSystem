@@ -26,29 +26,29 @@ __all__ = [
 
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "EvidenceAdminService": ("apps.documents.services.evidence_admin_service", "EvidenceAdminService"),
-    "EvidenceExportService": ("apps.documents.services.evidence_export_service", "EvidenceExportService"),
+    "EvidenceAdminService": ("apps.documents.services.evidence.evidence_admin_service", "EvidenceAdminService"),
+    "EvidenceExportService": ("apps.documents.services.evidence.evidence_export_service", "EvidenceExportService"),
     "EvidenceListPlaceholderService": (
-        "apps.documents.services.evidence_list_placeholder_service",
+        "apps.documents.services.evidence.evidence_list_placeholder_service",
         "EvidenceListPlaceholderService",
     ),
-    "EvidenceService": ("apps.documents.services.evidence_service", "EvidenceService"),
-    "FolderTemplateService": ("apps.documents.services.folder_service", "FolderTemplateService"),
+    "EvidenceService": ("apps.documents.services.evidence.evidence_service", "EvidenceService"),
+    "FolderTemplateService": ("apps.documents.services.template.folder_service", "FolderTemplateService"),
     "FolderTemplateAdminService": (
-        "apps.documents.services.folder_template_admin_service",
+        "apps.documents.services.template.folder_template.admin_service",
         "FolderTemplateAdminService",
     ),
     "ContractGenerationService": (
         "apps.documents.services.generation.contract_generation_service",
         "ContractGenerationService",
     ),
-    "GenerationService": ("apps.documents.services.generation_service", "GenerationService"),
-    "PDFMergeService": ("apps.documents.services.pdf_merge_service", "PDFMergeService"),
-    "PlaceholderAdminService": ("apps.documents.services.placeholder_admin_service", "PlaceholderAdminService"),
-    "PlaceholderService": ("apps.documents.services.placeholder_service", "PlaceholderService"),
-    "DocumentTemplateService": ("apps.documents.services.template_service", "DocumentTemplateService"),
+    "GenerationService": ("apps.documents.services.generation.generation_service", "GenerationService"),
+    "PDFMergeService": ("apps.documents.services.infrastructure.pdf_merge_service", "PDFMergeService"),
+    "PlaceholderAdminService": ("apps.documents.services.placeholders.placeholder_admin_service", "PlaceholderAdminService"),
+    "PlaceholderService": ("apps.documents.services.placeholders.placeholder_service", "PlaceholderService"),
+    "DocumentTemplateService": ("apps.documents.services.template.template_service", "DocumentTemplateService"),
     "TemplateAuditLogService": (
-        "apps.documents.services.template_audit_log_service",
+        "apps.documents.services.template.template_audit_log_service",
         "TemplateAuditLogService",
     ),
 }

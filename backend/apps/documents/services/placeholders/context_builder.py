@@ -96,7 +96,7 @@ class EnhancedContextBuilder:
         try:
             # 验证合同存在性
             # Requirements: 3.2
-            from apps.documents.services.wiring import get_contract_service
+            from apps.documents.services.infrastructure.wiring import get_contract_service
 
             contract_service = get_contract_service()
             contract_dto = contract_service.get_contract_internal(contract_id)

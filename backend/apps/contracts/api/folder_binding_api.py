@@ -164,24 +164,30 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
     ctx = get_request_access_context(request)
 
     if not path or not str(path).strip():
-        roots = service.get_browse_roots()
-        entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
-        logger.info(
-            "contract_folder_browse_roots",
-            extra={
-                "action": "contract_folder_browse_roots",
-                "include_hidden": bool(include_hidden),
-                "roots_count": len(roots),
-                "user_id": getattr(getattr(ctx, "user", None), "id", None),
-            },
-        )
-        return FolderBrowseResponseSchema(
-            browsable=True,
-            message=None,
-            path=None,
-            parent_path=None,
-            entries=entries,
-        )
+        # 默认进入用户下载文件夹
+        default_path = service.get_default_browse_path()
+        if default_path:
+            path = str(default_path)
+        else:
+            # 降级：显示根目录列表
+            roots = service.get_browse_roots()
+            entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
+            logger.info(
+                "contract_folder_browse_roots",
+                extra={
+                    "action": "contract_folder_browse_roots",
+                    "include_hidden": bool(include_hidden),
+                    "roots_count": len(roots),
+                    "user_id": getattr(getattr(ctx, "user", None), "id", None),
+                },
+            )
+            return FolderBrowseResponseSchema(
+                browsable=True,
+                message=None,
+                path=None,
+                parent_path=None,
+                entries=entries,
+            )
 
     browsable, browse_message = service.is_browsable_path(str(path))
     if not browsable:
