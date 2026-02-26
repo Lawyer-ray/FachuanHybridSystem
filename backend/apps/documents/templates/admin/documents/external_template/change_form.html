@@ -15,7 +15,7 @@
 {% block after_related_objects %}
 {{ block.super }}
 {% if original %}
-<div class="module" x-data="{ status: '{{ original.status|default:&quot;&quot; }}' }">
+<div class="module" x-data="{ status: '{{ original.status|default:"" }}' }">
     <h2>{% translate "模板操作" %}</h2>
     <div class="et-action-buttons">
         <a class="button et-btn"

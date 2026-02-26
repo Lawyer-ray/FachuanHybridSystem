@@ -21,7 +21,7 @@ class LitigationLLMGenerator:
     @property
     def llm_service(self) -> Any:
         if self._llm_service is None:
-            from apps.documents.services.wiring import get_llm_service
+            from apps.documents.services.infrastructure.wiring import get_llm_service
 
             self._llm_service = get_llm_service()
         return self._llm_service

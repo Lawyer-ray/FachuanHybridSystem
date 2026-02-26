@@ -119,6 +119,14 @@ document.addEventListener('alpine:init', () => {
             
             // 加载子文件夹
             await this.loadSubfolders(entry.path);
+            
+            // 滚动到最右边
+            this.$nextTick(() => {
+                const container = this.$el.querySelector('.finder-columns');
+                if (container) {
+                    container.scrollLeft = container.scrollWidth;
+                }
+            });
         },
 
         async loadSubfolders(path) {

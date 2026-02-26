@@ -20,7 +20,7 @@ class DocumentsConfig(AppConfig):
 
     def ready(self) -> None:
         """应用启动时的初始化"""
-        from .services.code_placeholder_autodiscover import autodiscover_code_placeholders
+        from .services.code_placeholders.autodiscover import autodiscover_code_placeholders
 
         autodiscover_code_placeholders()
 

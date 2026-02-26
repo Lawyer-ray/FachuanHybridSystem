@@ -131,7 +131,7 @@ class PrincipalSignatureService(BasePlaceholderService):
         Requirements: 3.3
         """
         try:
-            from apps.documents.services.wiring import get_client_service
+            from apps.documents.services.infrastructure.wiring import get_client_service
 
             client_service = get_client_service()
             return client_service.is_natural_person_internal(client.id)

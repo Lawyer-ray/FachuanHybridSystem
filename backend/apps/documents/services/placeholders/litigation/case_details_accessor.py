@@ -20,7 +20,7 @@ class LitigationCaseDetailsAccessor:
     @property
     def case_service(self) -> Any:
         if self._case_service is None:
-            from apps.documents.services.wiring import get_case_service
+            from apps.documents.services.infrastructure.wiring import get_case_service
 
             self._case_service = get_case_service()
         return self._case_service
