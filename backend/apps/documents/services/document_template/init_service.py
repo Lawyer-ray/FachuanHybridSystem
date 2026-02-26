@@ -90,7 +90,7 @@ class DocumentTemplateInitService:
                 binding_skipped += 1
             else:
                 # 计算文件夹路径
-                from apps.documents.services.contract_template_binding_service import (
+                from apps.documents.services.template.contract_template.binding_service import (
                     DocumentTemplateBindingService,
                 )
 

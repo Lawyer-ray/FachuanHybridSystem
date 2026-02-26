@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 def _get_admin_service() -> Any:
     """工厂函数:获取Admin服务实例"""
-    from apps.documents.services.folder_template_admin_service import FolderTemplateAdminService
+    from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
 
     return FolderTemplateAdminService()
 

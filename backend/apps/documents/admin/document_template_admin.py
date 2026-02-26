@@ -32,14 +32,14 @@ logger = logging.getLogger(__name__)
 
 def _get_template_service() -> Any:
     """工厂函数获取模板服务"""
-    from apps.documents.services.template_service import DocumentTemplateService
+    from apps.documents.services.template.template_service import DocumentTemplateService
 
     return DocumentTemplateService()
 
 
 def _get_admin_service() -> Any:
     """工厂函数获取Admin服务"""
-    from apps.documents.services.document_template_admin_service import DocumentTemplateAdminService
+    from apps.documents.services.template.document_template.admin_service import DocumentTemplateAdminService
 
     return DocumentTemplateAdminService()
 

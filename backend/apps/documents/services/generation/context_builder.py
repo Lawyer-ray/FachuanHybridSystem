@@ -54,7 +54,7 @@ class ContextBuilder:
     def contract_service(self) -> IContractService:
         """延迟加载合同服务"""
         if self._contract_service is None:
-            from apps.documents.services.wiring import get_contract_service
+            from apps.documents.services.infrastructure.wiring import get_contract_service
 
             self._contract_service = get_contract_service()
         return self._contract_service

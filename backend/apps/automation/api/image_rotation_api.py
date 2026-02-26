@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from types import SimpleNamespace
@@ -115,28 +116,97 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:
 
 @router.post("/export-pdf")
 def export_pdf(request: HttpRequest) -> dict[str, Any]:
-    payload = _body(request)
-    pages: list[dict[str, Any]] = payload.get("pages", [])
-    paper_size: str = payload.get("paper_size", "original")
-    if not pages:
-        return {"success": False, "message": "没有页面数据"}
+    content_type = request.content_type or ""
+
+    if "multipart/form-data" in content_type:
+        return _handle_multipart_export_pdf(request)
+    else:
+        payload = _body(request)
+        pages: list[dict[str, Any]] = payload.get("pages", [])
+        paper_size: str = payload.get("paper_size", "original")
+        if not pages:
+            return {"success": False, "message": "没有页面数据"}
+        try:
+            return _get_rotation_service().export_as_pdf(pages, paper_size)
+        except Exception as exc:
+            logger.error("export_pdf 失败: %s", exc, exc_info=True)
+            return {"success": False, "message": str(exc)}
+
+
+def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
+    """处理 multipart/form-data 格式的 PDF 导出请求"""
     try:
+        paper_size = request.POST.get("paper_size", "original")
+
+        pages = []
+        for key in request.FILES:
+            if key.startswith("page_"):
+                idx = key.split("_")[1]
+                file_obj = request.FILES[key]
+                filename = request.POST.get(f"filename_{idx}", file_obj.name)
+
+                image_data = base64.b64encode(file_obj.read()).decode("utf-8")
+                pages.append({
+                    "filename": filename,
+                    "data": image_data,
+                    "rotation": 0,
+                })
+
+        if not pages:
+            return {"success": False, "message": "没有页面数据"}
+
         return _get_rotation_service().export_as_pdf(pages, paper_size)
     except Exception as exc:
-        logger.error("export_pdf 失败: %s", exc, exc_info=True)
+        logger.error("multipart export-pdf 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
 
 
 @router.post("/export")
 def export_images(request: HttpRequest) -> dict[str, Any]:
-    payload = _body(request)
-    images: list[dict[str, Any]] = payload.get("images", [])
-    paper_size: str = payload.get("paper_size", "original")
-    rename_map: dict[str, str] | None = payload.get("rename_map")
-    if not images:
-        return {"success": False, "message": "没有图片数据"}
+    content_type = request.content_type or ""
+
+    if "multipart/form-data" in content_type:
+        return _handle_multipart_export(request)
+    else:
+        payload = _body(request)
+        images: list[dict[str, Any]] = payload.get("images", [])
+        paper_size: str = payload.get("paper_size", "original")
+        rename_map: dict[str, str] | None = payload.get("rename_map")
+        if not images:
+            return {"success": False, "message": "没有图片数据"}
+        try:
+            return _get_rotation_service().export_images(images, paper_size, rename_map)
+        except Exception as exc:
+            logger.error("export_images 失败: %s", exc, exc_info=True)
+            return {"success": False, "message": str(exc)}
+
+
+def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
+    """处理 multipart/form-data 格式的导出请求"""
     try:
+        paper_size = request.POST.get("paper_size", "original")
+        rename_map_json = request.POST.get("rename_map")
+        rename_map = json.loads(rename_map_json) if rename_map_json else None
+
+        images = []
+        for key in request.FILES:
+            if key.startswith("image_"):
+                idx = key.split("_")[1]
+                file_obj = request.FILES[key]
+                filename = request.POST.get(f"filename_{idx}", file_obj.name)
+                format_type = request.POST.get(f"format_{idx}", "jpeg")
+
+                image_data = base64.b64encode(file_obj.read()).decode("utf-8")
+                images.append({
+                    "filename": filename,
+                    "data": image_data,
+                    "format": format_type,
+                })
+
+        if not images:
+            return {"success": False, "message": "没有图片数据"}
+
         return _get_rotation_service().export_images(images, paper_size, rename_map)
     except Exception as exc:
-        logger.error("export_images 失败: %s", exc, exc_info=True)
+        logger.error("multipart 导出失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}

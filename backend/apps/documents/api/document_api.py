@@ -16,7 +16,7 @@ from ninja import Router
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.core.auth import JWTOrSessionAuth
 from apps.documents.schemas import DocumentTemplateIn, DocumentTemplateOut, DocumentTemplateUpdate
-from apps.documents.services.template_service import DocumentTemplateService
+from apps.documents.services.template.template_service import DocumentTemplateService
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())

@@ -13,9 +13,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.documents.services.evidence_storage import evidence_file_storage
-
 from .choices import DocumentCaseFileSubType, DocumentTemplateType
+from .evidence_storage import evidence_file_storage
 
 
 class MergeStatus(models.TextChoices):
@@ -65,9 +64,16 @@ if TYPE_CHECKING:
 
 def _get_evidence_service() -> Any:
     """工厂函数: 获取 EvidenceService 实例"""
-    from apps.documents.services.evidence_service import EvidenceService
+    from apps.documents.services.evidence.evidence_service import EvidenceService
 
     return EvidenceService()
+
+
+def _get_evidence_storage() -> Any:
+    """工厂函数: 获取证据文件存储实例"""
+    from apps.documents.services.evidence.evidence_storage import evidence_file_storage
+
+    return evidence_file_storage
 
 
 class EvidenceList(models.Model):

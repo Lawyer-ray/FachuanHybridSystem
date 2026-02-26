@@ -12,7 +12,7 @@ from typing import Any
 
 from django.core.management.base import BaseCommand
 
-from apps.documents.services.folder_template_admin_service import FolderTemplateAdminService
+from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
 
 
 class Command(BaseCommand):

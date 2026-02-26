@@ -17,7 +17,7 @@ from ninja import Router
 
 from apps.core.auth import JWTOrSessionAuth
 from apps.documents.schemas import PlaceholderIn, PlaceholderOut, PlaceholderPreviewOut, PlaceholderUpdate
-from apps.documents.services.placeholder_service import PlaceholderService
+from apps.documents.services.placeholders.placeholder_service import PlaceholderService
 from apps.documents.services.placeholders import EnhancedContextBuilder
 
 logger = logging.getLogger("apps.documents.api")

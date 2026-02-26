@@ -11,7 +11,6 @@ from django.db.models import Max
 
 from apps.core.error_catalog import case_not_found
 from apps.core.exceptions import ValidationException
-from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
 
 
 class EvidenceMutationService:
