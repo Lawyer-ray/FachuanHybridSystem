@@ -145,7 +145,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         to_update = []
         for obj in items:
             try:
-                from apps.documents.services.pdf_utils import get_pdf_page_count_with_error
+                from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count_with_error
 
                 page_count, error = get_pdf_page_count_with_error(obj.file, default=1)
                 if page_count != obj.page_count:

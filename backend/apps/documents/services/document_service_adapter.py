@@ -37,7 +37,7 @@ class DocumentServiceAdapter:
     @property
     def template_query_service(self) -> Any:
         if self._template_query_service is None:
-            from apps.documents.services.document_template_query_service import DocumentTemplateQueryService
+            from apps.documents.services.template.document_template.query_service import DocumentTemplateQueryService
 
             self._template_query_service = DocumentTemplateQueryService()
         return self._template_query_service
@@ -45,7 +45,7 @@ class DocumentServiceAdapter:
     @property
     def template_matching_service(self) -> Any:
         if self._template_matching_service is None:
-            from apps.documents.services.template_matching_service import TemplateMatchingService
+            from apps.documents.services.template.template_matching_service import TemplateMatchingService
 
             self._template_matching_service = TemplateMatchingService()
         return self._template_matching_service
@@ -53,7 +53,7 @@ class DocumentServiceAdapter:
     @property
     def template_binding_service(self) -> Any:
         if self._template_binding_service is None:
-            from apps.documents.services.contract_template_binding_service import DocumentTemplateBindingService
+            from apps.documents.services.template.contract_template.binding_service import DocumentTemplateBindingService
 
             self._template_binding_service = DocumentTemplateBindingService()
         return self._template_binding_service

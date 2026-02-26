@@ -152,7 +152,7 @@ class SupplementaryAgreementSignatureService(BasePlaceholderService):
         Requirements: 1.6
         """
         try:
-            from apps.documents.services.wiring import get_client_service
+            from apps.documents.services.infrastructure.wiring import get_client_service
 
             client_service = get_client_service()
             return client_service.is_natural_person_internal(client.id)

@@ -11,7 +11,7 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from apps.documents.services.wiring import get_case_service
+from apps.documents.services.infrastructure.wiring import get_case_service
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,8 @@ class MergeProgressReporter:
 class EvidenceMergeUseCase:
     def merge(self, *, list_id: int, reporter: MergeProgressReporter | None = None) -> dict[str, Any]:
         from apps.documents.models import EvidenceList, MergeStatus
-        from apps.documents.services.evidence_service import EvidenceService
-        from apps.documents.services.pdf_merge_service import PDFMergeService
+        from apps.documents.services.evidence.evidence_service import EvidenceService
+        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
 
         try:
             with transaction.atomic():

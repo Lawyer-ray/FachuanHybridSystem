@@ -21,7 +21,7 @@ def _get_placeholder_usage_service() -> Any:
 
 
 def _get_code_placeholder_catalog_service() -> Any:
-    from apps.documents.services.code_placeholder_catalog_service import CodePlaceholderCatalogService
+    from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
     return CodePlaceholderCatalogService()
 

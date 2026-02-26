@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.4.4
+# 法穿AI案件管理系统V26.4.5
 
 全自动处理/生成法院文书，Less is more
 
@@ -134,8 +134,8 @@ uv --version
 
 本项目采用自定义商业源码许可证：
 
-- ✅ **免费使用**: 个人学习、研究、≤10人小团队非商业使用
-- 💰 **商业授权**: 超过10人使用、律所部署、商业用途需付费授权
+- ✅ **免费使用**: 个人学习、研究、≤10人小团队商业使用
+- 💰 **商业授权**: 超过10人使用、商业用途需付费授权
 
 详见 [LICENSE](LICENSE)
 
@@ -143,6 +143,19 @@ uv --version
 
 欢迎提交 Issue 和 Pull Request。
 
+## 💖 支持项目
+
+如果这个项目对你有帮助，欢迎支持项目发展：
+
+### 微信赞赏
+<img src="backend/apps/core/static/core/images/赞赏码.png" width="200" alt="微信赞赏码">
+
+### 加密货币
+- **USDT (TRC20)**: `TGs89x2uz1Qf7vALBboKcSFsZiP3J5T4h2`
+- **比特币**: `bc1p39an4kulcgl8ce6lc23zd6yjv3j29uctgkt7szaxlljwjlfsq6eqll7kk8`
+
 ## 📞 联系方式
 
-商业授权咨询请联系：SongAIGC
+<img src="backend/apps/core/static/core/images/wechat.jpg" width="200" alt="微信二维码">
+
+扫码添加作者微信

@@ -1,5 +1,7 @@
 """Module for browse policy."""
 
+import sys
+
 from django.conf import settings
 
 from apps.core.exceptions import ValidationException
@@ -20,6 +22,22 @@ class FolderBrowsePolicy:
         self.roots_setting_name = roots_setting_name
         self.fallback_roots_setting_name = fallback_roots_setting_name
 
+    def _get_user_downloads_path(self) -> Path | None:
+        """获取用户下载目录路径（跨平台）"""
+        try:
+            if sys.platform == "darwin":  # macOS
+                downloads = Path("~/Downloads").expanduser()
+            elif sys.platform.startswith("win"):  # Windows
+                downloads = Path("~/Downloads").expanduser()
+            else:  # Linux
+                downloads = Path("~/Downloads").expanduser()
+            
+            if downloads.isdir():
+                return downloads
+        except (OSError, PermissionError):
+            pass
+        return None
+
     def get_browse_roots(self) -> list[Path]:
         roots = getattr(settings, self.roots_setting_name, None)
         if roots is None and self.fallback_roots_setting_name:
@@ -27,10 +45,17 @@ class FolderBrowsePolicy:
         roots = roots or []
 
         resolved: list[Path] = []
+        
+        # 优先添加用户下载目录
+        downloads = self._get_user_downloads_path()
+        if downloads:
+            resolved.append(downloads)
+        
+        # 添加配置的根目录
         for root in roots:
             try:
                 p = Path(str(root)).expanduser().resolve()
-                if p.isdir():
+                if p.isdir() and p not in resolved:  # 避免重复
                     resolved.append(p)
             except (OSError, PermissionError):
                 continue
