@@ -57,6 +57,7 @@ dependencies = [
     # --- 生产部署 ---
     "gunicorn==25.1.0",
     "rapidocr-onnxruntime>=1.4.4",
+    "mammoth>=1.11.0",
 ]
 
 [dependency-groups]

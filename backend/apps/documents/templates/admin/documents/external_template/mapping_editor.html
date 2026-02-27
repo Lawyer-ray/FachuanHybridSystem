@@ -1,0 +1,515 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+/* Layout */
+.me-container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+.me-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.me-body { display: flex; gap: 16px; height: calc(100vh - 200px); min-height: 500px; }
+.me-panel { border: 1px solid #ddd; border-radius: 6px; background: #fff; overflow: hidden; display: flex; flex-direction: column; }
+.me-panel-left { flex: 3; min-width: 0; }
+.me-panel-right { flex: 2; min-width: 320px; max-width: 480px; }
+.me-panel-header { padding: 10px 16px; background: #f5f5f5; border-bottom: 1px solid #ddd; font-weight: 600; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: center; }
+.me-panel-body { flex: 1; overflow-y: auto; padding: 0; }
+
+/* Preview */
+.me-preview { padding: 24px; font-size: 0.9rem; line-height: 1.6; }
+.me-preview table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.me-preview td, .me-preview th { border: 1px solid #999; padding: 6px 10px; vertical-align: top; }
+.me-preview p { margin: 4px 0; }
+
+/* Highlights */
+.me-highlight { background: #e8f0fe; outline: 2px solid #4285f4; outline-offset: -1px; cursor: pointer; position: relative; border-radius: 2px; transition: background 0.15s; }
+.me-highlight:hover { background: #d2e3fc; }
+.me-highlight.active { background: #c6dafc; outline-color: #1a73e8; }
+.me-highlight-badge { position: absolute; top: -8px; right: -8px; background: #4285f4; color: #fff; font-size: 10px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10; pointer-events: none; }
+
+/* Mapping list */
+.me-mapping-item { padding: 10px 14px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.1s; font-size: 0.85rem; }
+.me-mapping-item:hover { background: #f8f9fa; }
+.me-mapping-item.active { background: #e8f0fe; border-left: 3px solid #4285f4; }
+.me-mapping-label { font-weight: 600; color: #333; }
+.me-mapping-meta { color: #888; font-size: 0.75rem; margin-top: 2px; }
+.me-mapping-actions { display: flex; gap: 6px; margin-top: 6px; }
+.me-mapping-actions button { font-size: 0.75rem; padding: 2px 8px; border: 1px solid #ccc; border-radius: 3px; background: #fff; cursor: pointer; }
+.me-mapping-actions button:hover { background: #f0f0f0; }
+.me-mapping-actions .me-btn-delete { color: #dc3545; border-color: #dc3545; }
+.me-mapping-actions .me-btn-delete:hover { background: #fff0f0; }
+
+/* Edit form */
+.me-edit-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.3); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.me-edit-form { background: #fff; border-radius: 8px; padding: 20px; width: 420px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+.me-edit-form h3 { margin: 0 0 16px; font-size: 1rem; }
+.me-edit-row { margin-bottom: 12px; }
+.me-edit-row label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #555; }
+.me-edit-row input, .me-edit-row select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.875rem; box-sizing: border-box; }
+.me-edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* Buttons */
+.me-btn { padding: 8px 16px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; border: none; }
+.me-btn-primary { background: #417690; color: #fff; }
+.me-btn-primary:hover { background: #205067; }
+.me-btn-secondary { background: #f5f5f5; color: #333; border: 1px solid #ccc; }
+.me-btn-secondary:hover { background: #e8e8e8; }
+.me-btn-danger { background: #dc3545; color: #fff; }
+.me-btn-danger:hover { background: #c82333; }
+.me-btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+.me-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Empty / loading */
+.me-empty { padding: 24px; text-align: center; color: #aaa; font-size: 0.875rem; }
+.me-loading { padding: 24px; text-align: center; color: #888; }
+.me-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #417690; border-radius: 50%; animation: me-spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes me-spin { to { transform: rotate(360deg); } }
+
+/* Back link */
+.me-back { display: inline-block; margin-bottom: 8px; color: #417690; text-decoration: none; font-size: 0.875rem; }
+.me-back:hover { text-decoration: underline; }
+
+/* Toast */
+.me-toast { position: fixed; top: 20px; right: 20px; z-index: 2000; padding: 10px 20px; border-radius: 4px; color: #fff; font-size: 0.85rem; transition: opacity .3s; }
+.me-toast-success { background: #28a745; }
+.me-toast-error { background: #dc3545; }
+
+/* Add mapping hint */
+.me-add-hint { padding: 12px 14px; background: #fffbe6; border-bottom: 1px solid #eee; font-size: 0.8rem; color: #856404; display: flex; align-items: center; gap: 6px; }
+
+/* Select mode */
+.me-select-mode .me-preview { cursor: crosshair; }
+.me-select-mode .me-preview td:hover,
+.me-select-mode .me-preview th:hover { background: #fff3cd !important; outline: 2px dashed #ffc107; outline-offset: -2px; }
+.me-select-mode .me-preview p:hover { background: #fff3cd !important; outline: 2px dashed #ffc107; outline-offset: -2px; }
+.me-select-target { background: #d4edda !important; outline: 2px solid #28a745 !important; outline-offset: -2px; }
+.me-position-preview { padding: 8px 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-size: 0.8rem; color: #495057; max-height: 60px; overflow-y: auto; word-break: break-all; }
+.me-add-hint .me-btn-cancel { margin-left: auto; font-size: 0.75rem; padding: 2px 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="me-container" x-data="mappingEditor()" x-cloak>
+  <a class="me-back" href="{% url 'admin:documents_externaltemplate_change' template_obj.pk %}">
+    ← {% translate "返回模板详情" %}
+  </a>
+
+  <div class="me-header">
+    <h2 style="margin:0;">🎯 {% translate "映射编辑" %} — {{ template_obj.name }}</h2>
+    <div style="display:flex;gap:8px;">
+      <button class="me-btn me-btn-primary" @click="reanalyze()" :disabled="analyzing">
+        <span x-show="analyzing" class="me-spinner"></span>
+        🔍 {% translate "重新分析全部" %}
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div x-show="toast.show" x-transition.opacity class="me-toast" :class="'me-toast-' + toast.type" x-text="toast.msg"></div>
+
+  <div class="me-body" :class="{ 'me-select-mode': addMode && !editForm.show }">
+    <!-- Left: Document preview -->
+    <div class="me-panel me-panel-left">
+      <div class="me-panel-header">
+        📄 {% translate "文档预览" %}
+        <span style="font-weight:normal;color:#888;font-size:0.75rem;" x-text="'(' + mappings.length + ' {% translate "个映射" %})'"></span>
+      </div>
+      <div class="me-panel-body">
+        <template x-if="loadingHtml">
+          <div class="me-loading"><span class="me-spinner"></span>{% translate "加载预览中..." %}</div>
+        </template>
+        <div class="me-preview" x-ref="preview" x-show="!loadingHtml" @click="onPreviewClick($event)"></div>
+      </div>
+    </div>
+
+    <!-- Right: Mapping list -->
+    <div class="me-panel me-panel-right">
+      <div class="me-panel-header">
+        📋 {% translate "字段映射" %}
+        <button class="me-btn me-btn-sm me-btn-primary" @click="openAddForm()">➕ {% translate "添加" %}</button>
+      </div>
+      <div class="me-panel-body">
+        <template x-if="addMode">
+          <div class="me-add-hint">
+            💡 {% translate "点击左侧文档中要映射的位置" %}
+            <button class="me-btn me-btn-secondary me-btn-cancel" @click="addMode = false">{% translate "取消" %}</button>
+          </div>
+        </template>
+        <template x-if="mappings.length === 0 && !loadingMappings">
+          <div class="me-empty">{% translate "暂无映射，请先分析模板或手动添加" %}</div>
+        </template>
+        <template x-for="m in mappings" :key="m.id">
+          <div class="me-mapping-item"
+               :class="{ 'active': activeId === m.id }"
+               @click="selectMapping(m.id)">
+            <div class="me-mapping-label" x-text="m.semantic_label"></div>
+            <div class="me-mapping-meta">
+              <span x-text="m.position_description || '—'"></span>
+              · <span x-text="fillTypeLabel(m.fill_type)"></span>
+            </div>
+            <div class="me-mapping-actions" @click.stop>
+              <button @click="openEditForm(m)">✏️ {% translate "编辑" %}</button>
+              <button class="me-btn-delete" @click="deleteMapping(m.id)">🗑️ {% translate "删除" %}</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit/Add modal -->
+  <template x-if="editForm.show">
+    <div class="me-edit-overlay" @click.self="editForm.show = false">
+      <div class="me-edit-form">
+        <h3 x-text="editForm.isNew ? '{% translate "添加映射" %}' : '{% translate "编辑映射" %}'"></h3>
+        <template x-if="editForm.positionText">
+          <div class="me-edit-row">
+            <label>{% translate "选中位置" %}</label>
+            <div class="me-position-preview" x-text="editForm.positionText"></div>
+          </div>
+        </template>
+        <div class="me-edit-row">
+          <label>{% translate "语义标签" %}</label>
+          <input type="text" x-model="editForm.semantic_label" placeholder="{% translate '如：被告姓名、案由' %}" x-ref="labelInput">
+        </div>
+        <div class="me-edit-row">
+          <label>{% translate "填充类型" %}</label>
+          <select x-model="editForm.fill_type">
+            <option value="text">{% translate "文本替换" %}</option>
+            <option value="checkbox">{% translate "勾选复选框" %}</option>
+            <option value="delete_inapplicable">{% translate "删除不适用项" %}</option>
+          </select>
+        </div>
+        <div class="me-edit-actions">
+          <button class="me-btn me-btn-secondary" @click="editForm.show = false">{% translate "取消" %}</button>
+          <button class="me-btn me-btn-primary" @click="saveEdit()" :disabled="!editForm.semantic_label.trim()">
+            {% translate "保存" %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block extrabody %}
+{{ block.super }}
+<script>
+(function() {
+  var TEMPLATE_ID = {{ template_obj.pk }};
+  var API_BASE = '/api/v1/documents/external-templates';
+
+  function getCsrf() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  var FILL_TYPE_LABELS = {
+    text: '{% translate "文本" %}',
+    checkbox: '{% translate "复选框" %}',
+    delete_inapplicable: '{% translate "删除不适用" %}'
+  };
+
+  document.addEventListener('alpine:init', function() {
+    Alpine.data('mappingEditor', function() {
+      return {
+        mappings: [],
+        loadingHtml: true,
+        loadingMappings: true,
+        analyzing: false,
+        activeId: null,
+        addMode: false,
+        toast: { show: false, msg: '', type: 'success' },
+        editForm: {
+          show: false, isNew: false, id: null,
+          semantic_label: '', fill_type: 'text', position_description: '',
+          position_locator: {}, positionText: ''
+        },
+
+        init: function() {
+          this.loadPreviewHtml();
+          this.loadMappings();
+        },
+
+        fillTypeLabel: function(ft) { return FILL_TYPE_LABELS[ft] || ft; },
+
+        showToast: function(msg, type) {
+          var self = this;
+          self.toast = { show: true, msg: msg, type: type || 'success' };
+          setTimeout(function() { self.toast.show = false; }, 2500);
+        },
+
+        // --- Data loading ---
+        loadPreviewHtml: async function() {
+          this.loadingHtml = true;
+          try {
+            var resp = await fetch(API_BASE + '/' + TEMPLATE_ID + '/preview-html', {
+              headers: { 'X-CSRFToken': getCsrf() }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var data = await resp.json();
+            this.$refs.preview.innerHTML = data.html;
+            // After HTML loaded, apply highlights
+            var self = this;
+            this.$nextTick(function() { self.applyHighlights(); });
+          } catch(e) {
+            this.$refs.preview.innerHTML = '<p style="color:red;">{% translate "预览加载失败" %}: ' + e.message + '</p>';
+          } finally {
+            this.loadingHtml = false;
+          }
+        },
+
+        loadMappings: async function() {
+          this.loadingMappings = true;
+          try {
+            var resp = await fetch(API_BASE + '/' + TEMPLATE_ID + '/mappings', {
+              headers: { 'X-CSRFToken': getCsrf() }
+            });
+            if (resp.ok) this.mappings = await resp.json();
+          } finally {
+            this.loadingMappings = false;
+            var self = this;
+            this.$nextTick(function() { self.applyHighlights(); });
+          }
+        },
+
+        // --- Highlight logic ---
+        applyHighlights: function() {
+          var preview = this.$refs.preview;
+          if (!preview) return;
+
+          // Remove old highlights
+          preview.querySelectorAll('.me-highlight').forEach(function(el) {
+            var parent = el.parentNode;
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+          });
+          preview.querySelectorAll('.me-highlight-badge').forEach(function(el) { el.remove(); });
+
+          // Apply highlights based on mapping position_locator
+          var self = this;
+          this.mappings.forEach(function(m, idx) {
+            var loc = m.position_locator;
+            if (!loc) return;
+            var el = self.findElement(loc);
+            if (!el) return;
+
+            // Wrap content in highlight span
+            if (!el.querySelector('.me-highlight')) {
+              var wrapper = document.createElement('span');
+              wrapper.className = 'me-highlight';
+              wrapper.dataset.mappingId = m.id;
+              // Move children into wrapper
+              while (el.firstChild) wrapper.appendChild(el.firstChild);
+              el.appendChild(wrapper);
+            } else {
+              el.querySelector('.me-highlight').dataset.mappingId = m.id;
+            }
+
+            var hl = el.querySelector('.me-highlight');
+            if (hl) {
+              // Add badge
+              var badge = document.createElement('span');
+              badge.className = 'me-highlight-badge';
+              badge.textContent = idx + 1;
+              hl.style.position = 'relative';
+              hl.appendChild(badge);
+            }
+          });
+        },
+
+        findElement: function(loc) {
+          var preview = this.$refs.preview;
+          if (!preview) return null;
+
+          if (loc.type === 'paragraph') {
+            var ps = preview.querySelectorAll('p');
+            return ps[loc.paragraph_index] || null;
+          }
+
+          if (loc.type === 'table_cell' || loc.type === 'delete_inapplicable') {
+            var tables = preview.querySelectorAll('table');
+            var tableIdx = loc.table_index || 0;
+            var table = tables[tableIdx];
+            if (!table) return null;
+            var rows = table.querySelectorAll('tr');
+            var row = rows[loc.row];
+            if (!row) return null;
+            var cells = row.querySelectorAll('td, th');
+            // Find cell by col index (approximate for merged cells)
+            return cells[loc.col] || cells[cells.length - 1] || null;
+          }
+
+          return null;
+        },
+
+        // --- Interaction ---
+        selectMapping: function(id) {
+          this.activeId = id;
+          // Highlight in preview
+          var preview = this.$refs.preview;
+          preview.querySelectorAll('.me-highlight').forEach(function(el) {
+            el.classList.toggle('active', el.dataset.mappingId == id);
+          });
+          // Scroll to element in preview
+          var hl = preview.querySelector('.me-highlight[data-mapping-id="' + id + '"]');
+          if (hl) hl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+
+        onPreviewClick: function(e) {
+          var hl = e.target.closest('.me-highlight');
+          if (hl && hl.dataset.mappingId && !this.addMode) {
+            var id = parseInt(hl.dataset.mappingId);
+            this.selectMapping(id);
+            var item = document.querySelector('.me-mapping-item.active');
+            if (item) item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+
+          // In add mode, capture click position
+          if (this.addMode) {
+            var cell = e.target.closest('td, th');
+            var para = e.target.closest('p');
+            var targetEl = null;
+            var locator = null;
+            var desc = '';
+
+            if (cell) {
+              var table = cell.closest('table');
+              var tables = this.$refs.preview.querySelectorAll('table');
+              var tableIdx = Array.from(tables).indexOf(table);
+              var row = cell.closest('tr');
+              var rows = table.querySelectorAll('tr');
+              var rowIdx = Array.from(rows).indexOf(row);
+              var cells = row.querySelectorAll('td, th');
+              var colIdx = Array.from(cells).indexOf(cell);
+              locator = { type: 'table_cell', table_index: tableIdx, row: rowIdx, col: colIdx, nested_table_path: [] };
+              desc = '{% translate "表格" %}' + tableIdx + ' {% translate "行" %}' + rowIdx + ' {% translate "列" %}' + colIdx;
+              targetEl = cell;
+            } else if (para) {
+              var ps = this.$refs.preview.querySelectorAll('p');
+              var pIdx = Array.from(ps).indexOf(para);
+              locator = { type: 'paragraph', paragraph_index: pIdx };
+              desc = '{% translate "段落" %} ' + pIdx;
+              targetEl = para;
+            }
+
+            if (locator) {
+              // Show green highlight on selected element
+              this.$refs.preview.querySelectorAll('.me-select-target').forEach(function(el) {
+                el.classList.remove('me-select-target');
+              });
+              if (targetEl) targetEl.classList.add('me-select-target');
+
+              var textPreview = (targetEl.textContent || '').trim().substring(0, 80);
+              this.editForm = {
+                show: true, isNew: true, id: null,
+                semantic_label: '', fill_type: 'text',
+                position_description: desc,
+                position_locator: locator,
+                positionText: desc + (textPreview ? ' — ' + textPreview : '')
+              };
+              var self = this;
+              this.$nextTick(function() {
+                if (self.$refs.labelInput) self.$refs.labelInput.focus();
+              });
+            }
+          }
+        },
+
+        // --- CRUD ---
+        openAddForm: function() {
+          this.addMode = true;
+          this.editForm.show = false;
+        },
+
+        openEditForm: function(m) {
+          var textPreview = '';
+          var el = this.findElement(m.position_locator);
+          if (el) textPreview = (el.textContent || '').trim().substring(0, 80);
+          this.editForm = {
+            show: true, isNew: false, id: m.id,
+            semantic_label: m.semantic_label,
+            fill_type: m.fill_type,
+            position_description: m.position_description,
+            position_locator: m.position_locator,
+            positionText: (m.position_description || '') + (textPreview ? ' — ' + textPreview : '')
+          };
+        },
+
+        saveEdit: async function() {
+          var self = this;
+          var headers = { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() };
+
+          try {
+            if (this.editForm.isNew) {
+              var resp = await fetch(API_BASE + '/' + TEMPLATE_ID + '/mappings', {
+                method: 'POST', headers: headers,
+                body: JSON.stringify({
+                  position_locator: this.editForm.position_locator,
+                  position_description: this.editForm.position_description,
+                  semantic_label: this.editForm.semantic_label,
+                  fill_type: this.editForm.fill_type
+                })
+              });
+              if (!resp.ok) throw new Error('HTTP ' + resp.status);
+              self.showToast('{% translate "映射已添加" %}');
+            } else {
+              var resp = await fetch(API_BASE + '/mappings/' + this.editForm.id, {
+                method: 'PUT', headers: headers,
+                body: JSON.stringify({
+                  semantic_label: this.editForm.semantic_label,
+                  fill_type: this.editForm.fill_type,
+                  position_description: this.editForm.position_description
+                })
+              });
+              if (!resp.ok) throw new Error('HTTP ' + resp.status);
+              self.showToast('{% translate "映射已更新" %}');
+            }
+            this.editForm.show = false;
+            this.addMode = false;
+            this.$refs.preview.querySelectorAll('.me-select-target').forEach(function(el) {
+              el.classList.remove('me-select-target');
+            });
+            await this.loadMappings();
+          } catch(e) {
+            self.showToast('{% translate "保存失败" %}: ' + e.message, 'error');
+          }
+        },
+
+        deleteMapping: async function(id) {
+          if (!confirm('{% translate "确定删除此映射？" %}')) return;
+          try {
+            var resp = await fetch(API_BASE + '/mappings/' + id, {
+              method: 'DELETE', headers: { 'X-CSRFToken': getCsrf() }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            this.showToast('{% translate "映射已删除" %}');
+            if (this.activeId === id) this.activeId = null;
+            await this.loadMappings();
+          } catch(e) {
+            this.showToast('{% translate "删除失败" %}', 'error');
+          }
+        },
+
+        reanalyze: async function() {
+          if (!confirm('{% translate "重新分析将覆盖现有映射，确定继续？" %}')) return;
+          this.analyzing = true;
+          try {
+            var resp = await fetch(API_BASE + '/' + TEMPLATE_ID + '/analyze', {
+              method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            this.showToast('{% translate "分析完成" %}');
+            await this.loadMappings();
+          } catch(e) {
+            this.showToast('{% translate "分析失败" %}: ' + e.message, 'error');
+          } finally {
+            this.analyzing = false;
+          }
+        }
+      };
+    });
+  });
+}());
+</script>
+{% endblock %}

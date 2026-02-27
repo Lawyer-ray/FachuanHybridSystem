@@ -249,6 +249,11 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
                 self.admin_site.admin_view(self.fill_action_view),
                 name="documents_externaltemplate_fill_action",
             ),
+            path(
+                "mapping-editor/<int:template_id>/",
+                self.admin_site.admin_view(self.mapping_editor_view),
+                name="documents_externaltemplate_mapping_editor",
+            ),
         ]
         return custom_urls + urls
 
@@ -256,9 +261,17 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         self, request: HttpRequest, template_id: int
     ) -> HttpResponse:
         """触发 LLM 分析并重定向回详情页"""
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
+
         service = _get_analysis_service()
         try:
-            service.analyze_template(template_id)
+            has_mappings = ExternalTemplateFieldMapping.objects.filter(
+                template_id=template_id
+            ).exists()
+            if has_mappings:
+                service.retry_analysis(template_id)
+            else:
+                service.analyze_template(template_id)
             self.message_user(request, gettext("模板分析已完成"))
         except Exception:
             logger.exception("模板分析失败: template_id=%s", template_id)
@@ -299,5 +312,27 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         return TemplateResponse(
             request,
             "admin/documents/external_template/fill_action.html",
+            context,
+        )
+
+    def mapping_editor_view(
+        self, request: HttpRequest, template_id: int
+    ) -> HttpResponse:
+        """映射可视化编辑页面"""
+        template_obj = self.get_object(request, str(template_id))
+        if template_obj is None:
+            from django.http import Http404
+
+            raise Http404(gettext("模板不存在"))
+
+        context: dict[str, Any] = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "template_obj": template_obj,
+            "title": gettext("映射编辑 - %(name)s") % {"name": template_obj.name},
+        }
+        return TemplateResponse(
+            request,
+            "admin/documents/external_template/mapping_editor.html",
             context,
         )

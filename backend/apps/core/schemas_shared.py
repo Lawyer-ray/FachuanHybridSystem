@@ -25,7 +25,7 @@ class ClientIdentityDocLiteOut(Schema):
             doc_type=getattr(obj, "doc_type", ""),
             file_path=getattr(obj, "file_path", ""),
             uploaded_at=obj.uploaded_at,
-            media_url=obj.media_url() if hasattr(obj, "media_url") else None,
+            media_url=obj.media_url if hasattr(obj, "media_url") else None,
         )
 
 

@@ -303,54 +303,76 @@ class AnalysisService:
         table_index: int,
         nested_path: list[int],
     ) -> dict[str, Any]:
-        """递归提取单个表格的结构。"""
+        """递归提取单个表格的结构，通过 XML 正确处理合并单元格。"""
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
         rows_data: list[dict[str, Any]] = []
-        seen_cells: set[int] = set()
+        tbl = table._tbl
+        tr_elements = tbl.findall("w:tr", ns)
 
-        for row_idx, row in enumerate(table.rows):
+        for row_idx, tr in enumerate(tr_elements):
             cells_data: list[dict[str, Any]] = []
+            col_cursor = 0
 
-            for col_idx, cell in enumerate(row.cells):
-                cell_id = id(cell._tc)
-                is_merged = cell_id in seen_cells
-                seen_cells.add(cell_id)
+            for tc in tr.findall("w:tc", ns):
+                tc_pr = tc.find("w:tcPr", ns)
+                grid_span = 1
+                is_v_merge_continue = False
 
-                if is_merged:
+                if tc_pr is not None:
+                    gs = tc_pr.find("w:gridSpan", ns)
+                    if gs is not None:
+                        grid_span = int(
+                            gs.get(f"{{{ns['w']}}}val", "1")
+                        )
+                    vm = tc_pr.find("w:vMerge", ns)
+                    if vm is not None:
+                        val = vm.get(f"{{{ns['w']}}}val", "continue")
+                        is_v_merge_continue = val != "restart"
+
+                if is_v_merge_continue:
+                    col_cursor += grid_span
                     continue
 
-                text: str = cell.text.strip()
+                texts = [t.text or "" for t in tc.findall(".//w:t", ns)]
+                text = "".join(texts).strip()
+
                 cell_entry: dict[str, Any] = {
                     "row": row_idx,
-                    "col": col_idx,
+                    "col": col_cursor,
                     "text": text,
                     "position_locator": {
                         "type": "table_cell",
                         "table_index": table_index,
                         "row": row_idx,
-                        "col": col_idx,
+                        "col": col_cursor,
                         "nested_table_path": nested_path,
                     },
                 }
+                if grid_span > 1:
+                    cell_entry["col_span"] = grid_span
 
                 options = self._detect_delete_inapplicable(text)
                 if options is not None:
                     cell_entry["delete_inapplicable"] = options
                     cell_entry["position_locator"]["type"] = "delete_inapplicable"
 
-                # 递归处理嵌套表格
-                nested_tables: list[dict[str, Any]] = []
-                for nested_idx, nested_table in enumerate(cell.tables):
-                    nested_data = self._extract_single_table(
-                        nested_table,
-                        nested_idx,
-                        [*nested_path, table_index],
-                    )
-                    nested_tables.append(nested_data)
-
-                if nested_tables:
-                    cell_entry["nested_tables"] = nested_tables
+                # 递归处理嵌套表格（通过 python-docx cell 对象）
+                # 找到对应的 python-docx cell
+                if col_cursor < len(table.rows[row_idx].cells):
+                    py_cell = table.rows[row_idx].cells[col_cursor]
+                    nested_tables: list[dict[str, Any]] = []
+                    for nested_idx, nested_table in enumerate(py_cell.tables):
+                        nested_data = self._extract_single_table(
+                            nested_table,
+                            nested_idx,
+                            [*nested_path, table_index],
+                        )
+                        nested_tables.append(nested_data)
+                    if nested_tables:
+                        cell_entry["nested_tables"] = nested_tables
 
                 cells_data.append(cell_entry)
+                col_cursor += grid_span
 
             rows_data.append({"row_index": row_idx, "cells": cells_data})
 
