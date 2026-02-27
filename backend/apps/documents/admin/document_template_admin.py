@@ -4,6 +4,7 @@
 Requirements: 6.1, 2.9, 2.10
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, ClassVar
@@ -131,6 +132,18 @@ class DocumentTemplateForm(forms.ModelForm):
         label=_("诉讼地位匹配模式"),
     )
 
+    # 适用机构(案件模板时显示)
+    applicable_institutions_field = forms.CharField(
+        required=False,
+        label=_("适用机构"),
+        help_text=_("输入机构名称后回车添加,支持搜索法院名称"),
+        widget=forms.Textarea(attrs={
+            "id": "id_applicable_institutions_field",
+            "style": "display:none;",
+            "rows": "1",
+        }),
+    )
+
     # 从已有文件中选择(新增)
     existing_file = forms.ChoiceField(
         choices=[],
@@ -173,6 +186,12 @@ class DocumentTemplateForm(forms.ModelForm):
             self.fields["legal_statuses_field"].initial = initial_values["legal_statuses_field"]
             self.fields["legal_status_match_mode"].initial = initial_values["legal_status_match_mode"]
             self.fields["existing_file"].initial = initial_values["existing_file"]
+
+            # 加载适用机构
+            institutions = self.instance.applicable_institutions or []
+            self.fields["applicable_institutions_field"].initial = json.dumps(
+                institutions, ensure_ascii=False
+            )
 
             if initial_values["file_path"] == "":
                 self.initial["file_path"] = ""
@@ -266,6 +285,14 @@ class DocumentTemplateForm(forms.ModelForm):
         instance.legal_statuses = save_data["legal_statuses"]
         instance.legal_status_match_mode = save_data["legal_status_match_mode"]
 
+        # 保存适用机构
+        raw = self.cleaned_data.get("applicable_institutions_field", "")
+        try:
+            institutions = json.loads(raw) if raw else []
+        except (json.JSONDecodeError, TypeError):
+            institutions = []
+        instance.applicable_institutions = institutions if isinstance(institutions, list) else []
+
         # 确保file和file_path互斥
         if save_data["file"]:
             instance.file_path = ""
@@ -332,6 +359,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
                     "case_stage_field",
                     "legal_statuses_field",
                     "legal_status_match_mode",
+                    "applicable_institutions_field",
                 ),
                 "description": _("根据模板类型选择相应的适用范围"),
             },
@@ -366,8 +394,18 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
     ]
 
     class Media:
-        css: ClassVar[dict[str, tuple[str, ...]]] = {LegalStatusMatchMode.ALL: ("documents/css/multi_select.css",)}
-        js: ClassVar[tuple[str, ...]] = ("documents/js/template_type_toggle.js",)
+        css: ClassVar[dict[str, tuple[str, ...]]] = {
+            LegalStatusMatchMode.ALL: (
+                "documents/css/multi_select.css",
+                "cases/css/autocomplete.css",
+                "documents/css/institution_tags.css",
+            )
+        }
+        js: ClassVar[tuple[str, ...]] = (
+            "cases/js/autocomplete.js",
+            "documents/js/template_type_toggle.js",
+            "documents/js/institution_tags.js",
+        )
 
     def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)

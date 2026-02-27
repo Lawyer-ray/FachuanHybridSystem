@@ -1,0 +1,86 @@
+/* 适用机构标签输入组件样式 */
+
+.institution-tags-component {
+    width: 100%;
+}
+
+.institution-tags-wrapper {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: #fff;
+    min-height: 42px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.institution-tags-wrapper:focus-within {
+    border-color: #417690;
+    box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.15);
+}
+
+.institution-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.institution-tags-list:empty {
+    margin-bottom: 0;
+}
+
+.institution-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: linear-gradient(135deg, #e8f4f8 0%, #d5eef6 100%);
+    border: 1px solid #b8dce8;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #1a5276;
+    line-height: 1.4;
+}
+
+.institution-tag-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #7fb3c8;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.1s ease;
+}
+
+.institution-tag-remove:hover {
+    background: #c0392b;
+    color: #fff;
+}
+
+.institution-input-wrapper {
+    position: relative;
+}
+
+.institution-input {
+    width: 100%;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 4px 0 !important;
+    font-size: 14px;
+    background: transparent !important;
+}
+
+.institution-input::placeholder {
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+/* 下拉框继承 autocomplete.css 的 ac-dropdown 样式 */

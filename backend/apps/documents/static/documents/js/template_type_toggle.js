@@ -9,95 +9,56 @@
 (function() {
     'use strict';
 
-    function toggleFieldsByTemplateType() {
+    function updateFieldsVisibility() {
         const contractRadio = document.querySelector('input[name="template_type"][value="contract"]');
         const caseRadio = document.querySelector('input[name="template_type"][value="case"]');
-
-        const contractSubTypeFieldset = document.querySelector('.field-contract_sub_type');
-        const caseSubTypeFieldset = document.querySelector('.field-case_sub_type');
-        const contractTypesFieldset = document.querySelector('.field-contract_types_field');
-        const caseTypesFieldset = document.querySelector('.field-case_types_field');
-        const caseStageFieldset = document.querySelector('.field-case_stage_field');
-        const legalStatusesFieldset = document.querySelector('.field-legal_statuses_field');
-        const legalStatusMatchModeFieldset = document.querySelector('.field-legal_status_match_mode');
 
         if (!contractRadio || !caseRadio) {
             return;
         }
 
-        function updateFieldsVisibility() {
-            const isContract = contractRadio.checked;
-            const isCase = caseRadio.checked;
+        const isContract = contractRadio.checked;
+        const isCase = caseRadio.checked;
 
-            // 显示/隐藏字段
-            if (contractSubTypeFieldset) {
-                contractSubTypeFieldset.style.display = isContract ? 'block' : 'none';
+        // 字段选择器与对应显示条件的映射
+        const fieldMap = {
+            '.field-contract_sub_type': isContract,
+            '.field-contract_types_field': isContract,
+            '.field-case_sub_type': isCase,
+            '.field-case_types_field': isCase,
+            '.field-case_stage_field': isCase,
+            '.field-legal_statuses_field': isCase,
+            '.field-legal_status_match_mode': isCase,
+            '.field-applicable_institutions_field': isCase
+        };
+
+        Object.entries(fieldMap).forEach(function(entry) {
+            var el = document.querySelector(entry[0]);
+            if (el) {
+                el.style.display = entry[1] ? 'block' : 'none';
             }
+        });
 
-            if (caseSubTypeFieldset) {
-                caseSubTypeFieldset.style.display = isCase ? 'block' : 'none';
-            }
-
-            if (contractTypesFieldset) {
-                contractTypesFieldset.style.display = isContract ? 'block' : 'none';
-            }
-
-            if (caseTypesFieldset) {
-                caseTypesFieldset.style.display = isCase ? 'block' : 'none';
-            }
-
-            if (caseStageFieldset) {
-                caseStageFieldset.style.display = isCase ? 'block' : 'none';
-            }
-
-            if (legalStatusesFieldset) {
-                legalStatusesFieldset.style.display = isCase ? 'block' : 'none';
-            }
-
-            if (legalStatusMatchModeFieldset) {
-                legalStatusMatchModeFieldset.style.display = isCase ? 'block' : 'none';
-            }
-
-            // 清空不相关字段的选择
-            if (isContract) {
-                // 选择合同模板时，清空案件相关字段
-                const caseSubTypeRadios = document.querySelectorAll('input[name="case_sub_type"]');
-                caseSubTypeRadios.forEach(radio => {
-                    radio.checked = false;
-                });
-
-                const caseTypeCheckboxes = document.querySelectorAll('input[name="case_types_field"]');
-                caseTypeCheckboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-
-                const caseStageSelect = document.querySelector('select[name="case_stage_field"]');
-                if (caseStageSelect) {
-                    caseStageSelect.value = '';
-                }
-
-                const legalStatusCheckboxes = document.querySelectorAll('input[name="legal_statuses_field"]');
-                legalStatusCheckboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-            } else if (isCase) {
-                // 选择案件模板时，清空合同相关字段
-                const contractTypeCheckboxes = document.querySelectorAll('input[name="contract_types_field"]');
-                contractTypeCheckboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-
-                // 清空合同子类型选择
-                const contractSubTypeRadios = document.querySelectorAll('input[name="contract_sub_type"]');
-                contractSubTypeRadios.forEach(radio => {
-                    radio.checked = false;
-                });
-            }
+        // 清空不相关字段的选择
+        if (isContract) {
+            document.querySelectorAll('input[name="case_sub_type"]').forEach(function(r) { r.checked = false; });
+            document.querySelectorAll('input[name="case_types_field"]').forEach(function(c) { c.checked = false; });
+            var caseStageSelect = document.querySelector('select[name="case_stage_field"]');
+            if (caseStageSelect) { caseStageSelect.value = ''; }
+            document.querySelectorAll('input[name="legal_statuses_field"]').forEach(function(c) { c.checked = false; });
+        } else if (isCase) {
+            document.querySelectorAll('input[name="contract_types_field"]').forEach(function(c) { c.checked = false; });
+            document.querySelectorAll('input[name="contract_sub_type"]').forEach(function(r) { r.checked = false; });
         }
+    }
 
-        // 绑定事件监听器
-        contractRadio.addEventListener('change', updateFieldsVisibility);
-        caseRadio.addEventListener('change', updateFieldsVisibility);
+    function toggleFieldsByTemplateType() {
+        // 使用事件委托，避免 DOM 重建导致事件丢失
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.name === 'template_type') {
+                updateFieldsVisibility();
+            }
+        });
 
         // 初始化显示状态
         updateFieldsVisibility();
@@ -153,13 +114,19 @@
     }
 
     // DOM加载完成后执行
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            toggleFieldsByTemplateType();
-            handleFileSourceConflict();
-        });
-    } else {
+    function init() {
         toggleFieldsByTemplateType();
         handleFileSourceConflict();
     }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // 兜底：确保在所有资源加载后也执行一次
+    window.addEventListener('load', function() {
+        updateFieldsVisibility();
+    });
 })();
