@@ -34,14 +34,18 @@ macOS 默认支持 Make 命令，使用更简单高效：
 git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
-# 2. 查看所有可用命令（可跳过）
+# 2. 安装 uv (如果还没装)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# 或: brew install uv
+
+# 3. 查看所有可用命令（可跳过）
 make help
 
-# 3. 创建虚拟环境 (Python 3.12)
+# 4. 创建虚拟环境 (自动下载 Python 3.12，无需手动安装)
 make venv
 source .venv/bin/activate
 
-# 4. 安装依赖
+# 5. 安装依赖
 make install
 
 # 5. 配置环境变量
@@ -101,11 +105,8 @@ python manage.py qcluster
 ## 🔧 开发环境要求
 
 ### 必需
-- **Python**: 3.12+（当前默认开发环境）
-- **包管理器**: [uv](https://docs.astral.sh/uv/)
+- **包管理器**: [uv](https://docs.astral.sh/uv/)（会自动下载管理 Python 3.12，无需手动安装）
 - **操作系统**: macOS (推荐) / Linux / Windows
-  
-> 提示：Django 6.0 起仅支持 Python 3.12+，升级前需同步升级 Python 并跑完整测试验证。
 
 ### 推荐 (macOS)
 - **Make**: 默认已安装，用于项目管理
