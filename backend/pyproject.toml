@@ -12,16 +12,16 @@ dependencies = [
     "django-ninja-jwt==5.4.4",
     "django-q2==1.9.0",
     # --- ASGI / WebSocket ---
-    "uvicorn[standard]==0.34.3",
+    "uvicorn[standard]==0.41.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "redis==7.2.0",
+    "redis==7.2.1",
     # --- 数据库 ---
     "psycopg[binary]==3.3.3",
     # --- HTTP 客户端 ---
     "httpx==0.28.1",
     # --- LLM / AI ---
-    "langchain-core==1.2.15",
+    "langchain-core==1.2.16",
     "langchain-openai==1.1.10",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
@@ -36,7 +36,7 @@ dependencies = [
     "Pillow",
     # --- OCR ---
     "rapidocr==3.6.0",
-    "ddddocr==1.5.6",
+    "ddddocr==1.6.0",
     # --- 浏览器自动化 ---
     "playwright==1.58.0",
     # --- 数据处理 ---
@@ -67,13 +67,13 @@ dev = [
     # --- 代码格式化 ---
     "black==26.1.0",
     "isort==8.0.0",
-    "ruff==0.15.2",
+    "ruff==0.15.4",
     # --- 类型检查 ---
     "mypy>=1.15.0",
     "django-stubs==5.2.9",
     "django-stubs-ext==5.2.9",
     # --- 安全扫描 ---
-    "bandit==1.9.3",
+    "bandit==1.9.4",
     "detect-secrets==1.5.0",
     "pip-audit==2.10.0",
     # --- Pre-commit ---
