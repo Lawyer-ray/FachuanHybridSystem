@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
+    "apps.contract_review",  # 6.2 合同审查
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]

@@ -1,0 +1,389 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "新建合同审查任务" %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:contract_review_reviewtask_changelist' %}">{% trans "合同审查任务" %}</a>
+    &rsaquo; {% trans "新建" %}
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+/* ── Layout ── */
+.cr-wrap { max-width: 780px; margin: 24px auto; }
+.cr-card { background: var(--body-bg, #fff); border: 1px solid var(--hairline-color, #e0e0e0); border-radius: 16px; padding: 44px 48px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+
+/* ── Steps ── */
+.cr-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 32px; }
+.cr-step-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--body-quiet-color, #aaa); font-weight: 500; }
+.cr-step-item.active { color: var(--primary, #417690); }
+.cr-step-item.done { color: #2e7d32; }
+.cr-step-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; border: 2px solid var(--hairline-color, #ddd); color: var(--body-quiet-color, #aaa); background: var(--body-bg, #fff); }
+.cr-step-item.active .cr-step-num { border-color: var(--primary, #417690); color: #fff; background: var(--primary, #417690); }
+.cr-step-item.done .cr-step-num { border-color: #2e7d32; color: #fff; background: #2e7d32; }
+.cr-step-line { width: 40px; height: 2px; background: var(--hairline-color, #ddd); margin: 0 8px; }
+.cr-step-line.done { background: #2e7d32; }
+
+/* ── Title ── */
+.cr-title { font-size: 22px; font-weight: 700; margin: 0 0 28px; color: var(--body-fg, #222); }
+
+/* ── Model selector (searchable) ── */
+.cr-model-wrap { position: relative; margin-bottom: 24px; }
+.cr-label { display: block; font-size: 13px; font-weight: 600; color: var(--body-quiet-color, #666); margin-bottom: 6px; }
+.cr-model-btn { width: 100%; padding: 10px 36px 10px 14px; border: 1px solid var(--border-color, #ccc); border-radius: 10px; font-size: 14px; background: var(--body-bg, #fff); cursor: pointer; text-align: left; color: var(--body-fg, #333); position: relative; transition: border-color .2s; }
+.cr-model-btn:hover, .cr-model-btn:focus { border-color: var(--primary, #417690); outline: none; }
+.cr-model-btn::after { content: '▾'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--body-quiet-color, #999); font-size: 12px; }
+.cr-model-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--body-bg, #fff); border: 1px solid var(--border-color, #ccc); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 100; max-height: 320px; display: flex; flex-direction: column; overflow: hidden; }
+.cr-model-search { padding: 10px 14px; border: none; border-bottom: 1px solid var(--hairline-color, #eee); font-size: 14px; outline: none; background: transparent; color: var(--body-fg, #333); }
+.cr-model-search::placeholder { color: var(--body-quiet-color, #bbb); }
+.cr-model-list { overflow-y: auto; flex: 1; }
+.cr-model-opt { padding: 9px 14px; cursor: pointer; font-size: 13px; color: var(--body-fg, #444); transition: background .15s; }
+.cr-model-opt:hover { background: var(--darkened-bg, #f5f5f5); }
+.cr-model-opt.selected { background: rgba(65,118,144,.08); color: var(--primary, #417690); font-weight: 600; }
+.cr-model-empty { padding: 16px; text-align: center; color: var(--body-quiet-color, #bbb); font-size: 13px; }
+
+/* ── Upload zone ── */
+.cr-dropzone { border: 2px dashed var(--border-color, #d0d0d0); border-radius: 14px; padding: 56px 24px; text-align: center; cursor: pointer; transition: all .2s; background: var(--darkened-bg, #fafafa); }
+.cr-dropzone:hover, .cr-dropzone.active { border-color: var(--primary, #417690); background: rgba(65,118,144,.03); }
+.cr-dropzone-icon { font-size: 52px; margin-bottom: 16px; filter: grayscale(.3); }
+.cr-dropzone-text { font-size: 16px; color: var(--body-fg, #444); margin: 0 0 6px; }
+.cr-dropzone-hint { font-size: 13px; color: var(--body-quiet-color, #aaa); margin: 0; }
+
+/* ── Info panel ── */
+.cr-info { border-radius: 14px; overflow: hidden; background: var(--darkened-bg, #f8f9fa); padding: 20px 24px; margin-bottom: 28px; display: flex; flex-direction: column; gap: 14px; }
+.cr-info-item { display: flex; align-items: baseline; gap: 12px; }
+.cr-info-icon { font-size: 16px; flex-shrink: 0; }
+.cr-info-content { flex: 1; min-width: 0; }
+.cr-info-label { font-size: 12px; color: var(--body-quiet-color, #999); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+.cr-info-value { font-size: 15px; color: var(--body-fg, #333); font-weight: 500; word-break: break-all; }
+.cr-info-empty { color: var(--body-quiet-color, #ccc); font-style: italic; font-weight: 400; }
+.cr-info-divider { height: 1px; background: var(--hairline-color, #e8e8e8); margin: 0; }
+
+/* ── Party buttons ── */
+.cr-party-section { margin-bottom: 32px; }
+.cr-party-group { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.cr-party-btn { padding: 22px 16px; border: 2px solid var(--hairline-color, #e4e4e4); border-radius: 14px; background: var(--body-bg, #fff); cursor: pointer; text-align: center; transition: all .25s; position: relative; }
+.cr-party-btn:hover { border-color: var(--primary, #417690); box-shadow: 0 2px 8px rgba(65,118,144,.1); transform: translateY(-1px); }
+.cr-party-btn.selected { border-color: var(--primary, #417690); background: linear-gradient(135deg, rgba(65,118,144,.04), rgba(65,118,144,.08)); box-shadow: 0 2px 12px rgba(65,118,144,.15); }
+.cr-party-icon { font-size: 28px; margin-bottom: 8px; }
+.cr-party-label { font-size: 12px; color: var(--body-quiet-color, #999); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.cr-party-name { font-size: 15px; font-weight: 600; color: var(--body-fg, #333); line-height: 1.4; }
+.cr-party-btn.selected .cr-party-name { color: var(--primary, #417690); }
+.cr-party-check { position: absolute; top: 10px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--primary, #417690); color: #fff; font-size: 12px; display: none; align-items: center; justify-content: center; font-weight: 700; }
+.cr-party-btn.selected .cr-party-check { display: flex; }
+
+/* ── Buttons ── */
+.cr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 32px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s; text-decoration: none; border: none; }
+.cr-btn-primary { background: var(--primary, #417690); color: #fff; }
+.cr-btn-primary:hover { filter: brightness(.9); }
+.cr-btn-primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cr-btn-ghost { background: transparent; color: var(--body-quiet-color, #888); border: 1px solid var(--border-color, #ddd); }
+.cr-btn-ghost:hover { background: var(--darkened-bg, #f5f5f5); color: var(--body-fg, #555); }
+.cr-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Success ── */
+.cr-success { text-align: center; padding: 32px 0 36px; }
+.cr-success-badge { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 36px; }
+.cr-success-title { font-size: 20px; font-weight: 700; color: var(--body-fg, #222); margin: 0 0 8px; }
+.cr-success-hint { font-size: 14px; color: var(--body-quiet-color, #999); margin: 0 0 4px; line-height: 1.6; }
+
+/* ── Error ── */
+.cr-error { margin-top: 16px; padding: 10px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; font-size: 13px; text-align: center; }
+
+/* ── Spinner ── */
+.cr-spinner { display: inline-block; width: 22px; height: 22px; border: 2.5px solid rgba(65,118,144,.15); border-top-color: var(--primary, #417690); border-radius: 50%; animation: cr-spin .6s linear infinite; }
+.cr-spinner-white { border-color: rgba(255,255,255,.25); border-top-color: #fff; }
+@keyframes cr-spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="contractUpload()" class="cr-wrap">
+<div class="cr-card">
+
+    <!-- Steps -->
+    <div class="cr-steps">
+        <div class="cr-step-item" :class="{ active: step === 'upload', done: step !== 'upload' }">
+            <span class="cr-step-num" x-text="step === 'upload' ? '1' : '✓'"></span>
+            <span>{% trans "上传" %}</span>
+        </div>
+        <div class="cr-step-line" :class="{ done: step !== 'upload' }"></div>
+        <div class="cr-step-item" :class="{ active: step === 'confirm', done: step === 'done' }">
+            <span class="cr-step-num" x-text="step === 'done' ? '✓' : '2'"></span>
+            <span>{% trans "确认" %}</span>
+        </div>
+        <div class="cr-step-line" :class="{ done: step === 'done' }"></div>
+        <div class="cr-step-item" :class="{ active: step === 'done' }">
+            <span class="cr-step-num">3</span>
+            <span>{% trans "完成" %}</span>
+        </div>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div x-show="step === 'upload'">
+        <h2 class="cr-title">{% trans "选择模型并上传合同" %}</h2>
+
+        <!-- Searchable model selector -->
+        <div class="cr-model-wrap" @click.away="modelOpen = false">
+            <label class="cr-label">{% trans "审查模型" %}</label>
+            <template x-if="modelsError">
+                <div style="padding:6px 0;font-size:13px;">
+                    <span style="color:var(--body-quiet-color);">{% trans "模型列表加载失败" %}</span>
+                    <a href="#" @click.prevent="location.reload()" style="color:var(--primary,#417690);margin-left:6px;">{% trans "重试" %}</a>
+                </div>
+            </template>
+            <template x-if="!modelsError">
+                <div>
+                    <button type="button" class="cr-model-btn" @click="modelOpen = !modelOpen" x-text="selectedModel || '{% trans '选择模型' %}'"></button>
+                    <div class="cr-model-dropdown" x-show="modelOpen" x-cloak x-transition.opacity>
+                        <input class="cr-model-search" type="text" x-model="modelQuery" placeholder="{% trans '搜索模型...' %}" @keydown.escape="modelOpen = false" x-ref="modelSearch">
+                        <div class="cr-model-list">
+                            <template x-for="m in filteredModels" :key="m.id">
+                                <div class="cr-model-opt" :class="{ selected: selectedModel === m.id }" @click="selectedModel = m.id; modelOpen = false; modelQuery = '';" x-text="m.id"></div>
+                            </template>
+                            <div class="cr-model-empty" x-show="filteredModels.length === 0">{% trans "无匹配模型" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Upload zone -->
+        <div class="cr-dropzone" :class="{ active: dragActive }"
+            @dragover.prevent="dragActive = true"
+            @dragleave.prevent="dragActive = false"
+            @drop.prevent="dragActive = false; handleFile($event.dataTransfer.files[0])"
+            @click="!loading && $refs.fileInput.click()">
+            <template x-if="!loading">
+                <div>
+                    <div class="cr-dropzone-icon">📄</div>
+                    <p class="cr-dropzone-text">{% trans "拖拽 .docx 文件到此处，或点击选择" %}</p>
+                    <p class="cr-dropzone-hint">{% trans "仅支持 Word 文档（.docx）格式" %}</p>
+                </div>
+            </template>
+            <template x-if="loading">
+                <div>
+                    <span class="cr-spinner"></span>
+                    <p class="cr-dropzone-text" style="margin-top:14px;">{% trans "正在上传并解析合同..." %}</p>
+                </div>
+            </template>
+        </div>
+        <input type="file" accept=".docx" x-ref="fileInput" @change="handleFile($event.target.files[0])" style="display:none;">
+    </div>
+
+    <!-- Step 2: Confirm -->
+    <div x-show="step === 'confirm'" x-cloak>
+        <h2 class="cr-title">{% trans "确认合同信息并选择代表方" %}</h2>
+
+        <div class="cr-info">
+            <div class="cr-info-item">
+                <span class="cr-info-icon">📋</span>
+                <div class="cr-info-content">
+                    <div class="cr-info-label">{% trans "合同标题" %}</div>
+                    <div class="cr-info-value" x-text="contractTitle || '—'"></div>
+                </div>
+            </div>
+            <template x-for="p in parties" :key="p.key">
+                <div>
+                    <div class="cr-info-divider"></div>
+                    <div class="cr-info-item">
+                        <span class="cr-info-icon">🏢</span>
+                        <div class="cr-info-content">
+                            <div class="cr-info-label" x-text="p.label"></div>
+                            <div class="cr-info-value" x-text="p.name"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <label class="cr-label">{% trans "修订人名称" %}</label>
+            <input type="text" x-model="reviewerName" placeholder="{% trans '默认：法穿AI' %}" class="cr-model-btn" style="text-align:left;cursor:text;">
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <label class="cr-label">{% trans "处理步骤" %}</label>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                <template x-for="s in stepOptions" :key="s.key">
+                    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--hairline-color,#e4e4e4);border-radius:10px;cursor:pointer;transition:all .15s;"
+                           :style="selectedSteps.includes(s.key) ? 'border-color:var(--primary,#417690);background:rgba(65,118,144,.04)' : ''"
+                           :title="s.tooltip">
+                        <input type="checkbox" :value="s.key" x-model="selectedSteps" style="width:18px;height:18px;accent-color:var(--primary,#417690);">
+                        <span style="font-size:14px;font-weight:500;" x-text="s.label"></span>
+                        <span style="font-size:12px;color:var(--body-quiet-color,#999);margin-left:auto;" x-text="s.desc"></span>
+                    </label>
+                </template>
+            </div>
+        </div>
+
+        <div class="cr-party-section">
+            <label class="cr-label">{% trans "选择我方代表" %}</label>
+            <div class="cr-party-group" :style="'grid-template-columns: repeat(' + Math.min(parties.length, 4) + ', 1fr)'">
+                <template x-for="p in parties" :key="p.key">
+                    <button type="button" class="cr-party-btn" :class="{ selected: selectedParty === p.key }" @click="selectedParty = p.key">
+                        <div class="cr-party-check">✓</div>
+                        <div class="cr-party-icon" x-text="p.icon"></div>
+                        <div class="cr-party-label" x-text="p.label"></div>
+                        <div class="cr-party-name" x-text="p.name"></div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <div class="cr-actions">
+            <button type="button" class="cr-btn cr-btn-primary" @click="submitParty()" :disabled="!selectedParty || selectedSteps.length === 0 || loading">
+                <span class="cr-spinner cr-spinner-white" style="width:16px;height:16px;" x-show="loading"></span>
+                <span x-show="!loading">🚀 {% trans "开始审查" %}</span>
+            </button>
+            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()" :disabled="loading">{% trans "重新上传" %}</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Done -->
+    <div x-show="step === 'done'" x-cloak>
+        <div class="cr-success">
+            <div class="cr-success-badge">✅</div>
+            <p class="cr-success-title">{% trans "审查任务已提交" %}</p>
+            <p class="cr-success-hint">{% trans "AI 正在后台审查合同" %}</p>
+            <p class="cr-success-hint">{% trans "可在详情页实时查看审查进度" %}</p>
+        </div>
+        <div class="cr-actions">
+            <a :href="'/admin/contract_review/reviewtask/' + taskId + '/change/'" class="cr-btn cr-btn-primary">📊 {% trans "查看详情" %}</a>
+            <a href="{% url 'admin:contract_review_reviewtask_changelist' %}" class="cr-btn cr-btn-ghost">{% trans "返回列表" %}</a>
+            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()">{% trans "继续上传" %}</button>
+        </div>
+    </div>
+
+    <!-- Error -->
+    <div x-show="error" x-cloak class="cr-error" x-text="error"></div>
+
+</div>
+</div>
+
+<script>
+const TRANSLATIONS = {
+    invalidFormat: '{% trans "请选择 .docx 格式的文件" %}',
+    uploadFailed: '{% trans "上传失败，请重试" %}',
+    submitFailed: '{% trans "提交失败，请重试" %}',
+};
+
+const INITIAL_MODELS = {{ models_json|safe }};
+
+const PARTY_META = {
+    party_a: { label: '甲方', icon: '👤' },
+    party_b: { label: '乙方', icon: '👥' },
+    party_c: { label: '丙方', icon: '👤' },
+    party_d: { label: '丁方', icon: '👥' },
+};
+
+function contractUpload() {
+    return {
+        step: 'upload',
+        loading: false,
+        error: '',
+        dragActive: false,
+
+        models: INITIAL_MODELS,
+        selectedModel: INITIAL_MODELS.length > 0 ? INITIAL_MODELS[0].id : '',
+        modelsLoading: false,
+        modelsError: INITIAL_MODELS.length === 0,
+        modelOpen: false,
+        modelQuery: '',
+
+        get filteredModels() {
+            if (!this.modelQuery) return this.models;
+            const q = this.modelQuery.toLowerCase();
+            return this.models.filter(m => m.id.toLowerCase().includes(q));
+        },
+
+        taskId: null,
+        contractTitle: '',
+        parties: [],
+        selectedParty: '',
+        reviewerName: '',
+        selectedSteps: ['format_document'],
+        stepOptions: [
+            { key: 'typo_check', label: '1. 错别字校对', desc: '检测并修正合同中的错别字', tooltip: '使用AI逐段扫描合同文本，识别错别字和用词不当，以Track Changes修订模式标记修改' },
+            { key: 'format_document', label: '2. 修订格式', desc: '标准化格式、页码、自动序号', tooltip: '① 字体：标题黑体小二，正文宋体小四\n② 段落：段前段后0，行距1.5倍\n③ 缩进：正文首行缩进2字符，标题不缩进\n④ 页码：页脚居中添加页码\n⑤ 自动序号：AI识别标题层级，应用三级编号（一、/ 1. / （1）），附件区域编号独立重启\n⑥ 去除手动编号前缀' },
+            { key: 'contract_review', label: '3. 审查合同', desc: '审查条款风险并提出修改建议', tooltip: '以我方代表立场审查合同条款，识别权利义务不对等、违约责任缺失、模糊表述等风险，以Track Changes修订模式提出修改建议' },
+            { key: 'review_report', label: '4. 输出审查报告', desc: '生成合同评估报告', tooltip: '生成结构化评估报告，包含合同概要、风险评级、逐条分析及修改建议，支持在线查看和导出PDF' },
+        ],
+
+        async handleFile(file) {
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                this.error = TRANSLATIONS.invalidFormat;
+                return;
+            }
+            this.error = '';
+            this.loading = true;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('model_name', this.selectedModel);
+                const resp = await FachuanCSRF.fetch('/api/v1/contract-review/upload', { method: 'POST', body: fd });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => null);
+                    throw new Error(err?.detail || resp.statusText);
+                }
+                const data = await resp.json();
+                this.taskId = data.task_id;
+                this.contractTitle = data.contract_title || '';
+                this.parties = Object.entries(data.parties || {}).map(([key, name]) => ({
+                    key,
+                    name,
+                    label: (PARTY_META[key] || {}).label || key,
+                    icon: (PARTY_META[key] || {}).icon || '👤',
+                }));
+                this.step = 'confirm';
+            } catch (e) {
+                this.error = e.message || TRANSLATIONS.uploadFailed;
+            } finally {
+                this.loading = false;
+                this.$refs.fileInput.value = '';
+            }
+        },
+
+        async submitParty() {
+            this.error = '';
+            this.loading = true;
+            try {
+                const resp = await FachuanCSRF.fetch(`/api/v1/contract-review/${this.taskId}/confirm-party`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ represented_party: this.selectedParty, reviewer_name: this.reviewerName, selected_steps: this.selectedSteps }),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => null);
+                    throw new Error(err?.detail || resp.statusText);
+                }
+                this.step = 'done';
+            } catch (e) {
+                this.error = e.message || TRANSLATIONS.submitFailed;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        resetAll() {
+            this.step = 'upload';
+            this.error = '';
+            this.taskId = null;
+            this.contractTitle = '';
+            this.parties = [];
+            this.selectedParty = '';
+            this.reviewerName = '';
+            this.selectedSteps = ['typo_check', 'format_document', 'contract_review', 'review_report'];
+        },
+    }
+}
+</script>
+{% endblock %}
