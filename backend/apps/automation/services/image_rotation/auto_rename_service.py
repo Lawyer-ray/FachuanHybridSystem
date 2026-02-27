@@ -77,6 +77,7 @@ class AutoRenameService:
         self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
         self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
         self._llm_client = llm_client
+        self._ocr_channel: Any | None = None
 
     def extract_info(self, ocr_text: str) -> ExtractionResult:
         """
@@ -311,6 +312,47 @@ class AutoRenameService:
             last_dot = filename.rfind(".")
             return filename[last_dot:]
         return ""
+    def _get_ocr_channel(self) -> Any | None:
+        """延迟初始化 RenameOCRChannel，失败时返回 None"""
+        if self._ocr_channel is not None:
+            return self._ocr_channel
+        try:
+            from apps.automation.services.image_rotation.rename_ocr import RenameOCRChannel
+
+            self._ocr_channel = RenameOCRChannel()
+            return self._ocr_channel
+        except Exception:
+            logger.warning("RenameOCRChannel 初始化失败", exc_info=True)
+            return None
+
+    def suggest_rename_with_image(
+        self,
+        original_filename: str,
+        ocr_text: str,
+        image_data: bytes,
+        rotation: int,
+    ) -> RenameSuggestion:
+        """
+        使用高精度 OCR 通道重新识别后生成重命名建议。
+
+        OCR 通道不可用时回退到 ocr_text。
+
+        Requirements: 5.3, 5.4
+        """
+        enhanced_ocr_text = ocr_text
+
+        channel = self._get_ocr_channel()
+        if channel is not None:
+            result = channel.recognize(image_data, rotation)
+            if result is not None and result.text.strip():
+                enhanced_ocr_text = result.text
+                logger.info(
+                    "使用高精度 OCR 文本替代原始文本: %s (置信度 %.3f)",
+                    original_filename,
+                    result.overall_confidence,
+                )
+
+        return self.suggest_rename(original_filename, enhanced_ocr_text)
 
     def suggest_rename(self, original_filename: str, ocr_text: str) -> RenameSuggestion:
         """
@@ -363,22 +405,23 @@ class AutoRenameService:
         """
         批量获取重命名建议
 
-        遍历所有请求项,为每个项调用 suggest_rename 方法.
-        单个项目失败不影响其他项目的处理.
+        检测请求项是否包含 image_data 和 rotation 属性，
+        有图片数据时调用 suggest_rename_with_image()，否则调用原有 suggest_rename()。
 
-        Args:
-            items: 包含 filename 和 ocr_text 的列表
-
-        Returns:
-            重命名建议列表,数量与输入项数量一致
-
-        Requirements: 4.2, 4.4
+        Requirements: 4.2, 4.4, 5.3, 5.4
         """
         suggestions: list[RenameSuggestion] = []
 
         for item in items:
-            # 单个失败不影响批量处理
-            suggestion = self.suggest_rename(item.filename, item.ocr_text)
+            image_data: bytes | None = getattr(item, "image_data", None)
+            rotation: int = getattr(item, "rotation", 0)
+
+            if image_data:
+                suggestion = self.suggest_rename_with_image(
+                    item.filename, item.ocr_text, image_data, rotation,
+                )
+            else:
+                suggestion = self.suggest_rename(item.filename, item.ocr_text)
             suggestions.append(suggestion)
 
         return suggestions

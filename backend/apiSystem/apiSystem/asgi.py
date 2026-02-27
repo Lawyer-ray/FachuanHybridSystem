@@ -28,24 +28,43 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django_asgi_app = get_asgi_application()
 
 try:
+    import asyncio
+
+    from asgiref.sync import sync_to_async
+
     from apps.core.llm.warmup import warm_llm_system_config_cache
 
     _strict = (os.environ.get("DJANGO_LLM_WARMUP_STRICT", "") or "").lower().strip() in ("true", "1", "yes")
-    warm_llm_system_config_cache(strict=_strict)
+
+    try:
+        asyncio.get_running_loop()
+        # async context（uvicorn）: warmup 延迟到 lifespan startup
+        _warmup_deferred = True
+    except RuntimeError:
+        # 无 event loop: 直接调用
+        warm_llm_system_config_cache(strict=_strict)
+        _warmup_deferred = False
 except Exception:
     logging.getLogger("apps.core").exception("llm_warmup_bootstrap_failed")
+    _warmup_deferred = False
     if (os.environ.get("DJANGO_LLM_WARMUP_STRICT", "") or "").lower().strip() in ("true", "1", "yes"):
         raise
 
 from apps.core.asgi_lifespan import LifespanApp
 from apps.core.httpx_clients import aclose_http_clients
 
+
+async def _on_startup() -> None:
+    if _warmup_deferred:
+        await sync_to_async(warm_llm_system_config_cache, thread_sensitive=True)(strict=_strict)
+
+
 # Import routing after Django is initialized
 from apps.litigation_ai.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
-        "lifespan": LifespanApp(on_shutdown=aclose_http_clients),
+        "lifespan": LifespanApp(on_startup=_on_startup, on_shutdown=aclose_http_clients),
         "http": django_asgi_app,
         "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
     }

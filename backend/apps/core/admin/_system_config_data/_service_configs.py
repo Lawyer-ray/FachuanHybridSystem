@@ -38,6 +38,7 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "key": "SILICONFLOW_API_KEY",
             "category": "ai",
             "description": "硅基流动 API Key",
+            "value": "sk-vqtqjmudsbllveedzltbjywwgnnhkxwzprwhaminpmndcfhd",
             "is_secret": True,
         },
         {

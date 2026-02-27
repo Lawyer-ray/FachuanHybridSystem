@@ -59,6 +59,7 @@ def _register_app_routers() -> None:
     from apps.chat_records.api import router as chat_records_router
     from apps.client.api import router as client_router
     from apps.contracts.api import router as contracts_router
+    from apps.contract_review.api.review_api import router as contract_review_router
     from apps.core.api import router as config_router
     from apps.core.api.i18n_api import i18n_router
     from apps.core.api.ninja_llm_api import llm_router
@@ -96,6 +97,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", preservation_materials_router, tags=["财产保全材料生成"])
     api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
+    api_v1.add_router("/contract-review", contract_review_router, tags=["合同审查"])
 
 
 _register_app_routers()

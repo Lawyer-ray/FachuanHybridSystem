@@ -94,7 +94,21 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:
         return {"success": True, "suggestions": []}
     try:
         service = _get_rename_service()
-        requests = [SimpleNamespace(filename=i["filename"], ocr_text=i.get("ocr_text", "")) for i in items]
+        requests = []
+        for i in items:
+            ns = SimpleNamespace(
+                filename=i["filename"],
+                ocr_text=i.get("ocr_text", ""),
+            )
+            # 可选的高精度 OCR 参数
+            image_data_b64: str = i.get("image_data", "")
+            if image_data_b64:
+                try:
+                    ns.image_data = base64.b64decode(image_data_b64)
+                    ns.rotation = int(i.get("rotation", 0))
+                except Exception:
+                    logger.warning("image_data Base64 解码失败: %s", i.get("filename", ""))
+            requests.append(ns)
         suggestions = service.suggest_rename_batch(requests)
         return {
             "success": True,
