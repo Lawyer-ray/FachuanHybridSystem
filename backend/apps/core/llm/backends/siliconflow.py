@@ -201,7 +201,7 @@ class SiliconFlowBackend:
         except openai.AuthenticationError as e:
             logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
             raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
-        except httpx.TimeoutException as e:
+        except (openai.APITimeoutError, httpx.TimeoutException) as e:
             logger.warning("SiliconFlow 请求超时", extra={"timeout": self.timeout, "error": str(e)})
             raise LLMTimeoutError(
                 message="LLM 请求超时", timeout_seconds=self.timeout, errors={"detail": str(e)}

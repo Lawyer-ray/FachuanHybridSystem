@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+@media print {
+    .no-print { display: none !important; }
+    body { background: #fff !important; }
+    .report-card { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; }
+    .report-body { padding: 32px 40px !important; }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    color: #1d2129;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Floating action bar ── */
+.action-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; height: 56px;
+    background: rgba(255,255,255,.88);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.action-bar-title { font-size: 15px; font-weight: 600; color: #1d2129; display: flex; align-items: center; gap: 8px; }
+.action-bar-title svg { width: 20px; height: 20px; color: #165dff; }
+.action-btns { display: flex; gap: 8px; }
+.btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    text-decoration: none; cursor: pointer; border: 1px solid #e5e6eb; background: #fff;
+    color: #4e5969; transition: all .15s;
+}
+.btn:hover { background: #f7f8fa; border-color: #c9cdd4; }
+.btn-primary { background: #165dff; color: #fff; border-color: #165dff; }
+.btn-primary:hover { background: #0e42d2; border-color: #0e42d2; }
+
+/* ── Page ── */
+.page { max-width: 900px; margin: 0 auto; padding: 80px 24px 60px; }
+
+/* ── Hero header ── */
+.hero {
+    background: linear-gradient(135deg, #0e1d3d 0%, #1a3a6b 50%, #2563a8 100%);
+    border-radius: 20px;
+    padding: 52px 56px 44px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.hero::before {
+    content: '';
+    position: absolute; top: -60%; right: -20%; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.hero::after {
+    content: '';
+    position: absolute; bottom: -40%; left: -10%; width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(37,99,168,.3) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 20px;
+    background: rgba(255,255,255,.12);
+    font-size: 12px; font-weight: 500; letter-spacing: .5px;
+    margin-bottom: 20px;
+    position: relative; z-index: 1;
+}
+.hero h1 {
+    font-size: 32px; font-weight: 700; letter-spacing: .5px;
+    margin-bottom: 28px; position: relative; z-index: 1;
+    line-height: 1.3;
+}
+.hero-meta {
+    display: flex; flex-wrap: wrap; gap: 24px 40px;
+    font-size: 14px; position: relative; z-index: 1;
+}
+.hero-meta-item { display: flex; align-items: center; gap: 8px; }
+.hero-meta-label { opacity: .55; font-size: 12px; }
+.hero-meta-value { font-weight: 500; }
+.hero-divider { width: 1px; height: 32px; background: rgba(255,255,255,.15); align-self: center; }
+
+/* ── Report card ── */
+.report-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 8px 32px rgba(0,0,0,.06);
+    overflow: hidden;
+}
+
+/* ── Report body ── */
+.report-body {
+    padding: 48px 56px 56px;
+    line-height: 1.85;
+    font-size: 15px;
+    color: #1d2129;
+}
+
+.report-body h1 {
+    font-size: 24px; font-weight: 700; color: #1d2129;
+    margin: 40px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #165dff;
+}
+.report-body h1:first-child { margin-top: 0; }
+
+.report-body h2 {
+    font-size: 18px; font-weight: 600; color: #1d2129;
+    margin: 32px 0 14px;
+    display: flex; align-items: center; gap: 10px;
+}
+.report-body h2::before {
+    content: '';
+    display: inline-block; width: 4px; height: 20px;
+    background: #165dff; border-radius: 2px; flex-shrink: 0;
+}
+
+.report-body h3 {
+    font-size: 16px; font-weight: 600; color: #1d2129;
+    margin: 24px 0 10px;
+}
+
+.report-body p { margin: 8px 0; color: #4e5969; }
+
+.report-body ul, .report-body ol {
+    padding-left: 20px; margin: 10px 0;
+}
+.report-body li {
+    margin: 8px 0; color: #4e5969;
+    padding-left: 4px;
+}
+.report-body li::marker { color: #86909c; }
+
+.report-body strong { color: #1d2129; font-weight: 600; }
+
+.report-body blockquote {
+    margin: 16px 0;
+    padding: 14px 20px;
+    background: #f7f8fa;
+    border-left: 4px solid #165dff;
+    border-radius: 0 8px 8px 0;
+    color: #4e5969;
+}
+
+.report-body table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    margin: 16px 0; font-size: 14px;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid #e5e6eb;
+}
+.report-body th {
+    background: #f7f8fa; padding: 12px 16px;
+    text-align: left; font-weight: 600; color: #1d2129;
+    border-bottom: 1px solid #e5e6eb;
+}
+.report-body td {
+    padding: 12px 16px; border-bottom: 1px solid #f2f3f5;
+}
+.report-body tr:last-child td { border-bottom: none; }
+
+.report-body code {
+    background: #fff0f0; color: #cb2634;
+    padding: 2px 6px; border-radius: 4px; font-size: 13px;
+}
+
+.report-body hr {
+    border: none; height: 1px; background: #e5e6eb; margin: 32px 0;
+}
+
+/* ── Footer ── */
+.report-footer {
+    padding: 24px 56px;
+    background: #f7f8fa;
+    border-top: 1px solid #f2f3f5;
+    font-size: 13px; color: #86909c;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.report-footer-logo { display: flex; align-items: center; gap: 6px; font-weight: 500; color: #4e5969; }
+</style>
+</head>
+<body>
+
+<!-- Floating bar -->
+<div class="action-bar no-print">
+    <div class="action-bar-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        合同评估报告
+    </div>
+    <div class="action-btns">
+        <a href="/admin/contract_review/reviewtask/{{ task.pk }}/change/" class="btn">← 返回</a>
+        <a href="/admin/contract_review/reviewtask/{{ task.pk }}/report/pdf/" class="btn btn-primary" target="_blank">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            导出 PDF
+        </a>
+    </div>
+</div>
+
+<div class="page">
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-badge">📋 CONTRACT REVIEW REPORT</div>
+        <h1>{{ task.contract_title|default:"合同评估报告" }}</h1>
+        <div class="hero-meta">
+            <div class="hero-meta-item">
+                <div>
+                    <div class="hero-meta-label">甲方</div>
+                    <div class="hero-meta-value">{{ task.party_a|default:"—" }}</div>
+                </div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-meta-item">
+                <div>
+                    <div class="hero-meta-label">乙方</div>
+                    <div class="hero-meta-value">{{ task.party_b|default:"—" }}</div>
+                </div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-meta-item">
+                <div>
+                    <div class="hero-meta-label">代表方</div>
+                    <div class="hero-meta-value">{{ task.get_represented_party_display|default:"—" }}</div>
+                </div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-meta-item">
+                <div>
+                    <div class="hero-meta-label">审查日期</div>
+                    <div class="hero-meta-value">{{ task.updated_at|date:"Y年m月d日" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report -->
+    <div class="report-card">
+        <div class="report-body">
+            {{ report_html }}
+        </div>
+        <div class="report-footer">
+            <div class="report-footer-logo">⚖️ 法穿AI · 合同智能审查</div>
+            <div>本报告由 AI 自动生成，仅供参考，不构成法律意见</div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
