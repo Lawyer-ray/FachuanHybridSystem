@@ -100,6 +100,12 @@ class DocumentTemplate(models.Model):
         default=LegalStatusMatchMode.ANY,
         verbose_name=_("诉讼地位匹配模式"),
     )
+    applicable_institutions: Any = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("适用机构"),
+        help_text=_("JSON 数组,如 ['北京市第一中级人民法院'],支持多选"),
+    )
     is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))

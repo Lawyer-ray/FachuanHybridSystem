@@ -25,9 +25,13 @@ def _get_pre_save_state() -> dict[str, Any]:
 
 def _get_audit_log_service() -> Any:
     """工厂函数：延迟导入并实例化 TemplateAuditLogService。"""
-    from .services.template_audit_log_service import TemplateAuditLogService
+    try:
+        from .services.template.template_audit_log_service import TemplateAuditLogService
 
-    return TemplateAuditLogService()
+        return TemplateAuditLogService()
+    except (ImportError, ModuleNotFoundError):
+        logger.debug("TemplateAuditLogService 不可用，跳过审计日志")
+        return None
 
 
 def _get_content_type(model_class: type[Any]) -> str | None:
@@ -93,7 +97,11 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
     if not content_type:
         return
 
-    _get_audit_log_service().create_audit_log(
+    svc = _get_audit_log_service()
+    if svc is None:
+        return
+
+    svc.create_audit_log(
         content_type, instance.pk, str(instance)[:500], action, changes or {}
     )
 
@@ -109,7 +117,10 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
 def capture_pre_save_state(sender: type[Any], instance: Any, **kwargs: Any) -> None:
     """捕获保存前的状态"""
     if instance.pk:
-        old_instance = _get_audit_log_service().get_instance_by_pk(sender, instance.pk)
+        svc = _get_audit_log_service()
+        if svc is None:
+            return
+        old_instance = svc.get_instance_by_pk(sender, instance.pk)
         if old_instance is not None:
             _get_pre_save_state()[f"{sender.__name__}_{instance.pk}"] = old_instance
 

@@ -54,7 +54,7 @@
                 if (q.length < 1) { this.caseResults = []; this.showDropdown = false; return; }
                 this.searchingCases = true;
                 try {
-                    var resp = await fetch('/api/v1/cases/search?q=' + encodeURIComponent(q) + '&limit=10', {
+                    var resp = await fetch('/api/v1/cases/cases/search?q=' + encodeURIComponent(q) + '&limit=10', {
                         headers: { 'X-CSRFToken': this.getCsrf() }
                     });
                     if (resp.ok) {
@@ -78,7 +78,7 @@
             loadActiveCases: async function () {
                 this.loadingActiveCases = true;
                 try {
-                    var resp = await fetch('/api/v1/cases?status=active&limit=100', {
+                    var resp = await fetch('/api/v1/cases/cases?status=active&limit=100', {
                         headers: { 'X-CSRFToken': this.getCsrf() }
                     });
                     if (resp.ok) {
@@ -126,7 +126,7 @@
                 this.previewItems = [];
                 try {
                     var partyId = this.selectedPartyIds[0];
-                    var url = '/api/v1/documents/external-templates/' + templateId + '/preview/?case_id=' + this.caseId;
+                    var url = '/api/v1/documents/external-templates/' + templateId + '/preview?case_id=' + this.caseId;
                     if (partyId) url += '&party_id=' + partyId;
                     var resp = await fetch(url, { headers: { 'X-CSRFToken': this.getCsrf() } });
                     if (!resp.ok) { this.partyError = window.FILL_ACTION_I18N && window.FILL_ACTION_I18N.previewFailed || '加载预览失败'; return; }
@@ -164,7 +164,7 @@
                         custom_values: {}
                     };
                     if (Object.keys(cv).length > 0) body.custom_values[templateId] = cv;
-                    var resp = await fetch('/api/v1/documents/external-templates/fill/', {
+                    var resp = await fetch('/api/v1/documents/external-templates/fill', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrf() },
                         body: JSON.stringify(body)
