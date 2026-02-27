@@ -12,7 +12,7 @@ dependencies = [
     "django-ninja-jwt==5.4.4",
     "django-q2==1.9.0",
     # --- ASGI / WebSocket ---
-    "daphne==4.2.1",
+    "uvicorn[standard]==0.34.3",
     "channels==4.3.2",
     "channels-redis==4.3.0",
     "redis==7.2.0",
@@ -58,6 +58,8 @@ dependencies = [
     "gunicorn==25.1.0",
     "rapidocr-onnxruntime>=1.4.4",
     "mammoth>=1.11.0",
+    "markdown>=3.10.2",
+    "weasyprint>=68.1",
 ]
 
 [dependency-groups]

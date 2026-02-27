@@ -529,7 +529,9 @@ function imageRotationApp() {
                             img.ocrText = detection.ocr_text;
                             itemsForRename.push({
                                 filename: img.filename,
-                                ocr_text: detection.ocr_text
+                                ocr_text: detection.ocr_text,
+                                image_data: base64,
+                                rotation: img.rotation || 0
                             });
                         }
                     }

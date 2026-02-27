@@ -42,7 +42,7 @@ class LLMConfig:
 
     DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
     DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct"
-    DEFAULT_TIMEOUT = 60
+    DEFAULT_TIMEOUT = 900
 
     # Ollama 默认值 (Requirements: 2.2, 2.3)
     DEFAULT_OLLAMA_MODEL = "qwen3:0.6b"
