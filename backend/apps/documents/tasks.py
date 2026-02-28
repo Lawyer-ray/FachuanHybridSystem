@@ -9,9 +9,7 @@ logger = logging.getLogger("apps.documents")
 
 
 def merge_evidence_pdf_task(list_id: int) -> Any:
-    from apps.documents.services.evidence.evidence_merge_usecase import EvidenceMergeUseCase
+    # 已迁移到 apps.evidence.tasks，此处保留向后兼容
+    from apps.evidence.tasks import merge_evidence_pdf_task as _task
 
-    logger.info("merge_evidence_pdf_task_start", extra={"list_id": list_id})
-    result = EvidenceMergeUseCase().merge(list_id=list_id)
-    logger.info("merge_evidence_pdf_task_done", extra={"list_id": list_id, "status": result.get("status")})
-    return result
+    return _task(list_id)

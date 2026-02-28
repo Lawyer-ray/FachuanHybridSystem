@@ -73,7 +73,7 @@ def get_matching_service() -> Any:
 
 def get_evidence_list_placeholder_service() -> Any:
     """获取证据清单占位符服务实例"""
-    from apps.documents.services.evidence.evidence_list_placeholder_service import (
+    from apps.evidence.services.evidence_list_placeholder_service import (
         EvidenceListPlaceholderService,
     )
 

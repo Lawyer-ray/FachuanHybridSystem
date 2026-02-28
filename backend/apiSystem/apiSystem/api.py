@@ -73,7 +73,9 @@ def _register_app_routers() -> None:
         placeholder_router,
         preservation_materials_router,
     )
+    from apps.evidence.api import evidence_router
     from apps.litigation_ai.api.litigation_api import router as ai_litigation_router
+    from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.organization.api import router as organization_router
     from apps.reminders.api import router as reminders_router
 
@@ -96,7 +98,9 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", authorization_material_router, tags=["授权委托材料生成"])
     api_v1.add_router("/documents", preservation_materials_router, tags=["财产保全材料生成"])
     api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
+    api_v1.add_router("/evidence", evidence_router, tags=["证据管理"])
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
+    api_v1.add_router("/mock-trial", mock_trial_router, tags=["模拟庭审"])
     api_v1.add_router("/contract-review", contract_review_router, tags=["合同审查"])
 
 

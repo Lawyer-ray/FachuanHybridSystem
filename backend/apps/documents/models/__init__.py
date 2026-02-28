@@ -1,16 +1,14 @@
 """
 法律文书生成系统数据模型
 
-本模块定义文书生成系统的核心数据模型:
-- FolderTemplate: 文件夹模板
-- DocumentTemplate: 文件模板
-- Placeholder: 替换词
-- TemplateAuditLog: 模板审计日志
-- EvidenceList: 证据清单
-- EvidenceItem: 证据明细
+本模块定义文书生成系统的核心数据模型.
+证据清单模型已迁移到 apps.evidence，此处通过 __getattr__ 保留向后兼容.
 """
 
 from __future__ import annotations
+
+import importlib as _importlib
+from typing import Any
 
 from .audit_log import TemplateAuditLog
 
@@ -33,7 +31,6 @@ from .choices import (
     TemplateStatus,
 )
 from .document_template import DocumentTemplate, DocumentTemplateFolderBinding
-from .evidence import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType, MergeStatus
 from .external_template import ExternalTemplate, ExternalTemplateFieldMapping
 from .fill_record import BatchFillTask, FillRecord
 
@@ -63,7 +60,7 @@ __all__ = [
     "DocumentTemplateFolderBinding",
     "Placeholder",
     "TemplateAuditLog",
-    # 证据清单模型
+    # 证据清单模型（向后兼容，实际定义在 apps.evidence）
     "EvidenceList",
     "EvidenceItem",
     "MergeStatus",
@@ -94,3 +91,16 @@ __all__ = [
 ]
 
 GenerationTaskStatus = GenerationStatus
+
+# 证据清单模型已迁移到 apps.evidence，延迟导入避免循环依赖
+_EVIDENCE_NAMES = frozenset({
+    "LIST_TYPE_ORDER", "LIST_TYPE_PREVIOUS", "EvidenceItem",
+    "EvidenceList", "ListType", "MergeStatus",
+})
+
+
+def __getattr__(name: str) -> Any:
+    if name in _EVIDENCE_NAMES:
+        _mod = _importlib.import_module("apps.evidence.models")
+        return getattr(_mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

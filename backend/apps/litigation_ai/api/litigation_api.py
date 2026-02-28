@@ -74,6 +74,7 @@ def list_sessions(
         user_id=user.id if user else None,
         case_id=case_id,
         status=status,
+        session_type="doc_gen",
         limit=limit,
         offset=offset,
     )

@@ -134,6 +134,7 @@ class SessionLifecycleService:
         user_id: int | None = None,
         case_id: int | None = None,
         status: str | None = None,
+        session_type: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> dict[str, Any]:
@@ -144,6 +145,8 @@ class SessionLifecycleService:
             filters["case_id"] = case_id
         if status:
             filters["status"] = status
+        if session_type:
+            filters["session_type"] = session_type
 
         total_count, sessions = self.session_repo.list_sessions_sync(filters=filters, limit=limit, offset=offset)
         message_counts = self.conversation_history_service.count_messages_by_litigation_session_ids_internal(

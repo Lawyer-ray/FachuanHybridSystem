@@ -69,10 +69,11 @@ class LitigationConversationSessionService:
         user_id: int | None = None,
         case_id: int | None = None,
         status: str | None = None,
+        session_type: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> dict[str, Any]:
-        return self._lifecycle.list_sessions(user_id, case_id, status, limit, offset)
+        return self._lifecycle.list_sessions(user_id, case_id, status, session_type, limit, offset)
 
     def delete_session(self, session_id: str, user: Any | None = None) -> None:
         return self._lifecycle.delete_session(session_id, user)

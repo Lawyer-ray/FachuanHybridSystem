@@ -26,13 +26,13 @@ __all__ = [
 
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "EvidenceAdminService": ("apps.documents.services.evidence.evidence_admin_service", "EvidenceAdminService"),
-    "EvidenceExportService": ("apps.documents.services.evidence.evidence_export_service", "EvidenceExportService"),
+    "EvidenceAdminService": ("apps.evidence.services.evidence_admin_service", "EvidenceAdminService"),
+    "EvidenceExportService": ("apps.evidence.services.evidence_export_service", "EvidenceExportService"),
     "EvidenceListPlaceholderService": (
-        "apps.documents.services.evidence.evidence_list_placeholder_service",
+        "apps.evidence.services.evidence_list_placeholder_service",
         "EvidenceListPlaceholderService",
     ),
-    "EvidenceService": ("apps.documents.services.evidence.evidence_service", "EvidenceService"),
+    "EvidenceService": ("apps.evidence.services.evidence_service", "EvidenceService"),
     "FolderTemplateService": ("apps.documents.services.template.folder_service", "FolderTemplateService"),
     "FolderTemplateAdminService": (
         "apps.documents.services.template.folder_template.admin_service",

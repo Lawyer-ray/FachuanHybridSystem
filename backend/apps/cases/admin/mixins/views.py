@@ -89,12 +89,31 @@ class CaseAdminViewsMixin:
                 name="cases_case_materials",
             ),
             path(
+                "<int:object_id>/mock-trial/",
+                self.admin_site.admin_view(self.mock_trial_view),  # type: ignore[attr-defined]
+                name="cases_case_mock_trial",
+            ),
+            path(
                 "litigation-fee-calculator/",
                 self.admin_site.admin_view(self.litigation_fee_calculator_view),  # type: ignore[attr-defined]
                 name="cases_litigation_fee_calculator",
             ),
         ]
         return custom_urls + urls
+
+    def mock_trial_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        case = self._get_case_with_relations(object_id)
+        if case is None:
+            raise Http404(_("案件不存在"))
+        if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
+            raise PermissionDenied
+        context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
+        context.update({
+            "case": case,
+            "title": _("模拟庭审: %(name)s") % {"name": case.name},
+            "opts": self.model._meta,  # type: ignore[attr-defined]
+        })
+        return render(request, "litigation_ai/mock_trial.html", context)
 
     def litigation_fee_calculator_view(self, request: HttpRequest) -> HttpResponse:
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]

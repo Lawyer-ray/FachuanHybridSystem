@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .choices import DocumentType, SessionStatus
+from .choices import DocumentType, SessionStatus, SessionType
 
 
 class LitigationSession(models.Model):
@@ -32,6 +32,13 @@ class LitigationSession(models.Model):
         blank=True,
         related_name="litigation_sessions",
         verbose_name=_("创建人"),
+    )
+    session_type = models.CharField(
+        max_length=20,
+        choices=SessionType.choices,
+        default=SessionType.DOC_GEN,
+        verbose_name=_("会话类型"),
+        help_text=_("文书生成或模拟庭审"),
     )
     document_type = models.CharField(
         max_length=50,
@@ -65,6 +72,7 @@ class LitigationSession(models.Model):
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["status"]),
             models.Index(fields=["document_type"]),
+            models.Index(fields=["session_type"]),
         ]
 
     @property
