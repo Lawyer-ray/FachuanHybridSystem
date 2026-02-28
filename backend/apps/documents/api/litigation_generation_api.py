@@ -118,6 +118,13 @@ def generate_defense(request: Any, data: DefenseRequest) -> Any:
     return {"success": True, "data": result.model_dump(), "duration_ms": duration_ms}
 
 
+@router.get("/cases/{case_id}/litigation/{litigation_type}/preview")
+def preview_litigation_context(request: Any, case_id: int, litigation_type: str) -> Any:
+    service = _get_litigation_generation_service()
+    context = service.get_preview_context(case_id, litigation_type)
+    return {"success": True, "data": context}
+
+
 @router.post("/cases/{case_id}/litigation/{litigation_type}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_litigation_document(request: Any, case_id: int, litigation_type: str) -> Any:

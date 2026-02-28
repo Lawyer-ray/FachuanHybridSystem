@@ -82,6 +82,16 @@ class CaseAdminService:
             )
             return str(_("查询失败"))
 
+    def get_matched_folder_templates_list(self, case_type: str, legal_statuses: list[str] | None = None) -> list[dict[str, Any]]:
+        try:
+            from apps.documents.services.template.template_matching_service import TemplateMatchingService
+            return TemplateMatchingService().find_matching_case_folder_templates_list(
+                case_type=case_type, legal_statuses=legal_statuses,
+            )
+        except Exception:
+            logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
+            return []
+
     def get_matched_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
         try:
             return self.document_service.find_matching_case_file_templates(

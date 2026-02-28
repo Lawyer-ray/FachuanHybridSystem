@@ -204,10 +204,12 @@ from typing import Any
 
 
 def activate_foreign_keys(sender: Any, connection: Any, **kwargs: Any) -> None:
-    """启用 SQLite 外键约束"""
+    """启用 SQLite 外键约束和 WAL 模式"""
     if connection.vendor == "sqlite":
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys = ON;")
+        cursor.execute("PRAGMA journal_mode = WAL;")
+        cursor.execute("PRAGMA busy_timeout = 5000;")
 
 
 connection_created.connect(activate_foreign_keys)

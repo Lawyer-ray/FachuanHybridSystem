@@ -8,6 +8,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 import logging
 
+from apps.documents.services.infrastructure.wiring import get_case_service
+
 logger = logging.getLogger(__name__)
 
 
