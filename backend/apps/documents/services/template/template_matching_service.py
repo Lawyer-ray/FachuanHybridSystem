@@ -48,7 +48,6 @@ class TemplateMatchingService:
         self, case_type: str, legal_statuses: list[str] | None = None
     ) -> list[str]:
         try:
-
             templates = FolderTemplate.objects.filter(template_type=FolderTemplateType.CASE, is_active=True)
             case_legal_statuses_set = set(legal_statuses or [])
             return [
@@ -57,6 +56,17 @@ class TemplateMatchingService:
         except Exception:
             logger.exception("获取文件夹模板失败", extra={"case_type": case_type, "legal_statuses": legal_statuses})
             raise
+
+    def find_matching_case_folder_templates_list(
+        self, case_type: str, legal_statuses: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        templates = FolderTemplate.objects.filter(template_type=FolderTemplateType.CASE, is_active=True)
+        case_legal_statuses_set = set(legal_statuses or [])
+        return [
+            {"id": t.id, "name": t.name}
+            for t in templates
+            if self._matches_case_folder_template(t, case_type, case_legal_statuses_set)
+        ]
 
     def _matches_case_folder_template(self, template: Any, case_type: str, case_legal_statuses_set: set[Any]) -> bool:
         case_types = template.case_types or []

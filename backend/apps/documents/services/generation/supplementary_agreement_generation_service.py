@@ -55,6 +55,26 @@ class SupplementaryAgreementGenerationService:
     def folder_binding_service(self) -> "IContractFolderBindingService" | None:
         return self._folder_binding_service
 
+    def get_preview_context(self, contract_id: int, agreement_id: int) -> list[dict[str, str]]:
+        """补充协议占位符预览"""
+        contract = self.contract_service.get_contract_model_internal(contract_id)
+        if not contract:
+            return []
+        agreement = self.contract_service.get_supplementary_agreement_model_internal(contract_id, agreement_id)
+        if not agreement:
+            return []
+        contract_data = self.contract_service.get_contract_with_details_internal(contract_id)
+        from .pipeline import DocxPreviewService, TemplateMatcher
+
+        template = TemplateMatcher().match_supplementary_agreement_template(contract_data.get("case_type") or "")
+        if not template:
+            return []
+        file_location = template.get_file_location()
+        if not file_location or not Path(file_location).exists():
+            return []
+        context = self.build_context(contract, agreement)
+        return DocxPreviewService().preview(file_location, context)
+
     def generate_supplementary_agreement(
         self, contract_id: int, agreement_id: int
     ) -> tuple[bytes | None, str | None, str | None]:

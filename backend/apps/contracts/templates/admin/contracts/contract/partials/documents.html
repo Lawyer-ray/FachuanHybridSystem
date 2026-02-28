@@ -123,22 +123,52 @@
             </div>
             <div class="document-actions">
                 <div class="action-item">
-                    <button type="button" class="btn-action {% if not has_contract_template %}btn-disabled{% endif %}"
-                            {% if has_contract_template %}@click="generateContract()"{% else %}disabled title="无匹配的合同模板"{% endif %}
-                            :disabled="generating">
+                    {% if has_contract_template %}
+                    <div class="btn-split">
+                        <button type="button" class="btn-action btn-split-main"
+                                @click="generateContract()"
+                                :disabled="generating">
+                            <span class="action-icon">📄</span>
+                            <span class="action-text">{% trans "生成合同" %}</span>
+                            <span class="action-loading" x-show="generatingType === 'contract'" x-cloak><span class="spinner"></span></span>
+                        </button>
+                        <button type="button" class="btn-action btn-split-side"
+                                @click.stop="previewContract()"
+                                :disabled="generating"
+                                title="{% trans '预览替换词' %}">
+                            <span style="display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                        </button>
+                    </div>
+                    {% else %}
+                    <button type="button" class="btn-action btn-disabled" disabled title="无匹配的合同模板">
                         <span class="action-icon">📄</span>
-                        <span class="action-text">生成合同</span>
-                        <span class="action-loading" x-show="generatingType === 'contract'" x-cloak><span class="spinner"></span></span>
+                        <span class="action-text">{% trans "生成合同" %}</span>
                     </button>
+                    {% endif %}
                 </div>
 
                 <div class="action-item">
-                    <button type="button" class="btn-action {% if not has_supplementary_agreements %}btn-disabled{% endif %}"
-                            {% if has_supplementary_agreements %}@click="showAgreementDialog = true"{% else %}disabled title="暂无补充协议"{% endif %}
-                            :disabled="generating">
+                    {% if has_supplementary_agreements %}
+                    <div class="btn-split">
+                        <button type="button" class="btn-action btn-split-main"
+                                @click="showAgreementDialog = true"
+                                :disabled="generating">
+                            <span class="action-icon">📝</span>
+                            <span class="action-text">{% trans "生成补充协议" %}</span>
+                        </button>
+                        <button type="button" class="btn-action btn-split-side"
+                                @click.stop="openAgreementPreviewDialog()"
+                                :disabled="generating"
+                                title="{% trans '预览替换词' %}">
+                            <span style="display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                        </button>
+                    </div>
+                    {% else %}
+                    <button type="button" class="btn-action btn-disabled" disabled title="暂无补充协议">
                         <span class="action-icon">📝</span>
-                        <span class="action-text">生成补充协议</span>
+                        <span class="action-text">{% trans "生成补充协议" %}</span>
                     </button>
+                    {% endif %}
                 </div>
 
                 <div class="action-item">

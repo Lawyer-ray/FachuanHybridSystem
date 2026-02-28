@@ -17,6 +17,7 @@ from datetime import date
 from typing import Any
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.interfaces import ServiceLocator
 from apps.core.path import Path
 
 from .litigation_context_builder import LitigationContextBuilder
@@ -135,7 +136,7 @@ class LitigationGenerationService:
         """
         # 1. 获取案件数据
 
-        case_service = get_case_service()
+        case_service = ServiceLocator.get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
@@ -180,7 +181,7 @@ class LitigationGenerationService:
         """
         # 1. 获取案件数据
 
-        case_service = get_case_service()
+        case_service = ServiceLocator.get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
@@ -207,6 +208,30 @@ class LitigationGenerationService:
         doc_bytes = self._render_template(self.DEFENSE_TEMPLATE, context)
 
         return filename, doc_bytes
+
+    def get_preview_context(self, case_id: int, litigation_type: str) -> dict[str, str]:
+        case_service = ServiceLocator.get_case_service()
+        case_dto = case_service.get_case_by_id_internal(case_id)
+        if not case_dto:
+            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+
+        if litigation_type == "complaint":
+            template_path = self.COMPLAINT_TEMPLATE
+            case_data = self.context_builder.extract_complaint_prompt_data(case_dto)
+            llm_result = self._get_mock_complaint_output(case_data)
+            context = self.context_builder.build_complaint_context(case_dto=case_dto, llm_result=llm_result)
+        elif litigation_type == "defense":
+            template_path = self.DEFENSE_TEMPLATE
+            case_data = self.context_builder.extract_defense_prompt_data(case_dto)
+            llm_result = self._get_mock_defense_output(case_data)
+            context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)
+        else:
+            raise ValidationException(
+                message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE",
+            )
+
+        from .pipeline import DocxPreviewService
+        return DocxPreviewService().preview(template_path, context)
 
     def _generate_filename(self, case_id: int, doc_type: str) -> str:
         """

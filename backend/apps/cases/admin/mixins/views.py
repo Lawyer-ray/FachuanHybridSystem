@@ -131,6 +131,8 @@ class CaseAdminViewsMixin:
 
         matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
 
+        matched_folder_templates_list = service.get_matched_folder_templates_list(case.case_type, our_legal_statuses) if case.case_type else []
+
         our_legal_entities_json, our_legal_entities = self._build_our_legal_entities(case, json_mod)
         our_parties_json, our_parties = self._build_our_parties(case, json_mod)
         respondents_json, respondents = self._build_respondents(case, json_mod)
@@ -162,6 +164,7 @@ class CaseAdminViewsMixin:
                 "has_change_permission": self.has_change_permission(request, case),  # type: ignore[attr-defined]
                 "matched_folder_templates": matched_folder_templates,
                 "matched_case_file_templates": matched_case_file_templates,
+                "matched_folder_templates_list": matched_folder_templates_list,
                 "case_file_templates_missing_reason": case_file_templates_missing_reason,
                 "can_generate_folder": bool(matched_folder_templates and "无匹配" not in matched_folder_templates),
                 "folder_disabled_reason": self._get_folder_disabled_reason_v2(matched_folder_templates),

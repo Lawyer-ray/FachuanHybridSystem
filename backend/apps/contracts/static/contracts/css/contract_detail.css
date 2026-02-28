@@ -718,6 +718,26 @@
     font-size: 16px;
 }
 
+/* 分割按钮 */
+.btn-split {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.btn-split .btn-split-main {
+    flex: 1;
+    border-radius: 8px 0 0 8px;
+    min-width: 120px;
+}
+
+.btn-split .btn-split-side {
+    padding: 12px 10px;
+    border-radius: 0 8px 8px 0;
+    min-width: auto;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+
 .action-text {
     flex: 1;
 }
