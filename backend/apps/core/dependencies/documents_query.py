@@ -58,13 +58,13 @@ def build_document_template_binding_service() -> IDocumentTemplateBindingService
 
 
 def build_evidence_query_service() -> IEvidenceQueryService:
-    from apps.documents.services.evidence.evidence_query_service import EvidenceQueryService
+    from apps.evidence.services.evidence_query_service import EvidenceQueryService
 
     return EvidenceQueryService()
 
 
 def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService:
-    from apps.documents.services import EvidenceListPlaceholderService
+    from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return cast(IEvidenceListPlaceholderService, EvidenceListPlaceholderService())
 

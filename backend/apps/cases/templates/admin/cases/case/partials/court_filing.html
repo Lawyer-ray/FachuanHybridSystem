@@ -1,0 +1,136 @@
+{% load i18n %}
+<!-- 一张网立案标签页 -->
+<div x-data="courtFilingApp()" x-init="init()">
+    <div class="info-grid">
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <span class="card-icon">🏛️</span>
+                <h3 class="card-title">{% translate "法院一张网在线立案" %}</h3>
+            </div>
+
+            <div x-show="loading" style="text-align: center; padding: 24px;">
+                <span class="spinner"></span> {% translate "加载中..." %}
+            </div>
+
+            <div x-show="!loading">
+                <!-- 案件信息摘要 -->
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 13px;">
+                        <div>
+                            <span style="color: #6b7280;">{% translate "案由" %}：</span>
+                            <span style="font-weight: 500;" x-text="caseInfo.cause_of_action || '-'"></span>
+                        </div>
+                        <div>
+                            <span style="color: #6b7280;">{% translate "管辖法院" %}：</span>
+                            <span style="font-weight: 500;" x-text="caseInfo.court_name || '未设置'"></span>
+                        </div>
+                        <div>
+                            <span style="color: #6b7280;">{% translate "标的额" %}：</span>
+                            <span style="font-weight: 500;" x-text="caseInfo.target_amount ? '¥' + caseInfo.target_amount : '-'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div style="margin-bottom: 16px;">
+                    <button type="button" class="btn btn-primary"
+                            :disabled="executing || !caseInfo.court_name"
+                            @click="executeCourtFiling()">
+                        <span x-show="!executing">🚀 {% translate "开始一张网立案" %}</span>
+                        <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                    </button>
+                    <span x-show="!caseInfo.court_name"
+                          style="margin-left: 12px; font-size: 12px; color: #dc2626;">
+                        {% translate "请先设置管辖法院（案件管辖机关）" %}
+                    </span>
+                </div>
+
+                <!-- 执行结果 -->
+                <template x-if="lastResult">
+                    <div :style="lastResult.success ? 'background:#f0fdf4;border:1px solid #86efac;' : 'background:#fef2f2;border:1px solid #fca5a5;'"
+                         style="border-radius:8px;padding:12px;margin-bottom:16px;">
+                        <span x-show="lastResult.success" style="color:#15803d;">✓ <span x-text="lastResult.message"></span></span>
+                        <span x-show="!lastResult.success" style="color:#dc2626;">✗ <span x-text="lastResult.message"></span></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function courtFilingApp() {
+        return {
+            caseId: {{ case.pk }},
+            caseInfo: {},
+            loading: false,
+            executing: false,
+            lastResult: null,
+
+            async init() {
+                await this.loadCaseInfo();
+            },
+
+            async loadCaseInfo() {
+                this.loading = true;
+                try {
+                    const resp = await fetch(`/api/v1/court-filing/case-info/${this.caseId}`);
+                    if (resp.ok) {
+                        this.caseInfo = await resp.json();
+                    }
+                } catch (e) {
+                    console.error('loadCaseInfo error:', e);
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async executeCourtFiling() {
+                if (!this.caseId || !this.caseInfo.court_name) return;
+                this.executing = true;
+                this.lastResult = null;
+                try {
+                    const resp = await fetch('/api/v1/court-filing/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                        },
+                        body: JSON.stringify({ case_id: this.caseId })
+                    });
+                    const data = await resp.json();
+                    this.lastResult = data;
+                    if (data.session_id) {
+                        this.pollSession(data.session_id);
+                    } else {
+                        this.executing = false;
+                    }
+                } catch (e) {
+                    console.error('executeCourtFiling error:', e);
+                    this.lastResult = { success: false, message: e.message };
+                    this.executing = false;
+                }
+            },
+
+            async pollSession(sessionId) {
+                const poll = async () => {
+                    try {
+                        const resp = await fetch(`/api/v1/court-filing/session/${sessionId}`);
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.lastResult = data;
+                            if (data.status === 'in_progress') {
+                                setTimeout(poll, 3000);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('pollSession error:', e);
+                    }
+                    this.executing = false;
+                };
+                setTimeout(poll, 3000);
+            },
+        };
+    }
+    </script>
+</div>
