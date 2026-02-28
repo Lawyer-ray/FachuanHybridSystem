@@ -23,6 +23,9 @@ function litigationGenerationApp(config = {}) {
         isDialogOpen: false,             // 对话框显示状态
         isGenerating: false,             // 生成中状态
         selectedType: null,              // 选中的诉状类型
+        showPreview: false,              // 预览确认步骤
+        isLoadingPreview: false,         // 预览加载中
+        previewRows: [],                 // 预览数据行 [{key, value}]
         errorMessage: '',                // 错误信息
         successMessage: '',              // 成功信息
 
@@ -219,6 +222,8 @@ function litigationGenerationApp(config = {}) {
          */
         openDialog() {
             this.selectedType = null;
+            this.showPreview = false;
+            this.previewRows = [];
             this.errorMessage = '';
             this.isDialogOpen = true;
         },
@@ -230,6 +235,8 @@ function litigationGenerationApp(config = {}) {
             if (this.isGenerating) return;
             this.isDialogOpen = false;
             this.selectedType = null;
+            this.showPreview = false;
+            this.previewRows = [];
             this.errorMessage = '';
         },
 
@@ -252,6 +259,40 @@ function litigationGenerationApp(config = {}) {
             }
             this.selectedType = type.value;
             this.errorMessage = '';
+        },
+
+        /**
+         * 进入预览确认步骤
+         */
+        async goToPreview() {
+            if (!this.selectedType) return;
+            this.errorMessage = '';
+            this.isLoadingPreview = true;
+            this.showPreview = true;
+            try {
+                const resp = await fetch(
+                    `${this.apiBasePath}/cases/${this.caseId}/litigation/${this.selectedType}/preview`,
+                    { headers: { 'X-CSRFToken': this.getCsrfToken() } }
+                );
+                const json = await resp.json();
+                if (json.success && json.data) {
+                    this.previewRows = json.data;
+                } else {
+                    this.errorMessage = json.message || '获取预览数据失败';
+                }
+            } catch (e) {
+                this.errorMessage = '获取预览数据失败';
+            } finally {
+                this.isLoadingPreview = false;
+            }
+        },
+
+        /**
+         * 获取选中类型的标签
+         */
+        getSelectedTypeLabel() {
+            const t = this.litigationTypes.find(t => t.value === this.selectedType);
+            return t ? t.label : '';
         },
 
         // ========== 消息提示 ==========

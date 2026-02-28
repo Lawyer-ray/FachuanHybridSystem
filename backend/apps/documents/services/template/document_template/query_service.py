@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 
 if TYPE_CHECKING:
-    from .document_template_dto_assembler import DocumentTemplateDtoAssembler
+    from .dto_assembler import DocumentTemplateDtoAssembler
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +19,7 @@ class DocumentTemplateQueryService:
     @property
     def assembler(self) -> DocumentTemplateDtoAssembler:
         if self._assembler is None:
-            from .document_template_dto_assembler import DocumentTemplateDtoAssembler
+            from .dto_assembler import DocumentTemplateDtoAssembler
 
             self._assembler = DocumentTemplateDtoAssembler()
         return self._assembler

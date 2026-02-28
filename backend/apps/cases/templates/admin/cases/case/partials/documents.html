@@ -1,36 +1,67 @@
 {% load i18n %}
 <div class="info-grid two-columns">
+    <!-- 匹配的模板卡片 -->
+    <div class="info-card">
+        <div class="card-header">
+            <span class="card-icon">📋</span>
+            <h3 class="card-title">{% trans "匹配的模板" %}</h3>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- 文件模板 -->
+            <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <span style="margin-right: 6px;">📄</span>{% trans "文件模板" %}
+                </div>
+                <div style="font-size: 14px; color: #1f2937;">
+                    {% if matched_case_file_templates %}
+                        {% for template in matched_case_file_templates %}
+                            <a href="{% url 'admin:documents_documenttemplate_change' template.id %}" target="_blank" style="color: #2563eb; text-decoration: none; border-bottom: 1px solid #93c5fd; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: #9ca3af;">{{ case_file_templates_missing_reason|default:_("无匹配模板") }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 文件夹模板 -->
+            <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #10b981;">
+                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <span style="margin-right: 6px;">📁</span>{% trans "文件夹模板" %}
+                </div>
+                <div style="font-size: 14px; color: #1f2937;">
+                    {% if matched_folder_templates_list %}
+                        {% for template in matched_folder_templates_list %}
+                            <a href="{% url 'admin:documents_foldertemplate_change' template.id %}" target="_blank" style="color: #059669; text-decoration: none; border-bottom: 1px solid #6ee7b7; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: #9ca3af;">{% trans "无匹配模板" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 文件夹绑定卡片 -->
     <div class="info-card">
         <div class="card-header">
             <span class="card-icon">📁</span>
-            <h3 class="card-title">文件夹绑定</h3>
+            <h3 class="card-title">{% trans "文件夹绑定" %}</h3>
         </div>
         <div class="card-content">
             {% if case.folder_binding %}
-            <div class="folder-binding">
-                <span class="binding-status bound">✓ 已绑定</span>
-                <span class="folder-path">{{ case.folder_binding.folder_path }}</span>
+            <div class="folder-binding-info">
+                <div class="binding-status">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">{% trans "已绑定" %}</span>
+                </div>
+                <div class="folder-path">
+                    <label>{% trans "文件夹路径" %}</label>
+                    <span class="path-value">{{ case.folder_binding.folder_path }}</span>
+                </div>
             </div>
             {% else %}
-            <p class="empty-state">未绑定文件夹</p>
+            <p class="empty-state">{% trans "未绑定文件夹" %}</p>
             {% endif %}
-        </div>
-    </div>
-
-    <!-- 文件夹模板匹配信息卡片 -->
-    <div class="info-card">
-        <div class="card-header">
-            <span class="card-icon">📋</span>
-            <h3 class="card-title">文件夹模板</h3>
-        </div>
-        <div class="card-content">
-            <dl class="info-list">
-                <div class="info-item">
-                    <dt>匹配的模板</dt>
-                    <dd>{{ matched_folder_templates|default:"未设置" }}</dd>
-                </div>
-            </dl>
         </div>
     </div>
 
@@ -38,17 +69,17 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">📑</span>
-            <h3 class="card-title">证据清单</h3>
+            <h3 class="card-title">{% trans "证据清单" %}</h3>
         </div>
         <div class="card-content">
             <div class="evidence-actions" style="margin-bottom: 16px;">
                 <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
                    class="btn btn-primary">
-                    + 新建证据清单
+                    + {% trans "新建证据清单" %}
                 </a>
                 <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
                    class="btn btn-secondary">
-                    查看全部
+                    {% trans "查看全部" %}
                 </a>
             </div>
 
@@ -62,45 +93,45 @@
                                 {{ evidence_list.title }}
                             </a>
                         </h3>
-                        <span class="evidence-order">第 {{ evidence_list.order }} 份</span>
+                        <span class="evidence-order">{% trans "第" %} {{ evidence_list.order }} {% trans "份" %}</span>
                     </div>
 
                     <div class="evidence-meta">
                         <span class="meta-item">
-                            <strong>证据数量：</strong>{{ evidence_list.items.count }}
+                            <strong>{% trans "证据数量" %}：</strong>{{ evidence_list.items.count }}
                         </span>
                         <span class="meta-item">
-                            <strong>总页数：</strong>{{ evidence_list.total_pages }}
+                            <strong>{% trans "总页数" %}：</strong>{{ evidence_list.total_pages }}
                         </span>
                         <span class="meta-item">
-                            <strong>页码范围：</strong>{{ evidence_list.page_range_display }}
+                            <strong>{% trans "页码范围" %}：</strong>{{ evidence_list.page_range_display }}
                         </span>
                         <span class="meta-item">
-                            <strong>导出版本：</strong>V{{ evidence_list.export_version }}
+                            <strong>{% trans "导出版本" %}：</strong>V{{ evidence_list.export_version }}
                         </span>
                     </div>
 
                     <div class="evidence-status">
                         {% if evidence_list.merged_pdf %}
-                        <span class="status-badge status-success">✓ 已合并</span>
+                        <span class="status-badge status-success">✓ {% trans "已合并" %}</span>
                         {% else %}
-                        <span class="status-badge status-pending">未合并</span>
+                        <span class="status-badge status-pending">{% trans "未合并" %}</span>
                         {% endif %}
                     </div>
 
                     <div class="evidence-actions">
                         <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
                            class="btn btn-sm btn-secondary">
-                            合并PDF
+                            {% trans "合并PDF" %}
                         </a>
                         <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
                            class="btn btn-sm btn-secondary">
-                            导出清单
+                            {% trans "导出清单" %}
                         </a>
                         {% if evidence_list.merged_pdf %}
                         <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
                            class="btn btn-sm btn-primary">
-                            下载PDF
+                            {% trans "下载PDF" %}
                         </a>
                         {% endif %}
                     </div>
@@ -109,8 +140,8 @@
             </div>
             {% else %}
             <div class="empty-state">
-                <p>暂无证据清单</p>
-                <p class="hint">点击上方"新建证据清单"按钮创建第一份证据清单</p>
+                <p>{% trans "暂无证据清单" %}</p>
+                <p class="hint">{% trans "点击上方\"新建证据清单\"按钮创建第一份证据清单" %}</p>
             </div>
             {% endif %}
         </div>
@@ -120,12 +151,12 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">⚡</span>
-            <h3 class="card-title">快速文档生成</h3>
+            <h3 class="card-title">{% trans "快速文档生成" %}</h3>
         </div>
         <div class="card-content">
             <!-- 模板生成 -->
             <div class="action-group">
-                <h4 class="action-group-title">模板生成（快速生成，无需 AI）</h4>
+                <h4 class="action-group-title">{% trans "模板生成（快速生成，无需 AI）" %}</h4>
                 <div class="action-item"
                      x-data="litigationGenerationApp({
                          apiBasePath: '/api/v1/documents',
@@ -134,8 +165,8 @@
                     <button type="button"
                             class="btn btn-secondary"
                             @click="openDialog()"
-                            title="使用预设模板快速生成文书，适合标准化案件">
-                        模板生成
+                            title="{% trans '使用预设模板快速生成文书，适合标准化案件' %}">
+                        {% trans "模板生成" %}
                     </button>
 
                     <!-- 成功消息提示 -->
@@ -160,38 +191,82 @@
                              x-show="isDialogOpen"
                              x-cloak
                              class="litigation-dialog">
-                            <h3>选择诉状类型</h3>
+                            <!-- 步骤1: 选择诉状类型 -->
+                            <div x-show="!showPreview">
+                                <h3>{% trans "选择诉状类型" %}</h3>
 
-                            <!-- 诉状类型选项 -->
-                            <div class="litigation-types-grid">
-                                <template x-for="type in litigationTypes" :key="type.value">
-                                    <div :class="getTypeClass(type)"
-                                         @click="selectType(type)">
-                                        <span class="type-icon" x-text="type.icon"></span>
-                                        <span class="type-label" x-text="type.label"></span>
-                                        <span x-show="type.disabled" class="disabled-badge">开发中</span>
-                                    </div>
-                                </template>
+                                <div class="litigation-types-grid">
+                                    <template x-for="type in litigationTypes" :key="type.value">
+                                        <div :class="getTypeClass(type)"
+                                             @click="selectType(type)">
+                                            <span class="type-icon" x-text="type.icon"></span>
+                                            <span class="type-label" x-text="type.label"></span>
+                                            <span x-show="type.disabled" class="disabled-badge">{% trans "开发中" %}</span>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div x-show="errorMessage"
+                                     x-text="errorMessage"
+                                     class="litigation-error"></div>
+
+                                <div class="litigation-dialog-buttons">
+                                    <button type="button"
+                                            @click="closeDialog()"
+                                            class="btn-cancel">{% trans "取消" %}</button>
+                                    <button type="button"
+                                            @click="goToPreview()"
+                                            :disabled="!selectedType"
+                                            class="btn-generate">{% trans "下一步" %}</button>
+                                </div>
                             </div>
 
-                            <!-- 错误信息 -->
-                            <div x-show="errorMessage"
-                                 x-text="errorMessage"
-                                 class="litigation-error"></div>
+                            <!-- 步骤2: 确认预览 -->
+                            <div x-show="showPreview">
+                                <h3>{% trans "确认生成信息" %}</h3>
+                                <div style="margin-bottom: 12px; font-size: 13px; color: #6b7280;">
+                                    <span x-text="getSelectedTypeLabel()"></span>
+                                </div>
 
-                            <!-- 按钮区域 -->
-                            <div class="litigation-dialog-buttons">
-                                <button type="button"
-                                        @click="closeDialog()"
-                                        :disabled="isGenerating"
-                                        class="btn-cancel">取消</button>
-                                <button type="button"
-                                        @click="generateDocument()"
-                                        :disabled="isGenerating || !selectedType"
-                                        class="btn-generate">
-                                    <span x-show="!isGenerating">生成文档</span>
-                                    <span x-show="isGenerating">生成中...</span>
-                                </button>
+                                <!-- 加载中 -->
+                                <div x-show="isLoadingPreview" style="text-align: center; padding: 24px; color: #6b7280;">
+                                    {% trans "加载中..." %}
+                                </div>
+
+                                <!-- 占位符列表 -->
+                                <div x-show="!isLoadingPreview && previewRows.length"
+                                     style="max-height: 420px; overflow-y: auto; margin-bottom: 16px;">
+                                    <template x-for="row in previewRows" :key="row.key">
+                                        <div style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;"
+                                                 :style="row.status === 'empty' ? 'color: #dc2626' : 'color: #6b7280'"
+                                                 x-text="row.key"></div>
+                                            <div x-show="row.status === 'ok'"
+                                                 style="font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-all;"
+                                                 x-text="row.value"></div>
+                                            <div x-show="row.status === 'empty'"
+                                                 style="font-size: 13px; color: #dc2626; font-style: italic;">{% trans "⚠ 未生成" %}</div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div x-show="errorMessage"
+                                     x-text="errorMessage"
+                                     class="litigation-error"></div>
+
+                                <div class="litigation-dialog-buttons">
+                                    <button type="button"
+                                            @click="showPreview = false"
+                                            :disabled="isGenerating"
+                                            class="btn-cancel">{% trans "上一步" %}</button>
+                                    <button type="button"
+                                            @click="generateDocument()"
+                                            :disabled="isGenerating || isLoadingPreview"
+                                            class="btn-generate">
+                                        <span x-show="!isGenerating">{% trans "确认生成" %}</span>
+                                        <span x-show="isGenerating">{% trans "生成中..." %}</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -200,7 +275,7 @@
 
             <!-- 授权委托材料 -->
             <div class="action-group">
-                <h4 class="action-group-title">生成授权委托材料</h4>
+                <h4 class="action-group-title">{% trans "生成授权委托材料" %}</h4>
                 <div class="action-item"
                      x-data="authorizationMaterialsApp({
                          apiBasePath: '/api/v1/documents',
@@ -208,23 +283,23 @@
                          legalEntitiesJson: '{{ our_legal_entities_json|default:"[]"|escapejs }}',
                          ourPartiesJson: '{{ our_parties_json|default:"[]"|escapejs }}'
                      })">
-                    <span :title="hasOurParties ? '' : '没有我方当事人，无法生成全套委托材料'">
+                    <span :title="hasOurParties ? '' : '{% trans "没有我方当事人，无法生成全套委托材料" %}'">
                         <button type="button"
                                 class="btn btn-primary"
                                 :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasOurParties || isDownloading"
                                 @click="downloadFullAuthorizationPackage()">
-                            全套委托材料
+                            {% trans "全套委托材料" %}
                         </button>
                     </span>
 
-                    <span :title="hasLegalEntities ? '' : '我方当事人无法人，无需生成身份证明书'">
+                    <span :title="hasLegalEntities ? '' : '{% trans "我方当事人无法人，无需生成身份证明书" %}'">
                         <button type="button"
                                 class="btn btn-primary"
                                 :class="(!hasLegalEntities || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasLegalEntities || isDownloading"
                                 @click="handleLegalRepCertificateClick()">
-                            法定代表人身份证明书
+                            {% trans "法定代表人身份证明书" %}
                         </button>
                     </span>
 
@@ -233,16 +308,16 @@
                             :class="isDownloading ? 'btn-disabled' : ''"
                             :disabled="isDownloading"
                             @click="downloadAuthorityLetter()">
-                        所函
+                        {% trans "所函" %}
                     </button>
 
-                    <span :title="hasOurParties ? '' : '没有我方当事人，无法生成授权委托书'">
+                    <span :title="hasOurParties ? '' : '{% trans "没有我方当事人，无法生成授权委托书" %}'">
                         <button type="button"
                                 class="btn btn-primary"
                                 :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasOurParties || isDownloading"
                                 @click="handlePowerOfAttorneyClick()">
-                            授权委托书
+                            {% trans "授权委托书" %}
                         </button>
                     </span>
 
@@ -265,12 +340,12 @@
                              x-show="isEntityDialogOpen"
                              x-cloak
                              class="litigation-dialog">
-                            <h3>选择法人</h3>
+                            <h3>{% trans "选择法人" %}</h3>
 
                             <div class="auth-entity-toolbar">
                                 <label class="auth-entity-select-all">
                                     <input type="checkbox" @change="toggleAllEntities($event)" :checked="isAllSelected()">
-                                    <span>全选</span>
+                                    <span>{% trans "全选" %}</span>
                                 </label>
                             </div>
 
@@ -291,13 +366,13 @@
                                 <button type="button"
                                         @click="closeEntityDialog()"
                                         :disabled="isDownloading"
-                                        class="btn-cancel">取消</button>
+                                        class="btn-cancel">{% trans "取消" %}</button>
                                 <button type="button"
                                         @click="downloadSelectedLegalRepCertificates()"
                                         :disabled="isDownloading || selectedEntityIds.length === 0"
                                         class="btn-generate">
-                                    <span x-show="!isDownloading">生成并下载</span>
-                                    <span x-show="isDownloading">生成中...</span>
+                                    <span x-show="!isDownloading">{% trans "生成并下载" %}</span>
+                                    <span x-show="isDownloading">{% trans "生成中..." %}</span>
                                 </button>
                             </div>
                         </div>
@@ -308,28 +383,28 @@
                              x-show="isPoaDialogOpen"
                              x-cloak
                              class="litigation-dialog">
-                            <h3>授权委托书</h3>
+                            <h3>{% trans "授权委托书" %}</h3>
 
                             <div class="litigation-types-grid">
                                 <div :class="poaMode === 'individual' ? 'litigation-type-option selected' : 'litigation-type-option'"
                                      @click="selectPoaMode('individual')">
-                                    <span class="type-label">单独授权</span>
+                                    <span class="type-label">{% trans "单独授权" %}</span>
                                 </div>
                                 <div :class="poaMode === 'combined' ? 'litigation-type-option selected' : 'litigation-type-option'"
                                      @click="selectPoaMode('combined')">
-                                    <span class="type-label">合并授权</span>
+                                    <span class="type-label">{% trans "合并授权" %}</span>
                                 </div>
                             </div>
 
                             <div x-show="poaMode === 'combined'" class="muted" style="margin-bottom: 16px;">
-                                将对所有我方当事人合并授权，无需选择。
+                                {% trans "将对所有我方当事人合并授权，无需选择。" %}
                             </div>
 
                             <div x-show="poaMode === 'individual'">
                                 <div class="auth-entity-toolbar">
                                     <label class="auth-entity-select-all">
                                         <input type="checkbox" @change="toggleAllOurParties($event)" :checked="isAllOurPartiesSelected()">
-                                        <span>全选</span>
+                                        <span>{% trans "全选" %}</span>
                                     </label>
                                 </div>
 
@@ -352,13 +427,13 @@
                                 <button type="button"
                                         @click="closePoaDialog()"
                                         :disabled="isDownloading"
-                                        class="btn-cancel">取消</button>
+                                        class="btn-cancel">{% trans "取消" %}</button>
                                 <button type="button"
                                         @click="confirmPowerOfAttorney()"
                                         :disabled="isDownloading || !poaMode || (poaMode === 'individual' && selectedOurPartyIds.length === 0)"
                                         class="btn-generate">
-                                    <span x-show="!isDownloading">生成并下载</span>
-                                    <span x-show="isDownloading">生成中...</span>
+                                    <span x-show="!isDownloading">{% trans "生成并下载" %}</span>
+                                    <span x-show="isDownloading">{% trans "生成中..." %}</span>
                                 </button>
                             </div>
                         </div>
@@ -368,7 +443,7 @@
 
             <!-- 财产保全材料 -->
             <div class="action-group">
-                <h4 class="action-group-title">生成财产保全材料</h4>
+                <h4 class="action-group-title">{% trans "生成财产保全材料" %}</h4>
                 <div class="action-item"
                      x-data="window.preservationMaterialsApp({
                          apiBasePath: '/api/v1/documents',
@@ -384,7 +459,7 @@
                                 :class="(!canDownloadFullPackage || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!canDownloadFullPackage || isDownloading"
                                 @click="downloadFullPackage()">
-                            全套财产保全材料
+                            {% trans "全套财产保全材料" %}
                         </button>
                     </span>
 
@@ -394,7 +469,7 @@
                                 :class="(!canDownloadPreservation || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!canDownloadPreservation || isDownloading"
                                 @click="downloadPreservationApplication()">
-                            财产保全申请书
+                            {% trans "财产保全申请书" %}
                         </button>
                     </span>
 
@@ -404,7 +479,7 @@
                                 :class="(!canDownloadDelayDelivery || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!canDownloadDelayDelivery || isDownloading"
                                 @click="downloadDelayDeliveryApplication()">
-                            暂缓送达申请书
+                            {% trans "暂缓送达申请书" %}
                         </button>
                     </span>
 
@@ -426,214 +501,13 @@
 
             <!-- 文件夹生成 -->
             <div class="action-group">
-                <h4 class="action-group-title">文件夹生成</h4>
+                <h4 class="action-group-title">{% trans "文件夹生成" %}</h4>
                 <div class="action-item">
-                    <button type="button" class="btn btn-secondary btn-disabled" disabled title="功能开发中">
-                        生成文件夹
+                    <button type="button" class="btn btn-secondary btn-disabled" disabled title="{% trans '功能开发中' %}">
+                        {% trans "生成文件夹" %}
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-
-<style>
-.action-group {
-    margin-bottom: 1.5rem;
-}
-
-.action-group:last-child {
-    margin-bottom: 0;
-}
-
-.action-group-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 0.75rem;
-}
-
-.action-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-}
-
-.btn-icon {
-    font-size: 1.125rem;
-    line-height: 1;
-}
-
-.btn-primary {
-    background: #417690;
-    color: white !important;
-}
-
-.btn-primary:hover {
-    background: #356175;
-    color: white !important;
-}
-
-.btn-secondary {
-    background: #6c757d;
-    color: white !important;
-}
-
-.btn-secondary:hover {
-    background: #5a6268;
-    color: white !important;
-}
-
-.btn-disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.btn-sm {
-    padding: 4px 12px;
-    font-size: 12px;
-}
-
-.litigation-success-message {
-    padding: 0.5rem 1rem;
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-    border-radius: 4px;
-    font-size: 0.9rem;
-}
-
-.auth-entity-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    margin: 0.5rem 0 0.75rem;
-}
-
-.auth-entity-select-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    color: #374151;
-}
-
-.auth-entity-list {
-    display: grid;
-    gap: 0.5rem;
-    max-height: 280px;
-    overflow: auto;
-    padding: 0.5rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #fff;
-}
-
-.auth-entity-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    color: #111827;
-}
-
-/* 证据清单样式 */
-.evidence-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.evidence-card {
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 16px;
-}
-
-.evidence-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.evidence-title {
-    margin: 0;
-    font-size: 16px;
-}
-
-.evidence-title a {
-    color: #1976d2;
-    text-decoration: none;
-}
-
-.evidence-title a:hover {
-    text-decoration: underline;
-}
-
-.evidence-order {
-    color: #666;
-    font-size: 14px;
-}
-
-.evidence-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 12px;
-    font-size: 14px;
-    color: #666;
-}
-
-.evidence-status {
-    margin-bottom: 12px;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-}
-
-.status-success {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-
-.status-pending {
-    background: #fff3e0;
-    color: #e65100;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 20px;
-    color: #666;
-}
-
-.empty-state .hint {
-    font-size: 14px;
-    color: #999;
-    margin-top: 8px;
-}
-
-
-</style>

@@ -12,7 +12,7 @@ from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
 
-from ...folder_service import FolderTemplateService
+from ..folder_service import FolderTemplateService
 
 logger = logging.getLogger("apps.documents.services.folder_template_admin_service")
 

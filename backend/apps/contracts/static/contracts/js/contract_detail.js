@@ -32,6 +32,14 @@ function contractDetailApp(config = {}) {
         showAgreementDialog: false,
         selectedAgreementId: null,
 
+        // 占位符预览
+        showPreviewDialog: false,
+        showAgreementPreviewSelect: false,
+        previewAgreementId: null,
+        previewTitle: '',
+        previewRows: [],
+        isLoadingPreview: false,
+
         // Toast 消息队列
         toasts: [],
 
@@ -244,6 +252,45 @@ function contractDetailApp(config = {}) {
          */
         selectAgreement(agreementId) {
             this.selectedAgreementId = agreementId;
+        },
+
+        async previewContract() {
+            this.previewTitle = '合同替换词预览';
+            this.previewRows = [];
+            this.isLoadingPreview = true;
+            this.showPreviewDialog = true;
+            try {
+                const resp = await fetch(`/api/v1/documents/contracts/${contractId}/preview`);
+                const data = await resp.json();
+                this.previewRows = data.data || [];
+            } catch (e) {
+                this.showToast('预览加载失败', 'error');
+            } finally {
+                this.isLoadingPreview = false;
+            }
+        },
+
+        openAgreementPreviewDialog() {
+            this.previewAgreementId = null;
+            this.showAgreementPreviewSelect = true;
+        },
+
+        async previewAgreement() {
+            if (!this.previewAgreementId) return;
+            this.showAgreementPreviewSelect = false;
+            this.previewTitle = '补充协议替换词预览';
+            this.previewRows = [];
+            this.isLoadingPreview = true;
+            this.showPreviewDialog = true;
+            try {
+                const resp = await fetch(`/api/v1/documents/contracts/${contractId}/supplementary-agreements/${this.previewAgreementId}/preview`);
+                const data = await resp.json();
+                this.previewRows = data.data || [];
+            } catch (e) {
+                this.showToast('预览加载失败', 'error');
+            } finally {
+                this.isLoadingPreview = false;
+            }
         }
     };
 }
