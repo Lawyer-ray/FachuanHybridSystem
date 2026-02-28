@@ -242,7 +242,7 @@ class PreservationMaterialsGenerationService:
         """
         from django.db.models import Q
 
-        from apps.documents.models import DocumentTemplate
+        from apps.documents.models import DocumentTemplate, DocumentTemplateType
 
         name_keywords = {"preservation_application": "财产保全申请书", "delay_delivery_application": "暂缓送达申请书"}
         name_keyword = name_keywords.get(function_code, "")

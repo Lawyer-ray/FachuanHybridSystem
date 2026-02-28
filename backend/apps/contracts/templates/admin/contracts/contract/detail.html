@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'contracts/css/contract_detail.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'contracts/css/contract_detail.css' %}?v=20260228a">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -96,6 +96,68 @@
         </div>
     </div>
 
+    <!-- 补充协议预览选择对话框 -->
+    <div class="modal-overlay" x-show="showAgreementPreviewSelect" x-cloak @click.self="showAgreementPreviewSelect = false">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>{% trans "选择补充协议预览" %}</h3>
+                <button type="button" class="modal-close" @click="showAgreementPreviewSelect = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint">{% trans "请选择要预览的补充协议：" %}</p>
+                <div class="agreement-select-list">
+                    {% for agreement in supplementary_agreements %}
+                    <div class="agreement-select-item"
+                         @click="previewAgreementId = {{ agreement.id }}"
+                         :class="{ 'selected': previewAgreementId === {{ agreement.id }} }">
+                        <span class="agreement-select-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                        <span class="agreement-select-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="showAgreementPreviewSelect = false">{% trans "取消" %}</button>
+                <button type="button" class="btn btn-primary"
+                        @click="previewAgreement()"
+                        :disabled="!previewAgreementId || isLoadingPreview">{% trans "预览" %}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 占位符预览对话框 -->
+    <div class="modal-overlay" x-show="showPreviewDialog" x-cloak @click.self="showPreviewDialog = false">
+        <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 x-text="previewTitle"></h3>
+                <button type="button" class="modal-close" @click="showPreviewDialog = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div x-show="isLoadingPreview" style="text-align: center; padding: 24px;">
+                    <span class="spinner"></span> {% trans "加载中..." %}
+                </div>
+                <div x-show="!isLoadingPreview && previewRows.length"
+                     style="max-height: 420px; overflow-y: auto;">
+                    <template x-for="row in previewRows" :key="row.key">
+                        <div style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;"
+                                 :style="row.status === 'empty' ? 'color: #dc2626' : 'color: #6b7280'"
+                                 x-text="row.key"></div>
+                            <div x-show="row.status === 'ok'"
+                                 style="font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-all;"
+                                 x-text="row.value"></div>
+                            <div x-show="row.status === 'empty'"
+                                 style="font-size: 13px; color: #dc2626; font-style: italic;">{% trans "⚠ 未生成" %}</div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="showPreviewDialog = false">{% trans "关闭" %}</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast 消息提示 -->
     <div class="toast-container">
         <template x-for="(toast, index) in toasts" :key="index">
@@ -107,7 +169,7 @@
     </div>
 </div>
 
-<script src="{% static 'contracts/js/contract_detail.js' %}"></script>
+<script src="{% static 'contracts/js/contract_detail.js' %}?v=20260228a"></script>
 <script>
 function partiesDrawer() {
     return {

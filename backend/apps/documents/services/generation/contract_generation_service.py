@@ -122,6 +122,22 @@ class ContractGenerationService:
     def folder_binding_service(self) -> "IContractFolderBindingService" | None:
         return self._folder_binding_service
 
+    def get_preview_context(self, contract_id: int) -> list[dict[str, str]]:
+        """合同占位符预览"""
+        contract = self.contract_service.get_contract_model_internal(contract_id)
+        if not contract:
+            return []
+        template = self.find_matching_template(contract.case_type)
+        if not template:
+            return []
+        file_location = template.get_file_location()
+        if not file_location or not Path(file_location).exists():
+            return []
+        from .pipeline import DocxPreviewService, PipelineContextBuilder
+
+        context = PipelineContextBuilder().build_contract_context(contract)
+        return DocxPreviewService().preview(file_location, context)
+
     def generate_contract_document(self, contract_id: int) -> tuple[bytes | None, str | None, str | None]:
         """
         生成合同文书

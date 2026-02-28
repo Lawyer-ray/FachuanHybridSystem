@@ -51,6 +51,24 @@ def _get_contract_generation_service() -> Any:
     return ServiceLocator.get_contract_generation_service()
 
 
+@router.get("/contracts/{contract_id}/preview")
+def preview_contract_context(request: Any, contract_id: int) -> Any:
+    """合同占位符预览"""
+    _require_contract_access(request, contract_id)
+    service = _get_contract_generation_service()
+    rows = service.get_preview_context(contract_id)
+    return {"success": True, "data": rows}
+
+
+@router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
+def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:
+    """补充协议占位符预览"""
+    _require_contract_access(request, contract_id)
+    service = _get_supplementary_agreement_service()
+    rows = service.get_preview_context(contract_id, agreement_id)
+    return {"success": True, "data": rows}
+
+
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_contract_document(request: Any, contract_id: int) -> Any:
