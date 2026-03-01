@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models.choices import DocumentCaseFileSubType, DocumentTemplateType
 
+from .enums import EvidenceDirection, EvidenceType, OriginalStatus
 from .evidence_storage import evidence_file_storage
 
 
@@ -337,6 +338,58 @@ class EvidenceItem(models.Model):
         blank=True,
         verbose_name=_("AI分析结果"),
         help_text=_("预留字段,用于未来 LLM 自动分析"),
+    )
+    # === 阶段二扩展字段 ===
+    direction = models.CharField(
+        max_length=20,
+        choices=EvidenceDirection.choices,
+        blank=True,
+        verbose_name=_("证据方向"),
+    )
+    evidence_type = models.CharField(
+        max_length=20,
+        choices=EvidenceType.choices,
+        blank=True,
+        verbose_name=_("证据种类"),
+    )
+    original_status = models.CharField(
+        max_length=20,
+        choices=OriginalStatus.choices,
+        blank=True,
+        verbose_name=_("原件状态"),
+    )
+    original_location = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("原件存放位置"),
+    )
+    three_properties: Any = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("三性说明"),
+        help_text=_("真实性/合法性/关联性说明"),
+    )
+    cross_examination: Any = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("质证意见"),
+        help_text=_("对方证据的质证意见"),
+    )
+    file_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        verbose_name=_("文件哈希"),
+        help_text=_("SHA-256"),
+    )
+    source_channel = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_("来源渠道"),
+    )
+    ocr_text = models.TextField(
+        blank=True,
+        verbose_name=_("OCR文本"),
+        help_text=_("证据文件的OCR提取文本,用于全文搜索"),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

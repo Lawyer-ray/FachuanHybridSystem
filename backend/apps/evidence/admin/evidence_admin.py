@@ -4,18 +4,22 @@ import logging
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceList
 
 from .evidence import EvidenceItemInline, EvidenceListForm
 from .evidence.mixins import EvidenceListAdminActionsMixin, EvidenceListAdminSaveMixin, EvidenceListAdminViewsMixin
+from .hearing_mode import HearingModeAdminMixin
 
 logger = logging.getLogger(__name__)
 
 
 @admin.register(EvidenceList)
 class EvidenceListAdmin(
+    HearingModeAdminMixin,
     EvidenceListAdminViewsMixin,
     EvidenceListAdminActionsMixin,
     EvidenceListAdminSaveMixin,
@@ -34,6 +38,7 @@ class EvidenceListAdmin(
         "export_version",
         "has_merged_pdf_display",
         "actions_display",
+        "hearing_mode_link",
         "updated_at",
     )
 
@@ -88,8 +93,13 @@ class EvidenceListAdmin(
     )
 
     inlines: ClassVar = [EvidenceItemInline]
-    actions: ClassVar = ["merge_pdfs", "export_list_word"]
+    actions: ClassVar = ["merge_pdfs", "export_list_word", "export_list_zip"]
     list_select_related: tuple[Any, ...] = ("case", "created_by")
+
+    @admin.display(description=_("开庭"))
+    def hearing_mode_link(self, obj: EvidenceList) -> str:
+        url = reverse("admin:evidence_hearing_mode", args=[obj.case_id])
+        return format_html('<a class="button" href="{}" target="_blank">⚖️</a>', url)
 
     class Media:
         css: ClassVar = {"all": ("evidence/css/evidence_admin.css",)}

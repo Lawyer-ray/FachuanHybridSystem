@@ -14,7 +14,9 @@ from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, Lawyer
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
 from apps.organization.services import LawyerService
 
-router = Router()
+from apps.core.auth import JWTOrSessionAuth
+
+router = Router(auth=JWTOrSessionAuth())
 
 _lawyer_service = LawyerService()
 

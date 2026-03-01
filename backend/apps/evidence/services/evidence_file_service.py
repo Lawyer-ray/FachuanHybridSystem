@@ -53,7 +53,12 @@ class EvidenceFileService:
         item.file_name = file_name
         item.file_size = file_size
         item.page_count = self._get_page_count(ext=ext, file=file)
+        item.file_hash = self._compute_hash(file)
         item.save()
+
+        # 异步 OCR 提取
+        self._schedule_ocr(item.pk)
+
         return item
 
     @transaction.atomic
@@ -77,3 +82,23 @@ class EvidenceFileService:
 
             return get_pdf_page_count(file, default=1)
         return 1
+
+    @staticmethod
+    def _compute_hash(file: Any) -> str:
+        import hashlib
+
+        h = hashlib.sha256()
+        file.seek(0)
+        for chunk in file.chunks() if hasattr(file, "chunks") else iter(lambda: file.read(8192), b""):
+            h.update(chunk)
+        file.seek(0)
+        return h.hexdigest()
+
+    @staticmethod
+    def _schedule_ocr(item_id: int) -> None:
+        try:
+            from django_q.tasks import async_task
+
+            async_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
+        except Exception:
+            pass

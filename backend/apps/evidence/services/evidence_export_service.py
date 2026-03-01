@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 import io
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from docx import Document
@@ -299,20 +300,20 @@ class EvidenceExportService:
 
         Requirements: 8.2, 8.3
         """
-        # 创建表格:序号、证据名称、证明内容、页码
-        table = doc.add_table(rows=1, cols=4)  # type: ignore[no-untyped-call]
+        # 创建表格:序号、证据名称、证据种类、证明内容、原件状态、页码
+        table = doc.add_table(rows=1, cols=6)  # type: ignore[no-untyped-call]
         table.style = "Table Grid"
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
         # 设置列宽
-        widths = [Cm(1.5), Cm(4), Cm(8), Cm(2.5)]
+        widths = [Cm(1.2), Cm(3.5), Cm(2), Cm(6), Cm(1.8), Cm(1.8)]
         for i, width in enumerate(widths):
             for cell in table.columns[i].cells:
                 cell.width = width
 
         # 表头
         header_cells = table.rows[0].cells
-        headers = ["序号", "证据名称", "证明内容", "页码"]
+        headers = ["序号", "证据名称", "证据种类", "证明内容", "原件/复印件", "页码"]
         for i, header in enumerate(headers):
             header_cells[i].text = header
             header_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -326,9 +327,12 @@ class EvidenceExportService:
             row_cells[0].text = str(global_order)
             row_cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
             row_cells[1].text = item.name
-            row_cells[2].text = item.purpose
-            row_cells[3].text = item.page_range_display
-            row_cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            row_cells[2].text = item.get_evidence_type_display() if item.evidence_type else ""
+            row_cells[3].text = item.purpose
+            row_cells[4].text = item.get_original_status_display() if item.original_status else ""
+            row_cells[4].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            row_cells[5].text = item.page_range_display
+            row_cells[5].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     def _add_evidence_detail_section(self, doc: Document, item: EvidenceItem, global_order: int) -> None:  # type: ignore[override]
         """
@@ -343,6 +347,16 @@ class EvidenceExportService:
         """
         # 证据标题(使用全局序号)
         doc.add_heading(f"证据 {global_order}:{item.name}", level=2)  # type: ignore[no-untyped-call]
+        # 证据种类/方向
+        meta_parts: list[str] = []
+        if item.direction:
+            meta_parts.append(f"方向:{item.get_direction_display()}")
+        if item.evidence_type:
+            meta_parts.append(f"种类:{item.get_evidence_type_display()}")
+        if item.original_status:
+            meta_parts.append(f"原件状态:{item.get_original_status_display()}")
+        if meta_parts:
+            doc.add_paragraph("  ".join(meta_parts))  # type: ignore[no-untyped-call]
         # 证明内容
         doc.add_paragraph(f"证明内容:{item.purpose}")  # type: ignore[no-untyped-call]
         # 页码范围
@@ -437,3 +451,41 @@ class EvidenceExportService:
         """
         # 直接返回当前版本号,不再自动递增
         return evidence_list.export_version
+
+    def export_zip(self, list_id: int) -> tuple[bytes, str]:
+        """
+        导出证据清单为 ZIP 包（含所有证据文件 + Word 清单）
+
+        Returns:
+            (ZIP 内容, 文件名)
+        """
+        import zipfile
+
+        evidence_list = self._get_evidence_list(list_id)
+        items = list(evidence_list.items.order_by("order"))
+        global_start = self._get_global_order_start(evidence_list)
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            # 添加 Word 清单
+            word_content, word_name = self.export_evidence_list(list_id)
+            zf.writestr(word_name, word_content)
+
+            # 添加各证据文件
+            for idx, item in enumerate(items):
+                if not item.file:
+                    continue
+                order = global_start + idx
+                ext = Path(item.file_name).suffix if item.file_name else ""
+                arc_name = f"{order:03d}_{item.name}{ext}"
+                try:
+                    item.file.seek(0)
+                    zf.writestr(arc_name, item.file.read())
+                except Exception:
+                    pass
+
+        buf.seek(0)
+        version = evidence_list.export_version
+        date_str = timezone.now().strftime("%Y%m%d")
+        filename = f"{evidence_list.title}({evidence_list.case.name})V{version}_{date_str}.zip"
+        return buf.read(), filename

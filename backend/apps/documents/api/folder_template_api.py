@@ -22,9 +22,9 @@ router = Router(auth=JWTOrSessionAuth())
 
 def _get_folder_template_service() -> Any:
     """工厂函数:创建 FolderTemplateService 实例"""
-    from apps.documents.services.template.folder_service import FolderTemplateService
+    from apps.core.dependencies.documents_query import build_folder_template_service
 
-    return FolderTemplateService()
+    return build_folder_template_service()
 
 
 @router.get("/folder-templates", response=list[FolderTemplateOut])

@@ -42,6 +42,7 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "is_secret": True,
         },
         {
+            # Faker
             "key": "SILICONFLOW_BASE_URL",
             "category": "ai",
             "description": "硅基流动 API 地址",

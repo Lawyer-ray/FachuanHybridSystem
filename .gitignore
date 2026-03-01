@@ -53,6 +53,8 @@ db.sqlite3
 media/
 staticfiles/
 backend/apiSystem/db.sqlite3
+backend/apiSystem/db.sqlite3-shm
+backend/apiSystem/db.sqlite3-wal
 backend/apiSystem/media/
 backend/apiSystem/htmlcov/
 # Environment
@@ -101,6 +103,9 @@ celerybeat.pid
 *.bak
 .cache/
 **/.cache/
+# LLM benchmark scripts (contain hardcoded API keys)
+llm_benchmark/
+
 # Repo-root one-off scripts (keep root clean)
 /analyze_exceptions.py
 /fix_all_silent_exceptions.py
@@ -108,6 +113,8 @@ celerybeat.pid
 /fix_silent_exceptions.py
 /run_tests.py
 /mypy_services_errors.txt
+/fix_html.py
+/split_index.py
 # Docker volumes (auto-created on first run)
 docker-volumes/
 backend/scripts/
@@ -128,9 +135,36 @@ backend/.secrets.baseline
 
 # Cookies (sensitive data)
 backend/apiSystem/cookies/
+backend/cookies/
 
 # Document templates
 backend/apps/documents/docx_templates/
 
 *.mo
 .dmypy.json
+
+# 公众号文章
+articles/
+
+# 截图和临时报告
+backend/bilibili_screenshot.png
+*.png
+!backend/apps/**/static/**/*.png
+
+# docs 目录（个人分析文档，不公开）
+docs/
+
+# SQLite 数据库（包括备份变体）
+backend/apiSystem/db_new.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# 用户上传的媒体文件
+backend/media/
+media/
+
+# API 结构快照（含接口细节，不应公开）
+backend/tests/structure/snapshots/
+
+# 临时脚本文件
+/tmp/openclaw_*.js

@@ -78,5 +78,21 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
         evidence_list = queryset.first()
         return self.export_list_view(request, evidence_list.pk)
 
+    @admin.action(description=_("导出选中清单的 ZIP"))
+    def export_list_zip(self, request: Any, queryset: Any) -> Any:
+        from django.contrib import messages
+        from django.http import HttpResponse
+
+        if queryset.count() > 1:
+            messages.warning(request, "批量导出请逐个操作")
+            return None
+
+        evidence_list = queryset.first()
+        export_service = self.get_export_service()
+        content, filename = export_service.export_zip(evidence_list.pk)
+        response = HttpResponse(content, content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
 
 __all__: list[str] = ["EvidenceListAdminActionsMixin"]

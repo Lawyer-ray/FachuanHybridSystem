@@ -15,7 +15,7 @@ from apps.documents.models import Placeholder
 
 
 def _get_placeholder_usage_service() -> Any:
-    from apps.documents.services.placeholder_usage_service import PlaceholderUsageService
+    from apps.documents.services.placeholders.placeholder_usage_service import PlaceholderUsageService
 
     return PlaceholderUsageService()
 

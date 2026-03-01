@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from .code_placeholder_registry import CodePlaceholderDefinition, CodePlaceholderRegistry
+from .registry import CodePlaceholderDefinition, CodePlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 

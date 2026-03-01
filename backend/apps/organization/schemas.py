@@ -54,10 +54,12 @@ class LawyerOut(ModelSchema, SchemaMixin):
             "is_active",
         ]
 
-    def resolve_license_pdf_url(self, obj: Lawyer) -> str | None:
-        return self._get_file_url(obj.license_pdf)
+    @staticmethod
+    def resolve_license_pdf_url(obj: Lawyer) -> str | None:
+        return SchemaMixin._get_file_url(obj.license_pdf)
 
-    def resolve_law_firm_detail(self, obj: Lawyer) -> LawFirmOut | None:
+    @staticmethod
+    def resolve_law_firm_detail(obj: Lawyer) -> LawFirmOut | None:
         if not obj.law_firm:
             return None
         return LawFirmOut.from_orm(obj.law_firm)
@@ -152,3 +154,7 @@ class AccountCredentialUpdateIn(Schema):
     url: str | None = None
     account: str | None = None
     password: str | None = None
+
+
+# Pydantic v2 + `from __future__ import annotations` 需要 rebuild
+LoginOut.model_rebuild()

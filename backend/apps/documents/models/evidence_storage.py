@@ -14,6 +14,10 @@ from django.utils.deconstruct import deconstructible
 
 @deconstructible
 class EvidenceFileStorage(FileSystemStorage):
+    def deconstruct(self) -> tuple[str, list[object], dict[str, object]]:
+        """不序列化 location/base_url，避免本机路径写入 migration。"""
+        return (f"{self.__class__.__module__}.{self.__class__.__qualname__}", [], {})
+
     """
     证据文件存储类
 
