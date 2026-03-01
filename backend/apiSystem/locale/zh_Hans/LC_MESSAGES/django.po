@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 17:29+0800\n"
+"POT-Creation-Date: 2026-03-01 03:38+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,22 +18,6262 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: apiSystem/settings.py:240
 msgid "简体中文"
 msgstr ""
 
-#: apiSystem/settings.py:241
 msgid "English"
 msgstr ""
 
-#: templates/admin/base_site.html:5
 msgid "Django site admin"
 msgstr ""
 
-#: templates/admin/base_site.html:225
 msgid "Django administration"
 msgstr ""
 
-#: templates/admin/base_site.html:249
 msgid "我要立案"
+msgstr ""
+
+msgid "基本信息"
+msgstr ""
+
+msgid "调度配置"
+msgstr ""
+
+msgid "运行状态"
+msgstr ""
+
+msgid "时间戳"
+msgstr ""
+
+msgid "账号凭证"
+msgstr ""
+
+msgid "状态"
+msgstr ""
+
+msgid "上次运行"
+msgstr ""
+
+msgid "下次运行"
+msgstr ""
+
+msgid "操作"
+msgstr ""
+
+msgid "🚀 手动触发选中的查询任务"
+msgstr ""
+
+msgid "✓ 启用选中的定时任务"
+msgstr ""
+
+msgid "✗ 禁用选中的定时任务"
+msgstr ""
+
+msgid "查询信息"
+msgstr ""
+
+msgid "关联信息"
+msgstr ""
+
+msgid "时间信息"
+msgstr ""
+
+msgid "文书发送时间"
+msgstr ""
+
+msgid "关联短信"
+msgstr ""
+
+msgid "查询时间"
+msgstr ""
+
+msgid "关联短信链接"
+msgstr ""
+
+msgid "查询后经过时间"
+msgstr ""
+
+msgid "删除30天前的记录"
+msgstr ""
+
+msgid "文书智能识别"
+msgstr ""
+
+msgid "识别结果"
+msgstr ""
+
+msgid "原始文本"
+msgstr ""
+
+msgid "绑定结果"
+msgstr ""
+
+msgid "通知状态"
+msgstr ""
+
+msgid "错误信息"
+msgstr ""
+
+msgid "任务状态"
+msgstr ""
+
+msgid "文书类型"
+msgstr ""
+
+msgid "关联案件"
+msgstr ""
+
+msgid "绑定状态"
+msgstr ""
+
+msgid "收费标准"
+msgstr ""
+
+msgid "费率"
+msgstr ""
+
+msgid "最高保全金额"
+msgstr ""
+
+msgid "请求/响应详情"
+msgstr ""
+
+msgid "报价汇总"
+msgstr ""
+
+msgid "保全金额"
+msgstr ""
+
+msgid "成功/失败/总数"
+msgstr ""
+
+msgid "成功率"
+msgstr ""
+
+msgid "执行时长"
+msgstr ""
+
+msgid "暂无报价数据"
+msgstr ""
+
+msgid "排名"
+msgstr ""
+
+msgid "保险公司"
+msgstr ""
+
+msgid "报价金额"
+msgstr ""
+
+msgid "统计信息"
+msgstr ""
+
+msgid "最低报价"
+msgstr ""
+
+msgid "最高报价"
+msgstr ""
+
+msgid "平均报价"
+msgstr ""
+
+msgid "成功"
+msgstr ""
+
+msgid "失败"
+msgstr ""
+
+msgid "待处理"
+msgstr ""
+
+msgid "处理中"
+msgstr ""
+
+msgid "已完成"
+msgstr ""
+
+msgid "发票数量"
+msgstr ""
+
+msgid "非重复总金额"
+msgstr ""
+
+msgid "文书信息"
+msgstr ""
+
+msgid "下载状态"
+msgstr ""
+
+msgid "文书名称"
+msgstr ""
+
+msgid "法院名称"
+msgstr ""
+
+msgid "文件大小"
+msgstr ""
+
+msgid "文件下载"
+msgstr ""
+
+msgid "快速下载文书"
+msgstr ""
+
+msgid "重试配置"
+msgstr ""
+
+msgid "配置"
+msgstr ""
+
+msgid "执行结果"
+msgstr ""
+
+msgid "立即执行选中的任务"
+msgstr ""
+
+msgid "重置失败任务状态"
+msgstr ""
+
+msgid "🔄 重新处理选中的短信"
+msgstr ""
+
+msgid "解析结果"
+msgstr ""
+
+msgid "处理状态"
+msgstr ""
+
+msgid "飞书通知"
+msgstr ""
+
+msgid "短信类型"
+msgstr ""
+
+msgid "短信内容"
+msgstr ""
+
+msgid "下载链接"
+msgstr ""
+
+msgid "提取的案号"
+msgstr ""
+
+msgid "提取的当事人"
+msgstr ""
+
+msgid "下载任务"
+msgstr ""
+
+msgid "案件日志"
+msgstr ""
+
+msgid "关联文书"
+msgstr ""
+
+msgid "飞书通知详情"
+msgstr ""
+
+msgid "短信信息"
+msgstr ""
+
+msgid "性能指标"
+msgstr ""
+
+msgid "触发原因"
+msgstr ""
+
+msgid "总耗时"
+msgstr ""
+
+msgid "尝试统计"
+msgstr ""
+
+msgid "一次成功"
+msgstr ""
+
+msgid "耗时详情"
+msgstr ""
+
+msgid "错误详情"
+msgstr ""
+
+msgid "性能汇总"
+msgstr ""
+
+msgid "无性能数据"
+msgstr ""
+
+msgid "总耗时:"
+msgstr ""
+
+msgid "秒"
+msgstr ""
+
+msgid "登录耗时:"
+msgstr ""
+
+msgid "尝试次数:"
+msgstr ""
+
+msgid "次"
+msgstr ""
+
+msgid "验证码尝试:"
+msgstr ""
+
+msgid "网络重试:"
+msgstr ""
+
+msgid "优秀"
+msgstr ""
+
+msgid "良好"
+msgstr ""
+
+msgid "需优化"
+msgstr ""
+
+msgid "性能评级"
+msgstr ""
+
+msgid "清理30天前的历史记录"
+msgstr ""
+
+#, python-format
+msgid "✅ 成功清理 %(count)d 条30天前的历史记录"
+msgstr ""
+
+msgid "ℹ️ 没有找到需要清理的历史记录"
+msgstr ""
+
+#, python-format
+msgid "❌ 清理失败: %(error)s"
+msgstr ""
+
+msgid "导出为CSV文件"
+msgstr ""
+
+#, python-format
+msgid "✅ 成功导出 %(count)d 条记录"
+msgstr ""
+
+#, python-format
+msgid "❌ 导出失败: %(error)s"
+msgstr ""
+
+msgid "重新分析性能数据"
+msgstr ""
+
+msgid "Token 信息"
+msgstr ""
+
+msgid "Token 预览"
+msgstr ""
+
+msgid "完整 Token"
+msgstr ""
+
+msgid "剩余时间"
+msgstr ""
+
+msgid "删除已过期的 Token"
+msgstr ""
+
+#, python-format
+msgid "文件不存在: %(path)s"
+msgstr ""
+
+msgid "文档中没有提取到文字内容，无法生成命名"
+msgstr ""
+
+msgid "未提供文件"
+msgstr ""
+
+msgid "服务器内部错误"
+msgstr ""
+
+msgid "任务不存在"
+msgstr ""
+
+msgid "scope=single 时必须提供 invoice_id"
+msgstr ""
+
+msgid "scope=category 时必须提供 category"
+msgstr ""
+
+msgid "无效的 scope 参数，允许值：single/category/all"
+msgstr ""
+
+msgid "任务或发票不存在"
+msgstr ""
+
+#, python-format
+msgid "询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个"
+msgstr ""
+
+#, python-format
+msgid "重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个"
+msgstr ""
+
+msgid "自动化工具"
+msgstr ""
+
+msgid "文档处理"
+msgstr ""
+
+msgid "自动命名工具"
+msgstr ""
+
+msgid "测试法院系统"
+msgstr ""
+
+msgid "交费通知书识别"
+msgstr ""
+
+msgid "测试工具"
+msgstr ""
+
+msgid "财产保全日期识别"
+msgstr ""
+
+msgid "图片自动旋转"
+msgstr ""
+
+msgid "待下载"
+msgstr ""
+
+msgid "下载中"
+msgstr ""
+
+msgid "爬虫任务"
+msgstr ""
+
+msgid "送达编号"
+msgstr ""
+
+msgid "上传编号"
+msgstr ""
+
+msgid "文件链接"
+msgstr ""
+
+msgid "文书编号"
+msgstr ""
+
+msgid "法院编号"
+msgstr ""
+
+msgid "文件格式"
+msgstr ""
+
+msgid "创建时间(原始)"
+msgstr ""
+
+msgid "本地文件路径"
+msgstr ""
+
+msgid "文件大小(字节)"
+msgstr ""
+
+msgid "记录创建时间"
+msgstr ""
+
+msgid "更新时间"
+msgstr ""
+
+msgid "下载完成时间"
+msgstr ""
+
+msgid "法院文书"
+msgstr ""
+
+msgid "案号"
+msgstr ""
+
+msgid "关联短信记录"
+msgstr ""
+
+msgid "文书查询历史"
+msgstr ""
+
+msgid "每天运行次数"
+msgstr ""
+
+msgid "运行间隔(小时)"
+msgstr ""
+
+msgid "在24小时内的运行间隔"
+msgstr ""
+
+msgid "截止时间(小时)"
+msgstr ""
+
+msgid "只处理最近N小时内的文书"
+msgstr ""
+
+msgid "是否启用"
+msgstr ""
+
+msgid "上次运行时间"
+msgstr ""
+
+msgid "下次运行时间"
+msgstr ""
+
+msgid "文书送达定时任务"
+msgstr ""
+
+msgid "解析中"
+msgstr ""
+
+msgid "下载失败"
+msgstr ""
+
+msgid "匹配中"
+msgstr ""
+
+msgid "待人工处理"
+msgstr ""
+
+msgid "重命名中"
+msgstr ""
+
+msgid "通知中"
+msgstr ""
+
+msgid "处理失败"
+msgstr ""
+
+msgid "文书送达"
+msgstr ""
+
+msgid "信息通知"
+msgstr ""
+
+msgid "立案通知"
+msgstr ""
+
+msgid "收到时间"
+msgstr ""
+
+msgid "下载链接列表"
+msgstr ""
+
+msgid "案号列表"
+msgstr ""
+
+msgid "当事人名称列表"
+msgstr ""
+
+msgid "重试次数"
+msgstr ""
+
+msgid "飞书发送时间"
+msgstr ""
+
+msgid "飞书发送错误"
+msgstr ""
+
+msgid "法院短信"
+msgstr ""
+
+msgid "增值税专用发票"
+msgstr ""
+
+msgid "增值税普通发票"
+msgstr ""
+
+msgid "增值税电子普通发票"
+msgstr ""
+
+msgid "机动车销售统一发票"
+msgstr ""
+
+msgid "火车票"
+msgstr ""
+
+msgid "出租车发票"
+msgstr ""
+
+msgid "定额发票"
+msgstr ""
+
+msgid "飞机行程单"
+msgstr ""
+
+msgid "过路费发票"
+msgstr ""
+
+msgid "其他"
+msgstr ""
+
+msgid "待识别"
+msgstr ""
+
+msgid "识别成功"
+msgstr ""
+
+msgid "识别失败"
+msgstr ""
+
+msgid "任务名称"
+msgstr ""
+
+msgid "创建人"
+msgstr ""
+
+msgid "创建时间"
+msgstr ""
+
+msgid "完成时间"
+msgstr ""
+
+msgid "分组合并配置"
+msgstr ""
+
+msgid "发票识别任务"
+msgstr ""
+
+msgid "所属任务"
+msgstr ""
+
+msgid "文件路径"
+msgstr ""
+
+msgid "原始文件名"
+msgstr ""
+
+msgid "发票代码"
+msgstr ""
+
+msgid "发票号码"
+msgstr ""
+
+msgid "开票日期"
+msgstr ""
+
+msgid "金额（不含税）"
+msgstr ""
+
+msgid "税额"
+msgstr ""
+
+msgid "价税合计"
+msgstr ""
+
+msgid "购买方名称"
+msgstr ""
+
+msgid "销售方名称"
+msgstr ""
+
+msgid "项目名称"
+msgstr ""
+
+msgid "发票类目"
+msgstr ""
+
+msgid "OCR 原始文本"
+msgstr ""
+
+msgid "是否重复"
+msgstr ""
+
+msgid "重复的原始记录ID"
+msgstr ""
+
+msgid "识别状态"
+msgstr ""
+
+msgid "发票记录"
+msgstr ""
+
+msgid "等待中"
+msgstr ""
+
+msgid "执行中"
+msgstr ""
+
+msgid "部分成功"
+msgstr ""
+
+msgid "需要保全的财产金额"
+msgstr ""
+
+msgid "法院ID"
+msgstr ""
+
+msgid "法院系统中的法院标识"
+msgstr ""
+
+msgid "分类ID"
+msgstr ""
+
+msgid "保全分类ID (cPid)"
+msgstr ""
+
+msgid "凭证ID"
+msgstr ""
+
+msgid "关联的账号凭证ID(可选,系统会自动获取Token)"
+msgstr ""
+
+msgid "保险公司总数"
+msgstr ""
+
+msgid "成功查询数"
+msgstr ""
+
+msgid "失败查询数"
+msgstr ""
+
+msgid "开始时间"
+msgstr ""
+
+msgid "财产保全询价"
+msgstr ""
+
+msgid "询价任务"
+msgstr ""
+
+msgid "保险公司ID"
+msgstr ""
+
+msgid "cId"
+msgstr ""
+
+msgid "保险公司编码"
+msgstr ""
+
+msgid "cCode"
+msgstr ""
+
+msgid "保险公司名称"
+msgstr ""
+
+msgid "cName"
+msgstr ""
+
+msgid "保险公司给出的担保费报价(通常使用 minPremium)"
+msgstr ""
+
+msgid "最低收费1"
+msgstr ""
+
+msgid "minPremium"
+msgstr ""
+
+msgid "最低收费2"
+msgstr ""
+
+msgid "minAmount"
+msgstr ""
+
+msgid "最高收费"
+msgstr ""
+
+msgid "maxAmount"
+msgstr ""
+
+msgid "最低费率"
+msgstr ""
+
+msgid "minRate"
+msgstr ""
+
+msgid "最高费率"
+msgstr ""
+
+msgid "maxRate"
+msgstr ""
+
+msgid "maxApplyAmount"
+msgstr ""
+
+msgid "查询状态"
+msgstr ""
+
+msgid "完整响应"
+msgstr ""
+
+msgid "API 返回的完整响应数据"
+msgstr ""
+
+msgid "保险公司报价"
+msgstr ""
+
+msgid "识别中"
+msgstr ""
+
+msgid "关键时间"
+msgstr ""
+
+msgid "置信度"
+msgstr ""
+
+msgid "提取方式"
+msgstr ""
+
+msgid "重命名后路径"
+msgstr ""
+
+msgid "绑定成功"
+msgstr ""
+
+msgid "绑定消息"
+msgstr ""
+
+msgid "绑定错误码"
+msgstr ""
+
+msgid "通知已发送"
+msgstr ""
+
+msgid "通知发送时间"
+msgstr ""
+
+msgid "通知错误信息"
+msgstr ""
+
+msgid "文件已发送"
+msgstr ""
+
+msgid "文书识别任务"
+msgstr ""
+
+msgid "下载司法文书"
+msgstr ""
+
+msgid "自动立案"
+msgstr ""
+
+msgid "司法局操作"
+msgstr ""
+
+msgid "公安局操作"
+msgstr ""
+
+msgid "任务类型"
+msgstr ""
+
+msgid "优先级"
+msgstr ""
+
+msgid "1-10,数字越小优先级越高"
+msgstr ""
+
+msgid "目标URL"
+msgstr ""
+
+msgid "存储账号、密码、文件路径等"
+msgstr ""
+
+msgid "最大重试次数"
+msgstr ""
+
+msgid "计划执行时间"
+msgstr ""
+
+msgid "留空则立即执行"
+msgstr ""
+
+msgid "任务管理"
+msgstr ""
+
+msgid "网站名称"
+msgstr ""
+
+msgid "如:court_zxfw"
+msgstr ""
+
+msgid "账号"
+msgstr ""
+
+msgid "Token"
+msgstr ""
+
+msgid "JWT Token 或其他认证令牌"
+msgstr ""
+
+msgid "Token 类型"
+msgstr ""
+
+msgid "如:Bearer, JWT"
+msgstr ""
+
+msgid "过期时间"
+msgstr ""
+
+msgid "Token管理"
+msgstr ""
+
+msgid "超时"
+msgstr ""
+
+msgid "网络错误"
+msgstr ""
+
+msgid "验证码错误"
+msgstr ""
+
+msgid "账号密码错误"
+msgstr ""
+
+msgid "使用账号"
+msgstr ""
+
+msgid "关联的AccountCredential ID"
+msgstr ""
+
+msgid "获取状态"
+msgstr ""
+
+msgid "如:token_expired, no_token, manual_trigger"
+msgstr ""
+
+msgid "尝试次数"
+msgstr ""
+
+msgid "总耗时(秒)"
+msgstr ""
+
+msgid "登录耗时(秒)"
+msgstr ""
+
+msgid "验证码尝试次数"
+msgstr ""
+
+msgid "网络重试次数"
+msgstr ""
+
+msgid "Token预览"
+msgstr ""
+
+msgid "Token的前50个字符"
+msgstr ""
+
+msgid "Token指纹"
+msgstr ""
+
+msgid "Token的SHA256指纹(用于排查重复/归因,不可反推Token)"
+msgstr ""
+
+msgid "Token脱敏摘要"
+msgstr ""
+
+msgid "脱敏后的Token摘要(仅用于人工排查)"
+msgstr ""
+
+msgid "详细错误信息"
+msgstr ""
+
+msgid "包含完整的错误堆栈和上下文"
+msgstr ""
+
+msgid "Token获取历史"
+msgstr ""
+
+msgid "没有选中任何文书"
+msgstr ""
+
+msgid "没有找到可下载的文书"
+msgstr ""
+
+msgid "批量下载文书失败"
+msgstr ""
+
+msgid "没有找到要删除的文书"
+msgstr ""
+
+msgid "批量删除文书失败"
+msgstr ""
+
+msgid "获取文书统计数据失败"
+msgstr ""
+
+msgid "重试失败下载任务失败"
+msgstr ""
+
+msgid "清理孤立文件失败"
+msgstr ""
+
+msgid "获取下载进度失败"
+msgstr ""
+
+msgid "没有选中任何询价任务"
+msgstr ""
+
+msgid "没有找到可执行的询价任务"
+msgstr ""
+
+msgid "批量执行询价任务失败"
+msgstr ""
+
+msgid "重试失败询价任务失败"
+msgstr ""
+
+msgid "获取询价统计数据失败"
+msgstr ""
+
+msgid "没有提供询价配置"
+msgstr ""
+
+msgid "缺少保全金额"
+msgstr ""
+
+msgid "保全金额必须大于0"
+msgstr ""
+
+msgid "批量创建询价任务失败"
+msgstr ""
+
+msgid "询价任务不存在"
+msgstr ""
+
+msgid "获取询价对比分析失败"
+msgstr ""
+
+msgid "保留天数必须大于0"
+msgstr ""
+
+msgid "清理历史记录失败"
+msgstr ""
+
+msgid "没有选中任何记录"
+msgstr ""
+
+msgid "导出CSV文件失败"
+msgstr ""
+
+msgid "性能数据分析失败"
+msgstr ""
+
+msgid "获取仪表板统计数据失败"
+msgstr ""
+
+msgid "文档内容不能为空"
+msgstr ""
+
+msgid "无法识别验证码"
+msgstr ""
+
+msgid "验证码识别失败"
+msgstr ""
+
+msgid "验证码识别异常"
+msgstr ""
+
+msgid "飞书配置不完整，无法发送文件"
+msgstr ""
+
+msgid "API响应中缺少文件key"
+msgstr ""
+
+msgid "飞书配置不完整，无法获取群聊信息"
+msgstr ""
+
+msgid "获取群聊信息成功"
+msgstr ""
+
+msgid "飞书配置不完整，无法获取群聊群主信息"
+msgstr ""
+
+msgid "飞书APP_ID或APP_SECRET未配置"
+msgstr ""
+
+msgid "飞书配置不完整，无法创建群聊"
+msgstr ""
+
+msgid "API响应中缺少群聊ID"
+msgstr ""
+
+msgid "群聊创建成功"
+msgstr ""
+
+msgid "飞书配置不完整，无法发送消息"
+msgstr ""
+
+msgid "消息发送成功"
+msgstr ""
+
+msgid "未识别到案号，无法绑定案件"
+msgstr ""
+
+msgid "任务已绑定到案件"
+msgstr ""
+
+msgid "通知发送成功"
+msgstr ""
+
+msgid "AI 服务暂时不可用，请稍后重试"
+msgstr ""
+
+msgid "文书分类超时，请重试"
+msgstr ""
+
+msgid "信息提取超时，请重试"
+msgstr ""
+
+msgid "暂时只支持传票识别，其他文书类型敬请期待"
+msgstr ""
+
+msgid "执行裁定书绑定功能开发中，敬请期待"
+msgstr ""
+
+msgid "无法从文书中提取文字"
+msgstr ""
+
+msgid "文本内容不能为空"
+msgstr ""
+
+msgid "时间格式不正确"
+msgstr ""
+
+msgid "文件不存在"
+msgstr ""
+
+msgid "不支持的文件格式"
+msgstr ""
+
+msgid "通知发送失败"
+msgstr ""
+
+msgid "所有文书下载失败"
+msgstr ""
+
+msgid "请求失败"
+msgstr ""
+
+msgid "Token 已过期或无效"
+msgstr ""
+
+msgid "文书下载失败"
+msgstr ""
+
+msgid "图片数据解码失败"
+msgstr ""
+
+msgid "未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"
+msgstr ""
+
+msgid "响应中未找到费率数据"
+msgstr ""
+
+msgid "未获取到保险公司列表,请检查分类 ID 和法院 ID 是否正确"
+msgstr ""
+
+msgid "数据验证失败"
+msgstr ""
+
+msgid "参数验证失败"
+msgstr ""
+
+msgid "所有保险公司查询均失败"
+msgstr ""
+
+#, python-format
+msgid "不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。"
+msgstr ""
+
+#, python-format
+msgid "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。"
+msgstr ""
+
+msgid "识别失败，请重试"
+msgstr ""
+
+msgid "大模型调用失败"
+msgstr ""
+
+msgid "配置验证失败"
+msgstr ""
+
+msgid "浏览器启动失败"
+msgstr ""
+
+msgid "浏览器上下文创建失败"
+msgstr ""
+
+msgid "浏览器操作失败"
+msgstr ""
+
+msgid "所有下载方式均失败"
+msgstr ""
+
+#, python-format
+msgid "开始在线立案: 法院=%s, 案由=%s"
+msgstr ""
+
+msgid "立案流程执行完成"
+msgstr ""
+
+msgid "立案流程执行完成（已到预览页，未提交）"
+msgstr ""
+
+#, python-format
+msgid "立案失败: %(error)s"
+msgstr ""
+
+msgid "导航到民事一审立案页"
+msgstr ""
+
+#, python-format
+msgid "已打开民事一审立案页: %s"
+msgstr ""
+
+#, python-format
+msgid "步骤1: 选择受理法院 - %s"
+msgstr ""
+
+#, python-format
+msgid "步骤1完成: 已选择法院 %s"
+msgstr ""
+
+msgid "步骤2: 阅读须知"
+msgstr ""
+
+msgid "步骤2完成: 须知已确认，已选择立案方式"
+msgstr ""
+
+#, python-format
+msgid "步骤3: 选择案由 - %s"
+msgstr ""
+
+#, python-format
+msgid "步骤3完成: 已选择案由 %s"
+msgstr ""
+
+msgid "步骤4: 上传诉讼材料"
+msgstr ""
+
+msgid "步骤4完成: 材料已上传"
+msgstr ""
+
+msgid "步骤5: 完善案件信息"
+msgstr ""
+
+msgid "步骤5完成: 案件信息已填写"
+msgstr ""
+
+msgid "步骤6: 预览（不提交）"
+msgstr ""
+
+msgid "步骤6完成: 已到达预览页，未提交"
+msgstr ""
+
+msgid "短信内容不能为空"
+msgstr ""
+
+msgid "创建案件绑定失败"
+msgstr ""
+
+msgid "未能匹配到唯一的在办案件，需要人工处理"
+msgstr ""
+
+msgid "案件群聊通知发送失败"
+msgstr ""
+
+msgid "恢复时发现重试次数已用完"
+msgstr ""
+
+msgid "下载重试次数已用完"
+msgstr ""
+
+msgid "超时但Token已保存"
+msgstr ""
+
+msgid "登录成功但未获取到token"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "发票识别任务详情"
+msgstr ""
+
+msgid "首页"
+msgstr ""
+
+msgid "识别中，自动刷新..."
+msgstr ""
+
+msgid "上传发票文件"
+msgstr ""
+
+msgid "拖拽文件到此处，或点击选择文件"
+msgstr ""
+
+msgid "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选"
+msgstr ""
+
+msgid "上传中"
+msgstr ""
+
+msgid "张"
+msgstr ""
+
+msgid "下载"
+msgstr ""
+
+msgid "下载 PDF"
+msgstr ""
+
+msgid "下载 ZIP"
+msgstr ""
+
+msgid "重复发票"
+msgstr ""
+
+msgid "非重复发票总金额"
+msgstr ""
+
+msgid "下载全部发票"
+msgstr ""
+
+msgid "下载全部 PDF"
+msgstr ""
+
+msgid "下载全部 ZIP"
+msgstr ""
+
+msgid "暂无发票记录，请上传发票文件开始识别"
+msgstr ""
+
+msgid "上传失败"
+msgstr ""
+
+msgid "上传成功，正在识别..."
+msgstr ""
+
+msgid "加载状态失败"
+msgstr ""
+
+msgid "合并分组"
+msgstr ""
+
+msgid "重复原因"
+msgstr ""
+
+msgid "群聊ID"
+msgstr ""
+
+msgid "平台"
+msgstr ""
+
+#, python-format
+msgid "解除绑定群聊 %(chat)s 失败: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "成功解除绑定 %d 个群聊"
+msgstr ""
+
+msgid "解除绑定选中的群聊"
+msgstr ""
+
+#, python-format
+msgid "成功解除绑定群聊: %s"
+msgstr ""
+
+#, python-format
+msgid "解除绑定群聊失败: %s"
+msgstr ""
+
+#, python-format
+msgid "解除绑定群聊时发生错误: %s"
+msgstr ""
+
+msgid "当前阶段"
+msgstr ""
+
+msgid "请输入案由关键词..."
+msgstr ""
+
+msgid "当前阶段不在可选范围内"
+msgstr ""
+
+msgid "当前阶段必须在合同的代理阶段范围内"
+msgstr ""
+
+msgid "该案件类型不支持阶段设置"
+msgstr ""
+
+#, python-format
+msgid "代理阶段包含无效值: %s"
+msgstr ""
+
+#, python-format
+msgid "案件数据验证失败: %s"
+msgstr ""
+
+msgid "请输入法院名称..."
+msgstr ""
+
+msgid "是否为我方当事人"
+msgstr ""
+
+#, python-format
+msgid "已复制案件,正在编辑新案件: %s"
+msgstr ""
+
+#, python-format
+msgid "复制失败: %s"
+msgstr ""
+
+#, python-format
+msgid "案件「%s」已保存"
+msgstr ""
+
+#, python-format
+msgid "案件 %(case)s 已存在飞书群聊: %(chat)s"
+msgstr ""
+
+#, python-format
+msgid "成功为案件 %(case)s 创建飞书群聊: %(chat)s"
+msgstr ""
+
+#, python-format
+msgid "为案件 %(case)s 创建飞书群聊失败: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "为案件 %(case)s 创建群聊时发生未知错误: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "总计成功创建 %d 个飞书群聊"
+msgstr ""
+
+#, python-format
+msgid "总计 %d 个案件创建群聊失败"
+msgstr ""
+
+msgid "为选中案件创建飞书群聊"
+msgstr ""
+
+#, python-format
+msgid "已强制删除案件 %(case_id)s(已绕过外键检查)"
+msgstr ""
+
+#, python-format
+msgid "已强制批量删除 %d 个案件(已绕过外键检查)"
+msgstr ""
+
+#, python-format
+msgid "处理建档编号失败: %s"
+msgstr ""
+
+#, python-format
+msgid "同步模板绑定失败: %s"
+msgstr ""
+
+#, python-format
+msgid "同步律师指派失败: %s"
+msgstr ""
+
+msgid "案件名称"
+msgstr ""
+
+msgid "案件不存在"
+msgstr ""
+
+#, python-format
+msgid "模拟庭审: %(name)s"
+msgstr ""
+
+msgid "诉讼费用计算器"
+msgstr ""
+
+msgid "未设置案件类型"
+msgstr ""
+
+#, python-format
+msgid "案件详情: %(name)s"
+msgstr ""
+
+msgid "未设置案件阶段"
+msgstr ""
+
+#, python-format
+msgid "上传/绑定材料: %(name)s"
+msgstr ""
+
+msgid "无匹配的文件夹模板"
+msgstr ""
+
+msgid "未关联合同"
+msgstr ""
+
+msgid "未绑定文件夹"
+msgstr ""
+
+msgid "合同文件夹路径"
+msgstr ""
+
+msgid "未生成"
+msgstr ""
+
+msgid "建档编号"
+msgstr ""
+
+msgid "✓ 已绑定"
+msgstr ""
+
+msgid "未绑定"
+msgstr ""
+
+msgid "文件夹绑定"
+msgstr ""
+
+msgid "匹配的文件夹模板"
+msgstr ""
+
+msgid "案由不存在"
+msgstr ""
+
+msgid "案件管理"
+msgstr ""
+
+msgid "stages_not_applicable"
+msgstr ""
+
+#, python-format
+msgid "invalid_rep:%(stages)s"
+msgstr ""
+
+msgid "invalid_cur"
+msgstr ""
+
+msgid "cur_not_in_rep"
+msgstr ""
+
+msgid "关联合同"
+msgstr ""
+
+msgid "是否已建档"
+msgstr ""
+
+msgid "格式: {年份}_{案件类型}_{AJ}_{序号}"
+msgstr ""
+
+msgid "案件状态"
+msgstr ""
+
+msgid "收案日期"
+msgstr ""
+
+msgid "生效日期"
+msgstr ""
+
+msgid "指定日期"
+msgstr ""
+
+msgid "案由"
+msgstr ""
+
+msgid "涉案金额"
+msgstr ""
+
+msgid "财产保全金额"
+msgstr ""
+
+msgid "案件类型"
+msgstr ""
+
+msgid "案件"
+msgstr ""
+
+msgid "无效的案件阶段"
+msgstr ""
+
+msgid "年份"
+msgstr ""
+
+msgid "下一个序号"
+msgstr ""
+
+msgid "案件建档编号序列"
+msgstr ""
+
+msgid "是否已生效"
+msgstr ""
+
+msgid "备注"
+msgstr ""
+
+msgid "案件案号"
+msgstr ""
+
+msgid "名称"
+msgstr ""
+
+msgid "性质"
+msgstr ""
+
+msgid "主管机关"
+msgstr ""
+
+msgid "群名"
+msgstr ""
+
+msgid "是否有效"
+msgstr ""
+
+msgid "群主ID"
+msgstr ""
+
+msgid "飞书用户的open_id或其他平台的用户标识符"
+msgstr ""
+
+msgid "群主已验证"
+msgstr ""
+
+msgid "群主设置是否已验证"
+msgstr ""
+
+msgid "群主验证时间"
+msgstr ""
+
+msgid "群主设置验证成功的时间"
+msgstr ""
+
+msgid "创建审计日志"
+msgstr ""
+
+msgid "群聊创建过程的详细日志,包含群主设置信息"
+msgstr ""
+
+msgid "案件群聊"
+msgstr ""
+
+msgid "未设置群主"
+msgstr ""
+
+msgid "已验证"
+msgstr ""
+
+msgid "未验证"
+msgstr ""
+
+msgid "开始创建"
+msgstr ""
+
+msgid "创建成功"
+msgstr ""
+
+msgid "创建失败"
+msgstr ""
+
+msgid "设置群主"
+msgstr ""
+
+msgid "验证群主"
+msgstr ""
+
+msgid "重试群主设置"
+msgstr ""
+
+msgid "群主设置失败"
+msgstr ""
+
+msgid "配置错误"
+msgstr ""
+
+msgid "关联群聊"
+msgstr ""
+
+msgid "关联的群聊,某些操作(如配置错误)可能没有关联群聊"
+msgstr ""
+
+msgid "关联的案件"
+msgstr ""
+
+msgid "操作类型"
+msgstr ""
+
+msgid "执行的操作类型"
+msgstr ""
+
+msgid "操作详情"
+msgstr ""
+
+msgid "操作的详细信息,以JSON格式存储"
+msgstr ""
+
+msgid "操作发生的时间"
+msgstr ""
+
+msgid "操作成功"
+msgstr ""
+
+msgid "操作是否成功执行"
+msgstr ""
+
+msgid "操作失败时的错误信息"
+msgstr ""
+
+msgid "群聊的外部ID,便于查询"
+msgstr ""
+
+msgid "群聊平台"
+msgstr ""
+
+msgid "审计版本"
+msgstr ""
+
+msgid "审计日志格式版本"
+msgstr ""
+
+msgid "群聊审计日志"
+msgstr ""
+
+msgid "不支持的文件类型"
+msgstr ""
+
+msgid "文件大小超过50MB限制"
+msgstr ""
+
+msgid "日志内容"
+msgstr ""
+
+msgid "操作人"
+msgstr ""
+
+msgid "创建日期"
+msgstr ""
+
+msgid "修改日期"
+msgstr ""
+
+msgid "日志"
+msgstr ""
+
+msgid "相关文书"
+msgstr ""
+
+msgid "上传时间"
+msgstr ""
+
+msgid "案件日志附件"
+msgstr ""
+
+msgid "历史内容"
+msgstr ""
+
+msgid "版本时间"
+msgstr ""
+
+msgid "操作者"
+msgstr ""
+
+msgid "案件日志版本"
+msgstr ""
+
+msgid "当事人材料"
+msgstr ""
+
+msgid "非当事人材料"
+msgstr ""
+
+msgid "我方当事人材料"
+msgstr ""
+
+msgid "对方当事人材料"
+msgstr ""
+
+msgid "材料大类"
+msgstr ""
+
+msgid "类型名称"
+msgstr ""
+
+msgid "律所"
+msgstr ""
+
+msgid "案件材料类型"
+msgstr ""
+
+msgid "材料类型"
+msgstr ""
+
+msgid "来源日志附件"
+msgstr ""
+
+msgid "当事人方向"
+msgstr ""
+
+msgid "关联当事人"
+msgstr ""
+
+msgid "案件材料"
+msgstr ""
+
+msgid "排序"
+msgstr ""
+
+msgid "案件材料分组顺序"
+msgstr ""
+
+msgid "文件夹路径"
+msgstr ""
+
+msgid "绑定的本地或网络文件夹路径"
+msgstr ""
+
+msgid "绑定时间"
+msgstr ""
+
+msgid "案件文件夹绑定"
+msgstr ""
+
+msgid "当事人"
+msgstr ""
+
+msgid "诉讼地位"
+msgstr ""
+
+msgid "案件当事人"
+msgstr ""
+
+msgid "律师"
+msgstr ""
+
+msgid "案件指派"
+msgstr ""
+
+msgid "获授权律师"
+msgstr ""
+
+msgid "案件访问授权"
+msgstr ""
+
+msgid "自动推荐"
+msgstr ""
+
+msgid "手动绑定"
+msgstr ""
+
+msgid "文书模板"
+msgstr ""
+
+msgid "绑定来源"
+msgstr ""
+
+msgid "案件模板绑定"
+msgstr ""
+
+msgid "文件夹路径不能为空"
+msgstr ""
+
+msgid "无权限查看他人授权记录"
+msgstr ""
+
+#, python-format
+msgid "授权 %(id)s 不存在"
+msgstr ""
+
+msgid "无权限查看该授权记录"
+msgstr ""
+
+#, python-format
+msgid "案件 %(id)s 不存在"
+msgstr ""
+
+msgid "该用户已有此案件的访问权限"
+msgstr ""
+
+msgid "无权限查看他人可访问案件"
+msgstr ""
+
+msgid "授权记录不存在"
+msgstr ""
+
+msgid "查询失败"
+msgstr ""
+
+msgid "该案件类型不支持此阶段"
+msgstr ""
+
+msgid "阶段不适用于此案件类型"
+msgstr ""
+
+msgid "当前阶段必须属于代理阶段集合"
+msgstr ""
+
+msgid "阶段不在代理范围内"
+msgstr ""
+
+msgid "合同不存在"
+msgstr ""
+
+msgid "合同未激活"
+msgstr ""
+
+msgid "合同状态不是 active"
+msgstr ""
+
+msgid "无权限访问此案件"
+msgstr ""
+
+msgid "系统中没有律师用户,无法创建日志"
+msgstr ""
+
+msgid "请先创建律师用户"
+msgstr ""
+
+#, python-format
+msgid "案件日志 %(id)s 不存在"
+msgstr ""
+
+msgid "操作人不能为空"
+msgstr ""
+
+msgid "创建日志时必须提供有效的操作人"
+msgstr ""
+
+msgid "当事人数据重复"
+msgstr ""
+
+msgid "指派数据重复"
+msgstr ""
+
+msgid "创建群聊时发生系统错误"
+msgstr ""
+
+msgid "短信内容为必填项"
+msgstr ""
+
+msgid "发送文书通知时发生系统错误"
+msgstr ""
+
+msgid "解除群聊绑定时发生系统错误"
+msgstr ""
+
+msgid "群聊ID不能为空"
+msgstr ""
+
+msgid "群聊ID为必填项"
+msgstr ""
+
+msgid "创建群聊绑定记录失败"
+msgstr ""
+
+msgid "发送消息时发生系统错误"
+msgstr ""
+
+msgid "获取案件群聊ID时发生系统错误"
+msgstr ""
+
+msgid "获取或创建群聊时发生系统错误"
+msgstr ""
+
+msgid "案件对象不能为空"
+msgstr ""
+
+msgid "案件对象为必填项"
+msgstr ""
+
+msgid "案件名称不能为空"
+msgstr ""
+
+msgid "案件名称为必填项"
+msgstr ""
+
+#, python-format
+msgid "群聊已解散,重新创建群聊失败: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "消息和所有文件发送成功 (%(count)s 个文件)"
+msgstr ""
+
+#, python-format
+msgid "消息发送成功,部分文件发送成功 (%(ok)s/%(total)s 个文件)"
+msgstr ""
+
+#, python-format
+msgid "消息发送成功,但所有文件发送失败 (%(count)s 个文件)"
+msgstr ""
+
+#, python-format
+msgid "无法获取群聊提供者: %(platform)s"
+msgstr ""
+
+#, python-format
+msgid "群聊平台不可用: %(platform)s"
+msgstr ""
+
+msgid "配置不完整或服务不可用"
+msgstr ""
+
+msgid "无效的案件ID"
+msgstr ""
+
+msgid "案件ID必须是正整数"
+msgstr ""
+
+#, python-format
+msgid "案件不存在: ID=%(id)s"
+msgstr ""
+
+msgid "无效的群聊ID"
+msgstr ""
+
+msgid "群聊ID必须是正整数"
+msgstr ""
+
+msgid "该群聊已绑定到此案件"
+msgstr ""
+
+#, python-format
+msgid "数据文件不存在: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "数据文件格式错误: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "加载数据文件失败: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "无效的案件类型: %(type)s"
+msgstr ""
+
+msgid "涉案金额不能为负数"
+msgstr ""
+
+msgid "财产保全金额不能为负数"
+msgstr ""
+
+msgid "无权限上传附件"
+msgstr ""
+
+#, python-format
+msgid "附件 %(attachment_id)s 不存在"
+msgstr ""
+
+msgid "无权限删除此附件"
+msgstr ""
+
+msgid "附件校验失败"
+msgstr ""
+
+#, python-format
+msgid "案件 %(case_id)s 不存在"
+msgstr ""
+
+msgid "用户未认证"
+msgstr ""
+
+msgid "无权限创建此案件日志"
+msgstr ""
+
+msgid "缺少有效的操作人"
+msgstr ""
+
+msgid "无权限修改此日志"
+msgstr ""
+
+msgid "无权限删除此日志"
+msgstr ""
+
+msgid "无权限访问此日志"
+msgstr ""
+
+#, python-format
+msgid "日志 %(log_id)s 不存在"
+msgstr ""
+
+msgid "无权限访问此日志版本"
+msgstr ""
+
+msgid "部分附件不存在或不属于该案件"
+msgstr ""
+
+msgid "材料大类不合法"
+msgstr ""
+
+msgid "类型名称不能为空"
+msgstr ""
+
+msgid "当事人方向不合法"
+msgstr ""
+
+msgid "必须选择主管机关"
+msgstr ""
+
+msgid "主管机关不属于该案件"
+msgstr ""
+
+msgid "材料类型不存在"
+msgstr ""
+
+msgid "包含无效当事人"
+msgstr ""
+
+msgid "当事人不属于我方"
+msgstr ""
+
+msgid "当事人不属于对方"
+msgstr ""
+
+msgid "包含无效的材料类型"
+msgstr ""
+
+msgid "案件类型不能为空"
+msgstr ""
+
+msgid "年份格式无效"
+msgstr ""
+
+msgid "建档编号生成失败(数据库未迁移)"
+msgstr ""
+
+msgid ""
+"缺少表 cases_casefilingnumbersequence,请执行迁移 "
+"cases.0009_case_filing_number_sequence"
+msgstr ""
+
+msgid "建档编号生成失败"
+msgstr ""
+
+msgid "案号不存在"
+msgstr ""
+
+msgid "案号不能为空"
+msgstr ""
+
+msgid "指派不存在"
+msgstr ""
+
+msgid "指派已存在"
+msgstr ""
+
+msgid "关联合同不存在"
+msgstr ""
+
+msgid "当事人必须属于绑定合同的当事人范围"
+msgstr ""
+
+#, python-format
+msgid "诉讼地位 %(status)s 不适用于当前案件"
+msgstr ""
+
+msgid "诉讼地位与现有当事人不兼容"
+msgstr ""
+
+#, python-format
+msgid ""
+"我方当事人诉讼地位冲突:案件中已有我方当事人「%(name)s」为%(existing)s,不能再"
+"添加我方当事人为%(new)s"
+msgstr ""
+
+msgid "我方当事人不能同时处于对立诉讼地位"
+msgstr ""
+
+msgid "客户不存在"
+msgstr ""
+
+msgid "当事人已存在"
+msgstr ""
+
+msgid "当事人不存在"
+msgstr ""
+
+msgid "模板不存在"
+msgstr ""
+
+msgid "绑定关系已存在"
+msgstr ""
+
+msgid "自动推荐的模板不能手动移除"
+msgstr ""
+
+msgid "自动推荐的绑定不允许删除"
+msgstr ""
+
+msgid "通用"
+msgstr ""
+
+msgid "当事人非我方当事人"
+msgstr ""
+
+msgid "当事人非法人"
+msgstr ""
+
+msgid "模板文件路径为空"
+msgstr ""
+
+#, python-format
+msgid "模板文件不存在: %(path)s"
+msgstr ""
+
+#, python-format
+msgid "模板渲染失败: %(err)s"
+msgstr ""
+
+msgid "需要管理员权限"
+msgstr ""
+
+msgid "绑定记录不存在"
+msgstr ""
+
+msgid "法定代表人身份证明书需要指定当事人"
+msgstr ""
+
+msgid "必须提供 client_id"
+msgstr ""
+
+msgid "必须提供 template_id 或 function_code"
+msgstr ""
+
+msgid "必须提供 function_code"
+msgstr ""
+
+#, python-format
+msgid "未找到功能标识为 %(code)s 的活跃模板"
+msgstr ""
+
+msgid "法院一张网在线立案"
+msgstr ""
+
+msgid "加载中..."
+msgstr ""
+
+msgid "管辖法院"
+msgstr ""
+
+msgid "标的额"
+msgstr ""
+
+msgid "开始一张网立案"
+msgstr ""
+
+msgid "执行中..."
+msgstr ""
+
+msgid "请先设置管辖法院（案件管辖机关）"
+msgstr ""
+
+msgid "匹配的模板"
+msgstr ""
+
+msgid "文件模板"
+msgstr ""
+
+msgid "无匹配模板"
+msgstr ""
+
+msgid "文件夹模板"
+msgstr ""
+
+msgid "已绑定"
+msgstr ""
+
+msgid "证据清单"
+msgstr ""
+
+msgid "新建证据清单"
+msgstr ""
+
+msgid "查看全部"
+msgstr ""
+
+msgid "第"
+msgstr ""
+
+msgid "份"
+msgstr ""
+
+msgid "证据数量"
+msgstr ""
+
+msgid "总页数"
+msgstr ""
+
+msgid "页码范围"
+msgstr ""
+
+msgid "导出版本"
+msgstr ""
+
+msgid "已合并"
+msgstr ""
+
+msgid "未合并"
+msgstr ""
+
+msgid "合并PDF"
+msgstr ""
+
+msgid "导出清单"
+msgstr ""
+
+msgid "下载PDF"
+msgstr ""
+
+msgid "暂无证据清单"
+msgstr ""
+
+msgid "点击上方\\"
+msgstr ""
+
+msgid "快速文档生成"
+msgstr ""
+
+msgid "模板生成（快速生成，无需 AI）"
+msgstr ""
+
+msgid "使用预设模板快速生成文书，适合标准化案件"
+msgstr ""
+
+msgid "模板生成"
+msgstr ""
+
+msgid "选择诉状类型"
+msgstr ""
+
+msgid "开发中"
+msgstr ""
+
+msgid "取消"
+msgstr ""
+
+msgid "下一步"
+msgstr ""
+
+msgid "确认生成信息"
+msgstr ""
+
+msgid "⚠ 未生成"
+msgstr ""
+
+msgid "上一步"
+msgstr ""
+
+msgid "确认生成"
+msgstr ""
+
+msgid "生成中..."
+msgstr ""
+
+msgid "生成授权委托材料"
+msgstr ""
+
+msgid "没有我方当事人，无法生成全套委托材料"
+msgstr ""
+
+msgid "全套委托材料"
+msgstr ""
+
+msgid "我方当事人无法人，无需生成身份证明书"
+msgstr ""
+
+msgid "法定代表人身份证明书"
+msgstr ""
+
+msgid "所函"
+msgstr ""
+
+msgid "没有我方当事人，无法生成授权委托书"
+msgstr ""
+
+msgid "授权委托书"
+msgstr ""
+
+msgid "选择法人"
+msgstr ""
+
+msgid "全选"
+msgstr ""
+
+msgid "生成并下载"
+msgstr ""
+
+msgid "单独授权"
+msgstr ""
+
+msgid "合并授权"
+msgstr ""
+
+msgid "将对所有我方当事人合并授权，无需选择。"
+msgstr ""
+
+msgid "生成财产保全材料"
+msgstr ""
+
+msgid "全套财产保全材料"
+msgstr ""
+
+msgid "财产保全申请书"
+msgstr ""
+
+msgid "暂缓送达申请书"
+msgstr ""
+
+msgid "文件夹生成"
+msgstr ""
+
+msgid "功能开发中"
+msgstr ""
+
+msgid "生成文件夹"
+msgstr ""
+
+msgid "我方"
+msgstr ""
+
+msgid "对方"
+msgstr ""
+
+msgid "暂无当事人"
+msgstr ""
+
+msgid "律师指派"
+msgstr ""
+
+msgid "暂无指派律师"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "解除绑定"
+msgstr ""
+
+msgid "Save and add another"
+msgstr ""
+
+msgid "Save and continue editing"
+msgstr ""
+
+msgid "工作台"
+msgstr ""
+
+msgid "文件"
+msgstr ""
+
+msgid "导出文件尚未生成"
+msgstr ""
+
+msgid "梳理聊天记录"
+msgstr ""
+
+msgid "PDF"
+msgstr ""
+
+msgid "Word"
+msgstr ""
+
+msgid "未知"
+msgstr ""
+
+msgid "视频抽帧"
+msgstr ""
+
+msgid "手动上传"
+msgstr ""
+
+msgid "固定间隔"
+msgstr ""
+
+msgid "画面变化优先"
+msgstr ""
+
+msgid "智能去重"
+msgstr ""
+
+msgid "关键帧(I帧)"
+msgstr ""
+
+msgid "OCR 文本变化优先"
+msgstr ""
+
+msgid "项目"
+msgstr ""
+
+msgid "导出类型"
+msgstr ""
+
+msgid "版式配置"
+msgstr ""
+
+msgid "进度百分比"
+msgstr ""
+
+msgid "当前项"
+msgstr ""
+
+msgid "总项"
+msgstr ""
+
+msgid "进度信息"
+msgstr ""
+
+msgid "导出文件"
+msgstr ""
+
+msgid "聊天记录导出任务"
+msgstr ""
+
+msgid "说明"
+msgstr ""
+
+msgid "录屏文件"
+msgstr ""
+
+msgid "时长(秒)"
+msgstr ""
+
+msgid "抽帧状态"
+msgstr ""
+
+msgid "抽帧策略"
+msgstr ""
+
+msgid "抽帧去重阈值"
+msgstr ""
+
+msgid "OCR 相似度阈值"
+msgstr ""
+
+msgid "OCR 新增字符阈值"
+msgstr ""
+
+msgid "请求取消抽帧"
+msgstr ""
+
+msgid "抽帧进度百分比"
+msgstr ""
+
+msgid "抽帧当前项"
+msgstr ""
+
+msgid "抽帧总项"
+msgstr ""
+
+msgid "抽帧进度信息"
+msgstr ""
+
+msgid "抽帧错误信息"
+msgstr ""
+
+msgid "抽帧开始时间"
+msgstr ""
+
+msgid "抽帧完成时间"
+msgstr ""
+
+msgid "聊天记录录屏"
+msgstr ""
+
+msgid "截图"
+msgstr ""
+
+msgid "顺序"
+msgstr ""
+
+msgid "标题"
+msgstr ""
+
+msgid "截图时间点(秒)"
+msgstr ""
+
+msgid "内容哈希"
+msgstr ""
+
+msgid "感知哈希"
+msgstr ""
+
+msgid "帧评分"
+msgstr ""
+
+msgid "来源"
+msgstr ""
+
+msgid "已过滤"
+msgstr ""
+
+msgid "聊天记录截图"
+msgstr ""
+
+msgid "无权限访问该项目"
+msgstr ""
+
+msgid "准备导出"
+msgstr ""
+
+msgid "任务已提交"
+msgstr ""
+
+msgid "仅支持 1 张/页 或 2 张/页"
+msgstr ""
+
+msgid "抽帧任务已提交"
+msgstr ""
+
+msgid "已请求取消"
+msgstr ""
+
+msgid "已重置"
+msgstr ""
+
+msgid "等待抽帧"
+msgstr ""
+
+msgid "截图文件读取失败，无法进行去重"
+msgstr ""
+
+msgid "上传文件"
+msgstr ""
+
+msgid "身份证号码"
+msgstr ""
+
+msgid "统一社会信用代码"
+msgstr ""
+
+msgid "上传后将自动重命名为：当事人名称_证件类型.扩展名"
+msgstr ""
+
+msgid "当前文件："
+msgstr ""
+
+msgid "文件已重命名为标准格式"
+msgstr ""
+
+#, python-format
+msgid "文件重命名失败: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "成功重命名 %(count)d 个文件"
+msgstr ""
+
+#, python-format
+msgid "%(count)d 个文件重命名失败"
+msgstr ""
+
+msgid "重命名选中的文件"
+msgstr ""
+
+msgid "身份证合并"
+msgstr ""
+
+msgid "请上传身份证正面图片"
+msgstr ""
+
+msgid "请上传身份证反面图片"
+msgstr ""
+
+msgid "身份证合并成功!"
+msgstr ""
+
+msgid "点击下载 PDF"
+msgstr ""
+
+msgid "未知错误"
+msgstr ""
+
+#, python-format
+msgid "自动检测失败: %(msg)s"
+msgstr ""
+
+#, python-format
+msgid "合并失败: %(msg)s"
+msgstr ""
+
+msgid "四角坐标格式错误,请输入有效的 JSON 数组"
+msgstr ""
+
+msgid "线索类型"
+msgstr ""
+
+msgid "内容摘要"
+msgstr ""
+
+#, python-format
+msgid "%(count)d 个附件"
+msgstr ""
+
+msgid "无附件"
+msgstr ""
+
+msgid "附件"
+msgstr ""
+
+msgid "未能解析出客户信息"
+msgstr ""
+
+msgid "证件类型数量与文件数量不一致"
+msgstr ""
+
+msgid "doc_types 与 files 长度必须一致"
+msgstr ""
+
+msgid "证件文档添加成功"
+msgstr ""
+
+msgid "证件文档删除成功"
+msgstr ""
+
+msgid "当事人管理"
+msgstr ""
+
+#, python-format
+msgid "完成：更新 %(u)d 条，跳过 %(s)d 条"
+msgstr ""
+
+msgid "自然人"
+msgstr ""
+
+msgid "法人"
+msgstr ""
+
+msgid "非法人组织"
+msgstr ""
+
+msgid "联系电话"
+msgstr ""
+
+msgid "住所地"
+msgstr ""
+
+msgid "主体类型"
+msgstr ""
+
+msgid "身份证号码或统一社会信用代码"
+msgstr ""
+
+msgid "法定代表人或负责人"
+msgstr ""
+
+msgid "法定代表人/负责人身份证号码"
+msgstr ""
+
+msgid "Required for legal organizations"
+msgstr ""
+
+msgid "身份证"
+msgstr ""
+
+msgid "护照"
+msgstr ""
+
+msgid "港澳通行证"
+msgstr ""
+
+msgid "居住证"
+msgstr ""
+
+msgid "户口本"
+msgstr ""
+
+msgid "营业执照"
+msgstr ""
+
+msgid "法定代表人/负责人身份证"
+msgstr ""
+
+msgid "证件类型"
+msgstr ""
+
+msgid "到期日期"
+msgstr ""
+
+msgid "Invalid doc type for natural person"
+msgstr ""
+
+msgid "Invalid doc type for organization"
+msgstr ""
+
+msgid "当事人证件文件"
+msgstr ""
+
+msgid "银行账户"
+msgstr ""
+
+msgid "支付宝账户"
+msgstr ""
+
+msgid "微信账户"
+msgstr ""
+
+msgid "不动产"
+msgstr ""
+
+msgid ""
+"户名:\n"
+"开户行:\n"
+"银行账号:"
+msgstr ""
+
+msgid ""
+"微信号:\n"
+"微信实名:"
+msgstr ""
+
+msgid ""
+"支付宝账号:\n"
+"支付宝实名:"
+msgstr ""
+
+msgid "线索内容"
+msgstr ""
+
+msgid "财产线索"
+msgstr ""
+
+msgid "文件名"
+msgstr ""
+
+msgid "财产线索附件"
+msgstr ""
+
+msgid "无权限创建客户"
+msgstr ""
+
+msgid "无权限更新该客户"
+msgstr ""
+
+msgid "无权限删除该客户"
+msgstr ""
+
+#, python-format
+msgid "ID 为 %(id)s 的客户不存在"
+msgstr ""
+
+#, python-format
+msgid "ID 为 %(id)s 的当事人不存在"
+msgstr ""
+
+msgid "证件文档不存在"
+msgstr ""
+
+#, python-format
+msgid "ID 为 %(id)s 的证件文档不存在"
+msgstr ""
+
+msgid "客户名称不能为空"
+msgstr ""
+
+msgid "无效的客户类型"
+msgstr ""
+
+msgid "法人客户必须填写法定代表人"
+msgstr ""
+
+msgid "无权限查看客户"
+msgstr ""
+
+msgid "无法读取正面图片，请确保图片格式正确"
+msgstr ""
+
+msgid "无法读取反面图片，请确保图片格式正确"
+msgstr ""
+
+msgid "无法自动检测身份证边缘，请手动选取四角"
+msgstr ""
+
+#, python-format
+msgid "%(label)s四角坐标无效: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "%(label)s图片不存在，请重新上传"
+msgstr ""
+
+#, python-format
+msgid "无法读取%(label)s图片，请确保图片格式正确"
+msgstr ""
+
+msgid "非法的文件路径"
+msgstr ""
+
+msgid "文件路径不在允许的范围内"
+msgstr ""
+
+msgid "MEDIA_ROOT 未配置"
+msgstr ""
+
+#, python-format
+msgid "不支持的图片格式: %(ct)s，请上传 JPG 或 PNG 格式"
+msgstr ""
+
+#, python-format
+msgid "不支持的文件扩展名: %(ext)s，请上传 JPG 或 PNG 格式"
+msgstr ""
+
+#, python-format
+msgid "%(name)s图片分辨率太低 (%(w)sx%(h)s)，请上传更高分辨率的图片"
+msgstr ""
+
+msgid "必须提供 4 个角点坐标"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个点格式无效，应为 [x, y]"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个点坐标不能为负数"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个点坐标必须为数字"
+msgstr ""
+
+msgid "四角坐标不构成凸四边形"
+msgstr ""
+
+msgid "图片数据不能为空"
+msgstr ""
+
+msgid "证件类型不能为空"
+msgstr ""
+
+#, python-format
+msgid "证件信息提取失败: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "OCR 提取失败: %(e)s"
+msgstr ""
+
+msgid "OCR 未能提取到有效文字"
+msgstr ""
+
+msgid "图片格式无效,请上传 JPG 或 PNG 格式的图片"
+msgstr ""
+
+msgid "PDF OCR 未能提取到有效文字"
+msgstr ""
+
+#, python-format
+msgid "PDF 处理失败: %(e)s"
+msgstr ""
+
+msgid "Ollama 返回内容为空"
+msgstr ""
+
+#, python-format
+msgid "Ollama 返回的 JSON 格式错误: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "Ollama 服务连接失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "Ollama 提取失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "识别失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "服务不可用: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "未知错误: %(e)s"
+msgstr ""
+
+msgid "不支持的证件类型"
+msgstr ""
+
+#, python-format
+msgid "不支持: %(t)s，支持: %(s)s"
+msgstr ""
+
+#, python-format
+msgid "客户类型必须是: %(types)s"
+msgstr ""
+
+msgid "JSON 数据验证失败"
+msgstr ""
+
+msgid "证件文档数据必须是列表"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个证件文档数据格式错误"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个证件文档缺少 doc_type"
+msgstr ""
+
+#, python-format
+msgid "第 %(n)s 个证件文档缺少 file_path"
+msgstr ""
+
+msgid "无效的线索类型"
+msgstr ""
+
+#, python-format
+msgid "线索类型必须是: %(types)s"
+msgstr ""
+
+msgid "财产线索不存在"
+msgstr ""
+
+#, python-format
+msgid "ID 为 %(id)s 的财产线索不存在"
+msgstr ""
+
+msgid "文件路径和文件名不能为空"
+msgstr ""
+
+msgid "文件路径不能为空"
+msgstr ""
+
+msgid "文件名不能为空"
+msgstr ""
+
+msgid "附件不存在"
+msgstr ""
+
+#, python-format
+msgid "ID 为 %(id)s 的附件不存在"
+msgstr ""
+
+msgid "page 无效"
+msgstr ""
+
+msgid "必须 >= 1"
+msgstr ""
+
+msgid "page_size 无效"
+msgstr ""
+
+msgid "不能为空"
+msgstr ""
+
+msgid "未配置"
+msgstr ""
+
+msgid "文件路径无效"
+msgstr ""
+
+msgid "无效"
+msgstr ""
+
+msgid "文件路径不在 MEDIA_ROOT 下"
+msgstr ""
+
+msgid "上传文件缺少文件名"
+msgstr ""
+
+msgid "缺少文件名"
+msgstr ""
+
+msgid "当前处理步骤"
+msgstr ""
+
+msgid "选中的处理步骤"
+msgstr ""
+
+msgid "原始文件"
+msgstr ""
+
+msgid "审查结果"
+msgstr ""
+
+msgid "评估报告"
+msgstr ""
+
+msgid "处理步骤"
+msgstr ""
+
+msgid "时间"
+msgstr ""
+
+msgid "新建合同审查任务"
+msgstr ""
+
+msgid "合同审查"
+msgstr ""
+
+msgid "已上传"
+msgstr ""
+
+msgid "已识别当事人"
+msgstr ""
+
+msgid "已确认"
+msgstr ""
+
+msgid "提取失败"
+msgstr ""
+
+msgid "标题提取"
+msgstr ""
+
+msgid "错别字检测"
+msgstr ""
+
+msgid "格式标准化"
+msgstr ""
+
+msgid "页码标准化"
+msgstr ""
+
+msgid "标题序号"
+msgstr ""
+
+msgid "甲方"
+msgstr ""
+
+msgid "乙方"
+msgstr ""
+
+msgid "丙方"
+msgstr ""
+
+msgid "丁方"
+msgstr ""
+
+msgid "用户"
+msgstr ""
+
+msgid "原始文件路径"
+msgstr ""
+
+msgid "输出文件路径"
+msgstr ""
+
+msgid "合同标题"
+msgstr ""
+
+msgid "用户代表方"
+msgstr ""
+
+msgid "LLM 模型名称"
+msgstr ""
+
+msgid "修订人名称"
+msgstr ""
+
+msgid "用户选择执行的步骤列表"
+msgstr ""
+
+msgid "合同审查任务"
+msgstr ""
+
+msgid "新建"
+msgstr ""
+
+msgid "上传"
+msgstr ""
+
+msgid "确认"
+msgstr ""
+
+msgid "完成"
+msgstr ""
+
+msgid "选择模型并上传合同"
+msgstr ""
+
+msgid "审查模型"
+msgstr ""
+
+msgid "模型列表加载失败"
+msgstr ""
+
+msgid "重试"
+msgstr ""
+
+msgid "选择模型"
+msgstr ""
+
+msgid "搜索模型..."
+msgstr ""
+
+msgid "无匹配模型"
+msgstr ""
+
+msgid "拖拽 .docx 文件到此处，或点击选择"
+msgstr ""
+
+msgid "仅支持 Word 文档（.docx）格式"
+msgstr ""
+
+msgid "正在上传并解析合同..."
+msgstr ""
+
+msgid "确认合同信息并选择代表方"
+msgstr ""
+
+msgid "默认：法穿AI"
+msgstr ""
+
+msgid "选择我方代表"
+msgstr ""
+
+msgid "开始审查"
+msgstr ""
+
+msgid "重新上传"
+msgstr ""
+
+msgid "审查任务已提交"
+msgstr ""
+
+msgid "AI 正在后台审查合同"
+msgstr ""
+
+msgid "可在详情页实时查看审查进度"
+msgstr ""
+
+msgid "查看详情"
+msgstr ""
+
+msgid "返回列表"
+msgstr ""
+
+msgid "继续上传"
+msgstr ""
+
+msgid "请选择 .docx 格式的文件"
+msgstr ""
+
+msgid "上传失败，请重试"
+msgstr ""
+
+msgid "提交失败，请重试"
+msgstr ""
+
+msgid "上传凭证图片"
+msgstr ""
+
+msgid "支持 JPG、PNG、JPEG，最大 10MB"
+msgstr ""
+
+msgid "所选案件不属于该合同"
+msgstr ""
+
+msgid "凭证图片"
+msgstr ""
+
+msgid "系统信息"
+msgstr ""
+
+msgid "图片预览"
+msgstr ""
+
+msgid "仅支持 PDF，最大 20MB"
+msgstr ""
+
+msgid "代理阶段"
+msgstr ""
+
+msgid "上传发票"
+msgstr ""
+
+msgid "支持 PDF、JPG、JPEG、PNG，最大 20MB"
+msgstr ""
+
+msgid "发票"
+msgstr ""
+
+msgid "查看文件"
+msgstr ""
+
+msgid "查看"
+msgstr ""
+
+msgid "开票金额不能大于收款金额"
+msgstr ""
+
+#, python-format
+msgid "合同「%(name)s」已保存"
+msgstr ""
+
+#, python-format
+msgid "合同文档已生成并保存到: %(path)s"
+msgstr ""
+
+#, python-format
+msgid "生成合同失败: %(err)s"
+msgstr ""
+
+msgid "请选择要生成的补充协议"
+msgstr ""
+
+#, python-format
+msgid "补充协议已生成并保存到: %(path)s"
+msgstr ""
+
+#, python-format
+msgid "生成补充协议失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "续签成功！已创建新合同: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "续签失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "已复制合同: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "复制失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "已创建案件: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "创建案件失败: %(err)s"
+msgstr ""
+
+msgid "合同名称"
+msgstr ""
+
+msgid "主办律师"
+msgstr ""
+
+msgid "无"
+msgstr ""
+
+msgid "匹配的合同模板"
+msgstr ""
+
+msgid "请先保存合同"
+msgstr ""
+
+#, python-format
+msgid "合同详情: %(name)s"
+msgstr ""
+
+#, python-format
+msgid "处理建档编号失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "同步关联案件律师指派失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "删除合同失败: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "批量删除合同失败: %(err)s"
+msgstr ""
+
+msgid "当事人数量"
+msgstr ""
+
+msgid "绑定已删除"
+msgstr ""
+
+msgid "绑定不存在"
+msgstr ""
+
+msgid "合同管理"
+msgstr ""
+
+msgid "代理阶段不适用于此合同类型"
+msgstr ""
+
+msgid "无效的代理阶段"
+msgstr ""
+
+msgid "回款金额"
+msgstr ""
+
+msgid "凭证图片路径"
+msgstr ""
+
+msgid "客户回款"
+msgstr ""
+
+msgid "固定收费"
+msgstr ""
+
+msgid "半风险收费"
+msgstr ""
+
+msgid "全风险收费"
+msgstr ""
+
+msgid "自定义"
+msgstr ""
+
+msgid "合同类型"
+msgstr ""
+
+msgid "合同状态"
+msgstr ""
+
+msgid "开始日期"
+msgstr ""
+
+msgid "结束日期"
+msgstr ""
+
+msgid "格式: {年份}_{合同类型}_{HT}_{序号}"
+msgstr ""
+
+msgid "收费模式"
+msgstr ""
+
+msgid "固定/前期律师费"
+msgstr ""
+
+msgid "风险比例(%)"
+msgstr ""
+
+msgid "自定义收费条款"
+msgstr ""
+
+msgid "合同"
+msgstr ""
+
+msgid "合同正本"
+msgstr ""
+
+msgid "补充协议"
+msgstr ""
+
+msgid "材料分类"
+msgstr ""
+
+msgid "定稿材料"
+msgstr ""
+
+msgid "信息"
+msgstr ""
+
+msgid "预警"
+msgstr ""
+
+msgid "错误"
+msgstr ""
+
+msgid "动作"
+msgstr ""
+
+msgid "级别"
+msgstr ""
+
+msgid "数据"
+msgstr ""
+
+msgid "财务日志"
+msgstr ""
+
+msgid "合同文件夹绑定"
+msgstr ""
+
+msgid "收款记录"
+msgstr ""
+
+msgid "金额"
+msgstr ""
+
+msgid "委托人"
+msgstr ""
+
+msgid "受益人"
+msgstr ""
+
+msgid "对方当事人"
+msgstr ""
+
+msgid "身份"
+msgstr ""
+
+msgid "合同当事人"
+msgstr ""
+
+msgid "是否主办律师"
+msgstr ""
+
+msgid "合同指派"
+msgstr ""
+
+msgid "未开票"
+msgstr ""
+
+msgid "部分开票"
+msgstr ""
+
+msgid "已开票"
+msgstr ""
+
+msgid "收款金额"
+msgstr ""
+
+msgid "收款日期"
+msgstr ""
+
+msgid "开票状态"
+msgstr ""
+
+msgid "已开票金额"
+msgstr ""
+
+msgid "合同收款"
+msgstr ""
+
+msgid "补充协议名称"
+msgstr ""
+
+msgid "修改时间"
+msgstr ""
+
+msgid "未命名补充协议"
+msgstr ""
+
+msgid "补充协议当事人"
+msgstr ""
+
+msgid "合同类型不能为空"
+msgstr ""
+
+msgid "至少需要指派一个律师"
+msgstr ""
+
+#, python-format
+msgid "合同 %(id)s 不存在"
+msgstr ""
+
+#, python-format
+msgid "律师不存在: %(ids)s"
+msgstr ""
+
+#, python-format
+msgid "律师已停用: %(ids)s"
+msgstr ""
+
+#, python-format
+msgid "律师 %(id)s 不存在"
+msgstr ""
+
+#, python-format
+msgid "律师 %(id)s 已停用"
+msgstr ""
+
+msgid "图片上传失败"
+msgstr ""
+
+msgid "回款金额必须大于零"
+msgstr ""
+
+msgid "回款金额不能超过 14 位数字（含 2 位小数）"
+msgstr ""
+
+#, python-format
+msgid "客户回款记录 %(id)s 不存在"
+msgstr ""
+
+#, python-format
+msgid "ID为 %(id)s 的合同不存在"
+msgstr ""
+
+#, python-format
+msgid "%(name)s (副本)"
+msgstr ""
+
+msgid "该合同类型不支持创建案件"
+msgstr ""
+
+#, python-format
+msgid "合同类型 %(type)s 不支持创建案件"
+msgstr ""
+
+#, python-format
+msgid "%(name)s - 案件"
+msgstr ""
+
+msgid "只有常法顾问合同才能续签"
+msgstr ""
+
+#, python-format
+msgid "合同类型为 %(type)s，不是常法顾问合同"
+msgstr ""
+
+#, python-format
+msgid "%(names)s常法顾问-%(start)s至%(end)s"
+msgstr ""
+
+msgid "未设置"
+msgstr ""
+
+msgid "未指派"
+msgstr ""
+
+msgid "无权限操作该合同"
+msgstr ""
+
+msgid "未登录用户无权限执行该操作"
+msgstr ""
+
+msgid "无权限访问该合同"
+msgstr ""
+
+msgid "收费模式验证失败"
+msgstr ""
+
+msgid "固定收费需填写金额"
+msgstr ""
+
+msgid "半风险需填写前期金额"
+msgstr ""
+
+msgid "半风险需填写风险比例"
+msgstr ""
+
+msgid "全风险需填写风险比例"
+msgstr ""
+
+msgid "自定义收费需填写条款文本"
+msgstr ""
+
+msgid "关键财务操作需二次确认"
+msgstr ""
+
+#, python-format
+msgid "合同 %(cid)s 中不存在客户 %(pid)s 的当事人记录"
+msgstr ""
+
+msgid "ContractFinanceMutationService.mutation_service 未注入"
+msgstr ""
+
+msgid "修改财务数据需要管理员权限"
+msgstr ""
+
+#, python-format
+msgid "收款记录 %(id)s 不存在"
+msgstr ""
+
+msgid "无权限"
+msgstr ""
+
+msgid "关键操作需二次确认"
+msgstr ""
+
+msgid "收款金额需大于0"
+msgstr ""
+
+msgid "累计收款超过合同固定金额"
+msgstr ""
+
+msgid "补充协议不存在"
+msgstr ""
+
+msgid "部分客户不存在"
+msgstr ""
+
+msgid "不能重复添加同一客户"
+msgstr ""
+
+msgid "选择补充协议预览"
+msgstr ""
+
+msgid "请选择要预览的补充协议："
+msgstr ""
+
+msgid "预览"
+msgstr ""
+
+msgid "关闭"
+msgstr ""
+
+msgid "生成合同"
+msgstr ""
+
+msgid "预览替换词"
+msgstr ""
+
+msgid "生成补充协议"
+msgstr ""
+
+msgid "OA系统立案"
+msgstr ""
+
+msgid "请先创建案件后再进行立案操作"
+msgstr ""
+
+msgid "暂无可用的OA系统配置"
+msgstr ""
+
+msgid "OA系统"
+msgstr ""
+
+msgid "请选择OA系统"
+msgstr ""
+
+msgid "开始立案"
+msgstr ""
+
+msgid "请先在账号密码管理中添加该OA系统的凭证"
+msgstr ""
+
+msgid "立案成功"
+msgstr ""
+
+msgid "正在执行中，浏览器已打开..."
+msgstr ""
+
+msgid "立案失败"
+msgstr ""
+
+msgid "暂无定稿材料"
+msgstr ""
+
+msgid "收费条款"
+msgstr ""
+
+msgid "固定律师费"
+msgstr ""
+
+msgid "前期律师费"
+msgstr ""
+
+msgid "风险比例"
+msgstr ""
+
+msgid "律师费收款进度"
+msgstr ""
+
+msgid "收款"
+msgstr ""
+
+msgid "应收"
+msgstr ""
+
+msgid "已收"
+msgstr ""
+
+msgid "已收齐"
+msgstr ""
+
+msgid "当前收费模式无固定应收金额"
+msgstr ""
+
+msgid "开票"
+msgstr ""
+
+msgid "待开票"
+msgstr ""
+
+msgid "暂无开票数据"
+msgstr ""
+
+msgid "律师费收款记录"
+msgstr ""
+
+msgid "笔"
+msgstr ""
+
+msgid "累计"
+msgstr ""
+
+msgid "暂无收款记录"
+msgstr ""
+
+msgid "查看凭证"
+msgstr ""
+
+msgid "暂无客户回款记录"
+msgstr ""
+
+msgid "发票识别"
+msgstr ""
+
+msgid "上传中..."
+msgstr ""
+
+msgid "累计金额"
+msgstr ""
+
+msgid ""
+"提示：识别结果已自动填充到下方的发票列表中，请检查后点击保存按钮保存数据。"
+msgstr ""
+
+msgid "上级案由"
+msgstr ""
+
+msgid "上级法院"
+msgstr ""
+
+msgid "模板内容"
+msgstr ""
+
+msgid "设置"
+msgstr ""
+
+msgid "分类"
+msgstr ""
+
+msgid "变量"
+msgstr ""
+
+msgid "模板保存成功"
+msgstr ""
+
+#, python-format
+msgid "保存失败: %(e)s"
+msgstr ""
+
+msgid "安全设置"
+msgstr ""
+
+msgid "配置值"
+msgstr ""
+
+msgid "核心系统"
+msgstr ""
+
+msgid "民商事"
+msgstr ""
+
+msgid "刑事"
+msgstr ""
+
+msgid "行政"
+msgstr ""
+
+msgid "劳动仲裁"
+msgstr ""
+
+msgid "商事仲裁"
+msgstr ""
+
+msgid "专项服务"
+msgstr ""
+
+msgid "常法顾问"
+msgstr ""
+
+msgid "原告"
+msgstr ""
+
+msgid "被告"
+msgstr ""
+
+msgid "第三人"
+msgstr ""
+
+msgid "申请人"
+msgstr ""
+
+msgid "被申请人"
+msgstr ""
+
+msgid "被告人"
+msgstr ""
+
+msgid "被害人"
+msgstr ""
+
+msgid "上诉人"
+msgstr ""
+
+msgid "被上诉人"
+msgstr ""
+
+msgid "原审原告"
+msgstr ""
+
+msgid "原审被告"
+msgstr ""
+
+msgid "原审第三人"
+msgstr ""
+
+msgid "在办"
+msgstr ""
+
+msgid "已结案"
+msgstr ""
+
+msgid "一审"
+msgstr ""
+
+msgid "二审"
+msgstr ""
+
+msgid "执行"
+msgstr ""
+
+msgid "行政复议"
+msgstr ""
+
+msgid "自诉"
+msgstr ""
+
+msgid "侦查"
+msgstr ""
+
+msgid "审查起诉"
+msgstr ""
+
+msgid "重审一审"
+msgstr ""
+
+msgid "重审二审"
+msgstr ""
+
+msgid "申请再审"
+msgstr ""
+
+msgid "再审一审"
+msgstr ""
+
+msgid "再审二审"
+msgstr ""
+
+msgid "提审"
+msgstr ""
+
+msgid "死刑复核程序"
+msgstr ""
+
+msgid "申诉"
+msgstr ""
+
+msgid "申请抗诉"
+msgstr ""
+
+msgid "申诉抗诉"
+msgstr ""
+
+msgid "侦查机关"
+msgstr ""
+
+msgid "审查起诉机关"
+msgstr ""
+
+msgid "审理机构"
+msgstr ""
+
+msgid "当前关押地点"
+msgstr ""
+
+msgid "民事"
+msgstr ""
+
+msgid "申请执行"
+msgstr ""
+
+msgid "破产"
+msgstr ""
+
+msgid "开庭"
+msgstr ""
+
+msgid "财产保全"
+msgstr ""
+
+msgid "举证期限"
+msgstr ""
+
+msgid "时效"
+msgstr ""
+
+msgid "上诉期"
+msgstr ""
+
+msgid "飞书"
+msgstr ""
+
+msgid "钉钉"
+msgstr ""
+
+msgid "企业微信"
+msgstr ""
+
+msgid "Telegram"
+msgstr ""
+
+msgid "Slack"
+msgstr ""
+
+msgid "案由编码"
+msgstr ""
+
+msgid "案由的唯一编码标识"
+msgstr ""
+
+msgid "案由名称"
+msgstr ""
+
+msgid "案由的中文名称"
+msgstr ""
+
+msgid "案由所属的案件类型"
+msgstr ""
+
+msgid "父级案由,用于构建层级结构"
+msgstr ""
+
+msgid "层级"
+msgstr ""
+
+msgid "案由在层级结构中的深度,从1开始"
+msgstr ""
+
+msgid "是否在系统中启用此案由"
+msgstr ""
+
+msgid "是否已废弃"
+msgstr ""
+
+msgid "案由是否已被法院系统废弃"
+msgstr ""
+
+msgid "废弃时间"
+msgstr ""
+
+msgid "案由被标记为废弃的时间"
+msgstr ""
+
+msgid "废弃原因"
+msgstr ""
+
+msgid "案由被废弃的原因说明"
+msgstr ""
+
+msgid "会话ID"
+msgstr ""
+
+msgid "用户ID"
+msgstr ""
+
+msgid "系统"
+msgstr ""
+
+msgid "助手"
+msgstr ""
+
+msgid "角色"
+msgstr ""
+
+msgid "消息内容"
+msgstr ""
+
+msgid "元数据"
+msgstr ""
+
+msgid "AI文书生成会话"
+msgstr ""
+
+msgid "关联到 AI 文书生成会话(如果适用)"
+msgstr ""
+
+msgid "对话步骤"
+msgstr ""
+
+msgid "document_type/litigation_goal/evidence_selection/generation"
+msgstr ""
+
+msgid "对话历史"
+msgstr ""
+
+msgid "法院编码"
+msgstr ""
+
+msgid "省份"
+msgstr ""
+
+msgid "法院"
+msgstr ""
+
+msgid "模型"
+msgstr ""
+
+msgid "输入 Token"
+msgstr ""
+
+msgid "输出 Token"
+msgstr ""
+
+msgid "总 Token"
+msgstr ""
+
+msgid "耗时(ms)"
+msgstr ""
+
+msgid "调用时间"
+msgstr ""
+
+msgid "LLM 调用记录"
+msgstr ""
+
+msgid "模板名称"
+msgstr ""
+
+msgid "显示标题"
+msgstr ""
+
+msgid "模板描述"
+msgstr ""
+
+msgid "变量列表"
+msgstr ""
+
+msgid "启用"
+msgstr ""
+
+msgid "版本"
+msgstr ""
+
+msgid "Prompt 模板"
+msgstr ""
+
+msgid "飞书配置"
+msgstr ""
+
+msgid "钉钉配置"
+msgstr ""
+
+msgid "企业微信配置"
+msgstr ""
+
+msgid "法院短信配置"
+msgstr ""
+
+msgid "AI 服务配置"
+msgstr ""
+
+msgid "LLM 大模型配置"
+msgstr ""
+
+msgid "爬虫配置"
+msgstr ""
+
+msgid "通用配置"
+msgstr ""
+
+msgid "配置键"
+msgstr ""
+
+msgid "配置项的唯一标识符,如 FEISHU_APP_ID"
+msgstr ""
+
+msgid "配置项的值"
+msgstr ""
+
+msgid "配置项所属分类"
+msgstr ""
+
+msgid "描述"
+msgstr ""
+
+msgid "配置项的说明"
+msgstr ""
+
+msgid "敏感信息"
+msgstr ""
+
+msgid "是否为敏感信息(如密钥、密码等)"
+msgstr ""
+
+msgid "是否启用此配置项"
+msgstr ""
+
+msgid "系统配置"
+msgstr ""
+
+msgid "法院 API 响应格式无效"
+msgstr ""
+
+msgid "法院 API 请求超时"
+msgstr ""
+
+msgid "法院 API 请求失败"
+msgstr ""
+
+msgid "不支持的语言代码"
+msgstr ""
+
+msgid "模板名称不能为空"
+msgstr ""
+
+msgid "显示标题不能为空"
+msgstr ""
+
+msgid "Prompt 模板不存在"
+msgstr ""
+
+msgid "系统配置不存在"
+msgstr ""
+
+msgid "对象信息"
+msgstr ""
+
+msgid "操作信息"
+msgstr ""
+
+msgid "操作人信息"
+msgstr ""
+
+msgid "对象描述"
+msgstr ""
+
+msgid "变更详情"
+msgstr ""
+
+msgid "无变更记录"
+msgstr ""
+
+msgid "字段"
+msgstr ""
+
+msgid "旧值"
+msgstr ""
+
+msgid "新值"
+msgstr ""
+
+msgid "模板类型"
+msgstr ""
+
+msgid "必须二选一:合同文书模板或案件文书模板"
+msgstr ""
+
+msgid "合同子类型"
+msgstr ""
+
+msgid "仅在选择'合同文书模板'时有效,必须选择合同模板或补充协议模板"
+msgstr ""
+
+msgid "案件文件子类型"
+msgstr ""
+
+msgid "仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
+msgstr ""
+
+msgid "仅在选择'合同文书模板'时有效,可多选"
+msgstr ""
+
+msgid "仅在选择'案件文书模板'时有效,可多选"
+msgstr ""
+
+msgid "案件阶段"
+msgstr ""
+
+msgid "仅在选择'案件文书模板'时有效,单选"
+msgstr ""
+
+msgid "我方诉讼地位"
+msgstr ""
+
+msgid "可单选或多选;不选表示匹配任意诉讼地位"
+msgstr ""
+
+msgid "诉讼地位匹配模式"
+msgstr ""
+
+msgid "适用机构"
+msgstr ""
+
+msgid "输入机构名称后回车添加,支持搜索法院名称"
+msgstr ""
+
+msgid "从模板库选择"
+msgstr ""
+
+msgid "从 docx_templates 目录中选择已有的模板文件(不会复制文件)"
+msgstr ""
+
+msgid "请选择案件阶段"
+msgstr ""
+
+msgid "先选择合同文书模板或案件文书模板,再选择对应的子类型"
+msgstr ""
+
+msgid "适用范围"
+msgstr ""
+
+msgid "根据模板类型选择相应的适用范围"
+msgstr ""
+
+msgid ""
+"三选一:从模板库选择已有文件(不复制)、上传新文件(复制到用户自定义模板目录)、或"
+"手动输入路径"
+msgstr ""
+
+msgid "占位符信息"
+msgstr ""
+
+msgid "模板中使用的占位符列表"
+msgstr ""
+
+msgid "当前文件"
+msgstr ""
+
+msgid "新建模板,请上传文件"
+msgstr ""
+
+msgid "文件位置"
+msgstr ""
+
+msgid "占位符"
+msgstr ""
+
+msgid "占位符列表"
+msgstr ""
+
+msgid "保存后可查看占位符"
+msgstr ""
+
+msgid "未定义占位符"
+msgstr ""
+
+msgid "保存后可查看"
+msgstr ""
+
+#, python-format
+msgid "已启用 %(count)d 个模板"
+msgstr ""
+
+#, python-format
+msgid "已禁用 %(count)d 个模板"
+msgstr ""
+
+msgid "刷新占位符信息"
+msgstr ""
+
+#, python-format
+msgid "已刷新 %(count)d 个模板的占位符信息"
+msgstr ""
+
+msgid "复制选中的模板"
+msgstr ""
+
+#, python-format
+msgid "已复制 %(count)d 个模板"
+msgstr ""
+
+msgid "序号"
+msgstr ""
+
+msgid "合并选中清单的 PDF"
+msgstr ""
+
+#, python-format
+msgid "清单 %(id)s 提交失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "已提交 %(n)s 个合并任务"
+msgstr ""
+
+#, python-format
+msgid "%(n)s 个清单正在合并中,已跳过"
+msgstr ""
+
+#, python-format
+msgid "%(n)s 个清单没有文件,已跳过"
+msgstr ""
+
+#, python-format
+msgid "%(n)s 个清单提交失败"
+msgstr ""
+
+msgid "导出选中清单的 Word"
+msgstr ""
+
+#, python-format
+msgid "保存过程出错: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "表单 %(i)s 错误: %(err)s"
+msgstr ""
+
+#, python-format
+msgid "删除失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s"
+msgstr ""
+
+#, python-format
+msgid "文件 %(n)s 页数识别失败: %(e)s"
+msgstr ""
+
+msgid "序号范围"
+msgstr ""
+
+msgid "合并状态"
+msgstr ""
+
+#, python-format
+msgid "提交合并任务失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "导出失败: %(e)s"
+msgstr ""
+
+#, python-format
+msgid "已重新识别 %(n)s 个文件的页数,总页数:%(p)s"
+msgstr ""
+
+#, python-format
+msgid "识别页数失败: %(e)s"
+msgstr ""
+
+msgid "自动计算信息"
+msgstr ""
+
+msgid "以下信息由系统自动计算,无需手动填写."
+msgstr ""
+
+msgid "点击列表页的「合并」按钮将证据文件合并为PDF."
+msgstr ""
+
+msgid "导出设置"
+msgstr ""
+
+msgid ""
+"导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格"
+"式."
+msgstr ""
+
+msgid "请输入法院或机构名称..."
+msgstr ""
+
+msgid "模板文件 (.docx)"
+msgstr ""
+
+msgid "仅支持 .docx 格式，最大 20MB"
+msgstr ""
+
+msgid "上传者"
+msgstr ""
+
+msgid "所属律所"
+msgstr ""
+
+msgid "模板分析已完成"
+msgstr ""
+
+msgid "模板分析失败，请查看日志"
+msgstr ""
+
+#, python-format
+msgid "填充操作 - %(name)s"
+msgstr ""
+
+#, python-format
+msgid "映射编辑 - %(name)s"
+msgstr ""
+
+msgid "目标文件夹"
+msgstr ""
+
+msgid "选择文书生成后存放的文件夹位置"
+msgstr ""
+
+msgid "位置信息"
+msgstr ""
+
+msgid "必须选择:合同文件夹模板或案件文件夹模板"
+msgstr ""
+
+msgid "仅在选择'合同文件夹模板'时有效,可多选"
+msgstr ""
+
+msgid "仅在选择'案件文件夹模板'时有效,可多选"
+msgstr ""
+
+msgid "仅在选择'案件文件夹模板'时有效,单选"
+msgstr ""
+
+msgid "仅在选择'案件文件夹模板'时有效,可多选;不选表示匹配任意诉讼地位"
+msgstr ""
+
+msgid "仅在选择'案件文件夹模板'时有效"
+msgstr ""
+
+msgid "选择此模板用于合同还是案件,必须二选一"
+msgstr ""
+
+msgid ""
+"根据模板类型选择相应的适用范围:合同模板选择合同类型,案件模板选择案件类型和阶"
+"段"
+msgstr ""
+
+msgid "文件夹结构"
+msgstr ""
+
+msgid "使用 JSON 格式定义文件夹层级结构"
+msgstr ""
+
+msgid "匹配模式"
+msgstr ""
+
+msgid "文件夹数量"
+msgstr ""
+
+msgid "结构预览"
+msgstr ""
+
+msgid "暂无结构"
+msgstr ""
+
+msgid "启用选中的模板"
+msgstr ""
+
+msgid "禁用选中的模板"
+msgstr ""
+
+msgid "用途"
+msgstr ""
+
+msgid "合同文件"
+msgstr ""
+
+msgid "案件文件"
+msgstr ""
+
+msgid "合同+案件"
+msgstr ""
+
+msgid "未使用"
+msgstr ""
+
+msgid "示例和说明"
+msgstr ""
+
+msgid "来源服务"
+msgstr ""
+
+msgid "示例值"
+msgstr ""
+
+msgid "启用选中的替换词"
+msgstr ""
+
+#, python-format
+msgid "已启用 %(count)d 个替换词"
+msgstr ""
+
+msgid "禁用选中的替换词"
+msgstr ""
+
+#, python-format
+msgid "已禁用 %(count)d 个替换词"
+msgstr ""
+
+msgid "复制选中的替换词"
+msgstr ""
+
+#, python-format
+msgid "已复制 %(count)d 个替换词"
+msgstr ""
+
+msgid "版本说明"
+msgstr ""
+
+msgid "激活选中的版本"
+msgstr ""
+
+msgid "请选择一个版本进行激活"
+msgstr ""
+
+#, python-format
+msgid "已激活版本:%(version)s"
+msgstr ""
+
+#, python-format
+msgid "激活失败:%(error)s"
+msgstr ""
+
+msgid "文件模板已删除"
+msgstr ""
+
+msgid "无法确定所属律所"
+msgstr ""
+
+msgid "请提供 case_id 或 source_name 参数"
+msgstr ""
+
+msgid "请提供 case_id 或 template_id 参数"
+msgstr ""
+
+msgid "生成合同文档失败"
+msgstr ""
+
+msgid "生成合同文件夹失败"
+msgstr ""
+
+msgid "生成补充协议失败"
+msgstr ""
+
+#, python-format
+msgid "不支持的诉讼类型: %(t)s"
+msgstr ""
+
+msgid "替换词已删除"
+msgstr ""
+
+msgid "文书生成"
+msgstr ""
+
+msgid "替换词"
+msgstr ""
+
+msgid "生成配置"
+msgstr ""
+
+msgid "对象类型"
+msgstr ""
+
+msgid "对象ID"
+msgstr ""
+
+msgid "变更内容"
+msgstr ""
+
+msgid "JSON 格式记录字段变更"
+msgstr ""
+
+msgid "IP地址"
+msgstr ""
+
+msgid "User Agent"
+msgstr ""
+
+msgid "操作时间"
+msgstr ""
+
+msgid "模板审计日志"
+msgstr ""
+
+msgid "再审"
+msgstr ""
+
+msgid "合同文件夹模板"
+msgstr ""
+
+msgid "案件文件夹模板"
+msgstr ""
+
+msgid "合同文件模板"
+msgstr ""
+
+msgid "案件文件模板"
+msgstr ""
+
+msgid "合同模板"
+msgstr ""
+
+msgid "补充协议模板"
+msgstr ""
+
+msgid "诉状材料"
+msgstr ""
+
+msgid "证据材料"
+msgstr ""
+
+msgid "授权委托材料"
+msgstr ""
+
+msgid "财产保全材料"
+msgstr ""
+
+msgid "送达地址材料"
+msgstr ""
+
+msgid "收款退费账户材料"
+msgstr ""
+
+msgid "申请材料"
+msgstr ""
+
+msgid "其他材料"
+msgstr ""
+
+msgid "案件信息"
+msgstr ""
+
+msgid "当事人信息"
+msgstr ""
+
+msgid "合同信息"
+msgstr ""
+
+msgid "律师信息"
+msgstr ""
+
+msgid "法院信息"
+msgstr ""
+
+msgid "文本"
+msgstr ""
+
+msgid "日期"
+msgstr ""
+
+msgid "日期时间"
+msgstr ""
+
+msgid "货币"
+msgstr ""
+
+msgid "数字"
+msgstr ""
+
+msgid "百分比"
+msgstr ""
+
+msgid "创建"
+msgstr ""
+
+msgid "更新"
+msgstr ""
+
+msgid "删除"
+msgstr ""
+
+msgid "禁用"
+msgstr ""
+
+msgid "复制"
+msgstr ""
+
+msgid "设为默认"
+msgstr ""
+
+msgid "任意匹配"
+msgstr ""
+
+msgid "全部包含"
+msgstr ""
+
+msgid "完全一致"
+msgstr ""
+
+msgid "财产申报表"
+msgstr ""
+
+msgid "送达地址确认书"
+msgstr ""
+
+msgid "债权申报表"
+msgstr ""
+
+msgid "要素式诉状"
+msgstr ""
+
+msgid "法律援助申请表"
+msgstr ""
+
+msgid "破产管理人"
+msgstr ""
+
+msgid "仲裁委员会"
+msgstr ""
+
+msgid "行政机关"
+msgstr ""
+
+msgid "文本替换"
+msgstr ""
+
+msgid "勾选复选框"
+msgstr ""
+
+msgid "删除不适用项"
+msgstr ""
+
+msgid "分析中"
+msgstr ""
+
+msgid "分析失败"
+msgstr ""
+
+msgid "可填充"
+msgstr ""
+
+msgid "选择此模板用于合同还是案件"
+msgstr ""
+
+msgid "仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"
+msgstr ""
+
+msgid "仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
+msgstr ""
+
+msgid "相对于模板基础目录的路径"
+msgstr ""
+
+msgid "JSON 数组,如 ['civil', 'criminal'],支持多选"
+msgstr ""
+
+msgid "JSON 数组,如 ['first_trial', 'second_trial'],支持多选"
+msgstr ""
+
+msgid "可单选或多选;为空表示匹配任意诉讼地位"
+msgstr ""
+
+msgid "JSON 数组,如 ['北京市第一中级人民法院'],支持多选"
+msgstr ""
+
+msgid "不能同时提供上传文件和文件路径"
+msgstr ""
+
+msgid "必须提供上传文件或文件路径"
+msgstr ""
+
+msgid "文件夹节点ID"
+msgstr ""
+
+msgid "文件夹结构JSON中的节点ID"
+msgstr ""
+
+msgid "自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"
+msgstr ""
+
+msgid "文件模板文件夹绑定"
+msgstr ""
+
+msgid "待合并"
+msgstr ""
+
+msgid "合并中"
+msgstr ""
+
+msgid "证据清单一"
+msgstr ""
+
+msgid "证据清单二"
+msgstr ""
+
+msgid "证据清单三"
+msgstr ""
+
+msgid "证据清单四"
+msgstr ""
+
+msgid "证据清单五"
+msgstr ""
+
+msgid "证据清单六"
+msgstr ""
+
+msgid "清单类型"
+msgstr ""
+
+msgid "选择清单类型,系统自动处理序号和页码的连续性"
+msgstr ""
+
+msgid "前置清单"
+msgstr ""
+
+msgid "关联前一个清单,用于自动计算起始序号和页码"
+msgstr ""
+
+msgid "由清单类型自动生成"
+msgstr ""
+
+msgid "将所有证据文件合并为一个PDF,便于打印和提交"
+msgstr ""
+
+msgid "导出版本号"
+msgstr ""
+
+msgid "由用户手动控制,用于导出文件名版本控制"
+msgstr ""
+
+msgid "合并错误信息"
+msgstr ""
+
+msgid "合并开始时间"
+msgstr ""
+
+msgid "合并完成时间"
+msgstr ""
+
+msgid "合并进度"
+msgstr ""
+
+msgid "合并进度-已处理文件数"
+msgstr ""
+
+msgid "合并进度-总文件数"
+msgstr ""
+
+msgid "合并进度信息"
+msgstr ""
+
+msgid "导出模板"
+msgstr ""
+
+msgid "选择用于导出证据清单的 Word 模板"
+msgstr ""
+
+msgid "证据在清单中的序号"
+msgstr ""
+
+msgid "证据名称"
+msgstr ""
+
+msgid "证明内容"
+msgstr ""
+
+msgid "证据文件"
+msgstr ""
+
+msgid "单位:字节"
+msgstr ""
+
+msgid "页数"
+msgstr ""
+
+msgid "起始页"
+msgstr ""
+
+msgid "结束页"
+msgstr ""
+
+msgid "AI分析结果"
+msgstr ""
+
+msgid "预留字段,用于未来 LLM 自动分析"
+msgstr ""
+
+msgid "证据明细"
+msgstr ""
+
+msgid "来源机构"
+msgstr ""
+
+msgid "法院名称或其他机构名称"
+msgstr ""
+
+msgid "相对于 MEDIA_ROOT 的存储路径"
+msgstr ""
+
+msgid "结构指纹"
+msgstr ""
+
+msgid "基于模板 XML 结构计算的 SHA-256 哈希值"
+msgstr ""
+
+msgid "提取的结构JSON"
+msgstr ""
+
+msgid "映射来源模板"
+msgstr ""
+
+msgid "结构指纹匹配时复用映射的原始模板"
+msgstr ""
+
+msgid "版本号"
+msgstr ""
+
+msgid "是否活跃"
+msgstr ""
+
+msgid "状态变更时间"
+msgstr ""
+
+msgid "外部模板"
+msgstr ""
+
+msgid "关联模板"
+msgstr ""
+
+msgid "位置定位器"
+msgstr ""
+
+msgid "位置描述"
+msgstr ""
+
+msgid "语义标签"
+msgstr ""
+
+msgid "填充类型"
+msgstr ""
+
+msgid "字段映射"
+msgstr ""
+
+msgid "批量填充关联的案件"
+msgstr ""
+
+msgid "选择的模板"
+msgstr ""
+
+msgid "本次批量填充选择的外部模板"
+msgstr ""
+
+msgid "发起时间"
+msgstr ""
+
+msgid "ZIP文件路径"
+msgstr ""
+
+msgid "批量填充生成的 ZIP 压缩包路径"
+msgstr ""
+
+msgid "汇总报告"
+msgstr ""
+
+msgid "批量填充的汇总报告 JSON"
+msgstr ""
+
+msgid "批量填充任务"
+msgstr ""
+
+msgid "批量任务"
+msgstr ""
+
+msgid "所属的批量填充任务, 单次填充时为空"
+msgstr ""
+
+msgid "填充时间"
+msgstr ""
+
+msgid "生成文件路径"
+msgstr ""
+
+msgid "填充生成的文件相对于 MEDIA_ROOT 的路径"
+msgstr ""
+
+msgid "输出文件名"
+msgstr ""
+
+msgid "填充生成的文件原始名称"
+msgstr ""
+
+msgid "填充报告"
+msgstr ""
+
+msgid "填充操作的详细报告 JSON"
+msgstr ""
+
+msgid "自定义填充值"
+msgstr ""
+
+msgid "用户手动输入的自定义字段值"
+msgstr ""
+
+msgid "文件是否可用"
+msgstr ""
+
+msgid "生成的文件是否仍然可访问"
+msgstr ""
+
+msgid "填充记录"
+msgstr ""
+
+msgid "JSON 格式的文件夹层级结构"
+msgstr ""
+
+msgid "是否默认模板"
+msgstr ""
+
+msgid "AI生成"
+msgstr ""
+
+msgid "生成中"
+msgstr ""
+
+msgid "AI生成会话"
+msgstr ""
+
+msgid "如果是 AI 生成,关联到对应的会话"
+msgstr ""
+
+msgid "生成方式"
+msgstr ""
+
+msgid "如:起诉状、答辩状、合同等"
+msgstr ""
+
+msgid "模板ID"
+msgstr ""
+
+msgid "使用的模板ID(模板生成时)"
+msgstr ""
+
+msgid "生成状态"
+msgstr ""
+
+msgid "生成文件"
+msgstr ""
+
+msgid "任务元数据"
+msgstr ""
+
+msgid "存储生成参数、token消耗等信息"
+msgstr ""
+
+msgid "文书生成任务"
+msgstr ""
+
+msgid "配置名称"
+msgstr ""
+
+msgid "配置类型"
+msgstr ""
+
+msgid "如:default_template、ai_model、generation_params"
+msgstr ""
+
+msgid "配置说明"
+msgstr ""
+
+msgid "文书生成配置"
+msgstr ""
+
+msgid "占位符键"
+msgstr ""
+
+msgid "模板中使用的占位符名称,如 case_name"
+msgstr ""
+
+msgid "显示名称"
+msgstr ""
+
+msgid "用于界面显示的友好名称"
+msgstr ""
+
+msgid "占位符的示例值,用于说明用途"
+msgstr ""
+
+msgid "Prompt 名称"
+msgstr ""
+
+msgid "如:complaint, defense"
+msgstr ""
+
+msgid "如:v1.0, v1.1"
+msgstr ""
+
+msgid "LangChain Prompt 模板字符串"
+msgstr ""
+
+msgid "是否激活"
+msgstr ""
+
+msgid "同一名称只能有一个激活版本"
+msgstr ""
+
+msgid "描述此版本的变更内容"
+msgstr ""
+
+msgid "Prompt 版本"
+msgstr ""
+
+msgid "为空表示匹配任意案件类型"
+msgstr ""
+
+msgid "为空表示匹配任意案件阶段"
+msgstr ""
+
+msgid "代理事项条目"
+msgstr ""
+
+msgid "每行一条代理事项"
+msgstr ""
+
+msgid "代理事项规则"
+msgstr ""
+
+#, python-format
+msgid "文件不存在: %(p)s"
+msgstr ""
+
+msgid "模板文件不存在"
+msgstr ""
+
+msgid "获取占位符上下文失败"
+msgstr ""
+
+msgid "模板渲染失败"
+msgstr ""
+
+msgid "证据清单不存在"
+msgstr ""
+
+msgid "文件过大"
+msgstr ""
+
+msgid "准备合并"
+msgstr ""
+
+msgid "合并完成"
+msgstr ""
+
+msgid "合并失败"
+msgstr ""
+
+msgid "证据清单标题不能为空"
+msgstr ""
+
+msgid "证据名称不能为空"
+msgstr ""
+
+msgid "证明内容不能为空"
+msgstr ""
+
+msgid "提供的明细 ID 列表与实际不符"
+msgstr ""
+
+msgid "仅支持 .docx 格式"
+msgstr ""
+
+msgid "文件大小超出限制"
+msgstr ""
+
+msgid "文件无法解析，请检查文件是否损坏或加密"
+msgstr ""
+
+msgid "LLM 返回格式异常，期望 JSON 数组"
+msgstr ""
+
+#, python-format
+msgid "位置 %(label)s 写入失败"
+msgstr ""
+
+#, python-format
+msgid "位置 %(label)s 写入未成功"
+msgstr ""
+
+#, python-format
+msgid "模板 %(tid)s 填充失败"
+msgstr ""
+
+msgid "文件夹结构验证失败"
+msgstr ""
+
+msgid "文件夹模板不存在"
+msgstr ""
+
+msgid "没有我方当事人,无法生成全套授权委托材料"
+msgstr ""
+
+msgid "案件 ID 无效"
+msgstr ""
+
+#, python-format
+msgid "未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)"
+msgstr ""
+
+msgid "我方当事人不存在或不合法"
+msgstr ""
+
+msgid "我方当事人法人不存在或不合法"
+msgstr ""
+
+#, python-format
+msgid "模板文件不存在: %(p)s"
+msgstr ""
+
+#, python-format
+msgid "模板渲染失败: %(e)s"
+msgstr ""
+
+msgid "docxtpl 库未安装"
+msgstr ""
+
+msgid "请先配置文件夹模板"
+msgstr ""
+
+#, python-format
+msgid "不支持的文档类型: %(t)s"
+msgstr ""
+
+#, python-format
+msgid "起诉状结构验证失败:%(e)s"
+msgstr ""
+
+#, python-format
+msgid "起诉状生成失败:%(e)s"
+msgstr ""
+
+#, python-format
+msgid "答辩状结构验证失败:%(e)s"
+msgstr ""
+
+#, python-format
+msgid "答辩状生成失败:%(e)s"
+msgstr ""
+
+msgid "未找到财产保全申请书模板"
+msgstr ""
+
+msgid "未找到暂缓送达申请书模板"
+msgstr ""
+
+msgid "案件没有被申请人,无法生成财产保全材料"
+msgstr ""
+
+msgid "Prompt 版本不存在"
+msgstr ""
+
+#, python-format
+msgid "生成器不存在: %(n)s"
+msgstr ""
+
+msgid "证据清单没有任何文件"
+msgstr ""
+
+msgid "构建合同上下文失败"
+msgstr ""
+
+msgid "占位符键和显示名称不能为空"
+msgstr ""
+
+msgid "创建占位符失败"
+msgstr ""
+
+msgid "占位符不存在"
+msgstr ""
+
+msgid "更新占位符失败"
+msgstr ""
+
+msgid "占位符服务名称冲突"
+msgstr ""
+
+msgid "占位符服务不存在"
+msgstr ""
+
+msgid "只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径"
+msgstr ""
+
+msgid "必须选择一种文件来源"
+msgstr ""
+
+msgid "选择合同文书模板时,必须选择合同子类型"
+msgstr ""
+
+msgid "选择案件文书模板时,必须选择案件文件子类型"
+msgstr ""
+
+msgid "未找到占位符"
+msgstr ""
+
+msgid "模板类型不能为空"
+msgstr ""
+
+msgid "文书模板不存在"
+msgstr ""
+
+msgid "初始化默认文件模板"
+msgstr ""
+
+msgid "模板操作"
+msgstr ""
+
+msgid "重新分析"
+msgstr ""
+
+msgid "分析模板"
+msgstr ""
+
+msgid "填充操作"
+msgstr ""
+
+msgid "映射编辑"
+msgstr ""
+
+msgid "加载预览失败"
+msgstr ""
+
+msgid "填充失败"
+msgstr ""
+
+msgid "网络错误，请重试"
+msgstr ""
+
+msgid "返回模板详情"
+msgstr ""
+
+msgid "选择案件"
+msgstr ""
+
+msgid "输入案件名称搜索..."
+msgstr ""
+
+msgid "在办案件"
+msgstr ""
+
+msgid "已选"
+msgstr ""
+
+msgid "暂无在办案件"
+msgstr ""
+
+msgid "搜索中..."
+msgstr ""
+
+msgid "选择当事人"
+msgstr ""
+
+msgid "自定义字段"
+msgstr ""
+
+msgid "以下字段无法自动填充，请手动输入值"
+msgstr ""
+
+msgid "请选择"
+msgstr ""
+
+msgid "勾选"
+msgstr ""
+
+msgid "不勾选"
+msgstr ""
+
+msgid "填充预览"
+msgstr ""
+
+msgid "加载预览中..."
+msgstr ""
+
+msgid "位置"
+msgstr ""
+
+msgid "字段名称"
+msgstr ""
+
+msgid "填充值"
+msgstr ""
+
+msgid "类型"
+msgstr ""
+
+msgid "自动"
+msgstr ""
+
+msgid "手动"
+msgstr ""
+
+msgid "为空"
+msgstr ""
+
+msgid "预览填充"
+msgstr ""
+
+msgid "返回修改"
+msgstr ""
+
+msgid "填充结果"
+msgstr ""
+
+msgid "填充完成"
+msgstr ""
+
+msgid "下载 ZIP 文件"
+msgstr ""
+
+msgid "总计"
+msgstr ""
+
+msgid "重新分析全部"
+msgstr ""
+
+msgid "文档预览"
+msgstr ""
+
+msgid "个映射"
+msgstr ""
+
+msgid "添加"
+msgstr ""
+
+msgid "点击左侧文档中要映射的位置"
+msgstr ""
+
+msgid "暂无映射，请先分析模板或手动添加"
+msgstr ""
+
+msgid "编辑"
+msgstr ""
+
+msgid "添加映射"
+msgstr ""
+
+msgid "编辑映射"
+msgstr ""
+
+msgid "选中位置"
+msgstr ""
+
+msgid "如：被告姓名、案由"
+msgstr ""
+
+msgid "保存"
+msgstr ""
+
+msgid "复选框"
+msgstr ""
+
+msgid "删除不适用"
+msgstr ""
+
+msgid "预览加载失败"
+msgstr ""
+
+msgid "表格"
+msgstr ""
+
+msgid "行"
+msgstr ""
+
+msgid "列"
+msgstr ""
+
+msgid "段落"
+msgstr ""
+
+msgid "映射已添加"
+msgstr ""
+
+msgid "映射已更新"
+msgstr ""
+
+msgid "保存失败"
+msgstr ""
+
+msgid "确定删除此映射？"
+msgstr ""
+
+msgid "映射已删除"
+msgstr ""
+
+msgid "删除失败"
+msgstr ""
+
+msgid "重新分析将覆盖现有映射，确定继续？"
+msgstr ""
+
+msgid "分析完成"
+msgstr ""
+
+msgid "导出选中清单的 ZIP"
+msgstr ""
+
+msgid "证据属性"
+msgstr ""
+
+msgid "三性说明"
+msgstr ""
+
+msgid ""
+"格式: {\"authenticity\": {\"opinion\": \"认可\", \"reason\": \"...\"}, "
+"\"legality\": {...}, \"relevance\": {...}}"
+msgstr ""
+
+msgid "质证意见"
+msgstr ""
+
+msgid "对方证据的质证意见，格式同三性说明"
+msgstr ""
+
+msgid "文件信息"
+msgstr ""
+
+msgid "OCR / AI"
+msgstr ""
+
+msgid "页码"
+msgstr ""
+
+msgid "内容"
+msgstr ""
+
+msgid "关联证据"
+msgstr ""
+
+msgid "证据管理"
+msgstr ""
+
+msgid "我方证据"
+msgstr ""
+
+msgid "对方证据"
+msgstr ""
+
+msgid "法院调取"
+msgstr ""
+
+msgid "书证"
+msgstr ""
+
+msgid "物证"
+msgstr ""
+
+msgid "视听资料"
+msgstr ""
+
+msgid "电子数据"
+msgstr ""
+
+msgid "证人证言"
+msgstr ""
+
+msgid "鉴定意见"
+msgstr ""
+
+msgid "勘验笔录"
+msgstr ""
+
+msgid "当事人陈述"
+msgstr ""
+
+msgid "有原件"
+msgstr ""
+
+msgid "仅复印件"
+msgstr ""
+
+msgid "电子原件"
+msgstr ""
+
+msgid "证据方向"
+msgstr ""
+
+msgid "证据种类"
+msgstr ""
+
+msgid "原件状态"
+msgstr ""
+
+msgid "原件存放位置"
+msgstr ""
+
+msgid "真实性/合法性/关联性说明"
+msgstr ""
+
+msgid "对方证据的质证意见"
+msgstr ""
+
+msgid "文件哈希"
+msgstr ""
+
+msgid "SHA-256"
+msgstr ""
+
+msgid "来源渠道"
+msgstr ""
+
+msgid "OCR文本"
+msgstr ""
+
+msgid "证据文件的OCR提取文本,用于全文搜索"
+msgstr ""
+
+msgid "分组名称"
+msgstr ""
+
+msgid "证据分组"
+msgstr ""
+
+msgid "笔记内容"
+msgstr ""
+
+msgid "记录时间"
+msgstr ""
+
+msgid "庭审笔记"
+msgstr ""
+
+msgid "开庭模式"
+msgstr ""
+
+msgid "编号"
+msgstr ""
+
+msgid "输入证据编号快速跳转"
+msgstr ""
+
+msgid "搜索证据名称、证明目的、OCR文本..."
+msgstr ""
+
+msgid "全部方向"
+msgstr ""
+
+msgid "全部类型"
+msgstr ""
+
+msgid "页"
+msgstr ""
+
+msgid "记录法官提问、我方回答..."
+msgstr ""
+
+msgid "保存笔记"
+msgstr ""
+
+msgid "已保存"
+msgstr ""
+
+msgid "案件材料整理"
+msgstr ""
+
+msgid "AI 诉讼文书生成"
+msgstr ""
+
+msgid "起诉状"
+msgstr ""
+
+msgid "答辩状"
+msgstr ""
+
+msgid "反诉状"
+msgstr ""
+
+msgid "反诉答辩状"
+msgstr ""
+
+msgid "进行中"
+msgstr ""
+
+msgid "已取消"
+msgstr ""
+
+msgid "AI助手"
+msgstr ""
+
+msgid "模拟庭审"
+msgstr ""
+
+msgid "法官视角"
+msgstr ""
+
+msgid "质证模拟"
+msgstr ""
+
+msgid "辩论模拟"
+msgstr ""
+
+msgid "证据片段"
+msgstr ""
+
+msgid "唯一标识一次文书生成会话"
+msgstr ""
+
+msgid "会话类型"
+msgstr ""
+
+msgid "文书生成或模拟庭审"
+msgstr ""
+
+msgid "起诉状、答辩状、反诉状等"
+msgstr ""
+
+msgid "会话状态"
+msgstr ""
+
+msgid "会话元数据"
+msgstr ""
+
+msgid "存储诉讼目标、证据清单ID、token消耗等信息"
+msgstr ""
+
+msgid "会话不存在"
+msgstr ""
+
+msgid "未找到生成的内容"
+msgstr ""
+
+msgid "文档生成失败"
+msgstr ""
+
+msgid "无权限访问此任务"
+msgstr ""
+
+msgid "无效的状态"
+msgstr ""
+
+msgid "无权限删除此会话"
+msgstr ""
+
+msgid "返回案件"
+msgstr ""
+
+msgid "选择模式"
+msgstr ""
+
+msgid "分析争议焦点、证据强弱、胜诉概率"
+msgstr ""
+
+msgid "AI 扮演对方律师，逐一质证您的证据"
+msgstr ""
+
+msgid "围绕争议焦点与 AI 对方律师多轮辩论"
+msgstr ""
+
+msgid "历史记录"
+msgstr ""
+
+msgid "暂无历史记录"
+msgstr ""
+
+msgid "选择模式开始模拟庭审"
+msgstr ""
+
+msgid "AI 分析中..."
+msgstr ""
+
+msgid "输入消息... (Enter 发送)"
+msgstr ""
+
+msgid "发送"
+msgstr ""
+
+msgid "会话信息"
+msgstr ""
+
+msgid "凭证站点名称"
+msgstr ""
+
+msgid "从账号密码管理中已有的站点名称选择"
+msgstr ""
+
+msgid "OA立案"
+msgstr ""
+
+msgid "待开始"
+msgstr ""
+
+msgid "OA配置"
+msgstr ""
+
+msgid "登录凭证"
+msgstr ""
+
+msgid "发起用户"
+msgstr ""
+
+msgid "立案记录"
+msgstr ""
+
+msgid "与账号密码管理中的「网站名称」一致，用于自动匹配凭证"
+msgstr ""
+
+msgid "字段映射规则"
+msgstr ""
+
+msgid "本系统字段到OA表单字段的映射"
+msgstr ""
+
+msgid "OA系统配置"
+msgstr ""
+
+msgid "脚本执行失败"
+msgstr ""
+
+msgid "立案引导"
+msgstr ""
+
+msgid "登录统计"
+msgstr ""
+
+msgid "成功/失败次数"
+msgstr ""
+
+msgid "最后成功登录"
+msgstr ""
+
+msgid "从未成功"
+msgstr ""
+
+#, python-format
+msgid "%(days)d天前"
+msgstr ""
+
+#, python-format
+msgid "%(hours)d小时前"
+msgstr ""
+
+#, python-format
+msgid "%(minutes)d分钟前"
+msgstr ""
+
+msgid "不支持"
+msgstr ""
+
+msgid "标记为优先账号"
+msgstr ""
+
+#, python-format
+msgid "已将 %(count)d 个账号标记为优先使用"
+msgstr ""
+
+msgid "取消优先标记"
+msgstr ""
+
+#, python-format
+msgid "已取消 %(count)d 个账号的优先标记"
+msgstr ""
+
+msgid "律师必须至少关联一个律师团队"
+msgstr ""
+
+msgid "所选团队的所属律所必须与律师所属律所一致"
+msgstr ""
+
+msgid "组织管理"
+msgstr ""
+
+msgid "Bootstrap Token"
+msgstr ""
+
+msgid "首次注册管理员时填写"
+msgstr ""
+
+msgid "仅首个管理员注册时需要"
+msgstr ""
+
+msgid "请输入中文姓名"
+msgstr ""
+
+msgid "请输入密码"
+msgstr ""
+
+msgid "请确认密码"
+msgstr ""
+
+msgid "用户名/真实姓名"
+msgstr ""
+
+msgid "密码"
+msgstr ""
+
+msgid "确认密码"
+msgstr ""
+
+msgid "只能输入中文"
+msgstr ""
+
+msgid "用户名只能输入中文"
+msgstr ""
+
+msgid "URL"
+msgstr ""
+
+msgid "最后成功登录时间"
+msgstr ""
+
+msgid "成功登录次数"
+msgstr ""
+
+msgid "失败登录次数"
+msgstr ""
+
+msgid "是否优先使用"
+msgstr ""
+
+msgid "账号密码"
+msgstr ""
+
+msgid "律所名称"
+msgstr ""
+
+msgid "地址"
+msgstr ""
+
+msgid "开户行"
+msgstr ""
+
+msgid "银行账号"
+msgstr ""
+
+msgid "真实姓名"
+msgstr ""
+
+msgid "手机号码"
+msgstr ""
+
+msgid "执业证号"
+msgstr ""
+
+msgid "身份证号"
+msgstr ""
+
+msgid "是否律所管理员"
+msgstr ""
+
+msgid "执业证文件"
+msgstr ""
+
+msgid "所属律师团队"
+msgstr ""
+
+msgid "所属业务团队"
+msgstr ""
+
+msgid "律师团队"
+msgstr ""
+
+msgid "业务团队"
+msgstr ""
+
+msgid "团队名称"
+msgstr ""
+
+msgid "团队类型"
+msgstr ""
+
+msgid "团队"
+msgstr ""
+
+#, python-format
+msgid "账号 %(account)s 不支持自动登录（仅支持法院一张网）"
+msgstr ""
+
+msgid "没有找到法院一张网账号"
+msgstr ""
+
+#, python-format
+msgid "✅ 成功触发 %(count)d 个账号的自动登录"
+msgstr ""
+
+#, python-format
+msgid "❌ %(count)d 个账号登录失败"
+msgstr ""
+
+#, python-format
+msgid "总耗时 %(duration).1f秒"
+msgstr ""
+
+msgid "，"
+msgstr ""
+
+msgid "登录失败，未返回Token"
+msgstr ""
+
+msgid "无权限访问该凭证"
+msgstr ""
+
+msgid "律师不存在"
+msgstr ""
+
+msgid "无权限为该律师创建凭证"
+msgstr ""
+
+msgid "凭证不存在"
+msgstr ""
+
+msgid "账号凭证不存在"
+msgstr ""
+
+msgid "用户名或密码错误"
+msgstr ""
+
+msgid "用户类型错误"
+msgstr ""
+
+msgid "需要 Bootstrap Token 才能注册第一个管理员"
+msgstr ""
+
+msgid "请先登录"
+msgstr ""
+
+msgid "律所不存在"
+msgstr ""
+
+msgid "无权限访问该律所"
+msgstr ""
+
+msgid "无权限创建律所"
+msgstr ""
+
+msgid "无权限更新该律所"
+msgstr ""
+
+msgid "无权限删除该律所"
+msgstr ""
+
+msgid "律所下还有律师，无法删除"
+msgstr ""
+
+msgid "律所下还有团队，无法删除"
+msgstr ""
+
+msgid "律所名称已存在"
+msgstr ""
+
+msgid "该名称已被使用"
+msgstr ""
+
+msgid "无权限创建律师"
+msgstr ""
+
+msgid "无效的律所 ID"
+msgstr ""
+
+msgid "无权限更新该律师信息"
+msgstr ""
+
+msgid "无权限删除该律师"
+msgstr ""
+
+msgid "该律师创建了案件,无法删除"
+msgstr ""
+
+msgid "用户名已存在"
+msgstr ""
+
+msgid "该用户名已被使用"
+msgstr ""
+
+msgid "手机号已存在"
+msgstr ""
+
+msgid "该手机号已被使用"
+msgstr ""
+
+msgid "至少需要一个律师团队"
+msgstr ""
+
+msgid "团队所属律所必须与律师所属律所一致"
+msgstr ""
+
+msgid "团队律所不匹配"
+msgstr ""
+
+msgid "无权限访问该律师信息"
+msgstr ""
+
+msgid "团队不存在"
+msgstr ""
+
+msgid "无权限访问该团队"
+msgstr ""
+
+msgid "无权限创建团队"
+msgstr ""
+
+msgid "无权限更新该团队"
+msgstr ""
+
+msgid "无权限删除该团队"
+msgstr ""
+
+msgid "非法团队类型"
+msgstr ""
+
+#, python-format
+msgid "团队类型必须是 %(valid_types)s 之一"
+msgstr ""
+
+msgid "用户注册"
+msgstr ""
+
+#, python-format
+msgid "注册成功！您是第一个用户，已自动获得管理员权限。欢迎 %(name)s"
+msgstr ""
+
+msgid "注册成功！请等待管理员开通权限后再登录。"
+msgstr ""
+
+msgid ""
+"用于存放\"结构化扩展信息\"的 JSON(不参与业务必填).可留空或填 {}.常见"
+"键:source(来源,如 court_sms / manual)、file_name(来源文件名)、external_id(外"
+"部ID)、note(备注).示例:{\"source\":\"court_sms\",\"file_name\":\"传票.pdf\"}"
+msgstr ""
+
+msgid "请输入合法的 JSON 格式"
+msgstr ""
+
+msgid "请输入合法的 JSON 对象（非数组或标量）"
+msgstr ""
+
+msgid "重要日期提醒"
+msgstr ""
+
+msgid "财产保全到期日"
+msgstr ""
+
+msgid "举证到期日"
+msgstr ""
+
+msgid "上诉期到期日"
+msgstr ""
+
+msgid "诉讼时效到期日"
+msgstr ""
+
+msgid "缴费期限"
+msgstr ""
+
+msgid "补正/材料提交期限"
+msgstr ""
+
+msgid "提醒事项"
+msgstr ""
+
+msgid "到期时间"
+msgstr ""
+
+msgid "扩展数据"
+msgstr ""
+
+msgid "必须且只能绑定合同或案件日志之一"
+msgstr ""
+
+msgid "ID 必须为正整数"
+msgstr ""
+
+msgid "提醒事项不能为空"
+msgstr ""
+
+msgid "不能同时查询合同和案件日志的提醒"
+msgstr ""
+
+msgid "必须指定合同或案件日志"
+msgstr ""
+
+msgid "contract_id"
+msgstr ""
+
+msgid "case_log_id"
+msgstr ""
+
+#, python-format
+msgid "提醒记录 %(id)s 不存在"
+msgstr ""
+
+msgid "合同ID"
+msgstr ""
+
+#, python-format
+msgid "%(field_name)s 必须为正整数"
+msgstr ""
+
+msgid "提醒类型不能为空"
+msgstr ""
+
+msgid "无效的提醒类型"
+msgstr ""
+
+#, python-format
+msgid "提醒事项不能超过 %(max)d 个字符"
+msgstr ""
+
+msgid "到期时间格式不正确"
+msgstr ""
+
+msgid "扩展数据必须为 JSON 对象"
+msgstr ""
+
+msgid "扩展数据包含不可序列化的值"
 msgstr ""

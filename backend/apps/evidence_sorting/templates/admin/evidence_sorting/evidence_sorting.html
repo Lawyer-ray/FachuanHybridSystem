@@ -1,0 +1,549 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}案件材料整理{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .es-container { max-width: 1400px; margin: 20px auto; padding: 20px; }
+    .es-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    .es-title { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
+    .es-subtitle { color: #666; margin: 0 0 20px; }
+
+    /* 步骤指示器 */
+    .steps { display: flex; gap: 8px; margin-bottom: 24px; }
+    .step { padding: 8px 16px; border-radius: 20px; font-size: 13px; background: #f3f4f6; color: #6b7280; cursor: pointer; }
+    .step.active { background: #417690; color: #fff; }
+    .step.done { background: #dcfce7; color: #166534; }
+
+    /* 上传区域 */
+    .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 60px 20px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
+    .upload-box:hover, .upload-box.dragover { border-color: #417690; background: #f0f7fa; }
+    .upload-box-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-box-title { font-weight: 600; color: #333; margin-bottom: 8px; }
+    .upload-box-hint { font-size: 13px; color: #9ca3af; }
+
+    /* 分类结果 */
+    .category-section { margin-bottom: 20px; }
+    .category-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px; cursor: pointer; }
+    .category-title { font-weight: 600; font-size: 15px; }
+    .category-count { background: #e5e7eb; padding: 2px 10px; border-radius: 10px; font-size: 12px; }
+    .category-count.statement { background: #dbeafe; color: #1e40af; }
+    .category-count.delivery { background: #dcfce7; color: #166534; }
+    .category-count.receipt { background: #fef3c7; color: #92400e; }
+
+    /* 图片网格 */
+    .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .img-card { background: #f8f9fa; border-radius: 6px; padding: 8px; position: relative; border: 2px solid transparent; cursor: grab; }
+    .img-card:hover { border-color: #417690; }
+    .img-card.dragging { opacity: 0.5; }
+    .img-thumb { width: 100%; aspect-ratio: 1; background: #e5e7eb; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .img-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .img-name { font-size: 11px; color: #333; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .img-meta { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+    .img-badge { position: absolute; top: 4px; right: 4px; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 500; }
+    .img-badge.signed { background: #dcfce7; color: #166534; }
+    .img-badge.unsigned { background: #fef2f2; color: #dc2626; }
+
+    /* 比对结果 */
+    .month-group { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .month-header { padding: 12px 16px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; }
+    .month-title { font-weight: 600; }
+    .month-status { font-size: 12px; padding: 2px 10px; border-radius: 10px; }
+    .month-status.ok { background: #dcfce7; color: #166534; }
+    .month-status.warn { background: #fef3c7; color: #92400e; }
+    .month-status.error { background: #fef2f2; color: #dc2626; }
+    .month-body { padding: 12px 16px; }
+    .match-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .match-icon { width: 20px; text-align: center; }
+    .match-icon.ok { color: #16a34a; }
+    .match-icon.warn { color: #d97706; }
+    .match-icon.error { color: #dc2626; }
+
+    /* LLM 选择器 */
+    .llm-selector { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; }
+    .llm-selector label { font-size: 13px; font-weight: 500; }
+    .llm-selector select { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+
+    /* 按钮 */
+    .btn { padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: #417690; color: #fff; }
+    .btn-primary:hover { background: #365f73; }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+    .btn-success { background: #16a34a; color: #fff; }
+    .btn-success:hover { background: #15803d; }
+    .btn-outline { background: #fff; color: #417690; border: 1px solid #417690; }
+    .btn-outline:hover { background: #f0f7fa; }
+
+    /* 进度条 */
+    .progress-bar { height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; margin: 12px 0; }
+    .progress-fill { height: 100%; background: #417690; transition: width 0.3s; }
+
+    /* 拖拽目标高亮 */
+    .drop-target { border: 2px dashed #417690 !important; background: #f0f7fa !important; }
+
+    .actions-bar { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="es-container" x-data="evidenceSorting()">
+    <div class="es-card">
+        <h1 class="es-title">📋 案件材料整理</h1>
+        <p class="es-subtitle">上传散乱的案件图片，自动分类、比对对账单与出库单，一键导出整理好的文件夹</p>
+
+        <!-- 步骤指示器 -->
+        <div class="steps">
+            <span class="step" :class="{ active: step === 1, done: step > 1 }">① 上传图片</span>
+            <span class="step" :class="{ active: step === 2, done: step > 2 }">② 确认分类</span>
+            <span class="step" :class="{ active: step === 3, done: step > 3 }">③ 比对结果</span>
+            <span class="step" :class="{ active: step === 4, done: step > 4 }">④ 导出</span>
+        </div>
+    </div>
+
+    <!-- Step 1: 上传 -->
+    <div class="es-card" x-show="step === 1">
+        <div class="upload-box"
+             :class="{ dragover: isDragging }"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)">
+            <div class="upload-box-icon">📁</div>
+            <div class="upload-box-title">拖拽图片到此处，或点击选择文件</div>
+            <div class="upload-box-hint">支持 JPG、PNG 格式，可一次选择多张</div>
+        </div>
+        <input type="file" x-ref="fileInput" multiple accept="image/*" @change="handleFiles($event)" style="display:none">
+
+        <template x-if="rawImages.length > 0">
+            <div style="margin-top: 20px;">
+                <p style="color: #666; font-size: 14px;">已选择 <strong x-text="rawImages.length"></strong> 张图片</p>
+                <div class="actions-bar">
+                    <button class="btn btn-outline" @click="rawImages = []">清空</button>
+                    <button class="btn btn-primary" @click="startClassify()" :disabled="classifying">
+                        <span x-show="!classifying">🔍 开始分析</span>
+                        <span x-show="classifying">⏳ 分析中...</span>
+                    </button>
+                </div>
+                <template x-if="classifying">
+                    <div class="progress-bar">
+                        <div class="progress-fill" :style="'width:' + classifyProgress + '%'"></div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- Step 2: 分类结果 -->
+    <div class="es-card" x-show="step === 2">
+        <h3 style="margin-bottom: 16px;">分类结果 <span style="font-size: 13px; color: #666;">（可拖拽图片到其他分类）</span></h3>
+
+        <!-- LLM 选择器 -->
+        <div class="llm-selector">
+            <label>LLM 后端:</label>
+            <select x-model="selectedBackend" @change="loadModels()">
+                <template x-for="b in llmBackends" :key="b.name">
+                    <option :value="b.name" x-text="b.label" :disabled="!b.available"></option>
+                </template>
+            </select>
+            <label>模型:</label>
+            <select x-model="selectedModel">
+                <option value="">默认</option>
+                <template x-for="m in availableModels" :key="m.id">
+                    <option :value="m.id" x-text="m.name"></option>
+                </template>
+            </select>
+        </div>
+
+        <template x-for="cat in categories" :key="cat.key">
+            <div class="category-section"
+                 @dragover.prevent="dragOverCategory = cat.key"
+                 @dragleave.prevent="dragOverCategory = ''"
+                 @drop.prevent="dropToCategory($event, cat.key)"
+                 :class="{ 'drop-target': dragOverCategory === cat.key }">
+                <div class="category-header" @click="cat.collapsed = !cat.collapsed">
+                    <span class="category-title" x-text="cat.label"></span>
+                    <span class="category-count" :class="cat.key"
+                          x-text="classifiedImages.filter(i => i.category === cat.key).length + ' 张'"></span>
+                </div>
+                <div class="img-grid" x-show="!cat.collapsed">
+                    <template x-for="img in classifiedImages.filter(i => i.category === cat.key)" :key="img.filename">
+                        <div class="img-card"
+                             draggable="true"
+                             @dragstart="dragStart($event, img)"
+                             @dragend="dragEnd()">
+                            <div class="img-thumb">
+                                <img :src="img.thumbUrl" :alt="img.filename">
+                            </div>
+                            <template x-if="img.category === 'statement' && img.signed !== null">
+                                <span class="img-badge" :class="img.signed ? 'signed' : 'unsigned'"
+                                      x-text="img.signed ? '已签名' : '未签名'"></span>
+                            </template>
+                            <div class="img-name" x-text="img.filename" :title="img.filename"></div>
+                            <div class="img-meta">
+                                <span x-show="img.date" x-text="img.date"></span>
+                                <span x-show="img.amount" x-text="'¥' + img.amount"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <div class="actions-bar">
+            <button class="btn btn-outline" @click="step = 1">← 返回</button>
+            <button class="btn btn-primary" @click="startReconcile()" :disabled="reconciling">
+                <span x-show="!reconciling">📊 开始比对</span>
+                <span x-show="reconciling">⏳ 比对中...</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: 比对结果 -->
+    <div class="es-card" x-show="step === 3">
+        <h3 style="margin-bottom: 16px;">比对结果</h3>
+
+        <template x-for="g in reconcileResult.month_groups" :key="g.month">
+            <div class="month-group">
+                <div class="month-header">
+                    <span class="month-title" x-text="g.folder_name"></span>
+                    <span class="month-status"
+                          :class="g.issues.length === 0 ? 'ok' : (g.issues.some(i => i.includes('缺少')) ? 'error' : 'warn')"
+                          x-text="g.issues.length === 0 ? '✓ 已确认' : g.issues.join(', ')"></span>
+                </div>
+                <div class="month-body">
+                    <template x-if="g.statement">
+                        <div class="match-item">
+                            <span class="match-icon" :class="g.statement.signed ? 'ok' : 'warn'"
+                                  x-text="g.statement.signed ? '✓' : '⚠'"></span>
+                            <span>对账单: <strong x-text="g.statement.month"></strong></span>
+                            <span x-show="g.statement.total_amount" style="color: #666;">
+                                ¥<span x-text="g.statement.total_amount"></span>
+                            </span>
+                            <span x-show="!g.statement.signed" style="color: #d97706; font-size: 12px;">（未签名）</span>
+                        </div>
+                    </template>
+                    <template x-for="d in g.deliveries" :key="d.filename">
+                        <div class="match-item">
+                            <span class="match-icon"
+                                  :class="d.match_status === 'matched' ? 'ok' : 'error'"
+                                  x-text="d.match_status === 'matched' ? '✓' : '✗'"></span>
+                            <span x-text="d.date || '未知日期'"></span>
+                            <span x-show="d.amount">¥<span x-text="d.amount"></span></span>
+                            <span x-show="d.remark" style="color: #dc2626; font-size: 12px;"
+                                  x-text="'（' + d.remark + '）'"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- 未匹配出库单 -->
+        <template x-if="reconcileResult.unmatched_deliveries && reconcileResult.unmatched_deliveries.length > 0">
+            <div class="month-group">
+                <div class="month-header">
+                    <span class="month-title">未匹配的出库单</span>
+                    <span class="month-status error" x-text="reconcileResult.unmatched_deliveries.length + ' 张'"></span>
+                </div>
+                <div class="month-body">
+                    <template x-for="d in reconcileResult.unmatched_deliveries" :key="d.filename">
+                        <div class="match-item">
+                            <span class="match-icon error">?</span>
+                            <span x-text="d.filename"></span>
+                            <span x-show="d.date" x-text="d.date"></span>
+                            <span x-show="d.amount">¥<span x-text="d.amount"></span></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- 汇总 -->
+        <div style="margin-top: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; font-size: 13px; color: #666;">
+            未签名对账单: <strong x-text="reconcileResult.unsigned_statements ? reconcileResult.unsigned_statements.length : 0"></strong> 张 |
+            收款凭证: <strong x-text="reconcileResult.receipts_count || 0"></strong> 张 |
+            其他文件: <strong x-text="reconcileResult.others_count || 0"></strong> 张
+        </div>
+
+        <div class="actions-bar">
+            <button class="btn btn-outline" @click="step = 2">← 返回调整</button>
+            <button class="btn btn-success" @click="startExport()" :disabled="exporting">
+                <span x-show="!exporting">📦 导出 ZIP</span>
+                <span x-show="exporting">⏳ 导出中...</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: 导出完成 -->
+    <div class="es-card" x-show="step === 4">
+        <div style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+            <h3>导出完成</h3>
+            <p style="color: #666; margin: 12px 0;">文件已整理完毕，点击下载</p>
+            <a :href="exportUrl" class="btn btn-success" download>📥 下载 ZIP</a>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-outline" @click="reset()">开始新的整理</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <template x-if="errorMsg">
+        <div style="position: fixed; bottom: 20px; right: 20px; background: #fef2f2; color: #dc2626; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; max-width: 400px;">
+            <span x-text="errorMsg"></span>
+            <button @click="errorMsg = ''" style="margin-left: 12px; background: none; border: none; color: #dc2626; cursor: pointer; font-weight: bold;">✕</button>
+        </div>
+    </template>
+</div>
+
+<script>
+function evidenceSorting() {
+    return {
+        step: 1,
+        isDragging: false,
+        rawImages: [],
+        classifiedImages: [],
+        classifying: false,
+        classifyProgress: 0,
+        reconciling: false,
+        reconcileResult: {},
+        exporting: false,
+        exportUrl: '',
+        errorMsg: '',
+        draggedImage: null,
+        dragOverCategory: '',
+
+        // LLM
+        selectedBackend: 'siliconflow',
+        selectedModel: '',
+        llmBackends: [],
+        availableModels: [],
+
+        categories: [
+            { key: 'statement', label: '📄 对账单', collapsed: false },
+            { key: 'delivery', label: '📦 出库单/出仓单', collapsed: false },
+            { key: 'receipt', label: '💰 收款凭证', collapsed: false },
+            { key: 'other', label: '📎 其他', collapsed: true },
+        ],
+
+        init() {
+            this.loadLLMOptions();
+        },
+
+        handleFiles(e) {
+            const files = Array.from(e.target.files || []);
+            this.addFiles(files);
+        },
+
+        handleDrop(e) {
+            this.isDragging = false;
+            const files = Array.from(e.dataTransfer.files || []);
+            this.addFiles(files);
+        },
+
+        addFiles(files) {
+            for (const f of files) {
+                if (!f.type.startsWith('image/')) continue;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.rawImages.push({
+                        filename: f.name,
+                        data: e.target.result,
+                        thumbUrl: e.target.result,
+                    });
+                };
+                reader.readAsDataURL(f);
+            }
+        },
+
+        async startClassify() {
+            if (this.rawImages.length === 0) return;
+            this.classifying = true;
+            this.classifyProgress = 0;
+            this.errorMsg = '';
+
+            // 分批处理（每批 10 张）
+            const batchSize = 10;
+            const allResults = [];
+            const total = this.rawImages.length;
+
+            for (let i = 0; i < total; i += batchSize) {
+                const batch = this.rawImages.slice(i, i + batchSize).map(img => ({
+                    filename: img.filename,
+                    data: img.data,
+                }));
+
+                try {
+                    const resp = await fetch('/api/v1/evidence-sorting/classify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCSRF() },
+                        body: JSON.stringify({ images: batch }),
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        allResults.push(...data.images);
+                    } else {
+                        this.errorMsg = data.message || '分类失败';
+                    }
+                } catch (e) {
+                    this.errorMsg = '网络错误: ' + e.message;
+                }
+                this.classifyProgress = Math.round(((i + batchSize) / total) * 100);
+            }
+
+            // 合并结果，保留 thumbUrl
+            this.classifiedImages = allResults.map((r, idx) => ({
+                ...r,
+                thumbUrl: this.rawImages.find(ri => ri.filename === r.filename)?.thumbUrl || '',
+                imageData: this.rawImages.find(ri => ri.filename === r.filename)?.data || '',
+            }));
+
+            this.classifying = false;
+            this.classifyProgress = 100;
+            this.step = 2;
+        },
+
+        // 拖拽分类调整
+        dragStart(e, img) {
+            this.draggedImage = img;
+            e.dataTransfer.effectAllowed = 'move';
+        },
+        dragEnd() {
+            this.draggedImage = null;
+            this.dragOverCategory = '';
+        },
+        dropToCategory(e, category) {
+            this.dragOverCategory = '';
+            if (this.draggedImage) {
+                this.draggedImage.category = category;
+                this.draggedImage = null;
+            }
+        },
+
+        async startReconcile() {
+            this.reconciling = true;
+            this.errorMsg = '';
+
+            const payload = {
+                statements: this.classifiedImages.filter(i => i.category === 'statement').map(i => ({
+                    filename: i.filename, ocr_text: i.ocr_text, date: i.date,
+                    amount: i.amount, signed: i.signed, image_data: i.imageData,
+                })),
+                deliveries: this.classifiedImages.filter(i => i.category === 'delivery').map(i => ({
+                    filename: i.filename, ocr_text: i.ocr_text, date: i.date,
+                    amount: i.amount, image_data: i.imageData,
+                })),
+                receipts: this.classifiedImages.filter(i => i.category === 'receipt').map(i => ({
+                    filename: i.filename, image_data: i.imageData,
+                })),
+                others: this.classifiedImages.filter(i => i.category === 'other').map(i => ({
+                    filename: i.filename, image_data: i.imageData,
+                })),
+                backend: this.selectedBackend || null,
+                model: this.selectedModel || null,
+            };
+
+            try {
+                const resp = await fetch('/api/v1/evidence-sorting/reconcile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCSRF() },
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.reconcileResult = data;
+                    this.step = 3;
+                } else {
+                    this.errorMsg = data.message || '比对失败';
+                }
+            } catch (e) {
+                this.errorMsg = '网络错误: ' + e.message;
+            }
+            this.reconciling = false;
+        },
+
+        async startExport() {
+            this.exporting = true;
+            this.errorMsg = '';
+
+            const payload = {
+                statements: this.classifiedImages.filter(i => i.category === 'statement').map(i => ({
+                    filename: i.filename, ocr_text: i.ocr_text, date: i.date,
+                    amount: i.amount, signed: i.signed, image_data: i.imageData,
+                })),
+                deliveries: this.classifiedImages.filter(i => i.category === 'delivery').map(i => ({
+                    filename: i.filename, ocr_text: i.ocr_text, date: i.date,
+                    amount: i.amount, image_data: i.imageData,
+                })),
+                receipts: this.classifiedImages.filter(i => i.category === 'receipt').map(i => ({
+                    filename: i.filename, image_data: i.imageData,
+                })),
+                others: this.classifiedImages.filter(i => i.category === 'other').map(i => ({
+                    filename: i.filename, image_data: i.imageData,
+                })),
+                backend: this.selectedBackend || null,
+                model: this.selectedModel || null,
+            };
+
+            try {
+                const resp = await fetch('/api/v1/evidence-sorting/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCSRF() },
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.exportUrl = data.zip_url;
+                    this.step = 4;
+                } else {
+                    this.errorMsg = data.message || '导出失败';
+                }
+            } catch (e) {
+                this.errorMsg = '网络错误: ' + e.message;
+            }
+            this.exporting = false;
+        },
+
+        async loadLLMOptions() {
+            try {
+                const resp = await fetch('/api/v1/evidence-sorting/llm-options');
+                const data = await resp.json();
+                if (data.success) {
+                    this.llmBackends = data.backends;
+                    if (data.backends.length > 0) {
+                        const available = data.backends.find(b => b.available);
+                        if (available) {
+                            this.selectedBackend = available.name;
+                            this.availableModels = available.models || [];
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('加载 LLM 选项失败', e);
+            }
+        },
+
+        loadModels() {
+            const backend = this.llmBackends.find(b => b.name === this.selectedBackend);
+            this.availableModels = backend?.models || [];
+            this.selectedModel = '';
+        },
+
+        reset() {
+            this.step = 1;
+            this.rawImages = [];
+            this.classifiedImages = [];
+            this.reconcileResult = {};
+            this.exportUrl = '';
+            this.errorMsg = '';
+        },
+
+        getCSRF() {
+            const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+            return cookie ? cookie.split('=')[1] : '';
+        },
+    };
+}
+</script>
+{% endblock %}

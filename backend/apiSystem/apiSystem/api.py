@@ -73,18 +73,21 @@ def _register_app_routers() -> None:
         placeholder_router,
         preservation_materials_router,
     )
+    from apps.evidence.api import evidence_router
     from apps.litigation_ai.api.litigation_api import router as ai_litigation_router
+    from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.organization.api import router as organization_router
     from apps.reminders.api import router as reminders_router
+    from apps.automation.api.court_filing_api import router as court_filing_router
 
     api_v1.add_router("/config", config_router)
     api_v1.add_router("/llm", llm_router)
     api_v1.add_router("/i18n", i18n_router)
-    api_v1.add_router("/organization", organization_router)
+    api_v1.add_router("/organization", organization_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/client", client_router, auth=JWTOrSessionAuth())
-    api_v1.add_router("/cases", cases_router)
-    api_v1.add_router("/contracts", contracts_router)
-    api_v1.add_router("/automation", automation_router)
+    api_v1.add_router("/cases", cases_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/contracts", contracts_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/automation", automation_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
 
@@ -96,8 +99,14 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", authorization_material_router, tags=["授权委托材料生成"])
     api_v1.add_router("/documents", preservation_materials_router, tags=["财产保全材料生成"])
     api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
+    api_v1.add_router("/evidence", evidence_router, tags=["证据管理"])
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
-    api_v1.add_router("/contract-review", contract_review_router, tags=["合同审查"])
+    api_v1.add_router("/mock-trial", mock_trial_router, tags=["模拟庭审"])
+    api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
+
+    from apps.sales_dispute.api import router as sales_dispute_router
+    api_v1.add_router("/sales-dispute", sales_dispute_router, tags=["买卖纠纷计算"])
+    api_v1.add_router("/court-filing", court_filing_router, auth=JWTOrSessionAuth(), tags=["一张网立案"])
 
 
 _register_app_routers()

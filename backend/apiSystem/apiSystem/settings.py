@@ -78,10 +78,12 @@ INSTALLED_APPS = [
     "apps.reminders",  # 3.5 Reminders（重要日期提醒）
     "apps.onboarding",  # 4. 立案引导
     "apps.automation",  # 5. 自动化工具
+    "apps.evidence",  # 5.5 证据管理
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
     "apps.contract_review",  # 6.2 合同审查
+    "apps.sales_dispute",  # 6.3 买卖纠纷计算
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]

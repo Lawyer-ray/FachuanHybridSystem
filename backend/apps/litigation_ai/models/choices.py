@@ -21,3 +21,14 @@ class MessageRole(models.TextChoices):
     USER = "user", _("用户")
     ASSISTANT = "assistant", _("AI助手")
     SYSTEM = "system", _("系统")
+
+
+class SessionType(models.TextChoices):
+    DOC_GEN = "doc_gen", _("文书生成")
+    MOCK_TRIAL = "mock_trial", _("模拟庭审")
+
+
+class MockTrialMode(models.TextChoices):
+    JUDGE = "judge", _("法官视角")
+    CROSS_EXAM = "cross_exam", _("质证模拟")
+    DEBATE = "debate", _("辩论模拟")

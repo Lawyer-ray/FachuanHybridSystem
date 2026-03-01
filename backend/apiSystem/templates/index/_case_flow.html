@@ -1,0 +1,268 @@
+    <!-- 案件全流程管理与智能文书生成演示 -->
+    <section class="case-flow-section" id="case-flow">
+        <div class="case-flow-container">
+            <div class="section-header reveal">
+                <span class="section-tag">📋 智能归档</span>
+                <h2 class="section-title">案件全流程管理与智能文书生成</h2>
+                <p class="section-desc">一次录入、全局复用，文件夹自动生成，文书自动归档到指定位置</p>
+            </div>
+
+            <div class="case-flow-demo-v2" id="caseFlowDemo">
+                <!-- 左侧：AI 识别区 -->
+                <div class="case-left-panel">
+                    <div class="case-upload-box" id="caseUploadBox">
+                        <div class="case-upload-icon">📁</div>
+                        <div class="case-upload-title">上传案件材料</div>
+                        <div class="case-upload-desc">身份证、营业执照、合同等</div>
+                    </div>
+
+                    <!-- AI 识别结果 -->
+                    <div class="case-ai-compact" id="caseAiCompact">
+                        <div class="case-ai-compact-header">
+                            <span class="case-ai-compact-icon">✨</span>
+                            <span class="case-ai-compact-title">AI 识别结果</span>
+                        </div>
+                        <div class="case-ai-compact-grid">
+                            <div class="case-ai-compact-item" id="caseAiItem1">
+                                <span class="label">案由</span>
+                                <span class="value" id="caseAiType">—</span>
+                            </div>
+                            <div class="case-ai-compact-item" id="caseAiItem2">
+                                <span class="label">原告</span>
+                                <span class="value" id="caseAiPlaintiff">—</span>
+                            </div>
+                            <div class="case-ai-compact-item" id="caseAiItem3">
+                                <span class="label">被告</span>
+                                <span class="value" id="caseAiDefendant">—</span>
+                            </div>
+                            <div class="case-ai-compact-item" id="caseAiItem4">
+                                <span class="label">标的</span>
+                                <span class="value" id="caseAiAmount">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 生成状态 -->
+                    <div class="case-gen-status" id="caseGenStatus">
+                        <div class="case-gen-status-item" id="caseGenFolder">
+                            <span class="icon">📂</span>
+                            <span class="text">文件夹结构</span>
+                            <span class="status">—</span>
+                        </div>
+                        <div class="case-gen-status-item" id="caseGenDocs">
+                            <span class="icon">📄</span>
+                            <span class="text">文书生成</span>
+                            <span class="status">—</span>
+                        </div>
+                        <div class="case-gen-status-item" id="caseGenArchive">
+                            <span class="icon">📥</span>
+                            <span class="text">自动归档</span>
+                            <span class="status">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：文件夹树形结构 -->
+                                <div class="case-folder-tree" id="caseFolderTree">
+                    <div class="folder-tree-header">
+                        <span class="folder-tree-icon">📁</span>
+                        <span class="folder-tree-title">张三诉XX公司民间借贷纠纷</span>
+                        <span class="folder-tree-badge" id="folderTreeBadge">生成中...</span>
+                    </div>
+                    <div class="folder-tree-content">
+                        <!-- 一审 -->
+                        <div class="folder-node level-0" id="folder-trial">
+                            <div class="folder-node-header">
+                                <span class="folder-icon">📁</span>
+                                <span class="folder-name">一审</span>
+                            </div>
+                            <div class="folder-children">
+                                <!-- 1-立案材料 -->
+                                <div class="folder-node level-1" id="folder-filing">
+                                    <div class="folder-node-header">
+                                        <span class="folder-icon">📁</span>
+                                        <span class="folder-name">1-立案材料</span>
+                                    </div>
+                                    <div class="folder-children">
+                                        <!-- 1-起诉状文件夹 -->
+                                        <div class="folder-node level-2" id="folder-1-1">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">1-起诉状（反诉答辩）</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-1-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">起诉状.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 2-当事人身份证明 -->
+                                        <div class="folder-node level-2" id="folder-1-2">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">2-当事人身份证明</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-2-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">张三身份证.pdf</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 3-委托代理人 -->
+                                        <div class="folder-node level-2" id="folder-1-3">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">3-委托代理人委托手续和身份材料</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-3-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">授权委托书.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                                <div class="file-node level-3" id="file-1-3-2">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">律师证复印件.pdf</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                                <div class="file-node level-3" id="file-1-3-3">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">所函.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 4-证据材料 -->
+                                        <div class="folder-node level-2" id="folder-1-4">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">4-证据材料</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-4-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">证据清单.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                                <div class="file-node level-3" id="file-1-4-2">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">证据明细.pdf</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 5-送达地址确认书 -->
+                                        <div class="folder-node level-2" id="folder-1-5">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">5-送达地址确认书</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-5-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">送达地址确认书.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 6-退费账户确认书 -->
+                                        <div class="folder-node level-2" id="folder-1-6">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">6-退费账户确认书</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-6-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">退费账户确认书.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 7-保全申请书及保函 -->
+                                        <div class="folder-node level-2" id="folder-1-7">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">7-保全申请书及保函</span>
+                                                <span class="file-badge new">NEW</span>
+                                            </div>
+                                            <div class="folder-children">
+                                                <div class="file-node level-3" id="file-1-7-1">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">财产保全申请书.docx</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                                <div class="file-node level-3" id="file-1-7-2">
+                                                    <span class="file-icon">📄</span>
+                                                    <span class="file-name">保函.pdf</span>
+                                                    <span class="file-badge new">NEW</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 8-其他立案材料 -->
+                                        <div class="folder-node level-2" id="folder-1-8">
+                                            <div class="folder-node-header">
+                                                <span class="folder-icon">📁</span>
+                                                <span class="folder-name">8-其他立案材料</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 2-庭审准备 -->
+                                <div class="folder-node level-1" id="folder-hearing">
+                                    <div class="folder-node-header">
+                                        <span class="folder-icon">📁</span>
+                                        <span class="folder-name">2-庭审准备</span>
+                                    </div>
+                                    <div class="folder-children">
+                                        <div class="file-node level-2" id="file-2-1">
+                                            <span class="file-icon">📄</span>
+                                            <span class="file-name">1-问题清单.docx</span>
+                                        </div>
+                                        <div class="file-node level-2" id="file-2-2">
+                                            <span class="file-icon">📄</span>
+                                            <span class="file-name">2-庭审提纲.docx</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 3-结案文书 -->
+                                <div class="folder-node level-1" id="folder-closing">
+                                    <div class="folder-node-header">
+                                        <span class="folder-icon">📁</span>
+                                        <span class="folder-name">3-结案文书</span>
+                                    </div>
+                                </div>
+                                <!-- 4-邮件往来 -->
+                                <div class="folder-node level-1" id="folder-mail">
+                                    <div class="folder-node-header">
+                                        <span class="folder-icon">📁</span>
+                                        <span class="folder-name">4-邮件往来</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制按钮 -->
+            <div class="case-flow-controls">
+                <button class="flow-btn flow-btn-play" id="caseFlowPlayBtn" onclick="startCaseFlowAnimation()">
+                    <span>▶</span> 播放演示
+                </button>
+                <button class="flow-btn flow-btn-reset" id="caseFlowResetBtn" onclick="resetCaseFlowAnimation()">
+                    <span>↺</span> 重置
+                </button>
+            </div>
+        </div>
+    </section>

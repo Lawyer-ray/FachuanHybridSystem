@@ -1,0 +1,77 @@
+    <!-- 模拟庭审演示 -->
+    <section class="mock-trial-section" id="mock-trial-flow">
+        <div class="mock-trial-container">
+            <div class="section-header reveal">
+                <span class="section-tag">&#9878;&#65039; AI 庭审</span>
+                <h2 class="section-title">模拟庭审 &middot; 多角色 AI 对抗</h2>
+                <p class="section-desc">原告、被告、法官三方 AI 实时对话，WebSocket 驱动的沉浸式庭审模拟</p>
+            </div>
+
+            <div class="courtroom" id="courtroom">
+                <div class="court-judge">
+                    <div class="judge-bench" id="judgeBench">
+                        <div class="judge-avatar">&#9878;&#65039;</div>
+                        <div class="judge-info">
+                            <div class="judge-name">审判长</div>
+                            <div class="judge-role">AI &middot; GPT-4o</div>
+                        </div>
+                        <div class="ws-indicator">
+                            <span class="ws-dot"></span>
+                            WebSocket 实时连接
+                        </div>
+                    </div>
+                </div>
+
+                <div class="court-legend" id="courtLegend">
+                    <div class="legend-item">
+                        <div class="legend-avatar plaintiff">&#128104;&#8205;&#128188;</div>
+                        <span class="legend-text">原告代理人</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-avatar judge-av">&#9878;&#65039;</div>
+                        <span class="legend-text">审判长</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-avatar defendant">&#128105;&#8205;&#128188;</div>
+                        <span class="legend-text">被告代理人</span>
+                    </div>
+                </div>
+
+                <div class="court-chat" id="courtChat">
+                    <div class="chat-msg-row judge" id="trialMsg1">
+                        <div class="msg-avatar">&#9878;&#65039;</div>
+                        <div class="msg-bubble"><div class="msg-name">审判长</div>现在开庭。本案是原告张三诉被告XX科技公司民间借贷纠纷一案，请原告陈述诉讼请求。</div>
+                    </div>
+                    <div class="chat-msg-row plaintiff" id="trialMsg2">
+                        <div class="msg-avatar">&#128104;&#8205;&#128188;</div>
+                        <div class="msg-bubble"><div class="msg-name">原告代理人</div>审判长，我方请求判令被告偿还借款本金50万元及利息。2024年3月，原告通过银行转账向被告出借50万元，约定年利率8%，借期一年，现已逾期未还。</div>
+                    </div>
+                    <div class="chat-msg-row defendant" id="trialMsg3">
+                        <div class="msg-avatar">&#128105;&#8205;&#128188;</div>
+                        <div class="msg-bubble"><div class="msg-name">被告代理人</div>审判长，我方认为该笔款项并非借款，而是原告对被告公司的投资款。双方存在合作关系，该转账系投资入股行为，不应认定为借贷关系。</div>
+                    </div>
+                    <div class="chat-msg-row judge" id="trialMsg4">
+                        <div class="msg-avatar">&#9878;&#65039;</div>
+                        <div class="msg-bubble"><div class="msg-name">审判长</div>请原告出示借款合同及转账凭证等证据。被告如主张投资关系，请提供相应的股东协议或投资协议。</div>
+                    </div>
+                    <div class="chat-msg-row plaintiff" id="trialMsg5">
+                        <div class="msg-avatar">&#128104;&#8205;&#128188;</div>
+                        <div class="msg-bubble"><div class="msg-name">原告代理人</div>我方提交证据一：借款合同原件，明确载明借款金额、利率及还款期限；证据二：银行转账回单，备注为&ldquo;借款&rdquo;。</div>
+                    </div>
+                    <div class="chat-msg-row defendant" id="trialMsg6">
+                        <div class="msg-avatar">&#128105;&#8205;&#128188;</div>
+                        <div class="msg-bubble"><div class="msg-name">被告代理人</div>对证据一的真实性有异议，该合同上被告公章系伪造。我方申请司法鉴定。对证据二的转账事实认可，但备注不能单独证明借贷合意。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="court-controls">
+                <button class="flow-btn flow-btn-play" id="trialPlayBtn" onclick="startTrialAnimation()">
+                    <span>&#9654;</span> 播放演示
+                </button>
+                <button class="flow-btn flow-btn-reset" id="trialResetBtn" onclick="resetTrialAnimation()">
+                    <span>&#8634;</span> 重置
+                </button>
+            </div>
+        </div>
+    </section>

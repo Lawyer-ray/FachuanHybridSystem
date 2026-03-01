@@ -52,24 +52,24 @@ def get_statistics_report(
     return {"success": True, "data": report}
 
 
-@router.get("/health", response=HealthCheckOut, summary="健康检查")
+@router.get("/health", summary="健康检查")
 def health_check(request: HttpRequest) -> dict[str, Any]:
     """检查Token获取服务的健康状态"""
     ensure_admin_request(request)
     service = _get_performance_monitor_service()
     health_report = service.get_system_metrics()  # type: ignore[attr-defined]
     logger.info("健康检查完成", extra={"status": "healthy"})
-    return {"success": True, "data": health_report}
+    return health_report
 
 
-@router.get("/resource-usage", response=ResourceUsageOut, summary="获取资源使用情况")
+@router.get("/resource-usage", summary="获取资源使用情况")
 def get_resource_usage(request: HttpRequest) -> dict[str, Any]:
     """获取并发资源使用情况"""
     ensure_admin_request(request)
     service = _get_performance_monitor_service()
     usage = service.get_system_metrics()  # type: ignore[attr-defined]
     logger.info("获取资源使用情况成功", extra={"system_metrics": True})
-    return {"success": True, "data": usage}
+    return usage
 
 
 @router.post("/optimize-concurrency", summary="优化并发配置")

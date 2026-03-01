@@ -16,12 +16,12 @@ if TYPE_CHECKING:
 
 def build_folder_template_service() -> None:
     from apps.documents.services.template.folder_service import FolderTemplateService
-    from apps.documents.services.template.folder_template.command_service import FolderTemplateCommandService
-    from apps.documents.services.template.folder_template.id_service import FolderTemplateIdService
-    from apps.documents.services.template.folder_template.query_service import FolderTemplateQueryService
-    from apps.documents.services.template.folder_template.repo import FolderTemplateRepo
-    from apps.documents.services.template.folder_template.structure_rules import FolderTemplateStructureRules
-    from apps.documents.services.template.folder_template.validation_service import FolderTemplateValidationService
+    from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+    from apps.documents.services.folder_template.id_service import FolderTemplateIdService
+    from apps.documents.services.folder_template.query_service import FolderTemplateQueryService
+    from apps.documents.services.folder_template.repo import FolderTemplateRepo
+    from apps.documents.services.folder_template.structure_rules import FolderTemplateStructureRules
+    from apps.documents.services.folder_template.validation_service import FolderTemplateValidationService
     from apps.documents.usecases.folder_template.folder_template_usecases import FolderTemplateUsecases
 
     id_service = FolderTemplateIdService()
@@ -58,13 +58,13 @@ def build_document_template_binding_service() -> IDocumentTemplateBindingService
 
 
 def build_evidence_query_service() -> IEvidenceQueryService:
-    from apps.documents.services.evidence.evidence_query_service import EvidenceQueryService
+    from apps.evidence.services.evidence_query_service import EvidenceQueryService
 
     return EvidenceQueryService()
 
 
 def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService:
-    from apps.documents.services import EvidenceListPlaceholderService
+    from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return cast(IEvidenceListPlaceholderService, EvidenceListPlaceholderService())
 

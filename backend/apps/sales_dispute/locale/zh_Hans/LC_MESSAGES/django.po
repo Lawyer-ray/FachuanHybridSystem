@@ -1,0 +1,396 @@
+# Chinese (Simplified) translations for sales_dispute app.
+# Copyright (C) 2025
+# This file is distributed under the same license as the project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: sales_dispute\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-01 05:09+0800\n"
+"PO-Revision-Date: 2025-01-01 00:00+0800\n"
+"Last-Translator: \n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "是否逾期"
+msgstr "是否逾期"
+
+msgid "买卖纠纷计算"
+msgstr "买卖纠纷计算"
+
+msgid "书面合同"
+msgstr "书面合同"
+
+msgid "口头约定"
+msgstr "口头约定"
+
+msgid "交易习惯"
+msgstr "交易习惯"
+
+msgid "正常"
+msgstr "正常"
+
+msgid "即将届满"
+msgstr "即将届满"
+
+msgid "已届满"
+msgstr "已届满"
+
+msgid "良好"
+msgstr "良好"
+
+msgid "一般"
+msgstr "一般"
+
+msgid "较差"
+msgstr "较差"
+
+msgid "未知"
+msgstr "未知"
+
+msgid "充分"
+msgstr "充分"
+
+msgid "较充分"
+msgstr "较充分"
+
+msgid "薄弱"
+msgstr "薄弱"
+
+msgid "严重不足"
+msgstr "严重不足"
+
+msgid "关联案件"
+msgstr "关联案件"
+
+# ── CaseAssessment 模型 ──
+msgid "合同基础类型"
+msgstr "合同基础类型"
+
+msgid "债权本金"
+msgstr "债权本金"
+
+msgid "证据完整度总分"
+msgstr "证据完整度总分"
+
+msgid "诉讼时效状态"
+msgstr "诉讼时效状态"
+
+msgid "时效届满日期"
+msgstr "时效届满日期"
+
+msgid "偿付能力评级"
+msgstr "偿付能力评级"
+
+msgid "综合评估等级"
+msgstr "综合评估等级"
+
+msgid "评估备注"
+msgstr "评估备注"
+
+msgid "创建时间"
+msgstr "创建时间"
+
+msgid "更新时间"
+msgstr "更新时间"
+
+msgid "案件评估记录"
+msgstr "案件评估记录"
+
+
+# ── CollectionRecord 模型 ──
+
+msgid "电话催款"
+msgstr "电话催款"
+
+msgid "书面催款"
+msgstr "书面催款"
+
+msgid "律师函"
+msgstr "律师函"
+
+msgid "最后通牒"
+msgstr "最后通牒"
+
+msgid "起诉"
+msgstr "起诉"
+
+msgid "当前催收阶段"
+msgstr "当前催收阶段"
+
+msgid "催收启动日期"
+msgstr "催收启动日期"
+
+msgid "最近操作日期"
+msgstr "最近操作日期"
+
+msgid "下一节点到期日"
+msgstr "下一节点到期日"
+
+msgid "催收备注"
+msgstr "催收备注"
+
+msgid "催收记录"
+msgstr "催收记录"
+
+msgid "关联催收记录"
+msgstr "关联催收记录"
+
+msgid "操作类型"
+msgstr "操作类型"
+
+msgid "操作日期"
+msgstr "操作日期"
+
+msgid "操作描述"
+msgstr "操作描述"
+
+msgid "文书类型"
+msgstr "文书类型"
+
+msgid "文书文件名"
+msgstr "文书文件名"
+
+msgid "催收操作日志"
+msgstr "催收操作日志"
+
+msgid "送货/收货凭证"
+msgstr "送货/收货凭证"
+
+msgid "对账确认"
+msgstr "对账确认"
+
+msgid "催款记录"
+msgstr "催款记录"
+
+msgid "付款记录"
+msgstr "付款记录"
+
+# ── EvidenceScore 模型 ──
+msgid "关联评估记录"
+msgstr "关联评估记录"
+
+msgid "证据类型"
+msgstr "证据类型"
+
+msgid "是否具备"
+msgstr "是否具备"
+
+msgid "证据质量评分"
+msgstr "证据质量评分"
+
+msgid "备注"
+msgstr "备注"
+
+msgid "证据评分明细"
+msgstr "证据评分明细"
+
+# ── JurisdictionAnalysis 模型 ──
+msgid "是否有约定管辖"
+msgstr "是否有约定管辖"
+
+msgid "约定管辖法院"
+msgstr "约定管辖法院"
+
+msgid "约定管辖是否有效"
+msgstr "约定管辖是否有效"
+
+msgid "约定无效原因"
+msgstr "约定无效原因"
+
+msgid "原告所在地"
+msgstr "原告所在地"
+
+msgid "被告住所地"
+msgstr "被告住所地"
+
+msgid "推荐管辖法院"
+msgstr "推荐管辖法院"
+
+msgid "推荐理由"
+msgstr "推荐理由"
+
+msgid "备选管辖法院"
+msgstr "备选管辖法院"
+
+msgid "法律依据"
+msgstr "法律依据"
+
+msgid "管辖权分析"
+msgstr "管辖权分析"
+
+# ── LitigationStrategy 模型 ──
+msgid "支付令"
+msgstr "支付令"
+
+msgid "小额诉讼"
+msgstr "小额诉讼"
+
+msgid "简易程序"
+msgstr "简易程序"
+
+msgid "普通程序"
+msgstr "普通程序"
+
+msgid "诉前调解"
+msgstr "诉前调解"
+
+msgid "推荐策略类型"
+msgstr "推荐策略类型"
+
+msgid "预计周期"
+msgstr "预计周期"
+
+msgid "适用条件说明"
+msgstr "适用条件说明"
+
+msgid "是否建议财产保全"
+msgstr "是否建议财产保全"
+
+msgid "保全建议理由"
+msgstr "保全建议理由"
+
+msgid "起诉策略推荐"
+msgstr "起诉策略推荐"
+
+msgid "生效日期"
+msgstr "生效日期"
+
+msgid "一年期LPR(%)"
+msgstr "一年期LPR(%)"
+
+msgid "五年期LPR(%)"
+msgstr "五年期LPR(%)"
+
+msgid "LPR利率"
+msgstr "LPR利率"
+
+msgid "还款日期"
+msgstr "还款日期"
+
+msgid "还款金额"
+msgstr "还款金额"
+
+msgid "冲抵费用"
+msgstr "冲抵费用"
+
+msgid "冲抵利息"
+msgstr "冲抵利息"
+
+msgid "冲抵本金"
+msgstr "冲抵本金"
+
+msgid "剩余本金"
+msgstr "剩余本金"
+
+msgid "还款冲抵记录"
+msgstr "还款冲抵记录"
+
+# ── 催收工作流 Service ──
+
+msgid "催收记录不存在"
+msgstr "催收记录不存在"
+
+msgid "案件不存在"
+msgstr "案件不存在"
+
+msgid "该案件已存在催收记录"
+msgstr "该案件已存在催收记录"
+
+msgid "启动催收流程，进入电话催款阶段"
+msgstr "启动催收流程，进入电话催款阶段"
+
+msgid "当前已是最终阶段（起诉），无法继续推进"
+msgstr "当前已是最终阶段（起诉），无法继续推进"
+
+#, python-format
+msgid "推进至%(stage)s阶段"
+msgstr "推进至%(stage)s阶段"
+
+msgid "该案件暂无催收记录"
+msgstr "该案件暂无催收记录"
+
+msgid "净收益为负，诉讼经济效益较低，建议谨慎评估"
+msgstr "净收益为负，诉讼经济效益较低，建议谨慎评估"
+
+# ── 文书生成 Service ──
+
+#, python-format
+msgid "模板文件不存在：%(path)s"
+msgstr "模板文件不存在：%(path)s"
+
+#, python-format
+msgid "生成%(doc_type)s"
+msgstr "生成%(doc_type)s"
+
+msgid "买卖合同不适用民间借贷4倍LPR利率上限"
+msgstr "买卖合同不适用民间借贷4倍LPR利率上限"
+
+msgid "违约金与利息不能同时全额主张，建议择一主张或由法院酌定"
+msgstr "违约金与利息不能同时全额主张，建议择一主张或由法院酌定"
+
+#, python-format
+msgid "生成律师函（%(tone)s）"
+msgstr "生成律师函（%(tone)s）"
+
+#, python-format
+msgid "缺少 %(date)s 之前的LPR利率数据"
+msgstr "缺少 %(date)s 之前的LPR利率数据"
+
+#, python-format
+msgid "缺少 %(start)s 至 %(end)s 期间的LPR利率数据"
+msgstr "缺少 %(start)s 至 %(end)s 期间的LPR利率数据"
+
+msgid "生成对账函"
+msgstr "生成对账函"
+
+msgid "生成和解协议"
+msgstr "生成和解协议"
+
+# ── 看板 Dashboard ──
+
+msgid "起始日期不能晚于结束日期"
+msgstr "起始日期不能晚于结束日期"
+
+msgid "时间维度参数无效，可选值：month, quarter, year"
+msgstr "时间维度参数无效，可选值：month, quarter, year"
+
+msgid "分组参数无效，可选值：case_type, amount_range, lawyer"
+msgstr "分组参数无效，可选值：case_type, amount_range, lawyer"
+
+msgid "排序参数无效，可选值：total_recovery, recovery_rate, case_count"
+msgstr "排序参数无效，可选值：total_recovery, recovery_rate, case_count"
+
+msgid "未分类"
+msgstr "未分类"
+
+msgid "10万以下"
+msgstr "10万以下"
+
+msgid "10万-50万"
+msgstr "10万-50万"
+
+msgid "50万-100万"
+msgstr "50万-100万"
+
+msgid "100万以上"
+msgstr "100万以上"
+
+msgid "1年内"
+msgstr "1年内"
+
+msgid "1-2年"
+msgstr "1-2年"
+
+msgid "2年以上"
+msgstr "2年以上"
+
+msgid "有财产保全"
+msgstr "有财产保全"
+
+msgid "无财产保全"
+msgstr "无财产保全"

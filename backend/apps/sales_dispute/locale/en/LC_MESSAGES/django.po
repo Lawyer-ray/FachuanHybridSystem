@@ -1,0 +1,399 @@
+# English translations for sales_dispute app.
+# Copyright (C) 2025
+# This file is distributed under the same license as the project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: sales_dispute\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-01 05:09+0800\n"
+"PO-Revision-Date: 2025-01-01 00:00+0800\n"
+"Last-Translator: \n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "是否逾期"
+msgstr "Is Overdue"
+
+msgid "买卖纠纷计算"
+msgstr "Sales Dispute Calculator"
+
+msgid "书面合同"
+msgstr "Written Contract"
+
+msgid "口头约定"
+msgstr "Oral Agreement"
+
+msgid "交易习惯"
+msgstr "Trade Custom"
+
+msgid "正常"
+msgstr "Normal"
+
+msgid "即将届满"
+msgstr "Expiring Soon"
+
+msgid "已届满"
+msgstr "Expired"
+
+msgid "良好"
+msgstr "Good"
+
+msgid "一般"
+msgstr "Fair"
+
+msgid "较差"
+msgstr "Poor"
+
+msgid "未知"
+msgstr "Unknown"
+
+msgid "充分"
+msgstr "Sufficient"
+
+msgid "较充分"
+msgstr "Fairly Sufficient"
+
+msgid "薄弱"
+msgstr "Weak"
+
+msgid "严重不足"
+msgstr "Severely Insufficient"
+
+msgid "关联案件"
+msgstr "Related Case"
+
+# ── CaseAssessment Model ──
+msgid "合同基础类型"
+msgstr "Contract Basis Type"
+
+msgid "债权本金"
+msgstr "Principal Amount"
+
+msgid "证据完整度总分"
+msgstr "Evidence Total Score"
+
+msgid "诉讼时效状态"
+msgstr "Limitation Status"
+
+msgid "时效届满日期"
+msgstr "Limitation Expiry Date"
+
+msgid "偿付能力评级"
+msgstr "Solvency Rating"
+
+msgid "综合评估等级"
+msgstr "Assessment Grade"
+
+msgid "评估备注"
+msgstr "Assessment Remarks"
+
+msgid "创建时间"
+msgstr "Created At"
+
+msgid "更新时间"
+msgstr "Updated At"
+
+msgid "案件评估记录"
+msgstr "Case Assessment"
+
+# ── CollectionRecord Model ──
+
+msgid "电话催款"
+msgstr "Phone Collection"
+
+msgid "书面催款"
+msgstr "Written Collection"
+
+msgid "律师函"
+msgstr "Lawyer Letter"
+
+msgid "最后通牒"
+msgstr "Ultimatum"
+
+msgid "起诉"
+msgstr "Litigation"
+
+msgid "当前催收阶段"
+msgstr "Current Collection Stage"
+
+msgid "催收启动日期"
+msgstr "Collection Start Date"
+
+msgid "最近操作日期"
+msgstr "Last Action Date"
+
+msgid "下一节点到期日"
+msgstr "Next Due Date"
+
+msgid "催收备注"
+msgstr "Collection Remarks"
+
+msgid "催收记录"
+msgstr "Collection Record"
+
+msgid "关联催收记录"
+msgstr "Related Collection Record"
+
+msgid "操作类型"
+msgstr "Action Type"
+
+msgid "操作日期"
+msgstr "Action Date"
+
+msgid "操作描述"
+msgstr "Action Description"
+
+msgid "文书类型"
+msgstr "Document Type"
+
+msgid "文书文件名"
+msgstr "Document Filename"
+
+msgid "催收操作日志"
+msgstr "Collection Action Log"
+
+msgid "送货/收货凭证"
+msgstr "Delivery/Receipt"
+
+msgid "对账确认"
+msgstr "Reconciliation"
+
+msgid "催款记录"
+msgstr "Collection Record"
+
+msgid "付款记录"
+msgstr "Payment Record"
+
+# ── EvidenceScore Model ──
+msgid "关联评估记录"
+msgstr "Related Assessment"
+
+msgid "证据类型"
+msgstr "Evidence Type"
+
+msgid "是否具备"
+msgstr "Has Evidence"
+
+msgid "证据质量评分"
+msgstr "Quality Score"
+
+msgid "备注"
+msgstr "Remarks"
+
+msgid "证据评分明细"
+msgstr "Evidence Score Detail"
+
+# ── JurisdictionAnalysis Model ──
+msgid "是否有约定管辖"
+msgstr "Has Agreed Jurisdiction"
+
+msgid "约定管辖法院"
+msgstr "Agreed Court"
+
+msgid "约定管辖是否有效"
+msgstr "Is Agreement Valid"
+
+msgid "约定无效原因"
+msgstr "Invalid Reason"
+
+msgid "原告所在地"
+msgstr "Plaintiff Location"
+
+msgid "被告住所地"
+msgstr "Defendant Location"
+
+msgid "推荐管辖法院"
+msgstr "Recommended Court"
+
+msgid "推荐理由"
+msgstr "Recommendation Reason"
+
+msgid "备选管辖法院"
+msgstr "Alternative Court"
+
+msgid "法律依据"
+msgstr "Legal Basis"
+
+msgid "管辖权分析"
+msgstr "Jurisdiction Analysis"
+
+# ── LitigationStrategy Model ──
+msgid "支付令"
+msgstr "Payment Order"
+
+msgid "小额诉讼"
+msgstr "Small Claims"
+
+msgid "简易程序"
+msgstr "Summary Procedure"
+
+msgid "普通程序"
+msgstr "Ordinary Procedure"
+
+msgid "诉前调解"
+msgstr "Pre-litigation Mediation"
+
+msgid "推荐策略类型"
+msgstr "Recommended Strategy Type"
+
+msgid "预计周期"
+msgstr "Estimated Duration"
+
+msgid "适用条件说明"
+msgstr "Applicable Conditions"
+
+msgid "是否建议财产保全"
+msgstr "Suggest Preservation"
+
+msgid "保全建议理由"
+msgstr "Preservation Reason"
+
+msgid "起诉策略推荐"
+msgstr "Litigation Strategy"
+
+msgid "生效日期"
+msgstr "Effective Date"
+
+msgid "一年期LPR(%)"
+msgstr "1-Year LPR (%)"
+
+msgid "五年期LPR(%)"
+msgstr "5-Year LPR (%)"
+
+msgid "LPR利率"
+msgstr "LPR Rate"
+
+msgid "还款日期"
+msgstr "Payment Date"
+
+msgid "还款金额"
+msgstr "Payment Amount"
+
+msgid "冲抵费用"
+msgstr "Offset Fee"
+
+msgid "冲抵利息"
+msgstr "Offset Interest"
+
+msgid "冲抵本金"
+msgstr "Offset Principal"
+
+msgid "剩余本金"
+msgstr "Remaining Principal"
+
+msgid "还款冲抵记录"
+msgstr "Payment Offset Record"
+
+# ── Collection Workflow Service ──
+
+msgid "催收记录不存在"
+msgstr "Collection record not found"
+
+msgid "案件不存在"
+msgstr "Case not found"
+
+msgid "该案件已存在催收记录"
+msgstr "Collection record already exists for this case"
+
+msgid "启动催收流程，进入电话催款阶段"
+msgstr "Started collection workflow, entered phone collection stage"
+
+msgid "当前已是最终阶段（起诉），无法继续推进"
+msgstr "Already at final stage (litigation), cannot advance further"
+
+#, python-format
+msgid "推进至%(stage)s阶段"
+msgstr "Advanced to %(stage)s stage"
+
+msgid "该案件暂无催收记录"
+msgstr "No collection record found for this case"
+
+msgid "净收益为负，诉讼经济效益较低，建议谨慎评估"
+msgstr ""
+"Net profit is negative; litigation has low economic benefit, careful "
+"evaluation recommended"
+
+# ── Document Generation Service ──
+
+#, python-format
+msgid "模板文件不存在：%(path)s"
+msgstr "Template file not found: %(path)s"
+
+#, python-format
+msgid "生成%(doc_type)s"
+msgstr "Generated %(doc_type)s"
+
+msgid "买卖合同不适用民间借贷4倍LPR利率上限"
+msgstr "Sales contracts are not subject to the 4x LPR cap for private lending"
+
+msgid "违约金与利息不能同时全额主张，建议择一主张或由法院酌定"
+msgstr ""
+"Penalty and interest cannot both be claimed in full; choose one or let the "
+"court decide"
+
+#, python-format
+msgid "生成律师函（%(tone)s）"
+msgstr "Generated lawyer letter (%(tone)s)"
+
+#, python-format
+msgid "缺少 %(date)s 之前的LPR利率数据"
+msgstr "Missing LPR rate data before %(date)s"
+
+#, python-format
+msgid "缺少 %(start)s 至 %(end)s 期间的LPR利率数据"
+msgstr "Missing LPR rate data for period %(start)s to %(end)s"
+
+msgid "生成对账函"
+msgstr "Generated reconciliation statement"
+
+msgid "生成和解协议"
+msgstr "Generated settlement agreement"
+
+# ── Dashboard ──
+
+msgid "起始日期不能晚于结束日期"
+msgstr "Start date cannot be later than end date"
+
+msgid "时间维度参数无效，可选值：month, quarter, year"
+msgstr "Invalid time dimension, valid values: month, quarter, year"
+
+msgid "分组参数无效，可选值：case_type, amount_range, lawyer"
+msgstr "Invalid group_by parameter, valid values: case_type, amount_range, lawyer"
+
+msgid "排序参数无效，可选值：total_recovery, recovery_rate, case_count"
+msgstr "Invalid sort_by parameter, valid values: total_recovery, recovery_rate, case_count"
+
+msgid "未分类"
+msgstr "Uncategorized"
+
+msgid "10万以下"
+msgstr "Below 100K"
+
+msgid "10万-50万"
+msgstr "100K-500K"
+
+msgid "50万-100万"
+msgstr "500K-1M"
+
+msgid "100万以上"
+msgstr "Above 1M"
+
+msgid "1年内"
+msgstr "Within 1 Year"
+
+msgid "1-2年"
+msgstr "1-2 Years"
+
+msgid "2年以上"
+msgstr "Over 2 Years"
+
+msgid "有财产保全"
+msgstr "With Asset Preservation"
+
+msgid "无财产保全"
+msgstr "Without Asset Preservation"
