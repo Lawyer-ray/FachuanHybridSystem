@@ -11,6 +11,9 @@ def __getattr__(name: str) -> type:
         "EvidenceListPlaceholderService": (".evidence_list_placeholder_service", "EvidenceListPlaceholderService"),
         "EvidencePageRangeCalculator": (".page_range_calculator", "EvidencePageRangeCalculator"),
         "evidence_file_storage": (".evidence_storage", "evidence_file_storage"),
+        "EvidenceAIService": (".evidence_ai_service", "EvidenceAIService"),
+        "EvidenceOCRService": (".evidence_ocr_service", "EvidenceOCRService"),
+        "EvidenceSearchService": (".evidence_ocr_service", "EvidenceSearchService"),
     }
     if name in _map:
         import importlib
@@ -32,4 +35,7 @@ __all__ = [
     "EvidenceListPlaceholderService",
     "EvidencePageRangeCalculator",
     "evidence_file_storage",
+    "EvidenceAIService",
+    "EvidenceOCRService",
+    "EvidenceSearchService",
 ]

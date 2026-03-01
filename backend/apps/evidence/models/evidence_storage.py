@@ -14,12 +14,9 @@ from django.utils.deconstruct import deconstructible
 
 @deconstructible
 class EvidenceFileStorage(FileSystemStorage):
-    """
-    证据文件存储类
-
-    保留中文文件名中的特殊字符(如括号),
-    只移除真正危险的字符.
-    """
+    def deconstruct(self) -> tuple[str, list[object], dict[str, object]]:
+        """不序列化 location/base_url，避免本机路径写入 migration。"""
+        return (f"{self.__class__.__module__}.{self.__class__.__qualname__}", [], {})
 
     def get_valid_name(self, name: str) -> str:
         from pathlib import Path

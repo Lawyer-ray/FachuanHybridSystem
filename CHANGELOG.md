@@ -2,6 +2,49 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.7.0] - 2026-03-01
+
+### 新增
+- 证据管理独立应用（evidence）
+  - 从 documents 模块迁移为独立 app，保留向后兼容（`__getattr__` 延迟导入）
+  - 证据清单 CRUD、证据明细拖拽排序、类型筛选
+  - 证据 PDF 合并导出、页码范围计算
+  - 证据清单替换词服务（文书生成集成）
+  - Admin 管理界面（表单、内联、批量操作、自定义视图）
+  - API 路由 `/api/v1/evidence/`
+- 证据智能分类整理（evidence_sorting）
+  - AI 证据分类器（LLM 驱动）
+  - 分类结果导出、证据核对服务
+  - Admin 管理界面 + 独立操作页面
+  - API 路由 `/api/v1/evidence-sorting/`
+- OA 系统自动立案（oa_filing）
+  - 金诚同达 OA Playwright 自动化脚本（登录→添加委托方→案件信息→利冲→合同→存草稿）
+  - 支持企业/自然人/非法人组织客户类型自动创建
+  - 支持多委托方（动态 iframe ID 定位）
+  - 案件类型全覆盖：民商事/刑事/行政/仲裁/非诉专项/常法顾问
+  - 收费方式映射：定额/按标的比例/按小时/零收费
+  - OAConfig 多律所配置 + FilingSession 会话管理
+  - 合同详情页立案标签页（Alpine.js UI）
+  - 依赖注入工厂 + API 路由 `/api/v1/oa-filing/`
+- 模拟庭审（litigation_ai/mock_trial）
+  - 多角色 LLM 链（原告/被告/法官视角）
+  - WebSocket 实时对话（mock_trial_consumer）
+  - 案件详情页"模拟庭审"入口按钮
+  - 独立前端页面（HTML + CSS + JS）
+  - API 路由 `/api/v1/mock-trial/`
+- 法院一张网在线立案（automation/court_filing）
+  - 登录：Playwright + ddddocr 识别图形验证码，拦截网络响应提取 JWT token
+  - 立案：接口优先（httpx 纯 REST 流程：查法院→创建立案→上传附件→添加当事人→更新代理人→提交），接口失败自动回退 Playwright 全页面操作
+  - 支持民事、行政、执行三类立案
+  - 案件详情页法院立案标签页
+  - API 路由 `/api/v1/court-filing/`
+
+### 变更
+- 证据相关模型/服务/Admin 从 documents 迁移到 evidence，documents 模块通过延迟导入保持向后兼容
+- contract_review 新增 custom_llm_fields 和 duration_seconds 迁移
+- litigation_ai Session 模型新增 session_type 字段
+- docs/ 目录整体加入 .gitignore（个人分析文档不公开）
+
 ## [26.6.0] - 2026-02-27
 
 ### 新增

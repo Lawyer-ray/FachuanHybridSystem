@@ -4,8 +4,6 @@ import logging
 from typing import Any
 
 from django.contrib import admin
-
-from django.contrib import admin
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
@@ -56,7 +54,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     def formfield_for_foreignkey(self, db_field: Any, request: Any, **kwargs: Any) -> Any:
         if db_field.name == "export_template":
-            from apps.evidence.models import DocumentTemplate
+            from apps.documents.models import DocumentTemplate
 
             kwargs["queryset"] = DocumentTemplate.objects.filter(
                 is_active=True,
@@ -197,9 +195,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
 
     def actions_display(self, obj: Any) -> Any:
-        merge_url = reverse("admin:evidence_evidencelist_merge", args=[obj.pk])
-        export_list_url = reverse("admin:evidence_evidencelist_export_list", args=[obj.pk])
-        recount_url = reverse("admin:evidence_evidencelist_recount_pages", args=[obj.pk])
+        merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
+        export_list_url = reverse("admin:documents_evidencelist_export_list", args=[obj.pk])
+        recount_url = reverse("admin:documents_evidencelist_recount_pages", args=[obj.pk])
 
         buttons = [
             format_html('<a class="button" href="{}" title="合并PDF">合并</a>', merge_url),
@@ -208,7 +206,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         ]
 
         if obj.merged_pdf:
-            download_url = reverse("admin:evidence_evidencelist_download_pdf", args=[obj.pk])
+            download_url = reverse("admin:documents_evidencelist_download_pdf", args=[obj.pk])
             buttons.append(
                 format_html('<a class="button" href="{}" title="下载证据明细PDF">下载明细</a>', download_url)
             )
@@ -232,14 +230,14 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "正在合并中,请稍候..."})
                 messages.warning(request, "正在合并中,请稍候...")
-                return redirect("admin:evidence_evidencelist_change", pk)
+                return redirect("admin:documents_evidencelist_change", pk)
 
             items_with_files = evidence_list.items.filter(file__isnull=False).exclude(file="")
             if not items_with_files.exists():
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "证据清单没有任何文件,无法合并"})
                 messages.error(request, "证据清单没有任何文件,无法合并")
-                return redirect("admin:evidence_evidencelist_change", pk)
+                return redirect("admin:documents_evidencelist_change", pk)
 
             from apps.core.interfaces import ServiceLocator
             from apps.core.tasking import TaskContext
@@ -288,7 +286,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
             messages.error(request, _("提交合并任务失败: %(e)s") % {"e": e})
 
-        return redirect("admin:evidence_evidencelist_change", pk)
+        return redirect("admin:documents_evidencelist_change", pk)
 
     def merge_status_view(self, request: Any, pk: int) -> Any:
         from django.http import JsonResponse
@@ -408,7 +406,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.exception("EvidenceList recount_pages 失败", extra={"evidence_list_id": pk, "error": str(e)})
             messages.error(request, _("识别页数失败: %(e)s") % {"e": e})
 
-        return redirect("admin:evidence_evidencelist_changelist")
+        return redirect("admin:documents_evidencelist_changelist")
 
 
 __all__: list[str] = ["EvidenceListAdminServiceMixin", "EvidenceListAdminViewsMixin"]

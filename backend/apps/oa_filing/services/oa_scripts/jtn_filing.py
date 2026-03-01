@@ -25,16 +25,11 @@ _FILING_URL = (
     "?t=1&&FirstModel=PROJECT&SecondModel=PROJECT003"
 )
 
-# 登录页
-_XPATH_ACCOUNT = "/html/body/div[2]/div[1]/div[3]/div/form/input[2]"
-_XPATH_PASSWORD = "/html/body/div[2]/div[1]/div[3]/div/form/input[3]"
-_XPATH_LOGIN_BTN = "/html/body/div[2]/div[1]/div[3]/div/form/button"
-
 # 立案页
 _XPATH_ADD_CLIENT_BTN = '//*[@id="wrap"]/div[1]/div[2]/div/div[5]/div/div[1]/div[2]/a'
 
-# 委托方弹窗 iframe
-_XPATH_CLIENT_IFRAME = '//*[@id="layui-layer-iframe100002"]'
+# 委托方弹窗 iframe（动态 ID，每次打开递增）
+# 不再使用固定 xpath，改用 _find_latest_client_iframe() 动态定位
 
 # iframe 内 - 客户类型切换
 _XPATH_PERSONAL_TAB = '//*[@id="form1"]/div[3]/div/div[1]'
@@ -216,21 +211,44 @@ class JtnFilingScript:
         logger.info("立案流程完成，浏览器保持打开")
 
     def _login(self) -> None:
-        """登录 OA 系统。"""
-        page = self._page
-        assert page is not None
+        """通过 requests 接口登录，将 cookie 注入 Playwright context。"""
+        import re
+        import requests as _requests
 
-        logger.info("开始登录: %s", _LOGIN_URL)
-        page.goto(_LOGIN_URL, wait_until="domcontentloaded")
-        time.sleep(_SHORT_WAIT)
+        logger.info("接口登录: %s", _LOGIN_URL)
 
-        page.locator(f"xpath={_XPATH_ACCOUNT}").fill(self._account)
-        page.locator(f"xpath={_XPATH_PASSWORD}").fill(self._password)
-        page.locator(f"xpath={_XPATH_LOGIN_BTN}").click()
+        session = _requests.Session()
+        session.headers["User-Agent"] = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
 
-        page.wait_for_load_state("domcontentloaded")
-        time.sleep(_MEDIUM_WAIT)
-        logger.info("登录成功，当前URL: %s", page.url)
+        # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
+        r = session.get(_LOGIN_URL, timeout=15)
+        csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
+        csrf = csrf_match.group(1) if csrf_match else ""
+
+        # 2. POST 登录
+        r2 = session.post(
+            _LOGIN_URL,
+            data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
+            allow_redirects=True,
+            timeout=15,
+        )
+
+        if "login" in r2.url.lower() or "logout" in r2.text.lower()[:200]:
+            raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
+
+        # 3. 将 requests session cookies 注入 Playwright context
+        assert self._context is not None
+        for cookie in session.cookies:
+            self._context.add_cookies([{
+                "name": cookie.name,
+                "value": cookie.value,
+                "domain": cookie.domain or "ims.jtn.com",
+                "path": cookie.path or "/",
+            }])
+
+        logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
 
     def _navigate_to_filing(self) -> None:
         """导航到立案页面。"""
@@ -252,7 +270,8 @@ class JtnFilingScript:
         page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}").click()
         time.sleep(_MEDIUM_WAIT)
 
-        iframe: FrameLocator = page.frame_locator(f"xpath={_XPATH_CLIENT_IFRAME}")
+        iframe_xpath: str = self._find_latest_client_iframe(page)
+        iframe: FrameLocator = page.frame_locator(f"xpath={iframe_xpath}")
 
         is_natural: bool = client.client_type == "natural"
 
@@ -261,9 +280,6 @@ class JtnFilingScript:
             time.sleep(_SHORT_WAIT)
 
         iframe.locator(f"xpath={_XPATH_NAME_INPUT}").fill(client.name)
-
-        if is_natural and client.id_number:
-            iframe.locator(f"xpath={_XPATH_ID_INPUT}").fill(client.id_number)
 
         iframe.locator(f"xpath={_XPATH_SEARCH_BTN}").click()
         time.sleep(_MEDIUM_WAIT)
@@ -627,6 +643,32 @@ class JtnFilingScript:
         assert page is not None
         page.click('a.legal_btn[data-type="tabNext"]')
         time.sleep(_MEDIUM_WAIT)
+
+    def _find_latest_client_iframe(self, page: Page) -> str:
+        """动态查找最新的 layui-layer-iframe。
+
+        每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...）。
+        取 ID 最大的那个即为当前弹窗。
+        """
+        iframe_id: str = page.evaluate("""() => {
+            const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
+            if (iframes.length === 0) return '';
+            let maxId = '';
+            let maxNum = -1;
+            for (const f of iframes) {
+                const num = parseInt(f.id.replace('layui-layer-iframe', ''), 10);
+                if (num > maxNum) {
+                    maxNum = num;
+                    maxId = f.id;
+                }
+            }
+            return maxId;
+        }""") or ""
+        if not iframe_id:
+            logger.warning("未找到 layui-layer-iframe，回退到默认 ID")
+            iframe_id = "layui-layer-iframe100002"
+        logger.info("使用 iframe: %s", iframe_id)
+        return f'//*[@id="{iframe_id}"]'
 
     def _set_select(self, page: Page, element_id: str, value: str) -> None:
         """设置主页面 select 的值并触发 change 事件（非 Chosen.js）。"""

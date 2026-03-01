@@ -97,6 +97,8 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         return {
             "user_message": self._handle_user_message,
             "select_mode": self._handle_select_mode,
+            "skip_evidence": self._handle_skip_evidence,
+            "end_debate": self._handle_end_debate,
         }.get(msg_type)
 
     async def _handle_user_message(self, message: dict[str, Any]) -> None:
@@ -151,6 +153,38 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             current_step=MockTrialStep.MODE_SELECT,
         )
         await flow.handle_mode_select(ctx, mode, self._send_message)
+
+    async def _handle_skip_evidence(self, message: dict[str, Any]) -> None:
+        """跳过剩余证据，直接生成质证总结."""
+        await self._add_message("user", "跳过剩余证据")
+
+        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
+        from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
+
+        flow = MockTrialFlowService()
+        ctx = MockTrialContext(
+            session_id=self.session_id or "",
+            case_id=self.session.case_id,
+            user_id=self.user.id,
+            current_step=MockTrialStep.SIMULATION,
+        )
+        await flow.handle_simulation(ctx, "跳过", self._send_message)
+
+    async def _handle_end_debate(self, message: dict[str, Any]) -> None:
+        """结束辩论."""
+        await self._add_message("user", "结束辩论")
+
+        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
+        from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
+
+        flow = MockTrialFlowService()
+        ctx = MockTrialContext(
+            session_id=self.session_id or "",
+            case_id=self.session.case_id,
+            user_id=self.user.id,
+            current_step=MockTrialStep.SIMULATION,
+        )
+        await flow.handle_simulation(ctx, "结束", self._send_message)
 
     # ---- Helpers ----
 

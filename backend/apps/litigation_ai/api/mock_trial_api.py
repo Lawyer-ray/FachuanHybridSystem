@@ -99,13 +99,14 @@ def get_session(request: HttpRequest, session_id: str) -> Any:
     response={200: MockTrialReportResponse, 404: ErrorResponse},
 )
 def get_report(request: HttpRequest, session_id: str) -> Any:
-    service = _get_service()
-    session = service.get_session(session_id)
-    metadata = session.metadata or {}
+    from asgiref.sync import async_to_sync
+    from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
+
+    report_data = async_to_sync(MockTrialReportService().get_report)(session_id)
     return {
-        "session_id": session.session_id,
-        "mode": metadata.get("mock_trial_mode", ""),
-        "report": metadata.get("report", {}),
+        "session_id": session_id,
+        "mode": report_data.get("mode", ""),
+        "report": report_data,
     }
 
 

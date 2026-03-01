@@ -37,12 +37,27 @@ class ContractServiceAdapter:
         self.dto_assembler = dto_assembler or ContractDtoAssembler()
         self.details_assembler = details_assembler or ContractDetailsAssembler()
 
-    def get_contract(self, contract_id: int) -> Any:
+    def get_contract(self, contract_id: int, **kwargs: Any) -> Any:
         try:
             contract = self.contract_service.query_service.get_contract_internal(contract_id)
             return self.dto_assembler.to_dto(contract)
         except NotFoundError:
             return None
+
+    def list_contracts(self, **kwargs: Any) -> list[Any]:
+        return self.contract_service.list_contracts(**kwargs)
+
+    def create_contract_with_cases(self, **kwargs: Any) -> Any:
+        return self.contract_service.create_contract_with_cases(**kwargs)
+
+    def update_contract_with_finance(self, **kwargs: Any) -> Any:
+        return self.contract_service.update_contract_with_finance(**kwargs)
+
+    def update_contract_lawyers(self, **kwargs: Any) -> Any:
+        return self.contract_service.update_contract_lawyers(**kwargs)
+
+    def delete_contract(self, contract_id: int) -> None:
+        self.contract_service.delete_contract(contract_id)
 
     def get_contract_stages(self, contract_id: int) -> list[str]:
         try:
