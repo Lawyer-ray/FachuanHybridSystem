@@ -1,0 +1,216 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "开庭模式" %} - {{ case_name }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+  :root { --primary: #1565c0; --bg: #f5f5f5; --card-bg: #fff; --highlight: #fff9c4; }
+  #hearing-mode { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .hm-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .hm-header h1 { font-size: 1.4rem; margin: 0; white-space: nowrap; }
+  .hm-search { flex: 1; min-width: 200px; }
+  .hm-search input { width: 100%; padding: 10px 14px; font-size: 1.1rem; border: 2px solid #ccc; border-radius: 8px; }
+  .hm-search input:focus { border-color: var(--primary); outline: none; }
+  .hm-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hm-filters select, .hm-filters button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9rem; }
+  .hm-jump { display: flex; gap: 6px; align-items: center; }
+  .hm-jump input { width: 70px; padding: 8px; font-size: 1.1rem; border: 2px solid #ccc; border-radius: 8px; text-align: center; }
+  .hm-stats { color: #666; font-size: 0.9rem; }
+  .hm-list { display: flex; flex-direction: column; gap: 8px; }
+  .hm-card { background: var(--card-bg); border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px 18px; cursor: pointer; transition: box-shadow .15s; }
+  .hm-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .hm-card.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(21,101,192,.3); }
+  .hm-card.highlight { background: var(--highlight); }
+  .hm-card-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .hm-order { font-size: 1.5rem; font-weight: 700; color: var(--primary); min-width: 40px; }
+  .hm-name { font-size: 1.15rem; font-weight: 600; }
+  .hm-badges { display: flex; gap: 6px; margin-left: auto; }
+  .hm-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; background: #e3f2fd; color: #1565c0; }
+  .hm-badge.original { background: #e8f5e9; color: #2e7d32; }
+  .hm-badge.opponent { background: #fce4ec; color: #c62828; }
+  .hm-purpose { color: #555; font-size: 1rem; line-height: 1.5; }
+  .hm-meta { display: flex; gap: 16px; margin-top: 6px; color: #888; font-size: 0.85rem; }
+  .hm-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+  .hm-card.active .hm-detail { display: block; }
+  .hm-detail-section { margin-bottom: 8px; }
+  .hm-detail-section h4 { margin: 0 0 4px; font-size: 0.9rem; color: #333; }
+  .hm-detail-section p { margin: 0; font-size: 0.9rem; color: #555; }
+  .hm-hidden { display: none !important; }
+  .hm-note-area { margin-top: 20px; padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid #e0e0e0; }
+  .hm-note-area textarea { width: 100%; min-height: 60px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; resize: vertical; }
+  .hm-note-area button { margin-top: 8px; padding: 8px 20px; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  @media (max-width: 768px) {
+    .hm-order { font-size: 1.3rem; }
+    .hm-name { font-size: 1rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="hearing-mode">
+  <div class="hm-header">
+    <h1>⚖️ {{ case_name }}</h1>
+    <div class="hm-jump">
+      <input type="number" id="jumpInput" placeholder="{% trans '编号' %}" min="1" title="{% trans '输入证据编号快速跳转' %}">
+    </div>
+    <div class="hm-search">
+      <input type="text" id="searchInput" placeholder="{% trans '搜索证据名称、证明目的、OCR文本...' %}">
+    </div>
+  </div>
+  <div class="hm-filters">
+    <select id="filterDirection">
+      <option value="">{% trans "全部方向" %}</option>
+      <option value="our">{% trans "我方证据" %}</option>
+      <option value="opponent">{% trans "对方证据" %}</option>
+      <option value="court">{% trans "法院调取" %}</option>
+    </select>
+    <select id="filterType">
+      <option value="">{% trans "全部类型" %}</option>
+      {% for val, label in evidence_types %}
+      <option value="{{ val }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <span class="hm-stats" id="statsDisplay"></span>
+  </div>
+
+  <div class="hm-list" id="evidenceList">
+    {% for item in items %}
+    <div class="hm-card"
+         data-order="{{ item.global_order }}"
+         data-name="{{ item.name }}"
+         data-purpose="{{ item.purpose }}"
+         data-direction="{{ item.direction }}"
+         data-type="{{ item.evidence_type }}"
+         data-ocr="{{ item.ocr_text }}"
+         data-original="{{ item.original_status }}">
+      <div class="hm-card-header">
+        <span class="hm-order">{{ item.global_order }}</span>
+        <span class="hm-name">{{ item.name }}</span>
+        <div class="hm-badges">
+          {% if item.direction == "opponent" %}<span class="hm-badge opponent">{% trans "对方" %}</span>{% endif %}
+          {% if item.direction == "court" %}<span class="hm-badge">{% trans "法院调取" %}</span>{% endif %}
+          {% if item.evidence_type %}<span class="hm-badge">{{ item.evidence_type_display }}</span>{% endif %}
+          {% if item.original_status == "has_original" %}<span class="hm-badge original">{% trans "有原件" %}</span>{% endif %}
+        </div>
+      </div>
+      <div class="hm-purpose">{{ item.purpose }}</div>
+      <div class="hm-meta">
+        {% if item.page_range %}<span>📄 {% trans "页码" %}: {{ item.page_range }}</span>{% endif %}
+        {% if item.page_count %}<span>{{ item.page_count }}{% trans "页" %}</span>{% endif %}
+        {% if item.original_location %}<span>📍 {{ item.original_location }}</span>{% endif %}
+      </div>
+      <div class="hm-detail">
+        {% if item.three_properties %}
+        <div class="hm-detail-section">
+          <h4>{% trans "三性说明" %}</h4>
+          <p>{{ item.three_properties_display }}</p>
+        </div>
+        {% endif %}
+        {% if item.cross_examination %}
+        <div class="hm-detail-section">
+          <h4>{% trans "质证意见" %}</h4>
+          <p>{{ item.cross_examination_display }}</p>
+        </div>
+        {% endif %}
+        {% if item.ocr_text %}
+        <div class="hm-detail-section">
+          <h4>{% trans "OCR文本" %}</h4>
+          <p style="max-height:200px;overflow-y:auto;white-space:pre-wrap;font-size:0.85rem;">{{ item.ocr_text }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="hm-note-area">
+    <h3>📝 {% trans "庭审笔记" %}</h3>
+    <textarea id="noteContent" placeholder="{% trans '记录法官提问、我方回答...' %}"></textarea>
+    <button onclick="saveNote()">{% trans "保存笔记" %}</button>
+    <span id="noteSaved" style="color:green;margin-left:10px;display:none;">✓ {% trans "已保存" %}</span>
+  </div>
+</div>
+
+<script>
+const cards = document.querySelectorAll('.hm-card');
+const searchInput = document.getElementById('searchInput');
+const jumpInput = document.getElementById('jumpInput');
+const filterDirection = document.getElementById('filterDirection');
+const filterType = document.getElementById('filterType');
+const statsDisplay = document.getElementById('statsDisplay');
+
+function updateStats() {
+  const visible = document.querySelectorAll('.hm-card:not(.hm-hidden)').length;
+  statsDisplay.textContent = `${visible} / ${cards.length}`;
+}
+
+function filterCards() {
+  const q = searchInput.value.toLowerCase();
+  const dir = filterDirection.value;
+  const typ = filterType.value;
+  cards.forEach(c => {
+    const matchSearch = !q ||
+      c.dataset.name.toLowerCase().includes(q) ||
+      c.dataset.purpose.toLowerCase().includes(q) ||
+      c.dataset.ocr.toLowerCase().includes(q) ||
+      c.dataset.order === q;
+    const matchDir = !dir || c.dataset.direction === dir;
+    const matchType = !typ || c.dataset.type === typ;
+    c.classList.toggle('hm-hidden', !(matchSearch && matchDir && matchType));
+    c.classList.toggle('highlight', q && matchSearch && q.length > 1);
+  });
+  updateStats();
+}
+
+searchInput.addEventListener('input', filterCards);
+filterDirection.addEventListener('change', filterCards);
+filterType.addEventListener('change', filterCards);
+
+jumpInput.addEventListener('input', () => {
+  const num = jumpInput.value.trim();
+  if (!num) { filterCards(); return; }
+  cards.forEach(c => {
+    c.classList.remove('active');
+    if (c.dataset.order === num) {
+      c.classList.remove('hm-hidden');
+      c.classList.add('active');
+      c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+
+cards.forEach(c => c.addEventListener('click', () => {
+  const wasActive = c.classList.contains('active');
+  cards.forEach(x => x.classList.remove('active'));
+  if (!wasActive) c.classList.add('active');
+}));
+
+function saveNote() {
+  const content = document.getElementById('noteContent').value.trim();
+  if (!content) return;
+  const activeCard = document.querySelector('.hm-card.active');
+  const evidenceOrder = activeCard ? activeCard.dataset.order : null;
+  fetch('{% url "admin:evidence_hearing_note_save" case_id=case_id %}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+    body: JSON.stringify({content, evidence_order: evidenceOrder})
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      document.getElementById('noteSaved').style.display = 'inline';
+      setTimeout(() => document.getElementById('noteSaved').style.display = 'none', 2000);
+      document.getElementById('noteContent').value = '';
+    }
+  });
+}
+
+updateStats();
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    searchInput.focus();
+  }
+});
+</script>
+{% endblock %}

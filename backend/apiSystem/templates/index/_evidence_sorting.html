@@ -1,0 +1,110 @@
+    <!-- 证据智能分类演示 -->
+    <section class="evidence-sorting-section" id="evidence-sorting-flow">
+        <div class="evidence-sorting-container">
+            <div class="section-header reveal">
+                <span class="section-tag">🧠 智能分类</span>
+                <h2 class="section-title">证据智能分类 · AI 自动整理</h2>
+                <p class="section-desc">LLM 驱动的证据分类器，自动识别证据类型并归类整理</p>
+            </div>
+
+            <div class="evidence-demo" id="evidenceDemo">
+                <!-- 左侧：散乱文件 / 整理前 -->
+                <div class="evidence-source" id="evidenceSource">
+                    <div class="evidence-file" style="--rotate: -5deg" data-category="contract" id="evFile1">
+                        <div class="evidence-file-icon">📄</div>
+                        <div class="evidence-file-name">借款合同</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: 3deg" data-category="finance" id="evFile2">
+                        <div class="evidence-file-icon">🏦</div>
+                        <div class="evidence-file-name">转账回单</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: -8deg" data-category="identity" id="evFile3">
+                        <div class="evidence-file-icon">🪪</div>
+                        <div class="evidence-file-name">身份证</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: 6deg" data-category="chat" id="evFile4">
+                        <div class="evidence-file-icon">💬</div>
+                        <div class="evidence-file-name">微信记录</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: -3deg" data-category="finance" id="evFile5">
+                        <div class="evidence-file-icon">📊</div>
+                        <div class="evidence-file-name">银行流水</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: 7deg" data-category="contract" id="evFile6">
+                        <div class="evidence-file-icon">📑</div>
+                        <div class="evidence-file-name">担保协议</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: -4deg" data-category="photo" id="evFile7">
+                        <div class="evidence-file-icon">📸</div>
+                        <div class="evidence-file-name">现场照片</div>
+                    </div>
+                    <div class="evidence-file" style="--rotate: 2deg" data-category="identity" id="evFile8">
+                        <div class="evidence-file-icon">🏢</div>
+                        <div class="evidence-file-name">营业执照</div>
+                    </div>
+                </div>
+
+                <!-- 中间：AI 处理器 -->
+                <div class="evidence-ai-core" id="evidenceAiCore">
+                    <div class="ai-brain" id="aiBrain">
+                        🧠
+                        <div class="ai-brain-ring"></div>
+                    </div>
+                    <div class="ai-progress-text" id="aiProgressText">等待开始</div>
+                </div>
+
+                <!-- 右侧：分类结果 -->
+                <div class="evidence-result" id="evidenceResult">
+                    <div class="evidence-category" data-cat="contract" id="catContract">
+                        <div class="category-icon contract">📄</div>
+                        <div class="category-info">
+                            <div class="category-name">合同协议类</div>
+                            <div class="category-count" id="catContractCount">0 份</div>
+                        </div>
+                        <div class="category-badge" id="catContractBadge">✓</div>
+                    </div>
+                    <div class="evidence-category" data-cat="finance" id="catFinance">
+                        <div class="category-icon finance">🏦</div>
+                        <div class="category-info">
+                            <div class="category-name">财务凭证类</div>
+                            <div class="category-count" id="catFinanceCount">0 份</div>
+                        </div>
+                        <div class="category-badge" id="catFinanceBadge">✓</div>
+                    </div>
+                    <div class="evidence-category" data-cat="identity" id="catIdentity">
+                        <div class="category-icon identity">🪪</div>
+                        <div class="category-info">
+                            <div class="category-name">身份证明类</div>
+                            <div class="category-count" id="catIdentityCount">0 份</div>
+                        </div>
+                        <div class="category-badge" id="catIdentityBadge">✓</div>
+                    </div>
+                    <div class="evidence-category" data-cat="chat" id="catChat">
+                        <div class="category-icon chat">💬</div>
+                        <div class="category-info">
+                            <div class="category-name">通讯记录类</div>
+                            <div class="category-count" id="catChatCount">0 份</div>
+                        </div>
+                        <div class="category-badge" id="catChatBadge">✓</div>
+                    </div>
+                    <div class="evidence-category" data-cat="photo" id="catPhoto">
+                        <div class="category-icon photo">📸</div>
+                        <div class="category-info">
+                            <div class="category-name">影像资料类</div>
+                            <div class="category-count" id="catPhotoCount">0 份</div>
+                        </div>
+                        <div class="category-badge" id="catPhotoBadge">✓</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="evidence-controls">
+                <button class="flow-btn flow-btn-play" id="evidencePlayBtn" onclick="startEvidenceAnimation()">
+                    <span>▶</span> 播放演示
+                </button>
+                <button class="flow-btn flow-btn-reset" id="evidenceResetBtn" onclick="resetEvidenceAnimation()">
+                    <span>↺</span> 重置
+                </button>
+            </div>
+        </div>
+    </section>

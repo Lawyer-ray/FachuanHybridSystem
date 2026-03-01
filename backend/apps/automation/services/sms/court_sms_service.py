@@ -113,6 +113,31 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             self._notification = SMSNotificationService()
         return self._notification
 
+    def list_sms(
+        self,
+        *,
+        status: str | None = None,
+        sms_type: str | None = None,
+        has_case: bool | None = None,
+        date_from: Any = None,
+        date_to: Any = None,
+    ) -> Any:
+        """查询短信列表"""
+        qs = CourtSMS.objects.all().order_by("-received_at")
+        if status:
+            qs = qs.filter(status=status)
+        if sms_type:
+            qs = qs.filter(sms_type=sms_type)
+        if has_case is True:
+            qs = qs.filter(case__isnull=False)
+        elif has_case is False:
+            qs = qs.filter(case__isnull=True)
+        if date_from:
+            qs = qs.filter(received_at__gte=date_from)
+        if date_to:
+            qs = qs.filter(received_at__lte=date_to)
+        return qs
+
     def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:
         """提交短信，创建记录并触发异步处理"""
         if not content or not content.strip():

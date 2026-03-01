@@ -1,0 +1,1587 @@
+    <script>
+        // Three.js Particle Background
+        (function() {
+            const canvas = document.getElementById('bg-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Create particles
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 2000;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 10;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.008,
+                color: 0x6366f1,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            camera.position.z = 3;
+
+            // Mouse interaction
+            let mouseX = 0, mouseY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+
+                particlesMesh.rotation.x += 0.0003;
+                particlesMesh.rotation.y += 0.0005;
+
+                particlesMesh.rotation.x += mouseY * 0.0005;
+                particlesMesh.rotation.y += mouseX * 0.0005;
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        })();
+
+        // GSAP Animations
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Nav scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Reveal animations
+        const reveals = document.querySelectorAll('.reveal');
+        reveals.forEach((el, i) => {
+            gsap.fromTo(el,
+                { opacity: 0, y: 40 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: el,
+                        start: 'top 85%',
+                        toggleActions: 'play none none none'
+                    },
+                    delay: i * 0.1
+                }
+            );
+        });
+
+        // 卡片入场动画 - 错落有致的 stagger 效果
+        const bentoCards = document.querySelectorAll('.bento-card');
+        bentoCards.forEach((card, index) => {
+            // 计算错落延迟：根据卡片位置
+            const row = Math.floor(index / 4);
+            const col = index % 4;
+            const delay = (row * 0.15) + (col * 0.1);
+
+            ScrollTrigger.create({
+                trigger: card,
+                start: 'top 90%',
+                onEnter: () => {
+                    setTimeout(() => {
+                        card.classList.add('animate-in');
+                    }, delay * 1000);
+                },
+                once: true
+            });
+        });
+
+        // Counter animation - 增强版带弹跳后缀
+        const counters = document.querySelectorAll('.stat-value');
+        counters.forEach(counter => {
+            const target = parseInt(counter.dataset.count);
+
+            // 重构HTML结构
+            counter.innerHTML = '<span class="stat-number">0</span><span class="stat-suffix">+</span>';
+            const numberEl = counter.querySelector('.stat-number');
+            const suffix = counter.querySelector('.stat-suffix');
+
+            // 延迟启动动画（页面加载后）
+            setTimeout(() => {
+                gsap.to({ val: 0 }, {
+                    val: target,
+                    duration: 2,
+                    ease: 'power2.out',
+                    onUpdate: function() {
+                        numberEl.textContent = Math.round(this.targets()[0].val);
+                    },
+                    onComplete: () => {
+                        // 数字完成后，后缀弹跳出现
+                        suffix.classList.add('bounce');
+                    }
+                });
+            }, 1000);
+        });
+
+        // Kinetic text effect
+        const kineticText = document.querySelector('.kinetic-text');
+        if (kineticText) {
+            kineticText.addEventListener('mouseenter', () => {
+                gsap.to(kineticText, {
+                    scale: 1.05,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+            kineticText.addEventListener('mouseleave', () => {
+                gsap.to(kineticText, {
+                    scale: 1,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+        }
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // ========== 震撼视觉效果 ==========
+
+        // ========== 法院短信自动处理流程动画 ==========
+        let flowAnimationRunning = false;
+        let flowTimeline = null;
+
+        function startFlowAnimation() {
+            if (flowAnimationRunning) return;
+            flowAnimationRunning = true;
+
+            const playBtn = document.getElementById('flowPlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            // 重置所有元素
+            resetFlowElements();
+
+            // 创建 GSAP 时间线
+            flowTimeline = gsap.timeline({
+                onComplete: () => {
+                    flowAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                }
+            });
+
+            // 步骤1: 手机出现，收到短信
+            flowTimeline
+                .to('#phoneMockup', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.6,
+                    ease: 'back.out(1.7)'
+                })
+                .call(() => updateFlowStep(1))
+                .to('#smsNotification', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                }, '+=0.3')
+                .call(() => {
+                    // 手机震动效果
+                    gsap.to('#phoneMockup', {
+                        x: '+=3',
+                        duration: 0.05,
+                        repeat: 5,
+                        yoyo: true,
+                        ease: 'power2.inOut'
+                    });
+                })
+
+            // 步骤2: iOS快捷指令转发
+                .call(() => updateFlowStep(2), null, '+=0.8')
+                .to('#smsForward', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                }, '+=0.3')
+                // 显示转发说明卡片
+                .to('#forwardCard', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'back.out(1.7)'
+                }, '+=0.2')
+                .call(() => {
+                    document.getElementById('forwardCard').classList.add('active');
+                })
+                // 显示连接箭头
+                .to('#flowArrow1', {
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                }, '+=0.2')
+                .call(() => {
+                    document.getElementById('flowArrow1').classList.add('active');
+                })
+
+            // 步骤3: 接收短信
+                .call(() => {
+                    updateFlowStep(3);
+                    setProcessNodeState('processReceive', 'processing');
+                }, null, '+=0.3')
+                .call(() => {
+                    setProcessNodeState('processReceive', 'completed');
+                }, null, '+=0.5')
+
+            // 解析链接
+                .call(() => {
+                    setProcessNodeState('processParse', 'processing');
+                }, null, '+=0.3')
+                .call(() => {
+                    setProcessNodeState('processParse', 'completed');
+                }, null, '+=0.5')
+
+            // 步骤4: 下载文书
+                .call(() => {
+                    updateFlowStep(4);
+                    setProcessNodeState('processDownload', 'processing');
+                }, null, '+=0.3')
+                .call(() => {
+                    setProcessNodeState('processDownload', 'completed');
+                }, null, '+=0.7')
+
+            // 步骤5: 匹配案件 + 重命名归档
+                .call(() => {
+                    updateFlowStep(5);
+                    setProcessNodeState('processMatch', 'processing');
+                }, null, '+=0.3')
+                .call(() => {
+                    setProcessNodeState('processMatch', 'completed');
+                    setProcessNodeState('processRename', 'processing');
+                }, null, '+=0.5')
+                .call(() => {
+                    setProcessNodeState('processRename', 'completed');
+                }, null, '+=0.5')
+
+            // 显示归档结果
+                .to('#resultBind', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'back.out(1.7)'
+                }, '+=0.2')
+                .to('#resultRename', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'back.out(1.7)'
+                }, '+=0.15')
+
+            // 步骤6: 智能分析 + 推送通知
+                .call(() => {
+                    updateFlowStep(6);
+                    setProcessNodeState('processAnalyze', 'processing');
+                }, null, '+=0.3')
+                .call(() => {
+                    setProcessNodeState('processAnalyze', 'completed');
+                    setProcessNodeState('processNotify', 'processing');
+                }, null, '+=0.6')
+                .call(() => {
+                    setProcessNodeState('processNotify', 'completed');
+                }, null, '+=0.4')
+
+            // 显示提醒和警告
+                .to('#resultReminder', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'back.out(1.7)'
+                }, '+=0.2')
+                .to('#resultAlert', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'back.out(1.7)'
+                }, '+=0.2')
+
+            // 完成所有步骤
+                .call(() => {
+                    document.querySelectorAll('.flow-step').forEach(step => {
+                        step.classList.remove('active');
+                        step.classList.add('completed');
+                    });
+                }, null, '+=0.5');
+        }
+
+        function setProcessNodeState(id, state) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('active', 'processing', 'completed');
+                if (state) {
+                    el.classList.add(state);
+                }
+            }
+        }
+
+        function updateFlowStep(stepNum) {
+            document.querySelectorAll('.flow-step').forEach(step => {
+                const num = parseInt(step.dataset.step);
+                step.classList.remove('active', 'completed');
+                if (num < stepNum) {
+                    step.classList.add('completed');
+                } else if (num === stepNum) {
+                    step.classList.add('active');
+                }
+            });
+        }
+
+        function resetFlowElements() {
+            // 重置手机
+            gsap.set('#phoneMockup', { opacity: 0, scale: 0.9 });
+            gsap.set('#smsNotification', { opacity: 0, y: -20 });
+            gsap.set('#smsForward', { opacity: 0, y: -20 });
+
+            // 重置转发卡片和箭头
+            gsap.set('#forwardCard', { opacity: 0, scale: 0.9 });
+            gsap.set('#flowArrow1', { opacity: 0 });
+            const arrow = document.getElementById('flowArrow1');
+            if (arrow) arrow.classList.remove('active');
+            const card = document.getElementById('forwardCard');
+            if (card) card.classList.remove('active');
+
+            // 重置中间流程节点
+            document.querySelectorAll('.process-node').forEach(node => {
+                node.classList.remove('active', 'processing', 'completed');
+            });
+
+            // 重置结果卡片
+            gsap.set('.result-card', { opacity: 0, y: 20, scale: 0.9 });
+
+            // 重置步骤指示器
+            document.querySelectorAll('.flow-step').forEach(step => {
+                step.classList.remove('active', 'completed');
+            });
+        }
+
+        function resetFlowAnimation() {
+            if (flowTimeline) {
+                flowTimeline.kill();
+            }
+            flowAnimationRunning = false;
+
+            resetFlowElements();
+
+            const playBtn = document.getElementById('flowPlayBtn');
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span>▶</span> 播放演示';
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            resetFlowElements();
+
+            // 当滚动到演示区域时自动播放
+            ScrollTrigger.create({
+                trigger: '#flowDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!flowAnimationRunning) {
+                        setTimeout(startFlowAnimation, 500);
+                    }
+                },
+                once: true
+            });
+        });
+
+        // 1. 打字机效果
+        (function() {
+            const heroTitle = document.querySelector('.hero-title');
+            if (!heroTitle) return;
+
+            // 保存原始内容
+            const line1Text = '智能';
+            const line2Text = '法律案件';
+            const line3Text = '管理系统';
+
+            // 清空并重建结构
+            heroTitle.innerHTML = `
+                <span class="kinetic-text typewriter-line1"></span><span class="typewriter-line2"></span><br>
+                <span class="gradient-text typewriter-line3"></span><span class="typewriter-cursor"></span>
+            `;
+
+            const line1El = heroTitle.querySelector('.typewriter-line1');
+            const line2El = heroTitle.querySelector('.typewriter-line2');
+            const line3El = heroTitle.querySelector('.typewriter-line3');
+            const cursor = heroTitle.querySelector('.typewriter-cursor');
+
+            let charIndex = 0;
+            const fullText = line1Text + line2Text + line3Text;
+            const speed = 120; // 每个字的间隔(ms)
+
+            function typeWriter() {
+                if (charIndex < fullText.length) {
+                    const char = fullText[charIndex];
+
+                    if (charIndex < line1Text.length) {
+                        line1El.textContent += char;
+                    } else if (charIndex < line1Text.length + line2Text.length) {
+                        line2El.textContent += char;
+                    } else {
+                        line3El.textContent += char;
+                    }
+
+                    charIndex++;
+                    setTimeout(typeWriter, speed);
+                } else {
+                    // 打字完成后光标继续闪烁
+                    cursor.style.animation = 'cursorBlink 1s step-end infinite';
+                }
+            }
+
+            // 延迟启动打字机效果
+            setTimeout(typeWriter, 800);
+        })();
+
+        // 2. 按钮悬停粒子效果
+        (function() {
+            const buttons = document.querySelectorAll('.btn-primary');
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', (e) => {
+                    // 创建小粒子
+                    for (let i = 0; i < 6; i++) {
+                        const particle = document.createElement('span');
+                        particle.style.cssText = `
+                            position: absolute;
+                            width: 4px;
+                            height: 4px;
+                            background: white;
+                            border-radius: 50%;
+                            pointer-events: none;
+                            opacity: 0.8;
+                        `;
+                        btn.appendChild(particle);
+
+                        const rect = btn.getBoundingClientRect();
+                        const startX = e.clientX - rect.left;
+                        const startY = e.clientY - rect.top;
+
+                        gsap.fromTo(particle,
+                            { x: startX, y: startY, scale: 1 },
+                            {
+                                x: startX + (Math.random() - 0.5) * 80,
+                                y: startY + (Math.random() - 0.5) * 80,
+                                scale: 0,
+                                opacity: 0,
+                                duration: 0.6,
+                                ease: 'power2.out',
+                                onComplete: () => particle.remove()
+                            }
+                        );
+                    }
+                });
+            });
+        })();
+
+        // ========== 聊天记录梳理流程动画 - 紧凑版 ==========
+        let chatFlowAnimationRunning = false;
+        let chatFlowTimeline = null;
+
+        function startChatFlowAnimation() {
+            if (chatFlowAnimationRunning) return;
+            chatFlowAnimationRunning = true;
+
+            const playBtn = document.getElementById('chatFlowPlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            // 重置所有元素
+            resetChatFlowElements();
+
+            // 创建 GSAP 时间线
+            chatFlowTimeline = gsap.timeline({
+                onComplete: () => {
+                    chatFlowAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                }
+            });
+
+            // ===== 步骤1: 上传视频 =====
+            chatFlowTimeline
+                .to('#chatColUpload', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                })
+                .call(() => {
+                    document.getElementById('chatColUpload').classList.add('active');
+                })
+                // 模拟上传
+                .call(() => {
+                    const box = document.getElementById('chatUploadBox');
+                    box.classList.add('uploading');
+                    animateChatUploadProgress();
+                }, null, '+=0.3')
+                .to({}, { duration: 1.2 }) // 等待上传
+                // 显示完成状态
+                .call(() => {
+                    document.getElementById('chatUploadBox').style.display = 'none';
+                    document.getElementById('chatVideoDone').classList.add('show');
+                })
+                .to({}, { duration: 0.3 })
+                // 完成步骤1
+                .call(() => {
+                    document.getElementById('chatColUpload').classList.remove('active');
+                    document.getElementById('chatColUpload').classList.add('completed');
+                })
+
+            // ===== 箭头1 =====
+                .to('#chatArrow1', {
+                    opacity: 1,
+                    duration: 0.2
+                })
+                .call(() => {
+                    document.getElementById('chatArrow1').classList.add('active');
+                })
+
+            // ===== 步骤2: AI 解析 =====
+                .to('#chatColAi', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                })
+                .call(() => {
+                    document.getElementById('chatColAi').classList.add('active');
+                })
+                // AI 任务依次完成
+                .call(() => setChatAiTaskState('chatAiTask1', 'processing'), null, '+=0.2')
+                .call(() => setChatAiTaskState('chatAiTask1', 'completed'), null, '+=0.4')
+                .call(() => setChatAiTaskState('chatAiTask2', 'processing'), null, '+=0.1')
+                .call(() => setChatAiTaskState('chatAiTask2', 'completed'), null, '+=0.5')
+                .call(() => setChatAiTaskState('chatAiTask3', 'processing'), null, '+=0.1')
+                .call(() => setChatAiTaskState('chatAiTask3', 'completed'), null, '+=0.4')
+                .call(() => setChatAiTaskState('chatAiTask4', 'processing'), null, '+=0.1')
+                .call(() => setChatAiTaskState('chatAiTask4', 'completed'), null, '+=0.5')
+                // 完成步骤2
+                .call(() => {
+                    document.getElementById('chatColAi').classList.remove('active');
+                    document.getElementById('chatColAi').classList.add('completed');
+                }, null, '+=0.2')
+
+            // ===== 箭头2 =====
+                .to('#chatArrow2', {
+                    opacity: 1,
+                    duration: 0.2
+                })
+                .call(() => {
+                    document.getElementById('chatArrow2').classList.add('active');
+                })
+
+            // ===== 步骤3: 智能截帧 =====
+                .to('#chatColFrames', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                })
+                .call(() => {
+                    document.getElementById('chatColFrames').classList.add('active');
+                })
+                // 逐个显示截帧
+                .call(() => showChatFrame(1), null, '+=0.2')
+                .call(() => showChatFrame(2), null, '+=0.15')
+                .call(() => showChatFrame(3), null, '+=0.15')
+                .call(() => showChatFrame(4), null, '+=0.15')
+                .call(() => showChatFrame(5), null, '+=0.15')
+                .call(() => showChatFrame(6), null, '+=0.15')
+                // 移除重复帧
+                .call(() => {
+                    const dupFrame = document.querySelector('.chat-frame-mini.dup');
+                    if (dupFrame) dupFrame.classList.add('removing');
+                    updateChatFrameStats(5, 1);
+                }, null, '+=0.4')
+                // 完成步骤3
+                .call(() => {
+                    document.getElementById('chatColFrames').classList.remove('active');
+                    document.getElementById('chatColFrames').classList.add('completed');
+                }, null, '+=0.3')
+
+            // ===== 箭头3 =====
+                .to('#chatArrow3', {
+                    opacity: 1,
+                    duration: 0.2
+                })
+                .call(() => {
+                    document.getElementById('chatArrow3').classList.add('active');
+                })
+
+            // ===== 步骤4: 导出 PDF =====
+                .to('#chatColExport', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                })
+                .call(() => {
+                    document.getElementById('chatColExport').classList.add('active');
+                })
+                // 显示导出文件
+                .call(() => {
+                    document.getElementById('chatExportFile').classList.add('show');
+                }, null, '+=0.3')
+                // 完成步骤4
+                .call(() => {
+                    document.getElementById('chatColExport').classList.remove('active');
+                    document.getElementById('chatColExport').classList.add('completed');
+                }, null, '+=0.5');
+        }
+
+        function animateChatUploadProgress() {
+            const progressBar = document.querySelector('#chatUploadProgress .chat-progress-bar');
+            if (!progressBar) return;
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 20 + 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                progressBar.style.setProperty('--progress', progress + '%');
+                const afterStyle = `linear-gradient(90deg, var(--primary) ${progress}%, var(--border) ${progress}%)`;
+                progressBar.style.background = afterStyle;
+            }, 80);
+        }
+
+        function setChatAiTaskState(id, state) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('processing', 'completed');
+                if (state) el.classList.add(state);
+            }
+        }
+
+        function showChatFrame(frameNum) {
+            const frame = document.querySelector(`.chat-frame-mini[data-frame="${frameNum}"]`);
+            if (frame) frame.classList.add('show');
+            updateChatFrameStats(frameNum, frameNum === 5 ? 1 : 0);
+        }
+
+        function updateChatFrameStats(total, dup) {
+            const countEl = document.getElementById('chatFrameCount');
+            const dupEl = document.getElementById('chatDupCount');
+            if (countEl) countEl.textContent = total;
+            if (dupEl) dupEl.textContent = dup;
+        }
+
+        function resetChatFlowElements() {
+            // 重置所有列
+            ['chatColUpload', 'chatColAi', 'chatColFrames', 'chatColExport'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.remove('active', 'completed');
+                    gsap.set(el, { opacity: 0.4, scale: 0.95 });
+                }
+            });
+
+            // 重置箭头
+            ['chatArrow1', 'chatArrow2', 'chatArrow3'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.remove('active');
+                    gsap.set(el, { opacity: 0 });
+                }
+            });
+
+            // 重置上传区域
+            const uploadBox = document.getElementById('chatUploadBox');
+            if (uploadBox) {
+                uploadBox.style.display = 'block';
+                uploadBox.classList.remove('uploading');
+                const bar = uploadBox.querySelector('.chat-progress-bar');
+                if (bar) bar.style.background = '';
+            }
+
+            // 重置视频完成状态
+            const videoDone = document.getElementById('chatVideoDone');
+            if (videoDone) videoDone.classList.remove('show');
+
+            // 重置 AI 任务
+            ['chatAiTask1', 'chatAiTask2', 'chatAiTask3', 'chatAiTask4'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('processing', 'completed');
+            });
+
+            // 重置截帧
+            document.querySelectorAll('.chat-frame-mini').forEach(frame => {
+                frame.classList.remove('show', 'removing');
+            });
+            updateChatFrameStats(0, 0);
+
+            // 重置导出文件
+            const exportFile = document.getElementById('chatExportFile');
+            if (exportFile) exportFile.classList.remove('show');
+        }
+
+        function resetChatFlowAnimation() {
+            if (chatFlowTimeline) chatFlowTimeline.kill();
+            chatFlowAnimationRunning = false;
+            resetChatFlowElements();
+
+            const playBtn = document.getElementById('chatFlowPlayBtn');
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.innerHTML = '<span>▶</span> 播放演示';
+            }
+        }
+
+        // 聊天记录流程自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            ScrollTrigger.create({
+                trigger: '#chatFlowDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!chatFlowAnimationRunning) {
+                        setTimeout(startChatFlowAnimation, 500);
+                    }
+                },
+                once: true
+            });
+        });
+
+        // ========== 案件全流程管理与智能文书生成动画 V2 ==========
+        let caseFlowAnimationRunning = false;
+        let caseFlowTimeline = null;
+
+        // 文件夹和文件节点 ID 列表（按新结构）
+        const folderNodes = [
+            'folder-trial', 'folder-filing',
+            'folder-1-1', 'folder-1-2', 'folder-1-3', 'folder-1-4', 'folder-1-5', 'folder-1-6', 'folder-1-7', 'folder-1-8',
+            'folder-hearing', 'folder-closing', 'folder-mail'
+        ];
+        const fileNodes = [
+            'file-1-1-1', 'file-1-2-1', 'file-1-3-1', 'file-1-3-2', 'file-1-3-3',
+            'file-1-4-1', 'file-1-4-2', 'file-1-5-1', 'file-1-6-1', 'file-1-7-1', 'file-1-7-2',
+            'file-2-1', 'file-2-2'
+        ];
+        // 需要显示 NEW 标记的文件
+        const generatedFiles = [
+            'file-1-1-1', 'file-1-2-1', 'file-1-3-1', 'file-1-3-2', 'file-1-3-3',
+            'file-1-4-1', 'file-1-4-2', 'file-1-5-1', 'file-1-6-1', 'file-1-7-1', 'file-1-7-2'
+        ];
+        // 需要显示 NEW 标记的文件夹
+        const generatedFolders = ['folder-1-1', 'folder-1-2', 'folder-1-3', 'folder-1-4', 'folder-1-5', 'folder-1-6', 'folder-1-7'];
+
+        function startCaseFlowAnimation() {
+            if (caseFlowAnimationRunning) return;
+            caseFlowAnimationRunning = true;
+
+            const playBtn = document.getElementById('caseFlowPlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            // 重置所有元素
+            resetCaseFlowElements();
+
+            // 创建 GSAP 时间线
+            caseFlowTimeline = gsap.timeline({
+                onComplete: () => {
+                    caseFlowAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                }
+            });
+
+            // ===== 步骤1: 显示上传区域 =====
+            caseFlowTimeline
+                .to('#caseUploadBox', {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.5,
+                    ease: 'power2.out'
+                })
+                .call(() => {
+                    document.getElementById('caseUploadBox').classList.add('active');
+                })
+
+            // ===== 步骤2: 上传完成 =====
+                .to({}, { duration: 0.6 })
+                .call(() => {
+                    document.getElementById('caseUploadBox').classList.add('done');
+                })
+
+            // ===== 步骤3: 显示 AI 识别结果 =====
+                .to('#caseAiCompact', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                }, '+=0.3')
+                .call(() => {
+                    document.getElementById('caseAiCompact').classList.add('active');
+                })
+                // 逐个识别字段
+                .call(() => {
+                    const item = document.getElementById('caseAiItem1');
+                    item.classList.add('active');
+                    document.getElementById('caseAiType').textContent = '民间借贷纠纷';
+                }, null, '+=0.2')
+                .call(() => {
+                    document.getElementById('caseAiItem1').classList.remove('active');
+                    document.getElementById('caseAiItem1').classList.add('done');
+                    document.getElementById('caseAiItem2').classList.add('active');
+                    document.getElementById('caseAiPlaintiff').textContent = '张三';
+                }, null, '+=0.25')
+                .call(() => {
+                    document.getElementById('caseAiItem2').classList.remove('active');
+                    document.getElementById('caseAiItem2').classList.add('done');
+                    document.getElementById('caseAiItem3').classList.add('active');
+                    document.getElementById('caseAiDefendant').textContent = 'XX科技公司';
+                }, null, '+=0.25')
+                .call(() => {
+                    document.getElementById('caseAiItem3').classList.remove('active');
+                    document.getElementById('caseAiItem3').classList.add('done');
+                    document.getElementById('caseAiItem4').classList.add('active');
+                    document.getElementById('caseAiAmount').textContent = '¥50万';
+                }, null, '+=0.25')
+                .call(() => {
+                    document.getElementById('caseAiItem4').classList.remove('active');
+                    document.getElementById('caseAiItem4').classList.add('done');
+                }, null, '+=0.2')
+
+            // ===== 步骤4: 显示生成状态 =====
+                .to('#caseGenStatus', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    ease: 'power2.out'
+                }, '+=0.3')
+                .call(() => {
+                    document.getElementById('caseGenStatus').classList.add('active');
+                    // 文件夹结构 - 处理中
+                    const folderStatus = document.getElementById('caseGenFolder');
+                    folderStatus.classList.add('processing');
+                    folderStatus.querySelector('.status').textContent = '生成中...';
+                })
+
+            // ===== 步骤5: 显示文件夹树 =====
+                .to('#caseFolderTree', {
+                    opacity: 1,
+                    x: 0,
+                    duration: 0.5,
+                    ease: 'power2.out'
+                }, '+=0.2')
+                .call(() => {
+                    document.getElementById('caseFolderTree').classList.add('active');
+                })
+
+            // ===== 步骤6: 逐个显示文件夹节点 =====
+                // 一审
+                .call(() => showFolderNode('folder-trial'), null, '+=0.2')
+                // 1-立案材料
+                .call(() => showFolderNode('folder-filing'), null, '+=0.15')
+                // 1-起诉状文件夹及文件
+                .call(() => showFolderNode('folder-1-1'), null, '+=0.1')
+                .call(() => showFileNode('file-1-1-1'), null, '+=0.08')
+                // 2-当事人身份证明
+                .call(() => showFolderNode('folder-1-2'), null, '+=0.1')
+                .call(() => showFileNode('file-1-2-1'), null, '+=0.08')
+                // 3-委托代理人
+                .call(() => showFolderNode('folder-1-3'), null, '+=0.1')
+                .call(() => showFileNode('file-1-3-1'), null, '+=0.08')
+                .call(() => showFileNode('file-1-3-2'), null, '+=0.06')
+                .call(() => showFileNode('file-1-3-3'), null, '+=0.06')
+                // 4-证据材料
+                .call(() => showFolderNode('folder-1-4'), null, '+=0.1')
+                .call(() => showFileNode('file-1-4-1'), null, '+=0.08')
+                .call(() => showFileNode('file-1-4-2'), null, '+=0.06')
+                // 5-送达地址确认书
+                .call(() => showFolderNode('folder-1-5'), null, '+=0.1')
+                .call(() => showFileNode('file-1-5-1'), null, '+=0.08')
+                // 6-退费账户确认书
+                .call(() => showFolderNode('folder-1-6'), null, '+=0.1')
+                .call(() => showFileNode('file-1-6-1'), null, '+=0.08')
+                // 7-保全申请书及保函
+                .call(() => showFolderNode('folder-1-7'), null, '+=0.1')
+                .call(() => showFileNode('file-1-7-1'), null, '+=0.08')
+                .call(() => showFileNode('file-1-7-2'), null, '+=0.06')
+                // 8-其他立案材料
+                .call(() => showFolderNode('folder-1-8'), null, '+=0.08')
+                // 2-庭审准备
+                .call(() => showFolderNode('folder-hearing'), null, '+=0.15')
+                .call(() => showFileNode('file-2-1'), null, '+=0.08')
+                .call(() => showFileNode('file-2-2'), null, '+=0.06')
+                // 3-结案文书
+                .call(() => showFolderNode('folder-closing'), null, '+=0.15')
+                // 4-邮件往来
+                .call(() => showFolderNode('folder-mail'), null, '+=0.15')
+
+            // ===== 步骤7: 文件夹结构完成 =====
+                .call(() => {
+                    const folderStatus = document.getElementById('caseGenFolder');
+                    folderStatus.classList.remove('processing');
+                    folderStatus.classList.add('done');
+                    folderStatus.querySelector('.status').textContent = '✓ 完成';
+
+                    // 文书生成 - 处理中
+                    const docsStatus = document.getElementById('caseGenDocs');
+                    docsStatus.classList.add('processing');
+                    docsStatus.querySelector('.status').textContent = '生成中...';
+                }, null, '+=0.2')
+
+            // ===== 步骤8: 文书生成动画 - 显示 NEW 标记 =====
+                .call(() => markFileGenerated('file-1-1-1'), null, '+=0.2')
+                .call(() => markFileGenerated('file-1-2-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-3-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-3-2'), null, '+=0.08')
+                .call(() => markFileGenerated('file-1-3-3'), null, '+=0.08')
+                .call(() => markFileGenerated('file-1-4-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-4-2'), null, '+=0.08')
+                .call(() => markFileGenerated('file-1-5-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-6-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-7-1'), null, '+=0.1')
+                .call(() => markFileGenerated('file-1-7-2'), null, '+=0.08')
+
+            // ===== 步骤9: 文书生成完成 =====
+                .call(() => {
+                    const docsStatus = document.getElementById('caseGenDocs');
+                    docsStatus.classList.remove('processing');
+                    docsStatus.classList.add('done');
+                    docsStatus.querySelector('.status').textContent = '✓ 完成';
+
+                    // 自动归档 - 处理中
+                    const archiveStatus = document.getElementById('caseGenArchive');
+                    archiveStatus.classList.add('processing');
+                    archiveStatus.querySelector('.status').textContent = '归档中...';
+                }, null, '+=0.2')
+
+            // ===== 步骤10: 归档完成 =====
+                .call(() => {
+                    const archiveStatus = document.getElementById('caseGenArchive');
+                    archiveStatus.classList.remove('processing');
+                    archiveStatus.classList.add('done');
+                    archiveStatus.querySelector('.status').textContent = '✓ 完成';
+
+                    // 更新顶部 badge
+                    const badge = document.getElementById('folderTreeBadge');
+                    badge.textContent = '已完成';
+                    badge.classList.add('done');
+                }, null, '+=0.5');
+        }
+
+        function showFolderNode(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('show');
+        }
+
+        function showFileNode(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('show');
+        }
+
+        function markFileGenerated(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.add('generated', 'highlight');
+                // 移除高亮效果
+                setTimeout(() => el.classList.remove('highlight'), 300);
+            }
+        }
+
+        function resetCaseFlowElements() {
+            // 重置上传区域
+            const uploadBox = document.getElementById('caseUploadBox');
+            if (uploadBox) {
+                uploadBox.classList.remove('active', 'done');
+                gsap.set(uploadBox, { opacity: 0, scale: 0.9 });
+            }
+
+            // 重置 AI 识别区
+            const aiCompact = document.getElementById('caseAiCompact');
+            if (aiCompact) {
+                aiCompact.classList.remove('active');
+                gsap.set(aiCompact, { opacity: 0, y: 15 });
+            }
+
+            // 重置识别项
+            ['caseAiItem1', 'caseAiItem2', 'caseAiItem3', 'caseAiItem4'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active', 'done');
+            });
+
+            // 重置识别值
+            const resetValues = {
+                'caseAiType': '—',
+                'caseAiPlaintiff': '—',
+                'caseAiDefendant': '—',
+                'caseAiAmount': '—'
+            };
+            Object.entries(resetValues).forEach(([id, val]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            });
+
+            // 重置生成状态
+            const genStatus = document.getElementById('caseGenStatus');
+            if (genStatus) {
+                genStatus.classList.remove('active');
+                gsap.set(genStatus, { opacity: 0, y: 15 });
+            }
+
+            // 重置状态项
+            ['caseGenFolder', 'caseGenDocs', 'caseGenArchive'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.remove('processing', 'done');
+                    const status = el.querySelector('.status');
+                    if (status) status.textContent = '—';
+                }
+            });
+
+            // 重置文件夹树
+            const folderTree = document.getElementById('caseFolderTree');
+            if (folderTree) {
+                folderTree.classList.remove('active');
+                gsap.set(folderTree, { opacity: 0, x: 20 });
+            }
+
+            // 重置 badge
+            const badge = document.getElementById('folderTreeBadge');
+            if (badge) {
+                badge.textContent = '生成中...';
+                badge.classList.remove('done');
+            }
+
+            // 重置所有文件夹节点
+            folderNodes.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('show');
+            });
+
+            // 重置所有文件节点
+            fileNodes.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('show', 'generated', 'highlight');
+            });
+        }
+
+        function resetCaseFlowAnimation() {
+            if (caseFlowTimeline) caseFlowTimeline.kill();
+            caseFlowAnimationRunning = false;
+            resetCaseFlowElements();
+
+            const playBtn = document.getElementById('caseFlowPlayBtn');
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.innerHTML = '<span>▶</span> 播放演示';
+            }
+        }
+
+        // 案件流程自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            ScrollTrigger.create({
+                trigger: '#caseFlowDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!caseFlowAnimationRunning) {
+                        setTimeout(startCaseFlowAnimation, 500);
+                    }
+                },
+                once: true
+            });
+        });
+
+        // ========== 模拟庭审动画 ==========
+        let trialAnimationRunning = false;
+        let trialTimeline = null;
+
+        function startTrialAnimation() {
+            if (trialAnimationRunning) return;
+            trialAnimationRunning = true;
+
+            const playBtn = document.getElementById('trialPlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            resetTrialElements();
+
+            trialTimeline = gsap.timeline({
+                onComplete: () => {
+                    trialAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                }
+            });
+
+            const messages = ['trialMsg1', 'trialMsg2', 'trialMsg3', 'trialMsg4', 'trialMsg5', 'trialMsg6'];
+            const chatEl = document.getElementById('courtChat');
+
+            // 法官席 + 角色图例出场
+            trialTimeline
+                .call(() => { document.getElementById('judgeBench').classList.add('active'); })
+                .call(() => { document.getElementById('courtLegend').classList.add('active'); }, null, '+=0.3');
+
+            // 逐条显示对话气泡
+            messages.forEach((msgId, i) => {
+                trialTimeline
+                    .call(() => {
+                        const el = document.getElementById(msgId);
+                        el.classList.add('show');
+                        // 自动滚动到底部
+                        chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
+                    }, null, '+=0.8');
+            });
+        }
+
+        function resetTrialElements() {
+            document.getElementById('judgeBench').classList.remove('active');
+            document.getElementById('courtLegend').classList.remove('active');
+            document.querySelectorAll('.chat-msg-row').forEach(b => b.classList.remove('show'));
+            document.getElementById('courtChat').scrollTop = 0;
+        }
+
+        function resetTrialAnimation() {
+            if (trialTimeline) trialTimeline.kill();
+            trialAnimationRunning = false;
+            resetTrialElements();
+            const playBtn = document.getElementById('trialPlayBtn');
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span>▶</span> 播放演示';
+        }
+
+        // 模拟庭审自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            ScrollTrigger.create({
+                trigger: '#courtroom',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!trialAnimationRunning) setTimeout(startTrialAnimation, 500);
+                },
+                once: true
+            });
+        });
+
+        // ========== 自动立案动画 ==========
+        let filingAnimationRunning = false;
+        let filingTimeline = null;
+
+        const filingData = {
+            oa: {
+                stepsEl: 'filingStepsOa',
+                formEl: 'filingFormOa',
+                statusBar: 'filingStatusBarOa',
+                statusText: 'filingStatusTextOa',
+                steps: [
+                    { icon: '🔐', label: '登录OA' },
+                    { icon: '👤', label: '添加委托方' },
+                    { icon: '📋', label: '案件信息' },
+                    { icon: '🔍', label: '利冲检索' },
+                    { icon: '📝', label: '合同信息' },
+                    { icon: '💾', label: '存草稿' }
+                ],
+                forms: [
+                    [{ label: '用户名', value: 'lawyer_zhang' }, { label: '密码', value: '••••••••' }],
+                    [{ label: '委托方', value: '张三' }, { label: '类型', value: '自然人' }, { label: '身份证号', value: '310***********1234' }],
+                    [{ label: '案由', value: '民间借贷纠纷' }, { label: '案件类型', value: '民商事' }, { label: '标的额', value: '500,000.00 元' }],
+                    [{ label: '利冲检索', value: '检索中...' }, { label: '检索结果', value: '✅ 未发现利益冲突' }],
+                    [{ label: '合同编号', value: 'HT-2026-0301' }, { label: '收费方式', value: '定额收费' }, { label: '律师费', value: '30,000.00 元' }],
+                    [{ label: '状态', value: '✅ 草稿已保存' }]
+                ]
+            },
+            court: {
+                stepsEl: 'filingStepsCourt',
+                formEl: 'filingFormCourt',
+                statusBar: 'filingStatusBarCourt',
+                statusText: 'filingStatusTextCourt',
+                steps: [
+                    { icon: '🔐', label: '登录系统' },
+                    { icon: '🏛️', label: '选择法院' },
+                    { icon: '📋', label: '填写信息' },
+                    { icon: '📎', label: '上传材料' },
+                    { icon: '✅', label: '确认提交' },
+                    { icon: '📨', label: '提交成功' }
+                ],
+                forms: [
+                    [{ label: '手机号', value: '138****8888' }, { label: '验证码', value: '自动识别中...' }],
+                    [{ label: '省份', value: '上海市' }, { label: '法院', value: '浦东新区人民法院' }, { label: '案件类型', value: '民事一审' }],
+                    [{ label: '原告', value: '张三' }, { label: '被告', value: 'XX科技有限公司' }, { label: '案由', value: '民间借贷纠纷' }],
+                    [{ label: '起诉状', value: '📄 起诉状.pdf' }, { label: '身份证明', value: '📄 身份证.pdf' }, { label: '证据材料', value: '📄 证据清单.pdf' }],
+                    [{ label: '材料核验', value: '✅ 全部通过' }, { label: '电子签名', value: '✅ 已签名' }],
+                    [{ label: '状态', value: '✅ 立案申请已提交，等待审核' }]
+                ]
+            }
+        };
+
+        function initFilingSteps() {
+            ['oa', 'court'].forEach(key => {
+                const data = filingData[key];
+                const el = document.getElementById(data.stepsEl);
+                if (!el) return;
+                el.innerHTML = data.steps.map((s, i) => {
+                    let html = `<div class="filing-step" data-step="${i + 1}">
+                        <div class="filing-step-circle">${s.icon}</div>
+                        <div class="filing-step-label">${s.label}</div>
+                    </div>`;
+                    if (i < data.steps.length - 1) html += '<div class="filing-step-line"></div>';
+                    return html;
+                }).join('');
+            });
+        }
+
+        function animateChannel(timeline, data, offset) {
+            data.steps.forEach((step, stepIdx) => {
+                timeline.call(() => {
+                    const stepsEl = document.getElementById(data.stepsEl);
+                    const steps = stepsEl.querySelectorAll('.filing-step');
+                    const lines = stepsEl.querySelectorAll('.filing-step-line');
+                    steps.forEach((s, i) => {
+                        s.classList.remove('active', 'completed');
+                        if (i < stepIdx) s.classList.add('completed');
+                        else if (i === stepIdx) s.classList.add('active');
+                    });
+                    lines.forEach((l, i) => l.classList.toggle('filled', i < stepIdx));
+
+                    const bar = document.getElementById(data.statusBar);
+                    bar.classList.add('show');
+                    bar.classList.remove('success');
+                    document.getElementById(data.statusText).textContent = `正在执行：${step.label}...`;
+
+                    const formEl = document.getElementById(data.formEl);
+                    formEl.innerHTML = '';
+                    data.forms[stepIdx].forEach((field, fi) => {
+                        const row = document.createElement('div');
+                        row.className = 'filing-form-row';
+                        row.innerHTML = `<div class="filing-form-label">${field.label}</div><div class="filing-form-value">${field.value}</div>`;
+                        formEl.appendChild(row);
+                        setTimeout(() => {
+                            row.classList.add('show');
+                            row.querySelector('.filing-form-value').classList.add('filled');
+                        }, fi * 200 + 100);
+                    });
+                }, null, stepIdx === 0 ? `${offset}` : '+=1.2');
+            });
+
+            // 完成
+            timeline.call(() => {
+                const stepsEl = document.getElementById(data.stepsEl);
+                stepsEl.querySelectorAll('.filing-step').forEach(s => { s.classList.remove('active'); s.classList.add('completed'); });
+                stepsEl.querySelectorAll('.filing-step-line').forEach(l => l.classList.add('filled'));
+                const bar = document.getElementById(data.statusBar);
+                bar.classList.add('success');
+                document.getElementById(data.statusText).textContent = '🎉 立案流程已完成！';
+            }, null, '+=1.2');
+        }
+
+        function startFilingAnimation() {
+            if (filingAnimationRunning) return;
+            filingAnimationRunning = true;
+
+            const playBtn = document.getElementById('filingPlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            resetFilingElements();
+            initFilingSteps();
+
+            // 两条时间线同时启动
+            const tlOa = gsap.timeline();
+            const tlCourt = gsap.timeline();
+
+            animateChannel(tlOa, filingData.oa, '+=0');
+            animateChannel(tlCourt, filingData.court, '+=0.3');
+
+            filingTimeline = gsap.timeline();
+            filingTimeline.add(tlOa, 0);
+            filingTimeline.add(tlCourt, 0);
+            filingTimeline.call(() => {
+                filingAnimationRunning = false;
+                playBtn.disabled = false;
+                playBtn.innerHTML = '<span>▶</span> 重新播放';
+            });
+        }
+
+        function resetFilingElements() {
+            ['oa', 'court'].forEach(key => {
+                const data = filingData[key];
+                const stepsEl = document.getElementById(data.stepsEl);
+                if (stepsEl) {
+                    stepsEl.querySelectorAll('.filing-step').forEach(s => s.classList.remove('active', 'completed'));
+                    stepsEl.querySelectorAll('.filing-step-line').forEach(l => l.classList.remove('filled'));
+                }
+                const formEl = document.getElementById(data.formEl);
+                if (formEl) formEl.innerHTML = '';
+                const bar = document.getElementById(data.statusBar);
+                if (bar) bar.classList.remove('show', 'success');
+            });
+        }
+
+        function resetFilingAnimation() {
+            if (filingTimeline) filingTimeline.kill();
+            filingAnimationRunning = false;
+            resetFilingElements();
+            initFilingSteps();
+            const playBtn = document.getElementById('filingPlayBtn');
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span>▶</span> 播放演示';
+        }
+
+        // 初始化步骤 & 自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            initFilingSteps();
+            ScrollTrigger.create({
+                trigger: '#filingDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!filingAnimationRunning) setTimeout(startFilingAnimation, 500);
+                },
+                once: true
+            });
+        });
+
+        // ========== 证据智能分类动画 ==========
+        let evidenceAnimationRunning = false;
+        let evidenceTimeline = null;
+
+        const evidenceFiles = [
+            { id: 'evFile1', category: 'contract', icon: '📄', name: '借款合同' },
+            { id: 'evFile2', category: 'finance', icon: '🏦', name: '转账回单' },
+            { id: 'evFile3', category: 'identity', icon: '🪪', name: '身份证' },
+            { id: 'evFile4', category: 'chat', icon: '💬', name: '微信记录' },
+            { id: 'evFile5', category: 'finance', icon: '📊', name: '银行流水' },
+            { id: 'evFile6', category: 'contract', icon: '📑', name: '担保协议' },
+            { id: 'evFile7', category: 'photo', icon: '📸', name: '现场照片' },
+            { id: 'evFile8', category: 'identity', icon: '🏢', name: '营业执照' }
+        ];
+
+        const categoryMeta = {
+            contract: { name: '合同协议类', icon: '📄' },
+            finance:  { name: '财务凭证类', icon: '🏦' },
+            identity: { name: '身份证明类', icon: '🪪' },
+            chat:     { name: '通讯记录类', icon: '💬' },
+            photo:    { name: '影像资料类', icon: '📸' }
+        };
+
+        const categoryCounts = { contract: 0, finance: 0, identity: 0, chat: 0, photo: 0 };
+
+        function switchToCompareView() {
+            const demo = document.getElementById('evidenceDemo');
+            demo.classList.add('compare-mode');
+
+            // 左侧：整理前
+            const sourceEl = document.getElementById('evidenceSource');
+            sourceEl.innerHTML = `<div class="compare-label compare-before-label">📂 整理前 · 散乱文件</div>`
+                + `<div class="compare-file-list">`
+                + evidenceFiles.map((f, i) =>
+                    `<div class="compare-file-item"><span class="file-idx">${i + 1}.</span>${f.icon} ${f.name}</div>`
+                ).join('')
+                + `</div>`
+                + `<div class="compare-stats">`
+                + `<div class="compare-stat-row"><span class="stat-label">📎 文件总数</span><span class="stat-value">${evidenceFiles.length} 份</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">📂 分类数</span><span class="stat-value stat-bad">0 个（未分类）</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">🔍 可检索性</span><span class="stat-value stat-bad">❌ 无法快速定位</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">⏱ 人工整理</span><span class="stat-value stat-bad">~15 分钟</span></div>`
+                + `</div>`;
+
+            // 右侧：整理后
+            const grouped = {};
+            evidenceFiles.forEach(f => {
+                if (!grouped[f.category]) grouped[f.category] = [];
+                grouped[f.category].push(f);
+            });
+
+            const resultEl = document.getElementById('evidenceResult');
+            resultEl.innerHTML = `<div class="compare-label compare-after-label">📁 整理后 · 自动归类</div>` +
+                Object.entries(grouped).map(([cat, files]) => {
+                    const meta = categoryMeta[cat];
+                    return `<div class="compare-folder">
+                        <div class="compare-folder-header">${meta.icon} ${meta.name}（${files.length} 份）</div>
+                        <div class="compare-folder-files">
+                            ${files.map(f => `<div class="compare-folder-file">${f.icon} ${f.name}</div>`).join('')}
+                        </div>
+                    </div>`;
+                }).join('')
+                + `<div class="compare-stats compare-stats-good">`
+                + `<div class="compare-stat-row"><span class="stat-label">📎 文件总数</span><span class="stat-value">${evidenceFiles.length} 份</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">📂 分类数</span><span class="stat-value stat-good">${Object.keys(grouped).length} 个类别</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">🔍 可检索性</span><span class="stat-value stat-good">✅ 按类别秒级定位</span></div>`
+                + `<div class="compare-stat-row"><span class="stat-label">⏱ AI 整理</span><span class="stat-value stat-good">~3 秒</span></div>`
+                + `</div>`;
+
+            // 逐个显示左边文件
+            setTimeout(() => {
+                document.querySelectorAll('.compare-file-item').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('show'), i * 60);
+                });
+            }, 100);
+
+            // 逐个展开右边文件夹
+            setTimeout(() => {
+                document.querySelectorAll('.compare-folder').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('show'), i * 150);
+                });
+            }, 300);
+        }
+
+        function startEvidenceAnimation() {
+            if (evidenceAnimationRunning) return;
+            evidenceAnimationRunning = true;
+
+            const playBtn = document.getElementById('evidencePlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            resetEvidenceElements();
+
+            evidenceTimeline = gsap.timeline({
+                onComplete: () => {
+                    evidenceAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                    document.getElementById('aiProgressText').textContent = '✅ 分类完成';
+                    document.getElementById('aiBrain').classList.remove('active');
+                }
+            });
+
+            // 显示所有文件
+            evidenceTimeline.call(() => {
+                document.querySelectorAll('.evidence-file').forEach((f, i) => {
+                    setTimeout(() => f.classList.add('show'), i * 100);
+                });
+            });
+
+            // 显示分类目标
+            evidenceTimeline.call(() => {
+                document.querySelectorAll('.evidence-category').forEach((c, i) => {
+                    setTimeout(() => c.classList.add('show'), i * 100);
+                });
+            }, null, '+=1');
+
+            // 激活 AI
+            evidenceTimeline.call(() => {
+                document.getElementById('aiBrain').classList.add('active');
+                const txt = document.getElementById('aiProgressText');
+                txt.textContent = '分析中...';
+                txt.classList.add('active');
+            }, null, '+=0.5');
+
+            // 逐个分类文件
+            evidenceFiles.forEach((file, i) => {
+                evidenceTimeline.call(() => {
+                    const el = document.getElementById(file.id);
+                    const catEl = document.getElementById('cat' + file.category.charAt(0).toUpperCase() + file.category.slice(1));
+
+                    el.classList.add('flying');
+                    catEl.classList.add('receiving');
+                    setTimeout(() => catEl.classList.remove('receiving'), 500);
+
+                    categoryCounts[file.category]++;
+                    const countEl = document.getElementById('cat' + file.category.charAt(0).toUpperCase() + file.category.slice(1) + 'Count');
+                    countEl.textContent = categoryCounts[file.category] + ' 份';
+
+                    document.getElementById('aiProgressText').textContent = `分类中 ${i + 1}/${evidenceFiles.length}`;
+                }, null, '+=0.5');
+            });
+
+            // 显示完成标记
+            evidenceTimeline.call(() => {
+                Object.keys(categoryCounts).forEach(cat => {
+                    if (categoryCounts[cat] > 0) {
+                        const badge = document.getElementById('cat' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Badge');
+                        badge.classList.add('show');
+                    }
+                });
+            }, null, '+=0.3');
+
+            // 切换为对比视图（在原区域内）
+            evidenceTimeline.call(() => switchToCompareView(), null, '+=1.5');
+        }
+
+        // 保存原始 HTML 用于重置
+        let evidenceSourceOriginal = '';
+        let evidenceResultOriginal = '';
+        document.addEventListener('DOMContentLoaded', () => {
+            evidenceSourceOriginal = document.getElementById('evidenceSource').innerHTML;
+            evidenceResultOriginal = document.getElementById('evidenceResult').innerHTML;
+        });
+
+        function resetEvidenceElements() {
+            Object.keys(categoryCounts).forEach(k => categoryCounts[k] = 0);
+
+            const demo = document.getElementById('evidenceDemo');
+            demo.classList.remove('compare-mode');
+
+            // 恢复原始 HTML
+            if (evidenceSourceOriginal) document.getElementById('evidenceSource').innerHTML = evidenceSourceOriginal;
+            if (evidenceResultOriginal) document.getElementById('evidenceResult').innerHTML = evidenceResultOriginal;
+
+            document.querySelectorAll('.evidence-file').forEach(f => f.classList.remove('show', 'flying'));
+            document.querySelectorAll('.evidence-category').forEach(c => c.classList.remove('show', 'receiving'));
+            document.querySelectorAll('.category-badge').forEach(b => b.classList.remove('show'));
+
+            ['Contract', 'Finance', 'Identity', 'Chat', 'Photo'].forEach(cat => {
+                const el = document.getElementById('cat' + cat + 'Count');
+                if (el) el.textContent = '0 份';
+            });
+
+            document.getElementById('aiBrain').classList.remove('active');
+            const txt = document.getElementById('aiProgressText');
+            txt.textContent = '等待开始';
+            txt.classList.remove('active');
+        }
+
+        function resetEvidenceAnimation() {
+            if (evidenceTimeline) evidenceTimeline.kill();
+            evidenceAnimationRunning = false;
+            resetEvidenceElements();
+            const playBtn = document.getElementById('evidencePlayBtn');
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span>▶</span> 播放演示';
+        }
+
+        // 证据分类自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            ScrollTrigger.create({
+                trigger: '#evidenceDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!evidenceAnimationRunning) setTimeout(startEvidenceAnimation, 500);
+                },
+                once: true
+            });
+        });
+    </script>

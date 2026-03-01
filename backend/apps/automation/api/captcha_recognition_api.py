@@ -22,7 +22,7 @@ def _get_captcha_service() -> Any:
     return build_captcha_service()
 
 
-@router.post("/recognize", response=CaptchaRecognizeOut)
+@router.post("/recognize", response=CaptchaRecognizeOut, auth=None)
 def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecognizeOut:
     """
     识别验证码

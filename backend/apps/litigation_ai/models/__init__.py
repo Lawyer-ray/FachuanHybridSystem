@@ -1,4 +1,4 @@
-from .choices import DocumentType, MessageRole, SessionStatus
+from .choices import DocumentType, MessageRole, MockTrialMode, SessionStatus, SessionType
 from .evidence_chunk import EvidenceChunk
 from .session import LitigationSession
 
@@ -7,5 +7,7 @@ __all__ = [
     "EvidenceChunk",
     "LitigationSession",
     "MessageRole",
+    "MockTrialMode",
     "SessionStatus",
+    "SessionType",
 ]

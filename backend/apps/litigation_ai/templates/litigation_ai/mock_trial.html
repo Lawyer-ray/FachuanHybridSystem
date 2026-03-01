@@ -1,0 +1,111 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "模拟庭审" %} - {{ case.name }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'litigation_ai/css/mock_trial.css' %}?v=20260301">
+{% endblock %}
+
+{% block content %}
+<div class="mock-trial-page"
+     x-data="mockTrialApp({ caseId: {{ case.pk }}, caseName: '{{ case.name|escapejs }}' })"
+     x-init="init()">
+
+    <!-- Header -->
+    <header class="mt-header">
+        <div class="mt-header-left">
+            <a href="{% url 'admin:cases_case_detail' case.pk %}" class="btn-back">← {% trans "返回案件" %}</a>
+            <h1>⚖️ {% trans "模拟庭审" %} — {{ case.name }}</h1>
+        </div>
+        <div class="mt-header-right">
+            <span class="session-status" x-show="sessionId" x-text="statusText"></span>
+        </div>
+    </header>
+
+    <div class="mt-body">
+        <!-- 左侧：模式选择 + 会话列表 -->
+        <aside class="mt-sidebar">
+            <div class="mode-cards">
+                <h3>{% trans "选择模式" %}</h3>
+                <button class="mode-card" :class="{ active: selectedMode === 'judge' }"
+                        @click="selectMode('judge')" :disabled="!!sessionId">
+                    <span class="mode-icon">🔍</span>
+                    <span class="mode-name">{% trans "法官视角" %}</span>
+                    <span class="mode-desc">{% trans "分析争议焦点、证据强弱、胜诉概率" %}</span>
+                </button>
+                <button class="mode-card" :class="{ active: selectedMode === 'cross_exam' }"
+                        @click="selectMode('cross_exam')" :disabled="!!sessionId">
+                    <span class="mode-icon">📋</span>
+                    <span class="mode-name">{% trans "质证模拟" %}</span>
+                    <span class="mode-desc">{% trans "AI 扮演对方律师，逐一质证您的证据" %}</span>
+                </button>
+                <button class="mode-card" :class="{ active: selectedMode === 'debate' }"
+                        @click="selectMode('debate')" :disabled="!!sessionId">
+                    <span class="mode-icon">💬</span>
+                    <span class="mode-name">{% trans "辩论模拟" %}</span>
+                    <span class="mode-desc">{% trans "围绕争议焦点与 AI 对方律师多轮辩论" %}</span>
+                </button>
+            </div>
+
+            <!-- 历史会话 -->
+            <div class="session-history">
+                <h3>{% trans "历史记录" %}</h3>
+                <template x-for="s in sessions" :key="s.session_id">
+                    <div class="history-item" :class="{ active: sessionId === s.session_id }"
+                         @click="loadSession(s.session_id)">
+                        <span class="history-mode" x-text="getModeLabel(s.metadata?.mock_trial_mode)"></span>
+                        <span class="history-time" x-text="formatTime(s.created_at)"></span>
+                        <button class="history-delete" @click.stop="deleteSession(s.session_id)">🗑️</button>
+                    </div>
+                </template>
+                <div x-show="sessions.length === 0" class="empty-hint">{% trans "暂无历史记录" %}</div>
+            </div>
+        </aside>
+
+        <!-- 右侧：对话区域 -->
+        <main class="mt-chat">
+            <!-- 消息列表 -->
+            <div class="mt-messages" x-ref="messagesContainer">
+                <div x-show="!sessionId && messages.length === 0" class="mt-empty">
+                    <div class="mt-empty-icon">⚖️</div>
+                    <div class="mt-empty-text">{% trans "选择模式开始模拟庭审" %}</div>
+                </div>
+
+                <template x-for="msg in messages" :key="msg.id || msg.created_at">
+                    <div class="mt-message" :class="msg.role">
+                        <div class="mt-message-avatar">
+                            <span x-text="msg.role === 'user' ? '👤' : msg.role === 'system' ? '⚙️' : '⚖️'"></span>
+                        </div>
+                        <div class="mt-message-body">
+                            <div class="mt-message-content" x-html="renderMarkdown(msg.content)"></div>
+                            <div class="mt-message-time" x-show="msg.role !== 'system'"
+                                 x-text="formatMsgTime(msg.created_at)"></div>
+                        </div>
+                    </div>
+                </template>
+
+                <div x-show="loading" class="mt-loading">
+                    <div class="spinner"></div>
+                    <span>{% trans "AI 分析中..." %}</span>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="mt-input" x-show="sessionId">
+                <textarea x-ref="inputArea" x-model="inputMessage"
+                          @keydown.enter="$event.shiftKey || ($event.preventDefault(), sendMessage())"
+                          placeholder="{% trans '输入消息... (Enter 发送)' %}"
+                          rows="3" :disabled="loading"></textarea>
+                <button @click="sendMessage()" :disabled="!inputMessage.trim() || loading" class="btn-send">
+                    {% trans "发送" %}
+                </button>
+            </div>
+        </main>
+    </div>
+</div>
+
+{% csrf_token %}
+<script src="{% static 'litigation_ai/js/mock_trial_app.js' %}?v=20260301"></script>
+{% endblock %}

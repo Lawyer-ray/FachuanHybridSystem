@@ -8,12 +8,13 @@ from __future__ import annotations
 from django.http import HttpRequest
 from apps.organization.api._utils import get_request_user
 from ninja import Router
+from apps.core.auth import JWTOrSessionAuth
 
 from apps.organization.dtos import TeamUpsertDTO
 from apps.organization.schemas import TeamIn, TeamOut
 from apps.organization.services import TeamService
 
-router = Router()
+router = Router(auth=JWTOrSessionAuth())
 
 _team_service = TeamService()
 

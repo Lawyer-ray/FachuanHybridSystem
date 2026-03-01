@@ -51,6 +51,9 @@
             </span>
         </div>
         <div class="header-actions">
+            <a href="{% url 'admin:cases_case_mock_trial' case.pk %}" class="btn btn-secondary" title="模拟庭审">
+                ⚖️ 模拟庭审
+            </a>
             <a href="{% url 'admin:cases_case_changelist' %}" class="btn btn-secondary">
                 ← 返回列表
             </a>
@@ -83,6 +86,9 @@
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
                 非当事人材料
             </button>
+            <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
+                一张网立案
+            </button>
         </nav>
 
         <div class="tab-content">
@@ -112,6 +118,11 @@
 
             <div x-show="activeTab === 'non_party_materials'" x-transition>
                 {% include "admin/cases/case/partials/non_party_materials.html" %}
+            </div>
+
+            <!-- 一张网立案标签页 -->
+            <div x-show="activeTab === 'court_filing'" x-transition>
+                {% include "admin/cases/case/partials/court_filing.html" %}
             </div>
         </div>
     </div>

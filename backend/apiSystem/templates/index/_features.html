@@ -1,0 +1,136 @@
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header reveal">
+            <span class="section-tag">✨ 核心功能</span>
+            <h2 class="section-title">为律师打造的智能工具</h2>
+            <p class="section-desc">从案件管理到文书生成，全方位提升工作效率</p>
+        </div>
+
+        <div class="bento-grid">
+            <!-- 案件管理 - Large -->
+            <div class="bento-card large reveal">
+                <div class="bento-icon style-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/></svg>
+                </div>
+                <h3 class="bento-title">案件管理</h3>
+                <p class="bento-desc">
+                    全生命周期案件管理，从立案到结案。支持案件创建、分配、进度跟踪、案号管理，
+                    多维度数据统计分析。
+                </p>
+                <div class="case-visual">
+                    <div class="case-visual-header">
+                        <span class="case-visual-dot red"></span>
+                        <span class="case-visual-dot yellow"></span>
+                        <span class="case-visual-dot green"></span>
+                    </div>
+                    <div class="case-list">
+                        <div class="case-item">
+                            <span class="case-status active"></span>
+                            <div class="case-info">
+                                <div class="case-name">张某诉李某民间借贷纠纷</div>
+                                <div class="case-meta">(2026)沪0115民初1234号</div>
+                            </div>
+                            <span class="case-tag civil">民事</span>
+                            <span class="case-amount">¥50万</span>
+                        </div>
+                        <div class="case-item">
+                            <span class="case-status pending"></span>
+                            <div class="case-info">
+                                <div class="case-name">王某与某公司劳动争议</div>
+                                <div class="case-meta">(2026)沪0101民初5678号</div>
+                            </div>
+                            <span class="case-tag civil">民事</span>
+                            <span class="case-amount">¥12万</span>
+                        </div>
+                        <div class="case-item">
+                            <span class="case-status closed"></span>
+                            <div class="case-info">
+                                <div class="case-name">某科技公司XX行政行为（行政复议）</div>
+                                <div class="case-meta">(2026)沪0107行初9012号</div>
+                            </div>
+                            <span class="case-tag admin">行政</span>
+                            <span class="case-amount">¥6200万</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI 文书生成 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                </div>
+                <h3 class="bento-title">AI 文书生成</h3>
+                <p class="bento-desc">
+                    基于 LangChain + LangGraph 的智能文书生成，支持起诉状、答辩状、代理词、财产保全申请书等，对话式交互引导。
+                </p>
+            </div>
+
+            <!-- 合同管理 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15l2 2 4-4"/></svg>
+                </div>
+                <h3 class="bento-title">合同管理</h3>
+                <p class="bento-desc">
+                    合同创建、补充协议、付款跟踪、律师分配、收费进度，完整的合同生命周期管理。
+                </p>
+            </div>
+
+            <!-- 自动化功能 - Wide -->
+            <div class="bento-card wide reveal">
+                <div class="bento-icon style-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                <h3 class="bento-title">自动化引擎</h3>
+                <p class="bento-desc">
+                    法院短信智能解析与文书自动下载、法院文书定时抓取、财产保全保险自动询价、飞书群消息实时通知、验证码自动识别。
+                    7×24 小时无人值守运行，解放双手。
+                </p>
+            </div>
+
+            <!-- 客户管理 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h3 class="bento-title">客户管理</h3>
+                <p class="bento-desc">
+                    客户信息、身份证件 OCR 识别、财产线索管理，一站式 CRM 解决方案。
+                </p>
+            </div>
+
+            <!-- 文档模板 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                </div>
+                <h3 class="bento-title">文档模板系统</h3>
+                <p class="bento-desc">
+                    可视化模板配置，支持占位符、条件渲染、案件类型匹配、批量生成 Word 文档。
+                </p>
+            </div>
+
+            <!-- 聊天记录取证 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg>
+                </div>
+                <h3 class="bento-title">聊天记录取证</h3>
+                <p class="bento-desc">
+                    微信/QQ 聊天记录视频录制、智能截帧、OCR 文字提取，一键生成证据材料。
+                </p>
+            </div>
+
+            <!-- 数据安全 -->
+            <div class="bento-card reveal">
+                <div class="bento-icon style-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                </div>
+                <h3 class="bento-title">数据安全</h3>
+                <p class="bento-desc">
+                    端到端加密传输，支持本地私有化部署，数据完全掌控在您手中。
+                </p>
+            </div>
+        </div>
+    </section>

@@ -1,0 +1,147 @@
+{% load i18n %}
+<!-- 立案标签页 -->
+<div x-show="activeTab === 'filing'" x-cloak x-data="filingApp()" x-init="init()">
+    <div class="info-grid">
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <span class="card-icon">🏛️</span>
+                <h3 class="card-title">{% translate "OA系统立案" %}</h3>
+            </div>
+
+            <template x-if="!caseId">
+                <p class="empty-state" style="color: #dc2626;">{% translate "请先创建案件后再进行立案操作" %}</p>
+            </template>
+
+            <template x-if="caseId">
+                <div>
+                    <div x-show="loading" style="text-align: center; padding: 24px;">
+                        <span class="spinner"></span> {% translate "加载中..." %}
+                    </div>
+                    <div x-show="!loading && configs.length === 0">
+                        <p class="empty-state">{% translate "暂无可用的OA系统配置" %}</p>
+                    </div>
+                    <div x-show="!loading && configs.length > 0">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: #374151; white-space: nowrap;">{% translate "OA系统" %}</label>
+                            <select x-model="selectedConfigId"
+                                    style="flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                                <option value="">{% translate "请选择OA系统" %}</option>
+                                <template x-for="cfg in configs" :key="cfg.id">
+                                    <option :value="cfg.id" x-text="cfg.oa_system_name + (cfg.has_credential ? '' : ' ⚠️ 缺少凭证')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div x-show="selectedConfigId" style="margin-bottom: 16px;">
+                            <button type="button" class="btn btn-primary"
+                                    :disabled="executing || !hasCredential()"
+                                    @click="executeFiling()">
+                                <span x-show="!executing">🚀 {% translate "开始立案" %}</span>
+                                <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                            </button>
+                            <span x-show="!hasCredential()"
+                                  style="margin-left: 12px; font-size: 12px; color: #dc2626;">
+                                {% translate "请先在账号密码管理中添加该OA系统的凭证" %}
+                            </span>
+                        </div>
+                        <template x-if="lastResult">
+                            <div :style="lastResult.status === 'completed' ? 'background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:16px;' : lastResult.status === 'in_progress' ? 'background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:16px;' : 'background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:16px;'">
+                                <span x-show="lastResult.status === 'completed'" style="color:#15803d;">✓ {% translate "立案成功" %}</span>
+                                <span x-show="lastResult.status === 'in_progress'" style="color:#1d4ed8;">⏳ {% translate "正在执行中，浏览器已打开..." %}</span>
+                                <span x-show="lastResult.status === 'failed'" style="color:#dc2626;">✗ {% translate "立案失败" %}</span>
+                                <span x-show="lastResult.error_message" style="margin-left:8px;font-size:12px;color:#6b7280;" x-text="lastResult.error_message"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+    function filingApp() {
+        return {
+            contractId: {{ contract.pk }},
+            caseId: {% if related_cases %}{{ related_cases.0.id }}{% else %}null{% endif %},
+            configs: [],
+            loading: false,
+            executing: false,
+            selectedConfigId: '',
+            lastResult: null,
+
+            async init() {
+                if (!this.caseId) return;
+                await this.loadConfigs();
+            },
+
+            async loadConfigs() {
+                this.loading = true;
+                try {
+                    const resp = await fetch('/api/v1/oa-filing/configs');
+                    if (resp.ok) this.configs = await resp.json();
+                } catch (e) {
+                    console.error('loadConfigs error:', e);
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            hasCredential() {
+                const cfg = this.configs.find(c => c.id == this.selectedConfigId);
+                return cfg ? cfg.has_credential : false;
+            },
+
+            async executeFiling() {
+                if (!this.selectedConfigId || !this.caseId) return;
+                this.executing = true;
+                this.lastResult = null;
+                try {
+                    const resp = await fetch('/api/v1/oa-filing/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                        },
+                        body: JSON.stringify({
+                            oa_config_id: parseInt(this.selectedConfigId),
+                            contract_id: this.contractId,
+                            case_id: this.caseId
+                        })
+                    });
+                    const data = await resp.json();
+                    if (resp.ok && data.id) {
+                        this.lastResult = data;
+                        // 后台异步执行，轮询状态
+                        this.pollSession(data.id);
+                    } else {
+                        this.lastResult = {status: 'failed', error_message: data.detail || '请求失败'};
+                        this.executing = false;
+                    }
+                } catch (e) {
+                    console.error('executeFiling error:', e);
+                    this.executing = false;
+                }
+            },
+
+            async pollSession(sessionId) {
+                const poll = async () => {
+                    try {
+                        const resp = await fetch(`/api/v1/oa-filing/session/${sessionId}`);
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.lastResult = data;
+                            if (data.status === 'in_progress') {
+                                setTimeout(poll, 3000);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('pollSession error:', e);
+                    }
+                    this.executing = false;
+                };
+                setTimeout(poll, 3000);
+            },
+        };
+    }
+    </script>
+</div>

@@ -16,23 +16,23 @@ def build_court_sms_service() -> ICourtSMSService:
 
 
 def build_court_sms_service_ctx() -> ICourtSMSService:
+    from apps.core.interfaces import ServiceLocator
+
     from .automation_adapters import build_document_processing_service
     from .automation_sms_wiring import build_court_sms_service_with_deps
     from .business_case import (
         build_case_chat_service,
         build_case_log_service,
         build_case_number_service,
-        build_case_service,
     )
-    from .business_client import build_client_service
-    from .business_organization import build_lawyer_service, build_reminder_service
+    from .business_organization import build_reminder_service
 
     return build_court_sms_service_with_deps(
-        case_service=build_case_service(),
+        case_service=ServiceLocator.get_case_service(),
         document_processing_service=build_document_processing_service(),
         case_number_service=build_case_number_service(),
-        client_service=build_client_service(),
-        lawyer_service=build_lawyer_service(),
+        client_service=ServiceLocator.get_client_service(),
+        lawyer_service=ServiceLocator.get_lawyer_service(),
         case_chat_service=build_case_chat_service(),
         caselog_service=build_case_log_service(),
         reminder_service=build_reminder_service(),

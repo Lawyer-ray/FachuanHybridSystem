@@ -213,23 +213,12 @@ class PromptTemplateAdmin(admin.ModelAdmin[PromptTemplate]):
     ) -> None:
         """保存模型时验证模板"""
         try:
-            prompt_service = _get_prompt_service()
-            validation = prompt_service.validate_template_syntax(obj.template, obj.variables)
-
-            if not validation["valid"]:
-                error_msg = "; ".join(validation["errors"])
-                messages.error(request, f"模板验证失败: {error_msg}")
-                raise ValidationError(error_msg)
-
             super().save_model(request, obj, form, change)
-
-            prompt_service.sync_template_to_manager(obj)
-
-            messages.success(request, "模板保存成功并已同步到系统")
+            messages.success(request, _("模板保存成功"))
         except ValidationError:
             raise
         except Exception as e:
-            messages.error(request, f"保存失败: {e!s}")
+            messages.error(request, _("保存失败: %(e)s") % {"e": e})
             raise ValidationError(str(e)) from e
 
     class Media:
