@@ -2,11 +2,11 @@
 <div class="info-section case-materials" data-materials-tab="party">
     <div class="materials-header">
         <button type="button" class="btn btn-secondary btn-sm" data-material-sort-toggle>
-            时间：正序
+            {% trans "时间：正序" %}
         </button>
         <div class="materials-actions">
             <a href="{% url 'admin:cases_case_materials' case.pk %}" class="btn btn-primary btn-sm">
-                上传/绑定材料
+                {% trans "上传/绑定材料" %}
             </a>
         </div>
     </div>
@@ -14,7 +14,7 @@
     <div class="materials-grid materials-grid--2">
         <section class="materials-column">
             <h3 class="materials-column-title">
-                我方当事人材料
+                {% trans "我方当事人材料" %}
                 {% if case_materials_view.party.our.legal_statuses %}
                     <span class="materials-column-subtitle">
                         （{{ case_materials_view.party.our.legal_statuses|join:"、" }}）
@@ -29,7 +29,7 @@
                 {% for group in case_materials_view.party.our.groups %}
                     <div class="material-group" data-type-id="{{ group.type_id }}">
                         <div class="material-group-header">
-                            <span class="material-group-handle" title="拖拽排序">⋮⋮</span>
+                            <span class="material-group-handle" title="{% trans '拖拽排序' %}">⋮⋮</span>
                             <span class="material-group-title">{{ group.type_name }}</span>
                         </div>
                         <div class="material-file-list" data-material-file-list>
@@ -45,7 +45,7 @@
                                         {% if item.party_labels %}
                                             <span class="material-file-tags">{{ item.party_labels|join:"、" }}</span>
                                         {% else %}
-                                            <span class="material-file-tags">通用</span>
+                                            <span class="material-file-tags">{% trans "通用" %}</span>
                                         {% endif %}
                                     </span>
                                 </a>
@@ -54,8 +54,8 @@
                     </div>
                 {% empty %}
                     <div class="empty-state">
-                        <p>暂无我方材料</p>
-                        <p class="hint">点击右上角“上传/绑定材料”开始整理</p>
+                        <p>{% trans "暂无我方材料" %}</p>
+                        <p class="hint">{% trans "点击右上角\"上传/绑定材料\"开始整理" %}</p>
                     </div>
                 {% endfor %}
             </div>
@@ -63,7 +63,7 @@
 
         <section class="materials-column">
             <h3 class="materials-column-title">
-                对方当事人材料
+                {% trans "对方当事人材料" %}
                 {% if case_materials_view.party.opponent.legal_statuses %}
                     <span class="materials-column-subtitle">
                         （{{ case_materials_view.party.opponent.legal_statuses|join:"、" }}）
@@ -78,7 +78,7 @@
                 {% for group in case_materials_view.party.opponent.groups %}
                     <div class="material-group" data-type-id="{{ group.type_id }}">
                         <div class="material-group-header">
-                            <span class="material-group-handle" title="拖拽排序">⋮⋮</span>
+                            <span class="material-group-handle" title="{% trans '拖拽排序' %}">⋮⋮</span>
                             <span class="material-group-title">{{ group.type_name }}</span>
                         </div>
                         <div class="material-file-list" data-material-file-list>
@@ -94,7 +94,7 @@
                                         {% if item.party_labels %}
                                             <span class="material-file-tags">{{ item.party_labels|join:"、" }}</span>
                                         {% else %}
-                                            <span class="material-file-tags">通用</span>
+                                            <span class="material-file-tags">{% trans "通用" %}</span>
                                         {% endif %}
                                     </span>
                                 </a>
@@ -103,8 +103,8 @@
                     </div>
                 {% empty %}
                     <div class="empty-state">
-                        <p>暂无对方当事人材料</p>
-                        <p class="hint">点击右上角“上传/绑定材料”开始整理</p>
+                        <p>{% trans "暂无对方当事人材料" %}</p>
+                        <p class="hint">{% trans "点击右上角\"上传/绑定材料\"开始整理" %}</p>
                     </div>
                 {% endfor %}
             </div>

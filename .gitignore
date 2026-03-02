@@ -168,3 +168,4 @@ backend/tests/structure/snapshots/
 
 # 临时脚本文件
 /tmp/openclaw_*.js
+backend/apiSystem/apps

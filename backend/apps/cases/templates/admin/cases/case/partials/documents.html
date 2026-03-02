@@ -18,7 +18,7 @@
                             <a href="{% url 'admin:documents_documenttemplate_change' template.id %}" target="_blank" style="color: #2563eb; text-decoration: none; border-bottom: 1px solid #93c5fd; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
                         {% endfor %}
                     {% else %}
-                        <span style="color: #9ca3af;">{{ case_file_templates_missing_reason|default:_("无匹配模板") }}</span>
+                        <span style="color: #9ca3af;">{% if case_file_templates_missing_reason %}{{ case_file_templates_missing_reason }}{% else %}{% trans "无匹配模板" %}{% endif %}</span>
                     {% endif %}
                 </div>
             </div>

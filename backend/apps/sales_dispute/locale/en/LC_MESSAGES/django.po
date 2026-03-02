@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sales_dispute\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-01 05:09+0800\n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
 "PO-Revision-Date: 2025-01-01 00:00+0800\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -16,384 +16,541 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: apps/sales_dispute/admin/collection_record_admin.py:45
 msgid "是否逾期"
 msgstr "Is Overdue"
 
+# ── Dashboard ──
+#: apps/sales_dispute/api/sales_dispute_api.py:882
+#: apps/sales_dispute/api/sales_dispute_api.py:903
+#: apps/sales_dispute/api/sales_dispute_api.py:931
+#: apps/sales_dispute/api/sales_dispute_api.py:959
+#: apps/sales_dispute/api/sales_dispute_api.py:991
+#: apps/sales_dispute/api/sales_dispute_api.py:1022
+msgid "起始日期不能晚于结束日期"
+msgstr "Start date cannot be later than end date"
+
+#: apps/sales_dispute/api/sales_dispute_api.py:906
+msgid "时间维度参数无效，可选值：month, quarter, year"
+msgstr "Invalid time dimension, valid values: month, quarter, year"
+
+#: apps/sales_dispute/api/sales_dispute_api.py:934
+msgid "分组参数无效，可选值：case_type, amount_range, lawyer"
+msgstr ""
+"Invalid group parameter, valid values: case_type, amount_range, "
+"lawyerInvalid group_by parameter, valid values: case_type, amount_range, "
+"lawyer"
+
+#: apps/sales_dispute/api/sales_dispute_api.py:994
+msgid "排序参数无效，可选值：total_recovery, recovery_rate, case_count"
+msgstr ""
+"Invalid sort parameter, valid values: total_recovery, recovery_rate, "
+"case_countInvalid sort_by parameter, valid values: total_recovery, "
+"recovery_rate, case_count"
+
+#: apps/sales_dispute/apps.py:10
 msgid "买卖纠纷计算"
 msgstr "Sales Dispute Calculator"
 
+#: apps/sales_dispute/models/case_assessment.py:17
+#: apps/sales_dispute/models/evidence_score.py:10
 msgid "书面合同"
 msgstr "Written Contract"
 
+#: apps/sales_dispute/models/case_assessment.py:18
 msgid "口头约定"
 msgstr "Oral Agreement"
 
+#: apps/sales_dispute/models/case_assessment.py:19
 msgid "交易习惯"
 msgstr "Trade Custom"
 
+#: apps/sales_dispute/models/case_assessment.py:23
 msgid "正常"
 msgstr "Normal"
 
+#: apps/sales_dispute/models/case_assessment.py:24
 msgid "即将届满"
 msgstr "Expiring Soon"
 
+#: apps/sales_dispute/models/case_assessment.py:25
 msgid "已届满"
 msgstr "Expired"
 
+#: apps/sales_dispute/models/case_assessment.py:29
 msgid "良好"
 msgstr "Good"
 
+#: apps/sales_dispute/models/case_assessment.py:30
+#: apps/sales_dispute/models/case_assessment.py:38
 msgid "一般"
 msgstr "Fair"
 
+#: apps/sales_dispute/models/case_assessment.py:31
 msgid "较差"
 msgstr "Poor"
 
+#: apps/sales_dispute/models/case_assessment.py:32
 msgid "未知"
 msgstr "Unknown"
 
+#: apps/sales_dispute/models/case_assessment.py:36
 msgid "充分"
 msgstr "Sufficient"
 
+#: apps/sales_dispute/models/case_assessment.py:37
 msgid "较充分"
 msgstr "Fairly Sufficient"
 
+#: apps/sales_dispute/models/case_assessment.py:39
 msgid "薄弱"
 msgstr "Weak"
 
+#: apps/sales_dispute/models/case_assessment.py:40
 msgid "严重不足"
 msgstr "Severely Insufficient"
 
+#: apps/sales_dispute/models/case_assessment.py:49
+#: apps/sales_dispute/models/collection_record.py:34
+#: apps/sales_dispute/models/payment_record.py:15
 msgid "关联案件"
 msgstr "Related Case"
 
 # ── CaseAssessment Model ──
+#: apps/sales_dispute/models/case_assessment.py:54
 msgid "合同基础类型"
 msgstr "Contract Basis Type"
 
+#: apps/sales_dispute/models/case_assessment.py:57
 msgid "债权本金"
 msgstr "Principal Amount"
 
+#: apps/sales_dispute/models/case_assessment.py:60
 msgid "证据完整度总分"
 msgstr "Evidence Total Score"
 
+#: apps/sales_dispute/models/case_assessment.py:66
 msgid "诉讼时效状态"
 msgstr "Limitation Status"
 
+#: apps/sales_dispute/models/case_assessment.py:69
 msgid "时效届满日期"
 msgstr "Limitation Expiry Date"
 
+#: apps/sales_dispute/models/case_assessment.py:75
 msgid "偿付能力评级"
 msgstr "Solvency Rating"
 
+#: apps/sales_dispute/models/case_assessment.py:80
 msgid "综合评估等级"
 msgstr "Assessment Grade"
 
+#: apps/sales_dispute/models/case_assessment.py:82
 msgid "评估备注"
 msgstr "Assessment Remarks"
 
+#: apps/sales_dispute/models/case_assessment.py:83
+#: apps/sales_dispute/models/collection_record.py:55
+#: apps/sales_dispute/models/collection_record.py:115
+#: apps/sales_dispute/models/lpr_rate.py:18
+#: apps/sales_dispute/models/payment_record.py:29
 msgid "创建时间"
 msgstr "Created At"
 
+#: apps/sales_dispute/models/case_assessment.py:84
+#: apps/sales_dispute/models/collection_record.py:58
+#: apps/sales_dispute/models/lpr_rate.py:19
 msgid "更新时间"
 msgstr "Updated At"
 
+#: apps/sales_dispute/models/case_assessment.py:92
+#: apps/sales_dispute/models/case_assessment.py:93
 msgid "案件评估记录"
 msgstr "Case Assessment"
 
 # ── CollectionRecord Model ──
-
+#: apps/sales_dispute/models/collection_record.py:16
 msgid "电话催款"
 msgstr "Phone Collection"
 
+#: apps/sales_dispute/models/collection_record.py:17
 msgid "书面催款"
 msgstr "Written Collection"
 
+#: apps/sales_dispute/models/collection_record.py:18
 msgid "律师函"
 msgstr "Lawyer Letter"
 
+#: apps/sales_dispute/models/collection_record.py:19
 msgid "最后通牒"
 msgstr "Ultimatum"
 
+#: apps/sales_dispute/models/collection_record.py:20
 msgid "起诉"
 msgstr "Litigation"
 
+#: apps/sales_dispute/models/collection_record.py:40
 msgid "当前催收阶段"
 msgstr "Current Collection Stage"
 
+#: apps/sales_dispute/models/collection_record.py:43
 msgid "催收启动日期"
 msgstr "Collection Start Date"
 
+#: apps/sales_dispute/models/collection_record.py:46
 msgid "最近操作日期"
 msgstr "Last Action Date"
 
+#: apps/sales_dispute/models/collection_record.py:49
 msgid "下一节点到期日"
 msgstr "Next Due Date"
 
+#: apps/sales_dispute/models/collection_record.py:52
 msgid "催收备注"
 msgstr "Collection Remarks"
 
+#: apps/sales_dispute/models/collection_record.py:65
+#: apps/sales_dispute/models/collection_record.py:66
 msgid "催收记录"
 msgstr "Collection Record"
 
+#: apps/sales_dispute/models/collection_record.py:95
 msgid "关联催收记录"
 msgstr "Related Collection Record"
 
+#: apps/sales_dispute/models/collection_record.py:100
 msgid "操作类型"
 msgstr "Action Type"
 
+#: apps/sales_dispute/models/collection_record.py:103
 msgid "操作日期"
 msgstr "Action Date"
 
+#: apps/sales_dispute/models/collection_record.py:106
 msgid "操作描述"
 msgstr "Action Description"
 
+#: apps/sales_dispute/models/collection_record.py:109
 msgid "文书类型"
 msgstr "Document Type"
 
+#: apps/sales_dispute/models/collection_record.py:112
 msgid "文书文件名"
 msgstr "Document Filename"
 
+#: apps/sales_dispute/models/collection_record.py:119
+#: apps/sales_dispute/models/collection_record.py:120
 msgid "催收操作日志"
 msgstr "Collection Action Log"
 
+#: apps/sales_dispute/models/evidence_score.py:11
 msgid "送货/收货凭证"
 msgstr "Delivery/Receipt"
 
+#: apps/sales_dispute/models/evidence_score.py:12
 msgid "对账确认"
 msgstr "Reconciliation"
 
+#: apps/sales_dispute/models/evidence_score.py:13
 msgid "催款记录"
 msgstr "Collection Record"
 
+#: apps/sales_dispute/models/evidence_score.py:14
 msgid "付款记录"
 msgstr "Payment Record"
 
 # ── EvidenceScore Model ──
+#: apps/sales_dispute/models/evidence_score.py:23
+#: apps/sales_dispute/models/jurisdiction_analysis.py:13
+#: apps/sales_dispute/models/litigation_strategy.py:21
 msgid "关联评估记录"
 msgstr "Related Assessment"
 
+#: apps/sales_dispute/models/evidence_score.py:28
 msgid "证据类型"
 msgstr "Evidence Type"
 
+#: apps/sales_dispute/models/evidence_score.py:30
 msgid "是否具备"
 msgstr "Has Evidence"
 
+#: apps/sales_dispute/models/evidence_score.py:31
 msgid "证据质量评分"
 msgstr "Quality Score"
 
+#: apps/sales_dispute/models/evidence_score.py:32
+#: apps/sales_dispute/models/payment_record.py:28
 msgid "备注"
 msgstr "Remarks"
 
+#: apps/sales_dispute/models/evidence_score.py:35
+#: apps/sales_dispute/models/evidence_score.py:36
 msgid "证据评分明细"
 msgstr "Evidence Score Detail"
 
 # ── JurisdictionAnalysis Model ──
+#: apps/sales_dispute/models/jurisdiction_analysis.py:16
 msgid "是否有约定管辖"
 msgstr "Has Agreed Jurisdiction"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:19
 msgid "约定管辖法院"
 msgstr "Agreed Court"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:22
 msgid "约定管辖是否有效"
 msgstr "Is Agreement Valid"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:25
 msgid "约定无效原因"
 msgstr "Invalid Reason"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:28
 msgid "原告所在地"
 msgstr "Plaintiff Location"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:31
 msgid "被告住所地"
 msgstr "Defendant Location"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:34
 msgid "推荐管辖法院"
 msgstr "Recommended Court"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:36
+#: apps/sales_dispute/models/litigation_strategy.py:28
 msgid "推荐理由"
 msgstr "Recommendation Reason"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:38
 msgid "备选管辖法院"
 msgstr "Alternative Court"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:40
 msgid "法律依据"
 msgstr "Legal Basis"
 
+#: apps/sales_dispute/models/jurisdiction_analysis.py:43
+#: apps/sales_dispute/models/jurisdiction_analysis.py:44
 msgid "管辖权分析"
 msgstr "Jurisdiction Analysis"
 
 # ── LitigationStrategy Model ──
+#: apps/sales_dispute/models/litigation_strategy.py:8
 msgid "支付令"
 msgstr "Payment Order"
 
+#: apps/sales_dispute/models/litigation_strategy.py:9
 msgid "小额诉讼"
 msgstr "Small Claims"
 
+#: apps/sales_dispute/models/litigation_strategy.py:10
 msgid "简易程序"
 msgstr "Summary Procedure"
 
+#: apps/sales_dispute/models/litigation_strategy.py:11
 msgid "普通程序"
 msgstr "Ordinary Procedure"
 
+#: apps/sales_dispute/models/litigation_strategy.py:12
 msgid "诉前调解"
 msgstr "Pre-litigation Mediation"
 
+#: apps/sales_dispute/models/litigation_strategy.py:26
 msgid "推荐策略类型"
 msgstr "Recommended Strategy Type"
 
+#: apps/sales_dispute/models/litigation_strategy.py:30
 msgid "预计周期"
 msgstr "Estimated Duration"
 
+#: apps/sales_dispute/models/litigation_strategy.py:32
 msgid "适用条件说明"
 msgstr "Applicable Conditions"
 
+#: apps/sales_dispute/models/litigation_strategy.py:34
 msgid "是否建议财产保全"
 msgstr "Suggest Preservation"
 
+#: apps/sales_dispute/models/litigation_strategy.py:37
 msgid "保全建议理由"
 msgstr "Preservation Reason"
 
+#: apps/sales_dispute/models/litigation_strategy.py:41
+#: apps/sales_dispute/models/litigation_strategy.py:42
 msgid "起诉策略推荐"
 msgstr "Litigation Strategy"
 
+#: apps/sales_dispute/models/lpr_rate.py:11
 msgid "生效日期"
 msgstr "Effective Date"
 
+#: apps/sales_dispute/models/lpr_rate.py:13
 msgid "一年期LPR(%)"
 msgstr "1-Year LPR (%)"
 
+#: apps/sales_dispute/models/lpr_rate.py:16
 msgid "五年期LPR(%)"
 msgstr "5-Year LPR (%)"
 
+#: apps/sales_dispute/models/lpr_rate.py:23
+#: apps/sales_dispute/models/lpr_rate.py:24
 msgid "LPR利率"
 msgstr "LPR Rate"
 
+#: apps/sales_dispute/models/payment_record.py:17
 msgid "还款日期"
 msgstr "Payment Date"
 
+#: apps/sales_dispute/models/payment_record.py:19
 msgid "还款金额"
 msgstr "Payment Amount"
 
+#: apps/sales_dispute/models/payment_record.py:21
 msgid "冲抵费用"
 msgstr "Offset Fee"
 
+#: apps/sales_dispute/models/payment_record.py:23
 msgid "冲抵利息"
 msgstr "Offset Interest"
 
+#: apps/sales_dispute/models/payment_record.py:25
 msgid "冲抵本金"
 msgstr "Offset Principal"
 
+#: apps/sales_dispute/models/payment_record.py:27
 msgid "剩余本金"
 msgstr "Remaining Principal"
 
+#: apps/sales_dispute/models/payment_record.py:33
+#: apps/sales_dispute/models/payment_record.py:34
 msgid "还款冲抵记录"
 msgstr "Payment Offset Record"
 
 # ── Collection Workflow Service ──
-
+#: apps/sales_dispute/services/collection_reminder_service.py:65
+#: apps/sales_dispute/services/collection_workflow_service.py:131
+#: apps/sales_dispute/services/collection_workflow_service.py:228
 msgid "催收记录不存在"
 msgstr "Collection record not found"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:69
 msgid "案件不存在"
 msgstr "Case not found"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:75
 msgid "该案件已存在催收记录"
 msgstr "Collection record already exists for this case"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:97
 msgid "启动催收流程，进入电话催款阶段"
 msgstr "Started collection workflow, entered phone collection stage"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:138
 msgid "当前已是最终阶段（起诉），无法继续推进"
 msgstr "Already at final stage (litigation), cannot advance further"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:167
 #, python-format
 msgid "推进至%(stage)s阶段"
 msgstr "Advanced to %(stage)s stage"
 
+#: apps/sales_dispute/services/collection_workflow_service.py:192
 msgid "该案件暂无催收记录"
 msgstr "No collection record found for this case"
 
+#: apps/sales_dispute/services/cost_benefit_service.py:189
 msgid "净收益为负，诉讼经济效益较低，建议谨慎评估"
 msgstr ""
-"Net profit is negative; litigation has low economic benefit, careful "
-"evaluation recommended"
+"Net profit is negative, litigation economic efficiency is low, careful "
+"evaluation recommendedNet profit is negative; litigation has low economic "
+"benefit, careful evaluation recommended"
+
+#: apps/sales_dispute/services/dashboard_service.py:99
+msgid "10万以下"
+msgstr "Below 100K"
+
+#: apps/sales_dispute/services/dashboard_service.py:100
+msgid "10万-50万"
+msgstr "100K-500K"
+
+#: apps/sales_dispute/services/dashboard_service.py:101
+msgid "50万-100万"
+msgstr "500K-1M"
+
+#: apps/sales_dispute/services/dashboard_service.py:102
+msgid "100万以上"
+msgstr "Above 1M"
+
+#: apps/sales_dispute/services/dashboard_service.py:106
+msgid "1年内"
+msgstr "Within 1 Year"
+
+#: apps/sales_dispute/services/dashboard_service.py:107
+msgid "1-2年"
+msgstr "1-2 Years"
+
+#: apps/sales_dispute/services/dashboard_service.py:108
+msgid "2年以上"
+msgstr "Over 2 Years"
+
+#: apps/sales_dispute/services/dashboard_service.py:280
+msgid "未分类"
+msgstr "Uncategorized"
+
+#: apps/sales_dispute/services/dashboard_service.py:458
+msgid "有财产保全"
+msgstr "With Asset Preservation"
+
+#: apps/sales_dispute/services/dashboard_service.py:459
+msgid "无财产保全"
+msgstr "Without Asset Preservation"
 
 # ── Document Generation Service ──
-
+#: apps/sales_dispute/services/execution_doc_generator_service.py:286
+#: apps/sales_dispute/services/lawyer_letter_generator_service.py:96
+#: apps/sales_dispute/services/reconciliation_generator_service.py:74
+#: apps/sales_dispute/services/settlement_generator_service.py:96
 #, python-format
 msgid "模板文件不存在：%(path)s"
 msgstr "Template file not found: %(path)s"
 
+#: apps/sales_dispute/services/execution_doc_generator_service.py:310
 #, python-format
 msgid "生成%(doc_type)s"
 msgstr "Generated %(doc_type)s"
 
+#: apps/sales_dispute/services/interest_calculator_service.py:121
 msgid "买卖合同不适用民间借贷4倍LPR利率上限"
 msgstr "Sales contracts are not subject to the 4x LPR cap for private lending"
 
+#: apps/sales_dispute/services/interest_calculator_service.py:125
 msgid "违约金与利息不能同时全额主张，建议择一主张或由法院酌定"
 msgstr ""
-"Penalty and interest cannot both be claimed in full; choose one or let the "
-"court decide"
+"Penalty and interest cannot both be claimed in full, recommend choosing one "
+"or letting court decidePenalty and interest cannot both be claimed in full; "
+"choose one or let the court decide"
 
+#: apps/sales_dispute/services/lawyer_letter_generator_service.py:115
 #, python-format
 msgid "生成律师函（%(tone)s）"
 msgstr "Generated lawyer letter (%(tone)s)"
 
+#: apps/sales_dispute/services/lpr_rate_service.py:49
 #, python-format
 msgid "缺少 %(date)s 之前的LPR利率数据"
 msgstr "Missing LPR rate data before %(date)s"
 
+#: apps/sales_dispute/services/lpr_rate_service.py:80
+#: apps/sales_dispute/services/lpr_rate_service.py:107
 #, python-format
 msgid "缺少 %(start)s 至 %(end)s 期间的LPR利率数据"
 msgstr "Missing LPR rate data for period %(start)s to %(end)s"
 
+#: apps/sales_dispute/services/reconciliation_generator_service.py:91
 msgid "生成对账函"
 msgstr "Generated reconciliation statement"
 
+#: apps/sales_dispute/services/settlement_generator_service.py:113
 msgid "生成和解协议"
 msgstr "Generated settlement agreement"
-
-# ── Dashboard ──
-
-msgid "起始日期不能晚于结束日期"
-msgstr "Start date cannot be later than end date"
-
-msgid "时间维度参数无效，可选值：month, quarter, year"
-msgstr "Invalid time dimension, valid values: month, quarter, year"
-
-msgid "分组参数无效，可选值：case_type, amount_range, lawyer"
-msgstr "Invalid group_by parameter, valid values: case_type, amount_range, lawyer"
-
-msgid "排序参数无效，可选值：total_recovery, recovery_rate, case_count"
-msgstr "Invalid sort_by parameter, valid values: total_recovery, recovery_rate, case_count"
-
-msgid "未分类"
-msgstr "Uncategorized"
-
-msgid "10万以下"
-msgstr "Below 100K"
-
-msgid "10万-50万"
-msgstr "100K-500K"
-
-msgid "50万-100万"
-msgstr "500K-1M"
-
-msgid "100万以上"
-msgstr "Above 1M"
-
-msgid "1年内"
-msgstr "Within 1 Year"
-
-msgid "1-2年"
-msgstr "1-2 Years"
-
-msgid "2年以上"
-msgstr "Over 2 Years"
-
-msgid "有财产保全"
-msgstr "With Asset Preservation"
-
-msgid "无财产保全"
-msgstr "Without Asset Preservation"

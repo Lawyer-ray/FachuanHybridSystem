@@ -1,0 +1,920 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 21:01+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/client/admin/client_admin.py:29
+#: apps/client/admin/clientidentitydoc_admin.py:30
+#: apps/client/admin/property_clue_admin.py:24
+msgid "上传文件"
+msgstr "Upload File"
+
+#: apps/client/admin/client_admin.py:49
+#: apps/client/admin/clientidentitydoc_admin.py:63
+#: apps/client/admin/property_clue_admin.py:48
+msgid "文件"
+msgstr "File"
+
+#: apps/client/admin/client_admin.py:69
+msgid "身份证号码"
+msgstr "ID Number"
+
+#: apps/client/admin/client_admin.py:69
+msgid "统一社会信用代码"
+msgstr "Unified Social Credit Code"
+
+#: apps/client/admin/clientidentitydoc_admin.py:32
+msgid "上传后将自动重命名为：当事人名称_证件类型.扩展名"
+msgstr "Will be auto-renamed to: PartyName_DocType.ext after upload"
+
+#: apps/client/admin/clientidentitydoc_admin.py:42
+msgid "当前文件："
+msgstr "Current file:"
+
+#: apps/client/admin/clientidentitydoc_admin.py:79
+msgid "文件已重命名为标准格式"
+msgstr "File renamed to standard format"
+
+#: apps/client/admin/clientidentitydoc_admin.py:81
+#, python-format
+msgid "文件重命名失败: %(error)s"
+msgstr "File rename failed: %(error)s"
+
+#: apps/client/admin/clientidentitydoc_admin.py:98
+#, python-format
+msgid "成功重命名 %(count)d 个文件"
+msgstr "Successfully renamed %(count)d files"
+
+#: apps/client/admin/clientidentitydoc_admin.py:100
+#, python-format
+msgid "%(count)d 个文件重命名失败"
+msgstr "%(count)d files failed to rename"
+
+#: apps/client/admin/clientidentitydoc_admin.py:102
+msgid "重命名选中的文件"
+msgstr "Rename selected files"
+
+#: apps/client/admin/id_card_merge_view_admin.py:36
+#: apps/client/templates/admin/client/clientidentitydoc/change_list.html:64
+#: apps/client/templates/admin/client/id_card_merge.html:97
+msgid "身份证合并"
+msgstr "ID Card Merge"
+
+#: apps/client/admin/id_card_merge_view_admin.py:47
+msgid "请上传身份证正面图片"
+msgstr "Please upload front side of ID card"
+
+#: apps/client/admin/id_card_merge_view_admin.py:51
+msgid "请上传身份证反面图片"
+msgstr "Please upload back side of ID card"
+
+#: apps/client/admin/id_card_merge_view_admin.py:65
+#: apps/client/admin/id_card_merge_view_admin.py:121
+msgid "身份证合并成功!"
+msgstr "ID card merge successful!"
+
+#: apps/client/admin/id_card_merge_view_admin.py:67
+#: apps/client/admin/id_card_merge_view_admin.py:123
+msgid "点击下载 PDF"
+msgstr "Click to download PDF"
+
+#: apps/client/admin/id_card_merge_view_admin.py:72
+#: apps/client/admin/id_card_merge_view_admin.py:127
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:113
+msgid "未知错误"
+msgstr "Unknown Error"
+
+#: apps/client/admin/id_card_merge_view_admin.py:78
+#, python-format
+msgid "自动检测失败: %(msg)s"
+msgstr "Auto detection failed: %(msg)s"
+
+#: apps/client/admin/id_card_merge_view_admin.py:80
+#: apps/client/admin/id_card_merge_view_admin.py:128
+#, python-format
+msgid "合并失败: %(msg)s"
+msgstr "Merge failed: %(msg)s"
+
+#: apps/client/admin/id_card_merge_view_admin.py:104
+msgid "四角坐标格式错误,请输入有效的 JSON 数组"
+msgstr "Corner coordinates format error, please enter valid JSON array"
+
+#: apps/client/admin/property_clue_admin.py:70
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/client/admin/property_clue_admin.py:71
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/client/admin/property_clue_admin.py:81
+#: apps/client/models/property_clue.py:46
+msgid "线索类型"
+msgstr "Clue Type"
+
+#: apps/client/admin/property_clue_admin.py:89
+msgid "内容摘要"
+msgstr "Content Summary"
+
+#: apps/client/admin/property_clue_admin.py:95
+#, python-format
+msgid "%(count)d 个附件"
+msgstr "%(count)d attachments"
+
+#: apps/client/admin/property_clue_admin.py:96
+msgid "无附件"
+msgstr "No attachments"
+
+#: apps/client/admin/property_clue_admin.py:98
+msgid "附件"
+msgstr "Attachments"
+
+#: apps/client/api/client_api.py:79
+msgid "未能解析出客户信息"
+msgstr "Failed to parse client information"
+
+#: apps/client/api/client_api.py:114
+msgid "证件类型数量与文件数量不一致"
+msgstr "Document type count does not match file count"
+
+#: apps/client/api/client_api.py:116
+msgid "doc_types 与 files 长度必须一致"
+msgstr "doc_types and files must have the same length"
+
+#: apps/client/api/clientidentitydoc_api.py:72
+msgid "证件文档添加成功"
+msgstr "Document added successfully"
+
+#: apps/client/api/clientidentitydoc_api.py:152
+msgid "证件文档删除成功"
+msgstr "Document deleted successfully"
+
+#: apps/client/apps.py:8
+msgid "当事人管理"
+msgstr "Client Management"
+
+#: apps/client/management/commands/normalize_client_media_paths.py:35
+#, python-format
+msgid "完成：更新 %(u)d 条，跳过 %(s)d 条"
+msgstr "Done: updated %(u)d, skipped %(s)d"
+
+#: apps/client/models/client.py:24
+msgid "自然人"
+msgstr "Individual"
+
+#: apps/client/models/client.py:25
+msgid "法人"
+msgstr "Legal Entity"
+
+#: apps/client/models/client.py:26
+msgid "非法人组织"
+msgstr "Non-legal Entity"
+
+#: apps/client/models/client.py:29
+msgid "名称"
+msgstr "Name"
+
+#: apps/client/models/client.py:30
+msgid "联系电话"
+msgstr "Phone"
+
+#: apps/client/models/client.py:31
+msgid "住所地"
+msgstr "Address"
+
+#: apps/client/models/client.py:33
+msgid "主体类型"
+msgstr "Entity Type"
+
+#: apps/client/models/client.py:36
+msgid "身份证号码或统一社会信用代码"
+msgstr "ID number or unified social credit code"
+
+#: apps/client/models/client.py:38
+msgid "法定代表人或负责人"
+msgstr "Legal Representative"
+
+#: apps/client/models/client.py:40
+msgid "法定代表人/负责人身份证号码"
+msgstr "Legal Rep ID Number"
+
+#: apps/client/models/client.py:42
+msgid "是否为我方当事人"
+msgstr "Our Party"
+
+#: apps/client/models/client.py:53
+msgid "Required for legal organizations"
+msgstr "Required for legal organizations"
+
+#: apps/client/models/client.py:56 apps/client/models/client.py:57
+#: apps/client/models/identity_doc.py:62 apps/client/models/property_clue.py:44
+msgid "当事人"
+msgstr "Clients"
+
+#: apps/client/models/identity_doc.py:48
+#: apps/client/templates/admin/client/change_form.html:502
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:28
+msgid "身份证"
+msgstr "ID Card"
+
+#: apps/client/models/identity_doc.py:49
+#: apps/client/templates/admin/client/change_form.html:503
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:29
+msgid "护照"
+msgstr "Passport"
+
+#: apps/client/models/identity_doc.py:50
+#: apps/client/templates/admin/client/change_form.html:504
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:30
+msgid "港澳通行证"
+msgstr "HK/Macau Pass"
+
+#: apps/client/models/identity_doc.py:51
+#: apps/client/templates/admin/client/change_form.html:505
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:31
+msgid "居住证"
+msgstr "Residence Permit"
+
+#: apps/client/models/identity_doc.py:52
+#: apps/client/templates/admin/client/change_form.html:506
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:32
+msgid "户口本"
+msgstr "Household Register"
+
+#: apps/client/models/identity_doc.py:53
+#: apps/client/templates/admin/client/change_form.html:507
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:33
+msgid "营业执照"
+msgstr "Business License"
+
+#: apps/client/models/identity_doc.py:54
+#: apps/client/templates/admin/client/change_form.html:508
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:34
+msgid "法定代表人/负责人身份证"
+msgstr "Legal Rep ID"
+
+#: apps/client/models/identity_doc.py:63
+#: apps/client/templates/admin/client/change_form.html:498
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:25
+msgid "证件类型"
+msgstr "Document Type"
+
+#: apps/client/models/identity_doc.py:64 apps/client/models/property_clue.py:72
+msgid "文件路径"
+msgstr "File Path"
+
+#: apps/client/models/identity_doc.py:65
+msgid "到期日期"
+msgstr "Expiry Date"
+
+#: apps/client/models/identity_doc.py:66 apps/client/models/property_clue.py:74
+msgid "上传时间"
+msgstr "Upload Time"
+
+#: apps/client/models/identity_doc.py:78
+msgid "Invalid doc type for natural person"
+msgstr "Invalid doc type for natural person"
+
+#: apps/client/models/identity_doc.py:83
+msgid "Invalid doc type for organization"
+msgstr "Invalid doc type for organization"
+
+#: apps/client/models/identity_doc.py:86 apps/client/models/identity_doc.py:87
+msgid "当事人证件文件"
+msgstr "Client Documents"
+
+#: apps/client/models/property_clue.py:28
+msgid "银行账户"
+msgstr "Bank Account"
+
+#: apps/client/models/property_clue.py:29
+msgid "支付宝账户"
+msgstr "Alipay Account"
+
+#: apps/client/models/property_clue.py:30
+msgid "微信账户"
+msgstr "WeChat Account"
+
+#: apps/client/models/property_clue.py:31
+msgid "不动产"
+msgstr "Real Estate"
+
+#: apps/client/models/property_clue.py:32
+msgid "其他"
+msgstr "Other"
+
+#: apps/client/models/property_clue.py:36
+msgid ""
+"户名:\n"
+"开户行:\n"
+"银行账号:"
+msgstr ""
+
+#: apps/client/models/property_clue.py:37
+msgid ""
+"微信号:\n"
+"微信实名:"
+msgstr ""
+
+#: apps/client/models/property_clue.py:38
+msgid ""
+"支付宝账号:\n"
+"支付宝实名:"
+msgstr ""
+
+#: apps/client/models/property_clue.py:47
+msgid "线索内容"
+msgstr "Clue Content"
+
+#: apps/client/models/property_clue.py:48
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/client/models/property_clue.py:49
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/client/models/property_clue.py:58
+#: apps/client/models/property_clue.py:59
+#: apps/client/models/property_clue.py:70
+msgid "财产线索"
+msgstr "Asset Clues"
+
+#: apps/client/models/property_clue.py:73
+msgid "文件名"
+msgstr "Filename"
+
+#: apps/client/models/property_clue.py:85
+#: apps/client/models/property_clue.py:86
+msgid "财产线索附件"
+msgstr "Property Clue Attachment"
+
+#: apps/client/services/client_access_policy.py:15
+msgid "无权限创建客户"
+msgstr "No permission to create client"
+
+#: apps/client/services/client_access_policy.py:21
+msgid "无权限更新该客户"
+msgstr "No permission to update this client"
+
+#: apps/client/services/client_access_policy.py:27
+msgid "无权限删除该客户"
+msgstr "No permission to delete this client"
+
+#: apps/client/services/client_admin_service.py:77
+#: apps/client/services/query/client_get_query_service.py:25
+msgid "客户不存在"
+msgstr "Client does not exist"
+
+#: apps/client/services/client_admin_service.py:79
+#, python-format
+msgid "ID 为 %(id)s 的客户不存在"
+msgstr "Client with ID %(id)s does not exist"
+
+#: apps/client/services/client_identity_doc_service.py:32
+#: apps/client/services/property_clue_service.py:55
+msgid "当事人不存在"
+msgstr "Party does not exist"
+
+#: apps/client/services/client_identity_doc_service.py:34
+#: apps/client/services/property_clue_service.py:57
+#, python-format
+msgid "ID 为 %(id)s 的当事人不存在"
+msgstr "Party with ID %(id)s does not exist"
+
+#: apps/client/services/client_identity_doc_service.py:107
+msgid "证件文档不存在"
+msgstr "Document does not exist"
+
+#: apps/client/services/client_identity_doc_service.py:109
+#, python-format
+msgid "ID 为 %(id)s 的证件文档不存在"
+msgstr "Document with ID %(id)s does not exist"
+
+#: apps/client/services/client_mutation_service.py:173
+#: apps/client/services/client_mutation_service.py:193
+#: apps/client/services/importer/validator.py:16
+msgid "客户名称不能为空"
+msgstr "Client name cannot be empty"
+
+#: apps/client/services/client_mutation_service.py:178
+#: apps/client/services/client_mutation_service.py:180
+#: apps/client/services/client_mutation_service.py:198
+#: apps/client/services/client_mutation_service.py:200
+msgid "无效的客户类型"
+msgstr "Invalid client type"
+
+#: apps/client/services/client_mutation_service.py:185
+#: apps/client/services/client_mutation_service.py:187
+#: apps/client/services/client_mutation_service.py:207
+#: apps/client/services/client_mutation_service.py:209
+#: apps/client/services/importer/validator.py:24
+msgid "法人客户必须填写法定代表人"
+msgstr "Legal entity clients must fill in legal representative"
+
+#: apps/client/services/client_query_facade.py:52
+#: apps/client/services/client_query_facade.py:65
+#: apps/client/services/client_query_facade.py:70
+msgid "无权限查看客户"
+msgstr "No permission to view client"
+
+#: apps/client/services/id_card_merge/facade.py:45
+msgid "无法读取正面图片，请确保图片格式正确"
+msgstr "Cannot read front image, please ensure correct image format"
+
+#: apps/client/services/id_card_merge/facade.py:47
+msgid "无法读取反面图片，请确保图片格式正确"
+msgstr "Cannot read back image, please ensure correct image format"
+
+#: apps/client/services/id_card_merge/facade.py:83
+msgid "无法自动检测身份证边缘，请手动选取四角"
+msgstr "Cannot auto-detect ID card edges, please manually select four corners"
+
+#: apps/client/services/id_card_merge/facade.py:99
+#, python-format
+msgid "%(label)s四角坐标无效: %(reason)s"
+msgstr "%(label)s corner coordinates invalid: %(reason)s"
+
+#: apps/client/services/id_card_merge/facade.py:106
+#, python-format
+msgid "%(label)s图片不存在，请重新上传"
+msgstr "%(label)s image does not exist, please re-upload"
+
+#: apps/client/services/id_card_merge/facade.py:114
+#, python-format
+msgid "无法读取%(label)s图片，请确保图片格式正确"
+msgstr "Cannot read %(label)s image, please ensure correct image format"
+
+#: apps/client/services/id_card_merge/facade.py:135
+msgid "非法的文件路径"
+msgstr "Illegal file path"
+
+#: apps/client/services/id_card_merge/facade.py:137
+msgid "文件路径不在允许的范围内"
+msgstr "File path is not within allowed range"
+
+#: apps/client/services/id_card_merge/paths.py:13
+#: apps/client/services/storage.py:76 apps/client/services/storage.py:110
+#: apps/client/services/storage.py:156
+msgid "MEDIA_ROOT 未配置"
+msgstr "MEDIA_ROOT not configured"
+
+#: apps/client/services/id_card_merge/validation.py:24
+#, python-format
+msgid "不支持的图片格式: %(ct)s，请上传 JPG 或 PNG 格式"
+msgstr "Unsupported image format: %(ct)s, please upload JPG or PNG"
+
+#: apps/client/services/id_card_merge/validation.py:34
+#, python-format
+msgid "不支持的文件扩展名: %(ext)s，请上传 JPG 或 PNG 格式"
+msgstr "Unsupported file extension: %(ext)s, please upload JPG or PNG"
+
+#: apps/client/services/id_card_merge/validation.py:45
+#, python-format
+msgid "%(name)s图片分辨率太低 (%(w)sx%(h)s)，请上传更高分辨率的图片"
+msgstr ""
+"%(name)s image resolution too low (%(w)sx%(h)s), please upload higher "
+"resolution image"
+
+#: apps/client/services/id_card_merge/validation.py:65
+msgid "必须提供 4 个角点坐标"
+msgstr "Must provide 4 corner coordinates"
+
+#: apps/client/services/id_card_merge/validation.py:69
+#, python-format
+msgid "第 %(n)s 个点格式无效，应为 [x, y]"
+msgstr "Point %(n)s format invalid, should be [x, y]"
+
+#: apps/client/services/id_card_merge/validation.py:74
+#, python-format
+msgid "第 %(n)s 个点坐标不能为负数"
+msgstr "Point %(n)s coordinates cannot be negative"
+
+#: apps/client/services/id_card_merge/validation.py:76
+#, python-format
+msgid "第 %(n)s 个点坐标必须为数字"
+msgstr "Point %(n)s coordinates must be numbers"
+
+#: apps/client/services/id_card_merge/validation.py:82
+msgid "四角坐标不构成凸四边形"
+msgstr "Corner coordinates do not form a convex quadrilateral"
+
+#: apps/client/services/identity_extraction/extraction_service.py:50
+msgid "图片数据不能为空"
+msgstr "Image data cannot be empty"
+
+#: apps/client/services/identity_extraction/extraction_service.py:55
+msgid "证件类型不能为空"
+msgstr "Document type cannot be empty"
+
+#: apps/client/services/identity_extraction/extraction_service.py:78
+#, python-format
+msgid "证件信息提取失败: %(error)s"
+msgstr "Document info extraction failed: %(error)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:98
+#: apps/client/services/identity_extraction/extraction_service.py:117
+#, python-format
+msgid "OCR 提取失败: %(e)s"
+msgstr "OCR extraction failed: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:101
+#: apps/client/services/identity_extraction/extraction_service.py:176
+msgid "OCR 未能提取到有效文字"
+msgstr "OCR failed to extract valid text"
+
+#: apps/client/services/identity_extraction/extraction_service.py:159
+msgid "图片格式无效,请上传 JPG 或 PNG 格式的图片"
+msgstr "Invalid image format, please upload JPG or PNG"
+
+#: apps/client/services/identity_extraction/extraction_service.py:218
+msgid "PDF OCR 未能提取到有效文字"
+msgstr "PDF OCR failed to extract valid text"
+
+#: apps/client/services/identity_extraction/extraction_service.py:224
+#, python-format
+msgid "PDF 处理失败: %(e)s"
+msgstr "PDF processing failed: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:242
+msgid "Ollama 返回内容为空"
+msgstr "Ollama returned empty content"
+
+#: apps/client/services/identity_extraction/extraction_service.py:264
+#, python-format
+msgid "Ollama 返回的 JSON 格式错误: %(e)s"
+msgstr "Ollama returned invalid JSON format: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:268
+#, python-format
+msgid "Ollama 服务连接失败: %(e)s"
+msgstr "Ollama service connection failed: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:273
+#, python-format
+msgid "Ollama 提取失败: %(e)s"
+msgstr "Ollama extraction failed: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:295
+#, python-format
+msgid "识别失败: %(e)s"
+msgstr "Recognition failed: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:297
+#, python-format
+msgid "服务不可用: %(e)s"
+msgstr "Service unavailable: %(e)s"
+
+#: apps/client/services/identity_extraction/extraction_service.py:302
+#, python-format
+msgid "未知错误: %(e)s"
+msgstr "Unknown error: %(e)s"
+
+#: apps/client/services/identity_extraction/prompts.py:223
+msgid "不支持的证件类型"
+msgstr "Unsupported document type"
+
+#: apps/client/services/identity_extraction/prompts.py:225
+#, python-format
+msgid "不支持: %(t)s，支持: %(s)s"
+msgstr "Not supported: %(t)s, supported: %(s)s"
+
+#: apps/client/services/importer/validator.py:21
+#, python-format
+msgid "客户类型必须是: %(types)s"
+msgstr "Client type must be: %(types)s"
+
+#: apps/client/services/importer/validator.py:30
+msgid "JSON 数据验证失败"
+msgstr "JSON data validation failed"
+
+#: apps/client/services/importer/validator.py:34
+msgid "证件文档数据必须是列表"
+msgstr "Document data must be a list"
+
+#: apps/client/services/importer/validator.py:40
+#, python-format
+msgid "第 %(n)s 个证件文档数据格式错误"
+msgstr "Document %(n)s data format error"
+
+#: apps/client/services/importer/validator.py:44
+#, python-format
+msgid "第 %(n)s 个证件文档缺少 doc_type"
+msgstr "Document %(n)s missing doc_type"
+
+#: apps/client/services/importer/validator.py:47
+#, python-format
+msgid "第 %(n)s 个证件文档缺少 file_path"
+msgstr "Document %(n)s missing file_path"
+
+#: apps/client/services/property_clue_service.py:45
+msgid "无效的线索类型"
+msgstr "Invalid clue type"
+
+#: apps/client/services/property_clue_service.py:47
+#, python-format
+msgid "线索类型必须是: %(types)s"
+msgstr "Clue type must be: %(types)s"
+
+#: apps/client/services/property_clue_service.py:102
+msgid "财产线索不存在"
+msgstr "Property clue does not exist"
+
+#: apps/client/services/property_clue_service.py:104
+#, python-format
+msgid "ID 为 %(id)s 的财产线索不存在"
+msgstr "Property clue with ID %(id)s does not exist"
+
+#: apps/client/services/property_clue_service.py:208
+msgid "文件路径和文件名不能为空"
+msgstr "File path and filename cannot be empty"
+
+#: apps/client/services/property_clue_service.py:211
+#: apps/client/services/storage.py:71 apps/client/services/storage.py:102
+msgid "文件路径不能为空"
+msgstr "File path cannot be empty"
+
+#: apps/client/services/property_clue_service.py:212
+msgid "文件名不能为空"
+msgstr "Filename cannot be empty"
+
+#: apps/client/services/property_clue_service.py:270
+msgid "附件不存在"
+msgstr "Attachment does not exist"
+
+#: apps/client/services/property_clue_service.py:272
+#, python-format
+msgid "ID 为 %(id)s 的附件不存在"
+msgstr "Attachment with ID %(id)s does not exist"
+
+#: apps/client/services/query/client_list_query_service.py:29
+msgid "page 无效"
+msgstr "Invalid page"
+
+#: apps/client/services/query/client_list_query_service.py:29
+#: apps/client/services/query/client_list_query_service.py:35
+msgid "必须 >= 1"
+msgstr "Must be >= 1"
+
+#: apps/client/services/query/client_list_query_service.py:35
+msgid "page_size 无效"
+msgstr "Invalid page_size"
+
+#: apps/client/services/storage.py:71 apps/client/services/storage.py:102
+msgid "不能为空"
+msgstr "Cannot be empty"
+
+#: apps/client/services/storage.py:76 apps/client/services/storage.py:110
+#: apps/client/services/storage.py:156
+msgid "未配置"
+msgstr "Not configured"
+
+#: apps/client/services/storage.py:86 apps/client/services/storage.py:118
+msgid "文件路径无效"
+msgstr "Invalid file path"
+
+#: apps/client/services/storage.py:86 apps/client/services/storage.py:118
+msgid "无效"
+msgstr "Invalid"
+
+#: apps/client/services/storage.py:92 apps/client/services/storage.py:94
+#: apps/client/services/storage.py:124 apps/client/services/storage.py:126
+msgid "文件路径不在 MEDIA_ROOT 下"
+msgstr "File path is not under MEDIA_ROOT"
+
+#: apps/client/services/storage.py:140
+msgid "上传文件缺少文件名"
+msgstr "Uploaded file missing filename"
+
+#: apps/client/services/storage.py:140
+msgid "缺少文件名"
+msgstr "Missing filename"
+
+#: apps/client/templates/admin/client/change_form.html:137
+msgid "快速填充当事人信息"
+msgstr "Quick Fill Party Info"
+
+#: apps/client/templates/admin/client/change_form.html:158
+msgid "粘贴时自动解析"
+msgstr "Auto-parse on paste"
+
+#: apps/client/templates/admin/client/change_form.html:161
+msgid "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析"
+msgstr "Supports paste/drag image for OCR, or paste text/JSON for parsing"
+
+#: apps/client/templates/admin/client/change_form.html:474
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:13
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:126
+msgid "身份材料智能识别"
+msgstr "Smart ID Recognition"
+
+#: apps/client/templates/admin/client/change_form.html:487
+msgid ""
+"上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，快速填充表"
+"单。"
+msgstr ""
+
+#: apps/client/templates/admin/client/change_form.html:501
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:27
+msgid "请选择证件类型"
+msgstr "Select document type"
+
+#: apps/client/templates/admin/client/change_form.html:518
+msgid "上传证件"
+msgstr "Upload Document"
+
+#: apps/client/templates/admin/client/change_form.html:532
+#: apps/client/templates/admin/client/id_card_merge.html:114
+#: apps/client/templates/admin/client/id_card_merge.html:120
+msgid "点击或拖拽上传"
+msgstr "Click or drag to upload"
+
+#: apps/client/templates/admin/client/change_form.html:533
+#, fuzzy
+#| msgid "支持 JPG、PNG、PDF 格式，文件大小不超过 10MB"
+msgid "支持 JPG、PNG、PDF，最大 10MB"
+msgstr "Supports JPG, PNG, PDF, max file size 10MB"
+
+#: apps/client/templates/admin/client/change_form.html:556
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:71
+msgid "识别结果"
+msgstr "Recognition Result"
+
+#: apps/client/templates/admin/client/change_form.html:577
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:104
+msgid "重新识别"
+msgstr "Re-recognize"
+
+#: apps/client/templates/admin/client/change_form.html:588
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:112
+msgid "识别失败"
+msgstr "Recognition Failed"
+
+#: apps/client/templates/admin/client/change_form.html:591
+msgid "重试"
+msgstr "Retry"
+
+#: apps/client/templates/admin/client/id_card_merge.html:98
+msgid "上传身份证正反面图片，用钢笔工具圈定四角后合并为 PDF"
+msgstr ""
+"Upload front and back of ID card, mark four corners with the pen tool, then "
+"merge into PDF"
+
+#: apps/client/templates/admin/client/id_card_merge.html:100
+msgid "返回证件列表"
+msgstr "Back to Document List"
+
+#: apps/client/templates/admin/client/id_card_merge.html:104
+msgid "上传图片"
+msgstr "Upload Images"
+
+#: apps/client/templates/admin/client/id_card_merge.html:105
+msgid "圈定区域"
+msgstr "Mark Area"
+
+#: apps/client/templates/admin/client/id_card_merge.html:106
+msgid "完成"
+msgstr "Done"
+
+#: apps/client/templates/admin/client/id_card_merge.html:114
+#, fuzzy
+#| msgid "请上传身份证正面图片"
+msgid "身份证正面"
+msgstr "Please upload front side of ID card"
+
+#: apps/client/templates/admin/client/id_card_merge.html:115
+msgid "正面已选择"
+msgstr "Front Selected"
+
+#: apps/client/templates/admin/client/id_card_merge.html:120
+#, fuzzy
+#| msgid "请上传身份证反面图片"
+msgid "身份证反面"
+msgstr "Please upload back side of ID card"
+
+#: apps/client/templates/admin/client/id_card_merge.html:121
+msgid "反面已选择"
+msgstr "Back Selected"
+
+#: apps/client/templates/admin/client/id_card_merge.html:126
+msgid "下一步：圈定区域"
+msgstr "Next: Mark Area"
+
+#: apps/client/templates/admin/client/id_card_merge.html:133
+msgid "钢笔工具"
+msgstr "Pen Tool"
+
+#: apps/client/templates/admin/client/id_card_merge.html:133
+msgid "依次点击身份证的"
+msgstr "Click the ID card corners in order:"
+
+#: apps/client/templates/admin/client/id_card_merge.html:133
+msgid "左上 → 右上 → 右下 → 左下"
+msgstr "Top-left → Top-right → Bottom-right → Bottom-left"
+
+#: apps/client/templates/admin/client/id_card_merge.html:133
+msgid "四个角。点错可撤销或重置。"
+msgstr "Wrong click can be undone or reset."
+
+#: apps/client/templates/admin/client/id_card_merge.html:139
+msgid "正面图片"
+msgstr "Front Image"
+
+#: apps/client/templates/admin/client/id_card_merge.html:153
+#: apps/client/templates/admin/client/id_card_merge.html:176
+msgid "左转"
+msgstr "Rotate Left"
+
+#: apps/client/templates/admin/client/id_card_merge.html:154
+#: apps/client/templates/admin/client/id_card_merge.html:177
+msgid "右转"
+msgstr "Rotate Right"
+
+#: apps/client/templates/admin/client/id_card_merge.html:155
+#: apps/client/templates/admin/client/id_card_merge.html:178
+msgid "撤销"
+msgstr "Undo"
+
+#: apps/client/templates/admin/client/id_card_merge.html:156
+#: apps/client/templates/admin/client/id_card_merge.html:179
+#, fuzzy
+#| msgid "未配置"
+msgid "重置"
+msgstr "Not configured"
+
+#: apps/client/templates/admin/client/id_card_merge.html:162
+msgid "反面图片"
+msgstr "Back Image"
+
+#: apps/client/templates/admin/client/id_card_merge.html:184
+msgid "上一步"
+msgstr "Previous"
+
+#: apps/client/templates/admin/client/id_card_merge.html:185
+msgid "合并生成 PDF"
+msgstr "Merge to PDF"
+
+#: apps/client/templates/admin/client/id_card_merge.html:193
+#, fuzzy
+#| msgid "身份证合并成功!"
+msgid "身份证合并成功！"
+msgstr "ID card merge successful!"
+
+#: apps/client/templates/admin/client/id_card_merge.html:194
+#, fuzzy
+#| msgid "点击下载 PDF"
+msgid "下载 PDF"
+msgstr "Click to download PDF"
+
+#: apps/client/templates/admin/client/id_card_merge.html:197
+msgid "继续合并"
+msgstr "Merge Another"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:20
+msgid ""
+"上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，帮助您快速完"
+"成当事人信息录入。"
+msgstr ""
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:50
+msgid "拖拽证件图片到此处"
+msgstr "Drag document image here"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:51
+msgid "支持 JPG、PNG、PDF 格式，文件大小不超过 10MB"
+msgstr "Supports JPG, PNG, PDF, max file size 10MB"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:53
+msgid "选择文件"
+msgstr "Select File"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:88
+msgid "未识别到有效信息"
+msgstr "No valid information recognized"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:98
+msgid "确认并创建证件记录"
+msgstr "Confirm and create document record"
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:99
+msgid "应用中..."
+msgstr "Applying..."
+
+#: apps/client/templates/admin/client/identity_recognition_dialog.html:114
+msgid "重新上传"
+msgstr "Re-upload"

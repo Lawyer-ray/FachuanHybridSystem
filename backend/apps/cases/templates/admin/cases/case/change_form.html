@@ -20,7 +20,7 @@
     if (submitRow) {
         var duplicateBtn = document.createElement('input');
         duplicateBtn.type = 'submit';
-        duplicateBtn.value = '保存并复制';
+        duplicateBtn.value = '{% trans "保存并复制" %}';
         duplicateBtn.name = '_save_and_duplicate';
         duplicateBtn.className = '';
         // 插入到删除链接之前（如果有的话），否则插入到最后

@@ -71,32 +71,32 @@
     <div class="stats-grid">
         <div class="stat-item">
             <div class="stat-value">{{ statistics.total_count }}</div>
-            <div class="stat-label">总案由数</div>
+            <div class="stat-label">{% trans "总案由数" %}</div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.active_count }}</div>
-            <div class="stat-label">启用中</div>
+            <div class="stat-label">{% trans "启用中" %}</div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.deprecated_count }}</div>
-            <div class="stat-label">已废弃</div>
+            <div class="stat-label">{% trans "已废弃" %}</div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.civil_count }}</div>
             <div class="stat-label">
-                <span class="type-badge type-civil">民事</span>
+                <span class="type-badge type-civil">{% trans "民事" %}</span>
             </div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.criminal_count }}</div>
             <div class="stat-label">
-                <span class="type-badge type-criminal">刑事</span>
+                <span class="type-badge type-criminal">{% trans "刑事" %}</span>
             </div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.administrative_count }}</div>
             <div class="stat-label">
-                <span class="type-badge type-administrative">行政</span>
+                <span class="type-badge type-administrative">{% trans "行政" %}</span>
             </div>
         </div>
     </div>
@@ -109,7 +109,7 @@
     <a href="{% url 'admin:core_causeofaction_initialize' %}"
        class="btn-bs btn-primary"
        onclick="return confirm('确定要从法院系统初始化案由数据吗？\n\n此操作将：\n- 新增 API 中存在但数据库中不存在的案由\n- 更新已存在的案由信息\n- 标记 API 中已移除的案由为废弃状态');">
-        🔄 初始化案由
+        🔄 {% trans "初始化案由" %}
     </a>
     {% endif %}
 </div>
@@ -117,12 +117,12 @@
 <!-- 说明卡片 -->
 <div class="card mb-3">
     <div class="card-body py-2">
-        <h6 class="card-title mb-2">📋 案由管理说明</h6>
+        <h6 class="card-title mb-2">📋 {% trans "案由管理说明" %}</h6>
         <ul class="mb-0 small">
-            <li><strong>初始化案由</strong>：从法院系统 API 获取最新案由数据并导入数据库</li>
-            <li><strong>层级结构</strong>：案由支持多级层级结构，通过"上级案由"字段关联</li>
-            <li><strong>废弃状态</strong>：当法院系统移除某案由时，如果该案由有关联的诉讼模板，将标记为废弃而非删除</li>
-            <li><strong>案件类型</strong>：案由分为民事、刑事、行政三种类型</li>
+            <li><strong>{% trans "初始化案由" %}</strong>{% trans "：从法院系统 API 获取最新案由数据并导入数据库" %}</li>
+            <li><strong>{% trans "层级结构" %}</strong>{% trans "：案由支持多级层级结构，通过\"上级案由\"字段关联" %}</li>
+            <li><strong>{% trans "废弃状态" %}</strong>{% trans "：当法院系统移除某案由时，如果该案由有关联的诉讼模板，将标记为废弃而非删除" %}</li>
+            <li><strong>{% trans "案件类型" %}</strong>{% trans "：案由分为民事、刑事、行政三种类型" %}</li>
         </ul>
     </div>
 </div>

@@ -1,0 +1,546 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/organization/admin/accountcredential_admin.py:58
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/organization/admin/accountcredential_admin.py:60
+msgid "登录统计"
+msgstr "Login Statistics"
+
+#: apps/organization/admin/accountcredential_admin.py:63
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/organization/admin/accountcredential_admin.py:80
+msgid "成功/失败次数"
+msgstr "Success/Failure Count"
+
+#: apps/organization/admin/accountcredential_admin.py:88
+msgid "成功率"
+msgstr "Success Rate"
+
+#: apps/organization/admin/accountcredential_admin.py:103
+msgid "最后成功登录"
+msgstr "Last Successful Login"
+
+#: apps/organization/admin/accountcredential_admin.py:106
+msgid "从未成功"
+msgstr "Never Succeeded"
+
+#: apps/organization/admin/accountcredential_admin.py:113
+#: apps/organization/admin/accountcredential_admin.py:116
+#: apps/organization/admin/accountcredential_admin.py:119
+#, python-format
+msgid "%(days)d天前"
+msgstr "%(days)d days ago"
+
+#: apps/organization/admin/accountcredential_admin.py:124
+#, python-format
+msgid "%(hours)d小时前"
+msgstr "%(hours)d hours ago"
+
+#: apps/organization/admin/accountcredential_admin.py:128
+#, python-format
+msgid "%(minutes)d分钟前"
+msgstr "%(minutes)d minutes ago"
+
+#: apps/organization/admin/accountcredential_admin.py:132
+msgid "操作"
+msgstr "Actions"
+
+#: apps/organization/admin/accountcredential_admin.py:145
+msgid "不支持"
+msgstr "Not Supported"
+
+#: apps/organization/admin/accountcredential_admin.py:147
+msgid "标记为优先账号"
+msgstr "Mark as Preferred Account"
+
+#: apps/organization/admin/accountcredential_admin.py:155
+#, python-format
+msgid "已将 %(count)d 个账号标记为优先使用"
+msgstr "Marked %(count)d accounts as preferred"
+
+#: apps/organization/admin/accountcredential_admin.py:158
+msgid "取消优先标记"
+msgstr "Remove Preferred Mark"
+
+#: apps/organization/admin/accountcredential_admin.py:166
+#, python-format
+msgid "已取消 %(count)d 个账号的优先标记"
+msgstr "Removed preferred mark from %(count)d accounts"
+
+#: apps/organization/admin/lawyer_admin.py:24
+#: apps/organization/services/lawyer/mutation.py:192
+msgid "律师必须至少关联一个律师团队"
+msgstr "Lawyer must be associated with at least one lawyer team"
+
+#: apps/organization/admin/lawyer_admin.py:29
+msgid "所选团队的所属律所必须与律师所属律所一致"
+msgstr "Selected team's firm must match lawyer's firm"
+
+#: apps/organization/apps.py:10
+msgid "组织管理"
+msgstr "Organization"
+
+#: apps/organization/forms.py:18
+msgid "Bootstrap Token"
+msgstr "Bootstrap Token"
+
+#: apps/organization/forms.py:19
+msgid "首次注册管理员时填写"
+msgstr "Fill in when registering the first admin"
+
+#: apps/organization/forms.py:20
+msgid "仅首个管理员注册时需要"
+msgstr "Only required when registering the first admin"
+
+#: apps/organization/forms.py:29
+msgid "请输入中文姓名"
+msgstr "Please enter Chinese name"
+
+#: apps/organization/forms.py:30
+msgid "请输入密码"
+msgstr "Please enter password"
+
+#: apps/organization/forms.py:31
+msgid "请确认密码"
+msgstr "Please confirm password"
+
+#: apps/organization/forms.py:33
+msgid "用户名/真实姓名"
+msgstr "Username/Real Name"
+
+#: apps/organization/forms.py:34 apps/organization/models/credential.py:20
+msgid "密码"
+msgstr "Password"
+
+#: apps/organization/forms.py:35
+msgid "确认密码"
+msgstr "Confirm Password"
+
+#: apps/organization/forms.py:37
+#: apps/organization/templates/admin/register.html:366
+msgid "只能输入中文"
+msgstr "Only Chinese characters allowed"
+
+#: apps/organization/forms.py:45
+msgid "用户名只能输入中文"
+msgstr "Username can only contain Chinese characters"
+
+#: apps/organization/models/credential.py:16
+#: apps/organization/models/lawyer.py:61 apps/organization/models/lawyer.py:62
+msgid "律师"
+msgstr "Lawyers"
+
+#: apps/organization/models/credential.py:17
+msgid "网站名称"
+msgstr "Site Name"
+
+#: apps/organization/models/credential.py:18
+msgid "URL"
+msgstr "URL"
+
+#: apps/organization/models/credential.py:19
+msgid "账号"
+msgstr "Account"
+
+#: apps/organization/models/credential.py:21
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/organization/models/credential.py:22
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/organization/models/credential.py:25
+msgid "最后成功登录时间"
+msgstr "Last Successful Login"
+
+#: apps/organization/models/credential.py:26
+msgid "成功登录次数"
+msgstr "Successful Login Count"
+
+#: apps/organization/models/credential.py:27
+msgid "失败登录次数"
+msgstr "Failed Login Count"
+
+#: apps/organization/models/credential.py:28
+msgid "是否优先使用"
+msgstr "Is Preferred"
+
+#: apps/organization/models/credential.py:31
+#: apps/organization/models/credential.py:32
+msgid "账号密码"
+msgstr "Credentials"
+
+#: apps/organization/models/law_firm.py:11
+msgid "律所名称"
+msgstr "Firm Name"
+
+#: apps/organization/models/law_firm.py:12
+msgid "地址"
+msgstr "Address"
+
+#: apps/organization/models/law_firm.py:13
+msgid "联系电话"
+msgstr "Phone"
+
+#: apps/organization/models/law_firm.py:14
+msgid "统一社会信用代码"
+msgstr "Unified Social Credit Code"
+
+#: apps/organization/models/law_firm.py:15
+msgid "开户行"
+msgstr "Bank"
+
+#: apps/organization/models/law_firm.py:16
+msgid "银行账号"
+msgstr "Bank Account"
+
+#: apps/organization/models/law_firm.py:19
+#: apps/organization/models/law_firm.py:20
+msgid "律所"
+msgstr "Law Firms"
+
+#: apps/organization/models/lawyer.py:20
+msgid "真实姓名"
+msgstr "Real Name"
+
+#: apps/organization/models/lawyer.py:22
+msgid "手机号码"
+msgstr "Phone Number"
+
+#: apps/organization/models/lawyer.py:23
+msgid "执业证号"
+msgstr "License No."
+
+#: apps/organization/models/lawyer.py:24
+msgid "身份证号"
+msgstr "ID Number"
+
+#: apps/organization/models/lawyer.py:31 apps/organization/models/team.py:21
+msgid "所属律所"
+msgstr "Law Firm"
+
+#: apps/organization/models/lawyer.py:33
+msgid "是否律所管理员"
+msgstr "Is Firm Admin"
+
+#: apps/organization/models/lawyer.py:40
+msgid "执业证文件"
+msgstr "Practice Certificate File"
+
+#: apps/organization/models/lawyer.py:49
+msgid "所属律师团队"
+msgstr "Lawyer Team"
+
+#: apps/organization/models/lawyer.py:57
+msgid "所属业务团队"
+msgstr "Business Team"
+
+#: apps/organization/models/team.py:10
+msgid "律师团队"
+msgstr "Lawyer Team"
+
+#: apps/organization/models/team.py:11
+msgid "业务团队"
+msgstr "Business Team"
+
+#: apps/organization/models/team.py:19
+msgid "团队名称"
+msgstr "Team Name"
+
+#: apps/organization/models/team.py:20
+msgid "团队类型"
+msgstr "Team Type"
+
+#: apps/organization/models/team.py:24 apps/organization/models/team.py:25
+msgid "团队"
+msgstr "Teams"
+
+#: apps/organization/services/account_credential_admin_service.py:105
+#, python-format
+msgid "账号 %(account)s 不支持自动登录（仅支持法院一张网）"
+msgstr ""
+"Account %(account)s does not support auto login (only court one-stop "
+"supported)"
+
+#: apps/organization/services/account_credential_admin_service.py:142
+msgid "没有找到法院一张网账号"
+msgstr "No court one-stop account found"
+
+#: apps/organization/services/account_credential_admin_service.py:189
+#, python-format
+msgid "✅ 成功触发 %(count)d 个账号的自动登录"
+msgstr "✅ Successfully triggered auto login for %(count)d accounts"
+
+#: apps/organization/services/account_credential_admin_service.py:191
+#, python-format
+msgid "❌ %(count)d 个账号登录失败"
+msgstr "❌ %(count)d accounts failed to login"
+
+#: apps/organization/services/account_credential_admin_service.py:192
+#, python-format
+msgid "总耗时 %(duration).1f秒"
+msgstr "Total duration %(duration).1f seconds"
+
+#: apps/organization/services/account_credential_admin_service.py:198
+msgid "，"
+msgstr ", "
+
+#: apps/organization/services/account_credential_admin_service.py:248
+#: apps/organization/services/account_credential_admin_service.py:258
+msgid "登录失败，未返回Token"
+msgstr "Login failed, no Token returned"
+
+#: apps/organization/services/account_credential_service.py:73
+msgid "无权限访问该凭证"
+msgstr "No permission to access this credential"
+
+#: apps/organization/services/account_credential_service.py:93
+#: apps/organization/services/lawyer/query.py:24
+msgid "律师不存在"
+msgstr "Lawyer does not exist"
+
+#: apps/organization/services/account_credential_service.py:97
+msgid "无权限为该律师创建凭证"
+msgstr "No permission to create credential for this lawyer"
+
+#: apps/organization/services/account_credential_service.py:179
+#: apps/organization/services/account_credential_service.py:188
+#: apps/organization/services/account_credential_service.py:196
+msgid "凭证不存在"
+msgstr "Credential does not exist"
+
+#: apps/organization/services/account_credential_service.py:232
+msgid "账号凭证不存在"
+msgstr "Account credential does not exist"
+
+#: apps/organization/services/auth_service.py:33
+msgid "用户名或密码错误"
+msgstr "Wrong username or password"
+
+#: apps/organization/services/auth_service.py:36
+msgid "用户类型错误"
+msgstr "Wrong user type"
+
+#: apps/organization/services/auth_service.py:65
+msgid "需要 Bootstrap Token 才能注册第一个管理员"
+msgstr "Bootstrap Token required to register the first admin"
+
+#: apps/organization/services/lawfirm_service.py:43
+#: apps/organization/services/lawfirm_service.py:96
+#: apps/organization/services/lawfirm_service.py:139
+#: apps/organization/services/lawfirm_service.py:193
+#: apps/organization/services/lawyer/facade.py:44
+#: apps/organization/services/lawyer/facade.py:71
+#: apps/organization/services/lawyer/facade.py:84
+#: apps/organization/services/lawyer/facade.py:91
+msgid "请先登录"
+msgstr "Please login first"
+
+#: apps/organization/services/lawfirm_service.py:48
+#: apps/organization/services/lawyer/mutation.py:43
+#: apps/organization/services/lawyer/mutation.py:131
+#: apps/organization/services/team_service.py:81
+#: apps/organization/services/team_service.py:114
+msgid "律所不存在"
+msgstr "Firm does not exist"
+
+#: apps/organization/services/lawfirm_service.py:51
+msgid "无权限访问该律所"
+msgstr "No permission to access this firm"
+
+#: apps/organization/services/lawfirm_service.py:105
+msgid "无权限创建律所"
+msgstr "No permission to create firm"
+
+#: apps/organization/services/lawfirm_service.py:149
+msgid "无权限更新该律所"
+msgstr "No permission to update this firm"
+
+#: apps/organization/services/lawfirm_service.py:203
+msgid "无权限删除该律所"
+msgstr "No permission to delete this firm"
+
+#: apps/organization/services/lawfirm_service.py:207
+msgid "律所下还有律师，无法删除"
+msgstr "Firm still has lawyers, cannot delete"
+
+#: apps/organization/services/lawfirm_service.py:210
+msgid "律所下还有团队，无法删除"
+msgstr "Firm still has teams, cannot delete"
+
+#: apps/organization/services/lawfirm_service.py:224
+#: apps/organization/services/lawfirm_service.py:231
+msgid "律所名称已存在"
+msgstr "Firm name already exists"
+
+#: apps/organization/services/lawfirm_service.py:224
+#: apps/organization/services/lawfirm_service.py:231
+msgid "该名称已被使用"
+msgstr "This name is already in use"
+
+#: apps/organization/services/lawyer/mutation.py:34
+msgid "无权限创建律师"
+msgstr "No permission to create lawyer"
+
+#: apps/organization/services/lawyer/mutation.py:43
+#: apps/organization/services/lawyer/mutation.py:131
+msgid "无效的律所 ID"
+msgstr "Invalid firm ID"
+
+#: apps/organization/services/lawyer/mutation.py:86
+msgid "无权限更新该律师信息"
+msgstr "No permission to update this lawyer's info"
+
+#: apps/organization/services/lawyer/mutation.py:151
+msgid "无权限删除该律师"
+msgstr "No permission to delete this lawyer"
+
+#: apps/organization/services/lawyer/mutation.py:154
+msgid "该律师创建了案件,无法删除"
+msgstr "This lawyer has created cases, cannot delete"
+
+#: apps/organization/services/lawyer/mutation.py:173
+msgid "用户名已存在"
+msgstr "Username already exists"
+
+#: apps/organization/services/lawyer/mutation.py:173
+msgid "该用户名已被使用"
+msgstr "This username is already in use"
+
+#: apps/organization/services/lawyer/mutation.py:178
+#: apps/organization/services/lawyer/mutation.py:184
+msgid "手机号已存在"
+msgstr "Phone number already exists"
+
+#: apps/organization/services/lawyer/mutation.py:178
+#: apps/organization/services/lawyer/mutation.py:184
+msgid "该手机号已被使用"
+msgstr "This phone number is already in use"
+
+#: apps/organization/services/lawyer/mutation.py:194
+msgid "至少需要一个律师团队"
+msgstr "At least one lawyer team required"
+
+#: apps/organization/services/lawyer/mutation.py:199
+#: apps/organization/services/lawyer/mutation.py:219
+msgid "团队所属律所必须与律师所属律所一致"
+msgstr "Team's firm must match lawyer's firm"
+
+#: apps/organization/services/lawyer/mutation.py:201
+#: apps/organization/services/lawyer/mutation.py:221
+msgid "团队律所不匹配"
+msgstr "Team firm mismatch"
+
+#: apps/organization/services/lawyer/query.py:27
+msgid "无权限访问该律师信息"
+msgstr "No permission to access this lawyer's info"
+
+#: apps/organization/services/team_service.py:54
+msgid "团队不存在"
+msgstr "Team does not exist"
+
+#: apps/organization/services/team_service.py:57
+msgid "无权限访问该团队"
+msgstr "No permission to access this team"
+
+#: apps/organization/services/team_service.py:75
+msgid "无权限创建团队"
+msgstr "No permission to create team"
+
+#: apps/organization/services/team_service.py:108
+msgid "无权限更新该团队"
+msgstr "No permission to update this team"
+
+#: apps/organization/services/team_service.py:143
+msgid "无权限删除该团队"
+msgstr "No permission to delete this team"
+
+#: apps/organization/services/team_service.py:154
+msgid "非法团队类型"
+msgstr "Illegal team type"
+
+#: apps/organization/services/team_service.py:156
+#, python-format
+msgid "团队类型必须是 %(valid_types)s 之一"
+msgstr "Team type must be one of %(valid_types)s"
+
+#: apps/organization/templates/admin/login.html:7
+msgid "还没有账号？"
+msgstr "Don't have an account?"
+
+#: apps/organization/templates/admin/login.html:7
+msgid "立即注册"
+msgstr "Register Now"
+
+#: apps/organization/templates/admin/register.html:7
+#: apps/organization/views.py:38 apps/organization/views.py:59
+msgid "用户注册"
+msgstr "User Registration"
+
+#: apps/organization/templates/admin/register.html:7
+msgid "法穿案件管理系统"
+msgstr "Fachuan Case Management System"
+
+#: apps/organization/templates/admin/register.html:331
+msgid "创建账号"
+msgstr "Create Account"
+
+#: apps/organization/templates/admin/register.html:332
+msgid "加入法穿案件管理系统"
+msgstr "Join Fachuan Case Management System"
+
+#: apps/organization/templates/admin/register.html:334
+msgid "您将成为第一个用户，自动获得管理员权限"
+msgstr "You will be the first user and automatically get admin privileges"
+
+#: apps/organization/templates/admin/register.html:336
+msgid "注册后需等待管理员开通权限"
+msgstr "After registration, wait for admin to grant permissions"
+
+#: apps/organization/templates/admin/register.html:371
+msgid "注册"
+msgstr "Register"
+
+#: apps/organization/templates/admin/register.html:376
+msgid "已有账号？"
+msgstr "Already have an account?"
+
+#: apps/organization/templates/admin/register.html:377
+msgid "返回登录"
+msgstr "Back to Login"
+
+#: apps/organization/views.py:45
+#, python-format
+msgid "注册成功！您是第一个用户，已自动获得管理员权限。欢迎 %(name)s"
+msgstr ""
+"Registration successful! You are the first user and have been granted admin "
+"privileges. Welcome %(name)s"
+
+#: apps/organization/views.py:49
+msgid "注册成功！请等待管理员开通权限后再登录。"
+msgstr ""
+"Registration successful! Please wait for admin to grant permissions before "
+"logging in."

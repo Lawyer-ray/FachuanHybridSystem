@@ -1,9 +1,10 @@
+{% load i18n %}
     <!-- Tech Stack Section -->
     <section class="tech-stack" id="tech">
         <div class="section-header reveal">
-            <span class="section-tag">🛠 技术栈</span>
-            <h2 class="section-title">现代化技术架构</h2>
-            <p class="section-desc">基于成熟稳定的技术栈构建，确保系统可靠性与可扩展性</p>
+            <span class="section-tag">🛠 {% trans "技术栈" %}</span>
+            <h2 class="section-title">{% trans "现代化技术架构" %}</h2>
+            <p class="section-desc">{% trans "基于成熟稳定的技术栈构建，确保系统可靠性与可扩展性" %}</p>
         </div>
 
         <!-- 技术栈分类展示 -->
@@ -12,7 +13,7 @@
             <div class="tech-category reveal">
                 <div class="tech-category-header">
                     <span class="tech-category-icon">⚙️</span>
-                    <span class="tech-category-title">后端核心</span>
+                    <span class="tech-category-title">{% trans "后端核心" %}</span>
                 </div>
                 <div class="tech-category-items">
                     <div class="tech-item-card">
@@ -21,7 +22,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Python 3.12</span>
-                            <span class="tech-item-desc">高性能运行时</span>
+                            <span class="tech-item-desc">{% trans "高性能运行时" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -30,7 +31,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Django 6.0</span>
-                            <span class="tech-item-desc">Web 框架</span>
+                            <span class="tech-item-desc">Web {% trans "框架" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -39,7 +40,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Django Ninja</span>
-                            <span class="tech-item-desc">高性能 API</span>
+                            <span class="tech-item-desc">{% trans "高性能 API" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -48,7 +49,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Django-Q2</span>
-                            <span class="tech-item-desc">异步任务队列</span>
+                            <span class="tech-item-desc">{% trans "异步任务队列" %}</span>
                         </div>
                     </div>
                 </div>
@@ -58,7 +59,7 @@
             <div class="tech-category reveal">
                 <div class="tech-category-header">
                     <span class="tech-category-icon">🤖</span>
-                    <span class="tech-category-title">AI & 自动化</span>
+                    <span class="tech-category-title">AI & {% trans "自动化" %}</span>
                 </div>
                 <div class="tech-category-items">
                     <div class="tech-item-card">
@@ -67,7 +68,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">LangChain</span>
-                            <span class="tech-item-desc">LLM 应用框架</span>
+                            <span class="tech-item-desc">LLM {% trans "应用框架" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -76,7 +77,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Playwright</span>
-                            <span class="tech-item-desc">浏览器自动化</span>
+                            <span class="tech-item-desc">{% trans "浏览器自动化" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -85,7 +86,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">RapidOCR</span>
-                            <span class="tech-item-desc">文字识别</span>
+                            <span class="tech-item-desc">{% trans "文字识别" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -94,7 +95,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">LangGraph</span>
-                            <span class="tech-item-desc">Agent 编排</span>
+                            <span class="tech-item-desc">Agent {% trans "编排" %}</span>
                         </div>
                     </div>
                 </div>
@@ -104,7 +105,7 @@
             <div class="tech-category reveal">
                 <div class="tech-category-header">
                     <span class="tech-category-icon">💾</span>
-                    <span class="tech-category-title">数据 & 通信</span>
+                    <span class="tech-category-title">{% trans "数据 & 通信" %}</span>
                 </div>
                 <div class="tech-category-items">
                     <div class="tech-item-card">
@@ -113,7 +114,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">SQLite</span>
-                            <span class="tech-item-desc">轻量级数据库</span>
+                            <span class="tech-item-desc">{% trans "轻量级数据库" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -121,8 +122,8 @@
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><path d="M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
                         </div>
                         <div class="tech-item-info">
-                            <span class="tech-item-name">向量数据库</span>
-                            <span class="tech-item-desc">RAG 检索增强 <span style="color: var(--accent); font-size: 0.7rem;">规划中</span></span>
+                            <span class="tech-item-name">{% trans "向量数据库" %}</span>
+                            <span class="tech-item-desc">RAG {% trans "检索增强" %} <span style="color: var(--accent); font-size: 0.7rem;">{% trans "规划中" %}</span></span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -131,7 +132,7 @@
                         </div>
                         <div class="tech-item-info">
                             <span class="tech-item-name">Channels</span>
-                            <span class="tech-item-desc">WebSocket 实时通信</span>
+                            <span class="tech-item-desc">WebSocket {% trans "实时通信" %}</span>
                         </div>
                     </div>
                     <div class="tech-item-card">
@@ -139,8 +140,8 @@
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                         </div>
                         <div class="tech-item-info">
-                            <span class="tech-item-name">飞书 API</span>
-                            <span class="tech-item-desc">消息通知集成</span>
+                            <span class="tech-item-name">{% trans "飞书 API" %}</span>
+                            <span class="tech-item-desc">{% trans "消息通知集成" %}</span>
                         </div>
                     </div>
                 </div>
@@ -151,22 +152,22 @@
         <div class="arch-highlights reveal">
             <div class="arch-highlight-item">
                 <div class="arch-highlight-number">4</div>
-                <div class="arch-highlight-label">层架构设计</div>
+                <div class="arch-highlight-label">{% trans "层架构设计" %}</div>
                 <div class="arch-highlight-desc">API / Service / Admin / Model</div>
             </div>
             <div class="arch-highlight-item">
                 <div class="arch-highlight-number">100%</div>
-                <div class="arch-highlight-label">类型注解覆盖</div>
-                <div class="arch-highlight-desc">MyPy 严格模式</div>
+                <div class="arch-highlight-label">{% trans "类型注解覆盖" %}</div>
+                <div class="arch-highlight-desc">MyPy {% trans "严格模式" %}</div>
             </div>
             <div class="arch-highlight-item">
                 <div class="arch-highlight-number">DI</div>
-                <div class="arch-highlight-label">依赖注入</div>
-                <div class="arch-highlight-desc">ServiceLocator 模式</div>
+                <div class="arch-highlight-label">{% trans "依赖注入" %}</div>
+                <div class="arch-highlight-desc">ServiceLocator {% trans "模式" %}</div>
             </div>
             <div class="arch-highlight-item">
                 <div class="arch-highlight-number">CI/CD</div>
-                <div class="arch-highlight-label">自动化部署</div>
+                <div class="arch-highlight-label">{% trans "自动化部署" %}</div>
                 <div class="arch-highlight-desc">GitHub Actions</div>
             </div>
         </div>

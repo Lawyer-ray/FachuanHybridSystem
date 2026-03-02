@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 <!-- 身份材料智能识别对话框 - Alpine.js 版本 -->
 <!-- Requirements: 2.1, 2.2, 2.3, 2.4, 2.5 -->
 
@@ -10,28 +10,28 @@
         <div class="dialog-overlay" @click="closeDialog()"></div>
         <div class="dialog-content" @click.stop>
             <div class="dialog-header">
-                <h3>身份材料智能识别</h3>
+                <h3>{% trans "身份材料智能识别" %}</h3>
                 <button type="button" class="dialog-close" @click="closeDialog()">×</button>
             </div>
 
             <div class="dialog-body">
                 <!-- 介绍说明 -->
                 <div class="recognition-intro">
-                    <p>上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，帮助您快速完成当事人信息录入。</p>
+                    <p>{% trans "上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，帮助您快速完成当事人信息录入。" %}</p>
                 </div>
 
                 <!-- 证件类型选择 -->
                 <div class="doc-type-section">
-                    <label for="identityDocType">证件类型：</label>
+                    <label for="identityDocType">{% trans "证件类型" %}：</label>
                     <select id="identityDocType" class="doc-type-select" x-model="docType">
-                        <option value="">请选择证件类型</option>
-                        <option value="id_card">身份证</option>
-                        <option value="passport">护照</option>
-                        <option value="hk_macao_permit">港澳通行证</option>
-                        <option value="residence_permit">居住证</option>
-                        <option value="household_register">户口本</option>
-                        <option value="business_license">营业执照</option>
-                        <option value="legal_rep_id_card">法定代表人/负责人身份证</option>
+                        <option value="">{% trans "请选择证件类型" %}</option>
+                        <option value="id_card">{% trans "身份证" %}</option>
+                        <option value="passport">{% trans "护照" %}</option>
+                        <option value="hk_macao_permit">{% trans "港澳通行证" %}</option>
+                        <option value="residence_permit">{% trans "居住证" %}</option>
+                        <option value="household_register">{% trans "户口本" %}</option>
+                        <option value="business_license">{% trans "营业执照" %}</option>
+                        <option value="legal_rep_id_card">{% trans "法定代表人/负责人身份证" %}</option>
                     </select>
                 </div>
 
@@ -47,10 +47,10 @@
                         <svg class="upload-icon" viewBox="0 0 24 24">
                             <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
                         </svg>
-                        <h4>拖拽证件图片到此处</h4>
-                        <p>支持 JPG、PNG、PDF 格式，文件大小不超过 10MB</p>
+                        <h4>{% trans "拖拽证件图片到此处" %}</h4>
+                        <p>{% trans "支持 JPG、PNG、PDF 格式，文件大小不超过 10MB" %}</p>
                         <label class="upload-btn">
-                            选择文件
+                            {% trans "选择文件" %}
                             <input type="file"
                                    accept=".jpg,.jpeg,.png,.pdf"
                                    style="display: none;"
@@ -68,7 +68,7 @@
                 <!-- 识别结果 -->
                 <div class="identity-result-card" x-show="showResult">
                     <div class="result-header">
-                        <h4>识别结果</h4>
+                        <h4>{% trans "识别结果" %}</h4>
                         <span class="confidence-tag"
                               :class="getConfidenceClass()"
                               x-text="'置信度: ' + confidence + '%'">
@@ -85,7 +85,7 @@
                             </template>
                             <div x-show="getExtractedDataEntries().length === 0"
                                  class="text-muted text-center p-2">
-                                未识别到有效信息
+                                {% trans "未识别到有效信息" %}
                             </div>
                         </div>
                     </div>
@@ -95,13 +95,13 @@
                                 class="btn btn-primary"
                                 @click="confirmResult()"
                                 :disabled="isConfirming">
-                            <span x-show="!isConfirming">确认并创建证件记录</span>
-                            <span x-show="isConfirming">应用中...</span>
+                            <span x-show="!isConfirming">{% trans "确认并创建证件记录" %}</span>
+                            <span x-show="isConfirming">{% trans "应用中..." %}</span>
                         </button>
                         <button type="button"
                                 class="btn btn-secondary"
                                 @click="resetState()">
-                            重新识别
+                            {% trans "重新识别" %}
                         </button>
                     </div>
                 </div>
@@ -109,9 +109,9 @@
                 <!-- 错误状态 -->
                 <div class="identity-error-state" x-show="showError">
                     <div class="error-icon">⚠</div>
-                    <h4>识别失败</h4>
-                    <p x-text="errorMessage">未知错误</p>
-                    <button type="button" class="btn btn-primary" @click="resetState()">重新上传</button>
+                    <h4>{% trans "识别失败" %}</h4>
+                    <p x-text="errorMessage">{% trans "未知错误" %}</p>
+                    <button type="button" class="btn btn-primary" @click="resetState()">{% trans "重新上传" %}</button>
                 </div>
             </div>
         </div>
@@ -123,7 +123,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.1 3.89 23 5 23H11V21H5V3H13V9H21ZM14 15.5L16.5 18L21 13.5L19.59 12.09L16.5 15.17L15.41 14.09L14 15.5Z"/>
             </svg>
-            身份材料智能识别
+            {% trans "身份材料智能识别" %}
         </button>
     </div>
 </div>
