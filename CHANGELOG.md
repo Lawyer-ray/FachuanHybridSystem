@@ -2,6 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.7.3] - 2026-03-02
+
+### 修复
+- 权限系统重构：已登录用户无需 `is_admin` 即可执行所有业务操作
+  - `AuthzUserMixin.is_admin` 改为"已登录即有权限"，覆盖所有继承该 mixin 的 service（案件分配、合同付款、文件夹绑定等）
+  - `PermissionMixin.is_admin` 同步修复
+  - `OrganizationAccessPolicy` 放开读/写权限，仅删除律所保留 superuser 限制
+  - `folder_binding_service.require_admin` 改为只检查登录状态
+  - `contracts/folder_binding_api._require_admin` 同步修复
+  - 保留管理员限制：Django admin 入口、系统模板同步、删除律所
+
 ## [26.7.2] - 2026-03-02
 
 ### 修复

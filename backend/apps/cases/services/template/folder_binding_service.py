@@ -124,14 +124,10 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     def require_admin(self, ctx: AccessContext) -> None:
-        """管理员权限检查，从 API 层迁入的权限逻辑"""
+        """登录用户权限检查"""
         user = ctx.user
-        if (
-            not user
-            or not getattr(user, "is_authenticated", False)
-            or not getattr(user, "is_admin", False)
-        ):
-            raise PermissionDenied(_("需要管理员权限"))
+        if not user or not getattr(user, "is_authenticated", False):
+            raise PermissionDenied(_("需要登录"))
 
 
     # 默认子目录配置(仅在没有文书模板绑定配置时使用)
