@@ -110,11 +110,6 @@ class PromptTemplateAdmin(admin.ModelAdmin[PromptTemplate]):
                 self.admin_site.admin_view(self.test_template_view),
                 name="core_prompttemplate_test",
             ),
-            path(
-                "sync-from-code/",
-                self.admin_site.admin_view(self.sync_from_code_view),
-                name="core_prompttemplate_sync",
-            ),
         ]
         return custom_urls + urls
 
@@ -195,18 +190,6 @@ class PromptTemplateAdmin(admin.ModelAdmin[PromptTemplate]):
                 extra={"prompt_template_id": object_id, "error": str(e)},
             )
             return JsonResponse({"success": False, "error": str(e)})
-
-    def sync_from_code_view(self, request: HttpRequest) -> HttpResponse:
-        """从代码同步模板"""
-        try:
-            prompt_service = _get_prompt_service()
-            synced_count = prompt_service.sync_templates_from_code()
-            messages.success(request, f"成功同步 {synced_count} 个模板")
-        except Exception as e:
-            logger.exception("从代码同步模板失败", extra={"error": str(e)})
-            messages.error(request, f"同步失败: {e!s}")
-
-        return self.changelist_view(request)
 
     def save_model(
         self, request: HttpRequest, obj: PromptTemplate, form: Any, change: bool
