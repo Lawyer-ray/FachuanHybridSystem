@@ -283,10 +283,10 @@ docker-run: ## 运行 Docker 容器
 # ============================================================
 
 health: ## 检查服务健康状态
-	@curl -s http://localhost:8002/api/v1/health | python -m json.tool || echo "服务未运行"
+	@curl -sf http://localhost:$(PORT)/health/ && echo " OK" || echo "服务未运行"
 
 health-detail: ## 详细健康检查
-	@curl -s http://localhost:8002/api/v1/health/detail | python -m json.tool || echo "服务未运行"
+	@curl -sf http://localhost:$(PORT)/health/ && echo " OK (db connected)" || echo "服务未运行或数据库不可用"
 
 # ============================================================
 # 国际化 (i18n)

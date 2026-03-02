@@ -74,6 +74,16 @@ def favicon_view(request: HttpRequest) -> HttpResponse:
     return HttpResponse(status=204)  # No Content
 
 
+def health_view(request: HttpRequest) -> HttpResponse:
+    """健康检查端点，用于 liveness probe"""
+    from django.db import connection
+    try:
+        connection.ensure_connection()
+        return HttpResponse("ok")
+    except Exception:
+        return HttpResponse("db unavailable", status=503)
+
+
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),
     path("admin/", admin.site.urls),
@@ -82,6 +92,7 @@ urlpatterns = [
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),
+    path("health/", health_view, name="health"),
     path("index/", index_view, name="index"),
     # 根路径重定向到首页 - 必须在最后
     path("", root_redirect),
