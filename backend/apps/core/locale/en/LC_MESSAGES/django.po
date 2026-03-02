@@ -1,0 +1,774 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 20:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/core/admin/cause_of_action_admin.py:77
+#: apps/core/admin/court_admin.py:70
+#: apps/core/admin/prompt_template_admin.py:50
+#: apps/core/admin/system_config_admin.py:40
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/core/admin/cause_of_action_admin.py:89
+#: apps/core/admin/cause_of_action_admin.py:142
+#: apps/core/admin/court_admin.py:81 apps/core/admin/court_admin.py:118
+msgid "状态"
+msgstr "Status"
+
+#: apps/core/admin/cause_of_action_admin.py:100
+#: apps/core/admin/court_admin.py:85
+#: apps/core/admin/prompt_template_admin.py:53
+#: apps/core/admin/system_config_admin.py:42
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/core/admin/cause_of_action_admin.py:115
+#: apps/core/models/cause_of_action.py:43
+#: apps/core/templates/admin/core/causeofaction/change_list.html:125
+msgid "案件类型"
+msgstr "Case Type"
+
+#: apps/core/admin/cause_of_action_admin.py:131
+#: apps/core/models/cause_of_action.py:52
+msgid "上级案由"
+msgstr "Parent Cause of Action"
+
+#: apps/core/admin/court_admin.py:110 apps/core/models/court.py:30
+msgid "上级法院"
+msgstr "Parent Court"
+
+#: apps/core/admin/prompt_template_admin.py:51
+#: apps/core/models/prompt_template.py:24
+msgid "模板内容"
+msgstr "Template Content"
+
+#: apps/core/admin/prompt_template_admin.py:52
+msgid "设置"
+msgstr "Settings"
+
+#: apps/core/admin/prompt_template_admin.py:75
+#: apps/core/admin/system_config_admin.py:66
+#: apps/core/models/prompt_template.py:27 apps/core/models/system_config.py:42
+msgid "分类"
+msgstr "Category"
+
+#: apps/core/admin/prompt_template_admin.py:97
+msgid "变量"
+msgstr "Variables"
+
+#: apps/core/admin/prompt_template_admin.py:217
+msgid "模板保存成功"
+msgstr "Template saved successfully"
+
+#: apps/core/admin/prompt_template_admin.py:221
+#, python-format
+msgid "保存失败: %(e)s"
+msgstr "Save failed: %(e)s"
+
+#: apps/core/admin/system_config_admin.py:41
+msgid "安全设置"
+msgstr "Security Settings"
+
+#: apps/core/admin/system_config_admin.py:85
+#: apps/core/models/system_config.py:37
+msgid "配置值"
+msgstr "Config Value"
+
+#: apps/core/apps.py:14
+msgid "核心系统"
+msgstr "Core System"
+
+#: apps/core/enums.py:18
+msgid "民商事"
+msgstr "Civil & Commercial"
+
+#: apps/core/enums.py:19 apps/core/enums.py:88
+#: apps/core/models/cause_of_action.py:26
+#: apps/core/templates/admin/core/causeofaction/change_list.html:93
+msgid "刑事"
+msgstr "Criminal"
+
+#: apps/core/enums.py:20 apps/core/enums.py:87
+#: apps/core/models/cause_of_action.py:27
+#: apps/core/templates/admin/core/causeofaction/change_list.html:99
+msgid "行政"
+msgstr "Administrative"
+
+#: apps/core/enums.py:21 apps/core/enums.py:57
+msgid "劳动仲裁"
+msgstr "Labor Arbitration"
+
+#: apps/core/enums.py:22
+msgid "商事仲裁"
+msgstr "Commercial Arbitration"
+
+#: apps/core/enums.py:23
+msgid "专项服务"
+msgstr "Special Service"
+
+#: apps/core/enums.py:24
+msgid "常法顾问"
+msgstr "General Counsel"
+
+#: apps/core/enums.py:30
+msgid "原告"
+msgstr "Plaintiff"
+
+#: apps/core/enums.py:31
+msgid "被告"
+msgstr "Defendant"
+
+#: apps/core/enums.py:32
+msgid "第三人"
+msgstr "Third Party"
+
+#: apps/core/enums.py:33
+msgid "申请人"
+msgstr "Applicant"
+
+#: apps/core/enums.py:34
+msgid "被申请人"
+msgstr "Respondent"
+
+#: apps/core/enums.py:35
+msgid "被告人"
+msgstr "Accused"
+
+#: apps/core/enums.py:36
+msgid "被害人"
+msgstr "Victim"
+
+#: apps/core/enums.py:37
+msgid "上诉人"
+msgstr "Appellant"
+
+#: apps/core/enums.py:38
+msgid "被上诉人"
+msgstr "Appellee"
+
+#: apps/core/enums.py:39
+msgid "原审原告"
+msgstr "Original Plaintiff"
+
+#: apps/core/enums.py:40
+msgid "原审被告"
+msgstr "Original Defendant"
+
+#: apps/core/enums.py:41
+msgid "原审第三人"
+msgstr "Original Third Party"
+
+#: apps/core/enums.py:47
+msgid "在办"
+msgstr "Active"
+
+#: apps/core/enums.py:48
+msgid "已结案"
+msgstr "Closed"
+
+#: apps/core/enums.py:54
+msgid "一审"
+msgstr "First Instance"
+
+#: apps/core/enums.py:55
+msgid "二审"
+msgstr "Second Instance"
+
+#: apps/core/enums.py:56
+msgid "执行"
+msgstr "Execution"
+
+#: apps/core/enums.py:58
+msgid "行政复议"
+msgstr "Administrative Review"
+
+#: apps/core/enums.py:59
+msgid "自诉"
+msgstr "Private Prosecution"
+
+#: apps/core/enums.py:60
+msgid "侦查"
+msgstr "Investigation"
+
+#: apps/core/enums.py:61
+msgid "审查起诉"
+msgstr "Review & Prosecution"
+
+#: apps/core/enums.py:62
+msgid "重审一审"
+msgstr "Retrial First Instance"
+
+#: apps/core/enums.py:63
+msgid "重审二审"
+msgstr "Retrial Second Instance"
+
+#: apps/core/enums.py:64
+msgid "申请再审"
+msgstr "Apply for Retrial"
+
+#: apps/core/enums.py:65
+msgid "再审一审"
+msgstr "Retrial (First)"
+
+#: apps/core/enums.py:66
+msgid "再审二审"
+msgstr "Retrial (Second)"
+
+#: apps/core/enums.py:67
+msgid "提审"
+msgstr "Remand"
+
+#: apps/core/enums.py:68
+msgid "死刑复核程序"
+msgstr "Death Penalty Review"
+
+#: apps/core/enums.py:69
+msgid "申诉"
+msgstr "Appeal"
+
+#: apps/core/enums.py:70
+msgid "申请抗诉"
+msgstr "Apply for Protest"
+
+#: apps/core/enums.py:71
+msgid "申诉抗诉"
+msgstr "Appeal & Protest"
+
+#: apps/core/enums.py:77
+msgid "侦查机关"
+msgstr "Investigation Authority"
+
+#: apps/core/enums.py:78
+msgid "审查起诉机关"
+msgstr "Prosecution Authority"
+
+#: apps/core/enums.py:79
+msgid "审理机构"
+msgstr "Trial Court"
+
+#: apps/core/enums.py:80
+msgid "当前关押地点"
+msgstr "Current Detention"
+
+#: apps/core/enums.py:86 apps/core/models/cause_of_action.py:25
+#: apps/core/templates/admin/core/causeofaction/change_list.html:87
+msgid "民事"
+msgstr "Civil"
+
+#: apps/core/enums.py:89
+msgid "申请执行"
+msgstr "Enforcement"
+
+#: apps/core/enums.py:90
+msgid "破产"
+msgstr "Bankruptcy"
+
+#: apps/core/enums.py:96
+msgid "开庭"
+msgstr "Hearing"
+
+#: apps/core/enums.py:97
+msgid "财产保全"
+msgstr "Property Preservation"
+
+#: apps/core/enums.py:98
+msgid "举证期限"
+msgstr "Evidence Submission Deadline"
+
+#: apps/core/enums.py:99
+msgid "时效"
+msgstr "Statute of Limitations"
+
+#: apps/core/enums.py:100
+msgid "上诉期"
+msgstr "Appeal Period"
+
+#: apps/core/enums.py:101
+msgid "其他"
+msgstr "Other"
+
+#: apps/core/enums.py:107
+msgid "飞书"
+msgstr "Feishu"
+
+#: apps/core/enums.py:108
+msgid "钉钉"
+msgstr "DingTalk"
+
+#: apps/core/enums.py:109
+msgid "企业微信"
+msgstr "WeCom"
+
+#: apps/core/enums.py:110
+msgid "Telegram"
+msgstr "Telegram"
+
+#: apps/core/enums.py:111
+msgid "Slack"
+msgstr "Slack"
+
+#: apps/core/models/cause_of_action.py:32
+msgid "案由编码"
+msgstr "Cause Code"
+
+#: apps/core/models/cause_of_action.py:33
+msgid "案由的唯一编码标识"
+msgstr "Unique code identifier for cause of action"
+
+#: apps/core/models/cause_of_action.py:37
+msgid "案由名称"
+msgstr "Cause Name"
+
+#: apps/core/models/cause_of_action.py:38
+msgid "案由的中文名称"
+msgstr "Chinese name of cause of action"
+
+#: apps/core/models/cause_of_action.py:44
+msgid "案由所属的案件类型"
+msgstr "Case type of the cause of action"
+
+#: apps/core/models/cause_of_action.py:53
+msgid "父级案由,用于构建层级结构"
+msgstr "Parent cause of action for building hierarchy"
+
+#: apps/core/models/cause_of_action.py:57 apps/core/models/court.py:32
+msgid "层级"
+msgstr "Level"
+
+#: apps/core/models/cause_of_action.py:58
+msgid "案由在层级结构中的深度,从1开始"
+msgstr "Depth of cause in hierarchy, starting from 1"
+
+#: apps/core/models/cause_of_action.py:62 apps/core/models/court.py:34
+msgid "是否启用"
+msgstr "Enabled"
+
+#: apps/core/models/cause_of_action.py:63
+msgid "是否在系统中启用此案由"
+msgstr "Whether to enable this cause in the system"
+
+#: apps/core/models/cause_of_action.py:67
+msgid "是否已废弃"
+msgstr "Is Deprecated"
+
+#: apps/core/models/cause_of_action.py:68
+msgid "案由是否已被法院系统废弃"
+msgstr "Whether the cause has been deprecated by the court system"
+
+#: apps/core/models/cause_of_action.py:73
+msgid "废弃时间"
+msgstr "Deprecation Time"
+
+#: apps/core/models/cause_of_action.py:74
+msgid "案由被标记为废弃的时间"
+msgstr "Time when cause was marked as deprecated"
+
+#: apps/core/models/cause_of_action.py:80
+msgid "废弃原因"
+msgstr "Deprecation Reason"
+
+#: apps/core/models/cause_of_action.py:81
+msgid "案由被废弃的原因说明"
+msgstr "Reason description for cause deprecation"
+
+#: apps/core/models/cause_of_action.py:85 apps/core/models/conversation.py:49
+#: apps/core/models/court.py:35 apps/core/models/prompt_template.py:30
+#: apps/core/models/system_config.py:54
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/core/models/cause_of_action.py:89 apps/core/models/court.py:36
+#: apps/core/models/prompt_template.py:31 apps/core/models/system_config.py:55
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/core/models/cause_of_action.py:93
+#: apps/core/models/cause_of_action.py:94
+msgid "案由"
+msgstr "Causes of Action"
+
+#: apps/core/models/conversation.py:22
+msgid "会话ID"
+msgstr "Session ID"
+
+#: apps/core/models/conversation.py:23
+msgid "用户ID"
+msgstr "User ID"
+
+#: apps/core/models/conversation.py:25
+msgid "系统"
+msgstr "System"
+
+#: apps/core/models/conversation.py:25
+msgid "用户"
+msgstr "User"
+
+#: apps/core/models/conversation.py:25
+msgid "助手"
+msgstr "Assistant"
+
+#: apps/core/models/conversation.py:27
+msgid "角色"
+msgstr "Role"
+
+#: apps/core/models/conversation.py:29
+msgid "消息内容"
+msgstr "Message Content"
+
+#: apps/core/models/conversation.py:30
+msgid "元数据"
+msgstr "Metadata"
+
+#: apps/core/models/conversation.py:39
+msgid "AI文书生成会话"
+msgstr "AI Document Generation Session"
+
+#: apps/core/models/conversation.py:40
+msgid "关联到 AI 文书生成会话(如果适用)"
+msgstr "Link to AI document generation session (if applicable)"
+
+#: apps/core/models/conversation.py:45
+msgid "对话步骤"
+msgstr "Conversation Step"
+
+#: apps/core/models/conversation.py:46
+msgid "document_type/litigation_goal/evidence_selection/generation"
+msgstr "document_type/litigation_goal/evidence_selection/generation"
+
+#: apps/core/models/conversation.py:52 apps/core/models/conversation.py:53
+msgid "对话历史"
+msgstr "Conversation History"
+
+#: apps/core/models/court.py:22
+msgid "法院编码"
+msgstr "Court Code"
+
+#: apps/core/models/court.py:23
+msgid "法院名称"
+msgstr "Court Name"
+
+#: apps/core/models/court.py:33
+msgid "省份"
+msgstr "Province"
+
+#: apps/core/models/court.py:39 apps/core/models/court.py:40
+msgid "法院"
+msgstr "Courts"
+
+#: apps/core/models/llm_record.py:23
+msgid "模型"
+msgstr "Model"
+
+#: apps/core/models/llm_record.py:24
+msgid "输入 Token"
+msgstr "Input Tokens"
+
+#: apps/core/models/llm_record.py:25
+msgid "输出 Token"
+msgstr "Output Tokens"
+
+#: apps/core/models/llm_record.py:26
+msgid "总 Token"
+msgstr "Total Tokens"
+
+#: apps/core/models/llm_record.py:27
+msgid "耗时(ms)"
+msgstr "Duration (ms)"
+
+#: apps/core/models/llm_record.py:28
+msgid "调用时间"
+msgstr "Call Time"
+
+#: apps/core/models/llm_record.py:31 apps/core/models/llm_record.py:32
+msgid "LLM 调用记录"
+msgstr "LLM Call Record"
+
+#: apps/core/models/prompt_template.py:22
+msgid "模板名称"
+msgstr "Template Name"
+
+#: apps/core/models/prompt_template.py:23
+msgid "显示标题"
+msgstr "Display Title"
+
+#: apps/core/models/prompt_template.py:25
+msgid "模板描述"
+msgstr "Template Description"
+
+#: apps/core/models/prompt_template.py:26
+msgid "变量列表"
+msgstr "Variable List"
+
+#: apps/core/models/prompt_template.py:28 apps/core/models/system_config.py:53
+msgid "启用"
+msgstr "Enabled"
+
+#: apps/core/models/prompt_template.py:29
+msgid "版本"
+msgstr "Versions"
+
+#: apps/core/models/prompt_template.py:34
+#: apps/core/models/prompt_template.py:35
+msgid "Prompt 模板"
+msgstr "Prompt Templates"
+
+#: apps/core/models/system_config.py:25
+msgid "飞书配置"
+msgstr "Feishu Config"
+
+#: apps/core/models/system_config.py:26
+msgid "钉钉配置"
+msgstr "DingTalk Config"
+
+#: apps/core/models/system_config.py:27
+msgid "企业微信配置"
+msgstr "WeCom Config"
+
+#: apps/core/models/system_config.py:28
+msgid "法院短信配置"
+msgstr "Court SMS Config"
+
+#: apps/core/models/system_config.py:29
+msgid "AI 服务配置"
+msgstr "AI Service Config"
+
+#: apps/core/models/system_config.py:30
+msgid "LLM 大模型配置"
+msgstr "LLM Config"
+
+#: apps/core/models/system_config.py:31
+msgid "爬虫配置"
+msgstr "Crawler Config"
+
+#: apps/core/models/system_config.py:32
+msgid "通用配置"
+msgstr "General Config"
+
+#: apps/core/models/system_config.py:35
+msgid "配置键"
+msgstr "Config Key"
+
+#: apps/core/models/system_config.py:35
+msgid "配置项的唯一标识符,如 FEISHU_APP_ID"
+msgstr "Unique identifier for config item, e.g. FEISHU_APP_ID"
+
+#: apps/core/models/system_config.py:37
+msgid "配置项的值"
+msgstr "Config item value"
+
+#: apps/core/models/system_config.py:43
+msgid "配置项所属分类"
+msgstr "Config item category"
+
+#: apps/core/models/system_config.py:46
+msgid "描述"
+msgstr "Description"
+
+#: apps/core/models/system_config.py:46
+msgid "配置项的说明"
+msgstr "Config item description"
+
+#: apps/core/models/system_config.py:50
+#: apps/core/templates/admin/core/systemconfig/change_list.html:47
+msgid "敏感信息"
+msgstr "Sensitive Info"
+
+#: apps/core/models/system_config.py:51
+msgid "是否为敏感信息(如密钥、密码等)"
+msgstr "Whether it is sensitive info (e.g. keys, passwords)"
+
+#: apps/core/models/system_config.py:53
+msgid "是否启用此配置项"
+msgstr "Whether to enable this config item"
+
+#: apps/core/models/system_config.py:58 apps/core/models/system_config.py:59
+msgid "系统配置"
+msgstr "System Config"
+
+#: apps/core/services/court_api_client.py:242
+msgid "法院 API 响应格式无效"
+msgstr "Invalid court API response format"
+
+#: apps/core/services/court_api_client.py:253
+msgid "法院 API 请求超时"
+msgstr "Court API request timeout"
+
+#: apps/core/services/court_api_client.py:277
+msgid "法院 API 请求失败"
+msgstr "Court API request failed"
+
+#: apps/core/services/i18n_service.py:41
+msgid "不支持的语言代码"
+msgstr "Unsupported language code"
+
+#: apps/core/services/prompt_template_service.py:52
+msgid "模板名称不能为空"
+msgstr "Template name cannot be empty"
+
+#: apps/core/services/prompt_template_service.py:59
+#: apps/core/services/prompt_template_service.py:118
+msgid "显示标题不能为空"
+msgstr "Display title cannot be empty"
+
+#: apps/core/services/prompt_template_service.py:110
+#: apps/core/services/prompt_template_service.py:163
+#: apps/core/services/prompt_template_service.py:189
+msgid "Prompt 模板不存在"
+msgstr "Prompt template does not exist"
+
+#: apps/core/services/system_config_service.py:66
+#: apps/core/services/system_config_service.py:107
+#: apps/core/services/system_config_service.py:133
+msgid "系统配置不存在"
+msgstr "System config does not exist"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:74
+msgid "总案由数"
+msgstr "Total Causes"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:78
+#: apps/core/templates/admin/core/court/change_list.html:100
+#, fuzzy
+#| msgid "启用"
+msgid "启用中"
+msgstr "Enabled"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:82
+#, fuzzy
+#| msgid "是否已废弃"
+msgid "已废弃"
+msgstr "Is Deprecated"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:112
+#: apps/core/templates/admin/core/causeofaction/change_list.html:122
+msgid "初始化案由"
+msgstr "Initialize Causes"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:120
+msgid "案由管理说明"
+msgstr "Cause Management Notes"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:122
+msgid "：从法院系统 API 获取最新案由数据并导入数据库"
+msgstr ": Fetch latest cause data from court system API and import to database"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:123
+#: apps/core/templates/admin/core/court/change_list.html:131
+msgid "层级结构"
+msgstr "Hierarchy"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:123
+msgid "：案由支持多级层级结构，通过\\"
+msgstr ""
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:124
+msgid "废弃状态"
+msgstr "Deprecated Status"
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:124
+msgid ""
+"：当法院系统移除某案由时，如果该案由有关联的诉讼模板，将标记为废弃而非删除"
+msgstr ""
+
+#: apps/core/templates/admin/core/causeofaction/change_list.html:125
+msgid "：案由分为民事、刑事、行政三种类型"
+msgstr ": Causes are divided into civil, criminal, and administrative types"
+
+#: apps/core/templates/admin/core/court/change_list.html:96
+msgid "总法院数"
+msgstr "Total Courts"
+
+#: apps/core/templates/admin/core/court/change_list.html:103
+msgid "按层级统计"
+msgstr "By Level"
+
+#: apps/core/templates/admin/core/court/change_list.html:120
+#: apps/core/templates/admin/core/court/change_list.html:130
+msgid "初始化法院"
+msgstr "Initialize Courts"
+
+#: apps/core/templates/admin/core/court/change_list.html:128
+msgid "法院管理说明"
+msgstr "Court Management Notes"
+
+#: apps/core/templates/admin/core/court/change_list.html:130
+msgid "：从法院系统 API 获取最新法院数据并导入数据库"
+msgstr ": Fetch latest court data from court system API and import to database"
+
+#: apps/core/templates/admin/core/court/change_list.html:131
+msgid "：法院支持多级层级结构（省份 → 高院 → 中院 → 基层法院）"
+msgstr ""
+": Courts support multi-level hierarchy (Province → High Court → Intermediate "
+"Court → Basic Court)"
+
+#: apps/core/templates/admin/core/court/change_list.html:132
+msgid "省份信息"
+msgstr "Province Info"
+
+#: apps/core/templates/admin/core/court/change_list.html:132
+msgid "：法院按省份分组，便于按地区筛选"
+msgstr ": Courts are grouped by province for easy regional filtering"
+
+#: apps/core/templates/admin/core/court/change_list.html:133
+msgid "数据同步"
+msgstr "Data Sync"
+
+#: apps/core/templates/admin/core/court/change_list.html:133
+msgid "：当法院系统移除某法院时，本地数据也会同步删除"
+msgstr ": When court system removes a court, local data will also be deleted"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:42
+msgid "配置管理说明"
+msgstr "Config Management Notes"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:44
+#: apps/core/templates/admin/core/systemconfig/change_list.html:61
+msgid "初始化默认配置"
+msgstr "Initialize Default Config"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:44
+msgid "：创建系统所需的所有配置项（不会覆盖已有配置）"
+msgstr ": Create all required config items (will not overwrite existing)"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:45
+#: apps/core/templates/admin/core/systemconfig/change_list.html:66
+msgid "从环境变量同步"
+msgstr "Sync from Environment"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:45
+msgid "：将 .env 文件中的配置同步到数据库（会覆盖已有值）"
+msgstr ""
+": Sync config from .env file to database (will overwrite existing values)"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:46
+#: apps/core/templates/admin/core/systemconfig/change_list.html:71
+msgid "清除缓存"
+msgstr "Clear Cache"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:46
+msgid "：修改配置后如果未生效，可以手动清除缓存"
+msgstr ": If changes don't take effect, manually clear cache"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:47
+msgid "：标记为敏感的配置项在列表中会脱敏显示"
+msgstr ": Config items marked as sensitive will be masked in the list"
+
+#: apps/core/templates/admin/core/systemconfig/change_list.html:56
+msgid "增加配置"
+msgstr "Add Config"

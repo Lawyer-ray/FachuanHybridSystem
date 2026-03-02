@@ -42,24 +42,24 @@
         <div class="header-meta">
             <span class="archived-status {% if case.is_archived %}archived{% endif %}">
                 {% if case.is_archived and case.filing_number %}
-                    建档编号: {{ case.filing_number }}
+                    {% trans "建档编号" %}: {{ case.filing_number }}
                 {% elif case.is_archived %}
-                    ✓ 已建档
+                    ✓ {% trans "已建档" %}
                 {% else %}
-                    未建档
+                    {% trans "未建档" %}
                 {% endif %}
             </span>
         </div>
         <div class="header-actions">
-            <a href="{% url 'admin:cases_case_mock_trial' case.pk %}" class="btn btn-secondary" title="模拟庭审">
-                ⚖️ 模拟庭审
+            <a href="{% url 'admin:cases_case_mock_trial' case.pk %}" class="btn btn-secondary" title="{% trans '模拟庭审' %}">
+                ⚖️ {% trans "模拟庭审" %}
             </a>
             <a href="{% url 'admin:cases_case_changelist' %}" class="btn btn-secondary">
-                ← 返回列表
+                ← {% trans "返回列表" %}
             </a>
             {% if has_change_permission %}
             <a href="{% url 'admin:cases_case_change' case.pk %}" class="btn btn-primary">
-                编辑
+                {% trans "编辑" %}
             </a>
             {% endif %}
         </div>
@@ -69,25 +69,25 @@
     <div class="tab-panel">
         <nav class="tab-nav">
             <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">
-                基本信息
+                {% trans "基本信息" %}
             </button>
             <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">
-                当事人与律师
+                {% trans "当事人与律师" %}
             </button>
             <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
-                案件进展
+                {% trans "案件进展" %}
             </button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
-                文档生成
+                {% trans "文档生成" %}
             </button>
             <button type="button" @click="activeTab = 'party_materials'" :class="{ active: activeTab === 'party_materials' }">
-                当事人材料
+                {% trans "当事人材料" %}
             </button>
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
-                非当事人材料
+                {% trans "非当事人材料" %}
             </button>
             <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
-                一张网立案
+                {% trans "一张网立案" %}
             </button>
         </nav>
 

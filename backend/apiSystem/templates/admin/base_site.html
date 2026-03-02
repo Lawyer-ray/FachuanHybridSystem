@@ -255,23 +255,23 @@
 <!-- 反馈侧边栏 -->
 <div class="feedback-sidebar">
     <button class="feedback-button">
-        问题反馈
+        {% trans "问题反馈" %}
     </button>
     <div class="feedback-tooltip">
-        <h4>💬 问题反馈</h4>
+        <h4>💬 {% trans "问题反馈" %}</h4>
         <div class="feedback-qrcodes">
             <div class="feedback-qrcode-item">
-                <img src="{% static 'core/images/法穿公众号.jpg' %}" alt="法穿公众号二维码">
-                <div class="qr-label">公众号反馈</div>
+                <img src="{% static 'core/images/法穿公众号.jpg' %}" alt="{% trans '法穿公众号二维码' %}">
+                <div class="qr-label">{% trans "公众号反馈" %}</div>
             </div>
             <div class="feedback-qrcode-item">
-                <img src="{% static 'core/images/wechat.jpg' %}" alt="作者微信二维码">
-                <div class="qr-label">联系作者</div>
+                <img src="{% static 'core/images/wechat.jpg' %}" alt="{% trans '作者微信二维码' %}">
+                <div class="qr-label">{% trans "联系作者" %}</div>
             </div>
         </div>
         <div class="feedback-text">
-            <p>扫码关注 <span class="highlight">「法穿」</span> 公众号反馈问题</p>
-            <p>或直接添加作者微信进行交流</p>
+            <p>{% blocktrans %}扫码关注 <span class="highlight">「法穿」</span> 公众号反馈问题{% endblocktrans %}</p>
+            <p>{% trans "或直接添加作者微信进行交流" %}</p>
         </div>
     </div>
 </div>

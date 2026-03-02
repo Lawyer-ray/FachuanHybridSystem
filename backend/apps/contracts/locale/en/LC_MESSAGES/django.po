@@ -1,0 +1,1347 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 21:03+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/contracts/admin/client_payment_admin.py:25
+msgid "上传凭证图片"
+msgstr "Upload Receipt Image"
+
+#: apps/contracts/admin/client_payment_admin.py:26
+msgid "支持 JPG、PNG、JPEG，最大 10MB"
+msgstr "JPG, PNG, JPEG up to 10MB"
+
+#: apps/contracts/admin/client_payment_admin.py:71
+#: apps/contracts/services/client_payment/client_payment_service.py:72
+#: apps/contracts/services/client_payment/client_payment_service.py:134
+msgid "所选案件不属于该合同"
+msgstr "Selected case does not belong to this contract"
+
+#: apps/contracts/admin/client_payment_admin.py:117
+msgid "凭证图片"
+msgstr "Payment Receipt"
+
+#: apps/contracts/admin/client_payment_admin.py:123
+msgid "系统信息"
+msgstr "System Info"
+
+#: apps/contracts/admin/client_payment_admin.py:134
+msgid "图片预览"
+msgstr "Image Preview"
+
+#: apps/contracts/admin/contract_admin.py:47
+msgid "上传文件"
+msgstr "Upload File"
+
+#: apps/contracts/admin/contract_admin.py:48
+msgid "仅支持 PDF，最大 20MB"
+msgstr "Only PDF supported, max 20MB"
+
+#: apps/contracts/admin/contract_admin.py:138
+#: apps/contracts/models/contract.py:62
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:56
+msgid "代理阶段"
+msgstr "Representation Stages"
+
+#: apps/contracts/admin/contractpayment_admin.py:31
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:47
+msgid "上传发票"
+msgstr "Upload Invoice"
+
+#: apps/contracts/admin/contractpayment_admin.py:32
+msgid "支持 PDF、JPG、JPEG、PNG，最大 20MB"
+msgstr "Supports PDF, JPG, JPEG, PNG, max 20MB"
+
+#: apps/contracts/admin/contractpayment_admin.py:82
+#: apps/contracts/admin/contractpayment_admin.py:83
+#: apps/contracts/models/invoice.py:61 apps/contracts/models/invoice.py:62
+msgid "发票"
+msgstr "Invoice"
+
+#: apps/contracts/admin/contractpayment_admin.py:85
+msgid "查看文件"
+msgstr "View File"
+
+#: apps/contracts/admin/contractpayment_admin.py:96
+msgid "查看"
+msgstr "View"
+
+#: apps/contracts/admin/contractpayment_admin.py:128
+#: apps/contracts/services/payment/contract_payment_service.py:178
+#: apps/contracts/services/payment/contract_payment_service.py:280
+msgid "开票金额不能大于收款金额"
+msgstr "Invoice amount cannot exceed payment amount"
+
+#: apps/contracts/admin/mixins/action_mixin.py:68
+#, python-format
+msgid "合同「%(name)s」已保存"
+msgstr "Contract \"%(name)s\" saved"
+
+#: apps/contracts/admin/mixins/action_mixin.py:76
+#, python-format
+msgid "合同文档已生成并保存到: %(path)s"
+msgstr "Contract document generated and saved to: %(path)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:81
+#, python-format
+msgid "生成合同失败: %(err)s"
+msgstr "Contract generation failed: %(err)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:88
+msgid "请选择要生成的补充协议"
+msgstr "Select supplement to generate"
+
+#: apps/contracts/admin/mixins/action_mixin.py:93
+#, python-format
+msgid "补充协议已生成并保存到: %(path)s"
+msgstr "Supplementary agreement generated and saved to: %(path)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:98
+#, python-format
+msgid "生成补充协议失败: %(err)s"
+msgstr "Supplementary agreement generation failed: %(err)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:106
+#, python-format
+msgid "续签成功！已创建新合同: %(name)s"
+msgstr "Renewal successful! New contract created: %(name)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:110
+#, python-format
+msgid "续签失败: %(err)s"
+msgstr "Renewal failed: %(err)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:118
+#, python-format
+msgid "已复制合同: %(name)s"
+msgstr "Contract copied: %(name)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:122
+#, python-format
+msgid "复制失败: %(err)s"
+msgstr "Copy failed: %(err)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:130
+#: apps/contracts/admin/mixins/action_mixin.py:146
+#, python-format
+msgid "已创建案件: %(name)s"
+msgstr "Case created: %(name)s"
+
+#: apps/contracts/admin/mixins/action_mixin.py:134
+#: apps/contracts/admin/mixins/action_mixin.py:150
+#, python-format
+msgid "创建案件失败: %(err)s"
+msgstr "Case creation failed: %(err)s"
+
+#: apps/contracts/admin/mixins/display_mixin.py:54
+#: apps/contracts/models/contract.py:35
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:12
+msgid "合同名称"
+msgstr "Contract Name"
+
+#: apps/contracts/admin/mixins/display_mixin.py:60
+#: apps/contracts/admin/mixins/display_mixin.py:76
+#: apps/contracts/templates/admin/contracts/contract/detail.html:31
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:220
+msgid "主办律师"
+msgstr "Lead Lawyer"
+
+#: apps/contracts/admin/mixins/display_mixin.py:87
+msgid "无"
+msgstr "None"
+
+#: apps/contracts/admin/mixins/display_mixin.py:89
+#: apps/contracts/models/contract.py:49
+#: apps/contracts/templates/admin/contracts/contract/detail.html:35
+msgid "建档编号"
+msgstr "Filing Number"
+
+#: apps/contracts/admin/mixins/display_mixin.py:99
+msgid "未生成"
+msgstr "Not Generated"
+
+#: apps/contracts/admin/mixins/display_mixin.py:101
+msgid "匹配的合同模板"
+msgstr "Matching Contract Template"
+
+#: apps/contracts/admin/mixins/display_mixin.py:108
+#: apps/contracts/admin/mixins/display_mixin.py:124
+msgid "请先保存合同"
+msgstr "Please save the contract first"
+
+#: apps/contracts/admin/mixins/display_mixin.py:115
+#: apps/contracts/admin/mixins/display_mixin.py:131
+#: apps/contracts/services/contract/contract_admin_service.py:194
+#: apps/contracts/services/contract/contract_admin_service.py:199
+#: apps/contracts/services/contract/contract_admin_service.py:204
+#: apps/contracts/services/contract/contract_admin_service.py:209
+#: apps/contracts/services/contract/contract_display_service.py:137
+#: apps/contracts/services/contract/contract_display_service.py:168
+#: apps/contracts/services/contract/contract_display_service.py:218
+#: apps/contracts/services/contract/contract_display_service.py:227
+#: apps/contracts/services/contract/contract_display_service.py:228
+#: apps/contracts/services/contract/contract_display_service.py:261
+msgid "查询失败"
+msgstr "Query Failed"
+
+#: apps/contracts/admin/mixins/display_mixin.py:117
+msgid "匹配的文件夹模板"
+msgstr "Matching Folder Template"
+
+#: apps/contracts/admin/mixins/display_mixin.py:156
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:92
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:129
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:171
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:221
+#: apps/contracts/services/contract/usecases/get_contract_all_parties.py:19
+#: apps/contracts/services/payment/contract_finance_mutation_service.py:49
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:77
+msgid "合同不存在"
+msgstr "Contract does not exist"
+
+#: apps/contracts/admin/mixins/display_mixin.py:166
+#, python-format
+msgid "合同详情: %(name)s"
+msgstr "Contract Details: %(name)s"
+
+#: apps/contracts/admin/mixins/save_mixin.py:71
+#, python-format
+msgid "处理建档编号失败: %(err)s"
+msgstr "Failed to process filing number: %(err)s"
+
+#: apps/contracts/admin/mixins/save_mixin.py:89
+#, python-format
+msgid "同步关联案件律师指派失败: %(err)s"
+msgstr "Failed to sync related case lawyer assignment: %(err)s"
+
+#: apps/contracts/admin/mixins/save_mixin.py:118
+#, python-format
+msgid "删除合同失败: %(err)s"
+msgstr "Contract deletion failed: %(err)s"
+
+#: apps/contracts/admin/mixins/save_mixin.py:144
+#, python-format
+msgid "批量删除合同失败: %(err)s"
+msgstr "Batch contract deletion failed: %(err)s"
+
+#: apps/contracts/admin/supplementary_agreement_admin.py:23
+#: apps/contracts/admin/supplementary_agreement_admin.py:24
+#: apps/contracts/models/party.py:29 apps/contracts/models/supplementary.py:54
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:77
+msgid "当事人"
+msgstr "Clients"
+
+#: apps/contracts/admin/supplementary_agreement_admin.py:53
+#: apps/contracts/templates/admin/contracts/contract/detail.html:54
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/contracts/admin/supplementary_agreement_admin.py:55
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/contracts/admin/supplementary_agreement_admin.py:63
+msgid "当事人数量"
+msgstr "Party Count"
+
+#: apps/contracts/api/folder_binding_api.py:49
+#: apps/contracts/api/folder_binding_api.py:51
+msgid "需要管理员权限"
+msgstr "Admin permission required"
+
+#: apps/contracts/api/folder_binding_api.py:159
+msgid "绑定已删除"
+msgstr "Binding deleted"
+
+#: apps/contracts/api/folder_binding_api.py:159
+msgid "绑定不存在"
+msgstr "Binding does not exist"
+
+#: apps/contracts/apps.py:10
+msgid "合同管理"
+msgstr "Contract Management"
+
+#: apps/contracts/domain/validators.py:24
+msgid "代理阶段不适用于此合同类型"
+msgstr "Representation stage not applicable to this contract type"
+
+#: apps/contracts/domain/validators.py:33
+#: apps/contracts/services/contract/contract_validator.py:66
+msgid "无效的代理阶段"
+msgstr "Invalid representation stage"
+
+#: apps/contracts/models/client_payment.py:27
+msgid "关联合同"
+msgstr "Related Contract"
+
+#: apps/contracts/models/client_payment.py:35
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:74
+msgid "关联案件"
+msgstr "Related Cases"
+
+#: apps/contracts/models/client_payment.py:40
+msgid "回款金额"
+msgstr "Payment Amount"
+
+#: apps/contracts/models/client_payment.py:46
+msgid "凭证图片路径"
+msgstr "Receipt Image Path"
+
+#: apps/contracts/models/client_payment.py:51
+#: apps/contracts/models/finalized_material.py:42
+#: apps/contracts/models/invoice.py:26 apps/contracts/models/payment.py:30
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:22
+msgid "备注"
+msgstr "Notes"
+
+#: apps/contracts/models/client_payment.py:55
+#: apps/contracts/models/finance.py:32 apps/contracts/models/payment.py:31
+#: apps/contracts/models/supplementary.py:26
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/contracts/models/client_payment.py:59
+#: apps/contracts/models/client_payment.py:60
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:157
+msgid "客户回款"
+msgstr "Client Payments"
+
+#: apps/contracts/models/contract.py:27
+msgid "固定收费"
+msgstr "Fixed Fee"
+
+#: apps/contracts/models/contract.py:28
+msgid "半风险收费"
+msgstr "Semi-contingency"
+
+#: apps/contracts/models/contract.py:29
+msgid "全风险收费"
+msgstr "Full Contingency"
+
+#: apps/contracts/models/contract.py:30
+msgid "自定义"
+msgstr "Custom"
+
+#: apps/contracts/models/contract.py:36
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:16
+msgid "合同类型"
+msgstr "Contract Type"
+
+#: apps/contracts/models/contract.py:38
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:20
+msgid "合同状态"
+msgstr "Contract Status"
+
+#: apps/contracts/models/contract.py:40
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:46
+msgid "指定日期"
+msgstr "Specified Date"
+
+#: apps/contracts/models/contract.py:41
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:38
+msgid "开始日期"
+msgstr "Start Date"
+
+#: apps/contracts/models/contract.py:42
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:42
+msgid "结束日期"
+msgstr "End Date"
+
+#: apps/contracts/models/contract.py:43
+msgid "是否已建档"
+msgstr "Filed"
+
+#: apps/contracts/models/contract.py:50
+msgid "格式: {年份}_{合同类型}_{HT}_{序号}"
+msgstr "Format: {year}_{type}_{HT}_{seq}"
+
+#: apps/contracts/models/contract.py:53
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:24
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:15
+msgid "收费模式"
+msgstr "Fee Mode"
+
+#: apps/contracts/models/contract.py:56
+msgid "固定/前期律师费"
+msgstr "Fixed/Upfront Fee"
+
+#: apps/contracts/models/contract.py:59
+msgid "风险比例(%)"
+msgstr "Risk Ratio (%)"
+
+#: apps/contracts/models/contract.py:61
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:33
+msgid "自定义收费条款"
+msgstr "Custom Fee Terms"
+
+#: apps/contracts/models/contract.py:74 apps/contracts/models/contract.py:75
+#: apps/contracts/models/finalized_material.py:31
+#: apps/contracts/models/finance.py:24
+#: apps/contracts/models/folder_binding.py:19 apps/contracts/models/party.py:26
+#: apps/contracts/models/party.py:48 apps/contracts/models/payment.py:23
+#: apps/contracts/models/supplementary.py:23
+msgid "合同"
+msgstr "Contracts"
+
+#: apps/contracts/models/finalized_material.py:17
+msgid "合同正本"
+msgstr "Original Contract"
+
+#: apps/contracts/models/finalized_material.py:18
+#: apps/contracts/models/supplementary.py:33
+#: apps/contracts/models/supplementary.py:34
+#: apps/contracts/models/supplementary.py:51
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:50
+msgid "补充协议"
+msgstr "Supplementary Agreements"
+
+#: apps/contracts/models/finalized_material.py:19
+msgid "其他"
+msgstr "Other"
+
+#: apps/contracts/models/finalized_material.py:33
+#: apps/contracts/models/invoice.py:24
+msgid "文件路径"
+msgstr "File Path"
+
+#: apps/contracts/models/finalized_material.py:34
+#: apps/contracts/models/invoice.py:25
+msgid "原始文件名"
+msgstr "Original Filename"
+
+#: apps/contracts/models/finalized_material.py:39
+msgid "材料分类"
+msgstr "Category"
+
+#: apps/contracts/models/finalized_material.py:41
+#: apps/contracts/models/invoice.py:27
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:21
+msgid "上传时间"
+msgstr "Upload Time"
+
+#: apps/contracts/models/finalized_material.py:46
+#: apps/contracts/models/finalized_material.py:47
+#: apps/contracts/templates/admin/contracts/contract/detail.html:58
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:8
+msgid "定稿材料"
+msgstr "Final Materials"
+
+#: apps/contracts/models/finance.py:14
+msgid "信息"
+msgstr "Info"
+
+#: apps/contracts/models/finance.py:15
+msgid "预警"
+msgstr "Warning"
+
+#: apps/contracts/models/finance.py:16
+msgid "错误"
+msgstr "Error"
+
+#: apps/contracts/models/finance.py:26
+msgid "动作"
+msgstr "Action"
+
+#: apps/contracts/models/finance.py:27
+msgid "级别"
+msgstr "Level"
+
+#: apps/contracts/models/finance.py:29
+msgid "操作者"
+msgstr "Operator"
+
+#: apps/contracts/models/finance.py:31
+msgid "数据"
+msgstr "Data"
+
+#: apps/contracts/models/finance.py:35 apps/contracts/models/finance.py:36
+msgid "财务日志"
+msgstr "Finance Log"
+
+#: apps/contracts/models/folder_binding.py:22
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:104
+msgid "文件夹路径"
+msgstr "Folder Path"
+
+#: apps/contracts/models/folder_binding.py:22
+msgid "绑定的本地或网络文件夹路径"
+msgstr "Bound local or network folder path"
+
+#: apps/contracts/models/folder_binding.py:24
+msgid "绑定时间"
+msgstr "Binding Time"
+
+#: apps/contracts/models/folder_binding.py:25
+#: apps/contracts/models/payment.py:32
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/contracts/models/folder_binding.py:28
+#: apps/contracts/models/folder_binding.py:29
+msgid "合同文件夹绑定"
+msgstr "Contract Folder Binding"
+
+#: apps/contracts/models/invoice.py:22
+msgid "收款记录"
+msgstr "Payment Record"
+
+#: apps/contracts/models/invoice.py:31
+msgid "发票代码"
+msgstr "Invoice Code"
+
+#: apps/contracts/models/invoice.py:34
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:70
+msgid "发票号码"
+msgstr "Invoice Number"
+
+#: apps/contracts/models/invoice.py:36
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:71
+msgid "开票日期"
+msgstr "Invoice Date"
+
+#: apps/contracts/models/invoice.py:42
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:72
+msgid "金额"
+msgstr "Amount"
+
+#: apps/contracts/models/invoice.py:49
+msgid "税额"
+msgstr "Tax Amount"
+
+#: apps/contracts/models/invoice.py:56
+msgid "价税合计"
+msgstr "Total Amount (Incl. Tax)"
+
+#: apps/contracts/models/party.py:16
+msgid "委托人"
+msgstr "Client"
+
+#: apps/contracts/models/party.py:17
+msgid "受益人"
+msgstr "Beneficiary"
+
+#: apps/contracts/models/party.py:18
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:132
+msgid "对方当事人"
+msgstr "Opposing Party"
+
+#: apps/contracts/models/party.py:32 apps/contracts/models/supplementary.py:57
+msgid "身份"
+msgstr "Role"
+
+#: apps/contracts/models/party.py:37 apps/contracts/models/party.py:38
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:5
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:9
+msgid "合同当事人"
+msgstr "Contract Parties"
+
+#: apps/contracts/models/party.py:50
+msgid "律师"
+msgstr "Lawyers"
+
+#: apps/contracts/models/party.py:52
+msgid "是否主办律师"
+msgstr "Lead Lawyer"
+
+#: apps/contracts/models/party.py:53
+msgid "排序"
+msgstr "Order"
+
+#: apps/contracts/models/party.py:56 apps/contracts/models/party.py:57
+msgid "合同指派"
+msgstr "Contract Assignments"
+
+#: apps/contracts/models/payment.py:15
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:92
+msgid "未开票"
+msgstr "Not Invoiced"
+
+#: apps/contracts/models/payment.py:16
+msgid "部分开票"
+msgstr "Partial Invoice"
+
+#: apps/contracts/models/payment.py:17
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:88
+msgid "已开票"
+msgstr "Invoiced"
+
+#: apps/contracts/models/payment.py:24
+msgid "收款金额"
+msgstr "Payment Amount"
+
+#: apps/contracts/models/payment.py:25
+msgid "收款日期"
+msgstr "Payment Date"
+
+#: apps/contracts/models/payment.py:27
+msgid "开票状态"
+msgstr "Invoice Status"
+
+#: apps/contracts/models/payment.py:29
+msgid "已开票金额"
+msgstr "Invoiced Amount"
+
+#: apps/contracts/models/payment.py:35 apps/contracts/models/payment.py:36
+msgid "合同收款"
+msgstr "Contract Payments"
+
+#: apps/contracts/models/supplementary.py:25
+msgid "补充协议名称"
+msgstr "Supplement Name"
+
+#: apps/contracts/models/supplementary.py:27
+msgid "修改时间"
+msgstr "Modified At"
+
+#: apps/contracts/models/supplementary.py:41
+#: apps/contracts/templates/admin/contracts/contract/detail.html:86
+#: apps/contracts/templates/admin/contracts/contract/detail.html:115
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:56
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:77
+msgid "未命名补充协议"
+msgstr "Unnamed Supplement"
+
+#: apps/contracts/models/supplementary.py:62
+#: apps/contracts/models/supplementary.py:63
+msgid "补充协议当事人"
+msgstr "Supplement Parties"
+
+#: apps/contracts/services/assignment/filing_number_service.py:54
+msgid "合同类型不能为空"
+msgstr "Contract type cannot be empty"
+
+#: apps/contracts/services/assignment/filing_number_service.py:59
+msgid "年份格式无效"
+msgstr "Invalid year format"
+
+#: apps/contracts/services/assignment/filing_number_service.py:85
+msgid "建档编号生成失败"
+msgstr "Filing number generation failed"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:82
+msgid "至少需要指派一个律师"
+msgstr "At least one lawyer must be assigned"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:89
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:165
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:222
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:251
+#: apps/contracts/services/client_payment/client_payment_service.py:60
+#: apps/contracts/services/contract/contract_admin_query_service.py:46
+#: apps/contracts/services/contract/contract_mutation_service.py:77
+#: apps/contracts/services/contract/contract_mutation_service.py:101
+#: apps/contracts/services/contract/contract_progress_service.py:23
+#: apps/contracts/services/contract/contract_query_service.py:92
+#: apps/contracts/services/party/contract_party_service.py:17
+#: apps/contracts/services/party/contract_party_service.py:30
+#: apps/contracts/services/payment/contract_payment_service.py:374
+#, python-format
+msgid "合同 %(id)s 不存在"
+msgstr "Contract %(id)s does not exist"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:99
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:101
+#, python-format
+msgid "律师不存在: %(ids)s"
+msgstr "Lawyer does not exist: %(ids)s"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:109
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:111
+#, python-format
+msgid "律师已停用: %(ids)s"
+msgstr "Lawyer is disabled: %(ids)s"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:171
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:173
+#, python-format
+msgid "律师 %(id)s 不存在"
+msgstr "Lawyer %(id)s does not exist"
+
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:178
+#: apps/contracts/services/assignment/lawyer_assignment_service.py:180
+#, python-format
+msgid "律师 %(id)s 已停用"
+msgstr "Lawyer %(id)s is disabled"
+
+#: apps/contracts/services/client_payment/client_payment_image_service.py:67
+msgid "图片上传失败"
+msgstr "Image upload failed"
+
+#: apps/contracts/services/client_payment/client_payment_service.py:64
+#: apps/contracts/services/client_payment/client_payment_service.py:124
+msgid "回款金额必须大于零"
+msgstr "Payment amount must be greater than zero"
+
+#: apps/contracts/services/client_payment/client_payment_service.py:67
+#: apps/contracts/services/client_payment/client_payment_service.py:127
+msgid "回款金额不能超过 14 位数字（含 2 位小数）"
+msgstr "Payment amount cannot exceed 14 digits (including 2 decimal places)"
+
+#: apps/contracts/services/client_payment/client_payment_service.py:119
+#: apps/contracts/services/client_payment/client_payment_service.py:161
+#, python-format
+msgid "客户回款记录 %(id)s 不存在"
+msgstr "Client payment record %(id)s does not exist"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:94
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:131
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:173
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:223
+#, python-format
+msgid "ID为 %(id)s 的合同不存在"
+msgstr "Contract with ID %(id)s does not exist"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:98
+#, python-format
+msgid "%(name)s (副本)"
+msgstr "%(name)s (Copy)"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:136
+msgid "该合同类型不支持创建案件"
+msgstr "This contract type does not support case creation"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:138
+#, python-format
+msgid "合同类型 %(type)s 不支持创建案件"
+msgstr "Contract type %(type)s does not support case creation"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:152
+#, python-format
+msgid "%(name)s - 案件"
+msgstr "%(name)s - Case"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:178
+msgid "只有常法顾问合同才能续签"
+msgstr "Only retainer contracts can be renewed"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:180
+#, python-format
+msgid "合同类型为 %(type)s，不是常法顾问合同"
+msgstr "Contract type is %(type)s, not a retainer contract"
+
+#: apps/contracts/services/contract/contract_admin_mutation_service.py:213
+#, python-format
+msgid "%(names)s常法顾问-%(start)s至%(end)s"
+msgstr "%(names)s Retainer-%(start)s to %(end)s"
+
+#: apps/contracts/services/contract/contract_admin_query_service.py:66
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:36
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:21
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:27
+msgid "未设置"
+msgstr "Not set"
+
+#: apps/contracts/services/contract/contract_admin_query_service.py:67
+#: apps/contracts/templates/admin/contracts/contract/detail.html:31
+msgid "未指派"
+msgstr "Unassigned"
+
+#: apps/contracts/services/contract/contract_admin_service.py:194
+#: apps/contracts/services/contract/contract_admin_service.py:204
+#: apps/contracts/services/contract/contract_display_service.py:119
+#: apps/contracts/services/contract/contract_display_service.py:157
+#: apps/contracts/services/contract/contract_display_service.py:265
+#: apps/contracts/services/contract/contract_display_service.py:275
+msgid "无匹配模板"
+msgstr "No matching templates"
+
+#: apps/contracts/services/contract/contract_mutation_facade.py:95
+msgid "无权限操作该合同"
+msgstr "No permission to operate this contract"
+
+#: apps/contracts/services/contract/contract_mutation_facade.py:111
+msgid "未登录用户无权限执行该操作"
+msgstr "Unauthenticated users cannot perform this operation"
+
+#: apps/contracts/services/contract/contract_query_facade.py:103
+#: apps/contracts/services/contract/contract_query_facade.py:111
+msgid "无权限访问该合同"
+msgstr "No permission to access this contract"
+
+#: apps/contracts/services/contract/contract_validator.py:38
+msgid "收费模式验证失败"
+msgstr "Fee mode validation failed"
+
+#: apps/contracts/services/contract/contract_validator.py:42
+msgid "固定收费需填写金额"
+msgstr "Fixed fee requires amount"
+
+#: apps/contracts/services/contract/contract_validator.py:46
+msgid "半风险需填写前期金额"
+msgstr "Semi-risk requires upfront amount"
+
+#: apps/contracts/services/contract/contract_validator.py:48
+msgid "半风险需填写风险比例"
+msgstr "Semi-risk requires risk ratio"
+
+#: apps/contracts/services/contract/contract_validator.py:52
+msgid "全风险需填写风险比例"
+msgstr "Full risk requires risk ratio"
+
+#: apps/contracts/services/contract/contract_validator.py:56
+msgid "自定义收费需填写条款文本"
+msgstr "Custom fee requires terms text"
+
+#: apps/contracts/services/contract/contract_workflow_service.py:49
+#: apps/contracts/services/payment/contract_finance_mutation_service.py:89
+#: apps/contracts/services/payment/contract_finance_mutation_service.py:91
+msgid "关键财务操作需二次确认"
+msgstr "Key financial operations require secondary confirmation"
+
+#: apps/contracts/services/party/contract_party_service.py:25
+#, python-format
+msgid "合同 %(cid)s 中不存在客户 %(pid)s 的当事人记录"
+msgstr "No party record for client %(pid)s in contract %(cid)s"
+
+#: apps/contracts/services/payment/contract_finance_mutation_service.py:43
+msgid "ContractFinanceMutationService.mutation_service 未注入"
+msgstr "ContractFinanceMutationService.mutation_service not injected"
+
+#: apps/contracts/services/payment/contract_finance_mutation_service.py:96
+msgid "修改财务数据需要管理员权限"
+msgstr "Modifying financial data requires admin permission"
+
+#: apps/contracts/services/payment/contract_payment_service.py:105
+#, python-format
+msgid "收款记录 %(id)s 不存在"
+msgstr "Payment record %(id)s does not exist"
+
+#: apps/contracts/services/payment/contract_payment_service.py:142
+#: apps/contracts/services/payment/contract_payment_service.py:230
+#: apps/contracts/services/payment/contract_payment_service.py:332
+msgid "无权限"
+msgstr "No Permission"
+
+#: apps/contracts/services/payment/contract_payment_service.py:146
+#: apps/contracts/services/payment/contract_payment_service.py:234
+#: apps/contracts/services/payment/contract_payment_service.py:336
+msgid "关键操作需二次确认"
+msgstr "Key operations require secondary confirmation"
+
+#: apps/contracts/services/payment/contract_payment_service.py:154
+#: apps/contracts/services/payment/contract_payment_service.py:252
+msgid "收款金额需大于0"
+msgstr "Payment amount must be greater than 0"
+
+#: apps/contracts/services/payment/contract_payment_service.py:173
+#: apps/contracts/services/payment/contract_payment_service.py:269
+msgid "累计收款超过合同固定金额"
+msgstr "Cumulative payments exceed contract fixed amount"
+
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:122
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:169
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:206
+msgid "补充协议不存在"
+msgstr "Supplementary agreement does not exist"
+
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:223
+msgid "部分客户不存在"
+msgstr "Some clients do not exist"
+
+#: apps/contracts/services/supplementary/supplementary_agreement_service.py:234
+msgid "不能重复添加同一客户"
+msgstr "Cannot add the same client twice"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:20
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:95
+msgid "文件夹绑定"
+msgstr "Folder Binding"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:33
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:45
+msgid "选择文件夹"
+msgstr "Select Folder"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:34
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:92
+#: apps/contracts/templates/admin/contracts/contract/detail.html:139
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:18
+msgid "加载中..."
+msgstr "Loading..."
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:37
+msgid "解除绑定"
+msgstr "Unbind"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:53
+msgid "输入文件夹路径，例如：/Users/username/Documents"
+msgstr "Enter folder path, e.g.: /Users/username/Documents"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:57
+msgid "确认"
+msgstr "Confirm"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:84
+msgid "此文件夹为空"
+msgstr "This folder is empty"
+
+#: apps/contracts/templates/admin/contracts/contract/change_form.html:99
+msgid "选择此文件夹"
+msgstr "Select This Folder"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:11
+msgid "Home"
+msgstr "Home"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:37
+#, fuzzy
+#| msgid "是否已建档"
+msgid "已建档"
+msgstr "Filed"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:39
+msgid "未建档"
+msgstr "Not Filed"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:44
+msgid "返回列表"
+msgstr "Back to List"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:46
+msgid "编辑"
+msgstr "Edit"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:55
+msgid "当事人与律师"
+msgstr "Parties and Lawyers"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:56
+msgid "收费与财务"
+msgstr "Fees & Finance"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:57
+msgid "文档与提醒"
+msgstr "Documents & Reminders"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:59
+msgid "立案"
+msgstr "Filing"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:76
+#, fuzzy
+#| msgid "选择补充协议预览"
+msgid "选择补充协议"
+msgstr "Preview Supplement"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:80
+#, fuzzy
+#| msgid "请选择要预览的补充协议："
+msgid "请选择要生成的补充协议："
+msgstr "Select supplement to preview:"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:93
+#: apps/contracts/templates/admin/contracts/contract/detail.html:122
+msgid "取消"
+msgstr "Cancel"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:96
+msgid "确定生成"
+msgstr "Confirm Generate"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:105
+msgid "选择补充协议预览"
+msgstr "Preview Supplement"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:109
+msgid "请选择要预览的补充协议："
+msgstr "Select supplement to preview:"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:125
+msgid "预览"
+msgstr "Preview"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:152
+msgid "⚠ 未生成"
+msgstr "⚠ Not Generated"
+
+#: apps/contracts/templates/admin/contracts/contract/detail.html:158
+msgid "关闭"
+msgstr "Close"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:8
+msgid "合同信息"
+msgstr "Contract Info"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:33
+msgid "日期信息"
+msgstr "Date Info"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:64
+#, fuzzy
+#| msgid "代理阶段"
+msgid "未设置代理阶段"
+msgstr "Representation Stages"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/basic_info.html:91
+#, fuzzy
+#| msgid "关联案件"
+msgid "暂无关联案件"
+msgstr "Related Cases"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:9
+msgid "匹配的模板"
+msgstr "Matching Templates"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:15
+msgid "文件模板"
+msgstr "File Templates"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:31
+msgid "文件夹模板"
+msgstr "Folder Templates"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:62
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:167
+#, fuzzy
+#| msgid "补充协议"
+msgid "暂无补充协议"
+msgstr "Supplementary Agreements"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:70
+msgid "重要日期提醒"
+msgstr "Important Dates"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:79
+msgid "已过期"
+msgstr "Overdue"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:80
+msgid "即将到期"
+msgstr "Due Soon"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:87
+msgid "暂无重要日期提醒"
+msgstr "No reminders"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:101
+msgid "已绑定"
+msgstr "Bound"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:112
+msgid "未绑定"
+msgstr "Unbound"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:122
+msgid "文档生成"
+msgstr "Document Generation"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:132
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:145
+msgid "生成合同"
+msgstr "Generate Contract"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:138
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:162
+msgid "预览替换词"
+msgstr "Preview Replacements"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:143
+msgid "无匹配的合同模板"
+msgstr "No matching contract template"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:157
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:169
+msgid "生成补充协议"
+msgstr "Generate Supplement"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:176
+#, fuzzy
+#| msgid "文件夹模板"
+msgid "无匹配的文件夹模板"
+msgstr "Folder Templates"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/documents.html:179
+msgid "生成文件夹"
+msgstr "Generate Folder"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:8
+msgid "OA系统立案"
+msgstr "OA Filing"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:12
+msgid "请先创建案件后再进行立案操作"
+msgstr "Please create a case first"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:21
+msgid "暂无可用的OA系统配置"
+msgstr "No OA system configured"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:25
+msgid "OA系统"
+msgstr "OA System"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:28
+msgid "请选择OA系统"
+msgstr "Select OA system"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:38
+msgid "开始立案"
+msgstr "Start Filing"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:39
+msgid "执行中..."
+msgstr "Processing..."
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:43
+msgid "请先在账号密码管理中添加该OA系统的凭证"
+msgstr "Add credentials in account management first"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:48
+msgid "立案成功"
+msgstr "Filing Successful"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:49
+msgid "正在执行中，浏览器已打开..."
+msgstr "Executing, browser opened..."
+
+#: apps/contracts/templates/admin/contracts/contract/partials/filing.html:50
+msgid "立案失败"
+msgstr "Filing Failed"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:20
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:69
+msgid "文件名"
+msgstr "Filename"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:23
+msgid "操作"
+msgstr "Actions"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:35
+msgid "下载"
+msgstr "Download"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:45
+msgid "暂无定稿材料"
+msgstr "No final materials"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:11
+msgid "收费条款"
+msgstr "Fee Terms"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:20
+msgid "固定律师费"
+msgstr "Fixed Fee"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:20
+msgid "前期律师费"
+msgstr "Upfront Legal Fee"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:26
+msgid "风险比例"
+msgstr "Risk Ratio"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:43
+msgid "律师费收款进度"
+msgstr "Fee Collection Progress"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:48
+msgid "收款"
+msgstr "Received"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:53
+msgid "应收"
+msgstr "Receivable"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:57
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:74
+msgid "已收"
+msgstr "Collected"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:67
+msgid "已收齐"
+msgstr "Fully Collected"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:78
+msgid "当前收费模式无固定应收金额"
+msgstr "No fixed amount for current fee mode"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:84
+msgid "开票"
+msgstr "Invoiced"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:103
+msgid "待开票"
+msgstr "Pending Invoice"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:108
+msgid "暂无开票数据"
+msgstr "No invoice data"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:118
+msgid "律师费收款记录"
+msgstr "Fee Collection Records"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:120
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:160
+msgid "笔"
+msgstr "entries"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:120
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:161
+msgid "累计"
+msgstr "Cumulative"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:149
+msgid "暂无收款记录"
+msgstr "No payment records"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:177
+msgid "查看凭证"
+msgstr "View Receipt"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/finance.html:186
+msgid "暂无客户回款记录"
+msgstr "No client payment records"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:34
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:103
+msgid "暂无当事人信息"
+msgstr "No party info"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:38
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:42
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:65
+msgid "律师指派"
+msgstr "Lawyer Assignment"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:59
+#, fuzzy
+#| msgid "主办律师"
+msgid "主办"
+msgstr "Lead Lawyer"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:123
+msgid "主体类型"
+msgstr "Entity Type"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:127
+msgid "当事人角色"
+msgstr "Party Role"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:131
+msgid "当事人类型"
+msgstr "Party Type"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:132
+#, fuzzy
+#| msgid "对方当事人"
+msgid "我方当事人"
+msgstr "Opposing Party"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:138
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:183
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:243
+msgid "身份证号码"
+msgstr "ID Number"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:146
+msgid "统一社会信用代码"
+msgstr "Unified Social Credit Code"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:154
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:231
+msgid "联系电话"
+msgstr "Phone"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:162
+msgid "住所地"
+msgstr "Address"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:177
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:214
+msgid "姓名"
+msgstr "Name"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:195
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:267
+msgid "复制全部"
+msgstr "Copy All"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:219
+msgid "角色"
+msgstr "Role"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:225
+msgid "用户名"
+msgstr "Username"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:237
+msgid "邮箱"
+msgstr "Email"
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:249
+msgid "执业证号"
+msgstr "License No."
+
+#: apps/contracts/templates/admin/contracts/contract/partials/parties_lawyers.html:255
+msgid "所属律所"
+msgstr "Law Firm"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:17
+msgid "发票识别"
+msgstr "Invoice Recognition"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:33
+msgid "拖拽文件到此处，或点击选择文件"
+msgstr "Drag files here, or click to select"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:34
+msgid "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选"
+msgstr "Supports PDF, JPG, JPEG, PNG, max 20MB per file, multiple selection"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:48
+msgid "上传中..."
+msgstr "Uploading..."
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:55
+msgid "识别中"
+msgstr "Recognizing"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:65
+msgid "识别结果"
+msgstr "Recognition Result"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:73
+msgid "状态"
+msgstr "Status"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:84
+msgid "成功"
+msgstr "Success"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:88
+msgid "失败"
+msgstr "Failed"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:96
+msgid "识别成功"
+msgstr "Recognition Successful"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:98
+msgid "识别失败"
+msgstr "Recognition Failed"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:100
+msgid "累计金额"
+msgstr "Cumulative Amount"
+
+#: apps/contracts/templates/admin/contracts/contractpayment/change_form.html:105
+msgid ""
+"提示：识别结果已自动填充到下方的发票列表中，请检查后点击保存按钮保存数据。"
+msgstr ""

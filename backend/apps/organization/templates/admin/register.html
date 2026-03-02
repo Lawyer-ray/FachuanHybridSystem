@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+{% load i18n %}
 <html lang="zh-hans">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户注册 | 法穿案件管理系统</title>
+    <title>{% trans "用户注册" %} | {% trans "法穿案件管理系统" %}</title>
     <style>
         * {
             margin: 0;
@@ -327,12 +328,12 @@
                         <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
                     </svg>
                 </div>
-                <h1 class="title">创建账号</h1>
-                <p class="subtitle">加入法穿案件管理系统</p>
+                <h1 class="title">{% trans "创建账号" %}</h1>
+                <p class="subtitle">{% trans "加入法穿案件管理系统" %}</p>
                 {% if is_first_user %}
-                <p class="first-user-hint">🎉 您将成为第一个用户，自动获得管理员权限</p>
+                <p class="first-user-hint">🎉 {% trans "您将成为第一个用户，自动获得管理员权限" %}</p>
                 {% else %}
-                <p class="approval-hint">⏳ 注册后需等待管理员开通权限</p>
+                <p class="approval-hint">⏳ {% trans "注册后需等待管理员开通权限" %}</p>
                 {% endif %}
             </div>
             
@@ -362,18 +363,18 @@
                     </ul>
                     {% endif %}
                     {% if field.name == 'username' %}
-                    <p class="chinese-hint">⚠️ 只能输入中文</p>
+                    <p class="chinese-hint">⚠️ {% trans "只能输入中文" %}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
                 
-                <button type="submit" class="submit-btn">注册</button>
+                <button type="submit" class="submit-btn">{% trans "注册" %}</button>
             </form>
             
             <!-- 登录链接 -->
             <div class="login-link">
-                <span>已有账号？</span>
-                <a href="{% url 'admin:login' %}">返回登录</a>
+                <span>{% trans "已有账号？" %}</span>
+                <a href="{% url 'admin:login' %}">{% trans "返回登录" %}</a>
             </div>
         </div>
     </div>

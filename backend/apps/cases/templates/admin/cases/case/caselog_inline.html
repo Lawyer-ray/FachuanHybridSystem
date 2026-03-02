@@ -7,7 +7,7 @@
     <!-- 标题栏 - 使用 Django Admin 标准样式 -->
     <h2 style="cursor: pointer;" onclick="toggleCaseLogSection()">
         {{ inline_admin_formset.opts.verbose_name_plural|capfirst }}
-        <span style="font-weight: normal; font-size: 12px;">({{ inline_admin_formset.formset.initial_form_count }}条，<a href="javascript:void(0)" id="case-log-sort-link" style="color: #fff;">倒序</a>)</span>
+        <span style="font-weight: normal; font-size: 12px;">({{ inline_admin_formset.formset.initial_form_count }}{% trans "条" %}，<a href="javascript:void(0)" id="case-log-sort-link" style="color: #fff;">{% trans "倒序" %}</a>)</span>
         <span class="case-log-toggle" style="float: right; font-size: 10px;">▼</span>
     </h2>
 
@@ -33,13 +33,13 @@
                             <span class="log-author">{{ inline_admin_form.original.actor }}</span>
                             {% endif %}
                             {% if inline_admin_form.original.reminders.exists %}
-                            <span class="log-reminder-badge">提醒 {{ inline_admin_form.original.reminders.count }} 条</span>
+                            <span class="log-reminder-badge">{% trans "提醒" %} {{ inline_admin_form.original.reminders.count }} {% trans "条" %}</span>
                             {% endif %}
                         </div>
                         <div class="log-actions">
-                            <button type="button" class="log-expand-btn" onclick="toggleLogDetail(this)">展开</button>
+                            <button type="button" class="log-expand-btn" onclick="toggleLogDetail(this)">{% trans "展开" %}</button>
                             {% if inline_admin_form.show_url %}
-                            <a href="{{ inline_admin_form.show_url }}" class="log-edit-link">编辑</a>
+                            <a href="{{ inline_admin_form.show_url }}" class="log-edit-link">{% trans "编辑" %}</a>
                             {% endif %}
                         </div>
                     </div>
@@ -51,7 +51,7 @@
                         {% if inline_admin_form.original.reminders.exists %}
                         <div class="log-reminder-info">
                             {% for r in inline_admin_form.original.reminders.all %}
-                            <div>提醒：{{ r.get_reminder_type_display }} {{ r.due_at|date:"Y-m-d H:i" }}（{{ r.content }}）</div>
+                            <div>{% trans "提醒" %}：{{ r.get_reminder_type_display }} {{ r.due_at|date:"Y-m-d H:i" }}（{{ r.content }}）</div>
                             {% endfor %}
                         </div>
                         {% endif %}
@@ -59,7 +59,7 @@
                         <!-- 附件列表 -->
                         {% if inline_admin_form.original.attachments.exists %}
                         <div class="log-attachments">
-                            <span class="attachment-label">附件：</span>
+                            <span class="attachment-label">{% trans "附件" %}：</span>
                             {% for attachment in inline_admin_form.original.attachments.all %}
                             <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
                                 {{ attachment.file.name|cut:"case_logs/" }}
@@ -87,7 +87,7 @@
                 <!-- 新增日志表单 -->
                 <div class="log-add-form">
                     <div class="log-add-header">
-                        <span>添加新日志</span>
+                        <span>{% trans "添加新日志" %}</span>
                     </div>
                     <div class="log-add-body">
                         {% for fieldset in inline_admin_form %}

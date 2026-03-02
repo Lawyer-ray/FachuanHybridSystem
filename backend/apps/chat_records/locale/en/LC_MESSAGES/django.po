@@ -1,0 +1,548 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/chat_records/admin/chat_record_admin.py:34
+#: apps/chat_records/templates/admin/chat_records/workbench.html:17
+msgid "工作台"
+msgstr "Workbench"
+
+#: apps/chat_records/admin/chat_record_admin.py:84
+msgid "文件"
+msgstr "File"
+
+#: apps/chat_records/api/chat_records_api.py:261
+msgid "导出文件尚未生成"
+msgstr "Export file not yet generated"
+
+#: apps/chat_records/apps.py:12 apps/chat_records/models/project.py:25
+#: apps/chat_records/models/project.py:26
+#: apps/chat_records/templates/admin/chat_records/workbench.html:16
+#: apps/chat_records/templates/admin/chat_records/workbench.html:44
+msgid "梳理聊天记录"
+msgstr "Chat Records"
+
+#: apps/chat_records/models/choices.py:8
+msgid "PDF"
+msgstr "PDF"
+
+#: apps/chat_records/models/choices.py:9
+msgid "Word"
+msgstr "Word"
+
+#: apps/chat_records/models/choices.py:13
+#: apps/chat_records/models/choices.py:26
+msgid "待处理"
+msgstr "Pending"
+
+#: apps/chat_records/models/choices.py:14
+#: apps/chat_records/models/choices.py:27
+msgid "处理中"
+msgstr "Processing"
+
+#: apps/chat_records/models/choices.py:15
+#: apps/chat_records/models/choices.py:28
+msgid "成功"
+msgstr "Success"
+
+#: apps/chat_records/models/choices.py:16
+#: apps/chat_records/models/choices.py:29
+msgid "失败"
+msgstr "Failed"
+
+#: apps/chat_records/models/choices.py:20
+msgid "未知"
+msgstr "Unknown"
+
+#: apps/chat_records/models/choices.py:21
+msgid "视频抽帧"
+msgstr "Video Frame Extraction"
+
+#: apps/chat_records/models/choices.py:22
+msgid "手动上传"
+msgstr "Manual Upload"
+
+#: apps/chat_records/models/choices.py:33
+#: apps/chat_records/templates/admin/chat_records/workbench.html:117
+msgid "固定间隔"
+msgstr "Fixed Interval"
+
+#: apps/chat_records/models/choices.py:34
+#: apps/chat_records/templates/admin/chat_records/workbench.html:118
+msgid "画面变化优先"
+msgstr "Scene Change Priority"
+
+#: apps/chat_records/models/choices.py:35
+msgid "智能去重"
+msgstr "Smart Deduplication"
+
+#: apps/chat_records/models/choices.py:36
+msgid "关键帧(I帧)"
+msgstr "Keyframe (I-frame)"
+
+#: apps/chat_records/models/choices.py:37
+msgid "OCR 文本变化优先"
+msgstr "OCR Text Change Priority"
+
+#: apps/chat_records/models/export_task.py:22
+#: apps/chat_records/models/recording.py:22
+#: apps/chat_records/models/screenshot.py:22
+#: apps/chat_records/templates/admin/chat_records/workbench.html:32
+msgid "项目"
+msgstr "Project"
+
+#: apps/chat_records/models/export_task.py:24
+msgid "导出类型"
+msgstr "Export Type"
+
+#: apps/chat_records/models/export_task.py:25
+msgid "版式配置"
+msgstr "Layout Config"
+
+#: apps/chat_records/models/export_task.py:30
+msgid "状态"
+msgstr "Status"
+
+#: apps/chat_records/models/export_task.py:32
+msgid "进度百分比"
+msgstr "Progress Percentage"
+
+#: apps/chat_records/models/export_task.py:33
+msgid "当前项"
+msgstr "Current Item"
+
+#: apps/chat_records/models/export_task.py:34
+msgid "总项"
+msgstr "Total Items"
+
+#: apps/chat_records/models/export_task.py:35
+msgid "进度信息"
+msgstr "Progress Info"
+
+#: apps/chat_records/models/export_task.py:36
+msgid "错误信息"
+msgstr "Error Message"
+
+#: apps/chat_records/models/export_task.py:37
+msgid "导出文件"
+msgstr "Export File"
+
+#: apps/chat_records/models/export_task.py:38
+msgid "开始时间"
+msgstr "Start Time"
+
+#: apps/chat_records/models/export_task.py:39
+msgid "完成时间"
+msgstr "Completed At"
+
+#: apps/chat_records/models/export_task.py:40
+#: apps/chat_records/models/project.py:21
+#: apps/chat_records/models/recording.py:53
+#: apps/chat_records/models/screenshot.py:36
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/chat_records/models/export_task.py:41
+#: apps/chat_records/models/project.py:22
+#: apps/chat_records/models/recording.py:54
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/chat_records/models/export_task.py:44
+#: apps/chat_records/models/export_task.py:45
+msgid "聊天记录导出任务"
+msgstr "Chat Export Tasks"
+
+#: apps/chat_records/models/project.py:10
+msgid "项目名称"
+msgstr "Project Name"
+
+#: apps/chat_records/models/project.py:12
+msgid "说明"
+msgstr "Description"
+
+#: apps/chat_records/models/project.py:19
+msgid "创建人"
+msgstr "Created By"
+
+#: apps/chat_records/models/recording.py:24
+msgid "录屏文件"
+msgstr "Screen Recording File"
+
+#: apps/chat_records/models/recording.py:25
+msgid "原始文件名"
+msgstr "Original Filename"
+
+#: apps/chat_records/models/recording.py:26
+msgid "文件大小(字节)"
+msgstr "File Size (bytes)"
+
+#: apps/chat_records/models/recording.py:27
+msgid "时长(秒)"
+msgstr "Duration (seconds)"
+
+#: apps/chat_records/models/recording.py:33
+msgid "抽帧状态"
+msgstr "Frame Extraction Status"
+
+#: apps/chat_records/models/recording.py:39
+#: apps/chat_records/templates/admin/chat_records/workbench.html:115
+msgid "抽帧策略"
+msgstr "Frame Strategy"
+
+#: apps/chat_records/models/recording.py:41
+msgid "抽帧去重阈值"
+msgstr "Frame Dedup Threshold"
+
+#: apps/chat_records/models/recording.py:42
+msgid "OCR 相似度阈值"
+msgstr "OCR Similarity Threshold"
+
+#: apps/chat_records/models/recording.py:43
+msgid "OCR 新增字符阈值"
+msgstr "OCR New Character Threshold"
+
+#: apps/chat_records/models/recording.py:44
+msgid "请求取消抽帧"
+msgstr "Request Cancel Frame Extraction"
+
+#: apps/chat_records/models/recording.py:45
+msgid "抽帧进度百分比"
+msgstr "Frame Extraction Progress %"
+
+#: apps/chat_records/models/recording.py:46
+msgid "抽帧当前项"
+msgstr "Frame Extraction Current Item"
+
+#: apps/chat_records/models/recording.py:47
+msgid "抽帧总项"
+msgstr "Frame Extraction Total Items"
+
+#: apps/chat_records/models/recording.py:48
+msgid "抽帧进度信息"
+msgstr "Frame Extraction Progress Info"
+
+#: apps/chat_records/models/recording.py:49
+msgid "抽帧错误信息"
+msgstr "Frame Extraction Error Message"
+
+#: apps/chat_records/models/recording.py:50
+msgid "抽帧开始时间"
+msgstr "Frame Extraction Start Time"
+
+#: apps/chat_records/models/recording.py:51
+msgid "抽帧完成时间"
+msgstr "Frame Extraction Completion Time"
+
+#: apps/chat_records/models/recording.py:57
+#: apps/chat_records/models/recording.py:58
+msgid "聊天记录录屏"
+msgstr "Chat Recordings"
+
+#: apps/chat_records/models/screenshot.py:24
+msgid "截图"
+msgstr "Screenshot"
+
+#: apps/chat_records/models/screenshot.py:25
+msgid "顺序"
+msgstr "Order"
+
+#: apps/chat_records/models/screenshot.py:26
+msgid "标题"
+msgstr "Title"
+
+#: apps/chat_records/models/screenshot.py:27
+msgid "备注"
+msgstr "Notes"
+
+#: apps/chat_records/models/screenshot.py:28
+msgid "截图时间点(秒)"
+msgstr "Screenshot Timestamp (seconds)"
+
+#: apps/chat_records/models/screenshot.py:29
+msgid "内容哈希"
+msgstr "Content Hash"
+
+#: apps/chat_records/models/screenshot.py:30
+msgid "感知哈希"
+msgstr "Perceptual Hash"
+
+#: apps/chat_records/models/screenshot.py:31
+msgid "帧评分"
+msgstr "Frame Score"
+
+#: apps/chat_records/models/screenshot.py:33
+msgid "来源"
+msgstr "Source"
+
+#: apps/chat_records/models/screenshot.py:35
+msgid "已过滤"
+msgstr "Filtered"
+
+#: apps/chat_records/models/screenshot.py:39
+#: apps/chat_records/models/screenshot.py:40
+msgid "聊天记录截图"
+msgstr "Chat Screenshots"
+
+#: apps/chat_records/services/access_policy.py:17
+#: apps/chat_records/services/access_policy.py:20
+msgid "无权限访问该项目"
+msgstr "No permission to access this project"
+
+#: apps/chat_records/services/export_task_service.py:55
+msgid "准备导出"
+msgstr "Preparing Export"
+
+#: apps/chat_records/services/export_task_service.py:75
+msgid "任务已提交"
+msgstr "Task Submitted"
+
+#: apps/chat_records/services/export_types.py:45
+msgid "仅支持 1 张/页 或 2 张/页"
+msgstr "Only supports 1 or 2 images per page"
+
+#: apps/chat_records/services/recording_extract_facade.py:61
+msgid "抽帧任务已提交"
+msgstr "Frame extraction task submitted"
+
+#: apps/chat_records/services/recording_extract_facade.py:93
+msgid "已请求取消"
+msgstr "Cancellation requested"
+
+#: apps/chat_records/services/recording_extract_facade.py:112
+msgid "已重置"
+msgstr "Reset"
+
+#: apps/chat_records/services/recording_service.py:80
+msgid "等待抽帧"
+msgstr "Waiting for frame extraction"
+
+#: apps/chat_records/services/screenshot_service.py:116
+msgid "截图文件读取失败，无法进行去重"
+msgstr "Screenshot file read failed, cannot deduplicate"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:4
+#: apps/chat_records/templates/admin/chat_records/workbench.html:29
+msgid "梳理聊天记录工作台"
+msgstr "Chat Records Workbench"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:15
+msgid "首页"
+msgstr "Home"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:30
+msgid ""
+"上传录屏后后台按可配置间隔自动截帧，支持手动截取当前帧，拖拽排序并导出 PDF/"
+"Word。"
+msgstr ""
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:33
+msgid "张截图"
+msgstr "screenshots"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:37
+msgid "录屏列表"
+msgstr "Recordings"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:38
+msgid "导出任务"
+msgstr "Export Tasks"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:39
+msgid "截图列表"
+msgstr "Screenshots"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:53
+msgid "点击或拖拽上传文件"
+msgstr "Click or drag to upload"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:54
+msgid "支持视频与图片"
+msgstr "Supports video and images"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:59
+#: apps/chat_records/templates/admin/chat_records/workbench.html:175
+msgid "上传中..."
+msgstr "Uploading..."
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:63
+#: apps/chat_records/templates/admin/chat_records/workbench.html:149
+msgid "开始解析"
+msgstr "Start Processing"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:73
+msgid "视频自动截帧"
+msgstr "Auto Frame Capture"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:82
+msgid "自动排序"
+msgstr "Auto Sort"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:92
+msgid "一键生成PDF、DOCX"
+msgstr "One-click PDF & DOCX"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:101
+msgid "录屏与预览"
+msgstr "Recording & Preview"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:102
+msgid "加载录屏中..."
+msgstr "Loading recording..."
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:111
+msgid "当前视频"
+msgstr "Current Video"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:119
+msgid "智能去重（更强）"
+msgstr "Smart Dedup (Stronger)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:120
+msgid "关键帧（I帧）"
+msgstr "Keyframe (I-frame)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:121
+msgid "OCR 文本变化优先（最强）"
+msgstr "OCR Text Change Priority (Strongest)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:125
+msgid "截帧间隔（秒）"
+msgstr "Frame Interval (sec)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:129
+msgid "OCR 敏感度"
+msgstr "OCR Sensitivity"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:131
+msgid "激进（去重更狠）"
+msgstr "Aggressive (More Dedup)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:132
+msgid "平衡"
+msgstr "Balanced"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:133
+msgid "保守（保留更多）"
+msgstr "Conservative (Keep More)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:137
+msgid "去重强度"
+msgstr "Dedup Strength"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:139
+#: apps/chat_records/templates/admin/chat_records/workbench.html:294
+msgid "关闭"
+msgstr "Close"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:140
+msgid "弱"
+msgstr "Weak"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:141
+msgid "中"
+msgstr "Medium"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:142
+msgid "强"
+msgstr "Strong"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:143
+msgid "极强"
+msgstr "Very Strong"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:150
+msgid "提交中..."
+msgstr "Submitting..."
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:152
+msgid "取消"
+msgstr "Cancel"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:153
+msgid "重置"
+msgstr "Reset"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:174
+msgid "截取当前帧"
+msgstr "Capture Current Frame"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:177
+msgid "按当前时间自动插入到对应位置"
+msgstr "Auto-insert at current timestamp"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:182
+msgid "当前为图片模式，可在右侧查看与排序截图"
+msgstr "Image mode: view and sort screenshots on the right"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:194
+msgid "导出与截图列表"
+msgstr "Export & Screenshots"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:196
+msgid "刷新列表"
+msgstr "Refresh"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:203
+msgid "类型"
+msgstr "Type"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:210
+msgid "每页张数"
+msgstr "Per Page"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:217
+msgid "页眉（可空，默认项目名）"
+msgstr "Header (optional, defaults to project name)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:223
+msgid "显示页码"
+msgstr "Show Page Numbers"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:230
+msgid "开始导出"
+msgstr "Start Export"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:231
+msgid "导出中..."
+msgstr "Exporting..."
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:233
+msgid "下载"
+msgstr "Download"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:253
+msgid "截图列表（拖拽排序）"
+msgstr "Screenshots (drag to sort)"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:254
+msgid "加载中..."
+msgstr "Loading..."
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:256
+msgid "暂无截图"
+msgstr "No screenshots"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:277
+msgid "删除"
+msgstr "Delete"
+
+#: apps/chat_records/templates/admin/chat_records/workbench.html:278
+msgid "删除中..."
+msgstr "Deleting..."
