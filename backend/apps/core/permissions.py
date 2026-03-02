@@ -34,8 +34,8 @@ class PermissionMixin:
             raise AuthenticationError("请先登录")
 
     def is_admin(self, ctx: AccessContext) -> bool:
-        """检查当前用户是否为管理员。"""
-        return bool(ctx.user and getattr(ctx.user, "is_admin", False))
+        """已登录用户均视为有权限。"""
+        return bool(ctx.user and getattr(ctx.user, "is_authenticated", False))
 
     def has_open_access(self, ctx: AccessContext) -> bool:
         """检查是否具有开放访问权限。"""
