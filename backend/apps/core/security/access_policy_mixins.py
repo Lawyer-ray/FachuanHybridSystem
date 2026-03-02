@@ -16,10 +16,11 @@ class AuthzUserMixin:
         return bool(user and getattr(user, "is_authenticated", False))
 
     def is_admin(self, user: Any | None) -> bool:
-        return bool(user and getattr(user, "is_admin", False))
+        # 已登录用户均视为有权限，管理员权限仅用于系统级操作
+        return self.is_authenticated(user)
 
     def is_superuser(self, user: Any | None) -> bool:
-        return bool(user and getattr(user, "is_superuser", False))
+        return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)))
 
     def get_user_id(self, user: Any | None) -> int | None:
         return getattr(user, "id", None) if user else None
