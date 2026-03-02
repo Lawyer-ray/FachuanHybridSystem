@@ -132,11 +132,13 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
             "updated_at",
         ]
 
-    def resolve_created_at(self, obj: AccountCredential) -> str | None:
-        return self._resolve_datetime_iso(obj.created_at)
+    @staticmethod
+    def resolve_created_at(obj: AccountCredential) -> str | None:
+        return SchemaMixin._resolve_datetime_iso(obj.created_at)
 
-    def resolve_updated_at(self, obj: AccountCredential) -> str | None:
-        return self._resolve_datetime_iso(obj.updated_at)
+    @staticmethod
+    def resolve_updated_at(obj: AccountCredential) -> str | None:
+        return SchemaMixin._resolve_datetime_iso(obj.updated_at)
 
 
 class AccountCredentialIn(Schema):
@@ -157,4 +159,7 @@ class AccountCredentialUpdateIn(Schema):
 
 
 # Pydantic v2 + `from __future__ import annotations` 需要 rebuild
+AccountCredentialOut.model_rebuild()
+LawyerOut.model_rebuild()
+LoginIn.model_rebuild()
 LoginOut.model_rebuild()

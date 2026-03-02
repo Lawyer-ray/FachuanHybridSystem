@@ -18,7 +18,7 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .llm_common import achat_with_context as achat_with_context_impl
 from .llm_common import get_conversation_history as get_conversation_history_impl
-from .llm_common import sync_prompt_templates as sync_prompt_templates_impl
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,6 @@ class ConversationHistoryResponse(Schema):
 
     session_id: str
     messages: list[ConversationMessage]
-
-
-class SyncTemplatesResponse(Schema):
-    """同步模板响应"""
-
-    synced_count: int
 
 
 # ============================================================
@@ -159,25 +153,3 @@ def get_conversation_history(request: Any, session_id: str) -> Any:
 
     return ConversationHistoryResponse(session_id=session_id, messages=messages)
 
-
-@llm_router.post("/templates/sync", response=SyncTemplatesResponse)
-@rate_limit_from_settings("ADMIN", by_user=True)
-def sync_prompt_templates(request: Any) -> Any:
-    """
-    同步 Prompt 模板
-
-    将代码中的模板同步到数据库.
-    """
-    user = getattr(request, "user", None)
-    if not user or not getattr(user, "is_authenticated", False):
-        user = getattr(request, "auth", None)
-    is_admin = bool(
-        getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
-    )
-    if not is_admin:
-        raise PermissionDenied(message="无权限同步模板", code="PERMISSION_DENIED")
-
-    from apps.core.interfaces import ServiceLocator
-
-    result = sync_prompt_templates_impl(prompt_service=ServiceLocator.get_prompt_template_service())
-    return SyncTemplatesResponse(synced_count=result["synced_count"])
