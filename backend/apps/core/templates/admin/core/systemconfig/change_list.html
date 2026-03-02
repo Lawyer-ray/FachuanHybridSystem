@@ -39,12 +39,12 @@
 <!-- 配置说明卡片 -->
 <div class="card mb-3">
     <div class="card-body py-2">
-        <h6 class="card-title mb-2">📋 配置管理说明</h6>
+        <h6 class="card-title mb-2">📋 {% trans "配置管理说明" %}</h6>
         <ul class="mb-0 small">
-            <li><strong>初始化默认配置</strong>：创建系统所需的所有配置项（不会覆盖已有配置）</li>
-            <li><strong>从环境变量同步</strong>：将 .env 文件中的配置同步到数据库（会覆盖已有值）</li>
-            <li><strong>清除缓存</strong>：修改配置后如果未生效，可以手动清除缓存</li>
-            <li><strong>敏感信息</strong>：标记为敏感的配置项在列表中会脱敏显示</li>
+            <li><strong>{% trans "初始化默认配置" %}</strong>{% trans "：创建系统所需的所有配置项（不会覆盖已有配置）" %}</li>
+            <li><strong>{% trans "从环境变量同步" %}</strong>{% trans "：将 .env 文件中的配置同步到数据库（会覆盖已有值）" %}</li>
+            <li><strong>{% trans "清除缓存" %}</strong>{% trans "：修改配置后如果未生效，可以手动清除缓存" %}</li>
+            <li><strong>{% trans "敏感信息" %}</strong>{% trans "：标记为敏感的配置项在列表中会脱敏显示" %}</li>
         </ul>
     </div>
 </div>
@@ -53,22 +53,22 @@
 <div class="d-flex justify-content-end flex-wrap gap-2 mb-3">
     {% if has_add_permission %}
     <a href="{% url 'admin:core_systemconfig_add' %}" class="btn-bs btn-success">
-        ＋ 增加配置
+        ＋ {% trans "增加配置" %}
     </a>
     {% endif %}
     {% if show_init_button %}
     <a href="{% url 'admin:core_systemconfig_init_defaults' %}" class="btn-bs btn-primary">
-        初始化默认配置
+        {% trans "初始化默认配置" %}
     </a>
     {% endif %}
     {% if show_sync_button %}
     <a href="{% url 'admin:core_systemconfig_sync_env' %}" class="btn-bs btn-info">
-        从环境变量同步
+        {% trans "从环境变量同步" %}
     </a>
     {% endif %}
     {% if show_clear_cache_button %}
     <a href="{% url 'admin:core_systemconfig_clear_cache' %}" class="btn-bs btn-danger">
-        清除缓存
+        {% trans "清除缓存" %}
     </a>
     {% endif %}
 </div>

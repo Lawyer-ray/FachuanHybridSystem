@@ -1,17 +1,18 @@
+{% load i18n %}
     <!-- 自动立案演示 -->
     <section class="auto-filing-section" id="auto-filing-flow">
         <div class="auto-filing-container">
             <div class="section-header reveal">
-                <span class="section-tag">🏛️ 一键立案</span>
-                <h2 class="section-title">自动立案 · OA 与法院双通道并行</h2>
-                <p class="section-desc">Playwright 驱动，两套系统同时自动填写，效率翻倍</p>
+                <span class="section-tag">🏛️ {% trans "一键立案" %}</span>
+                <h2 class="section-title">{% trans "自动立案 · OA 与法院双通道并行" %}</h2>
+                <p class="section-desc">{% trans "Playwright 驱动，两套系统同时自动填写，效率翻倍" %}</p>
             </div>
 
             <!-- 双通道并排 -->
             <div class="filing-dual" id="filingDemo">
                 <!-- 左：OA 立案 -->
                 <div class="filing-channel" data-channel="oa">
-                    <div class="channel-badge">🏢 OA 系统立案</div>
+                    <div class="channel-badge">🏢 OA {% trans "系统立案" %}</div>
                     <div class="filing-steps" id="filingStepsOa"></div>
                     <div class="browser-mockup">
                         <div class="browser-bar">
@@ -22,7 +23,7 @@
                             <div class="filing-form-mock" id="filingFormOa"></div>
                             <div class="filing-status-bar" id="filingStatusBarOa">
                                 <span>🤖</span>
-                                <span id="filingStatusTextOa">Playwright 自动化执行中...</span>
+                                <span id="filingStatusTextOa">{% trans "Playwright 自动化执行中..." %}</span>
                             </div>
                         </div>
                     </div>
@@ -30,7 +31,7 @@
 
                 <!-- 右：一张网立案 -->
                 <div class="filing-channel" data-channel="court">
-                    <div class="channel-badge">🏛️ 法院一张网立案</div>
+                    <div class="channel-badge">🏛️ {% trans "法院一张网立案" %}</div>
                     <div class="filing-steps" id="filingStepsCourt"></div>
                     <div class="browser-mockup">
                         <div class="browser-bar">
@@ -41,7 +42,7 @@
                             <div class="filing-form-mock" id="filingFormCourt"></div>
                             <div class="filing-status-bar" id="filingStatusBarCourt">
                                 <span>🤖</span>
-                                <span id="filingStatusTextCourt">Playwright 自动化执行中...</span>
+                                <span id="filingStatusTextCourt">{% trans "Playwright 自动化执行中..." %}</span>
                             </div>
                         </div>
                     </div>
@@ -50,10 +51,10 @@
 
             <div class="filing-controls">
                 <button class="flow-btn flow-btn-play" id="filingPlayBtn" onclick="startFilingAnimation()">
-                    <span>▶</span> 播放演示
+                    <span>▶</span> {% trans "播放演示" %}
                 </button>
                 <button class="flow-btn flow-btn-reset" id="filingResetBtn" onclick="resetFilingAnimation()">
-                    <span>↺</span> 重置
+                    <span>↺</span> {% trans "重置" %}
                 </button>
             </div>
         </div>

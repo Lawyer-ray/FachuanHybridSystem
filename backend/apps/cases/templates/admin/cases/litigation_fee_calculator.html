@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block title %}诉讼费用计算器{% endblock %}
+{% block title %}{% trans "诉讼费用计算器" %}{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -208,14 +208,14 @@
     <div class="calculator-card">
         <div class="calculator-header">
             <div>
-                <h1 class="calculator-title">诉讼费用计算器</h1>
-                <p class="calculator-subtitle">根据《诉讼费用交纳办法》（2007年4月1日施行）计算各类诉讼费用</p>
+                <h1 class="calculator-title">{% trans "诉讼费用计算器" %}</h1>
+                <p class="calculator-subtitle">{% trans "根据《诉讼费用交纳办法》（2007年4月1日施行）计算各类诉讼费用" %}</p>
             </div>
             <a href="{% url 'admin:cases_case_changelist' %}" class="back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                返回案件列表
+                {% trans "返回案件列表" %}
             </a>
         </div>
 
@@ -223,119 +223,119 @@
             {% csrf_token %}
             <div class="form-row">
                 <div class="form-group">
-                    <label for="target_amount">涉案金额（元）</label>
+                    <label for="target_amount">{% trans "涉案金额（元）" %}</label>
                     <input type="number" id="target_amount" name="target_amount"
-                           placeholder="请输入涉案金额" min="0" step="0.01">
+                           placeholder="{% trans '请输入涉案金额' %}" min="0" step="0.01">
                 </div>
                 <div class="form-group">
-                    <label for="preservation_amount">财产保全金额（元）</label>
+                    <label for="preservation_amount">{% trans "财产保全金额（元）" %}</label>
                     <input type="number" id="preservation_amount" name="preservation_amount"
-                           placeholder="请输入财产保全金额" min="0" step="0.01">
+                           placeholder="{% trans '请输入财产保全金额' %}" min="0" step="0.01">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="case_type">案件类型</label>
+                    <label for="case_type">{% trans "案件类型" %}</label>
                     <select id="case_type" name="case_type">
-                        <optgroup label="财产案件">
-                            <option value="property" selected>财产案件（民事）</option>
+                        <optgroup label="{% trans '财产案件' %}">
+                            <option value="property" selected>{% trans "财产案件（民事）" %}</option>
                         </optgroup>
-                        <optgroup label="非财产案件">
-                            <option value="divorce">离婚案件（50-300元）</option>
-                            <option value="personality_rights">人格权侵权案件（100-500元）</option>
-                            <option value="other_non_property">其他非财产案件（50-100元）</option>
+                        <optgroup label="{% trans '非财产案件' %}">
+                            <option value="divorce">{% trans "离婚案件（50-300元）" %}</option>
+                            <option value="personality_rights">{% trans "人格权侵权案件（100-500元）" %}</option>
+                            <option value="other_non_property">{% trans "其他非财产案件（50-100元）" %}</option>
                         </optgroup>
-                        <optgroup label="知识产权案件">
-                            <option value="ip_no_amount">知识产权案件（无争议金额，500-1000元）</option>
-                            <option value="ip_with_amount">知识产权案件（有争议金额，按财产案件）</option>
+                        <optgroup label="{% trans '知识产权案件' %}">
+                            <option value="ip_no_amount">{% trans "知识产权案件（无争议金额，500-1000元）" %}</option>
+                            <option value="ip_with_amount">{% trans "知识产权案件（有争议金额，按财产案件）" %}</option>
                         </optgroup>
-                        <optgroup label="行政案件">
-                            <option value="admin_ip">商标/专利/海事行政案件（100元）</option>
-                            <option value="admin_other">其他行政案件（50元）</option>
+                        <optgroup label="{% trans '行政案件' %}">
+                            <option value="admin_ip">{% trans "商标/专利/海事行政案件（100元）" %}</option>
+                            <option value="admin_other">{% trans "其他行政案件（50元）" %}</option>
                         </optgroup>
-                        <optgroup label="申请费">
-                            <option value="execution">执行案件</option>
-                            <option value="preservation_only">申请保全措施</option>
-                            <option value="payment_order">申请支付令（财产案件1/3）</option>
-                            <option value="public_notice">申请公示催告（100元）</option>
-                            <option value="revoke_arbitration">撤销仲裁裁决/认定仲裁协议效力（400元）</option>
-                            <option value="bankruptcy">破产案件（减半，最高30万）</option>
+                        <optgroup label="{% trans '申请费' %}">
+                            <option value="execution">{% trans "执行案件" %}</option>
+                            <option value="preservation_only">{% trans "申请保全措施" %}</option>
+                            <option value="payment_order">{% trans "申请支付令（财产案件1/3）" %}</option>
+                            <option value="public_notice">{% trans "申请公示催告（100元）" %}</option>
+                            <option value="revoke_arbitration">{% trans "撤销仲裁裁决/认定仲裁协议效力（400元）" %}</option>
+                            <option value="bankruptcy">{% trans "破产案件（减半，最高30万）" %}</option>
                         </optgroup>
-                        <optgroup label="其他">
-                            <option value="labor">劳动争议案件（10元）</option>
-                            <option value="jurisdiction_objection">管辖权异议（50-100元）</option>
+                        <optgroup label="{% trans '其他' %}">
+                            <option value="labor">{% trans "劳动争议案件（10元）" %}</option>
+                            <option value="jurisdiction_objection">{% trans "管辖权异议（50-100元）" %}</option>
                         </optgroup>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>&nbsp;</label>
                     <div class="form-actions">
-                        <button type="submit" class="btn-calculate">计算费用</button>
-                        <button type="button" class="btn-reset" onclick="resetForm()">重置</button>
+                        <button type="submit" class="btn-calculate">{% trans "计算费用" %}</button>
+                        <button type="button" class="btn-reset" onclick="resetForm()">{% trans "重置" %}</button>
                     </div>
                 </div>
             </div>
         </form>
 
         <div class="loading" id="loading">
-            <span>计算中...</span>
+            <span>{% trans "计算中..." %}</span>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
 
         <div class="results-section" id="resultsSection" style="display: none;">
-            <h2 class="results-title">计算结果</h2>
+            <h2 class="results-title">{% trans "计算结果" %}</h2>
             <div id="resultsContainer"></div>
         </div>
 
         <div class="fee-rules">
-            <div class="fee-rules-title">📋 费用计算规则说明（依据《诉讼费用交纳办法》）</div>
+            <div class="fee-rules-title">📋 {% trans "费用计算规则说明（依据《诉讼费用交纳办法》）" %}</div>
             <div class="fee-rules-content">
-                <strong>一、财产案件受理费（分段累计）：</strong><br>
-                • 不超过1万元：50元<br>
-                • 1万-10万元：2.5%<br>
-                • 10万-20万元：2%<br>
-                • 20万-50万元：1.5%<br>
-                • 50万-100万元：1%<br>
-                • 100万-200万元：0.9%<br>
-                • 200万-500万元：0.8%<br>
-                • 500万-1000万元：0.7%<br>
-                • 1000万-2000万元：0.6%<br>
-                • 超过2000万元：0.5%<br><br>
+                <strong>{% trans "一、财产案件受理费（分段累计）：" %}</strong><br>
+                • {% trans "不超过1万元：50元" %}<br>
+                • {% trans "1万-10万元：2.5%" %}<br>
+                • {% trans "10万-20万元：2%" %}<br>
+                • {% trans "20万-50万元：1.5%" %}<br>
+                • {% trans "50万-100万元：1%" %}<br>
+                • {% trans "100万-200万元：0.9%" %}<br>
+                • {% trans "200万-500万元：0.8%" %}<br>
+                • {% trans "500万-1000万元：0.7%" %}<br>
+                • {% trans "1000万-2000万元：0.6%" %}<br>
+                • {% trans "超过2000万元：0.5%" %}<br><br>
 
-                <strong>二、非财产案件：</strong><br>
-                • 离婚案件：50-300元；财产超过20万按0.5%<br>
-                • 人格权侵权：100-500元；赔偿5万-10万按1%，超10万按0.5%<br>
-                • 其他非财产案件：50-100元<br><br>
+                <strong>{% trans "二、非财产案件：" %}</strong><br>
+                • {% trans "离婚案件：50-300元；财产超过20万按0.5%" %}<br>
+                • {% trans "人格权侵权：100-500元；赔偿5万-10万按1%，超10万按0.5%" %}<br>
+                • {% trans "其他非财产案件：50-100元" %}<br><br>
 
-                <strong>三、知识产权案件：</strong><br>
-                • 无争议金额：500-1000元<br>
-                • 有争议金额：按财产案件标准<br><br>
+                <strong>{% trans "三、知识产权案件：" %}</strong><br>
+                • {% trans "无争议金额：500-1000元" %}<br>
+                • {% trans "有争议金额：按财产案件标准" %}<br><br>
 
-                <strong>四、执行案件：</strong><br>
-                • 不超过1万元：50元<br>
-                • 1万-50万元：1.5%<br>
-                • 50万-500万元：1%<br>
-                • 500万-1000万元：0.5%<br>
-                • 超过1000万元：0.1%<br><br>
+                <strong>{% trans "四、执行案件：" %}</strong><br>
+                • {% trans "不超过1万元：50元" %}<br>
+                • {% trans "1万-50万元：1.5%" %}<br>
+                • {% trans "50万-500万元：1%" %}<br>
+                • {% trans "500万-1000万元：0.5%" %}<br>
+                • {% trans "超过1000万元：0.1%" %}<br><br>
 
-                <strong>五、财产保全费：</strong><br>
-                • 不超过1000元：30元<br>
-                • 1000元-10万元：1%<br>
-                • 超过10万元：0.5%<br>
-                • 最高不超过5000元<br><br>
+                <strong>{% trans "五、财产保全费：" %}</strong><br>
+                • {% trans "不超过1000元：30元" %}<br>
+                • {% trans "1000元-10万元：1%" %}<br>
+                • {% trans "超过10万元：0.5%" %}<br>
+                • {% trans "最高不超过5000元" %}<br><br>
 
-                <strong>六、其他费用：</strong><br>
-                • 支付令申请费：财产案件费的1/3<br>
-                • 破产案件：财产案件费减半，最高30万元<br>
-                • 劳动争议：10元<br>
-                • 公示催告：100元<br>
-                • 撤销仲裁裁决：400元<br><br>
+                <strong>{% trans "六、其他费用：" %}</strong><br>
+                • {% trans "支付令申请费：财产案件费的1/3" %}<br>
+                • {% trans "破产案件：财产案件费减半，最高30万元" %}<br>
+                • {% trans "劳动争议：10元" %}<br>
+                • {% trans "公示催告：100元" %}<br>
+                • {% trans "撤销仲裁裁决：400元" %}<br><br>
 
-                <strong>七、减免规定：</strong><br>
-                • 调解结案/撤诉/简易程序：减半<br>
-                • 反诉合并审理：减半
+                <strong>{% trans "七、减免规定：" %}</strong><br>
+                • {% trans "调解结案/撤诉/简易程序：减半" %}<br>
+                • {% trans "反诉合并审理：减半" %}
             </div>
         </div>
     </div>

@@ -1,10 +1,11 @@
+{% load i18n %}
     <!-- 聊天记录梳理流程演示 - 紧凑版 -->
     <section class="chat-record-section" id="chat-record-flow">
         <div class="chat-record-container">
             <div class="section-header reveal">
-                <span class="section-tag">💬 证据整理</span>
-                <h2 class="section-title">聊天记录智能梳理</h2>
-                <p class="section-desc">从视频录制到证据材料，AI 驱动的聊天记录取证全流程</p>
+                <span class="section-tag">💬 {% trans "证据整理" %}</span>
+                <h2 class="section-title">{% trans "聊天记录智能梳理" %}</h2>
+                <p class="section-desc">{% trans "从视频录制到证据材料，AI 驱动的聊天记录取证全流程" %}</p>
             </div>
 
             <div class="chat-flow-compact" id="chatFlowDemo">
@@ -12,11 +13,11 @@
                 <div class="chat-col chat-col-upload" id="chatColUpload">
                     <div class="chat-col-header">
                         <span class="chat-col-num">1</span>
-                        <span class="chat-col-title">上传录屏</span>
+                        <span class="chat-col-title">{% trans "上传录屏" %}</span>
                     </div>
                     <div class="chat-upload-box" id="chatUploadBox">
                         <div class="chat-upload-icon">📹</div>
-                        <div class="chat-upload-text">微信/QQ 录屏</div>
+                        <div class="chat-upload-text">{% trans "微信/QQ 录屏" %}</div>
                         <div class="chat-upload-progress" id="chatUploadProgress">
                             <div class="chat-progress-bar"></div>
                         </div>
@@ -38,14 +39,14 @@
                 <div class="chat-col chat-col-ai" id="chatColAi">
                     <div class="chat-col-header">
                         <span class="chat-col-num">2</span>
-                        <span class="chat-col-title">AI 解析</span>
-                        <span class="chat-ai-badge">本地</span>
+                        <span class="chat-col-title">AI {% trans "解析" %}</span>
+                        <span class="chat-ai-badge">{% trans "本地" %}</span>
                     </div>
                     <div class="chat-ai-tasks">
-                        <div class="chat-ai-task" id="chatAiTask1"><span>🎬</span> 视频解码</div>
-                        <div class="chat-ai-task" id="chatAiTask2"><span>🔍</span> 场景检测</div>
-                        <div class="chat-ai-task" id="chatAiTask3"><span>🧹</span> 去重过滤</div>
-                        <div class="chat-ai-task" id="chatAiTask4"><span>📝</span> OCR 识别</div>
+                        <div class="chat-ai-task" id="chatAiTask1"><span>🎬</span> {% trans "视频解码" %}</div>
+                        <div class="chat-ai-task" id="chatAiTask2"><span>🔍</span> {% trans "场景检测" %}</div>
+                        <div class="chat-ai-task" id="chatAiTask3"><span>🧹</span> {% trans "去重过滤" %}</div>
+                        <div class="chat-ai-task" id="chatAiTask4"><span>📝</span> OCR {% trans "识别" %}</div>
                     </div>
                 </div>
 
@@ -56,7 +57,7 @@
                 <div class="chat-col chat-col-frames" id="chatColFrames">
                     <div class="chat-col-header">
                         <span class="chat-col-num">3</span>
-                        <span class="chat-col-title">智能截帧</span>
+                        <span class="chat-col-title">{% trans "智能截帧" %}</span>
                     </div>
                     <div class="chat-frames-mini">
                         <div class="chat-frame-mini" data-frame="1"></div>
@@ -69,7 +70,7 @@
                         <div class="chat-frame-mini" data-frame="6"></div>
                     </div>
                     <div class="chat-frames-stat">
-                        <span id="chatFrameCount">0</span> 帧 · <span id="chatDupCount">0</span> 去重
+                        <span id="chatFrameCount">0</span> {% trans "帧" %} · <span id="chatDupCount">0</span> {% trans "去重" %}
                     </div>
                 </div>
 
@@ -80,13 +81,13 @@
                 <div class="chat-col chat-col-export" id="chatColExport">
                     <div class="chat-col-header">
                         <span class="chat-col-num">4</span>
-                        <span class="chat-col-title">导出 PDF</span>
+                        <span class="chat-col-title">{% trans "导出 PDF" %}</span>
                     </div>
                     <div class="chat-export-file" id="chatExportFile">
                         <div class="chat-export-icon">📄</div>
                         <div class="chat-export-info">
-                            <div class="chat-export-name">证据材料.pdf</div>
-                            <div class="chat-export-meta">12页 · 含OCR</div>
+                            <div class="chat-export-name">{% trans "证据材料.pdf" %}</div>
+                            <div class="chat-export-meta">12{% trans "页" %} · {% trans "含OCR" %}</div>
                         </div>
                     </div>
                 </div>
@@ -95,10 +96,10 @@
             <!-- 控制按钮 -->
             <div class="chat-flow-controls">
                 <button class="flow-btn flow-btn-play" id="chatFlowPlayBtn" onclick="startChatFlowAnimation()">
-                    <span>▶</span> 播放演示
+                    <span>▶</span> {% trans "播放演示" %}
                 </button>
                 <button class="flow-btn flow-btn-reset" id="chatFlowResetBtn" onclick="resetChatFlowAnimation()">
-                    <span>↺</span> 重置
+                    <span>↺</span> {% trans "重置" %}
                 </button>
             </div>
         </div>

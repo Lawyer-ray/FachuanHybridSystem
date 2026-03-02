@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}梳理聊天记录工作台{% endblock %}
+{% block title %}{% trans "梳理聊天记录工作台" %}{% endblock %}
 
 {% block content_title %}{% endblock %}
 
@@ -12,9 +12,9 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">首页</a>
-    &rsaquo; <a href="{% url 'admin:chat_records_chatrecordproject_changelist' %}">梳理聊天记录</a>
-    &rsaquo; 工作台
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:chat_records_chatrecordproject_changelist' %}">{% trans "梳理聊天记录" %}</a>
+    &rsaquo; {% trans "工作台" %}
 </div>
 {% endblock %}
 
@@ -26,22 +26,22 @@
 >
     <div class="crw-header" x-show="lockedMode" x-cloak>
         <div>
-            <h1 class="crw-title">梳理聊天记录工作台</h1>
-            <div class="crw-subtitle">上传录屏后后台按可配置间隔自动截帧，支持手动截取当前帧，拖拽排序并导出 PDF/Word。</div>
+            <h1 class="crw-title">{% trans "梳理聊天记录工作台" %}</h1>
+            <div class="crw-subtitle">{% trans "上传录屏后后台按可配置间隔自动截帧，支持手动截取当前帧，拖拽排序并导出 PDF/Word。" %}</div>
             <div class="crw-badges">
-                <span class="crw-badge">项目：{{ project.name }}</span>
-                <span class="crw-badge crw-badge-muted"><span x-text="screenshots.length"></span> 张截图</span>
+                <span class="crw-badge">{% trans "项目" %}：{{ project.name }}</span>
+                <span class="crw-badge crw-badge-muted"><span x-text="screenshots.length"></span> {% trans "张截图" %}</span>
             </div>
         </div>
         <div class="crw-actions">
-            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordrecording_changelist' %}" target="_blank">录屏列表</a>
-            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordexporttask_changelist' %}" target="_blank">导出任务</a>
-            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordscreenshot_changelist' %}" target="_blank">截图列表</a>
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordrecording_changelist' %}" target="_blank">{% trans "录屏列表" %}</a>
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordexporttask_changelist' %}" target="_blank">{% trans "导出任务" %}</a>
+            <a class="button crw-btn crw-btn-ghost" href="{% url 'admin:chat_records_chatrecordscreenshot_changelist' %}" target="_blank">{% trans "截图列表" %}</a>
         </div>
     </div>
 
     <div class="crw-landing" x-show="!lockedMode" x-cloak>
-        <div class="crw-landing-title">梳理聊天记录</div>
+        <div class="crw-landing-title">{% trans "梳理聊天记录" %}</div>
         <div class="crw-dropzone crw-dropzone-lg" @dragover.prevent @drop.prevent="onDropUpload($event)">
             <input type="file" accept="video/*,image/*" multiple class="crw-dropzone-input" @change="onUploadFileSelected($event)" />
             <div class="crw-dropzone-inner">
@@ -50,17 +50,17 @@
                         <path d="M12 4v16m-8-8h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </div>
-                <div class="crw-dropzone-title crw-dropzone-title-lg">点击或拖拽上传文件</div>
-                <div class="crw-dropzone-sub crw-dropzone-sub-lg">支持视频与图片</div>
+                <div class="crw-dropzone-title crw-dropzone-title-lg">{% trans "点击或拖拽上传文件" %}</div>
+                <div class="crw-dropzone-sub crw-dropzone-sub-lg">{% trans "支持视频与图片" %}</div>
             </div>
         </div>
 
         <div x-show="recordingUploading || imagesUploading" class="crw-uploading crw-uploading-lg">
-            <div class="crw-uploading-title">上传中...</div>
+            <div class="crw-uploading-title">{% trans "上传中..." %}</div>
             <div class="crw-uploading-bar"><div class="crw-uploading-bar-fill"></div></div>
         </div>
 
-        <button type="button" class="button crw-cta" disabled>开始解析</button>
+        <button type="button" class="button crw-cta" disabled>{% trans "开始解析" %}</button>
 
         <div class="crw-features">
             <div class="crw-feature">
@@ -70,7 +70,7 @@
                         <path d="M6 3h12a2 2 0 0 1 2 2v14l-4-2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                     </svg>
                 </div>
-                <div class="crw-feature-text">视频自动截帧</div>
+                <div class="crw-feature-text">{% trans "视频自动截帧" %}</div>
             </div>
             <div class="crw-feature">
                 <div class="crw-feature-icon">
@@ -79,7 +79,7 @@
                         <path d="M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <div class="crw-feature-text">自动排序</div>
+                <div class="crw-feature-text">{% trans "自动排序" %}</div>
             </div>
             <div class="crw-feature">
                 <div class="crw-feature-icon">
@@ -89,7 +89,7 @@
                         <path d="M5 9h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <div class="crw-feature-text">一键生成PDF、DOCX</div>
+                <div class="crw-feature-text">{% trans "一键生成PDF、DOCX" %}</div>
             </div>
         </div>
     </div>
@@ -98,8 +98,8 @@
         <div class="crw-left">
         <div class="crw-card">
             <div class="crw-card-header">
-                <div class="crw-card-title">录屏与预览</div>
-                <div class="crw-muted" x-show="recordingsLoading">加载录屏中...</div>
+                <div class="crw-card-title">{% trans "录屏与预览" %}</div>
+                <div class="crw-muted" x-show="recordingsLoading">{% trans "加载录屏中..." %}</div>
             </div>
             <div class="crw-card-body">
                 <div class="crw-section">
@@ -108,49 +108,49 @@
                     <div x-show="lockedMode === 'video'" class="crw-section">
                         <div class="crw-row">
                             <div class="crw-field" style="min-width: 260px; flex: 1;">
-                                <div class="crw-label">当前视频</div>
+                                <div class="crw-label">{% trans "当前视频" %}</div>
                                 <div class="crw-muted" x-text="currentRecordingName"></div>
                             </div>
                             <div class="crw-field" style="min-width: 170px;">
-                                <div class="crw-label">抽帧策略</div>
+                                <div class="crw-label">{% trans "抽帧策略" %}</div>
                                 <select class="crw-select" x-model="extractStrategy">
-                                    <option value="interval">固定间隔</option>
-                                    <option value="scene">画面变化优先</option>
-                                    <option value="smart">智能去重（更强）</option>
-                                    <option value="keyframe">关键帧（I帧）</option>
-                                    <option value="ocr">OCR 文本变化优先（最强）</option>
+                                    <option value="interval">{% trans "固定间隔" %}</option>
+                                    <option value="scene">{% trans "画面变化优先" %}</option>
+                                    <option value="smart">{% trans "智能去重（更强）" %}</option>
+                                    <option value="keyframe">{% trans "关键帧（I帧）" %}</option>
+                                    <option value="ocr">{% trans "OCR 文本变化优先（最强）" %}</option>
                                 </select>
                             </div>
                             <div class="crw-field" style="min-width: 180px;" x-show="extractStrategy === 'interval' || extractStrategy === 'ocr'">
-                                <div class="crw-label">截帧间隔（秒）</div>
+                                <div class="crw-label">{% trans "截帧间隔（秒）" %}</div>
                                 <input type="number" class="crw-input" x-model="extractIntervalSeconds" step="0.1" min="0.1" placeholder="例如：1.5" />
                             </div>
                             <div class="crw-field" style="min-width: 190px;" x-show="extractStrategy === 'ocr'">
-                                <div class="crw-label">OCR 敏感度</div>
+                                <div class="crw-label">{% trans "OCR 敏感度" %}</div>
                                 <select class="crw-select" x-model="ocrSensitivity">
-                                    <option value="aggressive">激进（去重更狠）</option>
-                                    <option value="balanced">平衡</option>
-                                    <option value="conservative">保守（保留更多）</option>
+                                    <option value="aggressive">{% trans "激进（去重更狠）" %}</option>
+                                    <option value="balanced">{% trans "平衡" %}</option>
+                                    <option value="conservative">{% trans "保守（保留更多）" %}</option>
                                 </select>
                             </div>
                             <div class="crw-field" style="min-width: 170px;">
-                                <div class="crw-label">去重强度</div>
+                                <div class="crw-label">{% trans "去重强度" %}</div>
                                 <select class="crw-select" x-model="dedupStrength">
-                                    <option value="off">关闭</option>
-                                    <option value="weak">弱</option>
-                                    <option value="medium">中</option>
-                                    <option value="strong">强</option>
-                                    <option value="extreme">极强</option>
+                                    <option value="off">{% trans "关闭" %}</option>
+                                    <option value="weak">{% trans "弱" %}</option>
+                                    <option value="medium">{% trans "中" %}</option>
+                                    <option value="strong">{% trans "强" %}</option>
+                                    <option value="extreme">{% trans "极强" %}</option>
                                 </select>
                             </div>
                         </div>
                         <div class="crw-row crw-row-actions">
                             <button type="button" class="button crw-btn crw-btn-primary" @click="startExtract()" :disabled="extracting || !selectedRecordingId">
-                                <span x-show="!extracting">开始解析</span>
-                                <span x-show="extracting">提交中...</span>
+                                <span x-show="!extracting">{% trans "开始解析" %}</span>
+                                <span x-show="extracting">{% trans "提交中..." %}</span>
                             </button>
-                            <button type="button" class="button crw-btn crw-btn-danger" @click="cancelExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">取消</button>
-                            <button type="button" class="button crw-btn crw-btn-ghost" @click="resetExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">重置</button>
+                            <button type="button" class="button crw-btn crw-btn-danger" @click="cancelExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">{% trans "取消" %}</button>
+                            <button type="button" class="button crw-btn crw-btn-ghost" @click="resetExtract()" x-show="selectedRecordingId && ['pending','running'].includes(String(recordingStatus || ''))">{% trans "重置" %}</button>
                         </div>
 
                         <div x-show="selectedRecordingId" class="crw-progress">
@@ -171,15 +171,15 @@
                         <canvas x-ref="canvas" style="display:none;"></canvas>
                         <div class="crw-row" style="justify-content: flex-start;">
                             <button type="button" class="button crw-btn crw-btn-primary" @click="captureAndUpload()" :disabled="uploading || !videoReady">
-                                <span x-show="!uploading">截取当前帧</span>
-                                <span x-show="uploading">上传中...</span>
+                                <span x-show="!uploading">{% trans "截取当前帧" %}</span>
+                                <span x-show="uploading">{% trans "上传中..." %}</span>
                             </button>
-                            <span class="crw-muted">按当前时间自动插入到对应位置</span>
+                            <span class="crw-muted">{% trans "按当前时间自动插入到对应位置" %}</span>
                         </div>
                     </div>
 
                     <div x-show="lockedMode === 'images'" class="crw-row">
-                        <div class="crw-muted">当前为图片模式，可在右侧查看与排序截图</div>
+                        <div class="crw-muted">{% trans "当前为图片模式，可在右侧查看与排序截图" %}</div>
                     </div>
 
                     <div x-show="error" class="crw-error" x-text="error"></div>
@@ -191,46 +191,46 @@
         <div class="crw-right">
         <div class="crw-card">
             <div class="crw-card-header">
-                <div class="crw-card-title">导出与截图列表</div>
+                <div class="crw-card-title">{% trans "导出与截图列表" %}</div>
                 <div class="crw-actions">
-                    <button type="button" class="button crw-btn crw-btn-ghost" @click="refreshScreenshots()" :disabled="loadingList">刷新列表</button>
+                    <button type="button" class="button crw-btn crw-btn-ghost" @click="refreshScreenshots()" :disabled="loadingList">{% trans "刷新列表" %}</button>
                 </div>
             </div>
             <div class="crw-card-body">
                 <div class="crw-section">
                     <div class="crw-split">
                         <div class="crw-field">
-                            <div class="crw-label">类型</div>
+                            <div class="crw-label">{% trans "类型" %}</div>
                             <select class="crw-select" x-model="exportType" @change="normalizeImagesPerPage()">
                                 <option value="pdf">PDF</option>
                                 <option value="docx">Word</option>
                             </select>
                         </div>
                         <div class="crw-field">
-                            <div class="crw-label">每页张数</div>
+                            <div class="crw-label">{% trans "每页张数" %}</div>
                             <select class="crw-select" x-model="imagesPerPage">
                                 <option value="1">1</option>
                                 <option value="2">2</option>
                             </select>
                         </div>
                         <div class="crw-field">
-                            <div class="crw-label">页眉（可空，默认项目名）</div>
+                            <div class="crw-label">{% trans "页眉（可空，默认项目名）" %}</div>
                             <input class="crw-input" type="text" x-model="headerText" />
                         </div>
                         <div class="crw-row" style="justify-content: flex-end;">
                             <label class="crw-muted" style="display:flex; align-items:center; gap:8px;">
                                 <input type="checkbox" x-model="showPageNumber" />
-                                <span>显示页码</span>
+                                <span>{% trans "显示页码" %}</span>
                             </label>
                         </div>
                     </div>
 
                     <div class="crw-row">
                         <button type="button" class="button crw-btn crw-btn-primary" @click="startExport()" :disabled="exporting || screenshots.length === 0">
-                            <span x-show="!exporting">开始导出</span>
-                            <span x-show="exporting">导出中...</span>
+                            <span x-show="!exporting">{% trans "开始导出" %}</span>
+                            <span x-show="exporting">{% trans "导出中..." %}</span>
                         </button>
-                        <a x-show="downloadUrl" :href="downloadUrl" class="button crw-btn crw-btn-ghost" target="_blank">下载</a>
+                        <a x-show="downloadUrl" :href="downloadUrl" class="button crw-btn crw-btn-ghost" target="_blank">{% trans "下载" %}</a>
                     </div>
 
                     <div x-show="exportTaskId" class="crw-progress">
@@ -250,10 +250,10 @@
                     <div class="crw-divider"></div>
 
                     <div class="crw-list-toolbar">
-                        <div class="crw-card-title">截图列表（拖拽排序）</div>
-                        <div class="crw-muted" x-show="loadingList">加载中...</div>
+                        <div class="crw-card-title">{% trans "截图列表（拖拽排序）" %}</div>
+                        <div class="crw-muted" x-show="loadingList">{% trans "加载中..." %}</div>
                     </div>
-                    <div x-show="!loadingList && screenshots.length === 0" class="crw-muted">暂无截图</div>
+                    <div x-show="!loadingList && screenshots.length === 0" class="crw-muted">{% trans "暂无截图" %}</div>
 
                     <div class="crw-wall">
                         <template x-for="(shot, idx) in screenshots" :key="shot.id">
@@ -274,8 +274,8 @@
                                 </div>
                                 <div class="crw-tile-actions">
                                     <button type="button" class="button crw-btn crw-btn-danger" @click="removeShot(shot)" :disabled="shot.deleting">
-                                        <span x-show="!shot.deleting">删除</span>
-                                        <span x-show="shot.deleting">删除中...</span>
+                                        <span x-show="!shot.deleting">{% trans "删除" %}</span>
+                                        <span x-show="shot.deleting">{% trans "删除中..." %}</span>
                                     </button>
                                 </div>
                             </div>
@@ -291,7 +291,7 @@
         <div class="crw-modal-card" @click.away="closePreview()">
             <div class="crw-modal-top">
                 <div x-text="previewTitle"></div>
-                <button type="button" class="crw-modal-close" @click="closePreview()">关闭</button>
+                <button type="button" class="crw-modal-close" @click="closePreview()">{% trans "关闭" %}</button>
             </div>
             <div class="crw-modal-body">
                 <img :src="previewUrl" />

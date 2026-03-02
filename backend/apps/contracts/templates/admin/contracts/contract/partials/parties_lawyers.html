@@ -2,11 +2,11 @@
 <!-- 当事人与律师标签页 -->
 <div x-show="activeTab === 'parties'" x-cloak x-data="partiesDrawer()">
     <div class="info-grid two-columns">
-        <!-- 合同当事人卡片 -->
+        <!-- {% trans "合同当事人" %}卡片 -->
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">👥</span>
-                <h3 class="card-title">合同当事人</h3>
+                <h3 class="card-title">{% trans "合同当事人" %}</h3>
             </div>
             {% if contract_parties %}
             <div class="party-list">
@@ -31,15 +31,15 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无当事人信息</p>
+            <p class="empty-state">{% trans "暂无当事人信息" %}</p>
             {% endif %}
         </div>
 
-        <!-- 律师指派卡片 -->
+        <!-- {% trans "律师指派" %}卡片 -->
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">⚖️</span>
-                <h3 class="card-title">律师指派</h3>
+                <h3 class="card-title">{% trans "律师指派" %}</h3>
             </div>
             {% if assignments %}
             <div class="lawyer-list">
@@ -56,13 +56,13 @@
                          isPrimary: {{ assignment.is_primary|yesno:"true,false" }}
                      })">
                     <span class="lawyer-name">{{ assignment.lawyer.real_name|default:assignment.lawyer.username }}</span>
-                    {% if assignment.is_primary %}<span class="primary-badge">主办</span>{% endif %}
+                    {% if assignment.is_primary %}<span class="primary-badge">{% trans "主办" %}</span>{% endif %}
                     <span class="view-detail-icon">→</span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无律师指派</p>
+            <p class="empty-state">暂无{% trans "律师指派" %}</p>
             {% endif %}
         </div>
     </div>
@@ -74,7 +74,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📝</span>
-                <h3 class="card-title">{{ agreement.name|default:"未命名补充协议" }}当事人</h3>
+                <h3 class="card-title">{{ agreement.name|default:_("未命名补充协议") }} {% trans "当事人" %}</h3>
                 <span class="card-date" style="margin-left: auto; font-size: 13px; color: #6b7280;">{{ agreement.created_at|date:"Y-m-d" }}</span>
             </div>
             {% if agreement.parties.all %}
@@ -100,7 +100,7 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无当事人信息</p>
+            <p class="empty-state">{% trans "暂无当事人信息" %}</p>
             {% endif %}
         </div>
         {% endfor %}
@@ -120,22 +120,22 @@
             <div class="drawer-body">
                 <!-- 基本信息 -->
                 <div class="detail-section">
-                    <div class="detail-label">主体类型</div>
+                    <div class="detail-label">{% trans "主体类型" %}</div>
                     <div class="detail-value" x-text="currentParty.clientTypeDisplay"></div>
                 </div>
                 <div class="detail-section">
-                    <div class="detail-label">当事人角色</div>
+                    <div class="detail-label">{% trans "当事人角色" %}</div>
                     <div class="detail-value" x-text="currentParty.role"></div>
                 </div>
                 <div class="detail-section">
-                    <div class="detail-label">当事人类型</div>
-                    <div class="detail-value" x-text="currentParty.isOurClient ? '我方当事人' : '对方当事人'"></div>
+                    <div class="detail-label">{% trans "当事人类型" %}</div>
+                    <div class="detail-value" x-text="currentParty.isOurClient ? {% trans '我方当事人' %} : {% trans '对方当事人' %}"></div>
                 </div>
 
                 <!-- 自然人：身份证号码 -->
                 <template x-if="currentParty.clientType === 'natural' && currentParty.idNumber">
                     <div class="detail-section">
-                        <div class="detail-label">身份证号码</div>
+                        <div class="detail-label">{% trans "身份证号码" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
                     </div>
                 </template>
@@ -143,7 +143,7 @@
                 <!-- 法人/非法人组织：统一社会信用代码 -->
                 <template x-if="currentParty.clientType !== 'natural' && currentParty.idNumber">
                     <div class="detail-section">
-                        <div class="detail-label">统一社会信用代码</div>
+                        <div class="detail-label">{% trans "统一社会信用代码" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.idNumber)" x-text="currentParty.idNumber"></div>
                     </div>
                 </template>
@@ -151,7 +151,7 @@
                 <!-- 联系电话 -->
                 <template x-if="currentParty.phone">
                     <div class="detail-section">
-                        <div class="detail-label">联系电话</div>
+                        <div class="detail-label">{% trans "联系电话" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.phone)" x-text="currentParty.phone"></div>
                     </div>
                 </template>
@@ -159,7 +159,7 @@
                 <!-- 住所地 -->
                 <template x-if="currentParty.address">
                     <div class="detail-section">
-                        <div class="detail-label">住所地</div>
+                        <div class="detail-label">{% trans "住所地" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.address)" x-text="currentParty.address"></div>
                     </div>
                 </template>
@@ -174,13 +174,13 @@
                 </template>
                 <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
                     <div class="detail-section">
-                        <div class="detail-label">姓名</div>
+                        <div class="detail-label">{% trans "姓名" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.legalRepName)" x-text="currentParty.legalRepName"></div>
                     </div>
                 </template>
                 <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepIdNumber">
                     <div class="detail-section">
-                        <div class="detail-label">身份证号码</div>
+                        <div class="detail-label">{% trans "身份证号码" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentParty.legalRepIdNumber)" x-text="currentParty.legalRepIdNumber"></div>
                     </div>
                 </template>
@@ -192,7 +192,7 @@
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
-                        复制全部
+                        {% trans "复制全部" %}
                     </button>
                 </div>
             </div>
@@ -211,48 +211,48 @@
             </div>
             <div class="drawer-body">
                     <div class="detail-section">
-                        <div class="detail-label">姓名</div>
+                        <div class="detail-label">{% trans "姓名" %}</div>
                         <div class="detail-value copyable" @click="copyText(currentLawyer.name)" x-text="currentLawyer.name"></div>
                     </div>
                     <template x-if="currentLawyer.isPrimary">
                         <div class="detail-section">
-                            <div class="detail-label">角色</div>
-                            <div class="detail-value"><span class="primary-badge">主办律师</span></div>
+                            <div class="detail-label">{% trans "角色" %}</div>
+                            <div class="detail-value"><span class="primary-badge">{% trans "主办律师" %}</span></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.username && currentLawyer.username !== currentLawyer.name">
                         <div class="detail-section">
-                            <div class="detail-label">用户名</div>
+                            <div class="detail-label">{% trans "用户名" %}</div>
                             <div class="detail-value" x-text="currentLawyer.username"></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.phone">
                         <div class="detail-section">
-                            <div class="detail-label">联系电话</div>
+                            <div class="detail-label">{% trans "联系电话" %}</div>
                             <div class="detail-value copyable" @click="copyText(currentLawyer.phone)" x-text="currentLawyer.phone"></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.email">
                         <div class="detail-section">
-                            <div class="detail-label">邮箱</div>
+                            <div class="detail-label">{% trans "邮箱" %}</div>
                             <div class="detail-value copyable" @click="copyText(currentLawyer.email)" x-text="currentLawyer.email"></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.idCard">
                         <div class="detail-section">
-                            <div class="detail-label">身份证号码</div>
+                            <div class="detail-label">{% trans "身份证号码" %}</div>
                             <div class="detail-value copyable" @click="copyText(currentLawyer.idCard)" x-text="currentLawyer.idCard"></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.licenseNo">
                         <div class="detail-section">
-                            <div class="detail-label">执业证号</div>
+                            <div class="detail-label">{% trans "执业证号" %}</div>
                             <div class="detail-value copyable" @click="copyText(currentLawyer.licenseNo)" x-text="currentLawyer.licenseNo"></div>
                         </div>
                     </template>
                     <template x-if="currentLawyer.lawFirm">
                         <div class="detail-section">
-                            <div class="detail-label">所属律所</div>
+                            <div class="detail-label">{% trans "所属律所" %}</div>
                             <div class="detail-value" x-text="currentLawyer.lawFirm"></div>
                         </div>
                     </template>
@@ -264,7 +264,7 @@
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                             </svg>
-                            复制全部
+                            {% trans "复制全部" %}
                         </button>
                     </div>
                 </div>

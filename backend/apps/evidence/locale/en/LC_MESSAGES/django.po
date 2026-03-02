@@ -1,0 +1,671 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/evidence/admin/evidence/inlines.py:35
+#: apps/evidence/models/evidence.py:293
+msgid "序号"
+msgstr "No."
+
+#: apps/evidence/admin/evidence/inlines.py:42
+#: apps/evidence/admin/evidence/mixins/views.py:164
+msgid "页码范围"
+msgstr "Page Range"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:17
+msgid "合并选中清单的 PDF"
+msgstr "Merge Selected Lists to PDF"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:59
+#, python-format
+msgid "清单 %(id)s 提交失败: %(e)s"
+msgstr "List %(id)s submission failed: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:62
+#, python-format
+msgid "已提交 %(n)s 个合并任务"
+msgstr "Submitted %(n)s merge tasks"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:64
+#, python-format
+msgid "%(n)s 个清单正在合并中,已跳过"
+msgstr "%(n)s lists are being merged, skipped"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:66
+#, python-format
+msgid "%(n)s 个清单没有文件,已跳过"
+msgstr "%(n)s lists have no files, skipped"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:68
+#, python-format
+msgid "%(n)s 个清单提交失败"
+msgstr "%(n)s lists failed to submit"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:70
+msgid "导出选中清单的 Word"
+msgstr "Export Selected Lists to Word"
+
+#: apps/evidence/admin/evidence/mixins/actions.py:81
+msgid "导出选中清单的 ZIP"
+msgstr "Export Selected Lists to ZIP"
+
+#: apps/evidence/admin/evidence/mixins/save.py:84
+#, python-format
+msgid "保存过程出错: %(e)s"
+msgstr "Error during save: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/save.py:92
+#, python-format
+msgid "表单 %(i)s 错误: %(err)s"
+msgstr "Form %(i)s error: %(err)s"
+
+#: apps/evidence/admin/evidence/mixins/save.py:105
+#, python-format
+msgid "保存失败: %(e)s"
+msgstr "Save failed: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/save.py:116
+#, python-format
+msgid "删除失败: %(e)s"
+msgstr "Delete failed: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/save.py:157
+#, python-format
+msgid "文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s"
+msgstr ""
+"File %(n)s page count recognition failed, will process as %(p)s pages: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/save.py:169
+#, python-format
+msgid "文件 %(n)s 页数识别失败: %(e)s"
+msgstr "File %(n)s page count recognition failed: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/views.py:48
+#: apps/evidence/models/evidence.py:141
+msgid "总页数"
+msgstr "Total Pages"
+
+#: apps/evidence/admin/evidence/mixins/views.py:153
+#: apps/evidence/models/evidence.py:100 apps/evidence/models/group.py:19
+#: apps/evidence/models/hearing_note.py:19
+msgid "案件"
+msgstr "Cases"
+
+#: apps/evidence/admin/evidence/mixins/views.py:158
+#: apps/evidence/admin/group_admin.py:20
+msgid "证据数量"
+msgstr "Evidence Count"
+
+#: apps/evidence/admin/evidence/mixins/views.py:169
+msgid "序号范围"
+msgstr "Number Range"
+
+#: apps/evidence/admin/evidence/mixins/views.py:174
+#: apps/evidence/models/evidence.py:153
+msgid "合并状态"
+msgstr "Merge Status"
+
+#: apps/evidence/admin/evidence/mixins/views.py:287
+#, python-format
+msgid "提交合并任务失败: %(e)s"
+msgstr "Failed to submit merge task: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/views.py:347
+#, python-format
+msgid "导出失败: %(e)s"
+msgstr "Export failed: %(e)s"
+
+#: apps/evidence/admin/evidence/mixins/views.py:395
+#, python-format
+msgid "已重新识别 %(n)s 个文件的页数,总页数:%(p)s"
+msgstr "Re-recognized page count for %(n)s files, total pages: %(p)s"
+
+#: apps/evidence/admin/evidence/mixins/views.py:407
+#, python-format
+msgid "识别页数失败: %(e)s"
+msgstr "Page count recognition failed: %(e)s"
+
+#: apps/evidence/admin/evidence_admin.py:65
+msgid "自动计算信息"
+msgstr "Auto-calculated Info"
+
+#: apps/evidence/admin/evidence_admin.py:68
+msgid "以下信息由系统自动计算,无需手动填写."
+msgstr ""
+"The following information is automatically calculated by the system, no "
+"manual input required."
+
+#: apps/evidence/admin/evidence_admin.py:72
+#: apps/evidence/models/evidence.py:136
+msgid "合并PDF"
+msgstr "Merge PDF"
+
+#: apps/evidence/admin/evidence_admin.py:75
+msgid "点击列表页的「合并」按钮将证据文件合并为PDF."
+msgstr ""
+"Click the 'Merge' button on the list page to merge evidence files into PDF."
+
+#: apps/evidence/admin/evidence_admin.py:79
+msgid "导出设置"
+msgstr "Export Settings"
+
+#: apps/evidence/admin/evidence_admin.py:82
+msgid ""
+"导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格"
+"式."
+msgstr ""
+
+#: apps/evidence/admin/evidence_admin.py:87
+#: apps/evidence/admin/evidence_item_admin.py:47
+msgid "系统信息"
+msgstr "System Info"
+
+#: apps/evidence/admin/evidence_admin.py:99
+msgid "开庭"
+msgstr "Hearing"
+
+#: apps/evidence/admin/evidence_item_admin.py:27
+msgid "证据属性"
+msgstr "Evidence Attributes"
+
+#: apps/evidence/admin/evidence_item_admin.py:30
+#: apps/evidence/models/evidence.py:369
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:107
+msgid "三性说明"
+msgstr "Three-Property Statement"
+
+#: apps/evidence/admin/evidence_item_admin.py:32
+msgid ""
+"格式: {\"authenticity\": {\"opinion\": \"认可\", \"reason\": \"...\"}, "
+"\"legality\": {...}, \"relevance\": {...}}"
+msgstr ""
+
+#: apps/evidence/admin/evidence_item_admin.py:35
+#: apps/evidence/models/evidence.py:375
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:113
+msgid "质证意见"
+msgstr "Cross-examination Opinion"
+
+#: apps/evidence/admin/evidence_item_admin.py:37
+msgid "对方证据的质证意见，格式同三性说明"
+msgstr ""
+"Cross-examination opinion on opposing evidence, same format as three-"
+"property statement"
+
+#: apps/evidence/admin/evidence_item_admin.py:40
+msgid "文件信息"
+msgstr "File Info"
+
+#: apps/evidence/admin/evidence_item_admin.py:43
+msgid "OCR / AI"
+msgstr "OCR / AI"
+
+#: apps/evidence/admin/evidence_item_admin.py:53
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:100
+msgid "页码"
+msgstr "Page No."
+
+#: apps/evidence/admin/hearing_note_admin.py:20
+msgid "内容"
+msgstr "Content"
+
+#: apps/evidence/admin/hearing_note_admin.py:24
+#: apps/evidence/models/group.py:28 apps/evidence/models/hearing_note.py:26
+msgid "关联证据"
+msgstr "Related Evidence"
+
+#: apps/evidence/apps.py:10
+msgid "证据管理"
+msgstr "Evidence Management"
+
+#: apps/evidence/models/enums.py:10
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:65
+msgid "我方证据"
+msgstr "Our Evidence"
+
+#: apps/evidence/models/enums.py:11
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:66
+msgid "对方证据"
+msgstr "Opposing Evidence"
+
+#: apps/evidence/models/enums.py:12
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:67
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:93
+msgid "法院调取"
+msgstr "Court Retrieval"
+
+#: apps/evidence/models/enums.py:18
+msgid "书证"
+msgstr "Documentary Evidence"
+
+#: apps/evidence/models/enums.py:19
+msgid "物证"
+msgstr "Physical Evidence"
+
+#: apps/evidence/models/enums.py:20
+msgid "视听资料"
+msgstr "Audio-Visual Material"
+
+#: apps/evidence/models/enums.py:21
+msgid "电子数据"
+msgstr "Electronic Data"
+
+#: apps/evidence/models/enums.py:22
+msgid "证人证言"
+msgstr "Witness Testimony"
+
+#: apps/evidence/models/enums.py:23
+msgid "鉴定意见"
+msgstr "Expert Opinion"
+
+#: apps/evidence/models/enums.py:24
+msgid "勘验笔录"
+msgstr "Inspection Record"
+
+#: apps/evidence/models/enums.py:25
+msgid "当事人陈述"
+msgstr "Party Statement"
+
+#: apps/evidence/models/enums.py:31
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:95
+msgid "有原件"
+msgstr "Has Original"
+
+#: apps/evidence/models/enums.py:32
+msgid "仅复印件"
+msgstr "Copy Only"
+
+#: apps/evidence/models/enums.py:33
+msgid "电子原件"
+msgstr "Electronic Original"
+
+#: apps/evidence/models/evidence.py:25
+msgid "待合并"
+msgstr "Pending Merge"
+
+#: apps/evidence/models/evidence.py:26
+msgid "合并中"
+msgstr "Merging"
+
+#: apps/evidence/models/evidence.py:27
+msgid "已完成"
+msgstr "Completed"
+
+#: apps/evidence/models/evidence.py:28
+msgid "失败"
+msgstr "Failed"
+
+#: apps/evidence/models/evidence.py:34
+msgid "证据清单一"
+msgstr "Evidence List 1"
+
+#: apps/evidence/models/evidence.py:35
+msgid "证据清单二"
+msgstr "Evidence List 2"
+
+#: apps/evidence/models/evidence.py:36
+msgid "证据清单三"
+msgstr "Evidence List 3"
+
+#: apps/evidence/models/evidence.py:37
+msgid "证据清单四"
+msgstr "Evidence List 4"
+
+#: apps/evidence/models/evidence.py:38
+msgid "证据清单五"
+msgstr "Evidence List 5"
+
+#: apps/evidence/models/evidence.py:39
+msgid "证据清单六"
+msgstr "Evidence List 6"
+
+#: apps/evidence/models/evidence.py:106
+msgid "清单类型"
+msgstr "List Type"
+
+#: apps/evidence/models/evidence.py:107
+msgid "选择清单类型,系统自动处理序号和页码的连续性"
+msgstr ""
+"Select list type, system automatically handles numbering and page continuity"
+
+#: apps/evidence/models/evidence.py:115
+msgid "前置清单"
+msgstr "Prerequisite List"
+
+#: apps/evidence/models/evidence.py:116
+msgid "关联前一个清单,用于自动计算起始序号和页码"
+msgstr "Link to previous list for auto-calculating starting number and page"
+
+#: apps/evidence/models/evidence.py:121
+msgid "标题"
+msgstr "Title"
+
+#: apps/evidence/models/evidence.py:123
+msgid "由清单类型自动生成"
+msgstr "Auto-generated from list type"
+
+#: apps/evidence/models/evidence.py:128
+msgid "顺序"
+msgstr "Order"
+
+#: apps/evidence/models/evidence.py:137
+msgid "将所有证据文件合并为一个PDF,便于打印和提交"
+msgstr "Merge all evidence files into one PDF for printing and submission"
+
+#: apps/evidence/models/evidence.py:145
+msgid "导出版本号"
+msgstr "Export Version"
+
+#: apps/evidence/models/evidence.py:146
+msgid "由用户手动控制,用于导出文件名版本控制"
+msgstr "Manually controlled by user for export filename version control"
+
+#: apps/evidence/models/evidence.py:157
+msgid "合并错误信息"
+msgstr "Merge Error Message"
+
+#: apps/evidence/models/evidence.py:162
+msgid "合并开始时间"
+msgstr "Merge Start Time"
+
+#: apps/evidence/models/evidence.py:167
+msgid "合并完成时间"
+msgstr "Merge Completion Time"
+
+#: apps/evidence/models/evidence.py:171
+msgid "合并进度"
+msgstr "Merge Progress"
+
+#: apps/evidence/models/evidence.py:175
+msgid "合并进度-已处理文件数"
+msgstr "Merge Progress - Processed Files"
+
+#: apps/evidence/models/evidence.py:179
+msgid "合并进度-总文件数"
+msgstr "Merge Progress - Total Files"
+
+#: apps/evidence/models/evidence.py:184
+msgid "合并进度信息"
+msgstr "Merge Progress Info"
+
+#: apps/evidence/models/evidence.py:192
+msgid "导出模板"
+msgstr "Export Template"
+
+#: apps/evidence/models/evidence.py:193
+msgid "选择用于导出证据清单的 Word 模板"
+msgstr "Select Word template for exporting evidence list"
+
+#: apps/evidence/models/evidence.py:206
+msgid "创建人"
+msgstr "Created By"
+
+#: apps/evidence/models/evidence.py:210 apps/evidence/models/evidence.py:396
+#: apps/evidence/models/group.py:30
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/evidence/models/evidence.py:214 apps/evidence/models/evidence.py:400
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/evidence/models/evidence.py:225 apps/evidence/models/evidence.py:226
+#: apps/evidence/models/evidence.py:290
+msgid "证据清单"
+msgstr "Evidence Lists"
+
+#: apps/evidence/models/evidence.py:294
+msgid "证据在清单中的序号"
+msgstr "Evidence number in list"
+
+#: apps/evidence/models/evidence.py:300
+msgid "证据名称"
+msgstr "Evidence Name"
+
+#: apps/evidence/models/evidence.py:303
+msgid "证明内容"
+msgstr "Proof Content"
+
+#: apps/evidence/models/evidence.py:309
+msgid "证据文件"
+msgstr "Evidence File"
+
+#: apps/evidence/models/evidence.py:314
+msgid "原始文件名"
+msgstr "Original Filename"
+
+#: apps/evidence/models/evidence.py:318
+msgid "文件大小"
+msgstr "File Size"
+
+#: apps/evidence/models/evidence.py:319
+msgid "单位:字节"
+msgstr "Unit: bytes"
+
+#: apps/evidence/models/evidence.py:323
+msgid "页数"
+msgstr "Pages"
+
+#: apps/evidence/models/evidence.py:328
+msgid "起始页"
+msgstr "Start Page"
+
+#: apps/evidence/models/evidence.py:333
+msgid "结束页"
+msgstr "End Page"
+
+#: apps/evidence/models/evidence.py:339
+msgid "AI分析结果"
+msgstr "AI Analysis Result"
+
+#: apps/evidence/models/evidence.py:340
+msgid "预留字段,用于未来 LLM 自动分析"
+msgstr "Reserved field for future LLM auto-analysis"
+
+#: apps/evidence/models/evidence.py:347
+msgid "证据方向"
+msgstr "Evidence Direction"
+
+#: apps/evidence/models/evidence.py:353
+msgid "证据种类"
+msgstr "Evidence Category"
+
+#: apps/evidence/models/evidence.py:359
+msgid "原件状态"
+msgstr "Original Status"
+
+#: apps/evidence/models/evidence.py:364
+msgid "原件存放位置"
+msgstr "Original Storage Location"
+
+#: apps/evidence/models/evidence.py:370
+msgid "真实性/合法性/关联性说明"
+msgstr "Authenticity/Legality/Relevance Statement"
+
+#: apps/evidence/models/evidence.py:376
+msgid "对方证据的质证意见"
+msgstr "Cross-examination Opinion on Opposing Evidence"
+
+#: apps/evidence/models/evidence.py:381
+msgid "文件哈希"
+msgstr "File Hash"
+
+#: apps/evidence/models/evidence.py:382
+msgid "SHA-256"
+msgstr "SHA-256"
+
+#: apps/evidence/models/evidence.py:387
+msgid "来源渠道"
+msgstr "Source Channel"
+
+#: apps/evidence/models/evidence.py:391
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:119
+msgid "OCR文本"
+msgstr "OCR Text"
+
+#: apps/evidence/models/evidence.py:392
+msgid "证据文件的OCR提取文本,用于全文搜索"
+msgstr "OCR extracted text from evidence file for full-text search"
+
+#: apps/evidence/models/evidence.py:407 apps/evidence/models/evidence.py:408
+msgid "证据明细"
+msgstr "Evidence Items"
+
+#: apps/evidence/models/group.py:21
+msgid "分组名称"
+msgstr "Group Name"
+
+#: apps/evidence/models/group.py:22
+msgid "说明"
+msgstr "Description"
+
+#: apps/evidence/models/group.py:23
+msgid "排序"
+msgstr "Order"
+
+#: apps/evidence/models/group.py:35 apps/evidence/models/group.py:36
+msgid "证据分组"
+msgstr "Evidence Groups"
+
+#: apps/evidence/models/hearing_note.py:21
+msgid "笔记内容"
+msgstr "Note Content"
+
+#: apps/evidence/models/hearing_note.py:28
+msgid "记录时间"
+msgstr "Record Time"
+
+#: apps/evidence/models/hearing_note.py:33
+#: apps/evidence/models/hearing_note.py:34
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:129
+msgid "庭审笔记"
+msgstr "Trial Notes"
+
+#: apps/evidence/services/evidence_export_service.py:89
+#: apps/evidence/services/evidence_export_service.py:99
+msgid "模板文件不存在"
+msgstr "Template file does not exist"
+
+#: apps/evidence/services/evidence_export_service.py:112
+msgid "获取占位符上下文失败"
+msgstr "Failed to get placeholder context"
+
+#: apps/evidence/services/evidence_export_service.py:133
+msgid "模板渲染失败"
+msgstr "Template rendering failed"
+
+#: apps/evidence/services/evidence_export_service.py:169
+msgid "模板不存在"
+msgstr "Template does not exist"
+
+#: apps/evidence/services/evidence_export_service.py:287
+#: apps/evidence/services/evidence_list_placeholder_service.py:376
+msgid "证据清单不存在"
+msgstr "Evidence list does not exist"
+
+#: apps/evidence/services/evidence_file_service.py:30
+msgid "不支持的文件格式"
+msgstr "Unsupported file format"
+
+#: apps/evidence/services/evidence_file_service.py:40
+msgid "文件过大"
+msgstr "File too large"
+
+#: apps/evidence/services/evidence_list_placeholder_service.py:397
+msgid "案件不存在"
+msgstr "Case does not exist"
+
+#: apps/evidence/services/evidence_merge_usecase.py:71
+msgid "准备合并"
+msgstr "Preparing to merge"
+
+#: apps/evidence/services/evidence_merge_usecase.py:108
+msgid "合并完成"
+msgstr "Merge completed"
+
+#: apps/evidence/services/evidence_merge_usecase.py:124
+msgid "合并失败"
+msgstr "Merge failed"
+
+#: apps/evidence/services/evidence_mutation_service.py:41
+#: apps/evidence/services/evidence_mutation_service.py:96
+msgid "证据清单标题不能为空"
+msgstr "Evidence list title cannot be empty"
+
+#: apps/evidence/services/evidence_mutation_service.py:133
+#: apps/evidence/services/evidence_mutation_service.py:162
+msgid "证据名称不能为空"
+msgstr "Evidence name cannot be empty"
+
+#: apps/evidence/services/evidence_mutation_service.py:140
+#: apps/evidence/services/evidence_mutation_service.py:171
+msgid "证明内容不能为空"
+msgstr "Proof content cannot be empty"
+
+#: apps/evidence/services/evidence_mutation_service.py:210
+msgid "提供的明细 ID 列表与实际不符"
+msgstr "Provided detail ID list does not match actual"
+
+#: apps/evidence/services/infrastructure/pdf_merge_service.py:29
+msgid "证据清单没有任何文件"
+msgstr "Evidence list has no files"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:4
+msgid "开庭模式"
+msgstr "Court Session Mode"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:56
+msgid "编号"
+msgstr "Number"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:56
+msgid "输入证据编号快速跳转"
+msgstr "Enter evidence number to jump quickly"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:59
+msgid "搜索证据名称、证明目的、OCR文本..."
+msgstr "Search evidence name, proof purpose, OCR text..."
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:64
+msgid "全部方向"
+msgstr "All Directions"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:70
+msgid "全部类型"
+msgstr "All Types"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:92
+msgid "对方"
+msgstr "Opposing"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:101
+msgid "页"
+msgstr "Page"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:130
+msgid "记录法官提问、我方回答..."
+msgstr "Record judge's questions and our answers..."
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:131
+msgid "保存笔记"
+msgstr "Save Note"
+
+#: apps/evidence/templates/admin/evidence/hearing_mode.html:132
+msgid "已保存"
+msgstr "Saved"

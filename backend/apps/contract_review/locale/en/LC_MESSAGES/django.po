@@ -1,0 +1,313 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/contract_review/admin/review_task_admin.py:37
+#: apps/contract_review/models/review_task.py:69
+msgid "当前处理步骤"
+msgstr "Current Processing Step"
+
+#: apps/contract_review/admin/review_task_admin.py:54
+#: apps/contract_review/models/review_task.py:82
+msgid "选中的处理步骤"
+msgstr "Selected Processing Steps"
+
+#: apps/contract_review/admin/review_task_admin.py:95
+msgid "原始文件"
+msgstr "Original File"
+
+#: apps/contract_review/admin/review_task_admin.py:101
+msgid "审查结果"
+msgstr "Review Result"
+
+#: apps/contract_review/admin/review_task_admin.py:107
+#: apps/contract_review/admin/review_task_admin.py:152
+#: apps/contract_review/models/review_task.py:72
+msgid "评估报告"
+msgstr "Assessment Report"
+
+#: apps/contract_review/admin/review_task_admin.py:145
+msgid "当事人"
+msgstr "Clients"
+
+#: apps/contract_review/admin/review_task_admin.py:146
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:213
+msgid "处理步骤"
+msgstr "Processing Steps"
+
+#: apps/contract_review/admin/review_task_admin.py:147
+msgid "状态"
+msgstr "Status"
+
+#: apps/contract_review/admin/review_task_admin.py:148
+msgid "文件"
+msgstr "File"
+
+#: apps/contract_review/admin/review_task_admin.py:149
+msgid "时间"
+msgstr "Time"
+
+#: apps/contract_review/admin/review_task_admin.py:169
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:4
+msgid "新建合同审查任务"
+msgstr "New Contract Review Task"
+
+#: apps/contract_review/apps.py:8 apps/contract_review/models/review_task.py:21
+msgid "合同审查"
+msgstr "Contract Review"
+
+#: apps/contract_review/models/review_task.py:9
+msgid "已上传"
+msgstr "Uploaded"
+
+#: apps/contract_review/models/review_task.py:10
+msgid "已识别当事人"
+msgstr "Parties Identified"
+
+#: apps/contract_review/models/review_task.py:11
+msgid "已确认"
+msgstr "Confirmed"
+
+#: apps/contract_review/models/review_task.py:12
+msgid "处理中"
+msgstr "Processing"
+
+#: apps/contract_review/models/review_task.py:13
+msgid "已完成"
+msgstr "Completed"
+
+#: apps/contract_review/models/review_task.py:14
+msgid "失败"
+msgstr "Failed"
+
+#: apps/contract_review/models/review_task.py:15
+msgid "提取失败"
+msgstr "Extraction Failed"
+
+#: apps/contract_review/models/review_task.py:19
+msgid "标题提取"
+msgstr "Title Extraction"
+
+#: apps/contract_review/models/review_task.py:20
+msgid "错别字检测"
+msgstr "Typo Detection"
+
+#: apps/contract_review/models/review_task.py:22
+msgid "格式标准化"
+msgstr "Format Standardization"
+
+#: apps/contract_review/models/review_task.py:23
+msgid "页码标准化"
+msgstr "Page Number Standardization"
+
+#: apps/contract_review/models/review_task.py:24
+msgid "标题序号"
+msgstr "Title Numbering"
+
+#: apps/contract_review/models/review_task.py:28
+#: apps/contract_review/models/review_task.py:49
+msgid "甲方"
+msgstr "Party A"
+
+#: apps/contract_review/models/review_task.py:29
+#: apps/contract_review/models/review_task.py:50
+msgid "乙方"
+msgstr "Party B"
+
+#: apps/contract_review/models/review_task.py:30
+#: apps/contract_review/models/review_task.py:51
+msgid "丙方"
+msgstr "Party C"
+
+#: apps/contract_review/models/review_task.py:31
+#: apps/contract_review/models/review_task.py:52
+msgid "丁方"
+msgstr "Party D"
+
+#: apps/contract_review/models/review_task.py:40
+msgid "用户"
+msgstr "User"
+
+#: apps/contract_review/models/review_task.py:42
+msgid "原始文件路径"
+msgstr "Original File Path"
+
+#: apps/contract_review/models/review_task.py:44
+msgid "输出文件路径"
+msgstr "Output File Path"
+
+#: apps/contract_review/models/review_task.py:47
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:189
+msgid "合同标题"
+msgstr "Contract Title"
+
+#: apps/contract_review/models/review_task.py:57
+msgid "用户代表方"
+msgstr "User Representing Party"
+
+#: apps/contract_review/models/review_task.py:63
+msgid "任务状态"
+msgstr "Task Status"
+
+#: apps/contract_review/models/review_task.py:71
+msgid "错误信息"
+msgstr "Error Message"
+
+#: apps/contract_review/models/review_task.py:74
+msgid "LLM 模型名称"
+msgstr "LLM Model Name"
+
+#: apps/contract_review/models/review_task.py:77
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:208
+msgid "修订人名称"
+msgstr "Reviewer Name"
+
+#: apps/contract_review/models/review_task.py:83
+msgid "用户选择执行的步骤列表"
+msgstr "Steps selected by user to execute"
+
+#: apps/contract_review/models/review_task.py:85
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/contract_review/models/review_task.py:86
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/contract_review/models/review_task.py:89
+#: apps/contract_review/models/review_task.py:90
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:11
+msgid "合同审查任务"
+msgstr "Contract Review Tasks"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:10
+msgid "首页"
+msgstr "Home"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:12
+msgid "新建"
+msgstr "New"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:115
+msgid "上传"
+msgstr "Upload"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:120
+msgid "确认"
+msgstr "Confirm"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:125
+msgid "完成"
+msgstr "Complete"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:131
+msgid "选择模型并上传合同"
+msgstr "Select Model and Upload Contract"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:135
+msgid "审查模型"
+msgstr "Review Model"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:138
+msgid "模型列表加载失败"
+msgstr "Failed to load model list"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:139
+msgid "重试"
+msgstr "Retry"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:144
+msgid "选择模型"
+msgstr "Select Model"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:146
+msgid "搜索模型..."
+msgstr "Search models..."
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:151
+msgid "无匹配模型"
+msgstr "No matching models"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:167
+msgid "拖拽 .docx 文件到此处，或点击选择"
+msgstr "Drag .docx file here, or click to select"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:168
+msgid "仅支持 Word 文档（.docx）格式"
+msgstr "Only Word documents (.docx) are supported"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:174
+msgid "正在上传并解析合同..."
+msgstr "Uploading and parsing contract..."
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:183
+msgid "确认合同信息并选择代表方"
+msgstr "Confirm contract info and select representing party"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:209
+msgid "默认：法穿AI"
+msgstr "Default: Fachuan AI"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:228
+msgid "选择我方代表"
+msgstr "Select Our Representative"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:244
+msgid "开始审查"
+msgstr "Start Review"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:246
+msgid "重新上传"
+msgstr "Re-upload"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:254
+msgid "审查任务已提交"
+msgstr "Review task submitted"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:255
+msgid "AI 正在后台审查合同"
+msgstr "AI is reviewing the contract in the background"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:256
+msgid "可在详情页实时查看审查进度"
+msgstr "You can view the review progress in real-time on the details page"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:259
+msgid "查看详情"
+msgstr "View Details"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:260
+msgid "返回列表"
+msgstr "Back to List"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:261
+msgid "继续上传"
+msgstr "Continue Uploading"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:273
+msgid "请选择 .docx 格式的文件"
+msgstr "Please select a .docx format file"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:274
+msgid "上传失败，请重试"
+msgstr "Upload failed, please retry"
+
+#: apps/contract_review/templates/admin/contract_review/reviewtask/upload.html:275
+msgid "提交失败，请重试"
+msgstr "Submission failed, please retry"

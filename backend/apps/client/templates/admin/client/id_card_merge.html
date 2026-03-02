@@ -94,16 +94,16 @@
     <div class="merge-card">
         <div class="merge-header">
             <div>
-                <h1 class="merge-title">身份证合并</h1>
-                <p class="merge-subtitle">上传身份证正反面图片，用钢笔工具圈定四角后合并为 PDF</p>
+                <h1 class="merge-title">{% trans "身份证合并" %}</h1>
+                <p class="merge-subtitle">{% trans "上传身份证正反面图片，用钢笔工具圈定四角后合并为 PDF" %}</p>
             </div>
-            <a href="{% url 'admin:client_clientidentitydoc_changelist' %}" class="back-link">← 返回证件列表</a>
+            <a href="{% url 'admin:client_clientidentitydoc_changelist' %}" class="back-link">← {% trans "返回证件列表" %}</a>
         </div>
 
         <div class="steps">
-            <div class="step" :class="{ 'active': step === 1, 'done': step > 1 }"><span class="step-num">1</span> 上传图片</div>
-            <div class="step" :class="{ 'active': step === 2, 'done': step > 2 }"><span class="step-num">2</span> 圈定区域</div>
-            <div class="step" :class="{ 'active': step === 3 }"><span class="step-num">3</span> 完成</div>
+            <div class="step" :class="{ 'active': step === 1, 'done': step > 1 }"><span class="step-num">1</span> {% trans "上传图片" %}</div>
+            <div class="step" :class="{ 'active': step === 2, 'done': step > 2 }"><span class="step-num">2</span> {% trans "圈定区域" %}</div>
+            <div class="step" :class="{ 'active': step === 3 }"><span class="step-num">3</span> {% trans "完成" %}</div>
         </div>
 
         <!-- 步骤1: 上传 -->
@@ -111,32 +111,32 @@
             <div class="upload-grid">
                 <div class="upload-box" :class="{ 'has-file': frontFile, 'dragover': frontDrag }"
                      @click="$refs.frontInput.click()" @dragover.prevent="frontDrag = true" @dragleave.prevent="frontDrag = false" @drop.prevent="handleDrop($event, 'front')">
-                    <template x-if="!frontFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">身份证正面</div><div class="upload-box-hint">点击或拖拽上传</div></div></template>
-                    <template x-if="frontFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">正面已选择</div><div class="upload-box-hint" x-text="frontFile.name"></div></div></template>
+                    <template x-if="!frontFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">{% trans "身份证正面" %}</div><div class="upload-box-hint">{% trans "点击或拖拽上传" %}</div></div></template>
+                    <template x-if="frontFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">{% trans "正面已选择" %}</div><div class="upload-box-hint" x-text="frontFile.name"></div></div></template>
                     <input type="file" x-ref="frontInput" @change="handleSelect($event, 'front')" accept="image/*" style="display:none">
                 </div>
                 <div class="upload-box" :class="{ 'has-file': backFile, 'dragover': backDrag }"
                      @click="$refs.backInput.click()" @dragover.prevent="backDrag = true" @dragleave.prevent="backDrag = false" @drop.prevent="handleDrop($event, 'back')">
-                    <template x-if="!backFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">身份证反面</div><div class="upload-box-hint">点击或拖拽上传</div></div></template>
-                    <template x-if="backFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">反面已选择</div><div class="upload-box-hint" x-text="backFile.name"></div></div></template>
+                    <template x-if="!backFile"><div><div class="upload-box-icon">🪪</div><div class="upload-box-title">{% trans "身份证反面" %}</div><div class="upload-box-hint">{% trans "点击或拖拽上传" %}</div></div></template>
+                    <template x-if="backFile"><div><div class="upload-box-icon">✅</div><div class="upload-box-title">{% trans "反面已选择" %}</div><div class="upload-box-hint" x-text="backFile.name"></div></div></template>
                     <input type="file" x-ref="backInput" @change="handleSelect($event, 'back')" accept="image/*" style="display:none">
                 </div>
             </div>
             <div class="form-actions">
-                <button class="btn-primary" @click="goToStep2()" :disabled="!frontFile || !backFile">下一步：圈定区域</button>
+                <button class="btn-primary" @click="goToStep2()" :disabled="!frontFile || !backFile">{% trans "下一步：圈定区域" %}</button>
             </div>
         </div>
 
         <!-- 步骤2: 圈定区域 -->
         <div x-show="step === 2">
             <div class="hint-box">
-                ✏️ <strong>钢笔工具</strong>：依次点击身份证的 <strong>左上 → 右上 → 右下 → 左下</strong> 四个角。点错可撤销或重置。
+                ✏️ <strong>{% trans "钢笔工具" %}</strong>：{% trans "依次点击身份证的" %} <strong>{% trans "左上 → 右上 → 右下 → 左下" %}</strong> {% trans "四个角。点错可撤销或重置。" %}
             </div>
             <div class="editor-grid">
                 <!-- 正面编辑器 -->
                 <div class="editor-box">
                     <div class="editor-label">
-                        <span>正面图片</span>
+                        <span>{% trans "正面图片" %}</span>
                         <span style="font-size:12px;color:#666">点击 <span x-text="4 - frontCorners.length"></span> 个点</span>
                     </div>
                     <div class="point-status">
@@ -150,16 +150,16 @@
                                 @mousemove="updateCursor($event, 'front')"></canvas>
                     </div>
                     <div class="editor-tools">
-                        <button type="button" class="tool-btn" @click="rotateImage('front', -90)">↺ 左转</button>
-                        <button type="button" class="tool-btn" @click="rotateImage('front', 90)">↻ 右转</button>
-                        <button type="button" class="tool-btn" @click="undoPoint('front')" :disabled="frontCorners.length === 0">↩ 撤销</button>
-                        <button type="button" class="tool-btn" @click="resetCorners('front')">⟲ 重置</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('front', -90)">↺ {% trans "左转" %}</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('front', 90)">↻ {% trans "右转" %}</button>
+                        <button type="button" class="tool-btn" @click="undoPoint('front')" :disabled="frontCorners.length === 0">↩ {% trans "撤销" %}</button>
+                        <button type="button" class="tool-btn" @click="resetCorners('front')">⟲ {% trans "重置" %}</button>
                     </div>
                 </div>
                 <!-- 反面编辑器 -->
                 <div class="editor-box">
                     <div class="editor-label">
-                        <span>反面图片</span>
+                        <span>{% trans "反面图片" %}</span>
                         <span style="font-size:12px;color:#666">点击 <span x-text="4 - backCorners.length"></span> 个点</span>
                     </div>
                     <div class="point-status">
@@ -173,16 +173,16 @@
                                 @mousemove="updateCursor($event, 'back')"></canvas>
                     </div>
                     <div class="editor-tools">
-                        <button type="button" class="tool-btn" @click="rotateImage('back', -90)">↺ 左转</button>
-                        <button type="button" class="tool-btn" @click="rotateImage('back', 90)">↻ 右转</button>
-                        <button type="button" class="tool-btn" @click="undoPoint('back')" :disabled="backCorners.length === 0">↩ 撤销</button>
-                        <button type="button" class="tool-btn" @click="resetCorners('back')">⟲ 重置</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('back', -90)">↺ {% trans "左转" %}</button>
+                        <button type="button" class="tool-btn" @click="rotateImage('back', 90)">↻ {% trans "右转" %}</button>
+                        <button type="button" class="tool-btn" @click="undoPoint('back')" :disabled="backCorners.length === 0">↩ {% trans "撤销" %}</button>
+                        <button type="button" class="tool-btn" @click="resetCorners('back')">⟲ {% trans "重置" %}</button>
                     </div>
                 </div>
             </div>
             <div class="form-actions">
-                <button class="btn-secondary" @click="step = 1">上一步</button>
-                <button class="btn-primary" @click="submitMerge()" :disabled="frontCorners.length < 4 || backCorners.length < 4">合并生成 PDF</button>
+                <button class="btn-secondary" @click="step = 1">{% trans "上一步" %}</button>
+                <button class="btn-primary" @click="submitMerge()" :disabled="frontCorners.length < 4 || backCorners.length < 4">{% trans "合并生成 PDF" %}</button>
             </div>
         </div>
 
@@ -190,11 +190,11 @@
         <div x-show="step === 3">
             <div class="success-box">
                 <div class="success-icon">✅</div>
-                <div class="success-text">身份证合并成功！</div>
-                <a :href="pdfUrl" target="_blank" class="download-link">📥 下载 PDF</a>
+                <div class="success-text">{% trans "身份证合并成功！" %}</div>
+                <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>
             </div>
             <div class="form-actions">
-                <button class="btn-secondary" @click="resetAll()">继续合并</button>
+                <button class="btn-secondary" @click="resetAll()">{% trans "继续合并" %}</button>
             </div>
         </div>
     </div>

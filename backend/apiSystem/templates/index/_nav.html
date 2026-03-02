@@ -1,17 +1,18 @@
+{% load i18n %}
     <!-- Navigation -->
     <nav class="nav" id="nav">
         <div class="logo">
-            法穿AI
+            {% trans "法穿AI" %}
         </div>
         <div class="nav-links">
-            <a href="#features" class="nav-link">功能特性</a>
-            <a href="#sms-flow" class="nav-link">短信处理</a>
-            <a href="#chat-record-flow" class="nav-link">聊天记录</a>
-            <a href="#mock-trial-flow" class="nav-link">模拟庭审</a>
-            <a href="#auto-filing-flow" class="nav-link">自动立案</a>
-            <a href="#evidence-sorting-flow" class="nav-link">证据分类</a>
-            <a href="#tech" class="nav-link">技术栈</a>
-            <a href="/api/v1/docs" class="nav-link">API 文档</a>
-            <a href="/admin/" class="btn btn-primary">进入系统 →</a>
+            <a href="#features" class="nav-link">{% trans "功能特性" %}</a>
+            <a href="#sms-flow" class="nav-link">{% trans "短信处理" %}</a>
+            <a href="#chat-record-flow" class="nav-link">{% trans "聊天记录" %}</a>
+            <a href="#mock-trial-flow" class="nav-link">{% trans "模拟庭审" %}</a>
+            <a href="#auto-filing-flow" class="nav-link">{% trans "自动立案" %}</a>
+            <a href="#evidence-sorting-flow" class="nav-link">{% trans "证据分类" %}</a>
+            <a href="#tech" class="nav-link">{% trans "技术栈" %}</a>
+            <a href="/api/v1/docs" class="nav-link">API {% trans "文档" %}</a>
+            <a href="/admin/" class="btn btn-primary">{% trans "进入系统" %} →</a>
         </div>
     </nav>

@@ -1,10 +1,11 @@
+{% load i18n %}
     <!-- 模拟庭审演示 -->
     <section class="mock-trial-section" id="mock-trial-flow">
         <div class="mock-trial-container">
             <div class="section-header reveal">
-                <span class="section-tag">&#9878;&#65039; AI 庭审</span>
-                <h2 class="section-title">模拟庭审 &middot; 多角色 AI 对抗</h2>
-                <p class="section-desc">原告、被告、法官三方 AI 实时对话，WebSocket 驱动的沉浸式庭审模拟</p>
+                <span class="section-tag">&#9878;&#65039; AI {% trans "庭审" %}</span>
+                <h2 class="section-title">{% trans "模拟庭审 · 多角色 AI 对抗" %}</h2>
+                <p class="section-desc">{% trans "原告、被告、法官三方 AI 实时对话，WebSocket 驱动的沉浸式庭审模拟" %}</p>
             </div>
 
             <div class="courtroom" id="courtroom">
@@ -12,12 +13,12 @@
                     <div class="judge-bench" id="judgeBench">
                         <div class="judge-avatar">&#9878;&#65039;</div>
                         <div class="judge-info">
-                            <div class="judge-name">审判长</div>
+                            <div class="judge-name">{% trans "审判长" %}</div>
                             <div class="judge-role">AI &middot; GPT-4o</div>
                         </div>
                         <div class="ws-indicator">
                             <span class="ws-dot"></span>
-                            WebSocket 实时连接
+                            WebSocket {% trans "实时连接" %}
                         </div>
                     </div>
                 </div>
@@ -25,15 +26,15 @@
                 <div class="court-legend" id="courtLegend">
                     <div class="legend-item">
                         <div class="legend-avatar plaintiff">&#128104;&#8205;&#128188;</div>
-                        <span class="legend-text">原告代理人</span>
+                        <span class="legend-text">{% trans "原告代理人" %}</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-avatar judge-av">&#9878;&#65039;</div>
-                        <span class="legend-text">审判长</span>
+                        <span class="legend-text">{% trans "审判长" %}</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-avatar defendant">&#128105;&#8205;&#128188;</div>
-                        <span class="legend-text">被告代理人</span>
+                        <span class="legend-text">{% trans "被告代理人" %}</span>
                     </div>
                 </div>
 
@@ -67,10 +68,10 @@
 
             <div class="court-controls">
                 <button class="flow-btn flow-btn-play" id="trialPlayBtn" onclick="startTrialAnimation()">
-                    <span>&#9654;</span> 播放演示
+                    <span>&#9654;</span> {% trans "播放演示" %}
                 </button>
                 <button class="flow-btn flow-btn-reset" id="trialResetBtn" onclick="resetTrialAnimation()">
-                    <span>&#8634;</span> 重置
+                    <span>&#8634;</span> {% trans "重置" %}
                 </button>
             </div>
         </div>

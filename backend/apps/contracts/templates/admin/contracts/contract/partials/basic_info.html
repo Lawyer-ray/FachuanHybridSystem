@@ -5,23 +5,23 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📋</span>
-                <h3 class="card-title">合同信息</h3>
+                <h3 class="card-title">{% trans "合同信息" %}</h3>
             </div>
             <dl class="info-list">
                 <div class="info-item">
-                    <dt>合同名称</dt>
+                    <dt>{% trans "合同名称" %}</dt>
                     <dd>{{ contract.name }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>合同类型</dt>
+                    <dt>{% trans "合同类型" %}</dt>
                     <dd>{{ contract.get_case_type_display }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>合同状态</dt>
+                    <dt>{% trans "合同状态" %}</dt>
                     <dd><span class="status-badge status-{{ contract.status|lower }}">{{ contract.get_status_display }}</span></dd>
                 </div>
                 <div class="info-item">
-                    <dt>收费模式</dt>
+                    <dt>{% trans "收费模式" %}</dt>
                     <dd><span class="fee-mode-tag fee-mode-{{ contract.fee_mode|lower }}">{{ contract.get_fee_mode_display }}</span></dd>
                 </div>
             </dl>
@@ -30,20 +30,21 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📅</span>
-                <h3 class="card-title">日期信息</h3>
+                <h3 class="card-title">{% trans "日期信息" %}</h3>
             </div>
             <dl class="info-list">
+                {% trans "未设置" as not_set %}
                 <div class="info-item">
-                    <dt>开始日期</dt>
-                    <dd>{{ contract.start_date|date:"Y-m-d"|default:"未设置" }}</dd>
+                    <dt>{% trans "开始日期" %}</dt>
+                    <dd>{{ contract.start_date|date:"Y-m-d"|default:not_set }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>结束日期</dt>
-                    <dd>{{ contract.end_date|date:"Y-m-d"|default:"未设置" }}</dd>
+                    <dt>{% trans "结束日期" %}</dt>
+                    <dd>{{ contract.end_date|date:"Y-m-d"|default:not_set }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>指定日期</dt>
-                    <dd>{{ contract.specified_date|date:"Y-m-d"|default:"未设置" }}</dd>
+                    <dt>{% trans "指定日期" %}</dt>
+                    <dd>{{ contract.specified_date|date:"Y-m-d"|default:not_set }}</dd>
                 </div>
             </dl>
         </div>
@@ -52,7 +53,7 @@
         <div class="info-card full-width">
             <div class="card-header">
                 <span class="card-icon">⚖️</span>
-                <h3 class="card-title">代理阶段</h3>
+                <h3 class="card-title">{% trans "代理阶段" %}</h3>
             </div>
             <div>
                 {% if representation_stages_display %}
@@ -60,7 +61,7 @@
                     <span class="stage-tag">{{ stage }}</span>
                     {% endfor %}
                 {% else %}
-                <p class="empty-state">未设置代理阶段</p>
+                <p class="empty-state">{% trans "未设置代理阶段" %}</p>
                 {% endif %}
             </div>
         </div>
@@ -70,7 +71,7 @@
         <div class="info-card full-width">
             <div class="card-header">
                 <span class="card-icon">📁</span>
-                <h3 class="card-title">关联案件</h3>
+                <h3 class="card-title">{% trans "关联案件" %}</h3>
             </div>
             <div class="card-content">
                 {% if related_cases %}
@@ -87,7 +88,7 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p class="empty-state">暂无关联案件</p>
+                <p class="empty-state">{% trans "暂无关联案件" %}</p>
                 {% endif %}
             </div>
         </div>

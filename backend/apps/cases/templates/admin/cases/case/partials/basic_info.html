@@ -4,20 +4,20 @@
     <div class="info-card">
         <div class="card-header">
             <span class="card-icon">📋</span>
-            <h3 class="card-title">案件信息</h3>
+            <h3 class="card-title">{% trans "案件信息" %}</h3>
         </div>
         <div class="card-content">
             <dl class="info-list">
                 <div class="info-item">
-                    <dt>案件名称</dt>
+                    <dt>{% trans "案件名称" %}</dt>
                     <dd>{{ case.name }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>案件类型</dt>
-                    <dd>{{ case.get_case_type_display|default:"未设置" }}</dd>
+                    <dt>{% trans "案件类型" %}</dt>
+                    <dd>{{ case.get_case_type_display|default:_("未设置") }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>案件状态</dt>
+                    <dt>{% trans "案件状态" %}</dt>
                     <dd>
                         <span class="status-badge status-{{ case.status }}">
                             {{ case.get_status_display }}
@@ -25,16 +25,16 @@
                     </dd>
                 </div>
                 <div class="info-item">
-                    <dt>案由</dt>
-                    <dd>{{ case.cause_of_action|default:"未设置" }}</dd>
+                    <dt>{% trans "案由" %}</dt>
+                    <dd>{{ case.cause_of_action|default:_("未设置") }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>涉案金额</dt>
-                    <dd>{% if case.target_amount %}¥{{ case.target_amount|floatformat:2 }}{% else %}未设置{% endif %}</dd>
+                    <dt>{% trans "涉案金额" %}</dt>
+                    <dd>{% if case.target_amount %}¥{{ case.target_amount|floatformat:2 }}{% else %}{% trans "未设置" %}{% endif %}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>当前阶段</dt>
-                    <dd>{{ case.get_current_stage_display|default:"未设置" }}</dd>
+                    <dt>{% trans "当前阶段" %}</dt>
+                    <dd>{{ case.get_current_stage_display|default:_("未设置") }}</dd>
                 </div>
             </dl>
         </div>
@@ -44,21 +44,21 @@
     <div class="info-card">
         <div class="card-header">
             <span class="card-icon">📅</span>
-            <h3 class="card-title">日期信息</h3>
+            <h3 class="card-title">{% trans "日期信息" %}</h3>
         </div>
         <div class="card-content">
             <dl class="info-list">
                 <div class="info-item">
-                    <dt>收案日期</dt>
+                    <dt>{% trans "收案日期" %}</dt>
                     <dd>{{ case.start_date|date:"Y-m-d" }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>生效日期</dt>
-                    <dd>{{ case.effective_date|date:"Y-m-d"|default:"未设置" }}</dd>
+                    <dt>{% trans "生效日期" %}</dt>
+                    <dd>{{ case.effective_date|date:"Y-m-d"|default:_("未设置") }}</dd>
                 </div>
                 <div class="info-item">
-                    <dt>指定日期</dt>
-                    <dd>{{ case.specified_date|date:"Y-m-d"|default:"未设置" }}</dd>
+                    <dt>{% trans "指定日期" %}</dt>
+                    <dd>{{ case.specified_date|date:"Y-m-d"|default:_("未设置") }}</dd>
                 </div>
             </dl>
         </div>
@@ -68,7 +68,7 @@
     <div class="info-card">
         <div class="card-header">
             <span class="card-icon">📄</span>
-            <h3 class="card-title">关联合同</h3>
+            <h3 class="card-title">{% trans "关联合同" %}</h3>
         </div>
         <div class="card-content">
             {% if case.contract %}
@@ -77,7 +77,7 @@
                 {{ case.contract.name }}
             </a>
             {% else %}
-            <p class="empty-state">未关联合同</p>
+            <p class="empty-state">{% trans "未关联合同" %}</p>
             {% endif %}
         </div>
     </div>
@@ -86,7 +86,7 @@
     <div class="info-card">
         <div class="card-header">
             <span class="card-icon">🔢</span>
-            <h3 class="card-title">案号</h3>
+            <h3 class="card-title">{% trans "案号" %}</h3>
         </div>
         <div class="card-content">
             {% if case.case_numbers.exists %}
@@ -101,7 +101,7 @@
                 {% endfor %}
             </ul>
             {% else %}
-            <p class="empty-state">暂无案号</p>
+            <p class="empty-state">{% trans "暂无案号" %}</p>
             {% endif %}
         </div>
     </div>
@@ -110,7 +110,7 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">🏛️</span>
-            <h3 class="card-title">主管机关</h3>
+            <h3 class="card-title">{% trans "主管机关" %}</h3>
         </div>
         <div class="card-content">
             {% if case.supervising_authorities.exists %}
@@ -123,7 +123,7 @@
                 {% endfor %}
             </ul>
             {% else %}
-            <p class="empty-state">暂无主管机关</p>
+            <p class="empty-state">{% trans "暂无主管机关" %}</p>
             {% endif %}
         </div>
     </div>
