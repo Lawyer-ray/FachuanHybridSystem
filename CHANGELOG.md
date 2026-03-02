@@ -2,6 +2,16 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.7.4] - 2026-03-02
+
+### 修复
+- 删除未实现的 `/api/v1/llm/templates/sync` 端点（`PromptTemplateService` 无对应方法），消除每次调用必 500 的问题
+- `sms_matching_stage` 和 `case_matcher` 改用 `ServiceLocator.get_case_service()`，修复 `/api/v1/automation/court-sms` 因调用已废弃 `build_case_service()` 导致的 500
+- `organization/schemas.py` 补全 `model_rebuild()`：`LoginIn`、`LawyerOut`、`AccountCredentialOut`，修复 pydantic v2 + `from __future__ import annotations` 导致的 schema 解析失败
+- `AccountCredentialOut` 的 `resolve_created_at/updated_at` 改为 `@staticmethod`，修复 `Non static resolves are not supported yet` 错误
+- 补全 `.env.example` 缺失的 `SMOKE_ADMIN_PASSWORD`、`CREDENTIAL_ENCRYPTION_KEY`、`SCRAPER_ENCRYPTION_KEY` 配置项
+- 修复 `Makefile` health 检查路径（`/health/`）及端口变量引用
+
 ## [26.7.3] - 2026-03-02
 
 ### 修复

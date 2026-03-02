@@ -56,7 +56,3 @@ def get_conversation_history(session_id: str, user_id: str | None = None, limit:
     messages = service.get_conversation_history_messages(session_id=session_id, user_id=user_id, limit=limit)
     return {"session_id": session_id, "messages": messages}
 
-
-def sync_prompt_templates(prompt_service: Any) -> dict[str, int]:
-    synced_count = prompt_service.sync_templates_from_code()
-    return {"synced_count": synced_count}

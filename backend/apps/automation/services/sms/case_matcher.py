@@ -38,9 +38,9 @@ class CaseMatcher:
     @property
     def case_service(self) -> "ICaseService":
         if self._case_service is None:
-            from apps.core.dependencies.business_case import build_case_service
+            from apps.core.interfaces import ServiceLocator
 
-            self._case_service = build_case_service()
+            self._case_service = ServiceLocator.get_case_service()
         return self._case_service
 
     @property
