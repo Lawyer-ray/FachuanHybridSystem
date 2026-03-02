@@ -152,24 +152,24 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">首页</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">自动化工具</a>
-    &rsaquo; 文书识别
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">{% trans "自动化工具" %}</a>
+    &rsaquo; {% trans "文书识别" %}
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="recognition-container">
     <p class="recognition-intro">
-        将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，并绑定到对应案件。
+        {% trans "将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，并绑定到对应案件。" %}
     </p>
     
     <!-- 上传区域 -->
     <div id="uploadZone" class="upload-zone">
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-        <h3>将法院文书拖入此处进行识别</h3>
-        <p>支持 PDF、JPG、PNG 格式</p>
-        <label class="upload-btn">选择文件<input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png"></label>
+        <h3>{% trans "将法院文书拖入此处进行识别" %}</h3>
+        <p>{% trans "支持 PDF、JPG、PNG 格式" %}</p>
+        <label class="upload-btn">{% trans "选择文件" %}<input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png"></label>
     </div>
     
     <!-- 加载状态 -->
@@ -180,37 +180,37 @@
     
     <!-- 识别结果 -->
     <div id="resultCard" class="result-card hidden">
-        <div class="result-header">识别结果</div>
+        <div class="result-header">{% trans "识别结果" %}</div>
         <div class="result-body">
             <div class="result-row">
-                <span class="result-label">文书类型</span>
-                <span class="result-value"><span id="docTypeTag" class="tag tag-blue">传票</span></span>
+                <span class="result-label">{% trans "文书类型" %}</span>
+                <span class="result-value"><span id="docTypeTag" class="tag tag-blue">{% trans "传票" %}</span></span>
             </div>
             
             <div class="result-row">
-                <span class="result-label">案号</span>
-                <span class="result-value" id="caseNumberDisplay">未识别</span>
+                <span class="result-label">{% trans "案号" %}</span>
+                <span class="result-value" id="caseNumberDisplay">{% trans "未识别" %}</span>
                 <button class="result-edit-btn" onclick="toggleEdit('caseNumber')">✏</button>
             </div>
             <div id="caseNumberEdit" class="edit-actions hidden">
-                <input type="text" id="caseNumberInput" class="edit-input" placeholder="输入案号">
-                <button class="btn btn-success" onclick="saveEdit('caseNumber')">保存</button>
-                <button class="btn btn-secondary" onclick="cancelEdit('caseNumber')">取消</button>
+                <input type="text" id="caseNumberInput" class="edit-input" placeholder="{% trans '输入案号' %}">
+                <button class="btn btn-success" onclick="saveEdit('caseNumber')">{% trans "保存" %}</button>
+                <button class="btn btn-secondary" onclick="cancelEdit('caseNumber')">{% trans "取消" %}</button>
             </div>
             
             <div class="result-row">
-                <span class="result-label">关键时间</span>
-                <span class="result-value" id="keyTimeDisplay">未识别</span>
+                <span class="result-label">{% trans "关键时间" %}</span>
+                <span class="result-value" id="keyTimeDisplay">{% trans "未识别" %}</span>
                 <button class="result-edit-btn" onclick="toggleEdit('keyTime')">✏</button>
             </div>
             <div id="keyTimeEdit" class="edit-actions hidden">
                 <input type="datetime-local" id="keyTimeInput" class="edit-input">
-                <button class="btn btn-success" onclick="saveEdit('keyTime')">保存</button>
-                <button class="btn btn-secondary" onclick="cancelEdit('keyTime')">取消</button>
+                <button class="btn btn-success" onclick="saveEdit('keyTime')">{% trans "保存" %}</button>
+                <button class="btn btn-secondary" onclick="cancelEdit('keyTime')">{% trans "取消" %}</button>
             </div>
             
             <div class="result-row">
-                <span class="result-label">识别置信度</span>
+                <span class="result-label">{% trans "识别置信度" %}</span>
                 <span class="result-value">
                     <div class="confidence-bar">
                         <span id="confidenceText" class="tag tag-green">85%</span>
@@ -222,20 +222,20 @@
             </div>
             
             <div class="result-row">
-                <span class="result-label">提取方式</span>
-                <span class="result-value" id="extractionMethod">正则表达式</span>
+                <span class="result-label">{% trans "提取方式" %}</span>
+                <span class="result-value" id="extractionMethod">{% trans "正则表达式" %}</span>
             </div>
             
             <div class="result-row">
-                <span class="result-label">绑定状态</span>
-                <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">待绑定</span></span>
+                <span class="result-label">{% trans "绑定状态" %}</span>
+                <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">{% trans "待绑定" %}</span></span>
             </div>
             
             <!-- 案件选择 -->
             <div id="caseSelector" class="case-selector hidden">
-                <h4>选择要绑定的案件</h4>
+                <h4>{% trans "选择要绑定的案件" %}</h4>
                 <div class="search-box">
-                    <input type="text" id="caseSearchInput" class="search-input" placeholder="输入案号或案件名称搜索，或点击右侧按钮查看全部">
+                    <input type="text" id="caseSearchInput" class="search-input" placeholder="{% trans '输入案号或案件名称搜索，或点击右侧按钮查看全部' %}">
                     <button class="dropdown-btn" id="dropdownBtn" onclick="toggleDropdown()">▼</button>
                     <div id="caseDropdown" class="dropdown-list"></div>
                 </div>
@@ -244,23 +244,23 @@
                         <div class="case-number" id="selectedCaseNumber"></div>
                         <div class="case-name" id="selectedCaseName"></div>
                     </div>
-                    <button class="btn btn-primary" id="bindBtn" onclick="bindCase()">确认绑定</button>
+                    <button class="btn btn-primary" id="bindBtn" onclick="bindCase()">{% trans "确认绑定" %}</button>
                 </div>
             </div>
         </div>
         
         <div class="action-buttons">
-            <button class="btn btn-primary" onclick="resetPage()">识别新文书</button>
-            <a id="taskDetailLink" href="#" class="btn btn-secondary hidden">查看任务详情</a>
+            <button class="btn btn-primary" onclick="resetPage()">{% trans "识别新文书" %}</button>
+            <a id="taskDetailLink" href="#" class="btn btn-secondary hidden">{% trans "查看任务详情" %}</a>
         </div>
     </div>
     
     <!-- 错误状态 -->
     <div id="errorState" class="error-state hidden">
         <div class="icon">✕</div>
-        <h3>识别失败</h3>
-        <p id="errorMessage">未知错误</p>
-        <button class="btn btn-primary" onclick="resetPage()">重新上传</button>
+        <h3>{% trans "识别失败" %}</h3>
+        <p id="errorMessage">{% trans "未知错误" %}</p>
+        <button class="btn btn-primary" onclick="resetPage()">{% trans "重新上传" %}</button>
     </div>
 </div>
 
@@ -360,7 +360,7 @@ function updateBindingStatus() {
         document.getElementById('caseSelector').classList.add('hidden');
     } else if (result.binding && result.binding.error) {
         el.innerHTML = '<span class="tag tag-red">' + result.binding.error + '</span>';
-    } else el.innerHTML = '<span class="tag tag-yellow">待绑定</span>';
+    } else el.innerHTML = '<span class="tag tag-yellow">{% trans "待绑定" %}</span>';
 }
 
 function toggleEdit(f) { document.getElementById(f + 'Edit').classList.toggle('hidden'); }

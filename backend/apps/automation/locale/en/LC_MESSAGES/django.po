@@ -1,0 +1,2332 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 21:03+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:80
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:298
+#: apps/automation/admin/insurance/preservation_quote_admin.py:200
+#: apps/automation/admin/scraper/court_document_admin.py:90
+#: apps/automation/admin/scraper/scraper_task_admin.py:47
+#: apps/automation/admin/sms/court_sms_admin_base.py:89
+#: apps/automation/admin/token/token_acquisition_history_admin.py:92
+#: apps/automation/admin/token/token_admin.py:68
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:84
+msgid "调度配置"
+msgstr "Schedule Config"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:91
+msgid "运行状态"
+msgstr "Run Status"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:95
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:360
+#: apps/automation/admin/sms/court_sms_admin_base.py:140
+msgid "时间戳"
+msgstr "Timestamp"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:118
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:84
+#: apps/automation/models/court_document.py:107
+#: apps/automation/models/court_document.py:144
+msgid "账号凭证"
+msgstr "Account Credential"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:128
+#: apps/automation/admin/insurance/preservation_quote_admin.py:116
+#: apps/automation/admin/insurance/preservation_quote_admin.py:257
+#: apps/automation/admin/insurance/preservation_quote_admin.py:377
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:120
+#: apps/automation/admin/token/token_acquisition_history_admin.py:144
+#: apps/automation/admin/token/token_admin.py:95
+#: apps/automation/models/scraper.py:44
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:78
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:112
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:176
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:125
+msgid "状态"
+msgstr "Status"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:136
+msgid "上次运行"
+msgstr "Last Run"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:166
+msgid "下次运行"
+msgstr "Next Run"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:207
+#: apps/automation/admin/insurance/preservation_quote_admin.py:336
+#: apps/automation/admin/sms/court_sms_admin_base.py:317
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:83
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:113
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:126
+msgid "操作"
+msgstr "Actions"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:221
+msgid "🚀 手动触发选中的查询任务"
+msgstr "🚀 Manually trigger selected query tasks"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:252
+msgid "✓ 启用选中的定时任务"
+msgstr "✓ Enable selected scheduled tasks"
+
+#: apps/automation/admin/document_delivery/document_delivery_schedule_admin.py:261
+msgid "✗ 禁用选中的定时任务"
+msgstr "✗ Disable selected scheduled tasks"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:69
+msgid "查询信息"
+msgstr "Query Info"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:73
+#: apps/automation/admin/sms/court_sms_admin_base.py:112
+msgid "关联信息"
+msgstr "Related Info"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:77
+#: apps/automation/admin/insurance/preservation_quote_admin.py:224
+#: apps/automation/admin/scraper/court_document_admin.py:129
+#: apps/automation/admin/scraper/scraper_task_admin.py:51
+#: apps/automation/admin/token/token_acquisition_history_admin.py:128
+#: apps/automation/admin/token/token_admin.py:70
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:97
+#: apps/automation/models/court_document.py:110
+msgid "文书发送时间"
+msgstr "Document Sent At"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:125
+msgid "关联短信"
+msgstr "Related SMS"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:154
+#: apps/automation/models/court_document.py:119
+msgid "查询时间"
+msgstr "Query Time"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:182
+msgid "关联短信链接"
+msgstr "Related SMS Link"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:195
+msgid "查询后经过时间"
+msgstr "Time Since Query"
+
+#: apps/automation/admin/document_delivery/document_query_history_admin.py:231
+msgid "删除30天前的记录"
+msgstr "Delete records older than 30 days"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:166
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:167
+msgid "文书智能识别"
+msgstr "Document Recognition"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:309
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:183
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:80
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:56
+msgid "识别结果"
+msgstr "Recognition Result"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:322
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:470
+#: apps/automation/models/recognition.py:38
+msgid "原始文本"
+msgstr "Original Text"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:329
+msgid "绑定结果"
+msgstr "Binding Result"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:341
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:457
+#: apps/automation/admin/sms/court_sms_admin_base.py:283
+msgid "通知状态"
+msgstr "Notification Status"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:353
+#: apps/automation/models/court_document.py:57
+#: apps/automation/models/court_sms.py:61
+#: apps/automation/models/preservation.py:55
+#: apps/automation/models/preservation.py:124
+#: apps/automation/models/recognition.py:61
+#: apps/automation/models/scraper.py:58 apps/automation/models/token.py:91
+msgid "错误信息"
+msgstr "Error Message"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:383
+#: apps/automation/admin/insurance/preservation_quote_admin.py:211
+#: apps/automation/models/invoice_recognition.py:53
+#: apps/automation/models/preservation.py:50
+#: apps/automation/models/recognition.py:30
+msgid "任务状态"
+msgstr "Task Status"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:401
+#: apps/automation/models/recognition.py:33
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:186
+msgid "文书类型"
+msgstr "Document Type"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:414
+#: apps/automation/admin/sms/court_sms_admin_base.py:183
+#: apps/automation/models/court_document.py:34
+#: apps/automation/models/court_sms.py:79
+#: apps/automation/models/recognition.py:48
+#: apps/automation/models/scraper.py:54
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:80
+msgid "关联案件"
+msgstr "Related Cases"
+
+#: apps/automation/admin/document_recognition/document_recognition_admin.py:429
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:230
+msgid "绑定状态"
+msgstr "Binding Status"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:57
+msgid "收费标准"
+msgstr "Fee Standard"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:84
+msgid "费率"
+msgstr "Rate"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:100
+#: apps/automation/models/preservation.py:120
+msgid "最高保全金额"
+msgstr "Max Preservation Amount"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:124
+msgid "请求/响应详情"
+msgstr "Request/Response Details"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:235
+#: apps/automation/admin/insurance/preservation_quote_admin.py:352
+msgid "报价汇总"
+msgstr "Quote Summary"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:251
+#: apps/automation/models/preservation.py:38
+msgid "保全金额"
+msgstr "Preservation Amount"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:281
+msgid "成功/失败/总数"
+msgstr "Success/Failure/Total"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:296
+msgid "成功率"
+msgstr "Success Rate"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:314
+msgid "执行时长"
+msgstr "Execution Duration"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:356
+#: apps/automation/admin/insurance/preservation_quote_admin.py:361
+msgid "暂无报价数据"
+msgstr "No quote data"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:374
+msgid "排名"
+msgstr "Rank"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:375
+msgid "保险公司"
+msgstr "Insurance Company"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:376
+#: apps/automation/models/preservation.py:96
+msgid "报价金额"
+msgstr "Quote Amount"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:406
+msgid "统计信息"
+msgstr "Statistics"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:407
+msgid "最低报价"
+msgstr "Lowest Quote"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:409
+msgid "最高报价"
+msgstr "Highest Quote"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:411
+msgid "平均报价"
+msgstr "Average Quote"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:421
+#: apps/automation/models/court_document.py:16
+#: apps/automation/models/preservation.py:19
+#: apps/automation/models/preservation.py:27
+#: apps/automation/models/recognition.py:16
+#: apps/automation/models/scraper.py:31 apps/automation/models/token.py:48
+msgid "成功"
+msgstr "Success"
+
+#: apps/automation/admin/insurance/preservation_quote_admin.py:423
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:112
+#: apps/automation/models/court_document.py:17
+#: apps/automation/models/invoice_recognition.py:33
+#: apps/automation/models/preservation.py:21
+#: apps/automation/models/preservation.py:28
+#: apps/automation/models/recognition.py:17
+#: apps/automation/models/scraper.py:32 apps/automation/models/token.py:49
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:261
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:275
+msgid "失败"
+msgstr "Failed"
+
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:109
+#: apps/automation/models/court_sms.py:19
+#: apps/automation/models/invoice_recognition.py:30
+#: apps/automation/models/recognition.py:14
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:258
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:272
+msgid "待处理"
+msgstr "Pending"
+
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:110
+#: apps/automation/models/invoice_recognition.py:31
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:259
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:273
+msgid "处理中"
+msgstr "Processing"
+
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:111
+#: apps/automation/models/court_sms.py:27
+#: apps/automation/models/invoice_recognition.py:32
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:260
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:274
+msgid "已完成"
+msgstr "Completed"
+
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:126
+msgid "发票数量"
+msgstr "Invoice Count"
+
+#: apps/automation/admin/invoice_recognition/invoice_recognition_admin.py:137
+msgid "非重复总金额"
+msgstr "Non-duplicate Total Amount"
+
+#: apps/automation/admin/scraper/court_document_admin.py:100
+msgid "文书信息"
+msgstr "Document Info"
+
+#: apps/automation/admin/scraper/court_document_admin.py:116
+#: apps/automation/admin/scraper/court_document_admin.py:158
+#: apps/automation/models/court_document.py:53
+msgid "下载状态"
+msgstr "Download Status"
+
+#: apps/automation/admin/scraper/court_document_admin.py:145
+#: apps/automation/models/court_document.py:42
+msgid "文书名称"
+msgstr "Document Name"
+
+#: apps/automation/admin/scraper/court_document_admin.py:153
+#: apps/automation/models/court_document.py:44
+msgid "法院名称"
+msgstr "Court Name"
+
+#: apps/automation/admin/scraper/court_document_admin.py:180
+#: apps/automation/admin/scraper/court_document_admin.py:195
+msgid "文件大小"
+msgstr "File Size"
+
+#: apps/automation/admin/scraper/court_document_admin.py:212
+#: apps/automation/admin/scraper/court_document_admin.py:225
+msgid "文件下载"
+msgstr "File Download"
+
+#: apps/automation/admin/scraper/quick_download_admin.py:25
+#: apps/automation/admin/scraper/quick_download_admin.py:26
+msgid "快速下载文书"
+msgstr "Quick Download Document"
+
+#: apps/automation/admin/scraper/scraper_task_admin.py:48
+msgid "重试配置"
+msgstr "Retry Config"
+
+#: apps/automation/admin/scraper/scraper_task_admin.py:49
+#: apps/automation/models/scraper.py:56
+msgid "配置"
+msgstr "Config"
+
+#: apps/automation/admin/scraper/scraper_task_admin.py:50
+#: apps/automation/admin/token/token_acquisition_history_admin.py:104
+#: apps/automation/models/scraper.py:57
+msgid "执行结果"
+msgstr "Execution Result"
+
+#: apps/automation/admin/scraper/scraper_task_admin.py:207
+msgid "立即执行选中的任务"
+msgstr "Execute selected tasks immediately"
+
+#: apps/automation/admin/scraper/scraper_task_admin.py:221
+msgid "重置失败任务状态"
+msgstr "Reset failed task status"
+
+#: apps/automation/admin/sms/court_sms_admin_actions.py:44
+msgid "🔄 重新处理选中的短信"
+msgstr "🔄 Reprocess selected SMS"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:101
+msgid "解析结果"
+msgstr "Parse Result"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:123
+#: apps/automation/admin/sms/court_sms_admin_base.py:151
+#: apps/automation/models/court_sms.py:59
+msgid "处理状态"
+msgstr "Processing Status"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:133
+msgid "飞书通知"
+msgstr "Feishu Notification"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:169
+#: apps/automation/models/court_sms.py:51
+msgid "短信类型"
+msgstr "SMS Type"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:198
+#: apps/automation/models/court_sms.py:46
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:43
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:34
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:81
+msgid "短信内容"
+msgstr "SMS Content"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:206
+#: apps/automation/admin/sms/court_sms_admin_base.py:227
+msgid "下载链接"
+msgstr "Download Link"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:213
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:48
+msgid "提取的案号"
+msgstr "Extracted Case Number"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:220
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:58
+msgid "提取的当事人"
+msgstr "Extracted Parties"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:238
+#: apps/automation/models/court_sms.py:71
+msgid "下载任务"
+msgstr "Download Task"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:251
+#: apps/automation/models/court_sms.py:87
+#: apps/automation/models/recognition.py:56
+msgid "案件日志"
+msgstr "Case Logs"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:259
+msgid "关联文书"
+msgstr "Related Document"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:308
+msgid "飞书通知详情"
+msgstr "Feishu Notification Details"
+
+#: apps/automation/admin/sms/court_sms_admin_base.py:365
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:30
+msgid "短信信息"
+msgstr "SMS Info"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:115
+msgid "性能指标"
+msgstr "Performance Metrics"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:174
+#: apps/automation/models/token.py:67
+msgid "触发原因"
+msgstr "Trigger Reason"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:189
+msgid "总耗时"
+msgstr "Total Duration"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:207
+msgid "尝试统计"
+msgstr "Attempt Statistics"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:239
+msgid "一次成功"
+msgstr "First Attempt Success"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:241
+msgid "耗时详情"
+msgstr "Duration Details"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:260
+msgid "错误详情"
+msgstr "Error Details"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:284
+msgid "性能汇总"
+msgstr "Performance Summary"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:288
+msgid "无性能数据"
+msgstr "No performance data"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:295
+msgid "总耗时:"
+msgstr "Total duration:"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:296
+#: apps/automation/admin/token/token_acquisition_history_admin.py:306
+msgid "秒"
+msgstr "seconds"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:305
+msgid "登录耗时:"
+msgstr "Login duration:"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:315
+msgid "尝试次数:"
+msgstr "Attempts:"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:317
+#: apps/automation/admin/token/token_acquisition_history_admin.py:324
+#: apps/automation/admin/token/token_acquisition_history_admin.py:331
+msgid "次"
+msgstr "times"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:322
+msgid "验证码尝试:"
+msgstr "Captcha attempts:"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:329
+msgid "网络重试:"
+msgstr "Network retries:"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:345
+msgid "优秀"
+msgstr "Excellent"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:349
+msgid "良好"
+msgstr "Good"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:353
+msgid "需优化"
+msgstr "Needs Optimization"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:359
+msgid "性能评级"
+msgstr "Performance Rating"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:376
+msgid "清理30天前的历史记录"
+msgstr "Clean up history older than 30 days"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:390
+#, python-format
+msgid "✅ 成功清理 %(count)d 条30天前的历史记录"
+msgstr "✅ Successfully cleaned %(count)d records older than 30 days"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:393
+msgid "ℹ️ 没有找到需要清理的历史记录"
+msgstr "ℹ️ No history records found to clean"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:396
+#, python-format
+msgid "❌ 清理失败: %(error)s"
+msgstr "❌ Cleanup failed: %(error)s"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:399
+msgid "导出为CSV文件"
+msgstr "Export to CSV"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:412
+#, python-format
+msgid "✅ 成功导出 %(count)d 条记录"
+msgstr "✅ Successfully exported %(count)d records"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:418
+#, python-format
+msgid "❌ 导出失败: %(error)s"
+msgstr "❌ Export failed: %(error)s"
+
+#: apps/automation/admin/token/token_acquisition_history_admin.py:422
+msgid "重新分析性能数据"
+msgstr "Re-analyze performance data"
+
+#: apps/automation/admin/token/token_admin.py:69
+msgid "Token 信息"
+msgstr "Token Info"
+
+#: apps/automation/admin/token/token_admin.py:78
+msgid "Token 预览"
+msgstr "Token Preview"
+
+#: apps/automation/admin/token/token_admin.py:85
+msgid "完整 Token"
+msgstr "Full Token"
+
+#: apps/automation/admin/token/token_admin.py:103
+msgid "剩余时间"
+msgstr "Remaining Time"
+
+#: apps/automation/admin/token/token_admin.py:148
+msgid "删除已过期的 Token"
+msgstr "Delete expired Tokens"
+
+#: apps/automation/api/auto_namer_api.py:64
+#, python-format
+msgid "文件不存在: %(path)s"
+msgstr ""
+
+#: apps/automation/api/auto_namer_api.py:73
+msgid "文档中没有提取到文字内容，无法生成命名"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:45
+msgid "未提供文件"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:53
+msgid "服务器内部错误"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:126
+#: apps/automation/api/invoice_recognition_api.py:157
+#: apps/automation/services/court_document_recognition/task_service.py:62
+msgid "任务不存在"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:202
+msgid "scope=single 时必须提供 invoice_id"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:208
+msgid "scope=category 时必须提供 category"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:213
+msgid "无效的 scope 参数，允许值：single/category/all"
+msgstr ""
+
+#: apps/automation/api/invoice_recognition_api.py:215
+msgid "任务或发票不存在"
+msgstr ""
+
+#: apps/automation/api/preservation_quote_api.py:192
+#, python-format
+msgid "询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个"
+msgstr ""
+
+#: apps/automation/api/preservation_quote_api.py:237
+#, python-format
+msgid "重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个"
+msgstr ""
+
+#: apps/automation/apps.py:10
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:9
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:9
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:156
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:14
+msgid "自动化工具"
+msgstr "Automation"
+
+#: apps/automation/models/base.py:16 apps/automation/models/base.py:17
+msgid "文档处理"
+msgstr "Document Processing"
+
+#: apps/automation/models/base.py:27 apps/automation/models/base.py:28
+msgid "自动命名工具"
+msgstr "Auto Naming Tool"
+
+#: apps/automation/models/base.py:39 apps/automation/models/base.py:40
+msgid "测试法院系统"
+msgstr "Test Court System"
+
+#: apps/automation/models/base.py:51 apps/automation/models/base.py:52
+msgid "交费通知书识别"
+msgstr "Fee Notice Recognition"
+
+#: apps/automation/models/base.py:63 apps/automation/models/base.py:64
+msgid "测试工具"
+msgstr "Test Tools"
+
+#: apps/automation/models/base.py:75 apps/automation/models/base.py:76
+msgid "财产保全日期识别"
+msgstr "Preservation Date Recognition"
+
+#: apps/automation/models/base.py:87 apps/automation/models/base.py:88
+msgid "图片自动旋转"
+msgstr "Auto Image Rotation"
+
+#: apps/automation/models/court_document.py:14
+msgid "待下载"
+msgstr "Pending Download"
+
+#: apps/automation/models/court_document.py:15
+#: apps/automation/models/court_sms.py:21
+msgid "下载中"
+msgstr "Downloading"
+
+#: apps/automation/models/court_document.py:26
+msgid "爬虫任务"
+msgstr "Crawler Task"
+
+#: apps/automation/models/court_document.py:38
+msgid "送达编号"
+msgstr "Delivery Number"
+
+#: apps/automation/models/court_document.py:39
+msgid "上传编号"
+msgstr "Upload Number"
+
+#: apps/automation/models/court_document.py:40
+msgid "文件链接"
+msgstr "File Link"
+
+#: apps/automation/models/court_document.py:41
+msgid "文书编号"
+msgstr "Document Number"
+
+#: apps/automation/models/court_document.py:43
+msgid "法院编号"
+msgstr "Court Number"
+
+#: apps/automation/models/court_document.py:45
+msgid "文件格式"
+msgstr "File Format"
+
+#: apps/automation/models/court_document.py:46
+msgid "创建时间(原始)"
+msgstr "Created At (Original)"
+
+#: apps/automation/models/court_document.py:55
+msgid "本地文件路径"
+msgstr "Local File Path"
+
+#: apps/automation/models/court_document.py:56
+msgid "文件大小(字节)"
+msgstr "File Size (bytes)"
+
+#: apps/automation/models/court_document.py:60
+msgid "记录创建时间"
+msgstr "Record Created At"
+
+#: apps/automation/models/court_document.py:61
+#: apps/automation/models/scraper.py:62 apps/automation/models/token.py:23
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/automation/models/court_document.py:62
+msgid "下载完成时间"
+msgstr "Download Completed At"
+
+#: apps/automation/models/court_document.py:66
+#: apps/automation/models/court_document.py:67
+msgid "法院文书"
+msgstr "Court Documents"
+
+#: apps/automation/models/court_document.py:109
+#: apps/automation/models/recognition.py:34
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:115
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:164
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:191
+msgid "案号"
+msgstr "Case No."
+
+#: apps/automation/models/court_document.py:117
+msgid "关联短信记录"
+msgstr "Related SMS Record"
+
+#: apps/automation/models/court_document.py:123
+#: apps/automation/models/court_document.py:124
+msgid "文书查询历史"
+msgstr "Document Query History"
+
+#: apps/automation/models/court_document.py:146
+msgid "每天运行次数"
+msgstr "Daily Run Count"
+
+#: apps/automation/models/court_document.py:148
+msgid "运行间隔(小时)"
+msgstr "Run Interval (Hours)"
+
+#: apps/automation/models/court_document.py:148
+msgid "在24小时内的运行间隔"
+msgstr "Run interval within 24 hours"
+
+#: apps/automation/models/court_document.py:151
+msgid "截止时间(小时)"
+msgstr "Cutoff Time (hours)"
+
+#: apps/automation/models/court_document.py:151
+msgid "只处理最近N小时内的文书"
+msgstr "Only process documents within the last N hours"
+
+#: apps/automation/models/court_document.py:153
+msgid "是否启用"
+msgstr "Enabled"
+
+#: apps/automation/models/court_document.py:154
+msgid "上次运行时间"
+msgstr "Last Run Time"
+
+#: apps/automation/models/court_document.py:155
+msgid "下次运行时间"
+msgstr "Next Run Time"
+
+#: apps/automation/models/court_document.py:161
+#: apps/automation/models/court_document.py:162
+msgid "文书送达定时任务"
+msgstr "Document Delivery Tasks"
+
+#: apps/automation/models/court_sms.py:20
+msgid "解析中"
+msgstr "Parsing"
+
+#: apps/automation/models/court_sms.py:22
+msgid "下载失败"
+msgstr "Download Failed"
+
+#: apps/automation/models/court_sms.py:23
+msgid "匹配中"
+msgstr "Matching"
+
+#: apps/automation/models/court_sms.py:24
+msgid "待人工处理"
+msgstr "Pending Manual Processing"
+
+#: apps/automation/models/court_sms.py:25
+msgid "重命名中"
+msgstr "Renaming"
+
+#: apps/automation/models/court_sms.py:26
+msgid "通知中"
+msgstr "Notifying"
+
+#: apps/automation/models/court_sms.py:28
+msgid "处理失败"
+msgstr "Processing Failed"
+
+#: apps/automation/models/court_sms.py:34
+msgid "文书送达"
+msgstr "Document Delivery"
+
+#: apps/automation/models/court_sms.py:35
+msgid "信息通知"
+msgstr "Info Notification"
+
+#: apps/automation/models/court_sms.py:36
+msgid "立案通知"
+msgstr "Case Filing Notification"
+
+#: apps/automation/models/court_sms.py:47
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:40
+msgid "收到时间"
+msgstr "Received At"
+
+#: apps/automation/models/court_sms.py:53
+msgid "下载链接列表"
+msgstr "Download Link List"
+
+#: apps/automation/models/court_sms.py:54
+msgid "案号列表"
+msgstr "Case Number List"
+
+#: apps/automation/models/court_sms.py:55
+msgid "当事人名称列表"
+msgstr "Party Name List"
+
+#: apps/automation/models/court_sms.py:62 apps/automation/models/scraper.py:59
+msgid "重试次数"
+msgstr "Retry Count"
+
+#: apps/automation/models/court_sms.py:91
+msgid "飞书发送时间"
+msgstr "Feishu Send Time"
+
+#: apps/automation/models/court_sms.py:92
+msgid "飞书发送错误"
+msgstr "Feishu Send Error"
+
+#: apps/automation/models/court_sms.py:100
+#: apps/automation/models/court_sms.py:101
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:10
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:10
+msgid "法院短信"
+msgstr "Court SMS"
+
+#: apps/automation/models/invoice_recognition.py:15
+msgid "增值税专用发票"
+msgstr "VAT Special Invoice"
+
+#: apps/automation/models/invoice_recognition.py:16
+msgid "增值税普通发票"
+msgstr "VAT General Invoice"
+
+#: apps/automation/models/invoice_recognition.py:17
+msgid "增值税电子普通发票"
+msgstr "VAT Electronic General Invoice"
+
+#: apps/automation/models/invoice_recognition.py:18
+msgid "机动车销售统一发票"
+msgstr "Motor Vehicle Sales Invoice"
+
+#: apps/automation/models/invoice_recognition.py:19
+msgid "火车票"
+msgstr "Train Ticket"
+
+#: apps/automation/models/invoice_recognition.py:20
+msgid "出租车发票"
+msgstr "Taxi Invoice"
+
+#: apps/automation/models/invoice_recognition.py:21
+msgid "定额发票"
+msgstr "Fixed Amount Invoice"
+
+#: apps/automation/models/invoice_recognition.py:22
+msgid "飞机行程单"
+msgstr "Flight Itinerary"
+
+#: apps/automation/models/invoice_recognition.py:23
+msgid "过路费发票"
+msgstr "Toll Invoice"
+
+#: apps/automation/models/invoice_recognition.py:24
+msgid "其他"
+msgstr "Other"
+
+#: apps/automation/models/invoice_recognition.py:39
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:268
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:282
+msgid "待识别"
+msgstr "Pending Recognition"
+
+#: apps/automation/models/invoice_recognition.py:40
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:269
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:283
+msgid "识别成功"
+msgstr "Recognition Successful"
+
+#: apps/automation/models/invoice_recognition.py:41
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:261
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:270
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:284
+msgid "识别失败"
+msgstr "Recognition Failed"
+
+#: apps/automation/models/invoice_recognition.py:48
+msgid "任务名称"
+msgstr "Task Name"
+
+#: apps/automation/models/invoice_recognition.py:61
+msgid "创建人"
+msgstr "Created By"
+
+#: apps/automation/models/invoice_recognition.py:63
+#: apps/automation/models/invoice_recognition.py:122
+#: apps/automation/models/preservation.py:56
+#: apps/automation/models/preservation.py:128
+#: apps/automation/models/recognition.py:68
+#: apps/automation/models/scraper.py:61 apps/automation/models/token.py:22
+#: apps/automation/models/token.py:95
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:128
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:170
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:30
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/automation/models/invoice_recognition.py:64
+#: apps/automation/models/preservation.py:58
+#: apps/automation/models/recognition.py:70
+#: apps/automation/models/scraper.py:64 apps/automation/models/token.py:97
+msgid "完成时间"
+msgstr "Completed At"
+
+#: apps/automation/models/invoice_recognition.py:65
+msgid "分组合并配置"
+msgstr "Group Merge Config"
+
+#: apps/automation/models/invoice_recognition.py:73
+#: apps/automation/models/invoice_recognition.py:74
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:15
+msgid "发票识别任务"
+msgstr "Invoice Recognition Tasks"
+
+#: apps/automation/models/invoice_recognition.py:88
+msgid "所属任务"
+msgstr "Belonging Task"
+
+#: apps/automation/models/invoice_recognition.py:90
+#: apps/automation/models/recognition.py:24
+msgid "文件路径"
+msgstr "File Path"
+
+#: apps/automation/models/invoice_recognition.py:91
+#: apps/automation/models/recognition.py:25
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:107
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:171
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:120
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:167
+msgid "原始文件名"
+msgstr "Original Filename"
+
+#: apps/automation/models/invoice_recognition.py:92
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:108
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:172
+msgid "发票代码"
+msgstr "Invoice Code"
+
+#: apps/automation/models/invoice_recognition.py:93
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:109
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:173
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:122
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:169
+msgid "发票号码"
+msgstr "Invoice Number"
+
+#: apps/automation/models/invoice_recognition.py:94
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:110
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:174
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:123
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:170
+msgid "开票日期"
+msgstr "Invoice Date"
+
+#: apps/automation/models/invoice_recognition.py:96
+msgid "金额（不含税）"
+msgstr "Amount (Excl. Tax)"
+
+#: apps/automation/models/invoice_recognition.py:99
+msgid "税额"
+msgstr "Tax Amount"
+
+#: apps/automation/models/invoice_recognition.py:102
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:111
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:175
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:124
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:171
+msgid "价税合计"
+msgstr "Total Amount (Incl. Tax)"
+
+#: apps/automation/models/invoice_recognition.py:104
+msgid "购买方名称"
+msgstr "Buyer Name"
+
+#: apps/automation/models/invoice_recognition.py:105
+msgid "销售方名称"
+msgstr "Seller Name"
+
+#: apps/automation/models/invoice_recognition.py:106
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:121
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:168
+msgid "项目名称"
+msgstr "Item Name"
+
+#: apps/automation/models/invoice_recognition.py:111
+msgid "发票类目"
+msgstr "Invoice Category"
+
+#: apps/automation/models/invoice_recognition.py:113
+msgid "OCR 原始文本"
+msgstr "OCR Original Text"
+
+#: apps/automation/models/invoice_recognition.py:114
+msgid "是否重复"
+msgstr "Is Duplicate"
+
+#: apps/automation/models/invoice_recognition.py:115
+msgid "重复的原始记录ID"
+msgstr "Duplicate Original Record ID"
+
+#: apps/automation/models/invoice_recognition.py:120
+msgid "识别状态"
+msgstr "Recognition Status"
+
+#: apps/automation/models/invoice_recognition.py:130
+#: apps/automation/models/invoice_recognition.py:131
+msgid "发票记录"
+msgstr "Invoice Record"
+
+#: apps/automation/models/preservation.py:17
+#: apps/automation/models/scraper.py:29
+msgid "等待中"
+msgstr "Waiting"
+
+#: apps/automation/models/preservation.py:18
+#: apps/automation/models/scraper.py:30
+msgid "执行中"
+msgstr "Executing"
+
+#: apps/automation/models/preservation.py:20
+msgid "部分成功"
+msgstr "Partial Success"
+
+#: apps/automation/models/preservation.py:38
+msgid "需要保全的财产金额"
+msgstr "Property Amount to Preserve"
+
+#: apps/automation/models/preservation.py:41
+msgid "法院ID"
+msgstr "Court ID"
+
+#: apps/automation/models/preservation.py:41
+msgid "法院系统中的法院标识"
+msgstr "Court identifier in court system"
+
+#: apps/automation/models/preservation.py:44
+msgid "分类ID"
+msgstr "Category ID"
+
+#: apps/automation/models/preservation.py:44
+msgid "保全分类ID (cPid)"
+msgstr "Preservation Category ID (cPid)"
+
+#: apps/automation/models/preservation.py:47 apps/automation/models/token.py:63
+msgid "凭证ID"
+msgstr "Credential ID"
+
+#: apps/automation/models/preservation.py:47
+msgid "关联的账号凭证ID(可选,系统会自动获取Token)"
+msgstr ""
+"Associated account credential ID (optional, system will auto-get Token)"
+
+#: apps/automation/models/preservation.py:52
+msgid "保险公司总数"
+msgstr "Total Insurance Companies"
+
+#: apps/automation/models/preservation.py:53
+msgid "成功查询数"
+msgstr "Successful Queries"
+
+#: apps/automation/models/preservation.py:54
+msgid "失败查询数"
+msgstr "Failed Queries"
+
+#: apps/automation/models/preservation.py:57
+#: apps/automation/models/recognition.py:69
+#: apps/automation/models/scraper.py:63 apps/automation/models/token.py:96
+msgid "开始时间"
+msgstr "Start Time"
+
+#: apps/automation/models/preservation.py:62
+#: apps/automation/models/preservation.py:63
+msgid "财产保全询价"
+msgstr "Preservation Insurance Inquiry"
+
+#: apps/automation/models/preservation.py:86
+msgid "询价任务"
+msgstr "Quote Task"
+
+#: apps/automation/models/preservation.py:88
+msgid "保险公司ID"
+msgstr "Insurance Company ID"
+
+#: apps/automation/models/preservation.py:88
+msgid "cId"
+msgstr "cId"
+
+#: apps/automation/models/preservation.py:89
+msgid "保险公司编码"
+msgstr "Insurance Company Code"
+
+#: apps/automation/models/preservation.py:89
+msgid "cCode"
+msgstr "cCode"
+
+#: apps/automation/models/preservation.py:90
+msgid "保险公司名称"
+msgstr "Insurance Company Name"
+
+#: apps/automation/models/preservation.py:90
+msgid "cName"
+msgstr "cName"
+
+#: apps/automation/models/preservation.py:97
+msgid "保险公司给出的担保费报价(通常使用 minPremium)"
+msgstr "Guarantee fee quote from insurance company (usually minPremium)"
+
+#: apps/automation/models/preservation.py:101
+msgid "最低收费1"
+msgstr "Min Fee 1"
+
+#: apps/automation/models/preservation.py:101
+msgid "minPremium"
+msgstr "minPremium"
+
+#: apps/automation/models/preservation.py:104
+msgid "最低收费2"
+msgstr "Min Fee 2"
+
+#: apps/automation/models/preservation.py:104
+msgid "minAmount"
+msgstr "minAmount"
+
+#: apps/automation/models/preservation.py:107
+msgid "最高收费"
+msgstr "Max Fee"
+
+#: apps/automation/models/preservation.py:107
+msgid "maxAmount"
+msgstr "maxAmount"
+
+#: apps/automation/models/preservation.py:110
+msgid "最低费率"
+msgstr "Min Rate"
+
+#: apps/automation/models/preservation.py:110
+msgid "minRate"
+msgstr "minRate"
+
+#: apps/automation/models/preservation.py:113
+msgid "最高费率"
+msgstr "Max Rate"
+
+#: apps/automation/models/preservation.py:113
+msgid "maxRate"
+msgstr "maxRate"
+
+#: apps/automation/models/preservation.py:121
+msgid "maxApplyAmount"
+msgstr "maxApplyAmount"
+
+#: apps/automation/models/preservation.py:123
+msgid "查询状态"
+msgstr "Query Status"
+
+#: apps/automation/models/preservation.py:126
+msgid "完整响应"
+msgstr "Full Response"
+
+#: apps/automation/models/preservation.py:126
+msgid "API 返回的完整响应数据"
+msgstr "Complete response data from API"
+
+#: apps/automation/models/preservation.py:132
+#: apps/automation/models/preservation.py:133
+msgid "保险公司报价"
+msgstr "Insurance Company Quote"
+
+#: apps/automation/models/recognition.py:15
+msgid "识别中"
+msgstr "Recognizing"
+
+#: apps/automation/models/recognition.py:35
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:202
+msgid "关键时间"
+msgstr "Key Time"
+
+#: apps/automation/models/recognition.py:36
+msgid "置信度"
+msgstr "Confidence"
+
+#: apps/automation/models/recognition.py:37
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:225
+msgid "提取方式"
+msgstr "Extraction Method"
+
+#: apps/automation/models/recognition.py:39
+msgid "重命名后路径"
+msgstr "Renamed Path"
+
+#: apps/automation/models/recognition.py:41
+msgid "绑定成功"
+msgstr "Binding Successful"
+
+#: apps/automation/models/recognition.py:58
+msgid "绑定消息"
+msgstr "Binding Message"
+
+#: apps/automation/models/recognition.py:59
+msgid "绑定错误码"
+msgstr "Binding Error Code"
+
+#: apps/automation/models/recognition.py:63
+msgid "通知已发送"
+msgstr "Notification Sent"
+
+#: apps/automation/models/recognition.py:64
+msgid "通知发送时间"
+msgstr "Notification Send Time"
+
+#: apps/automation/models/recognition.py:65
+msgid "通知错误信息"
+msgstr "Notification Error Message"
+
+#: apps/automation/models/recognition.py:66
+msgid "文件已发送"
+msgstr "File Sent"
+
+#: apps/automation/models/recognition.py:74
+#: apps/automation/models/recognition.py:75
+msgid "文书识别任务"
+msgstr "Document Recognition Tasks"
+
+#: apps/automation/models/scraper.py:20
+msgid "下载司法文书"
+msgstr "Download Judicial Documents"
+
+#: apps/automation/models/scraper.py:21
+msgid "自动立案"
+msgstr "Auto Case Filing"
+
+#: apps/automation/models/scraper.py:22
+msgid "司法局操作"
+msgstr "Justice Bureau Operations"
+
+#: apps/automation/models/scraper.py:23
+msgid "公安局操作"
+msgstr "Public Security Bureau Operations"
+
+#: apps/automation/models/scraper.py:42
+msgid "任务类型"
+msgstr "Task Type"
+
+#: apps/automation/models/scraper.py:46
+msgid "优先级"
+msgstr "Priority"
+
+#: apps/automation/models/scraper.py:46
+msgid "1-10,数字越小优先级越高"
+msgstr "1-10, lower number means higher priority"
+
+#: apps/automation/models/scraper.py:47
+msgid "目标URL"
+msgstr "Target URL"
+
+#: apps/automation/models/scraper.py:56
+msgid "存储账号、密码、文件路径等"
+msgstr "Store account, password, file path, etc."
+
+#: apps/automation/models/scraper.py:60
+msgid "最大重试次数"
+msgstr "Max Retry Count"
+
+#: apps/automation/models/scraper.py:66
+msgid "计划执行时间"
+msgstr "Scheduled Execution Time"
+
+#: apps/automation/models/scraper.py:66
+msgid "留空则立即执行"
+msgstr "Leave empty to execute immediately"
+
+#: apps/automation/models/scraper.py:71 apps/automation/models/scraper.py:72
+msgid "任务管理"
+msgstr "Task Management"
+
+#: apps/automation/models/token.py:15 apps/automation/models/token.py:60
+msgid "网站名称"
+msgstr "Site Name"
+
+#: apps/automation/models/token.py:15 apps/automation/models/token.py:60
+msgid "如:court_zxfw"
+msgstr "e.g.: court_zxfw"
+
+#: apps/automation/models/token.py:16
+msgid "账号"
+msgstr "Account"
+
+#: apps/automation/models/token.py:17
+msgid "Token"
+msgstr "Token"
+
+#: apps/automation/models/token.py:17
+msgid "JWT Token 或其他认证令牌"
+msgstr "JWT Token or other authentication token"
+
+#: apps/automation/models/token.py:19
+msgid "Token 类型"
+msgstr "Token Type"
+
+#: apps/automation/models/token.py:19
+msgid "如:Bearer, JWT"
+msgstr "e.g.: Bearer, JWT"
+
+#: apps/automation/models/token.py:21
+msgid "过期时间"
+msgstr "Expiry Time"
+
+#: apps/automation/models/token.py:27 apps/automation/models/token.py:28
+msgid "Token管理"
+msgstr "Token Management"
+
+#: apps/automation/models/token.py:50
+msgid "超时"
+msgstr "Timeout"
+
+#: apps/automation/models/token.py:51
+msgid "网络错误"
+msgstr "Network Error"
+
+#: apps/automation/models/token.py:52
+msgid "验证码错误"
+msgstr "Captcha Error"
+
+#: apps/automation/models/token.py:53
+msgid "账号密码错误"
+msgstr "Wrong Account/Password"
+
+#: apps/automation/models/token.py:61
+msgid "使用账号"
+msgstr "Using Account"
+
+#: apps/automation/models/token.py:63
+msgid "关联的AccountCredential ID"
+msgstr "Associated AccountCredential ID"
+
+#: apps/automation/models/token.py:65
+msgid "获取状态"
+msgstr "Acquisition Status"
+
+#: apps/automation/models/token.py:67
+msgid "如:token_expired, no_token, manual_trigger"
+msgstr "e.g.: token_expired, no_token, manual_trigger"
+
+#: apps/automation/models/token.py:69
+msgid "尝试次数"
+msgstr "Attempt Count"
+
+#: apps/automation/models/token.py:70
+msgid "总耗时(秒)"
+msgstr "Total Duration (seconds)"
+
+#: apps/automation/models/token.py:71
+msgid "登录耗时(秒)"
+msgstr "Login Duration (seconds)"
+
+#: apps/automation/models/token.py:72
+msgid "验证码尝试次数"
+msgstr "Captcha Attempt Count"
+
+#: apps/automation/models/token.py:73
+msgid "网络重试次数"
+msgstr "Network Retry Count"
+
+#: apps/automation/models/token.py:75
+msgid "Token预览"
+msgstr "Token Preview"
+
+#: apps/automation/models/token.py:75
+msgid "Token的前50个字符"
+msgstr "First 50 characters of Token"
+
+#: apps/automation/models/token.py:81
+msgid "Token指纹"
+msgstr "Token Fingerprint"
+
+#: apps/automation/models/token.py:82
+msgid "Token的SHA256指纹(用于排查重复/归因,不可反推Token)"
+msgstr ""
+"SHA256 fingerprint of Token (for deduplication/attribution, cannot reverse "
+"Token)"
+
+#: apps/automation/models/token.py:88
+msgid "Token脱敏摘要"
+msgstr "Token Desensitized Summary"
+
+#: apps/automation/models/token.py:89
+msgid "脱敏后的Token摘要(仅用于人工排查)"
+msgstr "Desensitized Token summary (for manual investigation only)"
+
+#: apps/automation/models/token.py:93
+msgid "详细错误信息"
+msgstr "Detailed Error Message"
+
+#: apps/automation/models/token.py:93
+msgid "包含完整的错误堆栈和上下文"
+msgstr "Contains complete error stack and context"
+
+#: apps/automation/models/token.py:101 apps/automation/models/token.py:102
+msgid "Token获取历史"
+msgstr "Token Fetch History"
+
+#: apps/automation/services/admin/court_document_admin_service.py:52
+#: apps/automation/services/admin/court_document_admin_service.py:121
+msgid "没有选中任何文书"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:62
+msgid "没有找到可下载的文书"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:101
+msgid "批量下载文书失败"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:129
+msgid "没有找到要删除的文书"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:176
+msgid "批量删除文书失败"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:277
+msgid "获取文书统计数据失败"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:330
+msgid "重试失败下载任务失败"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:393
+msgid "清理孤立文件失败"
+msgstr ""
+
+#: apps/automation/services/admin/court_document_admin_service.py:453
+msgid "获取下载进度失败"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:60
+msgid "没有选中任何询价任务"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:73
+msgid "没有找到可执行的询价任务"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:129
+msgid "批量执行询价任务失败"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:193
+msgid "重试失败询价任务失败"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:323
+msgid "获取询价统计数据失败"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:345
+msgid "没有提供询价配置"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:359
+msgid "缺少保全金额"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:367
+msgid "保全金额必须大于0"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:401
+msgid "批量创建询价任务失败"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:446
+#: apps/automation/services/admin/preservation_quote_admin_service.py:467
+#: apps/automation/services/insurance/preservation_quote/repo.py:68
+#: apps/automation/services/insurance/preservation_quote/repo.py:114
+#: apps/automation/services/insurance/preservation_quote_service.py:195
+#: apps/automation/services/insurance/preservation_quote_service.py:372
+#: apps/automation/services/insurance/preservation_quote_service.py:407
+msgid "询价任务不存在"
+msgstr ""
+
+#: apps/automation/services/admin/preservation_quote_admin_service.py:546
+msgid "获取询价对比分析失败"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:52
+msgid "保留天数必须大于0"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:102
+msgid "清理历史记录失败"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:123
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:219
+msgid "没有选中任何记录"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:198
+msgid "导出CSV文件失败"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:306
+msgid "性能数据分析失败"
+msgstr ""
+
+#: apps/automation/services/admin/token_acquisition_history_admin_service.py:411
+msgid "获取仪表板统计数据失败"
+msgstr ""
+
+#: apps/automation/services/ai/auto_namer_service_adapter.py:59
+msgid "文档内容不能为空"
+msgstr ""
+
+#: apps/automation/services/captcha/captcha_recognition_service.py:242
+msgid "无法识别验证码"
+msgstr ""
+
+#: apps/automation/services/captcha/captcha_recognition_service.py:335
+msgid "验证码识别失败"
+msgstr ""
+
+#: apps/automation/services/captcha/captcha_recognition_service.py:346
+msgid "验证码识别异常"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_file_mixin.py:36
+msgid "飞书配置不完整，无法发送文件"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_file_mixin.py:94
+msgid "API响应中缺少文件key"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_owner_mixin.py:49
+msgid "飞书配置不完整，无法获取群聊信息"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_owner_mixin.py:82
+msgid "获取群聊信息成功"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_owner_mixin.py:135
+msgid "飞书配置不完整，无法获取群聊群主信息"
+msgstr ""
+
+#: apps/automation/services/chat/_feishu_token_mixin.py:95
+msgid "飞书APP_ID或APP_SECRET未配置"
+msgstr ""
+
+#: apps/automation/services/chat/feishu_provider.py:140
+msgid "飞书配置不完整，无法创建群聊"
+msgstr ""
+
+#: apps/automation/services/chat/feishu_provider.py:184
+msgid "API响应中缺少群聊ID"
+msgstr ""
+
+#: apps/automation/services/chat/feishu_provider.py:190
+msgid "群聊创建成功"
+msgstr ""
+
+#: apps/automation/services/chat/feishu_provider.py:225
+msgid "飞书配置不完整，无法发送消息"
+msgstr ""
+
+#: apps/automation/services/chat/feishu_provider.py:261
+msgid "消息发送成功"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/case_binding_service.py:278
+#: apps/automation/services/court_document_recognition/recognition_service.py:160
+msgid "未识别到案号，无法绑定案件"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/case_binding_service.py:429
+msgid "任务已绑定到案件"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/data_classes.py:234
+msgid "通知发送成功"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/document_classifier.py:119
+#: apps/automation/services/court_document_recognition/info_extractor.py:217
+msgid "AI 服务暂时不可用，请稍后重试"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/document_classifier.py:129
+msgid "文书分类超时，请重试"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/info_extractor.py:228
+msgid "信息提取超时，请重试"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/recognition_service.py:152
+msgid "暂时只支持传票识别，其他文书类型敬请期待"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/recognition_service.py:156
+msgid "执行裁定书绑定功能开发中，敬请期待"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/recognition_service.py:193
+msgid "无法从文书中提取文字"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/recognition_service.py:261
+msgid "文本内容不能为空"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/task_service.py:98
+msgid "时间格式不正确"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/text_extraction_service.py:101
+msgid "文件不存在"
+msgstr ""
+
+#: apps/automation/services/court_document_recognition/text_extraction_service.py:108
+msgid "不支持的文件格式"
+msgstr ""
+
+#: apps/automation/services/document_delivery/_matching_mixin.py:251
+#: apps/automation/services/document_delivery/api/document_delivery_api_service/_process.py:214
+#: apps/automation/services/document_delivery/delivery/document_processor.py:301
+#: apps/automation/services/document_delivery/processor/document_delivery_processor.py:206
+msgid "通知发送失败"
+msgstr ""
+
+#: apps/automation/services/document_delivery/api/document_delivery_api_service/_process.py:99
+#: apps/automation/services/document_delivery/document_delivery_service.py:257
+msgid "所有文书下载失败"
+msgstr ""
+
+#: apps/automation/services/document_delivery/court_api/court_document_api_coordinator.py:39
+#: apps/automation/services/document_delivery/court_api/court_document_api_coordinator.py:62
+msgid "请求失败"
+msgstr ""
+
+#: apps/automation/services/document_delivery/court_api/court_document_http_client.py:28
+#: apps/automation/services/document_delivery/court_document_api_client.py:253
+msgid "Token 已过期或无效"
+msgstr ""
+
+#: apps/automation/services/document_delivery/document_delivery_service.py:536
+#: apps/automation/services/document_delivery/playwright/document_delivery_playwright_service.py:137
+msgid "文书下载失败"
+msgstr ""
+
+#: apps/automation/services/image_rotation/validation.py:16
+msgid "图片数据解码失败"
+msgstr ""
+
+#: apps/automation/services/insurance/_quote_execution_mixin.py:144
+msgid "未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"
+msgstr ""
+
+#: apps/automation/services/insurance/court_insurance_client.py:496
+msgid "响应中未找到费率数据"
+msgstr ""
+
+#: apps/automation/services/insurance/preservation_quote/client_facade.py:47
+msgid "未获取到保险公司列表,请检查分类 ID 和法院 ID 是否正确"
+msgstr ""
+
+#: apps/automation/services/insurance/preservation_quote/repo.py:50
+#: apps/automation/services/insurance/preservation_quote_service.py:582
+msgid "数据验证失败"
+msgstr ""
+
+#: apps/automation/services/insurance/preservation_quote/repo.py:83
+#: apps/automation/services/insurance/preservation_quote_service.py:507
+msgid "参数验证失败"
+msgstr ""
+
+#: apps/automation/services/insurance/preservation_quote/workflow.py:71
+#: apps/automation/services/insurance/preservation_quote_service.py:256
+msgid "所有保险公司查询均失败"
+msgstr ""
+
+#: apps/automation/services/ocr/invoice_recognition_service.py:56
+#: apps/automation/services/ocr/quick_recognition_service.py:83
+#, python-format
+msgid "不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。"
+msgstr ""
+
+#: apps/automation/services/ocr/invoice_recognition_service.py:62
+#: apps/automation/services/ocr/quick_recognition_service.py:90
+#, python-format
+msgid "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。"
+msgstr ""
+
+#: apps/automation/services/ocr/quick_recognition_service.py:146
+msgid "识别失败，请重试"
+msgstr ""
+
+#: apps/automation/services/preservation_date/extraction_service.py:200
+msgid "大模型调用失败"
+msgstr ""
+
+#: apps/automation/services/scraper/core/browser_manager.py:67
+msgid "配置验证失败"
+msgstr ""
+
+#: apps/automation/services/scraper/core/browser_manager.py:93
+msgid "浏览器启动失败"
+msgstr ""
+
+#: apps/automation/services/scraper/core/browser_manager.py:108
+msgid "浏览器上下文创建失败"
+msgstr ""
+
+#: apps/automation/services/scraper/core/browser_manager.py:132
+msgid "浏览器操作失败"
+msgstr ""
+
+#: apps/automation/services/scraper/scrapers/court_document/zxfw_scraper.py:144
+msgid "所有下载方式均失败"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:83
+#, python-format
+msgid "开始民事一审立案: 法院=%s, 案由=%s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:99
+msgid "民事一审立案流程执行完成"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:100
+msgid "立案流程执行完成（已到预览页，未提交）"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:106
+#, python-format
+msgid "立案失败: %(error)s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:128
+#, python-format
+msgid "开始申请执行立案: 法院=%s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:145
+msgid "申请执行立案流程执行完成"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:146
+msgid "申请执行流程执行完成（已到预览页，未提交）"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:152
+#, python-format
+msgid "申请执行立案失败: %(error)s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:158
+#, python-format
+msgid "导航到%s立案页"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:181
+#, python-format
+msgid "已打开%s立案页: %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:207
+#, python-format
+msgid "步骤1: 选择受理法院 - %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:244
+#, python-format
+msgid "步骤1完成: 已选择法院 %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:254
+msgid "步骤2: 阅读须知"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:270
+msgid "步骤2完成: 须知已确认"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:276
+#, python-format
+msgid "步骤3: 选择案由 - %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:297
+#, python-format
+msgid "步骤3完成: 已选择案由 %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:303
+msgid "步骤(执行): 选择执行依据"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:369
+#, python-format
+msgid "执行依据选择完成: %s, %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:395
+msgid "步骤4: 上传诉讼材料"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:440
+msgid "步骤4完成: 材料已上传"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:448
+msgid "步骤: 完善案件信息"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:508
+msgid "完善案件信息: 当事人和代理人已填写"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:644
+#, python-format
+msgid "引入原审参与人: %s → %s"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:815
+msgid "填写执行标的信息"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:845
+msgid "执行标的信息填写完成"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:856
+msgid "步骤6: 预览（不提交）"
+msgstr ""
+
+#: apps/automation/services/scraper/sites/court_zxfw_filing.py:858
+msgid "步骤6完成: 已到达预览页，未提交"
+msgstr ""
+
+#: apps/automation/services/sms/court_sms_service.py:145
+#: apps/automation/services/sms/submission/sms_submission_service.py:92
+msgid "短信内容不能为空"
+msgstr ""
+
+#: apps/automation/services/sms/court_sms_service.py:200
+#: apps/automation/services/sms/court_sms_service.py:382
+#: apps/automation/services/sms/court_sms_service.py:410
+#: apps/automation/services/sms/stages/sms_matching_stage.py:122
+#: apps/automation/services/sms/stages/sms_matching_stage.py:145
+#: apps/automation/services/sms/submission/sms_submission_service.py:167
+msgid "创建案件绑定失败"
+msgstr ""
+
+#: apps/automation/services/sms/court_sms_service.py:416
+#: apps/automation/services/sms/stages/sms_matching_stage.py:125
+msgid "未能匹配到唯一的在办案件，需要人工处理"
+msgstr ""
+
+#: apps/automation/services/sms/stages/sms_notifying_stage.py:163
+msgid "案件群聊通知发送失败"
+msgstr ""
+
+#: apps/automation/services/sms/task_recovery_service.py:215
+msgid "恢复时发现重试次数已用完"
+msgstr ""
+
+#: apps/automation/services/sms/task_recovery_service.py:253
+msgid "下载重试次数已用完"
+msgstr ""
+
+#: apps/automation/services/token/_login_handler.py:121
+msgid "超时但Token已保存"
+msgstr ""
+
+#: apps/automation/services/token/court_login_gateway.py:39
+msgid "登录成功但未获取到token"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:4
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:4
+#: apps/automation/templates/admin/automation/tokenacquisitionhistory/dashboard.html:4
+msgid "Django site admin"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:8
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:8
+#: apps/automation/templates/admin/automation/tokenacquisitionhistory/dashboard.html:126
+msgid "Home"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:11
+#, fuzzy
+#| msgid "短信ID"
+msgid "短信"
+msgstr "SMS ID"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:33
+msgid "短信ID"
+msgstr "SMS ID"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:36
+msgid "当前状态"
+msgstr "Current Status"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:71
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:88
+msgid "选择案件"
+msgstr "Select Case"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:76
+msgid "搜索案件"
+msgstr "Search Cases"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:77
+msgid "输入案件名称、案号或当事人姓名进行搜索..."
+msgstr "Search by case name, case number or party name..."
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:83
+msgid "搜索中..."
+msgstr "Searching..."
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:90
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:376
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:537
+msgid "请选择一个案件..."
+msgstr "Please select a case..."
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:92
+msgid "选择要关联的案件，系统将自动创建案件日志并绑定文书"
+msgstr ""
+"Select a case to associate; the system will automatically create a case log "
+"and bind documents"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:96
+msgid "确认指定"
+msgstr "Confirm Assignment"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:97
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:65
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:198
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:209
+msgid "取消"
+msgstr "Cancel"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:105
+msgid "推荐案件（基于案号和当事人匹配）"
+msgstr "Suggested Cases (based on case number and party match)"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:122
+#, fuzzy
+#| msgid "提取的当事人"
+msgid "当事人"
+msgstr "Extracted Parties"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:131
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:173
+msgid "选择此案件"
+msgstr "Select This Case"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:132
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:174
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:134
+msgid "查看详情"
+msgstr "View Details"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:140
+msgid "推荐案件"
+msgstr "Suggested Cases"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:143
+msgid "未找到匹配的推荐案件。请在下方搜索或选择最近的案件。"
+msgstr ""
+"No matching cases found. Please search below or select from recent cases."
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:145
+msgid "短信中未提取到案号或当事人信息，无法自动推荐案件。"
+msgstr ""
+"No case number or party info extracted from SMS; cannot auto-suggest cases."
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:154
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:182
+msgid "最近创建的案件"
+msgstr "Recently Created Cases"
+
+#: apps/automation/templates/admin/automation/courtsms/assign_case.html:184
+msgid "暂无可用的案件数据。请检查系统中是否存在案件记录。"
+msgstr ""
+"No case data available. Please check if case records exist in the system."
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:18
+msgid ""
+"粘贴法院发送的短信全文，系统将自动处理下载、匹配案件、重命名文书并推送到飞书"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:46
+msgid "请粘贴完整的短信内容，包括法院名称、案号、下载链接等信息"
+msgstr ""
+"Please paste the complete SMS content including court name, case number, "
+"download link, etc."
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:52
+#, fuzzy
+#| msgid "收到时间"
+msgid "收到时间（可选）"
+msgstr "Received At"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:59
+msgid "留空则使用当前时间"
+msgstr "Leave blank to use current time"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:64
+msgid "提交处理"
+msgstr "Submit for Processing"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:72
+msgid "最近提交的短信"
+msgstr "Recently Submitted SMS"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:79
+#, fuzzy
+#| msgid "文书类型"
+msgid "类型"
+msgstr "Document Type"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:82
+msgid "提交时间"
+msgstr "Submitted At"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:109
+#, fuzzy
+#| msgid "分类ID"
+msgid "未分类"
+msgstr "Category ID"
+
+#: apps/automation/templates/admin/automation/courtsms/submit_sms.html:120
+msgid "需要指定案件"
+msgstr "Needs Case Assignment"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:155
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:13
+msgid "首页"
+msgstr "Home"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:157
+#, fuzzy
+#| msgid "文书识别任务"
+msgid "文书识别"
+msgstr "Document Recognition Tasks"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:164
+msgid ""
+"将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，"
+"并绑定到对应案件。"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:170
+msgid "将法院文书拖入此处进行识别"
+msgstr "Drag court documents here for recognition"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:171
+msgid "支持 PDF、JPG、PNG 格式"
+msgstr "Supports PDF, JPG, PNG formats"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:172
+msgid "选择文件"
+msgstr "Select File"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:187
+msgid "传票"
+msgstr "Summons"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:192
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:203
+#, fuzzy
+#| msgid "待识别"
+msgid "未识别"
+msgstr "Pending Recognition"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:196
+msgid "输入案号"
+msgstr "Enter case number"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:197
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:208
+msgid "保存"
+msgstr "Save"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:213
+msgid "识别置信度"
+msgstr "Recognition Confidence"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:226
+msgid "正则表达式"
+msgstr "Regex"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:231
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:363
+msgid "待绑定"
+msgstr "Pending Binding"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:236
+msgid "选择要绑定的案件"
+msgstr "Select Case to Bind"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:238
+msgid "输入案号或案件名称搜索，或点击右侧按钮查看全部"
+msgstr "Search by case number or name, or click the button to view all"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:247
+msgid "确认绑定"
+msgstr "Confirm Binding"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:253
+msgid "识别新文书"
+msgstr "Recognize New Document"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:254
+#, fuzzy
+#| msgid "发票识别任务详情"
+msgid "查看任务详情"
+msgstr "Invoice Recognition Task Details"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:262
+msgid "未知错误"
+msgstr "Unknown Error"
+
+#: apps/automation/templates/admin/automation/document_recognition/recognition.html:263
+msgid "重新上传"
+msgstr "Re-upload"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:4
+msgid "发票识别任务详情"
+msgstr "Invoice Recognition Task Details"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:34
+msgid "识别中，自动刷新..."
+msgstr "Recognizing, auto-refreshing..."
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:45
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:20
+msgid "上传发票文件"
+msgstr "Upload Invoice File"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:55
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:30
+msgid "拖拽文件到此处，或点击选择文件"
+msgstr "Drag files here, or click to select"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:56
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:31
+msgid "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选"
+msgstr ""
+"Supports PDF, JPG, JPEG, PNG, max 20MB per file, multiple selection allowed"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:70
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:45
+msgid "上传中"
+msgstr "Uploading"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:93
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:166
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:111
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:162
+msgid "张"
+msgstr "sheets"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:140
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:146
+msgid "下载"
+msgstr "Download"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:152
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:153
+msgid "下载 PDF"
+msgstr "Download PDF"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:157
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:154
+msgid "下载 ZIP"
+msgstr "Download ZIP"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:166
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:162
+msgid "重复发票"
+msgstr "Duplicate Invoice"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:205
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:196
+msgid "非重复发票总金额"
+msgstr "Non-duplicate Invoice Total"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:210
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:200
+msgid "下载全部发票"
+msgstr "Download All Invoices"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:213
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:202
+msgid "下载全部 PDF"
+msgstr "Download All PDFs"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:216
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:203
+msgid "下载全部 ZIP"
+msgstr "Download All ZIPs"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:225
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:209
+msgid "暂无发票记录，请上传发票文件开始识别"
+msgstr "No invoice records, please upload invoice files to start recognition"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:313
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:320
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:326
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:333
+msgid "上传失败"
+msgstr "Upload Failed"
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:315
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:328
+msgid "上传成功，正在识别..."
+msgstr "Upload successful, recognizing..."
+
+#: apps/automation/templates/admin/automation/invoice_recognition/detail.html:348
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:361
+msgid "加载状态失败"
+msgstr "Failed to load status"
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:59
+msgid "智能分组"
+msgstr "Smart Grouping"
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:62
+msgid "合并分组"
+msgstr "Merge Group"
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:69
+msgid "将多个项目名称拖入同一合并组，统计时将合并计算。"
+msgstr ""
+"Drag multiple item names into the same merge group; they will be combined in "
+"statistics."
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:77
+msgid "合并组名称"
+msgstr ""
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:89
+#, fuzzy
+#| msgid "项目名称"
+msgid "拖入项目名称"
+msgstr "Item Name"
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:96
+msgid "新增合并组"
+msgstr "Add Merge Group"
+
+#: apps/automation/templates/admin/automation/invoicerecognitiontask/change_form.html:172
+msgid "重复原因"
+msgstr "Duplicate Reason"

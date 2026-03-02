@@ -134,7 +134,7 @@
          @dragleave.prevent="isDragOver = false"
          @drop.prevent="handleDrop($event)"
          :style="isDragOver ? 'border-color:#007cba;background:#e8f4ff;' : ''"
-        <h3>🚀 快速填充当事人信息
+        <h3>🚀 {% trans "快速填充当事人信息" %}
             <span class="format-badge"
                   :class="detectedFormat"
                   x-show="detectedFormat"
@@ -155,10 +155,10 @@
                     x-text="isParsing ? '解析中...' : '解析并填充'">
             </button>
             <label style="font-size: 12px; color: #6c757d;">
-                <input type="checkbox" x-model="autoParse"> 粘贴时自动解析
+                <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
             </label>
         </div>
-        <div class="format-hint">💡 支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析</div>
+        <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
 
         <!-- 消息提示 -->
         <div x-show="message"
@@ -471,7 +471,7 @@
 
         <!-- 头部区域 -->
         <div class="recognition-header" @click="toggleExpansion()">
-            <h3>身份材料智能识别</h3>
+            <h3>{% trans "身份材料智能识别" %}</h3>
             <div class="recognition-toggle">
                 <button type="button" class="toggle-btn">
                     <svg class="toggle-icon" :class="{ 'expanded': isExpanded }" viewBox="0 0 24 24" width="16" height="16">
@@ -484,7 +484,7 @@
         <!-- 内容区域 -->
         <div class="recognition-content" :class="isExpanded ? 'expanded' : 'collapsed'">
             <div class="recognition-intro">
-                <p>上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，快速填充表单。</p>
+                <p>{% trans "上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，快速填充表单。" %}</p>
             </div>
 
             <div class="recognition-form">
@@ -495,17 +495,17 @@
                             <svg class="label-icon" viewBox="0 0 24 24" width="16" height="16">
                                 <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                             </svg>
-                            证件类型
+                            {% trans "证件类型" %}
                         </label>
                         <select x-model="docType" class="form-control">
-                            <option value="">请选择证件类型</option>
-                            <option value="id_card">身份证</option>
-                            <option value="passport">护照</option>
-                            <option value="hk_macao_permit">港澳通行证</option>
-                            <option value="residence_permit">居住证</option>
-                            <option value="household_register">户口本</option>
-                            <option value="business_license">营业执照</option>
-                            <option value="legal_rep_id_card">法定代表人/负责人身份证</option>
+                            <option value="">{% trans "请选择证件类型" %}</option>
+                            <option value="id_card">{% trans "身份证" %}</option>
+                            <option value="passport">{% trans "护照" %}</option>
+                            <option value="hk_macao_permit">{% trans "港澳通行证" %}</option>
+                            <option value="residence_permit">{% trans "居住证" %}</option>
+                            <option value="household_register">{% trans "户口本" %}</option>
+                            <option value="business_license">{% trans "营业执照" %}</option>
+                            <option value="legal_rep_id_card">{% trans "法定代表人/负责人身份证" %}</option>
                         </select>
                     </div>
 
@@ -515,7 +515,7 @@
                             <svg class="label-icon" viewBox="0 0 24 24" width="16" height="16">
                                 <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                             </svg>
-                            上传证件
+                            {% trans "上传证件" %}
                         </label>
                         <div class="upload-zone"
                              :class="{ 'drag-over': isDragOver }"
@@ -529,8 +529,8 @@
                                     <path fill="currentColor" d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
                                 </svg>
                                 <div class="upload-text">
-                                    <span class="upload-title">点击或拖拽上传</span>
-                                    <span class="upload-hint">支持 JPG、PNG、PDF，最大 10MB</span>
+                                    <span class="upload-title">{% trans "点击或拖拽上传" %}</span>
+                                    <span class="upload-hint">{% trans "支持 JPG、PNG、PDF，最大 10MB" %}</span>
                                 </div>
                             </div>
                             <input type="file"
@@ -553,7 +553,7 @@
                 <!-- 识别结果 -->
                 <div class="result-section" x-show="showResult">
                     <div class="result-header">
-                        <h4>识别结果</h4>
+                        <h4>{% trans "识别结果" %}</h4>
                         <span class="confidence-score" :class="getConfidenceClass()" x-text="'置信度: ' + confidence + '%'"></span>
                     </div>
                     <div class="result-grid">
@@ -574,7 +574,7 @@
                             </svg>
                             <span x-text="isConfirming ? '应用中...' : '应用到表单'"></span>
                         </button>
-                        <button type="button" class="btn btn-secondary" @click="resetRecognition()">重新识别</button>
+                        <button type="button" class="btn btn-secondary" @click="resetRecognition()">{% trans "重新识别" %}</button>
                     </div>
                 </div>
 
@@ -585,10 +585,10 @@
                             <path fill="currentColor" d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
                         </svg>
                         <div class="error-text">
-                            <h4>识别失败</h4>
+                            <h4>{% trans "识别失败" %}</h4>
                             <p x-text="errorMessage">未知错误</p>
                         </div>
-                        <button type="button" class="btn btn-primary" @click="resetRecognition()">重试</button>
+                        <button type="button" class="btn btn-primary" @click="resetRecognition()">{% trans "重试" %}</button>
                     </div>
                 </div>
             </div>

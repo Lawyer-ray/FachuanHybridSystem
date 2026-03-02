@@ -1,0 +1,2373 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 21:01+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/cases/admin/case_chat_admin.py:47
+#: apps/cases/admin/case_chat_admin.py:158 apps/cases/models/chat.py:29
+#: apps/cases/models/chat.py:139
+msgid "群聊ID"
+msgstr "Group ID"
+
+#: apps/cases/admin/case_chat_admin.py:56
+#: apps/cases/admin/case_chat_admin.py:146 apps/cases/models/chat.py:27
+#: apps/cases/models/chat.py:145
+msgid "平台"
+msgstr "Platform"
+
+#: apps/cases/admin/case_chat_admin.py:67 apps/cases/models/chat.py:126
+msgid "关联案件"
+msgstr "Related Cases"
+
+#: apps/cases/admin/case_chat_admin.py:76
+#: apps/cases/admin/case_chat_admin.py:170
+msgid "状态"
+msgstr "Status"
+
+#: apps/cases/admin/case_chat_admin.py:88
+#, python-format
+msgid "解除绑定群聊 %(chat)s 失败: %(error)s"
+msgstr "Failed to unbind chat %(chat)s: %(error)s"
+
+#: apps/cases/admin/case_chat_admin.py:95
+#, python-format
+msgid "成功解除绑定 %d 个群聊"
+msgstr "Successfully unbound %d chats"
+
+#: apps/cases/admin/case_chat_admin.py:97
+msgid "解除绑定选中的群聊"
+msgstr "Unbind Selected Group Chats"
+
+#: apps/cases/admin/case_chat_admin.py:113
+#, python-format
+msgid "成功解除绑定群聊: %s"
+msgstr "Successfully unbound chat: %s"
+
+#: apps/cases/admin/case_chat_admin.py:115
+#, python-format
+msgid "解除绑定群聊失败: %s"
+msgstr "Failed to unbind chat: %s"
+
+#: apps/cases/admin/case_chat_admin.py:117
+#, python-format
+msgid "解除绑定群聊时发生错误: %s"
+msgstr "Error unbinding chat: %s"
+
+#: apps/cases/admin/case_forms_admin.py:17 apps/cases/models/case.py:64
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:36
+msgid "当前阶段"
+msgstr "Current Stage"
+
+#: apps/cases/admin/case_forms_admin.py:27
+msgid "请输入案由关键词..."
+msgstr "Enter cause of action keyword..."
+
+#: apps/cases/admin/case_forms_admin.py:56
+msgid "当前阶段不在可选范围内"
+msgstr "Current stage is not in the selectable range"
+
+#: apps/cases/admin/case_forms_admin.py:58
+msgid "当前阶段必须在合同的代理阶段范围内"
+msgstr "Current stage must be within the contract's representation stage range"
+
+#: apps/cases/admin/case_forms_admin.py:60
+msgid "该案件类型不支持阶段设置"
+msgstr "This case type does not support stage settings"
+
+#: apps/cases/admin/case_forms_admin.py:63
+#, python-format
+msgid "代理阶段包含无效值: %s"
+msgstr "Representation stage contains invalid value: %s"
+
+#: apps/cases/admin/case_forms_admin.py:66
+#, python-format
+msgid "案件数据验证失败: %s"
+msgstr "Case data validation failed: %s"
+
+#: apps/cases/admin/case_forms_admin.py:94
+msgid "请输入法院名称..."
+msgstr "Enter court name..."
+
+#: apps/cases/admin/caseparty_admin.py:21
+msgid "是否为我方当事人"
+msgstr "Our Party"
+
+#: apps/cases/admin/mixins/actions.py:28
+#, python-format
+msgid "已复制案件,正在编辑新案件: %s"
+msgstr "Case copied, editing new case: %s"
+
+#: apps/cases/admin/mixins/actions.py:32
+#, python-format
+msgid "复制失败: %s"
+msgstr "Copy failed: %s"
+
+#: apps/cases/admin/mixins/actions.py:36
+#, python-format
+msgid "案件「%s」已保存"
+msgstr "Case \"%s\" saved"
+
+#: apps/cases/admin/mixins/actions.py:56
+#, python-format
+msgid "案件 %(case)s 已存在飞书群聊: %(chat)s"
+msgstr "Case %(case)s already has Feishu chat: %(chat)s"
+
+#: apps/cases/admin/mixins/actions.py:66
+#, python-format
+msgid "成功为案件 %(case)s 创建飞书群聊: %(chat)s"
+msgstr "Successfully created Feishu chat %(chat)s for case %(case)s"
+
+#: apps/cases/admin/mixins/actions.py:74
+#, python-format
+msgid "为案件 %(case)s 创建飞书群聊失败: %(error)s"
+msgstr "Failed to create Feishu chat for case %(case)s: %(error)s"
+
+#: apps/cases/admin/mixins/actions.py:82
+#, python-format
+msgid "为案件 %(case)s 创建群聊时发生未知错误: %(error)s"
+msgstr "Unknown error creating chat for case %(case)s: %(error)s"
+
+#: apps/cases/admin/mixins/actions.py:87
+#, python-format
+msgid "总计成功创建 %d 个飞书群聊"
+msgstr "Successfully created %d Feishu chats"
+
+#: apps/cases/admin/mixins/actions.py:90
+#, python-format
+msgid "总计 %d 个案件创建群聊失败"
+msgstr "%d cases failed to create chat"
+
+#: apps/cases/admin/mixins/actions.py:92
+msgid "为选中案件创建飞书群聊"
+msgstr "Create Feishu Group for Selected"
+
+#: apps/cases/admin/mixins/save.py:57
+#, python-format
+msgid "已强制删除案件 %(case_id)s(已绕过外键检查)"
+msgstr "Force deleted case %(case_id)s (bypassed foreign key check)"
+
+#: apps/cases/admin/mixins/save.py:72
+#, python-format
+msgid "已强制批量删除 %d 个案件(已绕过外键检查)"
+msgstr "Force batch deleted %d cases (bypassed foreign key check)"
+
+#: apps/cases/admin/mixins/save.py:119
+#, python-format
+msgid "处理建档编号失败: %s"
+msgstr "Failed to process filing number: %s"
+
+#: apps/cases/admin/mixins/save.py:145
+#, python-format
+msgid "同步模板绑定失败: %s"
+msgstr "Failed to sync template binding: %s"
+
+#: apps/cases/admin/mixins/save.py:165
+#, python-format
+msgid "同步律师指派失败: %s"
+msgstr "Failed to sync lawyer assignment: %s"
+
+#: apps/cases/admin/mixins/views.py:75 apps/cases/models/case.py:41
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:12
+msgid "案件名称"
+msgstr "Case Name"
+
+#: apps/cases/admin/mixins/views.py:107 apps/cases/admin/mixins/views.py:132
+#: apps/cases/admin/mixins/views.py:268
+#: apps/cases/services/case/case_admin_service.py:205
+#: apps/cases/services/number/case_filing_number_service.py:38
+#: apps/cases/services/number/case_number_service.py:203
+#: apps/cases/services/number/case_number_service.py:281
+#: apps/cases/services/party/case_assignment_service.py:183
+#: apps/cases/services/party/case_assignment_service.py:265
+#: apps/cases/services/party/case_assignment_service.py:370
+#: apps/cases/services/party/case_party_mutation_service.py:38
+#: apps/cases/services/party/case_party_mutation_service.py:67
+#: apps/cases/services/party/case_party_mutation_service.py:148
+#: apps/cases/services/party/case_party_mutation_service.py:220
+#: apps/cases/services/party/case_party_query_service.py:44
+#: apps/cases/services/template/case_document_template_admin_service.py:219
+#: apps/cases/services/template/case_template_generation_service.py:194
+#: apps/cases/services/template/folder_binding_service.py:102
+#: apps/cases/services/template/folder_binding_service.py:156
+#: apps/cases/services/template/repo.py:23
+#: apps/cases/services/template/unified_template_generation_service.py:180
+msgid "案件不存在"
+msgstr "Case does not exist"
+
+#: apps/cases/admin/mixins/views.py:113
+#, python-format
+msgid "模拟庭审: %(name)s"
+msgstr "Mock Trial: %(name)s"
+
+#: apps/cases/admin/mixins/views.py:122
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:4
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:211
+msgid "诉讼费用计算器"
+msgstr "Litigation Fee Calculator"
+
+#: apps/cases/admin/mixins/views.py:148 apps/cases/admin/mixins/views.py:211
+#: apps/cases/admin/mixins/views.py:439
+msgid "未设置案件类型"
+msgstr "Case type not set"
+
+#: apps/cases/admin/mixins/views.py:181
+#, python-format
+msgid "案件详情: %(name)s"
+msgstr "Case Details: %(name)s"
+
+#: apps/cases/admin/mixins/views.py:213
+msgid "未设置案件阶段"
+msgstr "No stage set"
+
+#: apps/cases/admin/mixins/views.py:320
+#, python-format
+msgid "上传/绑定材料: %(name)s"
+msgstr "Upload/Bind Materials: %(name)s"
+
+#: apps/cases/admin/mixins/views.py:364 apps/cases/admin/mixins/views.py:369
+msgid "无匹配的文件夹模板"
+msgstr "No matching folder template"
+
+#: apps/cases/admin/mixins/views.py:406
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:80
+msgid "未关联合同"
+msgstr "No contract linked"
+
+#: apps/cases/admin/mixins/views.py:412 apps/cases/admin/mixins/views.py:415
+#: apps/cases/templates/admin/cases/case/partials/documents.html:63
+msgid "未绑定文件夹"
+msgstr "No folder bound"
+
+#: apps/cases/admin/mixins/views.py:417
+msgid "合同文件夹路径"
+msgstr "Contract Folder Path"
+
+#: apps/cases/admin/mixins/views.py:422
+msgid "未生成"
+msgstr "Not Generated"
+
+#: apps/cases/admin/mixins/views.py:424 apps/cases/models/case.py:38
+#: apps/cases/templates/admin/cases/case/detail.html:45
+msgid "建档编号"
+msgstr "Filing Number"
+
+#: apps/cases/admin/mixins/views.py:429
+msgid "✓ 已绑定"
+msgstr "✓ Bound"
+
+#: apps/cases/admin/mixins/views.py:430 apps/cases/admin/mixins/views.py:433
+#: apps/cases/templates/admin/cases/case/materials.html:160
+#: apps/cases/templates/admin/cases/case/materials.html:180
+msgid "未绑定"
+msgstr "Unbound"
+
+#: apps/cases/admin/mixins/views.py:435
+#: apps/cases/templates/admin/cases/case/partials/documents.html:48
+msgid "文件夹绑定"
+msgstr "Folder Binding"
+
+#: apps/cases/admin/mixins/views.py:443
+msgid "匹配的文件夹模板"
+msgstr "Matching Folder Template"
+
+#: apps/cases/api/cause_court_api.py:105
+msgid "案由不存在"
+msgstr "Cause of action does not exist"
+
+#: apps/cases/apps.py:10
+msgid "案件管理"
+msgstr "Case Management"
+
+#: apps/cases/domain/validators.py:45
+msgid "stages_not_applicable"
+msgstr ""
+
+#: apps/cases/domain/validators.py:53
+#, python-format
+msgid "invalid_rep:%(stages)s"
+msgstr ""
+
+#: apps/cases/domain/validators.py:57
+msgid "invalid_cur"
+msgstr ""
+
+#: apps/cases/domain/validators.py:59
+msgid "cur_not_in_rep"
+msgstr ""
+
+#: apps/cases/models/case.py:30
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:71
+msgid "关联合同"
+msgstr "Related Contract"
+
+#: apps/cases/models/case.py:32
+msgid "是否已建档"
+msgstr "Filed"
+
+#: apps/cases/models/case.py:39
+msgid "格式: {年份}_{案件类型}_{AJ}_{序号}"
+msgstr "Format: {year}_{type}_{AJ}_{seq}"
+
+#: apps/cases/models/case.py:43
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:20
+msgid "案件状态"
+msgstr "Case Status"
+
+#: apps/cases/models/case.py:45
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:52
+msgid "收案日期"
+msgstr "Intake Date"
+
+#: apps/cases/models/case.py:46
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:56
+msgid "生效日期"
+msgstr "Effective Date"
+
+#: apps/cases/models/case.py:47
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:60
+msgid "指定日期"
+msgstr "Specified Date"
+
+#: apps/cases/models/case.py:48
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:28
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:20
+msgid "案由"
+msgstr "Causes of Action"
+
+#: apps/cases/models/case.py:50
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:32
+msgid "涉案金额"
+msgstr "Claim Amount"
+
+#: apps/cases/models/case.py:53
+msgid "财产保全金额"
+msgstr "Preservation Amount"
+
+#: apps/cases/models/case.py:61
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:16
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:239
+msgid "案件类型"
+msgstr "Case Type"
+
+#: apps/cases/models/case.py:82 apps/cases/models/case.py:83
+#: apps/cases/models/case.py:123 apps/cases/models/case.py:143
+#: apps/cases/models/chat.py:25 apps/cases/models/log.py:44
+#: apps/cases/models/material.py:60 apps/cases/models/material.py:115
+#: apps/cases/models/material.py:160 apps/cases/models/party.py:17
+#: apps/cases/models/party.py:36 apps/cases/models/party.py:51
+#: apps/cases/models/template_binding.py:23
+msgid "案件"
+msgstr "Cases"
+
+#: apps/cases/models/case.py:106
+msgid "无效的案件阶段"
+msgstr "Invalid case stage"
+
+#: apps/cases/models/case.py:111
+msgid "年份"
+msgstr "Year"
+
+#: apps/cases/models/case.py:112
+msgid "下一个序号"
+msgstr "Next Sequence Number"
+
+#: apps/cases/models/case.py:113 apps/cases/models/chat.py:48
+#: apps/cases/models/material.py:165
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/cases/models/case.py:116 apps/cases/models/case.py:117
+msgid "案件建档编号序列"
+msgstr "Case Filing Number Sequence"
+
+#: apps/cases/models/case.py:124
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:89
+msgid "案号"
+msgstr "Case No."
+
+#: apps/cases/models/case.py:125
+msgid "是否已生效"
+msgstr "Effective"
+
+#: apps/cases/models/case.py:126
+msgid "备注"
+msgstr "Notes"
+
+#: apps/cases/models/case.py:127 apps/cases/models/case.py:154
+#: apps/cases/models/chat.py:47 apps/cases/models/material.py:38
+#: apps/cases/models/material.py:95
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/cases/models/case.py:130 apps/cases/models/case.py:131
+msgid "案件案号"
+msgstr "Case Number"
+
+#: apps/cases/models/case.py:145
+msgid "名称"
+msgstr "Name"
+
+#: apps/cases/models/case.py:152
+msgid "性质"
+msgstr "Nature"
+
+#: apps/cases/models/case.py:161 apps/cases/models/case.py:162
+#: apps/cases/models/material.py:93 apps/cases/models/material.py:131
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:113
+msgid "主管机关"
+msgstr "Supervising Authority"
+
+#: apps/cases/models/chat.py:30
+msgid "群名"
+msgstr "Group Name"
+
+#: apps/cases/models/chat.py:31
+msgid "是否有效"
+msgstr "Is Valid"
+
+#: apps/cases/models/chat.py:37
+msgid "群主ID"
+msgstr "Group Owner ID"
+
+#: apps/cases/models/chat.py:38
+msgid "飞书用户的open_id或其他平台的用户标识符"
+msgstr "Feishu user open_id or other platform user identifier"
+
+#: apps/cases/models/chat.py:40
+msgid "群主已验证"
+msgstr "Group Owner Verified"
+
+#: apps/cases/models/chat.py:40
+msgid "群主设置是否已验证"
+msgstr "Whether group owner setting is verified"
+
+#: apps/cases/models/chat.py:42
+msgid "群主验证时间"
+msgstr "Group Owner Verification Time"
+
+#: apps/cases/models/chat.py:42
+msgid "群主设置验证成功的时间"
+msgstr "Time when group owner setting was verified"
+
+#: apps/cases/models/chat.py:45
+msgid "创建审计日志"
+msgstr "Create Audit Log"
+
+#: apps/cases/models/chat.py:45
+msgid "群聊创建过程的详细日志,包含群主设置信息"
+msgstr "Detailed log of chat creation process, including group owner settings"
+
+#: apps/cases/models/chat.py:54 apps/cases/models/chat.py:55
+#: apps/cases/templates/admin/cases/case/partials/progress.html:57
+msgid "案件群聊"
+msgstr "Case Group Chats"
+
+#: apps/cases/models/chat.py:73
+msgid "未设置群主"
+msgstr "Group Owner Not Set"
+
+#: apps/cases/models/chat.py:74
+msgid "已验证"
+msgstr "Verified"
+
+#: apps/cases/models/chat.py:74
+msgid "未验证"
+msgstr "Not Verified"
+
+#: apps/cases/models/chat.py:101
+msgid "开始创建"
+msgstr "Start Creating"
+
+#: apps/cases/models/chat.py:102
+msgid "创建成功"
+msgstr "Created Successfully"
+
+#: apps/cases/models/chat.py:103
+msgid "创建失败"
+msgstr "Creation Failed"
+
+#: apps/cases/models/chat.py:104
+msgid "设置群主"
+msgstr "Set Group Owner"
+
+#: apps/cases/models/chat.py:105
+msgid "验证群主"
+msgstr "Verify Group Owner"
+
+#: apps/cases/models/chat.py:106
+msgid "重试群主设置"
+msgstr "Retry Group Owner Setting"
+
+#: apps/cases/models/chat.py:107
+msgid "群主设置失败"
+msgstr "Group Owner Setting Failed"
+
+#: apps/cases/models/chat.py:108
+msgid "配置错误"
+msgstr "Configuration Error"
+
+#: apps/cases/models/chat.py:117
+msgid "关联群聊"
+msgstr "Related Chat"
+
+#: apps/cases/models/chat.py:118
+msgid "关联的群聊,某些操作(如配置错误)可能没有关联群聊"
+msgstr ""
+"Related chat, some operations (e.g., config error) may not have a related "
+"chat"
+
+#: apps/cases/models/chat.py:127
+msgid "关联的案件"
+msgstr "Related Case"
+
+#: apps/cases/models/chat.py:130
+msgid "操作类型"
+msgstr "Operation Type"
+
+#: apps/cases/models/chat.py:130
+msgid "执行的操作类型"
+msgstr "Type of operation performed"
+
+#: apps/cases/models/chat.py:133
+msgid "操作详情"
+msgstr "Operation Details"
+
+#: apps/cases/models/chat.py:133
+msgid "操作的详细信息,以JSON格式存储"
+msgstr "Detailed information of the operation, stored in JSON format"
+
+#: apps/cases/models/chat.py:135
+msgid "时间戳"
+msgstr "Timestamp"
+
+#: apps/cases/models/chat.py:135
+msgid "操作发生的时间"
+msgstr "Time when the operation occurred"
+
+#: apps/cases/models/chat.py:136
+msgid "操作成功"
+msgstr "Operation Successful"
+
+#: apps/cases/models/chat.py:136
+msgid "操作是否成功执行"
+msgstr "Whether the operation was executed successfully"
+
+#: apps/cases/models/chat.py:137
+msgid "错误信息"
+msgstr "Error Message"
+
+#: apps/cases/models/chat.py:137
+msgid "操作失败时的错误信息"
+msgstr "Error message when operation failed"
+
+#: apps/cases/models/chat.py:139
+msgid "群聊的外部ID,便于查询"
+msgstr "External ID of the chat for easy querying"
+
+#: apps/cases/models/chat.py:146
+msgid "群聊平台"
+msgstr "Chat Platform"
+
+#: apps/cases/models/chat.py:149
+msgid "审计版本"
+msgstr "Audit Version"
+
+#: apps/cases/models/chat.py:149
+msgid "审计日志格式版本"
+msgstr "Audit log format version"
+
+#: apps/cases/models/chat.py:153 apps/cases/models/chat.py:154
+msgid "群聊审计日志"
+msgstr "Chat Audit Log"
+
+#: apps/cases/models/log.py:35 apps/cases/utils.py:41
+msgid "不支持的文件类型"
+msgstr "Unsupported file type"
+
+#: apps/cases/models/log.py:39 apps/cases/utils.py:43
+msgid "文件大小超过50MB限制"
+msgstr "File size exceeds 50MB limit"
+
+#: apps/cases/models/log.py:45
+msgid "日志内容"
+msgstr "Log Content"
+
+#: apps/cases/models/log.py:47
+msgid "操作人"
+msgstr "Operator"
+
+#: apps/cases/models/log.py:49
+msgid "创建日期"
+msgstr "Created Date"
+
+#: apps/cases/models/log.py:50
+msgid "修改日期"
+msgstr "Modified Date"
+
+#: apps/cases/models/log.py:60 apps/cases/models/log.py:61
+#: apps/cases/templates/admin/cases/case/partials/progress.html:7
+msgid "案件日志"
+msgstr "Case Logs"
+
+#: apps/cases/models/log.py:100 apps/cases/models/log.py:116
+msgid "日志"
+msgstr "Log"
+
+#: apps/cases/models/log.py:105
+msgid "相关文书"
+msgstr "Related Documents"
+
+#: apps/cases/models/log.py:107
+#: apps/cases/templates/admin/cases/case/materials.html:209
+msgid "上传时间"
+msgstr "Upload Time"
+
+#: apps/cases/models/log.py:110 apps/cases/models/log.py:111
+msgid "案件日志附件"
+msgstr "Case Log Attachments"
+
+#: apps/cases/models/log.py:117
+msgid "历史内容"
+msgstr "Historical Content"
+
+#: apps/cases/models/log.py:118
+msgid "版本时间"
+msgstr "Version Time"
+
+#: apps/cases/models/log.py:120
+msgid "操作者"
+msgstr "Operator"
+
+#: apps/cases/models/log.py:124 apps/cases/models/log.py:125
+msgid "案件日志版本"
+msgstr "Case Log Version"
+
+#: apps/cases/models/material.py:16
+#: apps/cases/templates/admin/cases/case/detail.html:84
+#: apps/cases/templates/admin/cases/case/materials.html:56
+#: apps/cases/templates/admin/cases/case/materials.html:126
+#: apps/cases/templates/admin/cases/case/materials.html:232
+msgid "当事人材料"
+msgstr "Party Materials"
+
+#: apps/cases/models/material.py:17
+#: apps/cases/templates/admin/cases/case/detail.html:87
+#: apps/cases/templates/admin/cases/case/materials.html:57
+#: apps/cases/templates/admin/cases/case/materials.html:127
+#: apps/cases/templates/admin/cases/case/materials.html:233
+msgid "非当事人材料"
+msgstr "Non-Party Materials"
+
+#: apps/cases/models/material.py:21
+#: apps/cases/templates/admin/cases/case/materials.html:240
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:17
+msgid "我方当事人材料"
+msgstr "Our Party Materials"
+
+#: apps/cases/models/material.py:22
+#: apps/cases/templates/admin/cases/case/materials.html:241
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:66
+msgid "对方当事人材料"
+msgstr "Opposing Party Materials"
+
+#: apps/cases/models/material.py:27 apps/cases/models/material.py:61
+#: apps/cases/models/material.py:117
+#: apps/cases/templates/admin/cases/case/materials.html:210
+msgid "材料大类"
+msgstr "Category"
+
+#: apps/cases/models/material.py:28 apps/cases/models/material.py:70
+#: apps/cases/templates/admin/cases/case/materials.html:213
+msgid "类型名称"
+msgstr "Type Name"
+
+#: apps/cases/models/material.py:35
+msgid "律所"
+msgstr "Law Firms"
+
+#: apps/cases/models/material.py:37
+msgid "是否启用"
+msgstr "Enabled"
+
+#: apps/cases/models/material.py:41 apps/cases/models/material.py:42
+msgid "案件材料类型"
+msgstr "Case Material Type"
+
+#: apps/cases/models/material.py:68 apps/cases/models/material.py:134
+msgid "材料类型"
+msgstr "Material Type"
+
+#: apps/cases/models/material.py:77
+msgid "来源日志附件"
+msgstr "Source Log Attachment"
+
+#: apps/cases/models/material.py:84 apps/cases/models/material.py:123
+msgid "当事人方向"
+msgstr "Party Direction"
+
+#: apps/cases/models/material.py:86
+msgid "关联当事人"
+msgstr "Related Party"
+
+#: apps/cases/models/material.py:98 apps/cases/models/material.py:99
+msgid "案件材料"
+msgstr "Case Material"
+
+#: apps/cases/models/material.py:136
+msgid "排序"
+msgstr "Order"
+
+#: apps/cases/models/material.py:139 apps/cases/models/material.py:140
+msgid "案件材料分组顺序"
+msgstr "Case Material Group Order"
+
+#: apps/cases/models/material.py:162
+#: apps/cases/templates/admin/cases/case/partials/documents.html:58
+msgid "文件夹路径"
+msgstr "Folder Path"
+
+#: apps/cases/models/material.py:162
+msgid "绑定的本地或网络文件夹路径"
+msgstr "Bound local or network folder path"
+
+#: apps/cases/models/material.py:164 apps/cases/models/template_binding.py:31
+msgid "绑定时间"
+msgstr "Binding Time"
+
+#: apps/cases/models/material.py:168 apps/cases/models/material.py:169
+msgid "案件文件夹绑定"
+msgstr "Case Folder Binding"
+
+#: apps/cases/models/party.py:19
+msgid "当事人"
+msgstr "Clients"
+
+#: apps/cases/models/party.py:22
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:92
+msgid "诉讼地位"
+msgstr "Litigation Status"
+
+#: apps/cases/models/party.py:27 apps/cases/models/party.py:28
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:8
+msgid "案件当事人"
+msgstr "Case Parties"
+
+#: apps/cases/models/party.py:38
+msgid "律师"
+msgstr "Lawyers"
+
+#: apps/cases/models/party.py:42 apps/cases/models/party.py:43
+msgid "案件指派"
+msgstr "Case Assignments"
+
+#: apps/cases/models/party.py:53
+msgid "获授权律师"
+msgstr "Authorized Lawyer"
+
+#: apps/cases/models/party.py:58 apps/cases/models/party.py:59
+msgid "案件访问授权"
+msgstr "Case Access Authorization"
+
+#: apps/cases/models/template_binding.py:14
+msgid "自动推荐"
+msgstr "Auto Recommended"
+
+#: apps/cases/models/template_binding.py:15
+msgid "手动绑定"
+msgstr "Manual Binding"
+
+#: apps/cases/models/template_binding.py:26
+msgid "文书模板"
+msgstr "Document Template"
+
+#: apps/cases/models/template_binding.py:29
+msgid "绑定来源"
+msgstr "Binding Source"
+
+#: apps/cases/models/template_binding.py:34
+#: apps/cases/models/template_binding.py:35
+msgid "案件模板绑定"
+msgstr "Case Template Binding"
+
+#: apps/cases/schemas/folder_binding_schemas.py:19
+msgid "文件夹路径不能为空"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:77
+#: apps/cases/services/case/case_access_service.py:220
+msgid "无权限查看他人授权记录"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:103
+#, python-format
+msgid "授权 %(id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:111
+msgid "无权限查看该授权记录"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:129
+#: apps/cases/services/case/case_access_service.py:304
+#: apps/cases/services/case/case_command_service.py:160
+#: apps/cases/services/case/case_command_service.py:231
+#: apps/cases/services/case/case_log_internal_service.py:24
+#: apps/cases/services/case/case_query_service.py:77
+#: apps/cases/services/case/case_query_service.py:93
+#: apps/cases/services/case/case_service_adapter.py:154
+#, python-format
+msgid "案件 %(id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:131
+msgid "该用户已有此案件的访问权限"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:234
+msgid "无权限查看他人可访问案件"
+msgstr ""
+
+#: apps/cases/services/case/case_access_service.py:268
+msgid "授权记录不存在"
+msgstr ""
+
+#: apps/cases/services/case/case_admin_service.py:83
+msgid "查询失败"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:48
+msgid "该案件类型不支持此阶段"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:49
+msgid "阶段不适用于此案件类型"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:53
+msgid "当前阶段必须属于代理阶段集合"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:54
+msgid "阶段不在代理范围内"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:80
+#: apps/cases/services/case/case_command_service.py:179
+msgid "合同不存在"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:86
+msgid "合同未激活"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:88
+msgid "合同状态不是 active"
+msgstr ""
+
+#: apps/cases/services/case/case_command_service.py:171
+#: apps/cases/services/case/case_command_service.py:242
+#: apps/cases/services/chat/case_chat_service.py:84
+#: apps/cases/services/number/case_number_service.py:66
+#: apps/cases/services/template/folder_binding_service.py:113
+msgid "无权限访问此案件"
+msgstr ""
+
+#: apps/cases/services/case/case_log_internal_service.py:30
+msgid "系统中没有律师用户,无法创建日志"
+msgstr ""
+
+#: apps/cases/services/case/case_log_internal_service.py:32
+msgid "请先创建律师用户"
+msgstr ""
+
+#: apps/cases/services/case/case_log_internal_service.py:50
+#, python-format
+msgid "案件日志 %(id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/case/workflows/case_full_create_workflow.py:40
+#: apps/cases/services/log/case_log_mutation_service.py:51
+msgid "操作人不能为空"
+msgstr ""
+
+#: apps/cases/services/case/workflows/case_full_create_workflow.py:42
+msgid "创建日志时必须提供有效的操作人"
+msgstr ""
+
+#: apps/cases/services/case/workflows/case_full_create_workflow.py:51
+msgid "当事人数据重复"
+msgstr ""
+
+#: apps/cases/services/case/workflows/case_full_create_workflow.py:60
+msgid "指派数据重复"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:155
+msgid "创建群聊时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:265
+msgid "短信内容不能为空"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:265
+msgid "短信内容为必填项"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:287
+#: apps/cases/services/chat/case_chat_service_adapter.py:226
+msgid "发送文书通知时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:330
+msgid "解除群聊绑定时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:376
+msgid "群聊ID不能为空"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:376
+msgid "群聊ID为必填项"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service.py:399
+msgid "创建群聊绑定记录失败"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service_adapter.py:87
+msgid "发送消息时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service_adapter.py:114
+msgid "获取案件群聊ID时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/case_chat_service_adapter.py:156
+msgid "获取或创建群聊时发生系统错误"
+msgstr ""
+
+#: apps/cases/services/chat/naming.py:29
+msgid "案件对象不能为空"
+msgstr ""
+
+#: apps/cases/services/chat/naming.py:29
+msgid "案件对象为必填项"
+msgstr ""
+
+#: apps/cases/services/chat/naming.py:33
+msgid "案件名称不能为空"
+msgstr ""
+
+#: apps/cases/services/chat/naming.py:35
+msgid "案件名称为必填项"
+msgstr ""
+
+#: apps/cases/services/chat/notification_usecase.py:56
+#, python-format
+msgid "群聊已解散,重新创建群聊失败: %(error)s"
+msgstr ""
+
+#: apps/cases/services/chat/notification_usecase.py:96
+#, python-format
+msgid "消息和所有文件发送成功 (%(count)s 个文件)"
+msgstr ""
+
+#: apps/cases/services/chat/notification_usecase.py:99
+#, python-format
+msgid "消息发送成功,部分文件发送成功 (%(ok)s/%(total)s 个文件)"
+msgstr ""
+
+#: apps/cases/services/chat/notification_usecase.py:103
+#, python-format
+msgid "消息发送成功,但所有文件发送失败 (%(count)s 个文件)"
+msgstr ""
+
+#: apps/cases/services/chat/provider_facade.py:29
+#: apps/cases/services/chat/provider_facade.py:49
+#, python-format
+msgid "无法获取群聊提供者: %(platform)s"
+msgstr ""
+
+#: apps/cases/services/chat/provider_facade.py:37
+#, python-format
+msgid "群聊平台不可用: %(platform)s"
+msgstr ""
+
+#: apps/cases/services/chat/provider_facade.py:40
+msgid "配置不完整或服务不可用"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:18
+msgid "无效的案件ID"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:20
+msgid "案件ID必须是正整数"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:26
+#, python-format
+msgid "案件不存在: ID=%(id)s"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:41
+msgid "无效的群聊ID"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:43
+msgid "群聊ID必须是正整数"
+msgstr ""
+
+#: apps/cases/services/chat/repo.py:53
+msgid "该群聊已绑定到此案件"
+msgstr ""
+
+#: apps/cases/services/data/cause_court_data_service.py:35
+#, python-format
+msgid "数据文件不存在: %(name)s"
+msgstr ""
+
+#: apps/cases/services/data/cause_court_data_service.py:61
+#, python-format
+msgid "数据文件格式错误: %(name)s"
+msgstr ""
+
+#: apps/cases/services/data/cause_court_data_service.py:73
+#, python-format
+msgid "加载数据文件失败: %(name)s"
+msgstr ""
+
+#: apps/cases/services/data/cause_court_data_service.py:372
+#, python-format
+msgid "无效的案件类型: %(type)s"
+msgstr ""
+
+#: apps/cases/services/data/litigation_fee_calculator_service.py:603
+msgid "涉案金额不能为负数"
+msgstr ""
+
+#: apps/cases/services/data/litigation_fee_calculator_service.py:606
+msgid "财产保全金额不能为负数"
+msgstr ""
+
+#: apps/cases/services/log/case_log_attachment_service.py:39
+msgid "无权限上传附件"
+msgstr ""
+
+#: apps/cases/services/log/case_log_attachment_service.py:60
+#, python-format
+msgid "附件 %(attachment_id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/log/case_log_attachment_service.py:69
+msgid "无权限删除此附件"
+msgstr ""
+
+#: apps/cases/services/log/case_log_attachment_service.py:83
+msgid "附件校验失败"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:35
+#: apps/cases/services/log/caselog_service_adapter.py:167
+#, python-format
+msgid "案件 %(case_id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:39
+msgid "用户未认证"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:46
+msgid "无权限创建此案件日志"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:51
+msgid "缺少有效的操作人"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:86
+msgid "无权限修改此日志"
+msgstr ""
+
+#: apps/cases/services/log/case_log_mutation_service.py:118
+msgid "无权限删除此日志"
+msgstr ""
+
+#: apps/cases/services/log/case_log_query_service.py:69
+msgid "无权限访问此日志"
+msgstr ""
+
+#: apps/cases/services/log/case_log_query_service.py:77
+#, python-format
+msgid "日志 %(log_id)s 不存在"
+msgstr ""
+
+#: apps/cases/services/log/case_log_version_service.py:34
+msgid "无权限访问此日志版本"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:49
+msgid "部分附件不存在或不属于该案件"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:66
+#: apps/cases/services/material/case_material_service.py:146
+msgid "材料大类不合法"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:68
+msgid "类型名称不能为空"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:71
+#: apps/cases/services/material/case_material_service.py:150
+msgid "当事人方向不合法"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:77
+#: apps/cases/services/material/case_material_service.py:156
+msgid "必须选择主管机关"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:82
+msgid "主管机关不属于该案件"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:131
+#: apps/cases/services/material/case_material_service.py:190
+msgid "材料类型不存在"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:159
+#: apps/cases/services/material/case_material_service.py:226
+msgid "包含无效当事人"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:162
+#: apps/cases/services/material/case_material_service.py:229
+msgid "当事人不属于我方"
+msgstr ""
+
+#: apps/cases/services/material/case_material_binding_workflow.py:164
+#: apps/cases/services/material/case_material_service.py:231
+msgid "当事人不属于对方"
+msgstr ""
+
+#: apps/cases/services/material/case_material_service.py:166
+msgid "包含无效的材料类型"
+msgstr ""
+
+#: apps/cases/services/number/case_filing_number_service.py:24
+#: apps/cases/services/number/case_filing_number_service.py:26
+msgid "案件类型不能为空"
+msgstr ""
+
+#: apps/cases/services/number/case_filing_number_service.py:31
+msgid "年份格式无效"
+msgstr ""
+
+#: apps/cases/services/number/case_filing_number_service.py:52
+msgid "建档编号生成失败(数据库未迁移)"
+msgstr ""
+
+#: apps/cases/services/number/case_filing_number_service.py:56
+msgid ""
+"缺少表 cases_casefilingnumbersequence,请执行迁移 "
+"cases.0009_case_filing_number_sequence"
+msgstr ""
+
+#: apps/cases/services/number/case_filing_number_service.py:87
+msgid "建档编号生成失败"
+msgstr ""
+
+#: apps/cases/services/number/case_number_service.py:159
+#: apps/cases/services/number/case_number_service.py:265
+#: apps/cases/services/number/case_number_service.py:346
+msgid "案号不存在"
+msgstr ""
+
+#: apps/cases/services/number/case_number_service.py:209
+#: apps/cases/services/number/case_number_service.py:290
+msgid "案号不能为空"
+msgstr ""
+
+#: apps/cases/services/party/case_assignment_service.py:141
+#: apps/cases/services/party/case_assignment_service.py:253
+#: apps/cases/services/party/case_assignment_service.py:334
+msgid "指派不存在"
+msgstr ""
+
+#: apps/cases/services/party/case_assignment_service.py:198
+#: apps/cases/services/party/case_assignment_service.py:278
+msgid "指派已存在"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:46
+msgid "关联合同不存在"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:53
+#: apps/cases/services/party/case_party_mutation_service.py:55
+msgid "当事人必须属于绑定合同的当事人范围"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:76
+#, python-format
+msgid "诉讼地位 %(status)s 不适用于当前案件"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:79
+msgid "诉讼地位与现有当事人不兼容"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:128
+#, python-format
+msgid ""
+"我方当事人诉讼地位冲突:案件中已有我方当事人「%(name)s」为%(existing)s,不能再"
+"添加我方当事人为%(new)s"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:135
+msgid "我方当事人不能同时处于对立诉讼地位"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:152
+#: apps/cases/services/party/case_party_mutation_service.py:225
+msgid "客户不存在"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:158
+#: apps/cases/services/party/case_party_mutation_service.py:238
+msgid "当事人已存在"
+msgstr ""
+
+#: apps/cases/services/party/case_party_mutation_service.py:184
+#: apps/cases/services/party/case_party_mutation_service.py:248
+#: apps/cases/services/party/case_party_query_service.py:32
+#: apps/cases/services/template/case_template_generation_service.py:133
+#: apps/cases/services/template/unified/party_selection.py:68
+msgid "当事人不存在"
+msgstr ""
+
+#: apps/cases/services/template/case_template_binding_service.py:179
+#: apps/cases/services/template/case_template_generation_service.py:212
+#: apps/cases/services/template/unified/resolver.py:103
+msgid "模板不存在"
+msgstr ""
+
+#: apps/cases/services/template/case_template_binding_service.py:187
+msgid "绑定关系已存在"
+msgstr ""
+
+#: apps/cases/services/template/case_template_binding_service.py:235
+msgid "自动推荐的模板不能手动移除"
+msgstr ""
+
+#: apps/cases/services/template/case_template_binding_service.py:237
+msgid "自动推荐的绑定不允许删除"
+msgstr ""
+
+#: apps/cases/services/template/case_template_binding_service.py:346
+#: apps/cases/services/template/template_binding_assembler.py:39
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:48
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:97
+msgid "通用"
+msgstr ""
+
+#: apps/cases/services/template/case_template_generation_service.py:140
+#: apps/cases/services/template/unified/party_selection.py:75
+msgid "当事人非我方当事人"
+msgstr ""
+
+#: apps/cases/services/template/case_template_generation_service.py:164
+#: apps/cases/services/template/unified/party_selection.py:87
+msgid "当事人非法人"
+msgstr ""
+
+#: apps/cases/services/template/case_template_generation_service.py:231
+#: apps/cases/services/template/unified/resolver.py:113
+msgid "模板文件路径为空"
+msgstr ""
+
+#: apps/cases/services/template/case_template_generation_service.py:236
+#: apps/cases/services/template/unified/resolver.py:121
+#, python-format
+msgid "模板文件不存在: %(path)s"
+msgstr ""
+
+#: apps/cases/services/template/case_template_generation_service.py:289
+#: apps/cases/services/template/unified/renderer.py:46
+#, python-format
+msgid "模板渲染失败: %(err)s"
+msgstr ""
+
+#: apps/cases/services/template/folder_binding_service.py:134
+msgid "需要管理员权限"
+msgstr ""
+
+#: apps/cases/services/template/repo.py:40
+msgid "绑定记录不存在"
+msgstr ""
+
+#: apps/cases/services/template/unified/party_selection.py:46
+msgid "法定代表人身份证明书需要指定当事人"
+msgstr ""
+
+#: apps/cases/services/template/unified/party_selection.py:48
+msgid "必须提供 client_id"
+msgstr ""
+
+#: apps/cases/services/template/unified/resolver.py:43
+#: apps/cases/services/template/unified/resolver.py:45
+#: apps/cases/services/template/unified_template_generation_service.py:95
+#: apps/cases/services/template/unified_template_generation_service.py:97
+#: apps/cases/services/template/unified_template_generation_service.py:159
+#: apps/cases/services/template/unified_template_generation_service.py:161
+msgid "必须提供 template_id 或 function_code"
+msgstr ""
+
+#: apps/cases/services/template/unified/resolver.py:54
+msgid "必须提供 function_code"
+msgstr ""
+
+#: apps/cases/services/template/unified/resolver.py:84
+#, python-format
+msgid "未找到功能标识为 %(code)s 的活跃模板"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:37
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:61
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:12
+#: apps/cases/templates/admin/cases/case/partials/documents.html:233
+msgid "加载中..."
+msgstr "Loading..."
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:56
+msgid "手动"
+msgstr "Manual"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:57
+msgid "移除"
+msgstr "Remove"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:62
+msgid "添加"
+msgstr "Add"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:74
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:84
+msgid "添加模板"
+msgstr "Add Template"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:76
+msgid "暂无匹配的文件模板"
+msgstr "No matching file templates"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:89
+msgid "加载可用模板..."
+msgstr "Loading available templates..."
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:106
+msgid "暂无可添加的模板"
+msgstr "No templates available to add"
+
+#: apps/cases/templates/admin/cases/case/case_document_template_inline.html:111
+msgid "关闭"
+msgstr "Close"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:10
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:36
+msgid "条"
+msgstr "items"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:10
+msgid "倒序"
+msgstr "Descending"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:36
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:54
+msgid "提醒"
+msgstr "Reminder"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:40
+msgid "展开"
+msgstr "Expand"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:42
+#: apps/cases/templates/admin/cases/case/detail.html:62
+msgid "编辑"
+msgstr "Edit"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:62
+#: apps/cases/templates/admin/cases/case/partials/progress.html:35
+msgid "附件"
+msgstr "Attachments"
+
+#: apps/cases/templates/admin/cases/case/caselog_inline.html:90
+msgid "添加新日志"
+msgstr "Add New Log"
+
+#: apps/cases/templates/admin/cases/case/change_form.html:23
+msgid "保存并复制"
+msgstr "Save & Copy"
+
+#: apps/cases/templates/admin/cases/case/change_list.html:13
+msgid "诉讼费计算器"
+msgstr "Litigation Fee Calculator"
+
+#: apps/cases/templates/admin/cases/case/detail.html:17
+#: apps/cases/templates/admin/cases/case/materials.html:13
+msgid "Home"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/detail.html:47
+msgid "已建档"
+msgstr "Filed"
+
+#: apps/cases/templates/admin/cases/case/detail.html:49
+msgid "未建档"
+msgstr "Not Filed"
+
+#: apps/cases/templates/admin/cases/case/detail.html:54
+#: apps/cases/templates/admin/cases/case/detail.html:55
+msgid "模拟庭审"
+msgstr "Mock Trial"
+
+#: apps/cases/templates/admin/cases/case/detail.html:58
+msgid "返回列表"
+msgstr "Back to List"
+
+#: apps/cases/templates/admin/cases/case/detail.html:72
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/cases/templates/admin/cases/case/detail.html:75
+msgid "当事人与律师"
+msgstr "Parties & Lawyers"
+
+#: apps/cases/templates/admin/cases/case/detail.html:78
+msgid "案件进展"
+msgstr "Case Progress"
+
+#: apps/cases/templates/admin/cases/case/detail.html:81
+msgid "文档生成"
+msgstr "Document Generation"
+
+#: apps/cases/templates/admin/cases/case/detail.html:90
+msgid "一张网立案"
+msgstr "Online Filing"
+
+#: apps/cases/templates/admin/cases/case/materials.html:17
+#: apps/cases/templates/admin/cases/case/materials.html:35
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:9
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:9
+msgid "上传/绑定材料"
+msgstr "Upload / Bind Materials"
+
+#: apps/cases/templates/admin/cases/case/materials.html:37
+msgid "返回案件详情"
+msgstr "Back to Case"
+
+#: apps/cases/templates/admin/cases/case/materials.html:42
+msgid "保存"
+msgstr "Save"
+
+#: apps/cases/templates/admin/cases/case/materials.html:49
+#: apps/cases/templates/admin/cases/case/materials.html:69
+msgid "上传"
+msgstr "Upload"
+
+#: apps/cases/templates/admin/cases/case/materials.html:54
+msgid "上传大类"
+msgstr "Category"
+
+#: apps/cases/templates/admin/cases/case/materials.html:86
+msgid "拖拽文件到这里"
+msgstr "Drag files here"
+
+#: apps/cases/templates/admin/cases/case/materials.html:116
+msgid "筛选"
+msgstr "Filter"
+
+#: apps/cases/templates/admin/cases/case/materials.html:121
+msgid "搜索文件名"
+msgstr "Search filename"
+
+#: apps/cases/templates/admin/cases/case/materials.html:124
+msgid "全部"
+msgstr "All"
+
+#: apps/cases/templates/admin/cases/case/materials.html:125
+#: apps/cases/templates/admin/cases/case/materials.html:154
+#: apps/cases/templates/admin/cases/case/materials.html:231
+msgid "未分类"
+msgstr "Uncategorized"
+
+#: apps/cases/templates/admin/cases/case/materials.html:132
+msgid "全部方向"
+msgstr "All Sides"
+
+#: apps/cases/templates/admin/cases/case/materials.html:133
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:30
+msgid "我方"
+msgstr "Our Side"
+
+#: apps/cases/templates/admin/cases/case/materials.html:134
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:32
+msgid "对方"
+msgstr "Opposing"
+
+#: apps/cases/templates/admin/cases/case/materials.html:140
+msgid "全部主管机关"
+msgstr "All Authorities"
+
+#: apps/cases/templates/admin/cases/case/materials.html:157
+#: apps/cases/templates/admin/cases/case/materials.html:184
+msgid "未完成"
+msgstr "Incomplete"
+
+#: apps/cases/templates/admin/cases/case/materials.html:165
+msgid "清空"
+msgstr "Clear"
+
+#: apps/cases/templates/admin/cases/case/materials.html:167
+msgid "显示"
+msgstr "Show"
+
+#: apps/cases/templates/admin/cases/case/materials.html:176
+#: apps/cases/templates/admin/cases/case/partials/documents.html:55
+msgid "已绑定"
+msgstr "Bound"
+
+#: apps/cases/templates/admin/cases/case/materials.html:205
+#: apps/cases/templates/admin/cases/case/partials/documents.html:348
+#: apps/cases/templates/admin/cases/case/partials/documents.html:407
+msgid "全选"
+msgstr "Select All"
+
+#: apps/cases/templates/admin/cases/case/materials.html:208
+msgid "文件"
+msgstr "File"
+
+#: apps/cases/templates/admin/cases/case/materials.html:211
+msgid "方向/主管机关"
+msgstr "Side / Authority"
+
+#: apps/cases/templates/admin/cases/case/materials.html:212
+msgid "当事人（可选）"
+msgstr "Party (optional)"
+
+#: apps/cases/templates/admin/cases/case/materials.html:239
+#: apps/cases/templates/admin/cases/case/materials.html:246
+#: apps/cases/templates/admin/cases/case/materials.html:265
+msgid "请选择"
+msgstr "Please select"
+
+#: apps/cases/templates/admin/cases/case/materials.html:269
+msgid "自定义..."
+msgstr "Custom..."
+
+#: apps/cases/templates/admin/cases/case/materials.html:271
+msgid "输入类型名称"
+msgstr "Enter type name"
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:7
+msgid "新建对话"
+msgstr "New Conversation"
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:25
+msgid "删除会话"
+msgstr "Delete Session"
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:36
+msgid "暂无会话"
+msgstr "No sessions"
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:37
+msgid "点击\\"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:82
+msgid "选择一个会话开始对话"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:83
+msgid "或点击\\"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:93
+msgid "输入消息... (Shift+Enter 换行，Enter 发送)"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/ai_chat.html:101
+msgid "发送"
+msgstr "Send"
+
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:7
+msgid "案件信息"
+msgstr "Case Info"
+
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:17
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:29
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:33
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:37
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:57
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:61
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:25
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:2
+msgid "未设置"
+msgstr "Not set"
+
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:47
+msgid "日期信息"
+msgstr "Date Info"
+
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:104
+msgid "暂无案号"
+msgstr "No case number"
+
+#: apps/cases/templates/admin/cases/case/partials/basic_info.html:126
+msgid "暂无主管机关"
+msgstr "No authority"
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:8
+msgid "法院一张网在线立案"
+msgstr "Online Court Filing"
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:24
+msgid "管辖法院"
+msgstr "Jurisdiction Court"
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:28
+msgid "标的额"
+msgstr "Claim Amount"
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:39
+msgid "开始一张网立案"
+msgstr "Start One-Stop Filing"
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:40
+msgid "执行中..."
+msgstr "Processing..."
+
+#: apps/cases/templates/admin/cases/case/partials/court_filing.html:44
+msgid "请先设置管辖法院（案件管辖机关）"
+msgstr "Please set the jurisdiction court first"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:7
+msgid "匹配的模板"
+msgstr "Matching Templates"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:13
+msgid "文件模板"
+msgstr "File Templates"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:21
+#: apps/cases/templates/admin/cases/case/partials/documents.html:37
+msgid "无匹配模板"
+msgstr "No matching templates"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:29
+msgid "文件夹模板"
+msgstr "Folder Templates"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:72
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:4
+msgid "证据清单"
+msgstr "Evidence Lists"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:78
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:9
+msgid "新建证据清单"
+msgstr "+ New Evidence List"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:82
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:13
+msgid "查看全部"
+msgstr "View All"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:96
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:27
+msgid "第"
+msgstr "No."
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:96
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:27
+msgid "份"
+msgstr "copies"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:101
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:32
+msgid "证据数量"
+msgstr "Evidence Count"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:104
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:35
+msgid "总页数"
+msgstr "Total Pages"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:107
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:38
+msgid "页码范围"
+msgstr "Page Range"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:110
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:41
+msgid "导出版本"
+msgstr "Export Version"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:116
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:47
+msgid "已合并"
+msgstr "Merged"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:118
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:49
+msgid "未合并"
+msgstr "Not merged"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:125
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:56
+msgid "合并PDF"
+msgstr "Merge PDF"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:129
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:60
+msgid "导出清单"
+msgstr "Export List"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:134
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:65
+msgid "下载PDF"
+msgstr "Download PDF"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:143
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:74
+msgid "暂无证据清单"
+msgstr "No evidence lists"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:144
+#: apps/cases/templates/admin/cases/case/partials/evidence.html:75
+msgid "点击上方\\"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:154
+msgid "快速文档生成"
+msgstr "Quick Document Generation"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:159
+msgid "模板生成（快速生成，无需 AI）"
+msgstr "Template Generation (no AI needed)"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:168
+msgid "使用预设模板快速生成文书，适合标准化案件"
+msgstr ""
+"Use preset templates to quickly generate documents, suitable for "
+"standardized cases"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:169
+msgid "模板生成"
+msgstr "Template Generation"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:196
+msgid "选择诉状类型"
+msgstr "Select Document Type"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:204
+msgid "开发中"
+msgstr "In Development"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:216
+#: apps/cases/templates/admin/cases/case/partials/documents.html:369
+#: apps/cases/templates/admin/cases/case/partials/documents.html:430
+msgid "取消"
+msgstr "Cancel"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:220
+msgid "下一步"
+msgstr "Next"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:226
+msgid "确认生成信息"
+msgstr "Confirm Generation"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:248
+msgid "⚠ 未生成"
+msgstr "⚠ Not Generated"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:261
+msgid "上一步"
+msgstr "Back"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:266
+msgid "确认生成"
+msgstr "Confirm Generate"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:267
+#: apps/cases/templates/admin/cases/case/partials/documents.html:375
+#: apps/cases/templates/admin/cases/case/partials/documents.html:436
+msgid "生成中..."
+msgstr "Generating..."
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:278
+msgid "生成授权委托材料"
+msgstr "Generate Authorization Materials"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:286
+msgid "没有我方当事人，无法生成全套委托材料"
+msgstr ""
+"No our-side parties, cannot generate full set of authorization materials"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:292
+msgid "全套委托材料"
+msgstr "Full Authorization Package"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:296
+msgid "我方当事人无法人，无需生成身份证明书"
+msgstr ""
+"Our-side parties have no legal entities, no need to generate identity "
+"certificates"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:302
+msgid "法定代表人身份证明书"
+msgstr "Legal Rep Certificate"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:311
+msgid "所函"
+msgstr "Law Firm Letter"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:314
+msgid "没有我方当事人，无法生成授权委托书"
+msgstr "No our-side parties, cannot generate power of attorney"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:320
+#: apps/cases/templates/admin/cases/case/partials/documents.html:386
+msgid "授权委托书"
+msgstr "Power of Attorney"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:343
+msgid "选择法人"
+msgstr "Select Legal Entity"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:374
+#: apps/cases/templates/admin/cases/case/partials/documents.html:435
+msgid "生成并下载"
+msgstr "Generate & Download"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:391
+msgid "单独授权"
+msgstr "Individual Authorization"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:395
+msgid "合并授权"
+msgstr "Merged Authorization"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:400
+msgid "将对所有我方当事人合并授权，无需选择。"
+msgstr "Will authorize all our parties together."
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:446
+msgid "生成财产保全材料"
+msgstr "Generate Preservation Materials"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:462
+msgid "全套财产保全材料"
+msgstr "Full Preservation Package"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:472
+msgid "财产保全申请书"
+msgstr "Preservation Application"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:482
+msgid "暂缓送达申请书"
+msgstr "Deferred Service Application"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:504
+msgid "文件夹生成"
+msgstr "Folder Generation"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:506
+msgid "功能开发中"
+msgstr "Feature under development"
+
+#: apps/cases/templates/admin/cases/case/partials/documents.html:507
+msgid "生成文件夹"
+msgstr "Generate Folder"
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:5
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:5
+msgid "时间：正序"
+msgstr "Time: Ascending"
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:28
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:32
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:81
+msgid "拖拽排序"
+msgstr "Drag to sort"
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:48
+msgid "暂无材料"
+msgstr "No materials"
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:49
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:58
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:107
+msgid "点击右上角\\"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:59
+msgid "本案未配置主管机关或暂无非当事人材料"
+msgstr "No authority configured or no non-party materials"
+
+#: apps/cases/templates/admin/cases/case/partials/non_party_materials.html:60
+msgid "先在案件编辑页配置主管机关，再到\\"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:39
+msgid "暂无当事人"
+msgstr "No parties"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:48
+msgid "律师指派"
+msgstr "Lawyer Assignment"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:70
+msgid "暂无指派律师"
+msgstr "No assigned lawyers"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:88
+msgid "主体类型"
+msgstr "Entity Type"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:96
+msgid "当事人类型"
+msgstr "Party Type"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:103
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:148
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:202
+msgid "身份证号码"
+msgstr "ID Number"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:111
+msgid "统一社会信用代码"
+msgstr "Unified Social Credit Code"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:119
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:190
+msgid "联系电话"
+msgstr "Phone"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:127
+msgid "住所地"
+msgstr "Address"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:142
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:179
+msgid "姓名"
+msgstr "Name"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:160
+msgid "复制全部"
+msgstr "Copy All"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:184
+msgid "用户名"
+msgstr "Username"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:196
+msgid "邮箱"
+msgstr "Email"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:208
+msgid "执业证号"
+msgstr "License Number"
+
+#: apps/cases/templates/admin/cases/case/partials/parties_lawyers.html:214
+msgid "所属律所"
+msgstr "Law Firm"
+
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:57
+msgid "暂无我方材料"
+msgstr "No materials on our side"
+
+#: apps/cases/templates/admin/cases/case/partials/party_materials.html:106
+msgid "暂无对方当事人材料"
+msgstr "No opposing party materials"
+
+#: apps/cases/templates/admin/cases/case/partials/progress.html:48
+msgid "暂无案件日志"
+msgstr "No case logs"
+
+#: apps/cases/templates/admin/cases/case/partials/progress.html:67
+msgid "有效"
+msgstr "Active"
+
+#: apps/cases/templates/admin/cases/case/partials/progress.html:67
+msgid "已失效"
+msgstr "Inactive"
+
+#: apps/cases/templates/admin/cases/case/partials/progress.html:73
+msgid "暂无关联群聊"
+msgstr "No group chat"
+
+#: apps/cases/templates/admin/cases/casechat/change_form.html:7
+#: apps/cases/templates/admin/cases/casechat/change_form.html:11
+msgid "Save"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/casechat/change_form.html:8
+msgid "解除绑定"
+msgstr "Unbind"
+
+#: apps/cases/templates/admin/cases/casechat/change_form.html:15
+msgid "Save and add another"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/casechat/change_form.html:19
+msgid "Save and continue editing"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:212
+msgid "根据《诉讼费用交纳办法》（2007年4月1日施行）计算各类诉讼费用"
+msgstr ""
+"Calculate various litigation fees according to the Measures for Payment of "
+"Litigation Costs (effective April 1, 2007)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:218
+msgid "返回案件列表"
+msgstr "Back to Case List"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:226
+msgid "涉案金额（元）"
+msgstr "Case Amount (CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:228
+msgid "请输入涉案金额"
+msgstr "Enter case amount"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:231
+msgid "财产保全金额（元）"
+msgstr "Property Preservation Amount (CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:233
+msgid "请输入财产保全金额"
+msgstr "Enter property preservation amount"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:241
+msgid "财产案件"
+msgstr "Property Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:242
+msgid "财产案件（民事）"
+msgstr "Property Case (Civil)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:244
+msgid "非财产案件"
+msgstr "Non-property Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:245
+msgid "离婚案件（50-300元）"
+msgstr "Divorce Case (50-300 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:246
+msgid "人格权侵权案件（100-500元）"
+msgstr "Personality Rights Infringement Case (100-500 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:247
+msgid "其他非财产案件（50-100元）"
+msgstr "Other Non-property Cases (50-100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:249
+msgid "知识产权案件"
+msgstr "Intellectual Property Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:250
+msgid "知识产权案件（无争议金额，500-1000元）"
+msgstr "IP Case (no disputed amount, 500-1000 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:251
+msgid "知识产权案件（有争议金额，按财产案件）"
+msgstr "IP Case (with disputed amount, per property case)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:253
+msgid "行政案件"
+msgstr "Administrative Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:254
+msgid "商标/专利/海事行政案件（100元）"
+msgstr "Trademark/Patent/Maritime Administrative Case (100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:255
+msgid "其他行政案件（50元）"
+msgstr "Other Administrative Cases (50 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:257
+msgid "申请费"
+msgstr "Application Fee"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:258
+msgid "执行案件"
+msgstr "Enforcement Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:259
+msgid "申请保全措施"
+msgstr "Apply for Preservation Measures"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:260
+msgid "申请支付令（财产案件1/3）"
+msgstr "Apply for Payment Order (1/3 of property case)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:261
+msgid "申请公示催告（100元）"
+msgstr "Apply for Public Notice (100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:262
+msgid "撤销仲裁裁决/认定仲裁协议效力（400元）"
+msgstr ""
+"Revoke Arbitration Award/Confirm Arbitration Agreement Validity (400 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:263
+msgid "破产案件（减半，最高30万）"
+msgstr "Bankruptcy Case (halved, max 300,000 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:265
+msgid "其他"
+msgstr "Other"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:266
+msgid "劳动争议案件（10元）"
+msgstr "Labor Dispute Case (10 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:267
+msgid "管辖权异议（50-100元）"
+msgstr "Jurisdiction Objection (50-100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:274
+msgid "计算费用"
+msgstr "Calculate Fees"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:275
+msgid "重置"
+msgstr "Reset"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:282
+msgid "计算中..."
+msgstr "Calculating..."
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:288
+msgid "计算结果"
+msgstr "Calculation Result"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:293
+msgid "费用计算规则说明（依据《诉讼费用交纳办法》）"
+msgstr "Fee Calculation Rules (per Litigation Fee Regulations)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:295
+msgid "一、财产案件受理费（分段累计）："
+msgstr "I. Property Case Filing Fee (tiered):"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:296
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:317
+msgid "不超过1万元：50元"
+msgstr "Up to ¥10,000: ¥50"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:297
+#, python-format
+msgid "1万-10万元：2.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:298
+#, python-format
+msgid "10万-20万元：2%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:299
+#, python-format
+msgid "20万-50万元：1.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:300
+#, python-format
+msgid "50万-100万元：1%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:301
+#, python-format
+msgid "100万-200万元：0.9%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:302
+#, python-format
+msgid "200万-500万元：0.8%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:303
+#, python-format
+msgid "500万-1000万元：0.7%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:304
+#, python-format
+msgid "1000万-2000万元：0.6%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:305
+#, python-format
+msgid "超过2000万元：0.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:307
+#, fuzzy
+#| msgid "非财产案件"
+msgid "二、非财产案件："
+msgstr "Non-property Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:308
+#, fuzzy, python-format
+#| msgid "离婚案件（50-300元）"
+msgid "离婚案件：50-300元；财产超过20万按0.5%%"
+msgstr "Divorce Case (50-300 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:309
+#, python-format
+msgid "人格权侵权：100-500元；赔偿5万-10万按1%%，超10万按0.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:310
+#, fuzzy
+#| msgid "其他非财产案件（50-100元）"
+msgid "其他非财产案件：50-100元"
+msgstr "Other Non-property Cases (50-100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:312
+#, fuzzy
+#| msgid "知识产权案件"
+msgid "三、知识产权案件："
+msgstr "Intellectual Property Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:313
+#, fuzzy
+#| msgid "知识产权案件（无争议金额，500-1000元）"
+msgid "无争议金额：500-1000元"
+msgstr "IP Case (no disputed amount, 500-1000 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:314
+#, fuzzy
+#| msgid "知识产权案件（有争议金额，按财产案件）"
+msgid "有争议金额：按财产案件标准"
+msgstr "IP Case (with disputed amount, per property case)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:316
+#, fuzzy
+#| msgid "执行案件"
+msgid "四、执行案件："
+msgstr "Enforcement Case"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:318
+#, python-format
+msgid "1万-50万元：1.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:319
+#, python-format
+msgid "50万-500万元：1%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:320
+#, python-format
+msgid "500万-1000万元：0.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:321
+#, python-format
+msgid "超过1000万元：0.1%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:323
+#, fuzzy
+#| msgid "财产保全申请书"
+msgid "五、财产保全费："
+msgstr "Preservation Application"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:324
+msgid "不超过1000元：30元"
+msgstr "Up to ¥1,000: ¥30"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:325
+#, python-format
+msgid "1000元-10万元：1%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:326
+#, python-format
+msgid "超过10万元：0.5%%"
+msgstr ""
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:327
+msgid "最高不超过5000元"
+msgstr "Maximum ¥5,000"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:329
+msgid "六、其他费用："
+msgstr "VI. Other Fees:"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:330
+#, fuzzy
+#| msgid "申请支付令（财产案件1/3）"
+msgid "支付令申请费：财产案件费的1/3"
+msgstr "Apply for Payment Order (1/3 of property case)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:331
+#, fuzzy
+#| msgid "破产案件（减半，最高30万）"
+msgid "破产案件：财产案件费减半，最高30万元"
+msgstr "Bankruptcy Case (halved, max 300,000 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:332
+#, fuzzy
+#| msgid "劳动争议案件（10元）"
+msgid "劳动争议：10元"
+msgstr "Labor Dispute Case (10 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:333
+#, fuzzy
+#| msgid "申请公示催告（100元）"
+msgid "公示催告：100元"
+msgstr "Apply for Public Notice (100 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:334
+#, fuzzy
+#| msgid "撤销仲裁裁决/认定仲裁协议效力（400元）"
+msgid "撤销仲裁裁决：400元"
+msgstr ""
+"Revoke arbitration award: ¥400Revoke Arbitration Award/Confirm Arbitration "
+"Agreement Validity (400 CNY)"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:336
+msgid "七、减免规定："
+msgstr "VII. Reduction Rules:"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:337
+msgid "调解结案/撤诉/简易程序：减半"
+msgstr "Mediation/withdrawal/summary procedure: half"
+
+#: apps/cases/templates/admin/cases/litigation_fee_calculator.html:338
+msgid "反诉合并审理：减半"
+msgstr "Counterclaim consolidated: half"

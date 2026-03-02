@@ -1,0 +1,185 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 19:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/reminders/admin/reminder_admin.py:21
+msgid ""
+"用于存放\"结构化扩展信息\"的 JSON(不参与业务必填).可留空或填 {}.常见"
+"键:source(来源,如 court_sms / manual)、file_name(来源文件名)、external_id(外"
+"部ID)、note(备注).示例:{\"source\":\"court_sms\",\"file_name\":\"传票.pdf\"}"
+msgstr ""
+
+#: apps/reminders/admin/reminder_admin.py:40
+#: apps/reminders/admin/reminder_admin.py:44
+msgid "请输入合法的 JSON 格式"
+msgstr "Please enter valid JSON format"
+
+#: apps/reminders/admin/reminder_admin.py:42
+msgid "请输入合法的 JSON 对象（非数组或标量）"
+msgstr "Please enter a valid JSON object (not array or scalar)"
+
+#: apps/reminders/apps.py:10 apps/reminders/models.py:50
+#: apps/reminders/models.py:51
+msgid "重要日期提醒"
+msgstr "Important Date Reminders"
+
+#: apps/reminders/models.py:12
+msgid "开庭"
+msgstr "Hearing"
+
+#: apps/reminders/models.py:13
+msgid "财产保全到期日"
+msgstr "Property Preservation Expiry Date"
+
+#: apps/reminders/models.py:14
+msgid "举证到期日"
+msgstr "Evidence Submission Deadline"
+
+#: apps/reminders/models.py:15
+msgid "上诉期到期日"
+msgstr "Appeal Period Expiry Date"
+
+#: apps/reminders/models.py:16
+msgid "诉讼时效到期日"
+msgstr "Statute of Limitations Expiry Date"
+
+#: apps/reminders/models.py:17
+msgid "缴费期限"
+msgstr "Payment Deadline"
+
+#: apps/reminders/models.py:18
+msgid "补正/材料提交期限"
+msgstr "Correction/Material Submission Deadline"
+
+#: apps/reminders/models.py:19
+msgid "其他"
+msgstr "Other"
+
+#: apps/reminders/models.py:32
+msgid "合同"
+msgstr "Contracts"
+
+#: apps/reminders/models.py:40
+msgid "案件日志"
+msgstr "Case Logs"
+
+#: apps/reminders/models.py:42
+msgid "类型"
+msgstr "Type"
+
+#: apps/reminders/models.py:43
+msgid "提醒事项"
+msgstr "Reminder"
+
+#: apps/reminders/models.py:44
+msgid "到期时间"
+msgstr "Expiry Time"
+
+#: apps/reminders/models.py:45
+msgid "扩展数据"
+msgstr "Extended Data"
+
+#: apps/reminders/models.py:46
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/reminders/models.py:47
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/reminders/models.py:67 apps/reminders/schemas.py:48
+#: apps/reminders/services/validators.py:37
+msgid "必须且只能绑定合同或案件日志之一"
+msgstr "Must bind exactly one of contract or case log"
+
+#: apps/reminders/schemas.py:18
+msgid "ID 必须为正整数"
+msgstr "ID must be a positive integer"
+
+#: apps/reminders/schemas.py:27 apps/reminders/services/validators.py:70
+msgid "提醒事项不能为空"
+msgstr "Reminder cannot be empty"
+
+#: apps/reminders/services/reminder_service.py:35
+msgid "不能同时查询合同和案件日志的提醒"
+msgstr "Cannot query reminders for both contract and case log simultaneously"
+
+#: apps/reminders/services/reminder_service.py:37
+msgid "必须指定合同或案件日志"
+msgstr "Must specify contract or case log"
+
+#: apps/reminders/services/reminder_service.py:38
+#: apps/reminders/services/reminder_service.py:101
+msgid "contract_id"
+msgstr "contract_id"
+
+#: apps/reminders/services/reminder_service.py:39
+#: apps/reminders/services/reminder_service.py:104
+msgid "case_log_id"
+msgstr "case_log_id"
+
+#: apps/reminders/services/reminder_service.py:55
+#, python-format
+msgid "提醒记录 %(id)s 不存在"
+msgstr "Reminder record %(id)s does not exist"
+
+#: apps/reminders/services/reminder_service_adapter.py:109
+msgid "合同ID"
+msgstr "Contract ID"
+
+#: apps/reminders/services/validators.py:23
+#: apps/reminders/services/validators.py:30
+#, python-format
+msgid "%(field_name)s 必须为正整数"
+msgstr "%(field_name)s must be a positive integer"
+
+#: apps/reminders/services/validators.py:46
+#, python-format
+msgid "合同 %(id)s 不存在"
+msgstr "Contract %(id)s does not exist"
+
+#: apps/reminders/services/validators.py:51
+#, python-format
+msgid "案件日志 %(id)s 不存在"
+msgstr "Case log %(id)s does not exist"
+
+#: apps/reminders/services/validators.py:57
+msgid "提醒类型不能为空"
+msgstr "Reminder type cannot be empty"
+
+#: apps/reminders/services/validators.py:59
+msgid "无效的提醒类型"
+msgstr "Invalid reminder type"
+
+#: apps/reminders/services/validators.py:72
+#, python-format
+msgid "提醒事项不能超过 %(max)d 个字符"
+msgstr "Reminder cannot exceed %(max)d characters"
+
+#: apps/reminders/services/validators.py:78
+msgid "到期时间格式不正确"
+msgstr "Expiry time format is incorrect"
+
+#: apps/reminders/services/validators.py:88
+msgid "扩展数据必须为 JSON 对象"
+msgstr "Extended data must be a JSON object"
+
+#: apps/reminders/services/validators.py:92
+msgid "扩展数据包含不可序列化的值"
+msgstr "Extended data contains non-serializable values"

@@ -28,22 +28,22 @@
         </div>
         <div class="header-meta">
             <span class="primary-lawyer">
-                主办律师: {% if primary_lawyer %}{{ primary_lawyer.real_name|default:primary_lawyer.username }}{% else %}未指派{% endif %}
+                {% trans "主办律师" %}: {% if primary_lawyer %}{{ primary_lawyer.real_name|default:primary_lawyer.username }}{% else %}{% trans "未指派" %}{% endif %}
             </span>
             <span style="margin-left: 16px;">
                 {% if contract.is_archived and contract.filing_number %}
-                    建档编号: {{ contract.filing_number }}
+                    {% trans "建档编号" %}: {{ contract.filing_number }}
                 {% elif contract.is_archived %}
-                    ✓ 已建档
+                    ✓ {% trans "已建档" %}
                 {% else %}
-                    未建档
+                    {% trans "未建档" %}
                 {% endif %}
             </span>
         </div>
         <div class="header-actions">
-            <a href="{% url 'admin:contracts_contract_changelist' %}" class="btn btn-secondary">← 返回列表</a>
+            <a href="{% url 'admin:contracts_contract_changelist' %}" class="btn btn-secondary">← {% trans "返回列表" %}</a>
             {% if has_change_permission %}
-            <a href="{% url 'admin:contracts_contract_change' contract.pk %}" class="btn btn-primary">编辑</a>
+            <a href="{% url 'admin:contracts_contract_change' contract.pk %}" class="btn btn-primary">{% trans "编辑" %}</a>
             {% endif %}
         </div>
     </header>
@@ -51,10 +51,10 @@
     <!-- Tab Panel -->
     <div class="tab-panel">
         <nav class="tab-nav">
-            <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">基本信息</button>
-            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">当事人与律师</button>
-            <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">收费与财务</button>
-            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">文档与提醒</button>
+            <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">{% trans "基本信息" %}</button>
+            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">{% trans "当事人与律师" %}</button>
+            <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">{% trans "收费与财务" %}</button>
+            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">{% trans "文档与提醒" %}</button>
             <button type="button" @click="activeTab = 'finalized'" :class="{ active: activeTab === 'finalized' }">{% translate "定稿材料" %}</button>
             <button type="button" @click="activeTab = 'filing'" :class="{ active: activeTab === 'filing' }">{% translate "立案" %}</button>
         </nav>
@@ -73,27 +73,27 @@
     <div class="modal-overlay" x-show="showAgreementDialog" x-cloak @click.self="showAgreementDialog = false">
         <div class="modal-dialog">
             <div class="modal-header">
-                <h3>选择补充协议</h3>
+                <h3>{% trans "选择补充协议" %}</h3>
                 <button type="button" class="modal-close" @click="showAgreementDialog = false">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="modal-hint">请选择要生成的补充协议：</p>
+                <p class="modal-hint">{% trans "请选择要生成的补充协议：" %}</p>
                 <div class="agreement-select-list">
                     {% for agreement in supplementary_agreements %}
                     <div class="agreement-select-item"
                          @click="selectedAgreementId = {{ agreement.id }}"
                          :class="{ 'selected': selectedAgreementId === {{ agreement.id }} }">
-                        <span class="agreement-select-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                        <span class="agreement-select-name">{{ agreement.name|default:_("未命名补充协议") }}</span>
                         <span class="agreement-select-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @click="showAgreementDialog = false">取消</button>
+                <button type="button" class="btn btn-secondary" @click="showAgreementDialog = false">{% trans "取消" %}</button>
                 <button type="button" class="btn btn-primary"
                         @click="generateSupplementaryAgreement()"
-                        :disabled="!selectedAgreementId || generating">确定生成</button>
+                        :disabled="!selectedAgreementId || generating">{% trans "确定生成" %}</button>
             </div>
         </div>
     </div>
@@ -112,7 +112,7 @@
                     <div class="agreement-select-item"
                          @click="previewAgreementId = {{ agreement.id }}"
                          :class="{ 'selected': previewAgreementId === {{ agreement.id }} }">
-                        <span class="agreement-select-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                        <span class="agreement-select-name">{{ agreement.name|default:_("未命名补充协议") }}</span>
                         <span class="agreement-select-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
                     </div>
                     {% endfor %}

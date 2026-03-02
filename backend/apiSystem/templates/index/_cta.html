@@ -1,21 +1,22 @@
+{% load i18n %}
     <!-- CTA Section -->
     <section class="cta">
         <div class="cta-glow"></div>
         <div class="cta-content reveal">
-            <h2 class="cta-title">立即开始</h2>
+            <h2 class="cta-title">{% trans "立即开始" %}</h2>
             <p class="cta-desc">
-                本地私有化部署，数据完全掌控在您手中。
+                {% trans "本地私有化部署，数据完全掌控在您手中。" %}
             </p>
             <div class="cta-qrcodes">
                 <div class="cta-qrcode-item">
-                    <img src="/media/core/法穿二维码.jpg" alt="法穿公众号" class="cta-qrcode-img">
-                    <span class="cta-qrcode-title">关注公众号</span>
-                    <span class="cta-qrcode-desc">获取最新更新动态</span>
+                    <img src="/media/core/法穿二维码.jpg" alt="{% trans '法穿公众号' %}" class="cta-qrcode-img">
+                    <span class="cta-qrcode-title">{% trans "关注公众号" %}</span>
+                    <span class="cta-qrcode-desc">{% trans "获取最新更新动态" %}</span>
                 </div>
                 <div class="cta-qrcode-item">
-                    <img src="/media/core/github_qrcode.png" alt="GitHub源码" class="cta-qrcode-img">
-                    <span class="cta-qrcode-title">查看源代码</span>
-                    <span class="cta-qrcode-desc">安全可靠，所见即所得</span>
+                    <img src="/media/core/github_qrcode.png" alt="{% trans 'GitHub源码' %}" class="cta-qrcode-img">
+                    <span class="cta-qrcode-title">{% trans "查看源代码" %}</span>
+                    <span class="cta-qrcode-desc">{% trans "安全可靠，所见即所得" %}</span>
                 </div>
             </div>
 {#            <div class="cta-buttons">#}
@@ -34,11 +35,11 @@
         <div class="footer-content footer-simple">
             <div class="footer-links">
                 <a href="https://github.com/Lawyer-ray/FachuanHybridSystem" target="_blank" class="footer-link">GitHub</a>
-                <a href="/api/v1/docs" class="footer-link">API 文档</a>
-                <a href="/admin/" class="footer-link">管理后台</a>
+                <a href="/api/v1/docs" class="footer-link">API {% trans "文档" %}</a>
+                <a href="/admin/" class="footer-link">{% trans "管理后台" %}</a>
             </div>
             <div class="footer-copy">
-                © 2026 法穿AI · Less is more
+                © 2026 {% trans "法穿AI · Less is more" %}
             </div>
         </div>
     </footer>

@@ -1,16 +1,16 @@
 {% load i18n %}
 <!-- 证据清单标签页 -->
 <div class="info-section">
-    <h2 class="section-title">证据清单</h2>
+    <h2 class="section-title">{% trans "证据清单" %}</h2>
 
     <div class="evidence-actions" style="margin-bottom: 20px;">
         <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
            class="btn btn-primary">
-            + 新建证据清单
+            + {% trans "新建证据清单" %}
         </a>
         <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
            class="btn btn-secondary">
-            查看全部
+            {% trans "查看全部" %}
         </a>
     </div>
 
@@ -24,45 +24,45 @@
                         {{ evidence_list.title }}
                     </a>
                 </h3>
-                <span class="evidence-order">第 {{ evidence_list.order }} 份</span>
+                <span class="evidence-order">{% trans "第" %} {{ evidence_list.order }} {% trans "份" %}</span>
             </div>
 
             <div class="evidence-meta">
                 <span class="meta-item">
-                    <strong>证据数量：</strong>{{ evidence_list.items.count }}
+                    <strong>{% trans "证据数量" %}：</strong>{{ evidence_list.items.count }}
                 </span>
                 <span class="meta-item">
-                    <strong>总页数：</strong>{{ evidence_list.total_pages }}
+                    <strong>{% trans "总页数" %}：</strong>{{ evidence_list.total_pages }}
                 </span>
                 <span class="meta-item">
-                    <strong>页码范围：</strong>{{ evidence_list.page_range_display }}
+                    <strong>{% trans "页码范围" %}：</strong>{{ evidence_list.page_range_display }}
                 </span>
                 <span class="meta-item">
-                    <strong>导出版本：</strong>V{{ evidence_list.export_version }}
+                    <strong>{% trans "导出版本" %}：</strong>V{{ evidence_list.export_version }}
                 </span>
             </div>
 
             <div class="evidence-status">
                 {% if evidence_list.merged_pdf %}
-                <span class="status-badge status-success">✓ 已合并</span>
+                <span class="status-badge status-success">✓ {% trans "已合并" %}</span>
                 {% else %}
-                <span class="status-badge status-pending">未合并</span>
+                <span class="status-badge status-pending">{% trans "未合并" %}</span>
                 {% endif %}
             </div>
 
             <div class="evidence-actions">
                 <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
                    class="btn btn-sm btn-secondary">
-                    合并PDF
+                    {% trans "合并PDF" %}
                 </a>
                 <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
                    class="btn btn-sm btn-secondary">
-                    导出清单
+                    {% trans "导出清单" %}
                 </a>
                 {% if evidence_list.merged_pdf %}
                 <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
                    class="btn btn-sm btn-primary">
-                    下载PDF
+                    {% trans "下载PDF" %}
                 </a>
                 {% endif %}
             </div>
@@ -71,8 +71,8 @@
     </div>
     {% else %}
     <div class="empty-state">
-        <p>暂无证据清单</p>
-        <p class="hint">点击上方"新建证据清单"按钮创建第一份证据清单</p>
+        <p>{% trans "暂无证据清单" %}</p>
+        <p class="hint">{% trans "点击上方\"新建证据清单\"按钮创建第一份证据清单" %}</p>
     </div>
     {% endif %}
 </div>

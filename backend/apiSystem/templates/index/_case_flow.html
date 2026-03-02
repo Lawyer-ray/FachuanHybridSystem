@@ -1,10 +1,11 @@
+{% load i18n %}
     <!-- 案件全流程管理与智能文书生成演示 -->
     <section class="case-flow-section" id="case-flow">
         <div class="case-flow-container">
             <div class="section-header reveal">
-                <span class="section-tag">📋 智能归档</span>
-                <h2 class="section-title">案件全流程管理与智能文书生成</h2>
-                <p class="section-desc">一次录入、全局复用，文件夹自动生成，文书自动归档到指定位置</p>
+                <span class="section-tag">📋 {% trans "智能归档" %}</span>
+                <h2 class="section-title">{% trans "案件全流程管理与智能文书生成" %}</h2>
+                <p class="section-desc">{% trans "一次录入、全局复用，文件夹自动生成，文书自动归档到指定位置" %}</p>
             </div>
 
             <div class="case-flow-demo-v2" id="caseFlowDemo">
@@ -258,10 +259,10 @@
             <!-- 控制按钮 -->
             <div class="case-flow-controls">
                 <button class="flow-btn flow-btn-play" id="caseFlowPlayBtn" onclick="startCaseFlowAnimation()">
-                    <span>▶</span> 播放演示
+                    <span>▶</span> {% trans "播放演示" %}
                 </button>
                 <button class="flow-btn flow-btn-reset" id="caseFlowResetBtn" onclick="resetCaseFlowAnimation()">
-                    <span>↺</span> 重置
+                    <span>↺</span> {% trans "重置" %}
                 </button>
             </div>
         </div>

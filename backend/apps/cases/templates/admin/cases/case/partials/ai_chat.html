@@ -1,10 +1,10 @@
-{% load static %}
+{% load static i18n %}
 
 <div class="ai-chat-container" x-data="aiLitigationTabApp({ caseId: {{ case.pk }} })" x-init="init()" style="display: flex !important; height: 600px !important;">
     <!-- 左侧会话列表 (30%) -->
     <div class="session-list" style="width: 30% !important; min-width: 300px !important; border-right: 1px solid #e0e0e0 !important; display: flex !important; flex-direction: column !important; background: #f9f9f9 !important;">
         <button @click="createNewSession()" class="btn-new-session">
-            ➕ 新建对话
+            ➕ {% trans "新建对话" %}
         </button>
 
         <div class="session-items">
@@ -22,7 +22,7 @@
                     <button
                         class="session-delete"
                         @click.stop="deleteSession(session.session_id)"
-                        title="删除会话"
+                    title="{% trans '删除会话' %}"
                     >
                         🗑️
                     </button>
@@ -33,8 +33,8 @@
         <!-- 空状态 -->
         <div x-show="sessions.length === 0" class="empty-state">
             <div class="empty-icon">💬</div>
-            <div class="empty-text">暂无会话</div>
-            <div class="empty-hint">点击"新建对话"开始</div>
+            <div class="empty-text">{% trans "暂无会话" %}</div>
+            <div class="empty-hint">{% trans "点击\"新建对话\"开始" %}</div>
         </div>
     </div>
 
@@ -58,7 +58,7 @@
             <!-- 加载状态 -->
             <div x-show="loading" class="loading-state">
                 <div class="spinner"></div>
-                <div>加载中...</div>
+                <div>{% trans "加载中..." %}</div>
             </div>
 
             <!-- 消息列表 -->
@@ -79,8 +79,8 @@
             <!-- 空状态 -->
             <div x-show="!loading && !currentSessionId" class="empty-state">
                 <div class="empty-icon">💬</div>
-                <div class="empty-text">选择一个会话开始对话</div>
-                <div class="empty-hint">或点击"新建对话"创建新会话</div>
+                <div class="empty-text">{% trans "选择一个会话开始对话" %}</div>
+                <div class="empty-hint">{% trans "或点击\"新建对话\"创建新会话" %}</div>
             </div>
         </div>
 
@@ -90,7 +90,7 @@
                 x-ref="inputArea"
                 x-model="inputMessage"
                 @keydown.enter="$event.shiftKey || ($event.preventDefault(), sendMessage())"
-                placeholder="输入消息... (Shift+Enter 换行，Enter 发送)"
+                placeholder="{% trans '输入消息... (Shift+Enter 换行，Enter 发送)' %}"
                 rows="3"
             ></textarea>
             <button
@@ -98,7 +98,7 @@
                 :disabled="!inputMessage.trim() || sending"
                 class="btn-send"
             >
-                发送
+                {% trans "发送" %}
             </button>
         </div>
     </div>

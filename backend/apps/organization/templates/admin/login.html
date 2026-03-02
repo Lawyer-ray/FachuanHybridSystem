@@ -4,7 +4,7 @@
 {% block content_subtitle %}
 {% if show_register_link %}
 <p style="text-align: center; margin: 10px 0;">
-    还没有账号？<a href="{{ register_url }}" style="color: #417690;">立即注册</a>
+    {% trans "还没有账号？" %}<a href="{{ register_url }}" style="color: #417690;">{% trans "立即注册" %}</a>
 </p>
 {% endif %}
 {{ block.super }}

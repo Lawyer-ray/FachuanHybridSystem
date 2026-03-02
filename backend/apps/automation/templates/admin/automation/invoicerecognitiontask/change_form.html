@@ -56,7 +56,7 @@
                 <span>{% trans "识别结果" %}</span>
                 <div style="display:flex;gap:8px;">
                     <button type="button" class="btn-merge-toggle btn-jtn" @click="applyJtnGzGroups()" x-show="groups.length > 0">
-                        智能分组
+                        {% trans "智能分组" %}
                     </button>
                     <button type="button" class="btn-merge-toggle" @click="showMergePanel = !showMergePanel" x-show="mergedGroups.length > 1">
                         ⚙️ {% trans "合并分组" %}
@@ -66,7 +66,7 @@
 
             <!-- 合并分组面板 -->
             <div class="ir-merge-panel" x-show="showMergePanel" x-transition>
-                <div class="ir-merge-hint">将多个项目名称拖入同一合并组，统计时将合并计算。</div>
+                <div class="ir-merge-hint">{% trans "将多个项目名称拖入同一合并组，统计时将合并计算。" %}</div>
                 <div class="ir-merge-groups">
                     <template x-for="(mg, mgIdx) in mergedGroups" :key="mg.id || mgIdx">
                         <div class="ir-merge-group"
@@ -74,7 +74,7 @@
                              @drop.prevent="dropToMergeGroup(mgIdx)"
                              :class="{ 'drag-over': dragOverMergeGroup === mgIdx }">
                             <div class="ir-merge-group-header">
-                                <input type="text" class="ir-merge-group-name" x-model="mg.name" placeholder="合并组名称">
+                                <input type="text" class="ir-merge-group-name" x-model="mg.name" placeholder="{% trans '合并组名称' %}">
                                 <button type="button" class="ir-merge-remove-btn" @click="removeMergeGroup(mgIdx)" x-show="mergedGroups.length > 1">✕</button>
                             </div>
                             <div class="ir-merge-tags">
@@ -86,14 +86,14 @@
                                         <span class="ir-merge-tag-remove" @click.stop="removeKeyFromGroup(mgIdx, kIdx)">×</span>
                                     </span>
                                 </template>
-                                <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">拖入项目名称</span>
+                                <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">{% trans "拖入项目名称" %}</span>
                             </div>
                             <div class="ir-merge-group-total">
                                 合计：¥<span x-text="getMergeGroupTotal(mg).toFixed(2)"></span>
                             </div>
                         </div>
                     </template>
-                    <button type="button" class="ir-merge-add-btn" @click="addMergeGroup()">+ 新增合并组</button>
+                    <button type="button" class="ir-merge-add-btn" @click="addMergeGroup()">+ {% trans "新增合并组" %}</button>
                 </div>
             </div>
 

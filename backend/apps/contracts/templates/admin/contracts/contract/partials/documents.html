@@ -47,19 +47,19 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📝</span>
-                <h3 class="card-title">补充协议</h3>
+                <h3 class="card-title">{% trans "补充协议" %}</h3>
             </div>
             {% if supplementary_agreements %}
             <div class="agreement-list">
                 {% for agreement in supplementary_agreements %}
                 <div class="agreement-item">
-                    <span class="agreement-name">{{ agreement.name|default:"未命名补充协议" }}</span>
+                    <span class="agreement-name">{{ agreement.name|default:_("未命名补充协议") }}</span>
                     <span class="agreement-date">{{ agreement.created_at|date:"Y-m-d" }}</span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无补充协议</p>
+            <p class="empty-state">{% trans "暂无补充协议" %}</p>
             {% endif %}
         </div>
 
@@ -67,7 +67,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">🔔</span>
-                <h3 class="card-title">重要日期提醒</h3>
+                <h3 class="card-title">{% trans "重要日期提醒" %}</h3>
             </div>
             {% if reminders %}
             <div class="reminder-list">
@@ -76,15 +76,15 @@
                     <span class="reminder-type">{{ reminder.get_reminder_type_display }}</span>
                     <span class="reminder-content">{{ reminder.content }}</span>
                     <span class="reminder-due-date">
-                        {% if reminder.due_at < today %}<span class="overdue-badge">已过期</span>
-                        {% elif reminder.due_at <= soon_due_date %}<span class="soon-badge">即将到期</span>{% endif %}
+                        {% if reminder.due_at < today %}<span class="overdue-badge">{% trans "已过期" %}</span>
+                        {% elif reminder.due_at <= soon_due_date %}<span class="soon-badge">{% trans "即将到期" %}</span>{% endif %}
                         {{ reminder.due_at|date:"Y-m-d H:i" }}
                     </span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无重要日期提醒</p>
+            <p class="empty-state">{% trans "暂无重要日期提醒" %}</p>
             {% endif %}
         </div>
 
@@ -92,16 +92,16 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📁</span>
-                <h3 class="card-title">文件夹绑定</h3>
+                <h3 class="card-title">{% trans "文件夹绑定" %}</h3>
             </div>
             {% if folder_binding %}
             <div class="folder-binding-info">
                 <div class="binding-status">
                     <span class="status-icon">✓</span>
-                    <span class="status-text">已绑定</span>
+                    <span class="status-text">{% trans "已绑定" %}</span>
                 </div>
                 <div class="folder-path">
-                    <label>文件夹路径</label>
+                    <label>{% trans "文件夹路径" %}</label>
                     <span class="path-value">{{ folder_binding.folder_path }}</span>
                 </div>
             </div>
@@ -109,7 +109,7 @@
             <div class="folder-binding-info">
                 <div class="binding-status unbound">
                     <span class="status-icon">✗</span>
-                    <span class="status-text">未绑定</span>
+                    <span class="status-text">{% trans "未绑定" %}</span>
                 </div>
             </div>
             {% endif %}
@@ -119,7 +119,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">⚡</span>
-                <h3 class="card-title">文档生成</h3>
+                <h3 class="card-title">{% trans "文档生成" %}</h3>
             </div>
             <div class="document-actions">
                 <div class="action-item">
@@ -140,7 +140,7 @@
                         </button>
                     </div>
                     {% else %}
-                    <button type="button" class="btn-action btn-disabled" disabled title="无匹配的合同模板">
+                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的合同模板' %}">
                         <span class="action-icon">📄</span>
                         <span class="action-text">{% trans "生成合同" %}</span>
                     </button>
@@ -164,7 +164,7 @@
                         </button>
                     </div>
                     {% else %}
-                    <button type="button" class="btn-action btn-disabled" disabled title="暂无补充协议">
+                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans "暂无补充协议" %}">
                         <span class="action-icon">📝</span>
                         <span class="action-text">{% trans "生成补充协议" %}</span>
                     </button>
@@ -173,10 +173,10 @@
 
                 <div class="action-item">
                     <button type="button" class="btn-action {% if not has_folder_template %}btn-disabled{% endif %}"
-                            {% if has_folder_template %}@click="generateFolder()"{% else %}disabled title="无匹配的文件夹模板"{% endif %}
+                            {% if has_folder_template %}@click="generateFolder()"{% else %}disabled title="{% trans '无匹配的文件夹模板' %}"{% endif %}
                             :disabled="generating">
                         <span class="action-icon">📁</span>
-                        <span class="action-text">生成文件夹</span>
+                        <span class="action-text">{% trans "生成文件夹" %}</span>
                         <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
                     </button>
                 </div>

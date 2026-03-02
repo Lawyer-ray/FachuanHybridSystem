@@ -4,7 +4,7 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">📝</span>
-            <h3 class="card-title">案件日志</h3>
+            <h3 class="card-title">{% trans "案件日志" %}</h3>
         </div>
         <div class="card-content">
             {% if case.logs.exists %}
@@ -32,7 +32,7 @@
                         {% endif %}
                         {% if log.attachments.exists %}
                         <div class="timeline-attachments">
-                            <span class="attachments-label">附件：</span>
+                            <span class="attachments-label">{% trans "附件" %}：</span>
                             {% for attachment in log.attachments.all %}
                             <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
                                 {{ attachment.file.name|cut:"case_logs/" }}
@@ -45,7 +45,7 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">暂无案件日志</p>
+            <p class="empty-state">{% trans "暂无案件日志" %}</p>
             {% endif %}
         </div>
     </div>
@@ -54,7 +54,7 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">💬</span>
-            <h3 class="card-title">案件群聊</h3>
+            <h3 class="card-title">{% trans "案件群聊" %}</h3>
         </div>
         <div class="card-content">
             {% if case.chats.exists %}
@@ -64,13 +64,13 @@
                     <span class="chat-platform">{{ chat.get_platform_display }}</span>
                     <span class="chat-name">{{ chat.name }}</span>
                     <span class="chat-status {% if chat.is_active %}active{% else %}inactive{% endif %}">
-                        {% if chat.is_active %}有效{% else %}已失效{% endif %}
+                        {% if chat.is_active %}{% trans "有效" %}{% else %}{% trans "已失效" %}{% endif %}
                     </span>
                 </li>
                 {% endfor %}
             </ul>
             {% else %}
-            <p class="empty-state">暂无关联群聊</p>
+            <p class="empty-state">{% trans "暂无关联群聊" %}</p>
             {% endif %}
         </div>
     </div>

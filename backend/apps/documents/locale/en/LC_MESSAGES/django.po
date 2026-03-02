@@ -1,0 +1,2380 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-02 20:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/documents/admin/audit_log_admin.py:66
+msgid "对象信息"
+msgstr "Object Info"
+
+#: apps/documents/admin/audit_log_admin.py:67
+msgid "操作信息"
+msgstr "Operation Info"
+
+#: apps/documents/admin/audit_log_admin.py:68
+msgid "操作人信息"
+msgstr "Operator Info"
+
+#: apps/documents/admin/audit_log_admin.py:69
+msgid "时间"
+msgstr "Time"
+
+#: apps/documents/admin/audit_log_admin.py:84
+#: apps/documents/models/audit_log.py:37
+msgid "对象描述"
+msgstr "Object Description"
+
+#: apps/documents/admin/audit_log_admin.py:93
+msgid "变更详情"
+msgstr "Change Details"
+
+#: apps/documents/admin/audit_log_admin.py:97
+msgid "无变更记录"
+msgstr "No change records"
+
+#: apps/documents/admin/audit_log_admin.py:133
+msgid "字段"
+msgstr "Field"
+
+#: apps/documents/admin/audit_log_admin.py:134
+msgid "旧值"
+msgstr "Old Value"
+
+#: apps/documents/admin/audit_log_admin.py:135
+msgid "新值"
+msgstr "New Value"
+
+#: apps/documents/admin/document_template_admin.py:69
+#: apps/documents/admin/document_template_admin.py:347
+#: apps/documents/admin/document_template_admin.py:492
+#: apps/documents/admin/folder_template_admin.py:52
+#: apps/documents/admin/folder_template_admin.py:226
+#: apps/documents/admin/folder_template_admin.py:261
+#: apps/documents/models/document_template.py:52
+#: apps/documents/models/folder_template.py:38
+msgid "模板类型"
+msgstr "Template Type"
+
+#: apps/documents/admin/document_template_admin.py:70
+msgid "必须二选一:合同文书模板或案件文书模板"
+msgstr "Must choose one: contract document template or case document template"
+
+#: apps/documents/admin/document_template_admin.py:78
+#: apps/documents/models/document_template.py:60
+msgid "合同子类型"
+msgstr "Contract Subtype"
+
+#: apps/documents/admin/document_template_admin.py:79
+msgid "仅在选择'合同文书模板'时有效,必须选择合同模板或补充协议模板"
+msgstr ""
+"Only valid when 'Contract Document Template' is selected, must choose "
+"contract or supplementary agreement template"
+
+#: apps/documents/admin/document_template_admin.py:86
+#: apps/documents/models/document_template.py:68
+msgid "案件文件子类型"
+msgstr "Case File Subtype"
+
+#: apps/documents/admin/document_template_admin.py:87
+msgid "仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
+msgstr ""
+"Only valid when 'Case Document Template' is selected, can choose pleading "
+"materials, evidence materials, authorization materials, etc."
+
+#: apps/documents/admin/document_template_admin.py:95
+#: apps/documents/admin/document_template_admin.py:497
+#: apps/documents/admin/folder_template_admin.py:61
+#: apps/documents/admin/folder_template_admin.py:266
+#: apps/documents/models/document_template.py:89
+#: apps/documents/models/folder_template.py:48
+msgid "合同类型"
+msgstr "Contract Type"
+
+#: apps/documents/admin/document_template_admin.py:96
+msgid "仅在选择'合同文书模板'时有效,可多选"
+msgstr ""
+"Only valid when 'Contract Document Template' is selected, multiple selection "
+"allowed"
+
+#: apps/documents/admin/document_template_admin.py:104
+#: apps/documents/admin/document_template_admin.py:502
+#: apps/documents/admin/folder_template_admin.py:70
+#: apps/documents/admin/folder_template_admin.py:271
+#: apps/documents/models/document_template.py:83
+#: apps/documents/models/folder_template.py:42
+#: apps/documents/models/proxy_matter_rule.py:22
+msgid "案件类型"
+msgstr "Case Type"
+
+#: apps/documents/admin/document_template_admin.py:105
+msgid "仅在选择'案件文书模板'时有效,可多选"
+msgstr ""
+"Only valid when 'Case Document Template' is selected, multiple selection "
+"allowed"
+
+#: apps/documents/admin/document_template_admin.py:113
+#: apps/documents/admin/document_template_admin.py:507
+#: apps/documents/admin/folder_template_admin.py:79
+#: apps/documents/admin/folder_template_admin.py:276
+#: apps/documents/models/document_template.py:86
+#: apps/documents/models/folder_template.py:45
+msgid "案件阶段"
+msgstr "Case Stage"
+
+#: apps/documents/admin/document_template_admin.py:114
+msgid "仅在选择'案件文书模板'时有效,单选"
+msgstr "Only valid when 'Case Document Template' is selected, single selection"
+
+#: apps/documents/admin/document_template_admin.py:122
+#: apps/documents/admin/folder_template_admin.py:88
+#: apps/documents/admin/folder_template_admin.py:284
+#: apps/documents/admin/proxy_matter_rule_admin.py:49
+#: apps/documents/models/document_template.py:94
+#: apps/documents/models/folder_template.py:53
+#: apps/documents/models/proxy_matter_rule.py:36
+msgid "我方诉讼地位"
+msgstr "Our Litigation Status"
+
+#: apps/documents/admin/document_template_admin.py:123
+msgid "可单选或多选;不选表示匹配任意诉讼地位"
+msgstr ""
+"Single or multiple selection; no selection means match any litigation status"
+
+#: apps/documents/admin/document_template_admin.py:132
+#: apps/documents/admin/folder_template_admin.py:97
+#: apps/documents/models/document_template.py:101
+#: apps/documents/models/folder_template.py:60
+#: apps/documents/models/proxy_matter_rule.py:43
+msgid "诉讼地位匹配模式"
+msgstr "Litigation Status Match Mode"
+
+#: apps/documents/admin/document_template_admin.py:138
+#: apps/documents/models/document_template.py:106
+msgid "适用机构"
+msgstr "Applicable Institution"
+
+#: apps/documents/admin/document_template_admin.py:139
+msgid "输入机构名称后回车添加,支持搜索法院名称"
+msgstr ""
+"Enter institution name and press Enter to add, supports court name search"
+
+#: apps/documents/admin/document_template_admin.py:151
+msgid "从模板库选择"
+msgstr "Select from Template Library"
+
+#: apps/documents/admin/document_template_admin.py:152
+msgid "从 docx_templates 目录中选择已有的模板文件(不会复制文件)"
+msgstr ""
+"Select existing template file from docx_templates directory (will not copy "
+"file)"
+
+#: apps/documents/admin/document_template_admin.py:257
+msgid "请选择案件阶段"
+msgstr "Please select case stage"
+
+#: apps/documents/admin/document_template_admin.py:350
+msgid "先选择合同文书模板或案件文书模板,再选择对应的子类型"
+msgstr ""
+"First select contract or case document template, then select corresponding "
+"subtype"
+
+#: apps/documents/admin/document_template_admin.py:354
+#: apps/documents/admin/folder_template_admin.py:228
+msgid "适用范围"
+msgstr "Applicable Scope"
+
+#: apps/documents/admin/document_template_admin.py:364
+msgid "根据模板类型选择相应的适用范围"
+msgstr "Select applicable scope based on template type"
+
+#: apps/documents/admin/document_template_admin.py:368
+msgid "文件"
+msgstr "File"
+
+#: apps/documents/admin/document_template_admin.py:372
+msgid ""
+"三选一:从模板库选择已有文件(不复制)、上传新文件(复制到用户自定义模板目录)、或"
+"手动输入路径"
+msgstr ""
+
+#: apps/documents/admin/document_template_admin.py:376
+#: apps/documents/admin/folder_template_admin.py:240
+#: apps/documents/admin/placeholder_admin.py:91
+#: apps/documents/admin/prompt_version_admin.py:75
+#: apps/documents/models/external_template.py:74
+msgid "状态"
+msgstr "Status"
+
+#: apps/documents/admin/document_template_admin.py:378
+msgid "占位符信息"
+msgstr "Placeholder Info"
+
+#: apps/documents/admin/document_template_admin.py:382
+msgid "模板中使用的占位符列表"
+msgstr "List of placeholders used in template"
+
+#: apps/documents/admin/document_template_admin.py:515
+msgid "当前文件"
+msgstr "Current File"
+
+#: apps/documents/admin/document_template_admin.py:519
+msgid "新建模板,请上传文件"
+msgstr "New template, please upload file"
+
+#: apps/documents/admin/document_template_admin.py:527
+msgid "文件位置"
+msgstr "File Location"
+
+#: apps/documents/admin/document_template_admin.py:551
+msgid "占位符"
+msgstr "Placeholder"
+
+#: apps/documents/admin/document_template_admin.py:581
+msgid "占位符列表"
+msgstr "Placeholder List"
+
+#: apps/documents/admin/document_template_admin.py:585
+msgid "保存后可查看占位符"
+msgstr "Placeholders viewable after saving"
+
+#: apps/documents/admin/document_template_admin.py:598
+msgid "未定义占位符"
+msgstr "Undefined Placeholder"
+
+#: apps/documents/admin/document_template_admin.py:602
+msgid "保存后可查看"
+msgstr "Viewable after saving"
+
+#: apps/documents/admin/document_template_admin.py:618
+#: apps/documents/admin/folder_template_admin.py:441
+#, python-format
+msgid "已启用 %(count)d 个模板"
+msgstr "Enabled %(count)d templates"
+
+#: apps/documents/admin/document_template_admin.py:624
+#: apps/documents/admin/folder_template_admin.py:448
+#, python-format
+msgid "已禁用 %(count)d 个模板"
+msgstr "Disabled %(count)d templates"
+
+#: apps/documents/admin/document_template_admin.py:626
+msgid "刷新占位符信息"
+msgstr "Refresh Placeholder Info"
+
+#: apps/documents/admin/document_template_admin.py:630
+#, python-format
+msgid "已刷新 %(count)d 个模板的占位符信息"
+msgstr "Refreshed placeholder info for %(count)d templates"
+
+#: apps/documents/admin/document_template_admin.py:632
+#: apps/documents/admin/folder_template_admin.py:450
+msgid "复制选中的模板"
+msgstr "Copy Selected Templates"
+
+#: apps/documents/admin/document_template_admin.py:637
+#: apps/documents/admin/folder_template_admin.py:455
+#, python-format
+msgid "已复制 %(count)d 个模板"
+msgstr "Copied %(count)d templates"
+
+#: apps/documents/admin/evidence/inlines.py:33
+#: apps/documents/models/evidence.py:290
+msgid "序号"
+msgstr "No."
+
+#: apps/documents/admin/evidence/inlines.py:43
+#: apps/documents/admin/evidence/mixins/views.py:167
+msgid "页码范围"
+msgstr "Page Range"
+
+#: apps/documents/admin/evidence/mixins/actions.py:17
+msgid "合并选中清单的 PDF"
+msgstr "Merge Selected Lists to PDF"
+
+#: apps/documents/admin/evidence/mixins/actions.py:59
+#, python-format
+msgid "清单 %(id)s 提交失败: %(e)s"
+msgstr "List %(id)s submission failed: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/actions.py:62
+#, python-format
+msgid "已提交 %(n)s 个合并任务"
+msgstr "Submitted %(n)s merge tasks"
+
+#: apps/documents/admin/evidence/mixins/actions.py:64
+#, python-format
+msgid "%(n)s 个清单正在合并中,已跳过"
+msgstr "%(n)s lists are being merged, skipped"
+
+#: apps/documents/admin/evidence/mixins/actions.py:66
+#, python-format
+msgid "%(n)s 个清单没有文件,已跳过"
+msgstr "%(n)s lists have no files, skipped"
+
+#: apps/documents/admin/evidence/mixins/actions.py:68
+#, python-format
+msgid "%(n)s 个清单提交失败"
+msgstr "%(n)s lists failed to submit"
+
+#: apps/documents/admin/evidence/mixins/actions.py:70
+msgid "导出选中清单的 Word"
+msgstr "Export Selected Lists to Word"
+
+#: apps/documents/admin/evidence/mixins/save.py:84
+#, python-format
+msgid "保存过程出错: %(e)s"
+msgstr "Error during save: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/save.py:92
+#, python-format
+msgid "表单 %(i)s 错误: %(err)s"
+msgstr "Form %(i)s error: %(err)s"
+
+#: apps/documents/admin/evidence/mixins/save.py:105
+#, python-format
+msgid "保存失败: %(e)s"
+msgstr "Save failed: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/save.py:116
+#, python-format
+msgid "删除失败: %(e)s"
+msgstr "Delete failed: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/save.py:157
+#, python-format
+msgid "文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s"
+msgstr ""
+"File %(n)s page count recognition failed, will process as %(p)s pages: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/save.py:169
+#, python-format
+msgid "文件 %(n)s 页数识别失败: %(e)s"
+msgstr "File %(n)s page count recognition failed: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/views.py:51
+#: apps/documents/models/evidence.py:139
+msgid "总页数"
+msgstr "Total Pages"
+
+#: apps/documents/admin/evidence/mixins/views.py:156
+#: apps/documents/models/evidence.py:98
+msgid "案件"
+msgstr "Cases"
+
+#: apps/documents/admin/evidence/mixins/views.py:161
+msgid "证据数量"
+msgstr "Evidence Count"
+
+#: apps/documents/admin/evidence/mixins/views.py:172
+msgid "序号范围"
+msgstr "Number Range"
+
+#: apps/documents/admin/evidence/mixins/views.py:177
+#: apps/documents/models/evidence.py:151
+msgid "合并状态"
+msgstr "Merge Status"
+
+#: apps/documents/admin/evidence/mixins/views.py:290
+#, python-format
+msgid "提交合并任务失败: %(e)s"
+msgstr "Failed to submit merge task: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/views.py:350
+#, python-format
+msgid "导出失败: %(e)s"
+msgstr "Export failed: %(e)s"
+
+#: apps/documents/admin/evidence/mixins/views.py:398
+#, python-format
+msgid "已重新识别 %(n)s 个文件的页数,总页数:%(p)s"
+msgstr "Re-recognized page count for %(n)s files, total pages: %(p)s"
+
+#: apps/documents/admin/evidence/mixins/views.py:410
+#, python-format
+msgid "识别页数失败: %(e)s"
+msgstr "Page count recognition failed: %(e)s"
+
+#: apps/documents/admin/evidence_admin.py:60
+msgid "自动计算信息"
+msgstr "Auto-calculated Info"
+
+#: apps/documents/admin/evidence_admin.py:63
+msgid "以下信息由系统自动计算,无需手动填写."
+msgstr "The following information is automatically calculated by the system."
+
+#: apps/documents/admin/evidence_admin.py:67
+#: apps/documents/models/evidence.py:134
+msgid "合并PDF"
+msgstr "Merge PDF"
+
+#: apps/documents/admin/evidence_admin.py:70
+msgid "点击列表页的「合并」按钮将证据文件合并为PDF."
+msgstr ""
+"Click the 'Merge' button on the list page to merge evidence files into PDF."
+
+#: apps/documents/admin/evidence_admin.py:74
+msgid "导出设置"
+msgstr "Export Settings"
+
+#: apps/documents/admin/evidence_admin.py:77
+msgid ""
+"导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格"
+"式."
+msgstr ""
+
+#: apps/documents/admin/evidence_admin.py:82
+msgid "系统信息"
+msgstr "System Info"
+
+#: apps/documents/admin/external_template_admin.py:32
+msgid "请输入法院或机构名称..."
+msgstr "Enter court or institution name..."
+
+#: apps/documents/admin/external_template_admin.py:42
+msgid "模板文件 (.docx)"
+msgstr "Template File (.docx)"
+
+#: apps/documents/admin/external_template_admin.py:44
+msgid "仅支持 .docx 格式，最大 20MB"
+msgstr "Only .docx format supported, max 20MB"
+
+#: apps/documents/admin/external_template_admin.py:188
+#: apps/documents/models/evidence.py:311
+#: apps/documents/models/external_template.py:52
+msgid "原始文件名"
+msgstr "Original Filename"
+
+#: apps/documents/admin/external_template_admin.py:192
+#: apps/documents/models/evidence.py:315
+msgid "文件大小"
+msgstr "File Size"
+
+#: apps/documents/admin/external_template_admin.py:201
+#: apps/documents/models/external_template.py:96
+msgid "上传者"
+msgstr "Uploader"
+
+#: apps/documents/admin/external_template_admin.py:207
+#: apps/documents/models/external_template.py:102
+msgid "所属律所"
+msgstr "Law Firm"
+
+#: apps/documents/admin/external_template_admin.py:275
+msgid "模板分析已完成"
+msgstr "Template analysis completed"
+
+#: apps/documents/admin/external_template_admin.py:280
+msgid "模板分析失败，请查看日志"
+msgstr "Template analysis failed, please check logs"
+
+#: apps/documents/admin/external_template_admin.py:297
+#: apps/documents/admin/external_template_admin.py:326
+#: apps/documents/services/evidence/evidence_export_service.py:168
+#: apps/documents/services/template/folder_template/admin_service.py:355
+#: apps/documents/services/template/folder_template/admin_service.py:407
+msgid "模板不存在"
+msgstr "Template does not exist"
+
+#: apps/documents/admin/external_template_admin.py:310
+#, python-format
+msgid "填充操作 - %(name)s"
+msgstr "Fill Operation - %(name)s"
+
+#: apps/documents/admin/external_template_admin.py:332
+#, python-format
+msgid "映射编辑 - %(name)s"
+msgstr "Mapping Edit - %(name)s"
+
+#: apps/documents/admin/folder_binding_admin.py:37
+msgid "目标文件夹"
+msgstr "Target Folder"
+
+#: apps/documents/admin/folder_binding_admin.py:38
+msgid "选择文书生成后存放的文件夹位置"
+msgstr "Select folder location for generated documents"
+
+#: apps/documents/admin/folder_binding_admin.py:122
+msgid "位置信息"
+msgstr "Location Info"
+
+#: apps/documents/admin/folder_binding_admin.py:128
+msgid "设置"
+msgstr "Settings"
+
+#: apps/documents/admin/folder_binding_admin.py:130
+#: apps/documents/admin/folder_template_admin.py:245
+#: apps/documents/admin/prompt_version_admin.py:65
+msgid "时间信息"
+msgstr "Time Info"
+
+#: apps/documents/admin/folder_binding_admin.py:141
+#: apps/documents/models/document_template.py:250
+msgid "文件夹路径"
+msgstr "Folder Path"
+
+#: apps/documents/admin/folder_template_admin.py:53
+msgid "必须选择:合同文件夹模板或案件文件夹模板"
+msgstr "Must select: contract folder template or case folder template"
+
+#: apps/documents/admin/folder_template_admin.py:62
+msgid "仅在选择'合同文件夹模板'时有效,可多选"
+msgstr ""
+"Only valid when 'Contract Folder Template' is selected, multiple selection"
+
+#: apps/documents/admin/folder_template_admin.py:71
+msgid "仅在选择'案件文件夹模板'时有效,可多选"
+msgstr "Only valid when 'Case Folder Template' is selected, multiple selection"
+
+#: apps/documents/admin/folder_template_admin.py:80
+msgid "仅在选择'案件文件夹模板'时有效,单选"
+msgstr "Only valid when 'Case Folder Template' is selected, single selection"
+
+#: apps/documents/admin/folder_template_admin.py:89
+msgid "仅在选择'案件文件夹模板'时有效,可多选;不选表示匹配任意诉讼地位"
+msgstr ""
+"Only valid when 'Case Folder Template' is selected, multiple selection; no "
+"selection means match any"
+
+#: apps/documents/admin/folder_template_admin.py:98
+msgid "仅在选择'案件文件夹模板'时有效"
+msgstr "Only valid when 'Case Folder Template' is selected"
+
+#: apps/documents/admin/folder_template_admin.py:226
+msgid "选择此模板用于合同还是案件,必须二选一"
+msgstr "Select whether this template is for contract or case, must choose one"
+
+#: apps/documents/admin/folder_template_admin.py:237
+msgid ""
+"根据模板类型选择相应的适用范围:合同模板选择合同类型,案件模板选择案件类型和阶"
+"段"
+msgstr ""
+
+#: apps/documents/admin/folder_template_admin.py:242
+#: apps/documents/models/folder_template.py:63
+msgid "文件夹结构"
+msgstr "Folder Structure"
+
+#: apps/documents/admin/folder_template_admin.py:243
+msgid "使用 JSON 格式定义文件夹层级结构"
+msgstr "Use JSON format to define folder hierarchy"
+
+#: apps/documents/admin/folder_template_admin.py:291
+msgid "匹配模式"
+msgstr "Match Mode"
+
+#: apps/documents/admin/folder_template_admin.py:405
+msgid "文件夹数量"
+msgstr "Folder Count"
+
+#: apps/documents/admin/folder_template_admin.py:421
+msgid "结构预览"
+msgstr "Structure Preview"
+
+#: apps/documents/admin/folder_template_admin.py:425
+msgid "暂无结构"
+msgstr "No structure"
+
+#: apps/documents/admin/folder_template_admin.py:436
+msgid "启用选中的模板"
+msgstr "Enable Selected Templates"
+
+#: apps/documents/admin/folder_template_admin.py:443
+msgid "禁用选中的模板"
+msgstr "Disable Selected Templates"
+
+#: apps/documents/admin/placeholder_admin.py:36
+#: apps/documents/admin/placeholder_admin.py:131
+msgid "用途"
+msgstr "Purpose"
+
+#: apps/documents/admin/placeholder_admin.py:41
+#: apps/documents/admin/placeholder_admin.py:139
+msgid "合同文件"
+msgstr "Contract File"
+
+#: apps/documents/admin/placeholder_admin.py:42
+#: apps/documents/admin/placeholder_admin.py:141
+msgid "案件文件"
+msgstr "Case File"
+
+#: apps/documents/admin/placeholder_admin.py:43
+msgid "合同+案件"
+msgstr "Contract+Case"
+
+#: apps/documents/admin/placeholder_admin.py:44
+msgid "未使用"
+msgstr "Unused"
+
+#: apps/documents/admin/placeholder_admin.py:90
+msgid "示例和说明"
+msgstr "Examples and Description"
+
+#: apps/documents/admin/placeholder_admin.py:147
+msgid "来源服务"
+msgstr "Source Service"
+
+#: apps/documents/admin/placeholder_admin.py:153
+msgid "分类"
+msgstr "Category"
+
+#: apps/documents/admin/placeholder_admin.py:159
+#: apps/documents/models/placeholder.py:31
+msgid "示例值"
+msgstr "Example Value"
+
+#: apps/documents/admin/placeholder_admin.py:173
+msgid "启用选中的替换词"
+msgstr "Enable Selected Replacements"
+
+#: apps/documents/admin/placeholder_admin.py:177
+#, python-format
+msgid "已启用 %(count)d 个替换词"
+msgstr "Enabled %(count)d replacements"
+
+#: apps/documents/admin/placeholder_admin.py:179
+msgid "禁用选中的替换词"
+msgstr "Disable Selected Replacements"
+
+#: apps/documents/admin/placeholder_admin.py:183
+#, python-format
+msgid "已禁用 %(count)d 个替换词"
+msgstr "Disabled %(count)d replacements"
+
+#: apps/documents/admin/placeholder_admin.py:185
+msgid "复制选中的替换词"
+msgstr "Copy Selected Replacements"
+
+#: apps/documents/admin/placeholder_admin.py:194
+#, python-format
+msgid "已复制 %(count)d 个替换词"
+msgstr "Copied %(count)d replacements"
+
+#: apps/documents/admin/prompt_version_admin.py:62
+msgid "基本信息"
+msgstr "Basic Info"
+
+#: apps/documents/admin/prompt_version_admin.py:63
+#: apps/documents/models/prompt_version.py:30
+msgid "模板内容"
+msgstr "Template Content"
+
+#: apps/documents/admin/prompt_version_admin.py:82
+#: apps/documents/models/prompt_version.py:36
+msgid "版本说明"
+msgstr "Version Notes"
+
+#: apps/documents/admin/prompt_version_admin.py:91
+msgid "激活选中的版本"
+msgstr "Activate Selected Version"
+
+#: apps/documents/admin/prompt_version_admin.py:95
+msgid "请选择一个版本进行激活"
+msgstr "Please select a version to activate"
+
+#: apps/documents/admin/prompt_version_admin.py:103
+#, python-format
+msgid "已激活版本:%(version)s"
+msgstr "Activated version: %(version)s"
+
+#: apps/documents/admin/prompt_version_admin.py:106
+#, python-format
+msgid "激活失败:%(error)s"
+msgstr "Activation failed: %(error)s"
+
+#: apps/documents/api/document_api.py:81
+msgid "文件模板已删除"
+msgstr "File template deleted"
+
+#: apps/documents/api/external_template_api.py:181
+#: apps/documents/api/external_template_api.py:242
+msgid "无法确定所属律所"
+msgstr "Cannot determine belonging firm"
+
+#: apps/documents/api/external_template_api.py:190
+msgid "请提供 case_id 或 source_name 参数"
+msgstr "Please provide case_id or source_name parameter"
+
+#: apps/documents/api/external_template_api.py:223
+msgid "请提供 case_id 或 template_id 参数"
+msgstr "Please provide case_id or template_id parameter"
+
+#: apps/documents/api/generation_api.py:97
+msgid "生成合同文档失败"
+msgstr "Contract document generation failed"
+
+#: apps/documents/api/generation_api.py:150
+msgid "生成合同文件夹失败"
+msgstr "Contract folder generation failed"
+
+#: apps/documents/api/generation_api.py:201
+msgid "生成补充协议失败"
+msgstr "Supplementary agreement generation failed"
+
+#: apps/documents/api/litigation_generation_api.py:152
+#: apps/documents/services/generation/litigation_generation_service.py:230
+#, python-format
+msgid "不支持的诉讼类型: %(t)s"
+msgstr "Unsupported litigation type: %(t)s"
+
+#: apps/documents/api/placeholder_api.py:104
+msgid "替换词已删除"
+msgstr "Replacement deleted"
+
+#: apps/documents/apps.py:19
+msgid "文书生成"
+msgstr "Document Generation"
+
+#: apps/documents/models/audit_log.py:29
+#: apps/documents/models/document_template.py:240
+#: apps/documents/models/folder_template.py:75
+#: apps/documents/models/folder_template.py:76
+msgid "文件夹模板"
+msgstr "Folder Templates"
+
+#: apps/documents/models/audit_log.py:30
+#: apps/documents/models/document_template.py:119
+#: apps/documents/models/document_template.py:120
+#: apps/documents/models/document_template.py:234
+msgid "文件模板"
+msgstr "File Templates"
+
+#: apps/documents/models/audit_log.py:31
+#: apps/documents/models/placeholder.py:38
+#: apps/documents/models/placeholder.py:39
+msgid "替换词"
+msgstr "Replacements"
+
+#: apps/documents/models/audit_log.py:32
+msgid "生成配置"
+msgstr "Generation Config"
+
+#: apps/documents/models/audit_log.py:35
+msgid "对象类型"
+msgstr "Object Type"
+
+#: apps/documents/models/audit_log.py:36
+msgid "对象ID"
+msgstr "Object ID"
+
+#: apps/documents/models/audit_log.py:38
+msgid "操作类型"
+msgstr "Operation Type"
+
+#: apps/documents/models/audit_log.py:40
+msgid "变更内容"
+msgstr "Change Content"
+
+#: apps/documents/models/audit_log.py:40
+msgid "JSON 格式记录字段变更"
+msgstr "Record field changes in JSON format"
+
+#: apps/documents/models/audit_log.py:43
+msgid "操作人"
+msgstr "Operator"
+
+#: apps/documents/models/audit_log.py:45
+msgid "IP地址"
+msgstr "IP Address"
+
+#: apps/documents/models/audit_log.py:46
+msgid "User Agent"
+msgstr "User Agent"
+
+#: apps/documents/models/audit_log.py:47
+msgid "操作时间"
+msgstr "Operation Time"
+
+#: apps/documents/models/audit_log.py:51 apps/documents/models/audit_log.py:52
+msgid "模板审计日志"
+msgstr "Template Audit Logs"
+
+#: apps/documents/models/choices.py:20
+msgid "民事"
+msgstr "Civil"
+
+#: apps/documents/models/choices.py:21 apps/documents/models/choices.py:45
+msgid "行政"
+msgstr "Administrative"
+
+#: apps/documents/models/choices.py:22 apps/documents/models/choices.py:44
+msgid "刑事"
+msgstr "Criminal"
+
+#: apps/documents/models/choices.py:23
+msgid "申请执行"
+msgstr "Enforcement"
+
+#: apps/documents/models/choices.py:24
+msgid "破产"
+msgstr "Bankruptcy"
+
+#: apps/documents/models/choices.py:25 apps/documents/models/choices.py:37
+#: apps/documents/models/choices.py:50
+msgid "通用"
+msgstr "General"
+
+#: apps/documents/models/choices.py:31
+msgid "一审"
+msgstr "First Instance"
+
+#: apps/documents/models/choices.py:32
+msgid "二审"
+msgstr "Second Instance"
+
+#: apps/documents/models/choices.py:33
+msgid "执行"
+msgstr "Execution"
+
+#: apps/documents/models/choices.py:34 apps/documents/models/choices.py:46
+msgid "劳动仲裁"
+msgstr "Labor Arbitration"
+
+#: apps/documents/models/choices.py:35
+msgid "行政复议"
+msgstr "Administrative Review"
+
+#: apps/documents/models/choices.py:36
+msgid "再审"
+msgstr "Retrial"
+
+#: apps/documents/models/choices.py:43
+msgid "民商事"
+msgstr "Civil & Commercial"
+
+#: apps/documents/models/choices.py:47
+msgid "商事仲裁"
+msgstr "Commercial Arbitration"
+
+#: apps/documents/models/choices.py:48
+msgid "专项服务"
+msgstr "Special Service"
+
+#: apps/documents/models/choices.py:49
+msgid "常法顾问"
+msgstr "General Counsel"
+
+#: apps/documents/models/choices.py:61
+msgid "合同文件夹模板"
+msgstr "Contract Folder Template"
+
+#: apps/documents/models/choices.py:62
+msgid "案件文件夹模板"
+msgstr "Case Folder Template"
+
+#: apps/documents/models/choices.py:73
+msgid "合同文件模板"
+msgstr "Contract File Template"
+
+#: apps/documents/models/choices.py:74
+msgid "案件文件模板"
+msgstr "Case File Template"
+
+#: apps/documents/models/choices.py:80
+msgid "合同模板"
+msgstr "Contract Template"
+
+#: apps/documents/models/choices.py:81
+msgid "补充协议模板"
+msgstr "Supplementary Agreement Template"
+
+#: apps/documents/models/choices.py:87
+msgid "诉状材料"
+msgstr "Pleading Materials"
+
+#: apps/documents/models/choices.py:88
+msgid "证据材料"
+msgstr "Evidence Materials"
+
+#: apps/documents/models/choices.py:89
+msgid "授权委托材料"
+msgstr "Authorization Materials"
+
+#: apps/documents/models/choices.py:90
+msgid "财产保全材料"
+msgstr "Property Preservation Materials"
+
+#: apps/documents/models/choices.py:91
+msgid "送达地址材料"
+msgstr "Service Address Materials"
+
+#: apps/documents/models/choices.py:92
+msgid "收款退费账户材料"
+msgstr "Payment/Refund Account Materials"
+
+#: apps/documents/models/choices.py:93
+msgid "申请材料"
+msgstr "Application Materials"
+
+#: apps/documents/models/choices.py:94
+msgid "其他材料"
+msgstr "Other Materials"
+
+#: apps/documents/models/choices.py:105
+msgid "案件信息"
+msgstr "Case Info"
+
+#: apps/documents/models/choices.py:106
+msgid "当事人信息"
+msgstr "Party Information"
+
+#: apps/documents/models/choices.py:107
+msgid "合同信息"
+msgstr "Contract Info"
+
+#: apps/documents/models/choices.py:108
+msgid "律师信息"
+msgstr "Lawyer Information"
+
+#: apps/documents/models/choices.py:109
+msgid "法院信息"
+msgstr "Court Information"
+
+#: apps/documents/models/choices.py:110 apps/documents/models/choices.py:169
+#: apps/documents/models/choices.py:179
+msgid "其他"
+msgstr "Other"
+
+#: apps/documents/models/choices.py:116
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:207
+msgid "文本"
+msgstr "Text"
+
+#: apps/documents/models/choices.py:117
+msgid "日期"
+msgstr "Date"
+
+#: apps/documents/models/choices.py:118
+msgid "日期时间"
+msgstr "DateTime"
+
+#: apps/documents/models/choices.py:119
+msgid "货币"
+msgstr "Currency"
+
+#: apps/documents/models/choices.py:120
+msgid "数字"
+msgstr "Number"
+
+#: apps/documents/models/choices.py:121
+msgid "百分比"
+msgstr "Percentage"
+
+#: apps/documents/models/choices.py:132
+msgid "创建"
+msgstr "Create"
+
+#: apps/documents/models/choices.py:133
+msgid "更新"
+msgstr "Update"
+
+#: apps/documents/models/choices.py:134
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:151
+msgid "删除"
+msgstr "Delete"
+
+#: apps/documents/models/choices.py:135
+msgid "启用"
+msgstr "Enable"
+
+#: apps/documents/models/choices.py:136
+msgid "禁用"
+msgstr "Disable"
+
+#: apps/documents/models/choices.py:137
+msgid "复制"
+msgstr "Copy"
+
+#: apps/documents/models/choices.py:138
+msgid "设为默认"
+msgstr "Set as Default"
+
+#: apps/documents/models/choices.py:149
+msgid "任意匹配"
+msgstr "Any Match"
+
+#: apps/documents/models/choices.py:150
+msgid "全部包含"
+msgstr "All Included"
+
+#: apps/documents/models/choices.py:151
+msgid "完全一致"
+msgstr "Exact Match"
+
+#: apps/documents/models/choices.py:162
+msgid "财产申报表"
+msgstr "Property Declaration Form"
+
+#: apps/documents/models/choices.py:163
+msgid "送达地址确认书"
+msgstr "Service Address Confirmation"
+
+#: apps/documents/models/choices.py:164
+msgid "债权申报表"
+msgstr "Creditor Declaration Form"
+
+#: apps/documents/models/choices.py:165
+msgid "要素式诉状"
+msgstr "Element-based Complaint"
+
+#: apps/documents/models/choices.py:166
+msgid "授权委托书"
+msgstr "Power of Attorney"
+
+#: apps/documents/models/choices.py:167
+msgid "法律援助申请表"
+msgstr "Legal Aid Application Form"
+
+#: apps/documents/models/choices.py:168
+msgid "财产保全申请书"
+msgstr "Preservation Application"
+
+#: apps/documents/models/choices.py:175
+msgid "法院"
+msgstr "Courts"
+
+#: apps/documents/models/choices.py:176
+msgid "破产管理人"
+msgstr "Bankruptcy Administrator"
+
+#: apps/documents/models/choices.py:177
+msgid "仲裁委员会"
+msgstr "Arbitration Commission"
+
+#: apps/documents/models/choices.py:178
+msgid "行政机关"
+msgstr "Administrative Authority"
+
+#: apps/documents/models/choices.py:185
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:177
+msgid "文本替换"
+msgstr "Text Replacement"
+
+#: apps/documents/models/choices.py:186
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:178
+msgid "勾选复选框"
+msgstr "Check Checkbox"
+
+#: apps/documents/models/choices.py:187
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:179
+msgid "删除不适用项"
+msgstr "Delete Inapplicable Items"
+
+#: apps/documents/models/choices.py:193
+msgid "已上传"
+msgstr "Uploaded"
+
+#: apps/documents/models/choices.py:194
+msgid "分析中"
+msgstr "Analyzing"
+
+#: apps/documents/models/choices.py:195
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:505
+msgid "分析失败"
+msgstr "Analysis Failed"
+
+#: apps/documents/models/choices.py:196
+msgid "可填充"
+msgstr "Fillable"
+
+#: apps/documents/models/document_template.py:46
+#: apps/documents/models/external_template.py:36
+#: apps/documents/models/folder_template.py:34
+msgid "模板名称"
+msgstr "Template Name"
+
+#: apps/documents/models/document_template.py:47
+msgid "描述"
+msgstr "Description"
+
+#: apps/documents/models/document_template.py:53
+#: apps/documents/models/folder_template.py:39
+msgid "选择此模板用于合同还是案件"
+msgstr "Select whether this template is for contract or case"
+
+#: apps/documents/models/document_template.py:61
+msgid "仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"
+msgstr "Only valid when 'Contract File Template' is selected"
+
+#: apps/documents/models/document_template.py:69
+msgid "仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"
+msgstr "Only valid when 'Case File Template' is selected"
+
+#: apps/documents/models/document_template.py:76
+msgid "上传文件"
+msgstr "Upload File"
+
+#: apps/documents/models/document_template.py:79
+#: apps/documents/models/external_template.py:47
+msgid "文件路径"
+msgstr "File Path"
+
+#: apps/documents/models/document_template.py:79
+msgid "相对于模板基础目录的路径"
+msgstr "Path relative to template base directory"
+
+#: apps/documents/models/document_template.py:83
+#: apps/documents/models/document_template.py:89
+#: apps/documents/models/folder_template.py:42
+#: apps/documents/models/folder_template.py:48
+msgid "JSON 数组,如 ['civil', 'criminal'],支持多选"
+msgstr "JSON array, e.g. ['civil', 'criminal'], multiple selection"
+
+#: apps/documents/models/document_template.py:86
+#: apps/documents/models/folder_template.py:45
+msgid "JSON 数组,如 ['first_trial', 'second_trial'],支持多选"
+msgstr "JSON array, e.g. ['first_trial', 'second_trial'], multiple selection"
+
+#: apps/documents/models/document_template.py:95
+#: apps/documents/models/folder_template.py:54
+#: apps/documents/models/proxy_matter_rule.py:37
+msgid "可单选或多选;为空表示匹配任意诉讼地位"
+msgstr "Single or multiple; empty means match any litigation status"
+
+#: apps/documents/models/document_template.py:107
+msgid "JSON 数组,如 ['北京市第一中级人民法院'],支持多选"
+msgstr ""
+"JSON array, e.g. ['Beijing No.1 Intermediate Court'], multiple selection"
+
+#: apps/documents/models/document_template.py:109
+#: apps/documents/models/document_template.py:254
+#: apps/documents/models/folder_template.py:66
+#: apps/documents/models/generation.py:188
+#: apps/documents/models/placeholder.py:34
+#: apps/documents/models/proxy_matter_rule.py:52
+msgid "是否启用"
+msgstr "Enabled"
+
+#: apps/documents/models/document_template.py:110
+#: apps/documents/models/document_template.py:255
+#: apps/documents/models/evidence.py:208 apps/documents/models/evidence.py:341
+#: apps/documents/models/external_template.py:111
+#: apps/documents/models/external_template.py:176
+#: apps/documents/models/folder_template.py:67
+#: apps/documents/models/generation.py:101
+#: apps/documents/models/generation.py:189
+#: apps/documents/models/prompt_version.py:38
+#: apps/documents/models/proxy_matter_rule.py:53
+msgid "创建时间"
+msgstr "Created At"
+
+#: apps/documents/models/document_template.py:111
+#: apps/documents/models/document_template.py:256
+#: apps/documents/models/evidence.py:212 apps/documents/models/evidence.py:345
+#: apps/documents/models/external_template.py:115
+#: apps/documents/models/external_template.py:180
+#: apps/documents/models/folder_template.py:68
+#: apps/documents/models/generation.py:190
+#: apps/documents/models/prompt_version.py:40
+#: apps/documents/models/proxy_matter_rule.py:54
+msgid "更新时间"
+msgstr "Updated At"
+
+#: apps/documents/models/document_template.py:135
+#: apps/documents/services/document_template/validation_service.py:31
+#: apps/documents/services/document_template/validation_service.py:49
+msgid "不能同时提供上传文件和文件路径"
+msgstr "Cannot provide both uploaded file and file path"
+
+#: apps/documents/models/document_template.py:139
+#: apps/documents/services/document_template/validation_service.py:24
+msgid "必须提供上传文件或文件路径"
+msgstr "Must provide uploaded file or file path"
+
+#: apps/documents/models/document_template.py:244
+msgid "文件夹节点ID"
+msgstr "Folder Node ID"
+
+#: apps/documents/models/document_template.py:245
+msgid "文件夹结构JSON中的节点ID"
+msgstr "Node ID in folder structure JSON"
+
+#: apps/documents/models/document_template.py:251
+msgid "自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"
+msgstr ""
+"Auto-calculated folder path, e.g.: First Trial/1-Filing Materials/1-Complaint"
+
+#: apps/documents/models/document_template.py:260
+#: apps/documents/models/document_template.py:261
+msgid "文件模板文件夹绑定"
+msgstr "Template Folder Bindings"
+
+#: apps/documents/models/evidence.py:23
+msgid "待合并"
+msgstr "Pending Merge"
+
+#: apps/documents/models/evidence.py:24
+msgid "合并中"
+msgstr "Merging"
+
+#: apps/documents/models/evidence.py:25 apps/documents/models/generation.py:30
+msgid "已完成"
+msgstr "Completed"
+
+#: apps/documents/models/evidence.py:26 apps/documents/models/generation.py:31
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:323
+msgid "失败"
+msgstr "Failed"
+
+#: apps/documents/models/evidence.py:32
+msgid "证据清单一"
+msgstr "Evidence List 1"
+
+#: apps/documents/models/evidence.py:33
+msgid "证据清单二"
+msgstr "Evidence List 2"
+
+#: apps/documents/models/evidence.py:34
+msgid "证据清单三"
+msgstr "Evidence List 3"
+
+#: apps/documents/models/evidence.py:35
+msgid "证据清单四"
+msgstr "Evidence List 4"
+
+#: apps/documents/models/evidence.py:36
+msgid "证据清单五"
+msgstr "Evidence List 5"
+
+#: apps/documents/models/evidence.py:37
+msgid "证据清单六"
+msgstr "Evidence List 6"
+
+#: apps/documents/models/evidence.py:104
+msgid "清单类型"
+msgstr "List Type"
+
+#: apps/documents/models/evidence.py:105
+msgid "选择清单类型,系统自动处理序号和页码的连续性"
+msgstr "Select list type, system auto-handles numbering and page continuity"
+
+#: apps/documents/models/evidence.py:113
+msgid "前置清单"
+msgstr "Prerequisite List"
+
+#: apps/documents/models/evidence.py:114
+msgid "关联前一个清单,用于自动计算起始序号和页码"
+msgstr "Link to previous list for auto-calculating starting number and page"
+
+#: apps/documents/models/evidence.py:119
+msgid "标题"
+msgstr "Title"
+
+#: apps/documents/models/evidence.py:121
+msgid "由清单类型自动生成"
+msgstr "Auto-generated from list type"
+
+#: apps/documents/models/evidence.py:126
+msgid "顺序"
+msgstr "Order"
+
+#: apps/documents/models/evidence.py:135
+msgid "将所有证据文件合并为一个PDF,便于打印和提交"
+msgstr "Merge all evidence files into one PDF for printing and submission"
+
+#: apps/documents/models/evidence.py:143
+msgid "导出版本号"
+msgstr "Export Version"
+
+#: apps/documents/models/evidence.py:144
+msgid "由用户手动控制,用于导出文件名版本控制"
+msgstr "Manually controlled by user for export filename version control"
+
+#: apps/documents/models/evidence.py:155
+msgid "合并错误信息"
+msgstr "Merge Error Message"
+
+#: apps/documents/models/evidence.py:160
+msgid "合并开始时间"
+msgstr "Merge Start Time"
+
+#: apps/documents/models/evidence.py:165
+msgid "合并完成时间"
+msgstr "Merge Completion Time"
+
+#: apps/documents/models/evidence.py:169
+msgid "合并进度"
+msgstr "Merge Progress"
+
+#: apps/documents/models/evidence.py:173
+msgid "合并进度-已处理文件数"
+msgstr "Merge Progress - Processed Files"
+
+#: apps/documents/models/evidence.py:177
+msgid "合并进度-总文件数"
+msgstr "Merge Progress - Total Files"
+
+#: apps/documents/models/evidence.py:182
+msgid "合并进度信息"
+msgstr "Merge Progress Info"
+
+#: apps/documents/models/evidence.py:190
+msgid "导出模板"
+msgstr "Export Template"
+
+#: apps/documents/models/evidence.py:191
+msgid "选择用于导出证据清单的 Word 模板"
+msgstr "Select Word template for exporting evidence list"
+
+#: apps/documents/models/evidence.py:204 apps/documents/models/generation.py:99
+msgid "创建人"
+msgstr "Created By"
+
+#: apps/documents/models/evidence.py:222 apps/documents/models/evidence.py:223
+#: apps/documents/models/evidence.py:287
+msgid "证据清单"
+msgstr "Evidence Lists"
+
+#: apps/documents/models/evidence.py:291
+msgid "证据在清单中的序号"
+msgstr "Evidence number in list"
+
+#: apps/documents/models/evidence.py:297
+msgid "证据名称"
+msgstr "Evidence Name"
+
+#: apps/documents/models/evidence.py:300
+msgid "证明内容"
+msgstr "Proof Content"
+
+#: apps/documents/models/evidence.py:306
+msgid "证据文件"
+msgstr "Evidence File"
+
+#: apps/documents/models/evidence.py:316
+msgid "单位:字节"
+msgstr "Unit: bytes"
+
+#: apps/documents/models/evidence.py:320
+msgid "页数"
+msgstr "Pages"
+
+#: apps/documents/models/evidence.py:325
+msgid "起始页"
+msgstr "Start Page"
+
+#: apps/documents/models/evidence.py:330
+msgid "结束页"
+msgstr "End Page"
+
+#: apps/documents/models/evidence.py:336
+msgid "AI分析结果"
+msgstr "AI Analysis Result"
+
+#: apps/documents/models/evidence.py:337
+msgid "预留字段,用于未来 LLM 自动分析"
+msgstr "Reserved field for future LLM auto-analysis"
+
+#: apps/documents/models/evidence.py:351 apps/documents/models/evidence.py:352
+msgid "证据明细"
+msgstr "Evidence Items"
+
+#: apps/documents/models/external_template.py:42
+msgid "来源机构"
+msgstr "Source Institution"
+
+#: apps/documents/models/external_template.py:43
+msgid "法院名称或其他机构名称"
+msgstr "Court name or other institution name"
+
+#: apps/documents/models/external_template.py:48
+msgid "相对于 MEDIA_ROOT 的存储路径"
+msgstr "Storage path relative to MEDIA_ROOT"
+
+#: apps/documents/models/external_template.py:55
+msgid "文件大小(字节)"
+msgstr "File Size (bytes)"
+
+#: apps/documents/models/external_template.py:62
+msgid "结构指纹"
+msgstr "Structure Fingerprint"
+
+#: apps/documents/models/external_template.py:63
+msgid "基于模板 XML 结构计算的 SHA-256 哈希值"
+msgstr "SHA-256 hash calculated from template XML structure"
+
+#: apps/documents/models/external_template.py:68
+msgid "提取的结构JSON"
+msgstr "Extracted Structure JSON"
+
+#: apps/documents/models/external_template.py:81
+msgid "映射来源模板"
+msgstr "Mapping Source Template"
+
+#: apps/documents/models/external_template.py:82
+msgid "结构指纹匹配时复用映射的原始模板"
+msgstr ""
+"Reuse mapping from original template when structure fingerprint matches"
+
+#: apps/documents/models/external_template.py:86
+#: apps/documents/models/prompt_version.py:28
+msgid "版本号"
+msgstr "Version Number"
+
+#: apps/documents/models/external_template.py:90
+msgid "是否活跃"
+msgstr "Is Active"
+
+#: apps/documents/models/external_template.py:107
+msgid "状态变更时间"
+msgstr "Status Change Time"
+
+#: apps/documents/models/external_template.py:120
+#: apps/documents/models/external_template.py:121
+msgid "外部模板"
+msgstr "External Templates"
+
+#: apps/documents/models/external_template.py:149
+#: apps/documents/models/fill_record.py:113
+msgid "关联模板"
+msgstr "Related Template"
+
+#: apps/documents/models/external_template.py:152
+msgid "位置定位器"
+msgstr "Location Locator"
+
+#: apps/documents/models/external_template.py:158
+msgid "位置描述"
+msgstr "Location Description"
+
+#: apps/documents/models/external_template.py:162
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:171
+msgid "语义标签"
+msgstr "Semantic Label"
+
+#: apps/documents/models/external_template.py:168
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:175
+msgid "填充类型"
+msgstr "Fill Type"
+
+#: apps/documents/models/external_template.py:172
+msgid "排序"
+msgstr "Order"
+
+#: apps/documents/models/external_template.py:185
+#: apps/documents/models/external_template.py:186
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:127
+msgid "字段映射"
+msgstr "Field Mapping"
+
+#: apps/documents/models/fill_record.py:37
+#: apps/documents/models/fill_record.py:108
+#: apps/documents/models/generation.py:55
+msgid "关联案件"
+msgstr "Related Cases"
+
+#: apps/documents/models/fill_record.py:38
+msgid "批量填充关联的案件"
+msgstr "Batch fill related cases"
+
+#: apps/documents/models/fill_record.py:42
+msgid "选择的模板"
+msgstr "Selected Template"
+
+#: apps/documents/models/fill_record.py:43
+msgid "本次批量填充选择的外部模板"
+msgstr "External template selected for this batch fill"
+
+#: apps/documents/models/fill_record.py:49
+#: apps/documents/models/fill_record.py:126
+msgid "操作者"
+msgstr "Operator"
+
+#: apps/documents/models/fill_record.py:54
+msgid "发起时间"
+msgstr "Initiated At"
+
+#: apps/documents/models/fill_record.py:59
+#: apps/documents/models/generation.py:102
+msgid "完成时间"
+msgstr "Completed At"
+
+#: apps/documents/models/fill_record.py:65
+msgid "ZIP文件路径"
+msgstr "ZIP File Path"
+
+#: apps/documents/models/fill_record.py:66
+msgid "批量填充生成的 ZIP 压缩包路径"
+msgstr "ZIP archive path generated by batch fill"
+
+#: apps/documents/models/fill_record.py:71
+msgid "汇总报告"
+msgstr "Summary Report"
+
+#: apps/documents/models/fill_record.py:72
+msgid "批量填充的汇总报告 JSON"
+msgstr "Batch fill summary report JSON"
+
+#: apps/documents/models/fill_record.py:77
+#: apps/documents/models/fill_record.py:78
+msgid "批量填充任务"
+msgstr "Batch Fill Task"
+
+#: apps/documents/models/fill_record.py:102
+msgid "批量任务"
+msgstr "Batch Task"
+
+#: apps/documents/models/fill_record.py:103
+msgid "所属的批量填充任务, 单次填充时为空"
+msgstr "Belonging batch fill task, empty for single fill"
+
+#: apps/documents/models/fill_record.py:120
+msgid "关联当事人"
+msgstr "Related Party"
+
+#: apps/documents/models/fill_record.py:131
+msgid "填充时间"
+msgstr "Fill Time"
+
+#: apps/documents/models/fill_record.py:135
+msgid "生成文件路径"
+msgstr "Generated File Path"
+
+#: apps/documents/models/fill_record.py:136
+msgid "填充生成的文件相对于 MEDIA_ROOT 的路径"
+msgstr "Path of generated file relative to MEDIA_ROOT"
+
+#: apps/documents/models/fill_record.py:140
+msgid "输出文件名"
+msgstr "Output Filename"
+
+#: apps/documents/models/fill_record.py:141
+msgid "填充生成的文件原始名称"
+msgstr "Original name of generated file"
+
+#: apps/documents/models/fill_record.py:146
+msgid "填充报告"
+msgstr "Fill Report"
+
+#: apps/documents/models/fill_record.py:147
+msgid "填充操作的详细报告 JSON"
+msgstr "Detailed report JSON of fill operation"
+
+#: apps/documents/models/fill_record.py:152
+msgid "自定义填充值"
+msgstr "Custom Fill Values"
+
+#: apps/documents/models/fill_record.py:153
+msgid "用户手动输入的自定义字段值"
+msgstr "Custom field values manually entered by user"
+
+#: apps/documents/models/fill_record.py:157
+msgid "文件是否可用"
+msgstr "File Available"
+
+#: apps/documents/models/fill_record.py:158
+msgid "生成的文件是否仍然可访问"
+msgstr "Whether the generated file is still accessible"
+
+#: apps/documents/models/fill_record.py:163
+#: apps/documents/models/fill_record.py:164
+msgid "填充记录"
+msgstr "Fill Record"
+
+#: apps/documents/models/folder_template.py:63
+msgid "JSON 格式的文件夹层级结构"
+msgstr "Folder hierarchy in JSON format"
+
+#: apps/documents/models/folder_template.py:65
+msgid "是否默认模板"
+msgstr "Is Default Template"
+
+#: apps/documents/models/generation.py:21
+msgid "模板生成"
+msgstr "Template Generation"
+
+#: apps/documents/models/generation.py:22
+msgid "AI生成"
+msgstr "AI Generated"
+
+#: apps/documents/models/generation.py:28
+msgid "等待中"
+msgstr "Waiting"
+
+#: apps/documents/models/generation.py:29
+msgid "生成中"
+msgstr "Generating"
+
+#: apps/documents/models/generation.py:63
+msgid "关联合同"
+msgstr "Related Contract"
+
+#: apps/documents/models/generation.py:71
+msgid "AI生成会话"
+msgstr "AI Generation Session"
+
+#: apps/documents/models/generation.py:72
+msgid "如果是 AI 生成,关联到对应的会话"
+msgstr "If AI generated, link to corresponding session"
+
+#: apps/documents/models/generation.py:75
+msgid "生成方式"
+msgstr "Generation Method"
+
+#: apps/documents/models/generation.py:78
+msgid "文书类型"
+msgstr "Document Type"
+
+#: apps/documents/models/generation.py:78
+msgid "如:起诉状、答辩状、合同等"
+msgstr "e.g.: complaint, defense statement, contract, etc."
+
+#: apps/documents/models/generation.py:81
+msgid "模板ID"
+msgstr "Template ID"
+
+#: apps/documents/models/generation.py:81
+msgid "使用的模板ID(模板生成时)"
+msgstr "Template ID used (when template generation)"
+
+#: apps/documents/models/generation.py:84
+msgid "生成状态"
+msgstr "Generation Status"
+
+#: apps/documents/models/generation.py:87
+msgid "生成文件"
+msgstr "Generated File"
+
+#: apps/documents/models/generation.py:89
+msgid "错误信息"
+msgstr "Error Message"
+
+#: apps/documents/models/generation.py:91
+msgid "任务元数据"
+msgstr "Task Metadata"
+
+#: apps/documents/models/generation.py:91
+msgid "存储生成参数、token消耗等信息"
+msgstr "Stores generation parameters, token usage, etc."
+
+#: apps/documents/models/generation.py:106
+#: apps/documents/models/generation.py:107
+msgid "文书生成任务"
+msgstr "Document Generation Task"
+
+#: apps/documents/models/generation.py:182
+msgid "配置名称"
+msgstr "Config Name"
+
+#: apps/documents/models/generation.py:184
+msgid "配置类型"
+msgstr "Config Type"
+
+#: apps/documents/models/generation.py:184
+msgid "如:default_template、ai_model、generation_params"
+msgstr "e.g.: default_template, ai_model, generation_params"
+
+#: apps/documents/models/generation.py:186
+msgid "配置值"
+msgstr "Config Value"
+
+#: apps/documents/models/generation.py:187
+msgid "配置说明"
+msgstr "Config Description"
+
+#: apps/documents/models/generation.py:194
+#: apps/documents/models/generation.py:195
+msgid "文书生成配置"
+msgstr "Document Generation Config"
+
+#: apps/documents/models/placeholder.py:27
+msgid "占位符键"
+msgstr "Placeholder Key"
+
+#: apps/documents/models/placeholder.py:27
+msgid "模板中使用的占位符名称,如 case_name"
+msgstr "Placeholder name used in template, e.g. case_name"
+
+#: apps/documents/models/placeholder.py:29
+msgid "显示名称"
+msgstr "Display Name"
+
+#: apps/documents/models/placeholder.py:29
+msgid "用于界面显示的友好名称"
+msgstr "Friendly name for UI display"
+
+#: apps/documents/models/placeholder.py:31
+msgid "占位符的示例值,用于说明用途"
+msgstr "Example value of placeholder for explaining purpose"
+
+#: apps/documents/models/placeholder.py:33
+msgid "说明"
+msgstr "Description"
+
+#: apps/documents/models/prompt_version.py:26
+msgid "Prompt 名称"
+msgstr "Prompt Name"
+
+#: apps/documents/models/prompt_version.py:26
+msgid "如:complaint, defense"
+msgstr "e.g.: complaint, defense"
+
+#: apps/documents/models/prompt_version.py:28
+msgid "如:v1.0, v1.1"
+msgstr "e.g.: v1.0, v1.1"
+
+#: apps/documents/models/prompt_version.py:30
+msgid "LangChain Prompt 模板字符串"
+msgstr "LangChain Prompt template string"
+
+#: apps/documents/models/prompt_version.py:33
+msgid "是否激活"
+msgstr "Is Activated"
+
+#: apps/documents/models/prompt_version.py:33
+msgid "同一名称只能有一个激活版本"
+msgstr "Only one active version per name"
+
+#: apps/documents/models/prompt_version.py:36
+msgid "描述此版本的变更内容"
+msgstr "Describe the changes in this version"
+
+#: apps/documents/models/prompt_version.py:44
+#: apps/documents/models/prompt_version.py:45
+msgid "Prompt 版本"
+msgstr "Prompt Version"
+
+#: apps/documents/models/proxy_matter_rule.py:23
+msgid "为空表示匹配任意案件类型"
+msgstr "Empty means match any case type"
+
+#: apps/documents/models/proxy_matter_rule.py:30
+msgid "当前阶段"
+msgstr "Current Stage"
+
+#: apps/documents/models/proxy_matter_rule.py:31
+msgid "为空表示匹配任意案件阶段"
+msgstr "Empty means match any case stage"
+
+#: apps/documents/models/proxy_matter_rule.py:48
+msgid "代理事项条目"
+msgstr "Representation Item"
+
+#: apps/documents/models/proxy_matter_rule.py:49
+msgid "每行一条代理事项"
+msgstr "One representation item per line"
+
+#: apps/documents/models/proxy_matter_rule.py:51
+msgid "优先级"
+msgstr "Priority"
+
+#: apps/documents/models/proxy_matter_rule.py:57
+#: apps/documents/models/proxy_matter_rule.py:58
+msgid "代理事项规则"
+msgstr "Agency Rules"
+
+#: apps/documents/services/document_template/validation_service.py:39
+#: apps/documents/services/document_template/validation_service.py:65
+#: apps/documents/services/document_template/workflow.py:107
+#: apps/documents/services/document_template/workflow.py:127
+#, python-format
+msgid "文件不存在: %(p)s"
+msgstr "File does not exist: %(p)s"
+
+#: apps/documents/services/document_template/validation_service.py:59
+msgid "文件路径不能为空"
+msgstr "File path cannot be empty"
+
+#: apps/documents/services/evidence/evidence_export_service.py:88
+#: apps/documents/services/evidence/evidence_export_service.py:98
+msgid "模板文件不存在"
+msgstr "Template file does not exist"
+
+#: apps/documents/services/evidence/evidence_export_service.py:111
+msgid "获取占位符上下文失败"
+msgstr "Failed to get placeholder context"
+
+#: apps/documents/services/evidence/evidence_export_service.py:132
+msgid "模板渲染失败"
+msgstr "Template rendering failed"
+
+#: apps/documents/services/evidence/evidence_export_service.py:286
+#: apps/documents/services/evidence/evidence_list_placeholder_service.py:376
+msgid "证据清单不存在"
+msgstr "Evidence list does not exist"
+
+#: apps/documents/services/evidence/evidence_file_service.py:30
+msgid "不支持的文件格式"
+msgstr "Unsupported file format"
+
+#: apps/documents/services/evidence/evidence_file_service.py:40
+msgid "文件过大"
+msgstr "File too large"
+
+#: apps/documents/services/evidence/evidence_list_placeholder_service.py:397
+#: apps/documents/services/generation/authorization_material_generation_service.py:514
+#: apps/documents/services/generation/litigation_generation_service.py:143
+#: apps/documents/services/generation/litigation_generation_service.py:188
+#: apps/documents/services/generation/litigation_generation_service.py:216
+#: apps/documents/services/generation/preservation_materials_generation_service.py:210
+#: apps/documents/services/placeholders/litigation/filename_service.py:49
+#: apps/documents/services/placeholders/litigation/filename_service.py:83
+msgid "案件不存在"
+msgstr "Case does not exist"
+
+#: apps/documents/services/evidence/evidence_merge_usecase.py:71
+msgid "准备合并"
+msgstr "Preparing to merge"
+
+#: apps/documents/services/evidence/evidence_merge_usecase.py:108
+msgid "合并完成"
+msgstr "Merge completed"
+
+#: apps/documents/services/evidence/evidence_merge_usecase.py:124
+msgid "合并失败"
+msgstr "Merge failed"
+
+#: apps/documents/services/evidence/evidence_mutation_service.py:41
+#: apps/documents/services/evidence/evidence_mutation_service.py:96
+msgid "证据清单标题不能为空"
+msgstr "Evidence list title cannot be empty"
+
+#: apps/documents/services/evidence/evidence_mutation_service.py:133
+#: apps/documents/services/evidence/evidence_mutation_service.py:162
+msgid "证据名称不能为空"
+msgstr "Evidence name cannot be empty"
+
+#: apps/documents/services/evidence/evidence_mutation_service.py:140
+#: apps/documents/services/evidence/evidence_mutation_service.py:171
+msgid "证明内容不能为空"
+msgstr "Proof content cannot be empty"
+
+#: apps/documents/services/evidence/evidence_mutation_service.py:210
+msgid "提供的明细 ID 列表与实际不符"
+msgstr "Provided detail ID list does not match actual"
+
+#: apps/documents/services/external_template/analysis_service.py:121
+msgid "仅支持 .docx 格式"
+msgstr "Only .docx format supported"
+
+#: apps/documents/services/external_template/analysis_service.py:130
+msgid "文件大小超出限制"
+msgstr "File size exceeds limit"
+
+#: apps/documents/services/external_template/analysis_service.py:145
+msgid "文件无法解析，请检查文件是否损坏或加密"
+msgstr "File cannot be parsed, please check if it is corrupted or encrypted"
+
+#: apps/documents/services/external_template/analysis_service.py:681
+msgid "LLM 返回格式异常，期望 JSON 数组"
+msgstr "LLM returned unexpected format, expected JSON array"
+
+#: apps/documents/services/external_template/filling_service.py:287
+#, python-format
+msgid "位置 %(label)s 写入失败"
+msgstr "Location %(label)s write failed"
+
+#: apps/documents/services/external_template/filling_service.py:296
+#, python-format
+msgid "位置 %(label)s 写入未成功"
+msgstr "Location %(label)s write unsuccessful"
+
+#: apps/documents/services/external_template/filling_service.py:675
+#, python-format
+msgid "模板 %(tid)s 填充失败"
+msgstr "Template %(tid)s fill failed"
+
+#: apps/documents/services/folder_template/command_service.py:48
+#: apps/documents/services/folder_template/command_service.py:89
+msgid "文件夹结构验证失败"
+msgstr "Folder structure validation failed"
+
+#: apps/documents/services/folder_template/command_service.py:73
+#: apps/documents/services/folder_template/command_service.py:111
+#: apps/documents/services/folder_template/command_service.py:177
+#: apps/documents/services/folder_template/query_service.py:44
+msgid "文件夹模板不存在"
+msgstr "Folder template does not exist"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:140
+msgid "没有我方当事人,无法生成全套授权委托材料"
+msgstr "No our-side parties, cannot generate full authorization materials"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:176
+msgid "案件 ID 无效"
+msgstr "Invalid case ID"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:401
+#, python-format
+msgid "未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)"
+msgstr ""
+"%(n)s template not found (please upload/enable template named '%(n)s' in "
+"admin)"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:478
+msgid "模板文件路径为空"
+msgstr "Template file path is empty"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:505
+msgid "我方当事人不存在或不合法"
+msgstr "Our-side party does not exist or is invalid"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:543
+msgid "我方当事人法人不存在或不合法"
+msgstr "Our-side party legal entity does not exist or is invalid"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:551
+#: apps/documents/services/generation/base_generator.py:127
+#: apps/documents/services/generation/litigation_generation_service.py:350
+#: apps/documents/services/generation/preservation_materials_generation_service.py:291
+#, python-format
+msgid "模板文件不存在: %(p)s"
+msgstr "Template file does not exist: %(p)s"
+
+#: apps/documents/services/generation/authorization_material_generation_service.py:566
+#: apps/documents/services/generation/base_generator.py:151
+#: apps/documents/services/generation/litigation_generation_service.py:368
+#: apps/documents/services/generation/preservation_materials_generation_service.py:308
+#, python-format
+msgid "模板渲染失败: %(e)s"
+msgstr "Template rendering failed: %(e)s"
+
+#: apps/documents/services/generation/base_generator.py:145
+msgid "docxtpl 库未安装"
+msgstr "docxtpl library not installed"
+
+#: apps/documents/services/generation/folder_generation_service.py:289
+msgid "请先配置文件夹模板"
+msgstr "Please configure folder template first"
+
+#: apps/documents/services/generation/litigation_generation_service.py:259
+#, python-format
+msgid "不支持的文档类型: %(t)s"
+msgstr "Unsupported document type: %(t)s"
+
+#: apps/documents/services/generation/litigation_llm_generator.py:45
+#, python-format
+msgid "起诉状结构验证失败:%(e)s"
+msgstr "Complaint structure validation failed: %(e)s"
+
+#: apps/documents/services/generation/litigation_llm_generator.py:54
+#, python-format
+msgid "起诉状生成失败:%(e)s"
+msgstr "Complaint generation failed: %(e)s"
+
+#: apps/documents/services/generation/litigation_llm_generator.py:75
+#, python-format
+msgid "答辩状结构验证失败:%(e)s"
+msgstr "Defense statement structure validation failed: %(e)s"
+
+#: apps/documents/services/generation/litigation_llm_generator.py:84
+#, python-format
+msgid "答辩状生成失败:%(e)s"
+msgstr "Defense statement generation failed: %(e)s"
+
+#: apps/documents/services/generation/preservation_materials_generation_service.py:96
+msgid "未找到财产保全申请书模板"
+msgstr "Property preservation application template not found"
+
+#: apps/documents/services/generation/preservation_materials_generation_service.py:121
+msgid "未找到暂缓送达申请书模板"
+msgstr "Deferred service application template not found"
+
+#: apps/documents/services/generation/preservation_materials_generation_service.py:146
+msgid "案件没有被申请人,无法生成财产保全材料"
+msgstr ""
+"Case has no respondent, cannot generate property preservation materials"
+
+#: apps/documents/services/generation/prompt_version_service.py:72
+msgid "Prompt 版本不存在"
+msgstr "Prompt version does not exist"
+
+#: apps/documents/services/generation/registry.py:93
+#, python-format
+msgid "生成器不存在: %(n)s"
+msgstr "Generator does not exist: %(n)s"
+
+#: apps/documents/services/infrastructure/pdf_merge_service.py:29
+msgid "证据清单没有任何文件"
+msgstr "Evidence list has no files"
+
+#: apps/documents/services/placeholders/context_builder.py:106
+#: apps/documents/services/placeholders/context_builder.py:114
+msgid "合同不存在"
+msgstr "Contract does not exist"
+
+#: apps/documents/services/placeholders/context_builder.py:130
+msgid "构建合同上下文失败"
+msgstr "Failed to build contract context"
+
+#: apps/documents/services/placeholders/placeholder_service.py:58
+msgid "占位符键和显示名称不能为空"
+msgstr "Placeholder key and display name cannot be empty"
+
+#: apps/documents/services/placeholders/placeholder_service.py:75
+msgid "创建占位符失败"
+msgstr "Failed to create placeholder"
+
+#: apps/documents/services/placeholders/placeholder_service.py:128
+#: apps/documents/services/placeholders/placeholder_service.py:150
+#: apps/documents/services/placeholders/placeholder_service.py:186
+#: apps/documents/services/placeholders/placeholder_service.py:230
+msgid "占位符不存在"
+msgstr "Placeholder does not exist"
+
+#: apps/documents/services/placeholders/placeholder_service.py:208
+msgid "更新占位符失败"
+msgstr "Failed to update placeholder"
+
+#: apps/documents/services/placeholders/registry.py:64
+msgid "占位符服务名称冲突"
+msgstr "Placeholder service name conflict"
+
+#: apps/documents/services/placeholders/registry.py:90
+msgid "占位符服务不存在"
+msgstr "Placeholder service does not exist"
+
+#: apps/documents/services/template/document_template/admin_service.py:110
+msgid "只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径"
+msgstr ""
+"Can only select one file source: from template library, upload new file, or "
+"manually enter path"
+
+#: apps/documents/services/template/document_template/admin_service.py:120
+msgid "必须选择一种文件来源"
+msgstr "Must select a file source"
+
+#: apps/documents/services/template/document_template/admin_service.py:150
+msgid "选择合同文书模板时,必须选择合同子类型"
+msgstr ""
+"When selecting contract document template, must select contract subtype"
+
+#: apps/documents/services/template/document_template/admin_service.py:159
+msgid "选择案件文书模板时,必须选择案件文件子类型"
+msgstr "When selecting case document template, must select case file subtype"
+
+#: apps/documents/services/template/document_template/admin_service.py:225
+msgid "未找到占位符"
+msgstr "Placeholder not found"
+
+#: apps/documents/services/template/document_template/admin_service.py:368
+#: apps/documents/services/template/document_template/admin_service.py:375
+msgid "文件不存在"
+msgstr "File does not exist"
+
+#: apps/documents/services/template/template_matching_service.py:102
+#: apps/documents/services/template/template_matching_service.py:145
+msgid "案件类型不能为空"
+msgstr "Case type cannot be empty"
+
+#: apps/documents/services/template/template_matching_service.py:126
+msgid "模板类型不能为空"
+msgstr "Template type cannot be empty"
+
+#: apps/documents/services/template/template_service.py:160
+#: apps/documents/services/template/template_service.py:289
+#: apps/documents/services/template/template_service.py:334
+#: apps/documents/services/template/template_service.py:387
+msgid "文书模板不存在"
+msgstr "Document template does not exist"
+
+#: apps/documents/templates/admin/documents/documenttemplate/change_list.html:8
+msgid "初始化默认文件模板"
+msgstr "Initialize Default File Templates"
+
+#: apps/documents/templates/admin/documents/external_template/change_form.html:19
+msgid "模板操作"
+msgstr "Template Operations"
+
+#: apps/documents/templates/admin/documents/external_template/change_form.html:24
+msgid "重新分析"
+msgstr "Re-analyze"
+
+#: apps/documents/templates/admin/documents/external_template/change_form.html:24
+msgid "分析模板"
+msgstr "Analyze Template"
+
+#: apps/documents/templates/admin/documents/external_template/change_form.html:29
+msgid "填充操作"
+msgstr "Fill Operation"
+
+#: apps/documents/templates/admin/documents/external_template/change_form.html:34
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:97
+msgid "映射编辑"
+msgstr "Mapping Edit"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:73
+msgid "加载预览失败"
+msgstr "Failed to load preview"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:74
+msgid "填充失败"
+msgstr "Fill Failed"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:75
+msgid "网络错误，请重试"
+msgstr "Network error, please retry"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:86
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:93
+msgid "返回模板详情"
+msgstr "Back to Template Details"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:92
+msgid "选择案件"
+msgstr "Select Case"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:98
+msgid "输入案件名称搜索..."
+msgstr "Enter case name to search..."
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:109
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:137
+msgid "在办案件"
+msgstr "Active Cases"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:113
+msgid "已选"
+msgstr "Selected"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:142
+msgid "加载中..."
+msgstr "Loading..."
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:148
+msgid "暂无在办案件"
+msgstr "No active cases"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:170
+msgid "搜索中..."
+msgstr "Searching..."
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:180
+msgid "选择当事人"
+msgstr "Select Party"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:185
+msgid "全选"
+msgstr "Select All"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:204
+msgid "自定义字段"
+msgstr "Custom Fields"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:206
+msgid "以下字段无法自动填充，请手动输入值"
+msgstr ""
+"The following fields cannot be auto-filled, please enter values manually"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:216
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:223
+msgid "请选择"
+msgstr "Please select"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:217
+msgid "勾选"
+msgstr "Check"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:218
+msgid "不勾选"
+msgstr "Uncheck"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:236
+msgid "填充预览"
+msgstr "Fill Preview"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:239
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:118
+msgid "加载预览中..."
+msgstr "Loading preview..."
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:246
+msgid "位置"
+msgstr "Location"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:247
+msgid "字段名称"
+msgstr "Field Name"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:248
+msgid "填充值"
+msgstr "Fill Value"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:249
+msgid "来源"
+msgstr "Source"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:250
+msgid "类型"
+msgstr "Type"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:260
+msgid "自动"
+msgstr "Auto"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:261
+msgid "手动"
+msgstr "Manual"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:262
+msgid "为空"
+msgstr "Empty"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:279
+msgid "预览填充"
+msgstr "Preview Fill"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:285
+msgid "确认生成"
+msgstr "Confirm Generate"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:290
+msgid "返回修改"
+msgstr "Back to Edit"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:299
+msgid "填充结果"
+msgstr "Fill Result"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:302
+msgid "填充完成"
+msgstr "Fill Completed"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:308
+msgid "下载 ZIP 文件"
+msgstr "Download ZIP File"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:316
+msgid "下载"
+msgstr "Download"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:321
+msgid "总计"
+msgstr "Total"
+
+#: apps/documents/templates/admin/documents/external_template/fill_action.html:322
+msgid "成功"
+msgstr "Success"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:101
+msgid "重新分析全部"
+msgstr "Re-analyze All"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:113
+msgid "文档预览"
+msgstr "Document Preview"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:114
+msgid "个映射"
+msgstr "mappings"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:128
+msgid "添加"
+msgstr "Add"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:133
+msgid "点击左侧文档中要映射的位置"
+msgstr "Click the position in the left document to map"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:134
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:183
+msgid "取消"
+msgstr "Cancel"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:138
+msgid "暂无映射，请先分析模板或手动添加"
+msgstr "No mappings, please analyze template or add manually"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:150
+msgid "编辑"
+msgstr "Edit"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:163
+msgid "添加映射"
+msgstr "Add Mapping"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:163
+msgid "编辑映射"
+msgstr "Edit Mapping"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:166
+msgid "选中位置"
+msgstr "Selected Location"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:172
+msgid "如：被告姓名、案由"
+msgstr "e.g.: Defendant Name, Cause of Action"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:185
+msgid "保存"
+msgstr "Save"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:208
+msgid "复选框"
+msgstr "Checkbox"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:209
+msgid "删除不适用"
+msgstr "Delete Inapplicable"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:255
+msgid "预览加载失败"
+msgstr "Preview load failed"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:386
+msgid "表格"
+msgstr "Table"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:386
+msgid "行"
+msgstr "Row"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:386
+msgid "列"
+msgstr "Column"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:392
+msgid "段落"
+msgstr "Paragraph"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:455
+msgid "映射已添加"
+msgstr "Mapping added"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:466
+msgid "映射已更新"
+msgstr "Mapping updated"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:475
+msgid "保存失败"
+msgstr "Save Failed"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:480
+msgid "确定删除此映射？"
+msgstr "Confirm delete this mapping?"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:486
+msgid "映射已删除"
+msgstr "Mapping deleted"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:490
+msgid "删除失败"
+msgstr "Delete failed"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:495
+msgid "重新分析将覆盖现有映射，确定继续？"
+msgstr "Re-analysis will overwrite existing mappings, confirm continue?"
+
+#: apps/documents/templates/admin/documents/external_template/mapping_editor.html:502
+msgid "分析完成"
+msgstr "Analysis completed"
+
+#: apps/documents/templates/admin/documents/foldertemplate/change_list.html:10
+#, fuzzy
+#| msgid "初始化默认文件模板"
+msgid "初始化默认模板"
+msgstr "Initialize Default File Templates"

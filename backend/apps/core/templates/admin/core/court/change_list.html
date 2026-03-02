@@ -93,14 +93,14 @@
     <div class="stats-grid">
         <div class="stat-item">
             <div class="stat-value">{{ statistics.total_count }}</div>
-            <div class="stat-label">总法院数</div>
+            <div class="stat-label">{% trans "总法院数" %}</div>
         </div>
         <div class="stat-item">
             <div class="stat-value">{{ statistics.active_count }}</div>
-            <div class="stat-label">启用中</div>
+            <div class="stat-label">{% trans "启用中" %}</div>
         </div>
         <div class="stat-item" style="text-align: left;">
-            <div class="stat-label" style="margin-bottom: 0.5rem;">按层级统计</div>
+            <div class="stat-label" style="margin-bottom: 0.5rem;">{% trans "按层级统计" %}</div>
             <div class="level-stats">
                 {% for level in statistics.level_stats %}
                 <span class="level-badge">L{{ level.level }}: {{ level.count }}</span>
@@ -117,7 +117,7 @@
     <a href="{% url 'admin:core_court_initialize' %}"
        class="btn-bs btn-primary"
        onclick="return confirm('确定要从法院系统初始化法院数据吗？\n\n此操作将：\n- 新增 API 中存在但数据库中不存在的法院\n- 更新已存在的法院信息\n- 删除 API 中已移除的法院');">
-        🔄 初始化法院
+        🔄 {% trans "初始化法院" %}
     </a>
     {% endif %}
 </div>
@@ -125,12 +125,12 @@
 <!-- 说明卡片 -->
 <div class="card mb-3">
     <div class="card-body py-2">
-        <h6 class="card-title mb-2">📋 法院管理说明</h6>
+        <h6 class="card-title mb-2">📋 {% trans "法院管理说明" %}</h6>
         <ul class="mb-0 small">
-            <li><strong>初始化法院</strong>：从法院系统 API 获取最新法院数据并导入数据库</li>
-            <li><strong>层级结构</strong>：法院支持多级层级结构（省份 → 高院 → 中院 → 基层法院）</li>
-            <li><strong>省份信息</strong>：法院按省份分组，便于按地区筛选</li>
-            <li><strong>数据同步</strong>：当法院系统移除某法院时，本地数据也会同步删除</li>
+            <li><strong>{% trans "初始化法院" %}</strong>{% trans "：从法院系统 API 获取最新法院数据并导入数据库" %}</li>
+            <li><strong>{% trans "层级结构" %}</strong>{% trans "：法院支持多级层级结构（省份 → 高院 → 中院 → 基层法院）" %}</li>
+            <li><strong>{% trans "省份信息" %}</strong>{% trans "：法院按省份分组，便于按地区筛选" %}</li>
+            <li><strong>{% trans "数据同步" %}</strong>{% trans "：当法院系统移除某法院时，本地数据也会同步删除" %}</li>
         </ul>
     </div>
 </div>

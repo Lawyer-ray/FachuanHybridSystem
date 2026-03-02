@@ -34,7 +34,7 @@
 
         {# 加载状态 #}
         <div x-show="isLoading" style="padding: 15px; text-align: center; color: #666; font-size: 12px;">
-            加载中...
+            {% trans "加载中..." %}
         </div>
 
         {# 模板分类列表 #}
@@ -53,13 +53,13 @@
                             <template x-for="template in category.templates" :key="template.binding_id || template.template_id">
                                 <div class="tpl-card">
                                     <span class="tpl-name" x-text="template.name"></span>
-                                    <span x-show="template.binding_source === 'manual_bound'" class="tpl-tag tpl-tag-manual">手动</span>
-                                    <a href="#" x-show="template.binding_source === 'manual_bound'" class="tpl-remove" @click.prevent="unbindTemplate(template.binding_id)" title="移除">×</a>
+                                    <span x-show="template.binding_source === 'manual_bound'" class="tpl-tag tpl-tag-manual">{% trans "手动" %}</span>
+                                    <a href="#" x-show="template.binding_source === 'manual_bound'" class="tpl-remove" @click.prevent="unbindTemplate(template.binding_id)" title="{% trans '移除' %}">×</a>
                                 </div>
                             </template>
                             {# 添加按钮 - 放在卡片末尾 #}
                             <div class="tpl-card tpl-card-add" @click="openAddDialog()">
-                                <span>+ 添加</span>
+                                <span>+ {% trans "添加" %}</span>
                             </div>
                         </div>
                     </div>
@@ -71,9 +71,9 @@
         <template x-if="!isLoading && categories.length === 0">
             <div class="tpl-empty">
                 <div class="tpl-card tpl-card-add" @click="openAddDialog()">
-                    <span>+ 添加模板</span>
+                    <span>+ {% trans "添加模板" %}</span>
                 </div>
-                <p style="margin: 10px 0 0; color: #999; font-size: 11px;">暂无匹配的文件模板</p>
+                <p style="margin: 10px 0 0; color: #999; font-size: 11px;">{% trans "暂无匹配的文件模板" %}</p>
             </div>
         </template>
 
@@ -81,12 +81,12 @@
         <div x-show="isDialogOpen" class="tpl-dialog-overlay" @click.self="closeAddDialog()" x-cloak>
             <div class="tpl-dialog">
                 <div class="tpl-dialog-header">
-                    <span>添加模板</span>
+                    <span>{% trans "添加模板" %}</span>
                     <a href="#" @click.prevent="closeAddDialog()" class="tpl-dialog-close">×</a>
                 </div>
                 <div class="tpl-dialog-body">
                     <div x-show="isLoadingAvailable" style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
-                        加载可用模板...
+                        {% trans "加载可用模板..." %}
                     </div>
 
                     <template x-if="!isLoadingAvailable && availableTemplates.length > 0">
@@ -103,12 +103,12 @@
 
                     <template x-if="!isLoadingAvailable && availableTemplates.length === 0">
                         <div style="text-align: center; padding: 25px; color: #666; font-size: 12px;">
-                            暂无可添加的模板
+                            {% trans "暂无可添加的模板" %}
                         </div>
                     </template>
                 </div>
                 <div class="tpl-dialog-footer">
-                    <input type="button" value="关闭" class="default" @click="closeAddDialog()">
+                    <input type="button" value="{% trans '关闭' %}" class="default" @click="closeAddDialog()">
                 </div>
             </div>
         </div>

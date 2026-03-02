@@ -2,6 +2,14 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.7.2] - 2026-03-02
+
+### 修复
+- i18n 国际化补全（第二轮）
+  - 修复文件夹浏览器 API 权限检查：`_require_admin` 同时允许 `is_staff`（Django superuser），解决 admin 用户无法使用文件夹绑定功能的问题
+  - 补全模板中文翻译：`caselog_inline.html`、`ai_chat.html`、`litigation_fee_calculator.html`、`client/change_form.html`、`client/id_card_merge.html`、`automation/courtsms/assign_case.html`、`submit_sms.html`、`document_recognition/recognition.html`、`invoicerecognitiontask/change_form.html`、`contracts/detail.html` 等
+  - 新增各 app 英文翻译条目：cases(+45)、automation(+45)、client(+52)、contracts(+6)、core(+26)、documents(+1)
+
 ## [26.7.0] - 2026-03-01
 
 ### 新增
