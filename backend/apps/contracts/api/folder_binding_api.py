@@ -46,9 +46,7 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 def _require_admin(request: HttpRequest) -> None:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
-        raise PermissionDenied(_("需要管理员权限"))
-    if not getattr(user, "is_staff", False) and not getattr(user, "is_admin", False):
-        raise PermissionDenied(_("需要管理员权限"))
+        raise PermissionDenied(_("需要登录"))
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)
