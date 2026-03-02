@@ -2,6 +2,8 @@
 
 全自动处理/生成法院文书，Less is more
 
+[English Version](README_EN.md)
+
 ## ✨ 主要功能
 
 - **案件管理** - 案件创建、分配、进度跟踪、案号管理
@@ -123,6 +125,18 @@ brew install uv
 uv --version
 ```
 
+## 🤖 遇到问题？让 AI 帮你
+
+本项目所有代码完全开源。遇到任何部署、配置、使用问题，最高效的方式是**直接把项目地址丢给 AI**：
+
+```
+https://github.com/Lawyer-ray/FachuanHybridSystem
+```
+
+把这个地址和你的问题一起发给 ChatGPT、Claude、Kiro 等任何 AI，它们可以读取完整代码后给出针对性的解答，效果远比搜索引擎好。
+
+> 代码开源意味着你可以自己动手改、自己动手查。遇到问题先读代码、问 AI，培养独立解决问题的能力。
+
 ## 📚 相关文档
 
 - [更新日志](CHANGELOG.md) - 版本更新记录
@@ -143,6 +157,10 @@ uv --version
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request。
+
+## 💝 致谢
+
+本项目主要通过 **[Kiro](https://kiro.dev)** 和 **[Trae](https://trae.ai)** 两款 AI IDE 完成开发，感谢它们极大地提升了开发效率。
 
 ## 💖 支持项目
 
