@@ -132,7 +132,7 @@ jobs:
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/middleware_request_id.py \
-            apps/core/exceptions_handlers.py \
+            apps/core/exceptions/handlers.py \
             apiSystem/apiSystem/api.py
 
       - name: Tests (structure)
@@ -231,7 +231,7 @@ jobs:
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/middleware_request_id.py \
-            apps/core/exceptions_handlers.py \
+            apps/core/exceptions/handlers.py \
             apps/organization/services/organization_access_policy.py \
             apiSystem/apiSystem/api.py
 
@@ -434,7 +434,7 @@ jobs:
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/middleware_request_id.py \
-            apps/core/exceptions_handlers.py \
+            apps/core/exceptions/handlers.py \
             apps/organization/services/organization_access_policy.py \
             apiSystem/apiSystem/api.py
 
@@ -472,7 +472,7 @@ jobs:
             --cov=apps.core.infrastructure.throttling \
             --cov=apps.core.config.validators.safe_expression_evaluator \
             --cov=apps.core.middleware_request_id \
-            --cov=apps.core.exceptions_handlers \
+            --cov=apps.core.exceptions.handlers \
             --cov=apps.organization.services.organization_access_policy \
             --cov-report=term-missing --cov-fail-under=90 \
             -q \

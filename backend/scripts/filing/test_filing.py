@@ -7,16 +7,21 @@
     python ../scripts/filing/test_filing.py execution
 """
 import sys
+
 sys.path.insert(0, "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apiSystem")
 sys.path.insert(0, "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend")
 
-import django
 import os
+
+import django
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
 
 import pathlib
+
 from playwright.sync_api import sync_playwright
+
 from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 from apps.automation.services.scraper.sites.court_zxfw_filing import CourtZxfwFilingService
 
