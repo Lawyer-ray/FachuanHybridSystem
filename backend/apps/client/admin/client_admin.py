@@ -172,7 +172,8 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                 else:
                     skipped += 1
             except Exception as exc:
-                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
+                logger.exception("导入客户失败", extra={"index": i, "client_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:

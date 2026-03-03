@@ -364,7 +364,8 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                 else:
                     success += 1
             except Exception as exc:
-                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
+                logger.exception("导入合同失败", extra={"index": i, "contract_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
