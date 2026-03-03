@@ -64,6 +64,8 @@ class CaseImportService:
         if contract is None:
             contract_data = data.get("contract")
             if contract_data and self._contract_import is not None:
+                # 去掉 cases 字段，避免合同导入时再还原一遍当前 case（重复创建）
+                contract_data = {k: v for k, v in contract_data.items() if k != "cases"}
                 contract = self._contract_import.resolve(contract_data)
 
         case_data = {f: data[f] for f in _CASE_FIELDS if f in data}
