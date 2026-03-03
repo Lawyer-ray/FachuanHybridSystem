@@ -1,5 +1,9 @@
 {% extends "admin/change_form.html" %}
 {% load i18n admin_urls static %}
+{% trans "已绑定" as label_bound %}
+{% trans "未绑定" as label_unbound %}
+{% trans "保存并复制" as label_duplicate %}
+{% trans "保存并创建案件" as label_create_case %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -18,15 +22,15 @@
 <!-- 文件夹绑定组件 -->
 <div x-data="folderBrowser({{ original.pk }})" class="folder-binding-widget">
     <h3>📁 {% trans "文件夹绑定" %}</h3>
-    
+
     <!-- 绑定状态 -->
     <div class="binding-status">
-        <span class="status-badge" :class="binding ? 'bound' : 'unbound'" x-text="binding ? '已绑定' : '未绑定'"></span>
+        <span class="status-badge" :class="binding ? 'bound' : 'unbound'" x-text="binding ? '{{ label_bound }}' : '{{ label_unbound }}'"></span>
     </div>
-    
+
     <!-- 绑定路径 -->
     <div x-show="binding" class="binding-path" x-text="binding?.display_path || binding?.folder_path"></div>
-    
+
     <!-- 操作按钮 -->
     <div class="binding-actions">
         <button type="button" class="btn-folder primary" @click="openBrowser()" :disabled="loading">
@@ -37,19 +41,19 @@
             {% trans "解除绑定" %}
         </button>
     </div>
-    
+
     <!-- Finder 风格文件夹浏览器模态框 -->
     <div x-show="showBrowser" x-cloak class="folder-browser-modal" @click.self="closeBrowser()">
         <div class="folder-browser-content">
             <div class="folder-browser-header" style="position: relative;">
                 <h2>{% trans "选择文件夹" %}</h2>
                 <button type="button" class="folder-browser-close" @click="closeBrowser()">×</button>
-                
+
                 <!-- 手动输入路径 -->
                 <div class="manual-path-input">
-                    <input 
-                        type="text" 
-                        x-model="manualPath" 
+                    <input
+                        type="text"
+                        x-model="manualPath"
                         placeholder="{% trans '输入文件夹路径，例如：/Users/username/Documents' %}"
                         @keydown.enter="bindManualPath()"
                     >
@@ -57,11 +61,11 @@
                         {% trans "确认" %}
                     </button>
                 </div>
-                
+
                 <!-- 错误信息 -->
                 <div x-show="error" class="folder-browser-error" x-text="error"></div>
             </div>
-            
+
             <!-- Finder 分栏浏览器 -->
             <div x-show="!loading" class="finder-columns" :class="{ 'loading': loadingColumn }">
                 <template x-for="(column, columnIndex) in columns" :key="columnIndex">
@@ -69,7 +73,7 @@
                         <template x-if="column.entries.length > 0">
                             <div>
                                 <template x-for="(entry, entryIndex) in column.entries" :key="entry.path">
-                                    <div 
+                                    <div
                                         class="finder-item"
                                         :class="{ 'selected': column.selectedIndex === entryIndex }"
                                         @click="selectFolder(columnIndex, entryIndex, entry)"
@@ -86,12 +90,12 @@
                     </div>
                 </template>
             </div>
-            
+
             <!-- 加载中 -->
             <div x-show="loading" class="folder-browser-loading">
                 {% trans "加载中..." %}
             </div>
-            
+
             <!-- 底部操作栏 -->
             <div class="folder-browser-footer">
                 <div class="selected-path-display" x-text="getCurrentPath() || '请选择文件夹'"></div>
@@ -108,26 +112,26 @@
 (function() {
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;
-    
+
     // 允许创建案件的合同类型
     var allowedTypes = ['civil', 'criminal', 'administrative', 'labor', 'intl'];
-    
+
     {% if original %}
     // 保存并复制按钮（仅编辑时显示）
     var duplicateBtn = document.createElement('input');
     duplicateBtn.type = 'submit';
-    duplicateBtn.value = '保存并复制';
+    duplicateBtn.value = '{{ label_duplicate }}';
     duplicateBtn.name = '_save_and_duplicate';
     duplicateBtn.className = '';
     {% endif %}
-    
+
     // 保存并创建案件按钮（新建和编辑都显示）
     var createCaseBtn = document.createElement('input');
     createCaseBtn.type = 'submit';
-    createCaseBtn.value = '保存并创建案件';
+    createCaseBtn.value = '{{ label_create_case }}';
     createCaseBtn.name = '_save_and_create_case';
     createCaseBtn.className = '';
-    
+
     // 检查当前合同类型是否允许创建案件
     function updateCreateCaseButton() {
         var caseTypeSelect = document.getElementById('id_case_type');
@@ -145,16 +149,16 @@
             }
         }
     }
-    
+
     // 初始化按钮状态
     updateCreateCaseButton();
-    
+
     // 监听合同类型变化
     var caseTypeSelect = document.getElementById('id_case_type');
     if (caseTypeSelect) {
         caseTypeSelect.addEventListener('change', updateCreateCaseButton);
     }
-    
+
     // 插入按钮
     var deleteBox = submitRow.querySelector('.deletelink-box');
     if (deleteBox) {

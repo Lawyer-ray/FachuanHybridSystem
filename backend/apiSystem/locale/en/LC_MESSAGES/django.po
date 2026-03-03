@@ -769,3 +769,15 @@ msgstr "Unified Social Credit Code:"
 
 msgid "暂无补充协议"
 msgstr "No supplementary agreements"
+
+msgid "已绑定"
+msgstr "Bound"
+
+msgid "未绑定"
+msgstr "Unbound"
+
+msgid "保存并复制"
+msgstr "Save and Duplicate"
+
+msgid "保存并创建案件"
+msgstr "Save and Create Case"
