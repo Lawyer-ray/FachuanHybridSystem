@@ -276,6 +276,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "payments",
             "finance_logs__actor",
             "reminders",
+            "client_payment_records",
             "cases__parties__client",
             "cases__assignments__lawyer",
             "cases__supervising_authorities",
@@ -390,6 +391,15 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "metadata": r.metadata,
                     }
                     for r in obj.reminders.filter(case_log__isnull=True)
+                ],
+                "client_payment_records": [
+                    {
+                        "amount": str(r.amount),
+                        "image_path": r.image_path,
+                        "note": r.note,
+                        "created_at": r.created_at.isoformat(),
+                    }
+                    for r in obj.client_payment_records.all()
                 ],
                 "cases": [
                     {

@@ -169,6 +169,20 @@ class ContractImportService:
                     },
                 )
 
+        # 还原客户回款记录
+        from apps.contracts.models import ClientPaymentRecord
+
+        for cp_data in data.get("client_payment_records") or []:
+            if cp_data.get("amount"):
+                ClientPaymentRecord.objects.get_or_create(
+                    contract=contract,
+                    amount=cp_data["amount"],
+                    defaults={
+                        "image_path": cp_data.get("image_path"),
+                        "note": cp_data.get("note", ""),
+                    },
+                )
+
         # 还原关联案件
         from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty
         from apps.cases.models.case import SupervisingAuthority
