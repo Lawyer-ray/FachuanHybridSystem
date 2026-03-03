@@ -1,16 +1,20 @@
 {% extends "admin/change_form.html" %}
 {% load i18n admin_urls static %}
-{% trans "已绑定" as label_bound %}
-{% trans "未绑定" as label_unbound %}
-{% trans "保存并复制" as label_duplicate %}
-{% trans "保存并创建案件" as label_create_case %}
-{% trans "填充合同当事人" as label_fill_contract_parties %}
-{% trans "填充上一份补充协议当事人" as label_fill_prev_supp_parties %}
 
 {% block extrahead %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'contracts/css/folder_browser.css' %}">
 <script src="{% static 'contracts/js/folder_browser.js' %}"></script>
+<script>
+window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
+    bound: '{% trans "已绑定" %}',
+    unbound: '{% trans "未绑定" %}',
+    duplicate: '{% trans "保存并复制" %}',
+    createCase: '{% trans "保存并创建案件" %}',
+    fillContractParties: '{% trans "填充合同当事人" %}',
+    fillPrevSuppParties: '{% trans "填充上一份补充协议当事人" %}'
+});
+</script>
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
 [x-cloak] { display: none !important; }
@@ -27,7 +31,7 @@
 
     <!-- 绑定状态 -->
     <div class="binding-status">
-        <span class="status-badge" :class="binding ? 'bound' : 'unbound'" x-text="binding ? '{{ label_bound }}' : '{{ label_unbound }}'"></span>
+        <span class="status-badge" :class="binding ? 'bound' : 'unbound'" x-text="binding ? (window.CONTRACTS_I18N?.bound || '已绑定') : (window.CONTRACTS_I18N?.unbound || '未绑定')"></span>
     </div>
 
     <!-- 绑定路径 -->
@@ -111,13 +115,6 @@
 {% endif %}
 
 <script>
-window.CONTRACTS_I18N = {
-    fillContractParties: '{{ label_fill_contract_parties }}',
-    fillPrevSuppParties: '{{ label_fill_prev_supp_parties }}'
-};
-</script>
-
-<script>
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;
 
@@ -128,7 +125,7 @@ window.CONTRACTS_I18N = {
     // 保存并复制按钮（仅编辑时显示）
     var duplicateBtn = document.createElement('input');
     duplicateBtn.type = 'submit';
-    duplicateBtn.value = '{{ label_duplicate }}';
+    duplicateBtn.value = (window.CONTRACTS_I18N?.duplicate || '保存并复制');
     duplicateBtn.name = '_save_and_duplicate';
     duplicateBtn.className = '';
     {% endif %}
@@ -136,7 +133,7 @@ window.CONTRACTS_I18N = {
     // 保存并创建案件按钮（新建和编辑都显示）
     var createCaseBtn = document.createElement('input');
     createCaseBtn.type = 'submit';
-    createCaseBtn.value = '{{ label_create_case }}';
+    createCaseBtn.value = (window.CONTRACTS_I18N?.createCase || '保存并创建案件');
     createCaseBtn.name = '_save_and_create_case';
     createCaseBtn.className = '';
 
