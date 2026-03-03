@@ -108,6 +108,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     form = ClientAdminForm
     inlines: ClassVar = []
     export_model_name = "client"
+    import_required_fields = ("name",)
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:

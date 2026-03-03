@@ -154,6 +154,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
     change_form_template = "admin/cases/case/change_form.html"
     readonly_fields = ("filing_number",)
     export_model_name = "case"
+    import_required_fields = ("name",)
     actions = ["create_feishu_chat_for_selected_cases", "export_selected_as_json", "export_all_as_json"]
 
     class Media:
