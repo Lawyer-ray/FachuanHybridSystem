@@ -766,3 +766,6 @@ msgstr "ID Number:"
 
 msgid "统一社会信用代码:"
 msgstr "Unified Social Credit Code:"
+
+msgid "暂无补充协议"
+msgstr "No supplementary agreements"
