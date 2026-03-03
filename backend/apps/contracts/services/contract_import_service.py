@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
+    from apps.cases.models import Case
     from apps.client.services.client_resolve_service import ClientResolveService
     from apps.contracts.models import Contract
     from apps.organization.services.lawyer_resolve_service import LawyerResolveService
@@ -41,9 +42,11 @@ class ContractImportService:
         self,
         client_resolve: ClientResolveService,
         lawyer_resolve: LawyerResolveService,
+        case_import_fn: Callable[[dict[str, Any], Any], Case] | None = None,
     ) -> None:
         self._client_resolve = client_resolve
         self._lawyer_resolve = lawyer_resolve
+        self._case_import_fn = case_import_fn
 
     @transaction.atomic
     def resolve(self, data: dict[str, Any]) -> Contract:
@@ -163,7 +166,7 @@ class ContractImportService:
             actor = self._lawyer_resolve.resolve(actor_data)
             if actor is None:
                 continue
-            ContractFinanceLog.objects.create(
+            ContractFinanceLog.objects.get_or_create(
                 contract=contract,
                 action=fl_data.get("action", ""),
                 actor=actor,
@@ -201,59 +204,10 @@ class ContractImportService:
                 )
 
         # 还原关联案件
-        from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty
-        from apps.cases.models.case import SupervisingAuthority
-
-        _CASE_FIELDS: tuple[str, ...] = (
-            "name", "status", "effective_date", "specified_date", "cause_of_action",
-            "target_amount", "preservation_amount", "case_type", "current_stage",
-            "is_archived", "filing_number",
-        )
-        for case_data in data.get("cases") or []:
-            if not case_data.get("name"):
-                continue
-            fn: str | None = case_data.get("filing_number") or None
-            if fn and Case.objects.filter(filing_number=fn).exists():
-                continue
-            cd = {f: case_data[f] for f in _CASE_FIELDS if f in case_data}
-            if not cd.get("filing_number"):
-                cd["filing_number"] = None
-            cd["contract"] = contract
-            case = Case.objects.create(**cd)
-            for p_data in case_data.get("parties") or []:
-                client_data = p_data.get("client")
-                if not client_data:
+        if self._case_import_fn is not None:
+            for case_data in data.get("cases") or []:
+                if not case_data.get("name"):
                     continue
-                client = self._client_resolve.resolve_with_attachments(client_data)
-                CaseParty.objects.get_or_create(
-                    case=case, client=client,
-                    defaults={"legal_status": p_data.get("legal_status")},
-                )
-            for a_data in case_data.get("assignments") or []:
-                lawyer_data = a_data.get("lawyer")
-                if not lawyer_data:
-                    continue
-                lawyer = self._lawyer_resolve.resolve(lawyer_data)
-                if lawyer:
-                    CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
-            for sa_data in case_data.get("supervising_authorities") or []:
-                SupervisingAuthority.objects.get_or_create(
-                    case=case, name=sa_data.get("name"),
-                    defaults={"authority_type": sa_data.get("authority_type", "TRIAL")},
-                )
-            for cn_data in case_data.get("case_numbers") or []:
-                if cn_data.get("number"):
-                    CaseNumber.objects.get_or_create(
-                        case=case, number=cn_data["number"],
-                        defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
-                    )
-            from apps.cases.models.chat import CaseChat
-            for ch_data in case_data.get("chats") or []:
-                if ch_data.get("chat_id"):
-                    CaseChat.objects.get_or_create(
-                        case=case, platform=ch_data.get("platform", "feishu"), chat_id=ch_data["chat_id"],
-                        defaults={"name": ch_data.get("name", ""), "is_active": ch_data.get("is_active", True),
-                                  "owner_id": ch_data.get("owner_id")},
-                    )
+                self._case_import_fn(case_data, contract)
 
         return contract
