@@ -231,7 +231,13 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
         result = []
         for obj in queryset.prefetch_related(
-            "contract_parties__client", "assignments__lawyer", "finalized_materials"
+            "contract_parties__client__identity_docs",
+            "contract_parties__client__property_clues__attachments",
+            "assignments__lawyer",
+            "finalized_materials",
+            "supplementary_agreements__parties__client",
+            "payments",
+            "finance_logs__actor",
         ):
             result.append({
                 "name": obj.name,
@@ -257,7 +263,23 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                             "phone": p.client.phone,
                             "address": p.client.address,
                             "legal_representative": p.client.legal_representative,
+                            "legal_representative_id_number": p.client.legal_representative_id_number,
                             "is_our_client": p.client.is_our_client,
+                            "identity_docs": [
+                                {"doc_type": d.doc_type, "file_path": d.file_path}
+                                for d in p.client.identity_docs.all() if d.file_path
+                            ],
+                            "property_clues": [
+                                {
+                                    "clue_type": c.clue_type,
+                                    "content": c.content,
+                                    "attachments": [
+                                        {"file_path": a.file_path, "file_name": a.file_name}
+                                        for a in c.attachments.all() if a.file_path
+                                    ],
+                                }
+                                for c in p.client.property_clues.all()
+                            ],
                         },
                     }
                     for p in obj.contract_parties.all()
@@ -277,16 +299,66 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "category": m.category,
                         "remark": m.remark,
                     }
-                    for m in obj.finalized_materials.all()
-                    if m.file_path
+                    for m in obj.finalized_materials.all() if m.file_path
+                ],
+                "supplementary_agreements": [
+                    {
+                        "name": sa.name,
+                        "parties": [
+                            {
+                                "role": sp.role,
+                                "client": {
+                                    "name": sp.client.name,
+                                    "client_type": sp.client.client_type,
+                                    "id_number": sp.client.id_number,
+                                    "phone": sp.client.phone,
+                                    "legal_representative": sp.client.legal_representative,
+                                    "is_our_client": sp.client.is_our_client,
+                                },
+                            }
+                            for sp in sa.parties.all()
+                        ],
+                    }
+                    for sa in obj.supplementary_agreements.all()
+                ],
+                "payments": [
+                    {
+                        "amount": str(p.amount),
+                        "received_at": str(p.received_at),
+                        "invoice_status": p.invoice_status,
+                        "invoiced_amount": str(p.invoiced_amount),
+                        "note": p.note,
+                    }
+                    for p in obj.payments.all()
+                ],
+                "finance_logs": [
+                    {
+                        "action": fl.action,
+                        "level": fl.level,
+                        "payload": fl.payload,
+                        "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone},
+                    }
+                    for fl in obj.finance_logs.all()
                 ],
             })
         return result
 
     def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
         paths = []
-        for obj in queryset.prefetch_related("finalized_materials"):
+        for obj in queryset.prefetch_related(
+            "finalized_materials",
+            "contract_parties__client__identity_docs",
+            "contract_parties__client__property_clues__attachments",
+        ):
             for m in obj.finalized_materials.all():
                 if m.file_path:
                     paths.append(m.file_path)
+            for p in obj.contract_parties.all():
+                for d in p.client.identity_docs.all():
+                    if d.file_path:
+                        paths.append(d.file_path)
+                for c in p.client.property_clues.all():
+                    for a in c.attachments.all():
+                        if a.file_path:
+                            paths.append(a.file_path)
         return paths
