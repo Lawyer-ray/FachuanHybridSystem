@@ -390,21 +390,25 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
         return result
 
     def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
-        paths = []
+        seen: set[str] = set()
+        paths: list[str] = []
+
+        def _add(p: str) -> None:
+            if p and p not in seen:
+                seen.add(p)
+                paths.append(p)
+
         for obj in queryset.prefetch_related(
             "finalized_materials",
             "contract_parties__client__identity_docs",
             "contract_parties__client__property_clues__attachments",
         ):
             for m in obj.finalized_materials.all():
-                if m.file_path:
-                    paths.append(m.file_path)
+                _add(m.file_path)
             for p in obj.contract_parties.all():
                 for d in p.client.identity_docs.all():
-                    if d.file_path:
-                        paths.append(d.file_path)
+                    _add(d.file_path)
                 for c in p.client.property_clues.all():
                     for a in c.attachments.all():
-                        if a.file_path:
-                            paths.append(a.file_path)
+                        _add(a.file_path)
         return paths

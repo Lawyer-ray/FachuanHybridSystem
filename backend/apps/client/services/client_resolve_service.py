@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.client.models import Client
+from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.importer.validator import ClientJsonImportValidator
 from apps.core.exceptions import ValidationException
 
@@ -69,4 +69,34 @@ class ClientResolveService:
             self._cache[id_number] = client
 
         logger.info("创建新当事人", extra={"client_id": client.pk, "name": client.name})
+        return client
+
+    def resolve_with_attachments(self, data: dict[str, Any]) -> Client:
+        """resolve Client 并还原 identity_docs 和 property_clues（含附件）。"""
+        from apps.client.models import PropertyClue, PropertyClueAttachment
+
+        client = self.resolve(data)
+
+        for doc in data.get("identity_docs") or []:
+            if doc.get("file_path"):
+                ClientIdentityDoc.objects.get_or_create(
+                    client=client,
+                    file_path=doc["file_path"],
+                    defaults={"doc_type": doc.get("doc_type", "id_card_front")},
+                )
+
+        for clue in data.get("property_clues") or []:
+            pc, _ = PropertyClue.objects.get_or_create(
+                client=client,
+                clue_type=clue.get("clue_type", "other"),
+                defaults={"content": clue.get("content", "")},
+            )
+            for att in clue.get("attachments") or []:
+                if att.get("file_path"):
+                    PropertyClueAttachment.objects.get_or_create(
+                        property_clue=pc,
+                        file_path=att["file_path"],
+                        defaults={"file_name": att.get("file_name", "")},
+                    )
+
         return client

@@ -79,7 +79,7 @@ class CaseImportService:
             client_data = party_data.get("client")
             if not client_data:
                 continue
-            client = self._client_resolve.resolve(client_data)
+            client = self._client_resolve.resolve_with_attachments(client_data)
             legal_status = party_data.get("legal_status")
             CaseParty.objects.get_or_create(
                 case=case, client=client, defaults={"legal_status": legal_status}
