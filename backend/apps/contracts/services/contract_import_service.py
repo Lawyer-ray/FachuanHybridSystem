@@ -154,6 +154,21 @@ class ContractImportService:
                 payload=fl_data.get("payload", {}),
             )
 
+        # 还原重要日期提醒
+        from apps.reminders.models import Reminder
+
+        for r_data in data.get("reminders") or []:
+            if r_data.get("due_at") and r_data.get("reminder_type"):
+                Reminder.objects.get_or_create(
+                    contract=contract,
+                    reminder_type=r_data["reminder_type"],
+                    due_at=r_data["due_at"],
+                    defaults={
+                        "content": r_data.get("content", ""),
+                        "metadata": r_data.get("metadata", {}),
+                    },
+                )
+
         # 还原关联案件
         from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty
         from apps.cases.models.case import SupervisingAuthority
