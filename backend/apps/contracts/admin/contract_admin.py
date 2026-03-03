@@ -329,7 +329,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                     {
                         "is_primary": a.is_primary,
                         "order": a.order,
-                        "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone},
+                        "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username},
                     }
                     for a in obj.assignments.all()
                 ],
@@ -377,7 +377,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "action": fl.action,
                         "level": fl.level,
                         "payload": fl.payload,
-                        "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone},
+                        "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username},
                     }
                     for fl in obj.finance_logs.all()
                 ],
@@ -409,7 +409,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                             for p in c.parties.all()
                         ],
                         "assignments": [
-                            {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                            {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
                             for a in c.assignments.all()
                         ],
                         "supervising_authorities": [
