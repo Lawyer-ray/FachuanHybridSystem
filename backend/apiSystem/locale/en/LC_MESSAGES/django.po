@@ -754,3 +754,15 @@ msgstr "Case name is required"
 
 msgid "当事人数据验证失败: %(name)s"
 msgstr "Client data validation failed: %(name)s"
+
+msgid "解析中..."
+msgstr "Parsing..."
+
+msgid "解析并填充"
+msgstr "Parse & Fill"
+
+msgid "身份证号码:"
+msgstr "ID Number:"
+
+msgid "统一社会信用代码:"
+msgstr "Unified Social Credit Code:"
