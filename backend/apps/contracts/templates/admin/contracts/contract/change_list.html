@@ -7,7 +7,7 @@
     {% csrf_token %}
     <input type="file" name="json_file" id="json-import-input" accept=".zip">
   </form>
-  <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入 JSON" %}</a>
+  <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入" %}</a>
   <script>
     document.getElementById('json-import-input').addEventListener('change', function(){
       if(this.files.length) document.getElementById('json-import-form').submit();

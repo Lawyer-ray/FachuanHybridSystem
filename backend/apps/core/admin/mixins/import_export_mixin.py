@@ -113,14 +113,14 @@ class AdminImportExportMixin:
         filename = f"{self.export_model_name}_selected_{count}_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(queryset, filename)
 
-    export_selected_as_json.short_description = _("导出选中为 ZIP")  # type: ignore[attr-defined]
+    export_selected_as_json.short_description = _("导出选中")  # type: ignore[attr-defined]
 
     def export_all_as_json(self, request: HttpRequest, queryset: QuerySet[Any]) -> HttpResponse:
         all_qs = self.get_queryset(request)  # type: ignore[attr-defined]
         filename = f"{self.export_model_name}_all_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(all_qs, filename)
 
-    export_all_as_json.short_description = _("导出全部为 ZIP")  # type: ignore[attr-defined]
+    export_all_as_json.short_description = _("导出全部")  # type: ignore[attr-defined]
 
     def _build_zip_response(self, queryset: QuerySet[Any], filename: str) -> HttpResponse:
         from apps.client.services.storage import _get_media_root
