@@ -125,4 +125,32 @@ class CaseImportService:
                     },
                 )
 
+        from apps.cases.models.log import CaseLog, CaseLogAttachment
+
+        for log_data in data.get("logs") or []:
+            if not log_data.get("content"):
+                continue
+            actor_data = log_data.get("actor")
+            if not actor_data:
+                continue
+            actor = self._lawyer_resolve.resolve(actor_data)
+            if actor is None:
+                continue
+            log = CaseLog.objects.create(
+                case=case,
+                content=log_data["content"],
+                actor=actor,
+            )
+            for att_data in log_data.get("attachments") or []:
+                file_path = att_data.get("file_path")
+                if file_path:
+                    from django.core.files.base import ContentFile
+                    from pathlib import Path
+                    from django.conf import settings
+                    full = Path(settings.MEDIA_ROOT) / file_path
+                    if full.exists():
+                        with full.open("rb") as f:
+                            att = CaseLogAttachment(log=log)
+                            att.file.save(att_data.get("filename", full.name), ContentFile(f.read()), save=True)
+
         return case

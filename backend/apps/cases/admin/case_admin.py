@@ -154,6 +154,8 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
             "supervising_authorities",
             "case_numbers",
             "chats",
+            "logs__actor",
+            "logs__attachments",
             "contract__contract_parties__client__identity_docs",
             "contract__contract_parties__client__property_clues__attachments",
             "contract__assignments__lawyer",
@@ -312,6 +314,18 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                      "is_active": ch.is_active, "owner_id": ch.owner_id}
                     for ch in obj.chats.all()
                 ],
+                "logs": [
+                    {
+                        "content": log.content,
+                        "created_at": log.created_at.isoformat(),
+                        "actor": {"real_name": log.actor.real_name, "phone": log.actor.phone, "username": log.actor.username},
+                        "attachments": [
+                            {"file_path": att.file.name, "filename": att.file.name.split("/")[-1]}
+                            for att in log.attachments.all() if att.file
+                        ],
+                    }
+                    for log in obj.logs.all()
+                ],
             })
         return result
 
@@ -330,6 +344,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
             "parties__client__property_clues__attachments",
             "contract__contract_parties__client__identity_docs",
             "contract__contract_parties__client__property_clues__attachments",
+            "logs__attachments",
         ):
             if obj.contract:
                 for m in obj.contract.finalized_materials.all():
@@ -346,4 +361,8 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 for cl in p.client.property_clues.all():
                     for a in cl.attachments.all():
                         _add(a.file_path)
+            for log in obj.logs.all():
+                for att in log.attachments.all():
+                    if att.file:
+                        _add(att.file.name)
         return paths
